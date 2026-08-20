@@ -1,5 +1,6 @@
 import type { RuntimeTarget } from "../runtimeTarget";
 import { sendRuntimeControlRequest } from "../runtimeControlClient";
+import { normalizeFleetTopologySnapshot } from "./fleetTopologyIdentity";
 
 export interface FleetTopologyResponse {
   schema_version: number;
@@ -167,17 +168,18 @@ export function mergeFleetTopologies(
     if (!res) {
       continue;
     }
-    schemaVersion = Math.max(schemaVersion, res.schema_version ?? 0);
-    for (const host of res.hosts ?? []) {
+    const normalized = normalizeFleetTopologySnapshot(res);
+    schemaVersion = Math.max(schemaVersion, normalized.schema_version ?? 0);
+    for (const host of normalized.hosts ?? []) {
       mergeHost(hostsById, host);
     }
-    for (const link of res.links ?? []) {
+    for (const link of normalized.links ?? []) {
       const key = link.id ?? `${link.from}|${link.to}|${link.protocol}`;
       if (!linksByKey.has(key)) {
         linksByKey.set(key, link);
       }
     }
-    for (const shared of res.shared ?? []) {
+    for (const shared of normalized.shared ?? []) {
       const existing = sharedById.get(shared.id);
       if (existing) {
         existing.used_by = unionStrings(existing.used_by, shared.used_by);
@@ -185,20 +187,20 @@ export function mergeFleetTopologies(
         sharedById.set(shared.id, { ...shared, used_by: [...(shared.used_by ?? [])] });
       }
     }
-    for (const external of res.external ?? []) {
+    for (const external of normalized.external ?? []) {
       if (!externalById.has(external.id)) {
         externalById.set(external.id, external);
       }
     }
   }
 
-  return {
+  return normalizeFleetTopologySnapshot({
     schema_version: schemaVersion,
     hosts: [...hostsById.values()],
     links: [...linksByKey.values()],
     shared: [...sharedById.values()],
     external: [...externalById.values()],
-  };
+  });
 }
 
 function mergeHost(hostsById: Map<string, FleetTopologyHost>, host: FleetTopologyHost): void {

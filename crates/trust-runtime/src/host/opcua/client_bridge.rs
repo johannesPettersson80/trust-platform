@@ -165,7 +165,20 @@ impl OpcUaClientBridge {
             {
                 continue;
             }
-            self.shared.queue_write(&binding.point, value.clone());
+            if !opcua_output_is_finite(&binding.point, &value) {
+                self.shared.reject_output(
+                    &binding.point,
+                    now_ms,
+                    format!(
+                        "OPC UA output '{}' rejected non-finite {} value",
+                        binding.point.var,
+                        binding.point.data_type.as_config_value()
+                    ),
+                )?;
+                self.last_queued_values.remove(binding.point.var.as_str());
+                continue;
+            }
+            self.shared.queue_write(&binding.point, value.clone())?;
             self.last_queued_values
                 .insert(binding.point.var.clone(), value);
         }
@@ -291,4 +304,12 @@ fn opcua_client_global_storage_name(point_var: &str) -> &str {
         .split_once('.')
         .filter(|(prefix, name)| prefix.eq_ignore_ascii_case("global") && !name.is_empty())
         .map_or(point_var, |(_, name)| name)
+}
+
+fn opcua_output_is_finite(point: &OpcUaClientPointConfig, value: &Value) -> bool {
+    match (point.data_type, value) {
+        (OpcUaDataType::Float, Value::Real(value)) => value.is_finite(),
+        (OpcUaDataType::Double, Value::LReal(value)) => value.is_finite(),
+        _ => true,
+    }
 }

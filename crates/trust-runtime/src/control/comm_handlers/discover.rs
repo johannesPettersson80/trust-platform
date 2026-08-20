@@ -22,6 +22,7 @@ const OPCUA_PORT: u16 = 4840;
 const TRUST_MDNS_SERVICE_TYPE: &str = "_trust._plc._tcp.local.";
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct CommDiscoverRequest {
     protocol: String,
     #[serde(default)]
@@ -33,6 +34,7 @@ struct CommDiscoverRequest {
 }
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct DiscoverScope {
     cidr: Option<String>,
     host: Option<String>,
@@ -436,23 +438,14 @@ fn mqtt_targets(
         );
         return Ok(None);
     };
-    if let Ok(addr) = host.parse::<SocketAddr>() {
-        return Ok(Some(vec![addr]));
-    }
-    if let Ok(mut addrs) = host.to_socket_addrs() {
-        if let Some(addr) = addrs.next() {
-            return Ok(Some(vec![addr]));
-        }
-    }
+    let (host, explicit_port) = authority_host_and_port(host, "MQTT")?;
+    let ports: &[u16] = match explicit_port.as_ref() {
+        Some(port) => std::slice::from_ref(port),
+        None => &[MQTT_PORT, MQTTS_PORT],
+    };
     let mut addrs = Vec::new();
-    for port in [MQTT_PORT, MQTTS_PORT] {
-        if let Some(addr) = (host, port)
-            .to_socket_addrs()
-            .map_err(|error| format!("resolve MQTT target '{host}:{port}': {error}"))?
-            .next()
-        {
-            addrs.push(addr);
-        }
+    for port in ports {
+        addrs.push(resolve_authority(host.as_str(), *port, "MQTT")?);
     }
     if addrs.is_empty() {
         return Err(format!("resolve MQTT target '{host}': no address found"));
@@ -678,7 +671,7 @@ fn timeout(scope: &DiscoverScope) -> Duration {
         scope
             .timeout_ms
             .unwrap_or(DEFAULT_TIMEOUT_MS)
-            .min(MAX_TIMEOUT_MS),
+            .clamp(1, MAX_TIMEOUT_MS),
     )
 }
 
@@ -706,19 +699,9 @@ fn modbus_socket_target(host: &str) -> Result<SocketAddr, String> {
 }
 
 fn socket_target(host: &str, default_port: u16, label: &str) -> Result<SocketAddr, String> {
-    if let Ok(addr) = host.parse::<SocketAddr>() {
-        return Ok(addr);
-    }
-    if let Ok(mut addrs) = host.to_socket_addrs() {
-        if let Some(addr) = addrs.next() {
-            return Ok(addr);
-        }
-    }
-    (host, default_port)
-        .to_socket_addrs()
-        .map_err(|error| format!("resolve {label} target '{host}': {error}"))?
-        .next()
-        .ok_or_else(|| format!("resolve {label} target '{host}': no address found"))
+    let (host, port) = authority_host_and_port(host, label)?;
+    let port = port.unwrap_or(default_port);
+    resolve_authority(host.as_str(), port, label)
 }
 
 fn known_protocol_without_discovery(protocol: &str) -> bool {
@@ -755,25 +738,36 @@ fn protocol_title(protocol: &str) -> &'static str {
 }
 
 fn opcua_endpoint_url(scope: &DiscoverScope) -> Result<String, String> {
-    let host = scope
+    let raw = scope
         .host
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .ok_or_else(|| "OPC UA client discovery needs scope.host".to_string())?;
-    if host.starts_with("opc.tcp://") {
-        return Ok(host.to_string());
-    }
-    if host.contains('/') {
-        return Ok(format!("opc.tcp://{host}"));
-    }
-    if host
-        .rsplit_once(':')
-        .is_some_and(|(_, port)| port.parse::<u16>().is_ok())
-    {
-        Ok(format!("opc.tcp://{host}"))
+    let endpoint = if let Some(endpoint) = raw.strip_prefix("opc.tcp://") {
+        endpoint
     } else {
-        Ok(format!("opc.tcp://{host}:{OPCUA_PORT}"))
+        if raw.contains("://") {
+            return Err("OPC UA endpoint must use the opc.tcp scheme".to_string());
+        }
+        raw
+    };
+    if endpoint.contains(['?', '#']) {
+        return Err("OPC UA endpoint must not contain a query or fragment".to_string());
+    }
+    let (authority, path) = endpoint
+        .split_once('/')
+        .map_or((endpoint, ""), |(authority, path)| (authority, path));
+    let (host, port) = authority_host_and_port(authority, "OPC UA")?;
+    let authority = match (port, path.is_empty()) {
+        (Some(port), _) => format!("{host}:{port}"),
+        (None, true) => format!("{host}:{OPCUA_PORT}"),
+        (None, false) => host,
+    };
+    if path.is_empty() {
+        Ok(format!("opc.tcp://{authority}"))
+    } else {
+        Ok(format!("opc.tcp://{authority}/{path}"))
     }
 }
 
@@ -818,19 +812,83 @@ fn ipv4_targets_for_cidr(cidr: &str) -> Result<Vec<Ipv4Addr>, String> {
 }
 
 fn parse_ipv4_cidr(cidr: &str) -> Result<(Ipv4Addr, u8), String> {
+    let cidr = cidr.trim();
     let (ip, prefix) = cidr
         .split_once('/')
         .ok_or_else(|| format!("invalid CIDR '{cidr}', expected a.b.c.d/24"))?;
     let ip = ip
+        .trim()
         .parse::<Ipv4Addr>()
         .map_err(|error| format!("invalid CIDR address '{ip}': {error}"))?;
     let prefix = prefix
+        .trim()
         .parse::<u8>()
         .map_err(|error| format!("invalid CIDR prefix '{prefix}': {error}"))?;
     if prefix > 32 {
         return Err(format!("invalid CIDR prefix '{prefix}', expected 0..32"));
     }
     Ok((ip, prefix))
+}
+
+fn authority_host_and_port(authority: &str, label: &str) -> Result<(String, Option<u16>), String> {
+    if authority.is_empty()
+        || authority.chars().any(char::is_whitespace)
+        || authority
+            .chars()
+            .any(|ch| matches!(ch, '/' | '?' | '#' | '@'))
+        || authority.contains("://")
+    {
+        return Err(format!("invalid {label} authority '{authority}'"));
+    }
+    if let Some(bracketed) = authority.strip_prefix('[') {
+        let (host, suffix) = bracketed
+            .split_once(']')
+            .ok_or_else(|| format!("invalid {label} IPv6 authority '{authority}'"))?;
+        host.parse::<std::net::Ipv6Addr>()
+            .map_err(|_| format!("invalid {label} IPv6 authority '{authority}'"))?;
+        let port = if suffix.is_empty() {
+            None
+        } else {
+            Some(parse_authority_port(
+                suffix
+                    .strip_prefix(':')
+                    .ok_or_else(|| format!("invalid {label} authority '{authority}'"))?,
+                label,
+            )?)
+        };
+        return Ok((format!("[{host}]"), port));
+    }
+    if authority.matches(':').count() > 1 {
+        return Err(format!(
+            "invalid unbracketed {label} IPv6 authority '{authority}'"
+        ));
+    }
+    match authority.rsplit_once(':') {
+        Some((host, port)) if !host.is_empty() => {
+            Ok((host.to_string(), Some(parse_authority_port(port, label)?)))
+        }
+        Some(_) => Err(format!("invalid {label} authority '{authority}'")),
+        None => Ok((authority.to_string(), None)),
+    }
+}
+
+fn parse_authority_port(port: &str, label: &str) -> Result<u16, String> {
+    port.parse::<u16>()
+        .ok()
+        .filter(|port| *port != 0)
+        .ok_or_else(|| format!("invalid {label} port '{port}', expected 1..65535"))
+}
+
+fn resolve_authority(host: &str, port: u16, label: &str) -> Result<SocketAddr, String> {
+    let authority = format!("{host}:{port}");
+    if let Ok(address) = authority.parse::<SocketAddr>() {
+        return Ok(address);
+    }
+    (host, port)
+        .to_socket_addrs()
+        .map_err(|error| format!("resolve {label} target '{authority}': {error}"))?
+        .next()
+        .ok_or_else(|| format!("resolve {label} target '{authority}': no address found"))
 }
 
 #[cfg(feature = "ads-wire")]
@@ -865,3 +923,7 @@ fn now_ns() -> u64 {
 #[cfg(test)]
 #[path = "discover_tests.rs"]
 mod discover_tests;
+
+#[cfg(test)]
+#[path = "discover/contract_tests.rs"]
+mod contract_tests;

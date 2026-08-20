@@ -1,10 +1,11 @@
 use smol_str::SmolStr;
+use trust_hir::symbols::EdgeQualifier;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::super::types::CompileError;
 use super::super::util::{is_expression_kind, node_text};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum VarBlockKind {
     Input,
     Output,
@@ -54,8 +55,9 @@ pub(super) fn var_block_kind(node: &SyntaxNode) -> Result<VarBlockKind, CompileE
     Err(CompileError::new("invalid VAR block"))
 }
 
-pub(super) fn var_block_qualifiers(node: &SyntaxNode) -> VarBlockQualifiers {
+pub(super) fn var_block_qualifiers(node: &SyntaxNode) -> Result<VarBlockQualifiers, CompileError> {
     let mut qualifiers = VarBlockQualifiers::default();
+    let mut qualifier_count = 0usize;
     for element in node.children_with_tokens() {
         if let Some(child) = element.as_node() {
             if child.kind() == SyntaxKind::VarDecl {
@@ -70,14 +72,68 @@ pub(super) fn var_block_qualifiers(node: &SyntaxNode) -> VarBlockQualifiers {
             continue;
         }
         match token.kind() {
-            SyntaxKind::KwRetain => qualifiers.retain = crate::RetainPolicy::Retain,
-            SyntaxKind::KwNonRetain => qualifiers.retain = crate::RetainPolicy::NonRetain,
-            SyntaxKind::KwPersistent => qualifiers.retain = crate::RetainPolicy::Persistent,
-            SyntaxKind::KwConstant => qualifiers.constant = true,
+            SyntaxKind::KwRetain => {
+                qualifier_count += 1;
+                qualifiers.retain = crate::RetainPolicy::Retain;
+            }
+            SyntaxKind::KwNonRetain => {
+                qualifier_count += 1;
+                qualifiers.retain = crate::RetainPolicy::NonRetain;
+            }
+            SyntaxKind::KwPersistent => {
+                qualifier_count += 1;
+                qualifiers.retain = crate::RetainPolicy::Persistent;
+            }
+            SyntaxKind::KwConstant => {
+                qualifier_count += 1;
+                qualifiers.constant = true;
+            }
             _ => {}
         }
     }
-    qualifiers
+    if qualifier_count > 1 {
+        return Err(CompileError::new(
+            "a variable section accepts at most one qualifier",
+        ));
+    }
+    Ok(qualifiers)
+}
+
+pub(super) fn validate_retention_policy(
+    owner: &str,
+    kind: VarBlockKind,
+    qualifiers: VarBlockQualifiers,
+    retained_sections: &[VarBlockKind],
+) -> Result<(), CompileError> {
+    if qualifiers.retain != crate::RetainPolicy::Unspecified && !retained_sections.contains(&kind) {
+        return Err(CompileError::new(format!(
+            "retention qualifier is not allowed on this {owner} variable section"
+        )));
+    }
+    Ok(())
+}
+
+pub(super) fn validate_special_var_sections(
+    node: &SyntaxNode,
+    owner: &str,
+    allow_var_access: bool,
+) -> Result<(), CompileError> {
+    for child in node.children() {
+        match child.kind() {
+            SyntaxKind::VarAccessBlock if !allow_var_access => {
+                return Err(CompileError::new(format!(
+                    "VAR_ACCESS is not supported in {owner}"
+                )));
+            }
+            SyntaxKind::VarConfigBlock => {
+                return Err(CompileError::new(format!(
+                    "VAR_CONFIG is not supported in {owner}"
+                )));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn parse_var_decl(var_decl: &SyntaxNode) -> Result<VarDeclParts, CompileError> {
@@ -124,4 +180,32 @@ pub(super) fn parse_var_decl(var_decl: &SyntaxNode) -> Result<VarDeclParts, Comp
         initializer,
         address,
     })
+}
+
+pub(super) fn edge_qualifier_from_decl(node: &SyntaxNode) -> Option<EdgeQualifier> {
+    node.descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .find_map(|token| match token.kind() {
+            SyntaxKind::KwREdge => Some(EdgeQualifier::Rising),
+            SyntaxKind::KwFEdge => Some(EdgeQualifier::Falling),
+            _ => None,
+        })
+}
+
+pub(super) fn reject_borrowed_storage_initializer(
+    kind: VarBlockKind,
+    parts: &VarDeclParts,
+) -> Result<(), CompileError> {
+    if parts.initializer.is_none() {
+        return Ok(());
+    }
+    match kind {
+        VarBlockKind::InOut => Err(CompileError::new(
+            "VAR_IN_OUT declarations cannot have an initializer",
+        )),
+        VarBlockKind::External => Err(CompileError::new(
+            "VAR_EXTERNAL declarations cannot have an initializer",
+        )),
+        _ => Ok(()),
+    }
 }

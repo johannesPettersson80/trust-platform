@@ -16,6 +16,27 @@ pub(crate) fn lower_configuration(
         ));
     }
     let config = configs[0].clone();
+    let explicit_resources = config
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::Resource)
+        .count();
+    if explicit_resources > 1 {
+        return Err(CompileError::new(
+            "multiple RESOURCE declarations are not supported by the single-resource runtime",
+        ));
+    }
+    if explicit_resources == 1
+        && config.children().any(|child| {
+            matches!(
+                child.kind(),
+                SyntaxKind::TaskConfig | SyntaxKind::ProgramConfig
+            )
+        })
+    {
+        return Err(CompileError::new(
+            "implicit resource TASK/PROGRAM content cannot be mixed with an explicit RESOURCE",
+        ));
+    }
     let using = collect_using_directives(&config);
     let mut ctx = inputs.context(registry, using);
     let mut globals = Vec::new();
@@ -23,6 +44,7 @@ pub(crate) fn lower_configuration(
     let mut programs = Vec::new();
     let mut access = Vec::new();
     let mut config_inits = Vec::new();
+    let mut resource_name = None;
 
     for child in config.children() {
         match child.kind() {
@@ -39,6 +61,12 @@ pub(crate) fn lower_configuration(
             }
             SyntaxKind::Resource => {
                 let resource = child;
+                if resource_name.is_none() {
+                    resource_name = resource
+                        .children()
+                        .find(|node| node.kind() == SyntaxKind::Name)
+                        .map(|node| SmolStr::new(node_text(&node)));
+                }
                 for res_child in resource.children() {
                     match res_child.kind() {
                         SyntaxKind::VarBlock => {
@@ -67,6 +95,7 @@ pub(crate) fn lower_configuration(
     }
 
     Ok(Some(ConfigModel {
+        resource_name,
         globals,
         tasks,
         programs,

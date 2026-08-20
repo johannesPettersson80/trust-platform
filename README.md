@@ -83,8 +83,9 @@ code --install-extension trust-platform.trust-lsp
 - GitHub Releases: live
 - Platform evidence: native CI and/or release artifacts for the target matrix;
   hardware qualification is stated separately when available
-- Runtime + debugger: pre-1.0; only explicitly mapped invariants are
-  behavior-locked by tests and durable evidence
+- Runtime + debugger: pre-1.0; behavior claims are locked by their written
+  product specifications and direct native executable tests, with proof class
+  stated separately where environment-specific evidence is required
 - Rust MSRV: 1.95+
 
 ## Help

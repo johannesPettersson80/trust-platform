@@ -141,12 +141,17 @@ fn eval_vm_local_expr(ctx: &VmLocalExprContext<'_>, expr: &Expr) -> Result<Value
         }
         Expr::Binary { op, left, right } => {
             let left_value = eval_vm_local_expr(ctx, left)?;
-            if *op == crate::program_model::BinaryOp::And
-                && matches!(left_value, Value::Bool(false))
+            if matches!(
+                op,
+                crate::program_model::BinaryOp::And | crate::program_model::BinaryOp::AndThen
+            ) && matches!(left_value, Value::Bool(false))
             {
                 return Ok(Value::Bool(false));
             }
-            if *op == crate::program_model::BinaryOp::Or && matches!(left_value, Value::Bool(true))
+            if matches!(
+                op,
+                crate::program_model::BinaryOp::Or | crate::program_model::BinaryOp::OrElse
+            ) && matches!(left_value, Value::Bool(true))
             {
                 return Ok(Value::Bool(true));
             }
@@ -727,11 +732,11 @@ fn index_to_i64(value: Value) -> Result<i64, RuntimeError> {
         Value::USInt(v) => Ok(v as i64),
         Value::UInt(v) => Ok(v as i64),
         Value::UDInt(v) => Ok(v as i64),
-        Value::ULInt(v) => Ok(v as i64),
+        Value::ULInt(v) => i64::try_from(v).map_err(|_| RuntimeError::Overflow),
         Value::Byte(v) => Ok(v as i64),
         Value::Word(v) => Ok(v as i64),
         Value::DWord(v) => Ok(v as i64),
-        Value::LWord(v) => Ok(v as i64),
+        Value::LWord(v) => i64::try_from(v).map_err(|_| RuntimeError::Overflow),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -784,5 +789,272 @@ fn partial_access_error_to_runtime(err: PartialAccessError) -> RuntimeError {
             upper,
         },
         PartialAccessError::TypeMismatch => RuntimeError::TypeMismatch,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use trust_hir::symbols::ParamDirection;
+
+    use crate::program_model::{Param, VarDef};
+
+    #[test]
+    fn vm_local_repeat_group_preserves_count_and_argument_order() {
+        let args = vec![
+            positional(Value::Int(11)),
+            positional(Value::String("second".into())),
+        ];
+
+        for count in [
+            Value::SInt(2),
+            Value::Int(2),
+            Value::DInt(2),
+            Value::LInt(2),
+            Value::USInt(2),
+            Value::UInt(2),
+            Value::UDInt(2),
+            Value::ULInt(2),
+        ] {
+            let expr = repeat_expr(count, args.clone());
+            let (resolved_count, resolved_args) = vm_local_array_repeat_group(&expr)
+                .unwrap()
+                .expect("integer literal target must be a repeat group");
+            assert_eq!(resolved_count, 2);
+            assert_eq!(resolved_args.len(), 2);
+            assert!(matches!(
+                resolved_args[0].value,
+                ArgValue::Expr(Expr::Literal(Value::Int(11)))
+            ));
+            assert!(matches!(
+                &resolved_args[1].value,
+                ArgValue::Expr(Expr::Literal(Value::String(value))) if value == "second"
+            ));
+        }
+
+        let zero = repeat_expr(Value::Int(0), args);
+        assert_eq!(
+            vm_local_array_repeat_group(&zero)
+                .unwrap()
+                .expect("zero remains a repeat group")
+                .0,
+            0
+        );
+    }
+
+    #[test]
+    fn vm_local_repeat_group_rejects_invalid_count_and_named_arguments() {
+        let negative = repeat_expr(Value::DInt(-1), vec![positional(Value::Int(1))]);
+        assert!(matches!(
+            vm_local_array_repeat_group(&negative),
+            Err(RuntimeError::TypeMismatch)
+        ));
+
+        let too_large = repeat_expr(Value::ULInt(u64::MAX), vec![positional(Value::Int(1))]);
+        assert!(matches!(
+            vm_local_array_repeat_group(&too_large),
+            Err(RuntimeError::TypeMismatch)
+        ));
+
+        let named = repeat_expr(
+            Value::Int(2),
+            vec![CallArg {
+                name: Some("IN".into()),
+                value: ArgValue::Expr(Expr::Literal(Value::Int(1))),
+            }],
+        );
+        assert!(matches!(
+            vm_local_array_repeat_group(&named),
+            Err(RuntimeError::TypeMismatch)
+        ));
+    }
+
+    #[test]
+    fn vm_local_nonliteral_repeat_target_is_not_a_repeat_group() {
+        let name = Expr::Call {
+            target: Box::new(Expr::Name("Count".into())),
+            args: vec![positional(Value::Int(1))],
+        };
+        let boolean = repeat_expr(Value::Bool(true), vec![positional(Value::Int(1))]);
+        let literal = Expr::Literal(Value::Int(2));
+
+        assert!(vm_local_array_repeat_group(&name).unwrap().is_none());
+        assert!(vm_local_array_repeat_group(&boolean).unwrap().is_none());
+        assert!(vm_local_array_repeat_group(&literal).unwrap().is_none());
+    }
+
+    #[test]
+    fn vm_local_index_conversion_preserves_all_integer_widths() {
+        for (value, expected) in [
+            (Value::SInt(-1), -1),
+            (Value::Int(-2), -2),
+            (Value::DInt(-3), -3),
+            (Value::LInt(i64::MIN), i64::MIN),
+            (Value::USInt(u8::MAX), i64::from(u8::MAX)),
+            (Value::UInt(u16::MAX), i64::from(u16::MAX)),
+            (Value::UDInt(u32::MAX), i64::from(u32::MAX)),
+            (Value::ULInt(i64::MAX as u64), i64::MAX),
+            (Value::Byte(u8::MAX), i64::from(u8::MAX)),
+            (Value::Word(u16::MAX), i64::from(u16::MAX)),
+            (Value::DWord(u32::MAX), i64::from(u32::MAX)),
+            (Value::LWord(i64::MAX as u64), i64::MAX),
+        ] {
+            assert_eq!(index_to_i64(value), Ok(expected));
+        }
+        assert_eq!(
+            index_to_i64(Value::Bool(true)),
+            Err(RuntimeError::TypeMismatch)
+        );
+    }
+
+    #[test]
+    fn vm_local_index_conversion_rejects_unsigned_values_above_i64_max() {
+        assert_eq!(
+            index_to_i64(Value::ULInt(i64::MAX as u64 + 1)),
+            Err(RuntimeError::Overflow)
+        );
+        assert_eq!(
+            index_to_i64(Value::LWord(u64::MAX)),
+            Err(RuntimeError::Overflow)
+        );
+    }
+
+    #[test]
+    fn vm_local_string_index_requires_one_integer_and_preserves_width() {
+        assert_eq!(
+            read_string_index("AB", &[Value::Int(2)], false),
+            Ok(Value::Char(b'B'))
+        );
+        assert_eq!(
+            read_string_index("ÄB", &[Value::Int(1)], true),
+            Ok(Value::WChar(0x00c4))
+        );
+        assert_eq!(
+            read_string_index("AB", &[], false),
+            Err(RuntimeError::TypeMismatch)
+        );
+        assert_eq!(
+            read_string_index("AB", &[Value::Int(1), Value::Int(2)], false),
+            Err(RuntimeError::TypeMismatch)
+        );
+        assert_eq!(
+            read_string_index("AB", &[Value::Bool(true)], false),
+            Err(RuntimeError::TypeMismatch)
+        );
+    }
+
+    #[test]
+    fn vm_local_qualified_names_preserve_nested_field_order() {
+        let nested = Expr::Field {
+            target: Box::new(Expr::Field {
+                target: Box::new(Expr::Name("Root".into())),
+                field: "Child".into(),
+            }),
+            field: "Leaf".into(),
+        };
+        assert_eq!(
+            call_target_name(&nested).as_deref(),
+            Some("Root.Child.Leaf")
+        );
+        assert_eq!(
+            qualified_field_expr_name(&nested).as_deref(),
+            Some("Root.Child.Leaf")
+        );
+
+        let invalid_root = Expr::Field {
+            target: Box::new(Expr::Literal(Value::Int(1))),
+            field: "Leaf".into(),
+        };
+        assert!(call_target_name(&invalid_root).is_none());
+        assert!(qualified_field_expr_name(&invalid_root).is_none());
+    }
+
+    #[test]
+    fn vm_local_error_projection_preserves_stable_categories() {
+        assert_eq!(
+            size_error_to_runtime(SizeOfError::Overflow),
+            RuntimeError::Overflow
+        );
+        assert_eq!(
+            size_error_to_runtime(SizeOfError::UnknownType),
+            RuntimeError::TypeMismatch
+        );
+        assert_eq!(
+            size_error_to_runtime(SizeOfError::UnsupportedType),
+            RuntimeError::TypeMismatch
+        );
+        assert_eq!(
+            partial_access_error_to_runtime(PartialAccessError::TypeMismatch),
+            RuntimeError::TypeMismatch
+        );
+        assert_eq!(
+            partial_access_error_to_runtime(PartialAccessError::IndexOutOfBounds {
+                index: 8,
+                lower: 0,
+                upper: 7,
+            }),
+            RuntimeError::IndexOutOfBounds {
+                index: 8,
+                lower: 0,
+                upper: 7,
+            }
+        );
+    }
+
+    #[test]
+    fn vm_local_slot_lookup_is_case_insensitive_and_uses_frame_order() {
+        let plan = VmPouInitPlan::Function {
+            frame_owner: "Compute".into(),
+            params: vec![param("InputA"), param("InputB")],
+            locals: vec![local("Working"), local("ResultCopy")],
+            static_locals: Vec::new(),
+            return_slot: ("Compute".into(), TypeId::DINT),
+        };
+
+        assert_eq!(vm_local_slot_for_name(&plan, &"compute".into()), Some(0));
+        assert_eq!(vm_local_slot_for_name(&plan, &"inputa".into()), Some(1));
+        assert_eq!(vm_local_slot_for_name(&plan, &"INPUTB".into()), Some(2));
+        assert_eq!(vm_local_slot_for_name(&plan, &"working".into()), Some(3));
+        assert_eq!(vm_local_slot_for_name(&plan, &"resultcopy".into()), Some(4));
+        assert_eq!(vm_local_slot_for_name(&plan, &"missing".into()), None);
+    }
+
+    fn repeat_expr(count: Value, args: Vec<CallArg>) -> Expr {
+        Expr::Call {
+            target: Box::new(Expr::Literal(count)),
+            args,
+        }
+    }
+
+    fn positional(value: Value) -> CallArg {
+        CallArg {
+            name: None,
+            value: ArgValue::Expr(Expr::Literal(value)),
+        }
+    }
+
+    fn param(name: &str) -> Param {
+        Param {
+            name: name.into(),
+            type_id: TypeId::DINT,
+            direction: ParamDirection::In,
+            address: None,
+            default: None,
+        }
+    }
+
+    fn local(name: &str) -> VarDef {
+        VarDef {
+            name: name.into(),
+            type_id: TypeId::DINT,
+            initializer: None,
+            retain: crate::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        }
     }
 }

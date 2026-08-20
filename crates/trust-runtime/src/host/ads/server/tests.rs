@@ -26,6 +26,9 @@ use super::{
     AdsServerRuntimeWritePort, AdsServerSourcePin, AdsServerSymbolSource, AdsServerValuePublisher,
 };
 
+mod policy_write_audit;
+mod publication_lifecycle;
+
 fn config(writes_enabled: bool) -> AdsServerRuntimeConfig {
     AdsServerRuntimeConfig {
         enabled: true,
@@ -750,6 +753,14 @@ fn server_doctor_requires_twincat_external_client_for_production_ready() {
     )
     .expect("start ADS server")
     .expect("server enabled");
+    server
+        .refresh_symbols(&config, &snapshot)
+        .expect("publish live ADS symbols before Doctor proof");
+    assert_eq!(
+        server.symbol_count(),
+        1,
+        "pyads and TwinCAT evidence must be evaluated against a live served symbol"
+    );
 
     let report = run_ads_server_doctor(AdsServerDoctorInput {
         resource_name: "RESOURCE",

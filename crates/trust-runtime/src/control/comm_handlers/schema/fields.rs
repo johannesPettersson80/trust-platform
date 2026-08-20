@@ -816,13 +816,13 @@ pub(super) fn runtime_cloud_fields() -> Vec<CommFieldSchema> {
             "wan_allow_write",
             "Allowed WAN writes",
             json!([]),
-            "Optional allow-list entries for write actions across sites.",
+            "Optional objects with action and target for write actions across sites.",
         ),
         string_array_field(
             "link_transports",
             "Preferred link transports",
             json!([]),
-            "Optional source, target, and transport preferences for runtime-to-runtime links.",
+            "Optional objects with source, target, and transport for runtime-to-runtime links.",
         ),
     ]
 }
@@ -852,7 +852,7 @@ pub(super) fn ads_fields() -> Vec<CommFieldSchema> {
             "json_array",
             json!([]),
             false,
-            "ADS devices and their ports. Tags can be selected after the device is added.",
+            "ADS connection entries. Enabling ADS requires at least one connection with at least one selected point.",
         ),
     ]
 }

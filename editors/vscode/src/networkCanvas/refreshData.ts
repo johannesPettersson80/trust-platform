@@ -61,14 +61,12 @@ export async function loadNetworkCanvasRefreshData(options: {
   ]);
 
   const schema = live.schema ?? offline.schema;
-  const localTopology = live.topology
-    ? offline.topology
-      ? mergeFleetTopologies([live.topology, offline.topology])
-      : live.topology
-    : offline.topology;
-  const displayTopology = peer.topology
+  const localTopology = live.topology || offline.topology
+    ? mergeFleetTopologies([live.topology, offline.topology])
+    : undefined;
+  const displayTopology = localTopology || peer.topology
     ? mergeFleetTopologies([localTopology, peer.topology])
-    : localTopology;
+    : undefined;
   const peerError = peer.errors.length > 0
     ? `Peer topology degraded: ${peer.errors.join("; ")}`
     : undefined;

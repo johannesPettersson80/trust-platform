@@ -68,6 +68,10 @@ impl SymbolTable {
         self.register_timer_function_block("TON", TypeId::TIME);
         self.register_timer_function_block("TOF", TypeId::TIME);
 
+        self.register_timer_function_block("TP_TIME", TypeId::TIME);
+        self.register_timer_function_block("TON_TIME", TypeId::TIME);
+        self.register_timer_function_block("TOF_TIME", TypeId::TIME);
+
         self.register_timer_function_block("TP_LTIME", TypeId::LTIME);
         self.register_timer_function_block("TON_LTIME", TypeId::LTIME);
         self.register_timer_function_block("TOF_LTIME", TypeId::LTIME);

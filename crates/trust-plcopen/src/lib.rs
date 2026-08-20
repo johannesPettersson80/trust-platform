@@ -12,6 +12,12 @@ use trust_syntax::parser;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 include!("plcopen/contracts.rs");
+include!("plcopen/contracts_profile.rs");
+include!("plcopen/contracts_export.rs");
+include!("plcopen/contracts_import.rs");
+include!("plcopen/contracts_migration.rs");
+include!("plcopen/contracts_shims.rs");
+include!("plcopen/contracts_pou.rs");
 include!("plcopen/profile.rs");
 include!("plcopen/export.rs");
 include!("plcopen/import.rs");

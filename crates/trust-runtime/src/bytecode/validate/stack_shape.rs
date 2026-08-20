@@ -70,7 +70,7 @@ fn decode_stack_instructions(
                 }
                 jump_target = Some(target as usize);
             }
-            0x05 | 0x07 | 0x10 | 0x20..=0x22 | 0x30 | 0x60 | 0x62 | 0x63 | 0x70 => {
+            0x05 | 0x07 | 0x10 | 0x20..=0x22 | 0x30 | 0x60 | 0x62..=0x64 | 0x70 => {
                 operand_u32 = Some(reader.read_u32()?);
             }
             0x08 => {
@@ -253,6 +253,19 @@ fn apply_stack_instruction(
         0x63 => {
             let _value = pop_stack_shape(&mut stack, opcode)?;
             let _target = pop_stack_shape(&mut stack, opcode)?;
+            stack.push(StackShape::Unknown);
+        }
+        0x64 => {
+            let value = pop_stack_shape(&mut stack, opcode)?;
+            if !matches!(
+                value,
+                StackShape::Reference | StackShape::Instance | StackShape::Unknown
+            ) {
+                return Err(BytecodeError::InvalidSection(
+                    "REFERENCE_ATTEMPT expects reference, interface instance, or NULL operand"
+                        .into(),
+                ));
+            }
             stack.push(StackShape::Unknown);
         }
         _ => return Err(BytecodeError::InvalidOpcode(opcode)),

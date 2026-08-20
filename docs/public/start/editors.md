@@ -17,26 +17,27 @@ Use VS Code when you want the full integrated loop in one place:
 - diagnostics
 - formatting
 - code actions
-- runtime panel
+- Live Values
 - debugger
 - ST tests
 - HMI preview
 - PLCopen import/export commands
 
-The commands most users start with are:
+The actions most users start with are:
 
-- `Structured Text: New Project`
-- `Structured Text: Open Runtime Panel`
-- `Structured Text: Start Debugging`
-- `Structured Text: Run All Tests`
-- `Structured Text: Open HMI Preview`
-- `Structured Text: Import PLCopen XML`
+- create or open a project
+- choose a run target and start it
+- open Live Values
+- start debugging with F5
+- run Structured Text tests in VS Code's Testing view
+- open HMI Preview
+- import PLCopen XML
 
 Read these next:
 
 - [Agent Quickstart](agent-quickstart.md)
 - [Build, Validate, Test](../operate/build-validate-test.md)
-- [Debugging And Runtime Panel](../operate/debugging-and-runtime-panel.md)
+- [Run, Compile, And Debug](../operate/debugging-and-runtime-panel.md)
 - [Visual Editors](../develop/visual-editors/index.md)
 
 ## Neovim

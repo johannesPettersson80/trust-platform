@@ -6,7 +6,7 @@ owner = "trust-hir"
 status = "planned"
 invariant = "IEC_STRING_001"
 generator = "gen_cases_v2.py v1"
-generator_digest = "sha256:45b265249f43f98568a6039a7b5e27801adc1345e4482b8b3b144c2759a9c5e9"
+generator_digest = "sha256:e557e3873c3813524fb791b2723d9c9a51a7f1d93b6d304bce60e5d36cc5c3ac"
 source_digest = "sha256:9baef58411b64a29a2e1eb2c51e32fb8df4933b8f71e28d5d781ecfb6d36d0ed"
 last_reviewed = "2026-07-15"
 

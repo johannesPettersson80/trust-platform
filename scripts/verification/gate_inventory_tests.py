@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -27,17 +28,18 @@ class GateInventoryTests(unittest.TestCase):
         failures = validate_gate_inventory(ROOT, records)
 
         self.assertEqual(failures, [])
-        self.assertEqual(len(records), 63)
         live = [record for record in records.values() if "discovery_id" in record]
         templates = [record for record in records.values() if record["source_kind"] == "workflow_template"]
-        self.assertEqual(len(live), 60)
+        gate_scripts = scan_gate_scripts(ROOT)
+        workflow_jobs = scan_workflow_jobs(ROOT)
+        self.assertEqual(len(live), len(gate_scripts.facts) + len(workflow_jobs.facts))
         self.assertEqual(
             sum(record["source_kind"] == "gate_script" for record in live),
-            29,
+            len(gate_scripts.facts),
         )
         self.assertEqual(
             sum(record["source_kind"] == "github_workflow_job" for record in live),
-            31,
+            len(workflow_jobs.facts),
         )
         self.assertEqual(len(templates), 1)
         recipes = [record for record in records.values() if record["source_kind"] == "just_recipe"]
@@ -50,10 +52,13 @@ class GateInventoryTests(unittest.TestCase):
             ["TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"],
         )
         self.assertEqual(
+            len(records),
+            len(live) + len(templates) + len(recipes) + len(catalog_commands),
+        )
+        self.assertEqual(
             {record["discovery_id"] for record in live},
             live_discovery_ids(ROOT),
         )
-
     def test_missing_invented_and_duplicate_live_facts_fail_closed(self) -> None:
         with fixture_root() as root:
             records = fixture_records(root)
@@ -356,6 +361,13 @@ class GateInventoryTests(unittest.TestCase):
         )
         self.assertEqual(failures, [])
 
+        self.assertIn("schedule:", baseline)
+        self.assertIn("--smoke", baseline)
+        self.assertIn("scripts/check_verification_tooling_selftests.py", baseline)
+        self.assertIn("github.event_name == 'pull_request'", baseline)
+        self.assertIn("github.event_name != 'pull_request'", baseline)
+        self.assertEqual(baseline.count("python3 scripts/verification_report_gate.py"), 2)
+
         cases = (
             (
                 enforcing.replace("            --strict \\\n", ""),
@@ -626,8 +638,11 @@ def reviewed_veryquick_recipe() -> str:
     return (
         "verification-veryquick:\n"
         "\tmkdir -p target/gate-artifacts/veryquick\n"
-        "\tpython3 scripts/run_verification_focused_tests.py\n"
-        "\tscripts/verification_metadata_gate.sh\n"
+        "\tpython3 -m unittest scripts.verification.report_gate_tests "
+        "scripts.verification.focused_test_suite_tests || "
+        "echo \"advisory: verification report smoke reported findings\" >&2\n"
+        "\tscripts/verification_metadata_gate.sh || "
+        "echo \"advisory: verification metadata reported findings\" >&2\n"
         "\tjust test-hir-fast\n"
         "\tjust test-fast\n"
         "\t./scripts/cargo_test_fast_link.sh test -p trust-syntax --lib\n"

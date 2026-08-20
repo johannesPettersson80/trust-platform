@@ -235,8 +235,8 @@ fn is_broadcast_discovery_source(ip: &str) -> bool {
 
 fn push_unique(results: &mut Vec<DiscoveryResult>, result: DiscoveryResult) {
     let seen = results.iter().any(|existing| {
-        existing.target.ip == result.target.ip
-            || existing.target.ams_net_id == result.target.ams_net_id
+        existing.target.ams_net_id == result.target.ams_net_id
+            && existing.target.ams_port == result.target.ams_port
     });
     if !seen {
         results.push(result);
@@ -246,3 +246,50 @@ fn push_unique(results: &mut Vec<DiscoveryResult>, result: DiscoveryResult) {
 #[cfg(test)]
 #[path = "discover/local_fallback_tests.rs"]
 mod local_fallback_tests;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ads::onboarding::wire::{MockAdsOnboardingScenario, MockAdsOnboardingWire};
+
+    fn result(ip: &str, ams_net_id: &str, ams_port: u16) -> DiscoveryResult {
+        DiscoveryResult {
+            target: TargetIdentity {
+                name: None,
+                ip: ip.to_string(),
+                ams_net_id: ams_net_id.to_string(),
+                ams_port,
+                tc_version: None,
+            },
+            source: DiscoverySource::DirectedBroadcast,
+        }
+    }
+
+    #[test]
+    fn discovery_deduplicates_by_ads_endpoint_not_host_ip() {
+        let mut results = vec![result("192.168.10.5", "1.2.3.4.5.6", 851)];
+
+        push_unique(&mut results, result("192.168.10.5", "1.2.3.4.5.7", 851));
+        assert_eq!(results.len(), 2, "distinct same-host runtime was lost");
+
+        push_unique(&mut results, result("192.168.10.99", "1.2.3.4.5.7", 851));
+        assert_eq!(results.len(), 2, "same ADS endpoint was duplicated");
+
+        push_unique(&mut results, result("192.168.10.5", "1.2.3.4.5.7", 852));
+        assert_eq!(results.len(), 3, "distinct AMS port was lost");
+    }
+
+    #[test]
+    fn broadcast_failure_preserves_successful_manual_identity() {
+        let mut wire = MockAdsOnboardingWire::new(MockAdsOnboardingScenario::WrongIp);
+        let mut request = DiscoveryRequest::manual_with_ams_net_id("192.168.10.5", "1.2.3.4.5.6");
+        request.include_broadcast = true;
+        request.broadcast_targets = vec!["192.168.10.255".to_string()];
+
+        let results = discover_targets(&mut wire, &request).expect("partial discovery result");
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].source, DiscoverySource::Manual);
+        assert_eq!(results[0].target.ams_net_id, "1.2.3.4.5.6");
+    }
+}

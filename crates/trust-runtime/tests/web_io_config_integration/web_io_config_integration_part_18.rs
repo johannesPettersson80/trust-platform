@@ -1,6 +1,70 @@
 use super::*;
 
 #[test]
+fn runtime_cloud_proxy_planners_reject_malformed_requests_as_bad_requests() {
+    let project = make_project("runtime-cloud-proxy-contract-rejection");
+    let state = control_state_named(source_fixture(), "runtime-a");
+    let base = start_test_server(state, project.clone());
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .http_status_as_error(false)
+        .build()
+        .into();
+
+    let blank_control_request_id = json!({
+        "api_version": "1.0",
+        "actor": "spiffe://trust/default-site/operator-1",
+        "target_runtime": "runtime-a",
+        "control_request": {
+            "type": "status",
+            "request_id": " "
+        }
+    });
+    let mut control_response = agent
+        .post(&format!("{base}/api/runtime-cloud/control/proxy"))
+        .header("Content-Type", "application/json")
+        .send(&blank_control_request_id.to_string())
+        .expect("blank control request ID response");
+    assert_eq!(control_response.status().as_u16(), 400);
+    let control_body: Value = serde_json::from_str(
+        &control_response
+            .body_mut()
+            .read_to_string()
+            .expect("read control proxy rejection"),
+    )
+    .expect("parse control proxy rejection");
+    assert_eq!(
+        control_body.get("denial_code").and_then(Value::as_str),
+        Some("contract_violation")
+    );
+
+    let breaking_io_request = json!({
+        "api_version": "2.0",
+        "actor": "spiffe://trust/default-site/engineer-1",
+        "target_runtime": "runtime-a",
+        "drivers": []
+    });
+    let mut io_response = agent
+        .post(&format!("{base}/api/runtime-cloud/io/config"))
+        .header("Content-Type", "application/json")
+        .send(&breaking_io_request.to_string())
+        .expect("breaking I/O proxy API response");
+    assert_eq!(io_response.status().as_u16(), 400);
+    let io_body: Value = serde_json::from_str(
+        &io_response
+            .body_mut()
+            .read_to_string()
+            .expect("read I/O proxy rejection"),
+    )
+    .expect("parse I/O proxy rejection");
+    assert_eq!(
+        io_body.get("denial_code").and_then(Value::as_str),
+        Some("contract_violation")
+    );
+
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
 fn runtime_cloud_io_config_proxy_writes_remote_runtime_config() {
     let project_a = make_project("runtime-cloud-io-write-remote-a");
     let project_b = make_project("runtime-cloud-io-write-remote-b");

@@ -14,6 +14,144 @@ mod validate;
 
 pub(in crate::type_check) use helpers::is_execution_param;
 
+pub(crate) fn is_standard_function_name(name: &str) -> bool {
+    let upper = name.to_ascii_uppercase();
+    if is_standard_conversion_function_name(&upper) {
+        return true;
+    }
+    matches!(
+        upper.as_str(),
+        "ABS"
+            | "SQRT"
+            | "LN"
+            | "LOG"
+            | "EXP"
+            | "SIN"
+            | "COS"
+            | "TAN"
+            | "ASIN"
+            | "ACOS"
+            | "ATAN"
+            | "ATAN2"
+            | "ADD"
+            | "SUB"
+            | "MUL"
+            | "DIV"
+            | "MOD"
+            | "EXPT"
+            | "MOVE"
+            | "SHL"
+            | "SHR"
+            | "ROL"
+            | "ROR"
+            | "AND"
+            | "OR"
+            | "XOR"
+            | "NOT"
+            | "SEL"
+            | "MAX"
+            | "MIN"
+            | "LIMIT"
+            | "MUX"
+            | "GT"
+            | "GE"
+            | "EQ"
+            | "LE"
+            | "LT"
+            | "NE"
+            | "IS_VALID"
+            | "IS_VALID_BCD"
+            | "ASSERT_TRUE"
+            | "ASSERT_FALSE"
+            | "ASSERT_EQUAL"
+            | "ASSERT_NOT_EQUAL"
+            | "ASSERT_GREATER"
+            | "ASSERT_LESS"
+            | "ASSERT_GREATER_OR_EQUAL"
+            | "ASSERT_LESS_OR_EQUAL"
+            | "ASSERT_NEAR"
+            | "LEN"
+            | "LEFT"
+            | "RIGHT"
+            | "MID"
+            | "CONCAT"
+            | "INSERT"
+            | "DELETE"
+            | "REPLACE"
+            | "FIND"
+            | "TIME"
+            | "CURRENT_DT"
+            | "ADD_TIME"
+            | "ADD_LTIME"
+            | "ADD_TOD_TIME"
+            | "ADD_LTOD_LTIME"
+            | "ADD_DT_TIME"
+            | "ADD_LDT_LTIME"
+            | "SUB_TIME"
+            | "SUB_LTIME"
+            | "SUB_DATE_DATE"
+            | "SUB_LDATE_LDATE"
+            | "SUB_TOD_TIME"
+            | "SUB_LTOD_LTIME"
+            | "SUB_TOD_TOD"
+            | "SUB_LTOD_LTOD"
+            | "SUB_DT_TIME"
+            | "SUB_LDT_LTIME"
+            | "SUB_DT_DT"
+            | "SUB_LDT_LDT"
+            | "MUL_TIME"
+            | "MUL_LTIME"
+            | "DIV_TIME"
+            | "DIV_LTIME"
+            | "CONCAT_DATE_TOD"
+            | "CONCAT_DATE_LTOD"
+            | "CONCAT_DATE"
+            | "CONCAT_TOD"
+            | "CONCAT_LTOD"
+            | "CONCAT_DT"
+            | "CONCAT_LDT"
+            | "SPLIT_DATE"
+            | "SPLIT_TOD"
+            | "SPLIT_LTOD"
+            | "SPLIT_DT"
+            | "SPLIT_LDT"
+            | "DAY_OF_WEEK"
+    )
+}
+
+fn is_standard_conversion_function_name(name: &str) -> bool {
+    if name == "TRUNC" {
+        return true;
+    }
+    if let Some(target) = name.strip_prefix("TRUNC_") {
+        return TypeId::from_builtin_name(target).is_some();
+    }
+    if let Some((source, target)) = name.split_once("_TRUNC_") {
+        return TypeId::from_builtin_name(source).is_some()
+            && TypeId::from_builtin_name(target).is_some();
+    }
+    if let Some(target) = name.strip_prefix("TO_BCD_") {
+        return TypeId::from_builtin_name(target).is_some();
+    }
+    if let Some((target, source)) = name.split_once("_TO_BCD_") {
+        return TypeId::from_builtin_name(target).is_some()
+            && TypeId::from_builtin_name(source).is_some();
+    }
+    if let Some(target) = name.strip_prefix("BCD_TO_") {
+        return TypeId::from_builtin_name(target).is_some();
+    }
+    if let Some((source, target)) = name.split_once("_BCD_TO_") {
+        return TypeId::from_builtin_name(source).is_some()
+            && TypeId::from_builtin_name(target).is_some();
+    }
+    if let Some(target) = name.strip_prefix("TO_") {
+        return TypeId::from_builtin_name(target).is_some();
+    }
+    name.split_once("_TO_").is_some_and(|(source, target)| {
+        TypeId::from_builtin_name(source).is_some() && TypeId::from_builtin_name(target).is_some()
+    })
+}
+
 impl<'a, 'b> StandardChecker<'a, 'b> {
     pub(super) fn infer_standard_function_call(
         &mut self,
@@ -21,6 +159,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         node: &SyntaxNode,
     ) -> Option<TypeId> {
         let upper = name.to_ascii_uppercase();
+        if !is_standard_function_name(&upper) {
+            return None;
+        }
         if let Some(result) = self.infer_conversion_function_call(&upper, node) {
             return Some(result);
         }
@@ -83,7 +224,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                     self.infer_split_date_time_call(node, &upper)
                 }
                 "DAY_OF_WEEK" => self.infer_day_of_week_call(node),
-                _ => return None,
+                _ => unreachable!("recognized conversion returned no inference result"),
             };
 
         Some(result)

@@ -137,6 +137,31 @@ impl<'a> TypeChecker<'a> {
             return false;
         }
 
+        if matches!(
+            symbol.kind,
+            SymbolKind::Parameter {
+                direction: ParamDirection::Out
+            }
+        ) && symbol.parent.is_some_and(|owner| {
+            self.symbols
+                .get(owner)
+                .is_some_and(|owner_symbol| matches!(owner_symbol.kind, SymbolKind::FunctionBlock))
+                && !self
+                    .resolve_ref()
+                    .current_class_owner()
+                    .is_some_and(|current| self.resolve_ref().is_same_or_derived(current, owner))
+        }) {
+            self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                node.text_range(),
+                format!(
+                    "function-block output '{}' is externally read-only",
+                    symbol.name
+                ),
+            );
+            return false;
+        }
+
         match symbol.kind {
             SymbolKind::Variable { .. } => true,
             SymbolKind::Parameter {
@@ -211,7 +236,9 @@ impl<'a> TypeChecker<'a> {
                     return None;
                 }
                 let base_type = self.expr().check_expression(&children[0]);
-                let field_name = self.resolve_ref().get_name_from_ref(&children[1])?;
+                let Some(field_name) = self.resolve_ref().get_name_from_ref(&children[1]) else {
+                    return self.resolve().resolve_lvalue_root(node);
+                };
                 self.resolve().resolve_member_symbol_in_type(
                     base_type,
                     field_name.as_str(),
@@ -246,6 +273,9 @@ impl<'a> TypeChecker<'a> {
     }
 
     pub(super) fn is_return_target(&self, node: &SyntaxNode) -> bool {
+        if self.current_function_return.is_none() {
+            return false;
+        }
         let Some(current_id) = self.current_pou_symbol else {
             return false;
         };

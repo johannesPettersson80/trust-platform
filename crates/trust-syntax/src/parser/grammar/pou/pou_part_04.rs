@@ -73,7 +73,7 @@ impl Parser<'_, '_> {
 
         // Parse var blocks
         while self.current().is_var_keyword() {
-            self.parse_var_block();
+            self.parse_pou_var_block();
         }
 
         // Parse methods and properties
@@ -89,7 +89,17 @@ impl Parser<'_, '_> {
                     | TokenKind::KwProtected
                     | TokenKind::KwInternal
             ) {
-                if self.peek_kind_n(1) == TokenKind::KwProperty {
+                let mut offset = 0;
+                while matches!(
+                    self.peek_kind_n(offset),
+                    TokenKind::KwPublic
+                        | TokenKind::KwPrivate
+                        | TokenKind::KwProtected
+                        | TokenKind::KwInternal
+                ) {
+                    offset += 1;
+                }
+                if self.peek_kind_n(offset) == TokenKind::KwProperty {
                     self.parse_property();
                 } else {
                     self.parse_method();
@@ -142,7 +152,17 @@ impl Parser<'_, '_> {
                     | TokenKind::KwProtected
                     | TokenKind::KwInternal
             ) {
-                if self.peek_kind_n(1) == TokenKind::KwProperty {
+                let mut offset = 0;
+                while matches!(
+                    self.peek_kind_n(offset),
+                    TokenKind::KwPublic
+                        | TokenKind::KwPrivate
+                        | TokenKind::KwProtected
+                        | TokenKind::KwInternal
+                ) {
+                    offset += 1;
+                }
+                if self.peek_kind_n(offset) == TokenKind::KwProperty {
                     self.parse_property_signature();
                 } else {
                     self.parse_method_signature();

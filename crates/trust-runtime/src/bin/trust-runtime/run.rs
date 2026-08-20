@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::json;
 use smol_str::SmolStr;
-use trust_runtime::bundle::detect_bundle_path;
+use trust_runtime::bundle::{detect_bundle_path, is_bundle_not_found};
 use trust_runtime::bytecode::BytecodeModule;
 use trust_runtime::config::{RuntimeBundle, WebAuthMode, WebConfig};
 use trust_runtime::control::{

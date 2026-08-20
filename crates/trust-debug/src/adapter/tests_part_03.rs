@@ -210,7 +210,7 @@ END_PROGRAM
     };
 
     assert!(
-        counter <= 6,
-        "expected interval pacing to cap cycle count, got Counter={counter}"
+        (1..=6).contains(&counter),
+        "expected the runner to execute while interval pacing caps the cycle count, got Counter={counter}"
     );
 }

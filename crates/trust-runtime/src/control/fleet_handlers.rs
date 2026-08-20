@@ -170,6 +170,7 @@ fn build_fleet_topology(state: &ControlState) -> Result<FleetTopologyResponse, S
 
     let shared = topology_shared(&runtime_id, io_drivers.as_slice());
     let external = topology_external(
+        &runtime_id,
         &settings,
         io_drivers.as_slice(),
         ads_client_config.as_ref(),
@@ -189,4 +190,19 @@ fn build_fleet_topology(state: &ControlState) -> Result<FleetTopologyResponse, S
 }
 
 #[cfg(test)]
+#[path = "fleet_handlers/host_contract_tests.rs"]
+mod host_contract_tests;
+#[cfg(test)]
+#[path = "fleet_handlers/io_contract_tests.rs"]
+mod io_contract_tests;
+#[cfg(test)]
+#[path = "fleet_handlers/link_contract_tests.rs"]
+mod link_contract_tests;
+#[cfg(test)]
+#[path = "fleet_handlers/protocol_contract_tests.rs"]
+mod protocol_contract_tests;
+#[cfg(test)]
 mod tests;
+#[cfg(test)]
+#[path = "fleet_handlers/topology_contract_tests.rs"]
+mod topology_contract_tests;

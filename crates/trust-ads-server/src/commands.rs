@@ -208,6 +208,7 @@ impl<'a> CommandContext<'a> {
     }
 }
 
+mod aggregate;
 mod requests;
 mod wire;
 
@@ -351,6 +352,11 @@ impl CommandDispatcher {
         self.next_handle = next_handle.max(1);
     }
 
+    #[cfg(test)]
+    fn set_next_notification_handle_for_test(&mut self, next_handle: u32) {
+        self.next_notification_handle = next_handle.max(1);
+    }
+
     /// Returns the number of live notification registrations.
     #[must_use]
     pub fn notification_count(&self) -> usize {
@@ -466,8 +472,9 @@ impl CommandDispatcher {
             return add_notification_response(AdsErrorCode::InvalidWatchSize, 0);
         }
 
-        let handle = self.next_notification_handle;
-        self.next_notification_handle = self.next_notification_handle.saturating_add(1).max(1);
+        let Some(handle) = self.allocate_notification_handle() else {
+            return add_notification_response(AdsErrorCode::NoMemory, 0);
+        };
         self.notifications.insert(
             handle,
             ActiveNotification {
@@ -481,6 +488,19 @@ impl CommandDispatcher {
             },
         );
         add_notification_response(AdsErrorCode::NoError, handle)
+    }
+
+    fn allocate_notification_handle(&mut self) -> Option<u32> {
+        let search_budget = self.notifications.len().saturating_add(1).max(1);
+        for _ in 0..search_budget {
+            let handle = self.next_notification_handle.max(1);
+            self.next_notification_handle = self.next_notification_handle.wrapping_add(1).max(1);
+            if self.notifications.contains_key(&handle) {
+                continue;
+            }
+            return Some(handle);
+        }
+        None
     }
 
     fn delete_device_notification(&mut self, payload: &[u8]) -> Vec<u8> {
@@ -857,191 +877,6 @@ impl CommandDispatcher {
         data.extend_from_slice(&0_u32.to_le_bytes());
         data.extend_from_slice(&0_u32.to_le_bytes());
         sized_value_data(data, read_length)
-    }
-
-    fn sumup_read(&self, request: ReadWriteRequest<'_>, ctx: &CommandContext<'_>) -> Vec<u8> {
-        let count = request.index_offset as usize;
-        if count == 0 {
-            return read_response(AdsErrorCode::ServiceNotSupported, &[]);
-        }
-        if count > self.max_sumup_items {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        }
-        let Some(header_len) = count.checked_mul(12) else {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        };
-        if request.write_data.len() != header_len {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        }
-
-        let mut metadata = Vec::with_capacity(count * 4);
-        let mut data = Vec::new();
-        for index in 0..count {
-            let offset = index * 12;
-            let index_group = read_u32(request.write_data, offset).unwrap_or(0);
-            let index_offset = read_u32(request.write_data, offset + 4).unwrap_or(0);
-            let read_length = read_u32(request.write_data, offset + 8).unwrap_or(0);
-            let (code, item_data) = self.read_address(index_group, index_offset, read_length, ctx);
-            push_result(&mut metadata, code);
-            if code == AdsErrorCode::NoError {
-                data.extend(item_data);
-            }
-        }
-        metadata.extend(data);
-        read_response(AdsErrorCode::NoError, &metadata)
-    }
-
-    fn sumup_read_ex(&self, request: ReadWriteRequest<'_>, ctx: &CommandContext<'_>) -> Vec<u8> {
-        let count = request.index_offset as usize;
-        if count == 0 {
-            return read_response(AdsErrorCode::ServiceNotSupported, &[]);
-        }
-        if count > self.max_sumup_items {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        }
-        let Some(header_len) = count.checked_mul(12) else {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        };
-        if request.write_data.len() != header_len {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        }
-
-        let mut metadata = Vec::with_capacity(count * 8);
-        let mut data = Vec::new();
-        for index in 0..count {
-            let offset = index * 12;
-            let index_group = read_u32(request.write_data, offset).unwrap_or(0);
-            let index_offset = read_u32(request.write_data, offset + 4).unwrap_or(0);
-            let read_length = read_u32(request.write_data, offset + 8).unwrap_or(0);
-            let (code, item_data) = self.read_address(index_group, index_offset, read_length, ctx);
-            push_result(&mut metadata, code);
-            if code == AdsErrorCode::NoError {
-                let Ok(item_len) = u32_len(item_data.len()) else {
-                    metadata.extend_from_slice(&0_u32.to_le_bytes());
-                    continue;
-                };
-                metadata.extend_from_slice(&item_len.to_le_bytes());
-                data.extend(item_data);
-            } else {
-                metadata.extend_from_slice(&0_u32.to_le_bytes());
-            }
-        }
-        metadata.extend(data);
-        read_response(AdsErrorCode::NoError, &metadata)
-    }
-
-    fn sumup_write(&mut self, request: ReadWriteRequest<'_>, ctx: &CommandContext<'_>) -> Vec<u8> {
-        let count = request.index_offset as usize;
-        if count > self.max_sumup_items {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        }
-        let Some(header_len) = count.checked_mul(12) else {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        };
-        if request.write_data.len() < header_len {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        }
-        if request.write_data.len().saturating_sub(header_len) > self.max_write_bytes {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        }
-
-        let mut write_offset = header_len;
-        let mut response_data = Vec::with_capacity(count * 4);
-        for index in 0..count {
-            let offset = index * 12;
-            let index_group = read_u32(request.write_data, offset).unwrap_or(0);
-            let index_offset = read_u32(request.write_data, offset + 4).unwrap_or(0);
-            let write_length = read_u32(request.write_data, offset + 8).unwrap_or(0) as usize;
-            let Some(end) = write_offset.checked_add(write_length) else {
-                push_result(&mut response_data, AdsErrorCode::InvalidSize);
-                continue;
-            };
-            let Some(data) = request.write_data.get(write_offset..end) else {
-                push_result(&mut response_data, AdsErrorCode::InvalidSize);
-                write_offset = end;
-                continue;
-            };
-            write_offset = end;
-            let code = self.write_address(index_group, index_offset, data, ctx);
-            push_result(&mut response_data, code);
-        }
-        if write_offset != request.write_data.len() {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        }
-        read_response(AdsErrorCode::NoError, &response_data)
-    }
-
-    fn sumup_read_write(
-        &mut self,
-        request: ReadWriteRequest<'_>,
-        ctx: &CommandContext<'_>,
-    ) -> Vec<u8> {
-        let count = request.index_offset as usize;
-        if count > self.max_sumup_items {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        }
-        let Some(header_len) = count.checked_mul(16) else {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        };
-        if request.write_data.len() < header_len {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        }
-        if request.write_data.len().saturating_sub(header_len) > self.max_write_bytes {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        }
-
-        let mut write_offset = header_len;
-        let mut metadata = Vec::with_capacity(count * 8);
-        let mut read_data = Vec::new();
-        for index in 0..count {
-            let offset = index * 16;
-            let index_group = read_u32(request.write_data, offset).unwrap_or(0);
-            let index_offset = read_u32(request.write_data, offset + 4).unwrap_or(0);
-            let read_length = read_u32(request.write_data, offset + 8).unwrap_or(0);
-            let write_length = read_u32(request.write_data, offset + 12).unwrap_or(0) as usize;
-            let Some(end) = write_offset.checked_add(write_length) else {
-                push_result(&mut metadata, AdsErrorCode::InvalidSize);
-                metadata.extend_from_slice(&0_u32.to_le_bytes());
-                continue;
-            };
-            let Some(data) = request.write_data.get(write_offset..end) else {
-                push_result(&mut metadata, AdsErrorCode::InvalidSize);
-                metadata.extend_from_slice(&0_u32.to_le_bytes());
-                write_offset = end;
-                continue;
-            };
-            write_offset = end;
-
-            let write_code = if write_length == 0 {
-                AdsErrorCode::NoError
-            } else {
-                self.write_address(index_group, index_offset, data, ctx)
-            };
-            if write_code != AdsErrorCode::NoError {
-                push_result(&mut metadata, write_code);
-                metadata.extend_from_slice(&0_u32.to_le_bytes());
-                continue;
-            }
-            let (read_code, item_data) =
-                self.read_address(index_group, index_offset, read_length, ctx);
-            push_result(&mut metadata, read_code);
-            if read_code == AdsErrorCode::NoError {
-                let Ok(item_len) = u32_len(item_data.len()) else {
-                    push_result(&mut metadata, AdsErrorCode::InvalidSize);
-                    metadata.extend_from_slice(&0_u32.to_le_bytes());
-                    continue;
-                };
-                metadata.extend_from_slice(&item_len.to_le_bytes());
-                read_data.extend(item_data);
-            } else {
-                metadata.extend_from_slice(&0_u32.to_le_bytes());
-            }
-        }
-        if write_offset != request.write_data.len() {
-            return read_response(AdsErrorCode::InvalidSize, &[]);
-        }
-        metadata.extend(read_data);
-        read_response(AdsErrorCode::NoError, &metadata)
     }
 }
 

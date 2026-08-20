@@ -185,6 +185,7 @@ fn render_table(report: &BenchReport) -> String {
         }
         BenchReport::T0Shm(data) => {
             let _ = writeln!(out, "Benchmark: {}", data.scenario);
+            let _ = writeln!(out, "payload_bytes={}", data.payload_bytes);
             render_latency_block(&mut out, "one-way latency", &data.one_way_latency);
             render_latency_block(&mut out, "round-trip latency", &data.round_trip_latency);
             render_latency_block(&mut out, "jitter", &data.jitter);
@@ -197,6 +198,11 @@ fn render_table(report: &BenchReport) -> String {
         }
         BenchReport::MeshZenoh(data) => {
             let _ = writeln!(out, "Benchmark: {}", data.scenario);
+            let _ = writeln!(
+                out,
+                "payload_bytes={} query_payload_bytes={}",
+                data.payload_bytes, data.query_payload_bytes
+            );
             render_latency_block(&mut out, "pub/sub latency", &data.pub_sub_latency);
             render_latency_block(&mut out, "pub/sub jitter", &data.pub_sub_jitter);
             render_latency_block(&mut out, "query/reply latency", &data.query_reply_latency);
@@ -212,7 +218,11 @@ fn render_table(report: &BenchReport) -> String {
         }
         BenchReport::Dispatch(data) => {
             let _ = writeln!(out, "Benchmark: {}", data.scenario);
-            let _ = writeln!(out, "fanout={}", data.fanout);
+            let _ = writeln!(
+                out,
+                "payload_bytes={} fanout={}",
+                data.payload_bytes, data.fanout
+            );
             render_latency_block(&mut out, "preflight latency", &data.preflight_latency);
             render_latency_block(&mut out, "dispatch latency", &data.dispatch_latency);
             render_latency_block(&mut out, "end-to-end latency", &data.end_to_end_latency);

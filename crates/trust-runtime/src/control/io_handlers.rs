@@ -4,10 +4,14 @@ use serde_json::json;
 use super::types::{IoAddressParams, IoSnapshotJson, IoWriteParams};
 use super::{parse_value, ControlResponse, ControlState};
 
+#[cfg(test)]
+#[path = "io_handlers/contract_tests.rs"]
+mod contract_tests;
+
 pub(super) fn handle_io_list(id: u64, state: &ControlState) -> ControlResponse {
     let snapshot = match state.io_snapshot.lock() {
         Ok(guard) => guard.clone(),
-        Err(_) => None,
+        Err(_) => return ControlResponse::error(id, "I/O snapshot unavailable".into()),
     };
     match snapshot {
         Some(snapshot) => ControlResponse::ok(id, snapshot.into_json()),
@@ -16,11 +20,10 @@ pub(super) fn handle_io_list(id: u64, state: &ControlState) -> ControlResponse {
 }
 
 pub(super) fn handle_io_read(id: u64, state: &ControlState) -> ControlResponse {
-    let snapshot = state
-        .io_snapshot
-        .lock()
-        .ok()
-        .and_then(|guard| guard.clone());
+    let snapshot = match state.io_snapshot.lock() {
+        Ok(guard) => guard.clone(),
+        Err(_) => return ControlResponse::error(id, "I/O snapshot unavailable".into()),
+    };
     ControlResponse::ok(
         id,
         json!({
@@ -99,6 +102,9 @@ pub(super) fn handle_io_unforce(
         Ok(addr) => addr,
         Err(err) => return ControlResponse::error(id, err.to_string()),
     };
+    if let Err(err) = validate_process_image_address(&address) {
+        return ControlResponse::error(id, err.to_string());
+    }
     state.debug.release_io(&address);
     ControlResponse::ok(id, json!({"status": "released"}))
 }

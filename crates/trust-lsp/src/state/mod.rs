@@ -547,6 +547,10 @@ fn now_millis() -> u64 {
 }
 
 #[cfg(test)]
+#[path = "state_contract_tests.rs"]
+mod state_contract_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;

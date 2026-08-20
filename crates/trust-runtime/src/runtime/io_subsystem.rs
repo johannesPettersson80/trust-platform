@@ -131,3 +131,144 @@ impl IoSubsystem {
         self.interface.snapshot()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::io::IoAddress;
+
+    #[test]
+    fn io_subsystem_health_snapshot_replaces_stale_entries_in_driver_order() {
+        let mut io = IoSubsystem::new();
+        let sink = Arc::new(Mutex::new(vec![IoDriverStatus {
+            name: "Stale".into(),
+            health: IoDriverHealth::Faulted {
+                error: "old".into(),
+            },
+        }]));
+        io.add_driver(
+            "First",
+            Box::new(FakeDriver::new(
+                IoDriverHealth::Degraded {
+                    error: "warming".into(),
+                },
+                false,
+            )),
+        );
+        io.add_driver(
+            "Second",
+            Box::new(FakeDriver::new(IoDriverHealth::Ok, false)),
+        );
+        io.set_health_sink(Some(sink.clone()));
+
+        io.update_health();
+
+        let health = sink.lock().unwrap();
+        assert_eq!(health.len(), 2);
+        assert_eq!(health[0].name, "First");
+        assert_eq!(
+            health[0].health,
+            IoDriverHealth::Degraded {
+                error: "warming".into()
+            }
+        );
+        assert_eq!(health[1].name, "Second");
+        assert_eq!(health[1].health, IoDriverHealth::Ok);
+    }
+
+    #[test]
+    fn io_subsystem_safe_state_attempts_every_driver_and_returns_first_failure() {
+        let mut io = IoSubsystem::new();
+        io.try_resize(0, 1, 0).unwrap();
+        let first_writes = Arc::new(Mutex::new(Vec::new()));
+        let second_writes = Arc::new(Mutex::new(Vec::new()));
+        io.add_driver(
+            "First",
+            Box::new(FakeDriver {
+                health: IoDriverHealth::Ok,
+                fail_write: true,
+                writes: first_writes.clone(),
+            }),
+        );
+        io.add_driver(
+            "Second",
+            Box::new(FakeDriver {
+                health: IoDriverHealth::Ok,
+                fail_write: false,
+                writes: second_writes.clone(),
+            }),
+        );
+        io.set_safe_state(IoSafeState {
+            outputs: vec![(
+                IoAddress::parse("%QX0.2").unwrap(),
+                crate::value::Value::Bool(true),
+            )],
+        });
+
+        let error = io
+            .apply_safe_state()
+            .expect_err("first driver failure must be reported");
+
+        assert!(error.to_string().contains("driver 'First'"), "{error}");
+        assert_eq!(io.interface().outputs(), &[0b0000_0100]);
+        assert_eq!(first_writes.lock().unwrap().as_slice(), &[vec![4]]);
+        assert_eq!(second_writes.lock().unwrap().as_slice(), &[vec![4]]);
+    }
+
+    #[test]
+    fn io_subsystem_empty_safe_state_only_refreshes_health() {
+        let mut io = IoSubsystem::new();
+        let writes = Arc::new(Mutex::new(Vec::new()));
+        let sink = Arc::new(Mutex::new(Vec::new()));
+        io.add_driver(
+            "Driver",
+            Box::new(FakeDriver {
+                health: IoDriverHealth::Ok,
+                fail_write: false,
+                writes: writes.clone(),
+            }),
+        );
+        io.set_health_sink(Some(sink.clone()));
+
+        io.apply_safe_state().unwrap();
+
+        assert!(writes.lock().unwrap().is_empty());
+        assert_eq!(sink.lock().unwrap().len(), 1);
+    }
+
+    struct FakeDriver {
+        health: IoDriverHealth,
+        fail_write: bool,
+        writes: Arc<Mutex<Vec<Vec<u8>>>>,
+    }
+
+    impl FakeDriver {
+        fn new(health: IoDriverHealth, fail_write: bool) -> Self {
+            Self {
+                health,
+                fail_write,
+                writes: Arc::new(Mutex::new(Vec::new())),
+            }
+        }
+    }
+
+    impl IoDriver for FakeDriver {
+        fn read_inputs(&mut self, _inputs: &mut [u8]) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+
+        fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {
+            self.writes.lock().unwrap().push(outputs.to_vec());
+            if self.fail_write {
+                Err(RuntimeError::IoDriver("write failed".into()))
+            } else {
+                Ok(())
+            }
+        }
+
+        fn health(&self) -> IoDriverHealth {
+            self.health.clone()
+        }
+    }
+}

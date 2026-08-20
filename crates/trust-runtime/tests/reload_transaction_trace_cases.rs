@@ -17,7 +17,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_RUNTIME_RELOAD_TRANSACTION_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_RELOAD_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:7e846d3f59b85137fcff4c51646284027ada7264d88e2538d62d21c541a45e01";
+    "sha256:b09bbf3b482c1ca78865496ac9683c914caaf7550e8fead1f26223f218c3b79c";
 const CASE_ID: &str = "RT_RELOAD_001_RETAIN_LOAD_FAILURE_PRESERVES_LIVE_RUNTIME";
 
 const SOURCE_V1: &str = r#"

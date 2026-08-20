@@ -90,6 +90,12 @@ impl AdsServerRuntime {
         self.symbols.snapshot().symbols.len()
     }
 
+    /// Returns the symbol table currently served to ADS clients.
+    #[must_use]
+    pub(super) fn symbol_snapshot(&self) -> Arc<trust_ads_core::SymbolSnapshot> {
+        self.symbols.snapshot()
+    }
+
     /// Refreshes the ADS symbol table from the latest runtime snapshot.
     ///
     /// Existing ADS clients can detect the layout change through `SYM_VERSION`

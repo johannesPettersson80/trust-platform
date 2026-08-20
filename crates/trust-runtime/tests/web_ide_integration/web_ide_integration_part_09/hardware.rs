@@ -227,10 +227,15 @@ fn unified_shell_exposes_mqtt_connectivity_probe_api() {
         "empty broker must return ok=false"
     );
 
+    let listener = TcpListener::bind("127.0.0.1:0").expect("reserve unused MQTT test port");
+    let refused = listener
+        .local_addr()
+        .expect("read unused MQTT test address");
+    drop(listener);
     let (probe_status, probe_json) = request_json(
         "POST",
         &format!("{base}/api/io/mqtt-test"),
-        Some(json!({ "broker": "not-a-valid-host-@@@:1883", "timeout_ms": 30 })),
+        Some(json!({ "broker": refused.to_string(), "timeout_ms": 30 })),
         &[],
     );
     assert_eq!(

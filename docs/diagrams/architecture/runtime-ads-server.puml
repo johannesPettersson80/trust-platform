@@ -43,7 +43,8 @@ package "trust-runtime::host::ads::server" as runtimeGlue #LightCyan {
     component "Value Publisher\nscan-safe snapshot reads" as publisher
     component "Runtime Write Port\nwrite queue + audit gate" as writePort
     component "Policy\nallow/refuse clients" as policy
-    component "Doctor\nloopback self-test + external proof" as doctor
+    component "Doctor Orchestration\nlive status + step/evidence truth" as doctor
+    component "Doctor Loopback Client\nAMS/TCP framing + endpoint correlation" as doctorLoopback
 }
 
 package "Runtime Core" as runtime #LightGreen {
@@ -85,7 +86,9 @@ cli --> handlers
 handlers --> diagnostics
 handlers --> doctor
 handlers --> lifecycle : status from live runtime
-doctor --> serverCrate : loopback self-client
+doctor --> source : live served symbol snapshot
+doctor --> doctorLoopback : focused self-test operations
+doctorLoopback --> serverCrate : loopback AMS/TCP client
 pyads --> handlers : attach external proof\nafter smoke
 
 note right of parser

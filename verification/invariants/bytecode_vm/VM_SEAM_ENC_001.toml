@@ -3,28 +3,21 @@ id = "VM_SEAM_ENC_001"
 title = "Unencodable source constructs fail closed"
 area = "bytecode_vm"
 risk = "silent_corruption"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-30"
 claim = "HIR-clean constructs that the bytecode encoder cannot lower must fail bytecode-module construction visibly rather than emitting NOP or returning partial bytecode."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/bytecode/encoder"]
-tests = [
-  "TEST_VM_LOWERING_SUPPORTED_CONTROL_FLOW_001",
-  "TEST_VM_LOWERING_UNSUPPORTED_STATEMENT_001",
-  "TEST_VM_LOWERING_UNSUPPORTED_EXPRESSION_001",
-  "TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001",
-]
+tests = ["TEST_AUTO_2D17DC9BA441E47099C3", "TEST_AUTO_9754A8A2443EE9A1BED9", "TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001", "TEST_VM_LOWERING_SUPPORTED_CONTROL_FLOW_001", "TEST_VM_LOWERING_UNSUPPORTED_EXPRESSION_001", "TEST_VM_LOWERING_UNSUPPORTED_STATEMENT_001"]
 gates = ["veryquick", "pr"]
 evidence_refs = [
   "EVID_TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001_LOCK_BASELINE",
   "EVID_TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001_LOCK_COMPARE",
 ]
 spec_gap_refs = []
-missing = [
-  "broad_remote_gate",
-]
+missing = ["broad_remote_gate"]
 
 [input]
 name = "hir_statement"
@@ -42,7 +35,7 @@ ref = "SPEC_BYTECODE_FORMAT_001"
 [[behavior]]
 partition = { equals = "SUPPORTED_LOOP_CONTROL" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-6-source-to-bytecode-fail-closed-boundary"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Supported EXIT and CONTINUE statements inside active loops lower to explicit jump paths and execute with the expected control flow."
@@ -50,7 +43,7 @@ rationale = "Supported EXIT and CONTINUE statements inside active loops lower to
 [[behavior]]
 partition = { equals = "UNSUPPORTED_STATEMENT" }
 case_family = "extra_or_unknown"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-6-source-to-bytecode-fail-closed-boundary"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
@@ -59,11 +52,20 @@ rationale = "A source JMP statement accepted by analysis but unsupported by the 
 [[behavior]]
 partition = { equals = "UNSUPPORTED_EXPRESSION_AFTER_VALID_PREFIX" }
 case_family = "extra_or_unknown"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-6-source-to-bytecode-fail-closed-boundary"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "An executable array-initializer assignment unsupported by the encoder rejects the complete module even after a supported assignment has already emitted bytes."
+
+[[behavior]]
+partition = { equals = "EXPLICIT_VOID_FUNCTION_RETURN_TYPE" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-6-source-to-bytecode-fail-closed-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "The reviewed explicit : VOID function form rejects bytecode-module construction with the cause-identifying unsupported generic type diagnostic before its VAR_IN_OUT body can execute."
 
 [[coverage.cells]]
 dimension = "happy_path"

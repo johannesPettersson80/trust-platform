@@ -28,6 +28,12 @@ The graph nests **Host → Runtime → Endpoint**:
   As you add devices, Modbus, MQTT, OPC UA, and other endpoints appear here, and the external systems they
   link out to render as connected nodes.
 
+Runtime and resource names do not have to be globally unique. If two hosts or
+containers both run a runtime named `RESOURCE`, Devices & Connections keeps
+their endpoints, configured mesh peers, link health, and link detail attached
+to the correct owner. This also applies when older topology snapshots are
+combined; internal identity normalization is never shown as a product label.
+
 The footer summarizes the topology (**1 host · 1 runtime · 1 endpoint**).
 
 ## Toolbar
@@ -36,13 +42,12 @@ The footer summarizes the topology (**1 host · 1 runtime · 1 endpoint**).
 - **Filter** — show or hide protocols. Filtering never hides a faulted device.
 - **Discover** — scan for devices, servers, and other runtimes. *Discovered* means *seen*, not connected
   or live.
-- **Edit** — enter edit mode, where each runtime and host shows a **+** slot to add a device, runtime, or
-  host.
+- **+ Add** — open the device/connection picker for the selected or default runtime.
 
 ## Add a device
 
-Click **Edit**, then the **+ Add** slot on a runtime, and pick a protocol. truST renders a typed form from
-the runtime's own schema (labels, defaults, validation), so you fill in fields instead of writing config.
+Click **+ Add** and pick a protocol. truST renders a typed form from the runtime's own schema (labels,
+defaults, validation), so you fill in fields instead of writing config.
 See the per-protocol guides for each one:
 
 | Need | Protocol |

@@ -5,6 +5,8 @@ use trust_runtime::harness::{
 };
 use trust_runtime::value::{Duration, Value};
 
+include!("../../../tests/support/repository_source_oracle.rs");
+
 const HELLO_COUNTER: &str = include_str!("../../../examples/tutorials/01_hello_counter.st");
 const BLINKER: &str = include_str!("../../../examples/tutorials/02_blinker.st");
 const TRAFFIC_LIGHT: &str = include_str!("../../../examples/tutorials/03_traffic_light.st");
@@ -28,10 +30,8 @@ const TUTORIALS: [(&str, &str); 9] = [
 ];
 
 fn load_example_sources(example: &str) -> (Vec<String>, Vec<String>) {
-    let src_root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples")
-        .join(example)
-        .join("src");
+    let repository_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let src_root = repository_root.join("examples").join(example).join("src");
 
     let mut files = std::fs::read_dir(&src_root)
         .unwrap_or_else(|err| {
@@ -48,8 +48,12 @@ fn load_example_sources(example: &str) -> (Vec<String>, Vec<String>) {
     let mut sources = Vec::with_capacity(files.len());
     let mut paths = Vec::with_capacity(files.len());
     for file in files {
-        let source = std::fs::read_to_string(&file)
-            .unwrap_or_else(|err| panic!("failed to read {}: {err}", file.display()));
+        let source = repository_source_tree_read_to_string!(
+            (&file, &repository_root),
+            roots = ["examples"],
+            extension = "st",
+        )
+        .unwrap_or_else(|err| panic!("failed to read {}: {err}", file.display()));
         let file_name = file
             .file_name()
             .and_then(|name| name.to_str())
@@ -85,10 +89,20 @@ fn visual_example_roots() -> [(&'static str, &'static str); 3] {
     ]
 }
 
+fn cycle_without_errors(harness: &mut TestHarness, label: &str) {
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "{label} cycle failed: {:?}",
+        cycle.errors
+    );
+}
+
 fn read_visual_companion_pair(
     visual_source_path: &Path,
     visual_suffix: &str,
 ) -> Option<(String, String, PathBuf, PathBuf)> {
+    let repository_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let file_name = visual_source_path
         .file_name()
         .and_then(|name| name.to_str())
@@ -118,10 +132,18 @@ fn read_visual_companion_pair(
         return None;
     }
 
-    let companion = std::fs::read_to_string(&companion_path)
-        .unwrap_or_else(|err| panic!("failed to read {}: {err}", companion_path.display()));
-    let runtime = std::fs::read_to_string(&runtime_path)
-        .unwrap_or_else(|err| panic!("failed to read {}: {err}", runtime_path.display()));
+    let companion = repository_source_tree_read_to_string!(
+        (&companion_path, &repository_root),
+        roots = ["examples"],
+        extension = "st",
+    )
+    .unwrap_or_else(|err| panic!("failed to read {}: {err}", companion_path.display()));
+    let runtime = repository_source_tree_read_to_string!(
+        (&runtime_path, &repository_root),
+        roots = ["examples"],
+        extension = "st",
+    )
+    .unwrap_or_else(|err| panic!("failed to read {}: {err}", runtime_path.display()));
     Some((companion, runtime, companion_path, runtime_path))
 }
 
@@ -220,27 +242,27 @@ fn visual_examples_compile_generated_companion_and_runtime_entry() {
 fn tutorial_blinker_ton_timing_behavior() {
     let mut harness = TestHarness::from_source(BLINKER).expect("compile blinker tutorial");
 
-    harness.cycle();
+    cycle_without_errors(&mut harness, "blinker initial");
     harness.assert_eq("Lamp", false);
 
     harness.advance_time(Duration::from_millis(250));
-    harness.cycle();
+    cycle_without_errors(&mut harness, "blinker first interval");
     harness.assert_eq("Lamp", true);
 
     harness.advance_time(Duration::from_millis(1));
-    harness.cycle();
+    cycle_without_errors(&mut harness, "blinker reset");
     harness.assert_eq("Lamp", true);
 
     harness.advance_time(Duration::from_millis(250));
-    harness.cycle();
+    cycle_without_errors(&mut harness, "blinker second interval");
     harness.assert_eq("Lamp", false);
 }
 
 fn advance_traffic_phase(harness: &mut TestHarness) {
     harness.advance_time(Duration::from_millis(500));
-    harness.cycle();
+    cycle_without_errors(harness, "traffic phase threshold");
     harness.advance_time(Duration::from_millis(1));
-    harness.cycle();
+    cycle_without_errors(harness, "traffic phase transition");
 }
 
 fn traffic_state(harness: &TestHarness) -> (Option<Value>, Option<Value>, Option<Value>) {
@@ -255,7 +277,7 @@ fn traffic_state(harness: &TestHarness) -> (Option<Value>, Option<Value>, Option
 fn tutorial_traffic_light_state_sequence() {
     let mut harness = TestHarness::from_source(TRAFFIC_LIGHT).expect("compile traffic tutorial");
 
-    harness.cycle();
+    cycle_without_errors(&mut harness, "traffic initial");
     let s0 = traffic_state(&harness);
 
     advance_traffic_phase(&mut harness);
@@ -306,32 +328,32 @@ fn tutorial_traffic_light_state_sequence() {
 fn tutorial_motor_starter_latch_and_unlatch() {
     let mut harness = TestHarness::from_source(MOTOR_STARTER).expect("compile motor tutorial");
 
-    harness.cycle();
+    cycle_without_errors(&mut harness, "motor initial");
     harness.assert_eq("MotorRun", false);
 
     harness.set_input("StartPb", true);
-    harness.cycle();
+    cycle_without_errors(&mut harness, "motor start");
     harness.assert_eq("MotorRun", true);
     harness.assert_eq("SealInContact", true);
 
     harness.set_input("StartPb", false);
-    harness.cycle();
+    cycle_without_errors(&mut harness, "motor seal-in");
     harness.assert_eq("MotorRun", true);
     harness.assert_eq("SealInContact", true);
 
     harness.set_input("StopPb", true);
-    harness.cycle();
+    cycle_without_errors(&mut harness, "motor stop");
     harness.assert_eq("MotorRun", false);
     harness.assert_eq("SealInContact", false);
 
     harness.set_input("StopPb", false);
     harness.set_input("StartPb", true);
-    harness.cycle();
+    cycle_without_errors(&mut harness, "motor restart");
     harness.assert_eq("MotorRun", true);
 
     harness.set_input("StartPb", false);
     harness.set_input("OverloadTrip", true);
-    harness.cycle();
+    cycle_without_errors(&mut harness, "motor overload");
     harness.assert_eq("MotorRun", false);
     harness.assert_eq("SealInContact", false);
 }

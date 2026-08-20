@@ -411,17 +411,22 @@ impl DoctorReport {
     }
 
     pub fn recompute_overall(&mut self) {
+        if self.steps.is_empty() {
+            self.overall = DoctorOverall::Fail;
+            self.production_ready = false;
+            return;
+        }
         let has_blocking_failure = self
             .steps
             .iter()
             .any(|step| step.blocks_production_ready && step.status != DoctorStepStatus::Pass);
-        let has_warning_or_skip = self
+        let has_nonpassing_step = self
             .steps
             .iter()
-            .any(|step| matches!(step.status, DoctorStepStatus::Warn | DoctorStepStatus::Skip));
+            .any(|step| step.status != DoctorStepStatus::Pass);
         self.overall = if has_blocking_failure {
             DoctorOverall::Fail
-        } else if has_warning_or_skip {
+        } else if has_nonpassing_step {
             DoctorOverall::Partial
         } else {
             DoctorOverall::Pass
@@ -436,15 +441,35 @@ impl DoctorReport {
 
 fn evidence_satisfies_role(role: DoctorRole, evidence: &ProductionEvidence) -> bool {
     match role {
-        DoctorRole::Client => true,
+        DoctorRole::Client => {
+            evidence
+                .target_identity_hash
+                .as_deref()
+                .is_some_and(nonempty)
+                && evidence.allowed_clients_hash.is_none()
+        }
         DoctorRole::Server => {
-            evidence.external_client_verified
+            evidence.target_identity_hash.is_none()
+                && evidence
+                    .allowed_clients_hash
+                    .as_deref()
+                    .is_some_and(nonempty)
+                && evidence.external_client_verified
                 && evidence
                     .external_client_kind
                     .as_deref()
                     .is_some_and(external_client_kind_is_twincat)
+                && evidence
+                    .external_client_name
+                    .as_deref()
+                    .is_some_and(nonempty)
+                && evidence.external_client_timestamp_ms.is_some()
         }
     }
+}
+
+fn nonempty(value: &str) -> bool {
+    !value.trim().is_empty()
 }
 
 fn external_client_kind_is_twincat(kind: &str) -> bool {
@@ -574,6 +599,7 @@ pub enum ProductionReadinessReason {
     MissingEvidence,
     MissingRuntimeStatus,
     EvidenceExpired,
+    RuntimeClockWarning,
     DeployedAdsConfigMissing,
     DeployedAdsConfigMismatch,
     RuntimeAdsStatusChanged,

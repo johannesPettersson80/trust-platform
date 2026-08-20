@@ -6,6 +6,7 @@ and GitHub access; tests and release workflows share these closed checks.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -18,6 +19,27 @@ MAX_EXCEPTION_DAYS = 90
 
 class ReleaseEvidenceError(ValueError):
     """Release evidence violates the normative contract."""
+
+
+def decode_github_api_object(
+    body: bytes, *, status: int, endpoint: str
+) -> dict[str, Any]:
+    """Decode one successful GitHub response without leaking response content."""
+
+    if not body:
+        return {}
+    try:
+        text = body.decode("utf-8")
+        payload = json.loads(text)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ReleaseEvidenceError(
+            f"GitHub API endpoint {endpoint} returned HTTP {status} with malformed JSON"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ReleaseEvidenceError(
+            f"GitHub API endpoint {endpoint} returned HTTP {status} with a non-object JSON body"
+        )
+    return payload
 
 
 @dataclass(frozen=True)
@@ -106,12 +128,29 @@ def validate_release_publication(
         raise ReleaseEvidenceError(
             f"GitHub Latest points to {latest_release.get('tag_name')!r}, not {expected_tag}"
         )
-    asset_names = {
-        asset.get("name")
-        for asset in release.get("assets", [])
-        if isinstance(asset, Mapping) and isinstance(asset.get("name"), str)
-    }
-    missing = sorted(required_assets - asset_names)
+    assets = release.get("assets", [])
+    if not isinstance(assets, list):
+        raise ReleaseEvidenceError(
+            f"release {expected_tag} has a malformed asset collection"
+        )
+    asset_names: list[str] = []
+    for asset in assets:
+        if not isinstance(asset, Mapping):
+            raise ReleaseEvidenceError(
+                f"release {expected_tag} has an asset with incomplete identity"
+            )
+        name = asset.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ReleaseEvidenceError(
+                f"release {expected_tag} has an asset with incomplete identity"
+            )
+        asset_names.append(name)
+    duplicates = sorted({name for name in asset_names if asset_names.count(name) > 1})
+    if duplicates:
+        raise ReleaseEvidenceError(
+            "release asset names are duplicated: " + ", ".join(duplicates)
+        )
+    missing = sorted(required_assets - set(asset_names))
     if missing:
         raise ReleaseEvidenceError(
             f"release {expected_tag} is missing required assets: {', '.join(missing)}"

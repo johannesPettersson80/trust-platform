@@ -1,8 +1,13 @@
 # Verification Areas and Initial Seeds
 
-This document owns area boundaries, invariant classes, harness expectations, and
-initial high-risk seeds. It is intentionally separate from implementation rows
-so area ownership can evolve without rewriting the board.
+> **Historical Phase 0-16 record.** These area boundaries and invariant classes
+> are retained for archaeology only. They cannot create product requirements,
+> select current work, or override a direct written specification and native
+> executable test. Current sequencing lives in
+> `phase18-zero-debt-execution-board.md`.
+
+This document records the retired campaign's area boundaries, invariant
+classes, harness expectations, and initial high-risk seeds.
 
 ## Compiler and IEC Frontend
 

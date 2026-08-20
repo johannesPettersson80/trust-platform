@@ -5,6 +5,7 @@ import { adsConnectionIdentityParts } from "./adsConnectionSummary";
 import { healthColor, roleWord } from "./nodes";
 import { protocolColor, protocolName } from "./protocolMeta";
 import { t, tint } from "./theme";
+import { healthStatusLabel } from "./statusPresentation";
 import { buildParams, Field, valuesFor } from "./SchemaFields";
 import { browseAction } from "./browseActions";
 import {
@@ -53,41 +54,8 @@ function str(value: unknown): string {
   return value === undefined || value === null ? "" : String(value);
 }
 
-function healthLabel(health: string): string {
-  switch (health) {
-    case "connected":
-      return "Connected";
-    case "stopped":
-      return "Stopped";
-    case "configured_policy":
-      return "Configured";
-    case "disabled":
-      return "Disabled";
-    case "not_configured":
-      return "Not configured";
-    case "runtime_unreachable":
-      return "Runtime unreachable";
-    case "auth_failed":
-      return "Authentication failed";
-    case "degraded":
-      return "Degraded";
-    case "error":
-      return "Error";
-    case "pending":
-      return "Pending";
-    case "simulate":
-      return "Simulator";
-    case "unknown":
-      return "Unknown";
-    default:
-      return health
-        ? health.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
-        : "Unknown";
-  }
-}
-
 function stateSummary(health: string, detail: string): string {
-  const label = healthLabel(health);
+  const label = healthStatusLabel(health);
   const cleanDetail = normalizedConfiguredDetail(detail);
   if (!cleanDetail) {
     return label;
@@ -393,7 +361,7 @@ function summaryValueFor(
 }
 
 function endpointStatusRow(health: string, detail: string): string {
-  const label = healthLabel(health);
+  const label = healthStatusLabel(health);
   const withoutConfigFile = normalizedConfiguredDetail(detail);
   if (!withoutConfigFile) {
     return label;
@@ -700,7 +668,7 @@ function SummaryView({
         title = str(d.label);
         kindLabel = "Runtime";
         health = str(d.health);
-        rows.push(["State", stateSummary(health, str(d.detail))]);
+        rows.push(["State", stateSummary(str(d.lifecycleState) || health, str(d.detail))]);
         rows.push(["Run target", d.runTarget === true ? "Selected" : "Not selected"]);
         {
           const mode = runtimeModeLabel(str(d.mode));
@@ -714,7 +682,7 @@ function SummaryView({
         title = str(d.label);
         kindLabel = "Host";
         health = str(d.health);
-        rows.push(["Address", str(d.sub)], ["State", healthLabel(health)], ["Runtimes", str(d.runtimeCount)], ["Endpoints", str(d.endpointCount)]);
+        rows.push(["Address", str(d.sub)], ["State", healthStatusLabel(health)], ["Runtimes", str(d.runtimeCount)], ["Endpoints", str(d.endpointCount)]);
         break;
       case "container":
         title = str(d.label);

@@ -2,6 +2,7 @@ use super::*;
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use trust_runtime::harness::SourceFile as HarnessSourceFile;
+use trust_runtime::value::Value;
 use verification_cases::{
     run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
 };
@@ -10,7 +11,7 @@ const DISCOVERY_TRACE_TEST_ID: &str = "TEST_DEV_TEST_DISCOVERY_TRACE_001";
 const DISCOVERY_TRACE_CASE_FILE: &str =
     "verification/cases/plcopen_devtools/DEV_TEST_DISCOVERY_001.toml";
 const DISCOVERY_TRACE_CASE_DIGEST: &str =
-    "sha256:ab57d417aa4b2db9507224a87b91bfb40606936cc23125ea72a7323a9187f0b2";
+    "sha256:d217e40fa2ade0354fd1ad5bda019650d382c05eda109b8dbc74d76b3bfb0cff";
 
 fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
     let nanos = SystemTime::now()
@@ -299,12 +300,37 @@ END_TEST_PROGRAM
 }
 
 #[test]
+fn execution_preserves_non_assertion_runtime_error_classification() {
+    let sources = vec![LoadedSource {
+        path: PathBuf::from("runtime_error.st"),
+        text: r#"
+TEST_PROGRAM RuntimeErrorCase
+VAR
+    Result : DINT;
+END_VAR
+Result := DINT#1 / DINT#0;
+END_TEST_PROGRAM
+"#
+        .to_string(),
+    }];
+    let tests = discover_tests(&sources);
+    assert_eq!(tests.len(), 1);
+
+    let session = CompileSession::from_sources(vec![HarnessSourceFile::with_path(
+        "runtime_error.st",
+        sources[0].text.clone(),
+    )]);
+    let err = execute_test_case(&session, &tests[0], None).unwrap_err();
+    assert_eq!(err, RuntimeError::DivisionByZero);
+}
+
+#[test]
 fn execution_runs_test_function_block() {
     let sources = vec![LoadedSource {
         path: PathBuf::from("tests_fb.st"),
         text: r#"
 TEST_FUNCTION_BLOCK FbPass
-ASSERT_FALSE(FALSE);
+ASSERT_TRUE(FALSE);
 END_TEST_FUNCTION_BLOCK
 
 PROGRAM Main
@@ -319,7 +345,11 @@ END_PROGRAM
         "tests_fb.st",
         sources[0].text.clone(),
     )]);
-    execute_test_case(&session, &tests[0], None).unwrap();
+    let err = execute_test_case(&session, &tests[0], None).unwrap_err();
+    assert!(
+        matches!(err, RuntimeError::AssertionFailed(_)),
+        "function-block test body was not executed: {err}"
+    );
 }
 
 #[test]
@@ -327,12 +357,13 @@ fn execution_isolated_per_test_case() {
     let sources = vec![LoadedSource {
         path: PathBuf::from("isolation.st"),
         text: r#"
-TEST_PROGRAM Isolated
-VAR
-    X : INT := INT#0;
+VAR_GLOBAL
+    Counter : INT := INT#0;
 END_VAR
-X := X + INT#1;
-ASSERT_EQUAL(INT#1, X);
+
+TEST_PROGRAM Isolated
+Counter := Counter + INT#1;
+ASSERT_EQUAL(INT#1, Counter);
 END_TEST_PROGRAM
 "#
         .to_string(),
@@ -344,8 +375,15 @@ END_TEST_PROGRAM
         "isolation.st",
         sources[0].text.clone(),
     )]);
-    execute_test_case(&session, &tests[0], None).unwrap();
-    execute_test_case(&session, &tests[0], None).unwrap();
+    let mut runtime = session.build_runtime().expect("build runtime");
+    for execution in 1..=2 {
+        execute_test_case_in_runtime(&mut runtime, &tests[0], None).unwrap();
+        assert_eq!(
+            runtime.storage().get_global("Counter"),
+            Some(&Value::Int(1)),
+            "execution {execution} did not run from cold initial state"
+        );
+    }
 }
 
 #[test]
@@ -364,6 +402,7 @@ END_TEST_PROGRAM
 
 TEST_PROGRAM SecondCase
 ASSERT_EQUAL(INT#0, Counter);
+Counter := INT#2;
 END_TEST_PROGRAM
 "#
         .to_string(),
@@ -383,7 +422,17 @@ END_TEST_PROGRAM
     let mut runtime = session.build_runtime().expect("build runtime");
 
     execute_test_case_in_runtime(&mut runtime, &tests[0], None).unwrap();
+    assert_eq!(
+        runtime.storage().get_global("Counter"),
+        Some(&Value::Int(1)),
+        "first test body did not execute"
+    );
     execute_test_case_in_runtime(&mut runtime, &tests[1], None).unwrap();
+    assert_eq!(
+        runtime.storage().get_global("Counter"),
+        Some(&Value::Int(2)),
+        "second test did not execute after a cold restart"
+    );
 }
 
 #[test]
@@ -439,7 +488,7 @@ PROGRAM Main
 END_PROGRAM
 
 TEST_PROGRAM Probe
-ASSERT_TRUE(TRUE);
+ASSERT_TRUE(FALSE);
 END_TEST_PROGRAM
 "#
         .to_string(),
@@ -452,7 +501,11 @@ END_TEST_PROGRAM
         sources[0].text.clone(),
     )])
     .with_extra_program_instances([tests[0].name.clone()]);
-    execute_test_case(&session, &tests[0], None).unwrap();
+    let err = execute_test_case(&session, &tests[0], None).unwrap_err();
+    assert!(
+        matches!(err, RuntimeError::AssertionFailed(_)),
+        "registered test program was not executed: {err}"
+    );
 }
 
 #[test]
@@ -474,7 +527,7 @@ PROGRAM Main
 END_PROGRAM
 
 TEST_PROGRAM Probe
-ASSERT_TRUE(TRUE);
+ASSERT_TRUE(FALSE);
 END_TEST_PROGRAM
 "#,
     )
@@ -488,7 +541,11 @@ END_TEST_PROGRAM
         TestOutput::Human,
         false,
     );
-    assert!(result.is_ok(), "expected test command success: {result:?}");
+    let error = result.expect_err("configured test program must execute its failing assertion");
+    assert!(
+        format!("{error:#}").contains("1 ST test(s) failed"),
+        "unexpected test command failure: {error:#}"
+    );
 
     let _ = std::fs::remove_dir_all(project);
 }

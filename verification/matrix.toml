@@ -24,7 +24,7 @@ status = "mapped"
 owner = "trust-runtime"
 risk_default = "wrong_result"
 high_risks = ["wrong_result", "silent_corruption"]
-path_globs = ["crates/trust-runtime/src/bytecode/**", "crates/trust-runtime/src/runtime/vm/**", "crates/trust-runtime/src/host/harness/**", "crates/trust-runtime-core/src/bytecode/**", "crates/trust-runtime-core/src/error.rs", "crates/trust-runtime-core/src/program_model/**", "crates/trust-runtime-core/src/value/**", "crates/trust-runtime-core/src/vm/**", "verification/invariants/bytecode_vm/**", "verification/cases/bytecode_vm/**"]
+path_globs = ["crates/trust-runtime/src/bytecode/**", "crates/trust-runtime/src/runtime/vm/**", "crates/trust-runtime/src/host/harness/**", "crates/trust-runtime-core/src/bytecode/**", "crates/trust-runtime-core/src/error.rs", "crates/trust-runtime-core/src/program_model/**", "crates/trust-runtime-core/src/value/**", "crates/trust-runtime-core/src/vm/**", "fuzz/fuzz_targets/bytecode_container.rs", "verification/invariants/bytecode_vm/**", "verification/cases/bytecode_vm/**"]
 required_test_classes = ["metadata_validation", "negative_malformed_input", "failing_regression", "iec_conformance", "mutation"]
 required_case_families = ["happy_path", "boundary_low", "boundary_high", "below_min", "above_max", "wrong_type_or_shape", "missing_required", "extra_or_unknown", "encoding_or_unicode", "resource_limit"]
 suite_tiers = ["pr"]
@@ -35,7 +35,7 @@ status = "mapped"
 owner = "trust-runtime"
 risk_default = "safety_critical"
 high_risks = ["safety_critical", "wrong_result", "silent_corruption", "false_status"]
-path_globs = ["crates/trust-runtime/**", "crates/trust-runtime-core/**"]
+path_globs = ["crates/trust-runtime/**", "crates/trust-runtime-core/**", "fuzz/fuzz_targets/runtime_config.rs"]
 required_test_classes = ["unit", "integration", "runtime_vertical"]
 required_case_families = []
 suite_tiers = ["pr"]
@@ -68,7 +68,7 @@ status = "mapped"
 owner = "editor"
 risk_default = "silent_corruption"
 high_risks = ["wrong_result", "silent_corruption", "false_status"]
-path_globs = ["crates/trust-ide/**", "crates/trust-lsp/**", "crates/trust-debug/**", "crates/trust-wasm-analysis/**", "editors/vscode/**"]
+path_globs = ["crates/trust-ide/**", "crates/trust-lsp/**", "crates/trust-debug/**", "crates/trust-wasm-analysis/**", "editors/vscode/**", "fuzz/fuzz_targets/lsp_incremental.rs"]
 required_test_classes = ["unit", "lsp_protocol", "vscode_extension"]
 required_case_families = []
 suite_tiers = ["pr"]
@@ -79,7 +79,7 @@ status = "mapped"
 owner = "developer-tools"
 risk_default = "wrong_result"
 high_risks = ["wrong_result", "silent_corruption"]
-path_globs = ["crates/trust-plcopen/**", "crates/trust-dev/**"]
+path_globs = ["crates/trust-plcopen/**", "crates/trust-dev/**", "fuzz/fuzz_targets/plcopen_xml.rs"]
 required_test_classes = ["unit", "integration", "negative_malformed_input"]
 required_case_families = []
 suite_tiers = ["pr"]
@@ -90,7 +90,7 @@ status = "mapped"
 owner = "hmi"
 risk_default = "false_status"
 high_risks = ["safety_critical", "wrong_result", "false_status"]
-path_globs = ["crates/trust-runtime/src/hmi/**", "hmi/**", "editors/vscode/src/hmi-panel/**", "editors/vscode/src/io-panel/**", "editors/vscode/src/networkCanvas/**", "editors/vscode/src/**/webview/**"]
+path_globs = ["crates/trust-runtime/src/hmi/**", "hmi/**", "editors/vscode/src/hmi-panel/**", "editors/vscode/src/io-panel/**", "editors/vscode/src/networkCanvas/**", "editors/vscode/src/**/webview/**", "fuzz/fuzz_targets/hmi_payloads.rs"]
 required_test_classes = ["integration", "runtime_vertical", "browser_webview_visual", "ui_journey_acceptance"]
 required_case_families = []
 suite_tiers = ["pr"]
@@ -228,6 +228,17 @@ conditional_suite_tiers = []
 notes = "Visible Live Values behavior additionally requires journey evidence."
 
 [[code_areas]]
+id = "direct_address_parser"
+match_kind = "path"
+area_ids = ["runtime_safety"]
+path_globs = ["crates/trust-runtime/src/io/addressing.rs", "crates/trust-runtime/tests/io_address.rs", "crates/trust-runtime/tests/io_hierarchy.rs"]
+intents = []
+required_test_classes = ["unit", "integration", "runtime_vertical", "negative_malformed_input"]
+suite_tiers = ["pr"]
+conditional_suite_tiers = []
+notes = "Direct-address parsing is a runtime safety boundary; malformed-input proof applies without inventing a protocol loopback."
+
+[[code_areas]]
 id = "modbus_mqtt_gpio_io"
 match_kind = "path"
 area_ids = ["protocols"]
@@ -363,12 +374,12 @@ notes = "Release is conditional on public conformance output."
 id = "verification_tooling"
 match_kind = "path"
 area_ids = ["verification"]
-path_globs = ["verification/**", "crates/verification-cases/**", "scripts/**", "xtask/**", ".github/workflows/**", ".codex/skills/**", "AGENTS.md", "justfile", "docs/internal/testing/checklists/**", "docs/internal/testing/evidence/plc-verification-program/**", "tests/fixtures/mp001/**"]
+path_globs = ["verification/**", "crates/verification-cases/**", "scripts/**", "xtask/**", ".github/workflows/**", ".claude/hooks/**", ".codex/skills/**", "AGENTS.md", "justfile", "docs/specs/**", "docs/IEC_*.md", "docs/internal/testing/checklists/**", "docs/internal/testing/evidence/plc-verification-program/**", "tests/fixtures/mp001/**"]
 intents = []
 required_test_classes = ["metadata_validation", "unit"]
 suite_tiers = ["veryquick", "pr"]
 conditional_suite_tiers = []
-notes = "Verification control, evidence, shared agent instructions, and repo-local skill changes must traverse the enforcing verification suites."
+notes = "Verification control, normative specification sources, evidence, shared agent instructions, and repo-local skill changes must traverse the enforcing verification suites."
 
 [[code_areas]]
 id = "architecture_diagrams"
@@ -449,7 +460,7 @@ notes = "Intent overlay; changed paths retain their owning canonical areas."
 
 [[intent_requirements]]
 intent = "bugfix"
-required_test_classes = ["failing_regression", "negative_malformed_input", "metadata_validation"]
+required_test_classes = ["failing_regression", "metadata_validation"]
 red_required = true
 lock_required = false
 

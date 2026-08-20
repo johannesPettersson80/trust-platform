@@ -31,6 +31,7 @@ impl AgentServer {
         &mut self,
         params: HarnessCycleParams,
     ) -> Result<JsonValue, AgentCommandError> {
+        validate_cycle_bounds(params.count, params.dt_ms)?;
         let snapshot =
             self.harness
                 .cycle(params.count, params.dt_ms.unwrap_or(0), &params.watch)?;
@@ -106,10 +107,20 @@ impl AgentServer {
         let mut failures = Vec::new();
         let mut assertions_passed = 0;
         for assertion in &params.assertions {
-            if let Some(failure) = evaluate_harness_assertion(&mut harness, assertion)? {
-                failures.push(failure);
-            } else {
-                assertions_passed += 1;
+            match evaluate_harness_assertion(&mut harness, assertion) {
+                Ok(Some(failure)) => failures.push(failure),
+                Ok(None) => assertions_passed += 1,
+                Err(HarnessAutomationError::Boundary(error)) => {
+                    let mut failure = harness_execute_failure(
+                        None,
+                        None,
+                        HarnessAutomationError::Boundary(error),
+                        Some(&mut harness),
+                    );
+                    failure.assertion = Some(assertion.clone());
+                    failures.push(failure);
+                }
+                Err(error) => return Err(error.into()),
             }
         }
 
@@ -157,6 +168,7 @@ impl AgentServer {
         &mut self,
         params: HarnessAdvanceTimeParams,
     ) -> Result<JsonValue, AgentCommandError> {
+        validate_duration_ms(params.duration_ms)?;
         let summary = self.harness.advance_time(params.duration_ms)?;
         Ok(json!({
             "cycle_count": summary.cycle_count,
@@ -168,6 +180,7 @@ impl AgentServer {
         &mut self,
         params: HarnessRunUntilParams,
     ) -> Result<JsonValue, AgentCommandError> {
+        validate_run_until_bounds(params.max_cycles, params.dt_ms)?;
         let expected = decode_json_value(&params.equals)?;
         let summary = self.harness.run_until(
             &params.name,
@@ -193,7 +206,8 @@ impl AgentServer {
         match project {
             Some(path) => {
                 let relative_path = normalize_workspace_path(path)?;
-                let full_path = self.workspace_root.join(relative_path);
+                let full_path = self.workspace_root.join(&relative_path);
+                self.ensure_contained_path(&full_path, &relative_path)?;
                 if !full_path.is_dir() {
                     return Err(AgentCommandError::invalid_params(format!(
                         "Project path '{}' is not a directory inside the workspace root.",
@@ -212,17 +226,40 @@ impl AgentServer {
         subpath: &str,
     ) -> Result<PathBuf, AgentCommandError> {
         let relative_path = normalize_workspace_path(subpath)?;
-        Ok(project_root.join(relative_path))
+        let full_path = project_root.join(&relative_path);
+        self.ensure_contained_path(&full_path, &relative_path)?;
+        Ok(full_path)
     }
 
     pub(super) fn collect_harness_sources(
         &self,
         params: &HarnessLoadParams,
     ) -> Result<Vec<String>, AgentCommandError> {
+        let selector_count = [
+            params.project.is_some(),
+            params.files.is_some(),
+            params.inline_sources.is_some(),
+        ]
+        .into_iter()
+        .filter(|selected| *selected)
+        .count();
+        if selector_count > 1 {
+            return Err(AgentCommandError::invalid_params(
+                "project, files, and inline_sources are mutually exclusive.",
+            ));
+        }
         if let Some(inline_sources) = params.inline_sources.as_ref() {
             if inline_sources.is_empty() {
                 return Err(AgentCommandError::invalid_params(
                     "inline_sources must not be empty when provided.",
+                ));
+            }
+            if inline_sources
+                .iter()
+                .any(|source| source.text.trim().is_empty())
+            {
+                return Err(AgentCommandError::invalid_params(
+                    "inline_sources must not contain blank text.",
                 ));
             }
             return Ok(inline_sources
@@ -238,8 +275,14 @@ impl AgentServer {
                 ));
             }
             let mut sources = Vec::with_capacity(files.len());
+            let mut normalized_paths = std::collections::HashSet::new();
             for file in files {
                 let relative_path = normalize_workspace_path(file)?;
+                if !normalized_paths.insert(relative_path.clone()) {
+                    return Err(AgentCommandError::invalid_params(
+                        "files must not contain duplicate normalized paths.",
+                    ));
+                }
                 let full_path = self.workspace_root.join(&relative_path);
                 let text = fs::read_to_string(&full_path).map_err(|error| {
                     AgentCommandError::io(
@@ -326,7 +369,7 @@ fn build_harness_execute_result(
 ) -> HarnessExecuteResult {
     let assertion_failures = failures
         .iter()
-        .filter(|failure| failure.kind == "assertion_failed")
+        .filter(|failure| failure.kind == "assertion_failed" || failure.assertion.is_some())
         .count();
     HarnessExecuteResult {
         source_count,
@@ -365,6 +408,7 @@ fn apply_harness_execute_step(
             harness.advance_time(*duration_ms)?;
         }
         HarnessExecuteStep::Cycle { count, dt_ms } => {
+            validate_cycle_bounds(*count, *dt_ms)?;
             harness.cycle(*count, dt_ms.unwrap_or(0), &[])?;
         }
         HarnessExecuteStep::RunUntil {
@@ -373,6 +417,7 @@ fn apply_harness_execute_step(
             max_cycles,
             dt_ms,
         } => {
+            validate_run_until_bounds(*max_cycles, *dt_ms)?;
             harness.run_until(
                 name,
                 decode_json_value(equals)?,
@@ -388,6 +433,46 @@ fn apply_harness_execute_step(
     Ok(())
 }
 
+fn validate_cycle_bounds(count: u32, dt_ms: Option<i64>) -> Result<(), HarnessAutomationError> {
+    if count == 0 {
+        return Err(HarnessAutomationError::InvalidArgument(
+            "cycle count must be greater than zero".to_string(),
+        ));
+    }
+    if dt_ms.is_some_and(|duration| duration < 0) {
+        return Err(HarnessAutomationError::InvalidArgument(
+            "cycle dt_ms must not be negative".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_duration_ms(duration_ms: i64) -> Result<(), HarnessAutomationError> {
+    if duration_ms < 0 {
+        return Err(HarnessAutomationError::InvalidArgument(
+            "duration_ms must not be negative".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_run_until_bounds(
+    max_cycles: Option<u64>,
+    dt_ms: Option<i64>,
+) -> Result<(), HarnessAutomationError> {
+    if max_cycles.is_some_and(|cycles| cycles == 0) {
+        return Err(HarnessAutomationError::InvalidArgument(
+            "max_cycles must be greater than zero".to_string(),
+        ));
+    }
+    if dt_ms.is_some_and(|duration| duration < 0) {
+        return Err(HarnessAutomationError::InvalidArgument(
+            "run_until dt_ms must not be negative".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 fn parse_restart_mode(mode: &str) -> Result<RestartMode, HarnessAutomationError> {
     match mode.to_ascii_lowercase().as_str() {
         "cold" => Ok(RestartMode::Cold),
@@ -398,10 +483,14 @@ fn parse_restart_mode(mode: &str) -> Result<RestartMode, HarnessAutomationError>
     }
 }
 
+#[cfg(test)]
+#[path = "harness_contract_tests.rs"]
+mod harness_contract_tests;
+
 fn evaluate_harness_assertion(
     harness: &mut HarnessAutomation,
     assertion: &HarnessAssertion,
-) -> Result<Option<HarnessExecuteFailure>, AgentCommandError> {
+) -> Result<Option<HarnessExecuteFailure>, HarnessAutomationError> {
     let (actual, expected, mismatch_label) = match assertion {
         HarnessAssertion::OutputEquals { name, equals } => (
             harness.get_output(name)?.value,
@@ -432,6 +521,7 @@ fn evaluate_harness_assertion(
         message: Some(format!(
             "{mismatch_label} did not match the expected value."
         )),
+        path: None,
         expected: Some(encode_json_value(&expected)),
         actual: Some(encode_json_value(&actual)),
         errors: Vec::new(),
@@ -451,6 +541,7 @@ fn harness_execute_failure(
             step: step.cloned(),
             assertion: None,
             message: Some(message),
+            path: None,
             expected: None,
             actual: None,
             errors: Vec::new(),
@@ -461,6 +552,7 @@ fn harness_execute_failure(
             step: step.cloned(),
             assertion: None,
             message: Some(message),
+            path: None,
             expected: None,
             actual: None,
             errors: Vec::new(),
@@ -471,6 +563,7 @@ fn harness_execute_failure(
             step: step.cloned(),
             assertion: None,
             message: Some(message),
+            path: None,
             expected: None,
             actual: None,
             errors,
@@ -481,6 +574,7 @@ fn harness_execute_failure(
             step: step.cloned(),
             assertion: None,
             message: Some(error.to_string()),
+            path: error.path().map(str::to_owned),
             expected: None,
             actual: None,
             errors: error
@@ -505,6 +599,7 @@ fn harness_execute_failure(
                 message: Some(format!(
                     "run_until exceeded {max_cycles} cycles before '{name}' matched the expected value."
                 )),
+                path: None,
                 expected: Some(encode_json_value(&expected)),
                 actual: actual.as_ref().map(encode_json_value),
                 errors: Vec::new(),
@@ -516,6 +611,7 @@ fn harness_execute_failure(
             step: step.cloned(),
             assertion: None,
             message: Some("Harness is not loaded. Call harness.load first.".to_string()),
+            path: None,
             expected: None,
             actual: None,
             errors: Vec::new(),
@@ -526,6 +622,7 @@ fn harness_execute_failure(
             step: step.cloned(),
             assertion: None,
             message: Some(message),
+            path: None,
             expected: None,
             actual: None,
             errors: Vec::new(),

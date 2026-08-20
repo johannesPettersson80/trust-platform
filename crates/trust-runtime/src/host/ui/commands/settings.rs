@@ -104,7 +104,7 @@ pub(super) fn apply_setting(
 ) -> anyhow::Result<SettingApplyResult> {
     let mut restart_required = false;
     let mut ok = true;
-    let mut message = "Saved.".to_string();
+    let message;
 
     match key {
         SettingKey::PlcName => {
@@ -143,56 +143,55 @@ pub(super) fn apply_setting(
             }
         }
         SettingKey::LogLevel => {
-            let _ = client
-                .request(json!({"id": 1, "type": "config.set", "params": { "log.level": value }}));
-            if let Some(root) = state.bundle_root.as_ref() {
-                let _ = update_runtime_toml(root, "runtime.log.level", value);
-            }
+            return Ok(apply_control_setting(
+                client,
+                state,
+                json!({ "log.level": value }),
+                "runtime.log.level",
+                value,
+                false,
+            ));
         }
         SettingKey::ControlMode => {
-            let _ = client.request(
-                json!({"id": 1, "type": "config.set", "params": { "control.mode": value }}),
-            );
-            if let Some(root) = state.bundle_root.as_ref() {
-                let _ = update_runtime_toml(root, "runtime.control.mode", value);
-            }
-            restart_required = true;
-            message = "Saved. Restart required.".to_string();
+            return Ok(apply_control_setting(
+                client,
+                state,
+                json!({ "control.mode": value }),
+                "runtime.control.mode",
+                value,
+                true,
+            ));
         }
         SettingKey::WebListen => {
-            let _ = client
-                .request(json!({"id": 1, "type": "config.set", "params": { "web.listen": value }}));
-            if let Some(root) = state.bundle_root.as_ref() {
-                let _ = update_runtime_toml(root, "runtime.web.listen", value);
-            }
-            restart_required = true;
-            message = "Saved. Restart required.".to_string();
+            return Ok(apply_control_setting(
+                client,
+                state,
+                json!({ "web.listen": value }),
+                "runtime.web.listen",
+                value,
+                true,
+            ));
         }
         SettingKey::WebAuth => {
-            let _ = client
-                .request(json!({"id": 1, "type": "config.set", "params": { "web.auth": value }}));
-            if let Some(root) = state.bundle_root.as_ref() {
-                let _ = update_runtime_toml(root, "runtime.web.auth", value);
-            }
-            restart_required = true;
-            message = "Saved. Restart required.".to_string();
+            return Ok(apply_control_setting(
+                client,
+                state,
+                json!({ "web.auth": value }),
+                "runtime.web.auth",
+                value,
+                true,
+            ));
         }
         SettingKey::DiscoveryEnabled => {
             if let Some(enabled) = parse_bool_value(value) {
-                let _ = client.request(json!({
-                    "id": 1,
-                    "type": "config.set",
-                    "params": { "discovery.enabled": enabled }
-                }));
-                if let Some(root) = state.bundle_root.as_ref() {
-                    let _ = update_runtime_toml(
-                        root,
-                        "runtime.discovery.enabled",
-                        &enabled.to_string(),
-                    );
-                }
-                restart_required = true;
-                message = "Saved. Restart required.".to_string();
+                return Ok(apply_control_setting(
+                    client,
+                    state,
+                    json!({ "discovery.enabled": enabled }),
+                    "runtime.discovery.enabled",
+                    &enabled.to_string(),
+                    true,
+                ));
             } else {
                 ok = false;
                 message = "Use true/false.".to_string();
@@ -200,14 +199,14 @@ pub(super) fn apply_setting(
         }
         SettingKey::MeshEnabled => {
             if let Some(enabled) = parse_bool_value(value) {
-                let _ = client.request(
-                    json!({"id": 1, "type": "config.set", "params": { "mesh.enabled": enabled }}),
-                );
-                if let Some(root) = state.bundle_root.as_ref() {
-                    let _ = update_runtime_toml(root, "runtime.mesh.enabled", &enabled.to_string());
-                }
-                restart_required = true;
-                message = "Saved. Restart required.".to_string();
+                return Ok(apply_control_setting(
+                    client,
+                    state,
+                    json!({ "mesh.enabled": enabled }),
+                    "runtime.mesh.enabled",
+                    &enabled.to_string(),
+                    true,
+                ));
             } else {
                 ok = false;
                 message = "Use true/false.".to_string();
@@ -220,6 +219,45 @@ pub(super) fn apply_setting(
         restart_required,
         message,
     })
+}
+
+fn apply_control_setting(
+    client: &mut ControlClient,
+    state: &UiState,
+    params: serde_json::Value,
+    persisted_key: &str,
+    persisted_value: &str,
+    restart_on_success: bool,
+) -> SettingApplyResult {
+    let result = super::control_config::config_set(client, params);
+    if !result.ok {
+        return SettingApplyResult {
+            ok: false,
+            restart_required: false,
+            message: result
+                .error
+                .unwrap_or_else(|| "request rejected".to_string()),
+        };
+    }
+    if let Some(root) = state.bundle_root.as_ref() {
+        if let Err(error) = update_runtime_toml(root, persisted_key, persisted_value) {
+            return SettingApplyResult {
+                ok: false,
+                restart_required: false,
+                message: format!("Failed to persist setting: {error}"),
+            };
+        }
+    }
+    let restart_required = restart_on_success || result.restart_required;
+    SettingApplyResult {
+        ok: true,
+        restart_required,
+        message: if restart_required {
+            "Saved. Restart required.".to_string()
+        } else {
+            "Saved.".to_string()
+        },
+    }
 }
 
 pub(super) fn format_setting_key(key: SettingKey) -> &'static str {

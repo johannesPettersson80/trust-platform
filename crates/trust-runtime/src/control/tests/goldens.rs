@@ -1,9 +1,19 @@
+include!("../../../../../tests/support/repository_source_oracle.rs");
+
 fn connector_fixture(path: &str) -> serde_json::Value {
+    let repository_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(std::path::Path::parent)
+        .expect("workspace root");
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/connectors")
         .join(path);
-    let text = std::fs::read_to_string(&path)
-        .unwrap_or_else(|error| panic!("read fixture {}: {error}", path.display()));
+    let text = repository_source_tree_read_to_string!(
+        (&path, repository_root),
+        roots = ["crates/trust-runtime/tests/fixtures/connectors"],
+        extension = "json",
+    )
+    .unwrap_or_else(|error| panic!("read fixture {}: {error}", path.display()));
     serde_json::from_str(&text).unwrap_or_else(|error| {
         panic!("parse fixture {}: {error}", path.display());
     })

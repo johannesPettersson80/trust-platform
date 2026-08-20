@@ -80,6 +80,11 @@ Primary options:
 - `--output`
 - `--ci`
 
+Execution mode compiles the project even when it discovers no test POU, so an
+invalid project cannot pass as an empty test run. `--list` remains
+discovery-only, and a filter that matches none of the discovered tests reports
+an empty selection without executing a test case.
+
 `trust-runtime test` is a deprecated forwarding alias during the
 product/workbench split. It will not be removed before 2026-10-05, and removal
 requires a separate behavior-change release note.

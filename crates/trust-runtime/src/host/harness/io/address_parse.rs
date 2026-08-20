@@ -44,7 +44,8 @@ fn parse_relative_address(text: &str) -> Result<FieldAddress, CompileError> {
                 Some(bit_part) if !bit_part.is_empty() => bit_part
                     .parse::<u8>()
                     .map_err(|_| CompileError::new("invalid relative address"))?,
-                _ => 0,
+                Some(_) => return Err(CompileError::new("invalid relative address")),
+                None => 0,
             };
             if bit > 7 || parts.next().is_some() {
                 return Err(CompileError::new("invalid relative address"));

@@ -3,7 +3,7 @@
 The fastest way to learn truST is to start from a bundled example — an editable working copy you can run
 immediately, no config to write.
 
-## Open the example picker
+## Open the example gallery
 
 With no project open, the truST view offers **Start from example** (alongside Create and Open).
 
@@ -11,10 +11,10 @@ With no project open, the truST view offers **Start from example** (alongside Cr
 
 *With no project open, **Start from example** copies a ready-made starter.*
 
-Click it to get a list of the bundled examples, each tagged with what hardware (if any) it needs. Pick one,
-choose a destination folder, and truST copies an **editable** working copy there and opens it on
-`src/main.st`. You never edit a `.toml` to get going — a *No hardware* starter runs in the simulator right
-away.
+Click it to open the searchable example gallery. Hardware and category filters can be combined, and each
+card says what hardware (if any) it needs. Pick one, choose a destination folder, and truST copies an
+**editable** working copy there and opens its source. You never edit a `.toml` to get going — a
+*No hardware* starter runs in the simulator right away.
 
 ## The bundled starters
 
@@ -25,6 +25,7 @@ away.
 | **HMI starter** | No hardware | Ships an HMI descriptor so **Open HMI** works out of the box. |
 | **TwinCAT ADS** | Requires TwinCAT | Starter for a Beckhoff TwinCAT (ADS) device — runs in the simulator; wire the real PLC in Devices & Connections. |
 | **Raspberry Pi (EtherCAT / GPIO)** | Requires Raspberry Pi | Starter for a Raspberry Pi field-IO target — runs in the simulator; wire real I/O in Devices & Connections. |
+| **PLCopen Motion single axis** | No hardware | Portable single-axis motion starter using the bundled PLCopen Motion library. |
 
 The hardware tag tells you what you need: a **No hardware** starter runs entirely in the simulator; a
 hardware starter still opens and runs in the simulator, and you connect the real device later from

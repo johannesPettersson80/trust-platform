@@ -302,8 +302,8 @@ pub fn project_runtime_cloud_state(
             target: peer.runtime_id.clone(),
             channel_type: ChannelType::MeshT2Ops,
             state,
-            latency_ms_p95: if stale { None } else { Some(12.0) },
-            loss_pct: if stale { None } else { Some(0.0) },
+            latency_ms_p95: None,
+            loss_pct: None,
             stale,
             last_ok_ns: peer.last_seen_ns,
         });
@@ -512,8 +512,8 @@ mod tests {
         assert_eq!(edge_to_b.channel_type, ChannelType::MeshT2Ops);
         assert_eq!(edge_to_b.state, ChannelState::Healthy);
         assert!(!edge_to_b.stale);
-        assert_eq!(edge_to_b.latency_ms_p95, Some(12.0));
-        assert_eq!(edge_to_b.loss_pct, Some(0.0));
+        assert_eq!(edge_to_b.latency_ms_p95, None);
+        assert_eq!(edge_to_b.loss_pct, None);
 
         let edge_to_c = state
             .topology

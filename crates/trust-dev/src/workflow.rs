@@ -4,7 +4,6 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
-use glob::glob;
 use serde::Serialize;
 use serde_json::{json, Value as JsonValue};
 use toml::Value as TomlValue;
@@ -12,6 +11,10 @@ use trust_runtime::bundle_builder::{inspect_project_layout, resolve_sources_root
 use trust_runtime::config::{IoConfig, RuntimeConfig, WebAuthMode};
 use trust_runtime::web::ide::{IdeRole, WebIdeState};
 use trust_wasm_analysis::{canonical_ast_similarity, canonical_ast_summary, DiagnosticItem};
+
+#[cfg(test)]
+#[path = "workflow/contract_tests.rs"]
+mod contract_tests;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -129,8 +132,7 @@ pub(crate) fn format_payload(
         .context("create IDE session for formatting")?;
     let formatted = ide
         .format_source(&session.token, path, content)
-        .map_err(anyhow::Error::new)
-        .context("format structured text source")?;
+        .map_err(|error| anyhow::anyhow!("format structured text source: {error}"))?;
     let file_path = project_root.join(&formatted.path);
     serde_json::to_value(FormatPreview {
         path: formatted.path,
@@ -430,30 +432,56 @@ fn collect_project_source_paths(
     sources_root: Option<&Path>,
 ) -> anyhow::Result<Vec<String>> {
     let project_root = canonicalize_or_self(project_root);
-    let sources_root = canonicalize_or_self(&resolve_sources_root(&project_root, sources_root)?);
-    let patterns = ["**/*.st", "**/*.ST", "**/*.pou", "**/*.POU"];
+    let sources_root = resolve_sources_root(&project_root, sources_root)?;
     let mut paths = BTreeSet::new();
-
-    for pattern in patterns {
-        for entry in glob(&format!("{}/{}", sources_root.display(), pattern))
-            .with_context(|| format!("glob project sources under {}", sources_root.display()))?
-        {
-            let path = canonicalize_or_self(&entry?);
-            if !path.is_file() {
-                continue;
-            }
-            let relative = path.strip_prefix(&project_root).with_context(|| {
-                format!(
-                    "source '{}' does not live under project root '{}'",
-                    path.display(),
-                    project_root.display()
-                )
-            })?;
-            paths.insert(relative.to_string_lossy().replace('\\', "/"));
-        }
-    }
-
+    collect_source_paths(&project_root, &sources_root, &mut paths)?;
     Ok(paths.into_iter().collect())
+}
+
+fn collect_source_paths(
+    project_root: &Path,
+    root: &Path,
+    paths: &mut BTreeSet<String>,
+) -> anyhow::Result<()> {
+    let entries = std::fs::read_dir(root)
+        .with_context(|| format!("read project sources under {}", root.display()))?;
+    for entry in entries {
+        let entry =
+            entry.with_context(|| format!("inspect project source under {}", root.display()))?;
+        let path = entry.path();
+        let file_type = entry
+            .file_type()
+            .with_context(|| format!("inspect project source '{}'", path.display()))?;
+        if file_type.is_dir() {
+            collect_source_paths(project_root, &path, paths)?;
+            continue;
+        }
+        if !file_type.is_file() && !file_type.is_symlink() {
+            continue;
+        }
+        if !is_structured_text_source(&path) {
+            continue;
+        }
+        let path = canonicalize_or_self(&path);
+        let relative = path.strip_prefix(project_root).with_context(|| {
+            format!(
+                "source '{}' does not live under project root '{}'",
+                path.display(),
+                project_root.display()
+            )
+        })?;
+        if !path.is_file() || !is_structured_text_source(&path) {
+            continue;
+        }
+        paths.insert(relative.to_string_lossy().replace('\\', "/"));
+    }
+    Ok(())
+}
+
+fn is_structured_text_source(path: &Path) -> bool {
+    path.extension().is_some_and(|extension| {
+        extension.eq_ignore_ascii_case("st") || extension.eq_ignore_ascii_case("pou")
+    })
 }
 
 fn map_diagnostic(path: &str, file: &str, diagnostic: DiagnosticItem) -> AgentIssue {

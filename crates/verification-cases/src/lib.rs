@@ -408,8 +408,12 @@ spec_gap_ref = "SPEC_GAP_VALUE"
 
         let digest = crate::case_file_digest(&case_file).unwrap();
         let mut probe = Probe::default();
-        let config = RunConfig::new("TEST_BLOCKED", &case_file, digest)
-            .with_artifact_dir(dir.join("artifacts"));
+        let config = RunConfig {
+            test_id: "TEST_BLOCKED".to_string(),
+            case_file: case_file.clone(),
+            case_file_digest: digest,
+            artifact_dir: dir.join("artifacts"),
+        };
         let artifact = run_case_file!(config, &mut probe, |_, _| -> Result<_, String> {
             panic!("blocked cases must not execute");
         })
@@ -458,8 +462,12 @@ expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME#case" }
         let digest = crate::case_file_digest(&case_file).unwrap();
 
         let mut probe = Probe::default();
-        let config = RunConfig::new("TEST_RUNNABLE", &case_file, digest)
-            .with_artifact_dir(dir.join("artifacts"));
+        let config = RunConfig {
+            test_id: "TEST_RUNNABLE".to_string(),
+            case_file: case_file.clone(),
+            case_file_digest: digest,
+            artifact_dir: dir.join("artifacts"),
+        };
         let artifact = run_case_file(&config, &mut probe, |case, _probe| -> Result<_, String> {
             assert_eq!(case.id, "CASE_RUNNABLE");
             Ok(CaseExecution {
@@ -540,8 +548,12 @@ spec_gap_ref = "SPEC_GAP_VALUE"
         assert_eq!(windows_artifact.cases[0].result, CaseResult::Blocked);
 
         let mut probe = Probe::default();
-        let config = RunConfig::new("TEST_DIGEST", &case_file, "sha256:not-the-file")
-            .with_artifact_dir(dir.join("artifacts"));
+        let config = RunConfig {
+            test_id: "TEST_DIGEST".to_string(),
+            case_file: case_file.clone(),
+            case_file_digest: "sha256:not-the-file".to_string(),
+            artifact_dir: dir.join("artifacts"),
+        };
         let error = run_case_file(&config, &mut probe, |_, _| -> Result<_, String> {
             panic!("digest mismatch must stop before execution");
         })
@@ -582,8 +594,12 @@ spec_gap_ref = "SPEC_GAP_VALUE"
         let digest = crate::case_file_digest(&case_file).unwrap();
 
         let mut probe = Probe::default();
-        let config = RunConfig::new("TEST_SCHEMA", &case_file, digest)
-            .with_artifact_dir(dir.join("artifacts"));
+        let config = RunConfig {
+            test_id: "TEST_SCHEMA".to_string(),
+            case_file: case_file.clone(),
+            case_file_digest: digest,
+            artifact_dir: dir.join("artifacts"),
+        };
         let error = run_case_file(&config, &mut probe, |_, _| -> Result<_, String> {
             panic!("schema mismatch must stop before execution");
         })
@@ -629,7 +645,8 @@ spec_gap_ref = "SPEC_GAP_VALUE"
     fn trust_verify_env_stamps_are_recorded_in_artifact() {
         let _env = lock_trust_verify_env();
         let dir = temp_dir("verify_stamp");
-        let case_file = write_blocked_case_file(&dir, "stamp.toml");
+        let case_file = dir.join("stamp.toml");
+        write_blocked_case_file(&case_file);
         let digest = crate::case_file_digest(&case_file).unwrap();
         let artifact_dir = dir.join("artifacts");
 
@@ -642,8 +659,12 @@ spec_gap_ref = "SPEC_GAP_VALUE"
         );
 
         let mut probe = Probe::default();
-        let config = RunConfig::new("TEST_STAMP", &case_file, digest.clone())
-            .with_artifact_dir(&artifact_dir);
+        let config = RunConfig {
+            test_id: "TEST_STAMP".to_string(),
+            case_file: case_file.clone(),
+            case_file_digest: digest.clone(),
+            artifact_dir: artifact_dir.clone(),
+        };
         let artifact = run_case_file(&config, &mut probe, |_, _| -> Result<_, String> {
             panic!("blocked cases must not execute");
         })
@@ -675,7 +696,8 @@ spec_gap_ref = "SPEC_GAP_VALUE"
     fn partial_trust_verify_env_stamps_fail_before_execution() {
         let _env = lock_trust_verify_env();
         let dir = temp_dir("verify_partial");
-        let case_file = write_runnable_case_file(&dir, "partial.toml");
+        let case_file = dir.join("partial.toml");
+        write_runnable_case_file(&case_file);
         let digest = crate::case_file_digest(&case_file).unwrap();
 
         std::env::set_var("TRUST_VERIFY_TEST_ID", "TEST_PARTIAL");
@@ -693,7 +715,8 @@ spec_gap_ref = "SPEC_GAP_VALUE"
     fn mismatched_trust_verify_test_id_fails_before_execution() {
         let _env = lock_trust_verify_env();
         let dir = temp_dir("verify_test_id_mismatch");
-        let case_file = write_runnable_case_file(&dir, "test_id_mismatch.toml");
+        let case_file = dir.join("test_id_mismatch.toml");
+        write_runnable_case_file(&case_file);
         let digest = crate::case_file_digest(&case_file).unwrap();
         let artifact_dir = dir.join("artifacts");
 
@@ -718,7 +741,8 @@ spec_gap_ref = "SPEC_GAP_VALUE"
     fn mismatched_trust_verify_case_file_digest_fails_before_execution() {
         let _env = lock_trust_verify_env();
         let dir = temp_dir("verify_digest_mismatch");
-        let case_file = write_runnable_case_file(&dir, "digest_mismatch.toml");
+        let case_file = dir.join("digest_mismatch.toml");
+        write_runnable_case_file(&case_file);
         let digest = crate::case_file_digest(&case_file).unwrap();
         let artifact_dir = dir.join("artifacts");
 
@@ -743,7 +767,8 @@ spec_gap_ref = "SPEC_GAP_VALUE"
     fn mismatched_trust_verify_artifact_dir_fails_before_execution() {
         let _env = lock_trust_verify_env();
         let dir = temp_dir("verify_artifact_dir_mismatch");
-        let case_file = write_runnable_case_file(&dir, "artifact_dir_mismatch.toml");
+        let case_file = dir.join("artifact_dir_mismatch.toml");
+        write_runnable_case_file(&case_file);
         let digest = crate::case_file_digest(&case_file).unwrap();
 
         std::env::set_var("TRUST_VERIFY_TEST_ID", "TEST_MISMATCH");
@@ -782,10 +807,9 @@ spec_gap_ref = "SPEC_GAP_VALUE"
         path
     }
 
-    fn write_blocked_case_file(dir: &Path, name: &str) -> PathBuf {
-        let case_file = dir.join(name);
+    fn write_blocked_case_file(case_file: &Path) {
         fs::write(
-            &case_file,
+            case_file,
             r#"schema_version = 1
 id = "CASES_BLOCKED"
 title = "Blocked cases"
@@ -807,13 +831,11 @@ spec_gap_ref = "SPEC_GAP_VALUE"
 "#,
         )
         .unwrap();
-        case_file
     }
 
-    fn write_runnable_case_file(dir: &Path, name: &str) -> PathBuf {
-        let case_file = dir.join(name);
+    fn write_runnable_case_file(case_file: &Path) {
         fs::write(
-            &case_file,
+            case_file,
             r#"schema_version = 1
 id = "CASES_RUNNABLE"
 title = "Runnable cases"
@@ -834,7 +856,6 @@ expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME#case" }
 "#,
         )
         .unwrap();
-        case_file
     }
 
     fn assert_stamp_failure_before_execution(
@@ -846,8 +867,12 @@ expect = { outcome = "accept_value", oracle_ref = "SPEC_RUNTIME#case" }
     ) {
         let mut probe = Probe::default();
         let mut runner_called = false;
-        let config =
-            RunConfig::new(test_id, case_file, digest).with_artifact_dir(dir.join("artifacts"));
+        let config = RunConfig {
+            test_id: test_id.to_string(),
+            case_file: case_file.to_path_buf(),
+            case_file_digest: digest,
+            artifact_dir: dir.join("artifacts"),
+        };
         let error = run_case_file(&config, &mut probe, |_, _| -> Result<_, String> {
             runner_called = true;
             Ok(CaseExecution {

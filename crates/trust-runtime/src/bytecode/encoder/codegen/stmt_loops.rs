@@ -134,7 +134,6 @@ impl<'a> BytecodeEncoder<'a> {
             debug_entries.truncate(debug_start);
             return Ok(false);
         }
-        self.emit_store_access(&control_access, code)?;
         if !self.emit_expr(ctx, end, code)? {
             code.truncate(code_start);
             debug_entries.truncate(debug_start);
@@ -148,25 +147,16 @@ impl<'a> BytecodeEncoder<'a> {
         }
         self.emit_store_ref(&step_ref, code)?;
 
-        self.emit_load_ref(&step_ref, code)?;
-        if !self.emit_const_value(&Value::LInt(0), code)? {
-            code.truncate(code_start);
-            debug_entries.truncate(debug_start);
-            return Ok(false);
-        }
+        self.emit_for_step_with_derived_zero(&step_ref, code)?;
         code.push(0x50);
         let jump_step_ok = self.emit_jump_placeholder(code, 0x04);
         code.push(0x01);
         let after_fault = code.len();
         self.patch_jump(code, jump_step_ok, after_fault)?;
+        self.emit_store_access(&control_access, code)?;
 
         let loop_start = code.len();
-        self.emit_load_ref(&step_ref, code)?;
-        if !self.emit_const_value(&Value::LInt(0), code)? {
-            code.truncate(code_start);
-            debug_entries.truncate(debug_start);
-            return Ok(false);
-        }
+        self.emit_for_step_with_derived_zero(&step_ref, code)?;
         code.push(0x55);
         let jump_true_pos = self.emit_jump_placeholder(code, 0x03);
 
@@ -211,5 +201,17 @@ impl<'a> BytecodeEncoder<'a> {
             self.patch_jump(code, jump, loop_end)?;
         }
         Ok(true)
+    }
+
+    fn emit_for_step_with_derived_zero(
+        &mut self,
+        step_ref: &ValueRef,
+        code: &mut Vec<u8>,
+    ) -> Result<(), BytecodeError> {
+        self.emit_load_ref(step_ref, code)?;
+        self.emit_load_ref(step_ref, code)?;
+        self.emit_load_ref(step_ref, code)?;
+        code.push(0x41);
+        Ok(())
     }
 }

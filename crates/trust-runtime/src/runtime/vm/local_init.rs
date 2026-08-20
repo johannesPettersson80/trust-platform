@@ -41,11 +41,12 @@ fn initialize_declared_locals_direct(
     frame: &mut VmFrame,
 ) -> Result<(), RuntimeError> {
     let profile = runtime.profile();
+    let mut initialized_frame = frame.clone();
     let mut slot = 0usize;
 
     if let Some((_, return_type)) = plan.return_slot() {
-        if matches!(frame.locals.get(slot), Some(Value::Null) | None) {
-            if let Some(slot_ref) = frame.locals.get_mut(slot) {
+        if matches!(initialized_frame.locals.get(slot), Some(Value::Null) | None) {
+            if let Some(slot_ref) = initialized_frame.locals.get_mut(slot) {
                 let (return_name, _) = plan
                     .return_slot()
                     .expect("return slot checked before default initialization");
@@ -60,19 +61,22 @@ fn initialize_declared_locals_direct(
     let local_start_slot = slot;
 
     for local in plan.static_locals() {
-        ensure_static_local(runtime, plan, frame, local_start_slot, local)?;
+        ensure_static_local(runtime, plan, &initialized_frame, local_start_slot, local)
+            .map_err(|err| init_failed_display(plan.frame_owner(), &local.name, err))?;
     }
 
     for local in plan.locals() {
         if !local.external {
-            let value = initialize_var_value(runtime, plan, frame, slot, local)?;
-            if let Some(slot_ref) = frame.locals.get_mut(slot) {
+            let value = initialize_var_value(runtime, plan, &initialized_frame, slot, local)
+                .map_err(|err| init_failed_display(plan.frame_owner(), &local.name, err))?;
+            if let Some(slot_ref) = initialized_frame.locals.get_mut(slot) {
                 *slot_ref = value;
             }
         }
         slot = slot.saturating_add(1);
     }
 
+    frame.locals = initialized_frame.locals;
     Ok(())
 }
 
@@ -371,10 +375,18 @@ fn build_init_plan_for_pou(
     let key = SmolStr::new(pou.name.to_ascii_uppercase());
 
     if module.program_ids.get(&key).copied() == Some(pou_id) {
-        return programs.get(&key).map(|program| VmPouInitPlan::Program {
-            frame_owner: program.name.clone(),
-            locals: program.temps.clone(),
-        });
+        return programs
+            .values()
+            .find(|program| {
+                program
+                    .name
+                    .as_str()
+                    .eq_ignore_ascii_case(pou.name.as_str())
+            })
+            .map(|program| VmPouInitPlan::Program {
+                frame_owner: program.name.clone(),
+                locals: program.temps.clone(),
+            });
     }
     if module.function_ids.get(&key).copied() == Some(pou_id) {
         return functions.get(&key).map(|function| VmPouInitPlan::Function {
@@ -466,7 +478,9 @@ fn function_block_type_name(
 mod tests {
     use super::*;
 
+    use crate::program_model::Expr;
     use crate::value::Value;
+    use trust_hir::symbols::ParamDirection;
     use trust_hir::Type;
 
     #[test]
@@ -499,6 +513,7 @@ mod tests {
                 retain: crate::RetainPolicy::Unspecified,
                 static_storage: false,
                 external: false,
+                in_out: false,
                 constant: false,
                 address: None,
             }],
@@ -508,6 +523,182 @@ mod tests {
 
         initialize_declared_locals_direct(&mut runtime, &plan, &mut frame).unwrap();
         assert_eq!(frame.locals[0], Value::Null);
+    }
+
+    #[test]
+    fn vm_function_initialization_preserves_return_parameters_and_external_locals() {
+        let mut runtime = crate::Runtime::new();
+        let plan = VmPouInitPlan::Function {
+            frame_owner: "Compute".into(),
+            params: vec![param("Input"), param("Output")],
+            locals: vec![
+                local("Automatic", Some(Expr::Literal(Value::DInt(41)))),
+                external_local("External"),
+            ],
+            static_locals: Vec::new(),
+            return_slot: ("Compute".into(), TypeId::DINT),
+        };
+        let mut frame = frame_with_slots(5);
+        frame.locals = vec![
+            Value::DInt(99),
+            Value::DInt(7),
+            Value::DInt(8),
+            Value::DInt(-1),
+            Value::DInt(123),
+        ];
+
+        initialize_declared_locals_direct(&mut runtime, &plan, &mut frame).unwrap();
+
+        assert_eq!(
+            frame.locals,
+            vec![
+                Value::DInt(99),
+                Value::DInt(7),
+                Value::DInt(8),
+                Value::DInt(41),
+                Value::DInt(123),
+            ]
+        );
+    }
+
+    #[test]
+    fn vm_automatic_initializer_can_read_only_preceding_frame_slots() {
+        let mut runtime = crate::Runtime::new();
+        let plan = VmPouInitPlan::Program {
+            frame_owner: "Main".into(),
+            locals: vec![
+                local("First", Some(Expr::Literal(Value::DInt(17)))),
+                local("Second", Some(Expr::Name("first".into()))),
+            ],
+        };
+        let mut frame = frame_with_slots(2);
+
+        initialize_declared_locals_direct(&mut runtime, &plan, &mut frame).unwrap();
+
+        assert_eq!(frame.locals, vec![Value::DInt(17), Value::DInt(17)]);
+    }
+
+    #[test]
+    fn vm_automatic_initialization_failure_is_identified_and_atomic() {
+        let mut runtime = crate::Runtime::new();
+        let plan = VmPouInitPlan::Program {
+            frame_owner: "Main".into(),
+            locals: vec![
+                local("First", Some(Expr::Literal(Value::DInt(17)))),
+                local("Second", Some(Expr::Name("Missing".into()))),
+            ],
+        };
+        let mut frame = frame_with_slots(2);
+        frame.locals = vec![Value::DInt(-1), Value::DInt(-2)];
+        let before = frame.locals.clone();
+
+        let error = initialize_declared_locals_direct(&mut runtime, &plan, &mut frame)
+            .expect_err("later initializer must reject the complete automatic-local update");
+
+        assert!(matches!(
+            error,
+            RuntimeError::InitFailed {
+                owner,
+                variable,
+                ..
+            } if owner == "Main" && variable == "Second"
+        ));
+        assert_eq!(frame.locals, before);
+    }
+
+    #[test]
+    fn vm_static_local_initializes_once_and_preserves_stored_value() {
+        let mut runtime = crate::Runtime::new();
+        let plan = VmPouInitPlan::Function {
+            frame_owner: "Counter".into(),
+            params: Vec::new(),
+            locals: Vec::new(),
+            static_locals: vec![local("Calls", Some(Expr::Literal(Value::DInt(1))))],
+            return_slot: ("Counter".into(), TypeId::DINT),
+        };
+        let mut frame = frame_with_slots(1);
+
+        initialize_declared_locals_direct(&mut runtime, &plan, &mut frame).unwrap();
+        let key = static_storage_name(&"Counter".into(), &"Calls".into());
+        assert_eq!(
+            runtime.storage().get_global(key.as_str()),
+            Some(&Value::DInt(1))
+        );
+
+        runtime
+            .storage_mut()
+            .set_global(key.clone(), Value::DInt(9));
+        initialize_declared_locals_direct(&mut runtime, &plan, &mut frame).unwrap();
+        assert_eq!(
+            runtime.storage().get_global(key.as_str()),
+            Some(&Value::DInt(9))
+        );
+    }
+
+    #[test]
+    fn vm_init_plan_accessors_preserve_method_ownership_and_frame_layout() {
+        let plan = VmPouInitPlan::Method {
+            owner: "Motor".into(),
+            frame_owner: "Start".into(),
+            params: vec![param("Enable")],
+            locals: vec![local("State", None)],
+            static_locals: vec![local("Calls", None)],
+            return_slot: Some(("Start".into(), TypeId::BOOL)),
+        };
+
+        assert_eq!(plan.frame_owner(), "Start");
+        assert_eq!(
+            plan.static_owner(),
+            method_static_storage_owner(&"Motor".into(), &"Start".into())
+        );
+        let (return_name, return_type) = plan.return_slot().expect("method return slot");
+        assert_eq!(return_name, "Start");
+        assert_eq!(return_type, TypeId::BOOL);
+        assert_eq!(plan.params()[0].name, "Enable");
+        assert_eq!(plan.locals()[0].name, "State");
+        assert_eq!(plan.static_locals()[0].name, "Calls");
+    }
+
+    #[test]
+    fn vm_instance_type_detection_follows_aliases_and_rejects_other_types() {
+        let mut runtime = crate::Runtime::new();
+        let class = runtime.registry_mut().register(
+            "Motor",
+            Type::Class {
+                name: "Motor".into(),
+            },
+        );
+        let class_alias = runtime.registry_mut().register(
+            "MotorAlias",
+            Type::Alias {
+                name: "MotorAlias".into(),
+                target: class,
+            },
+        );
+        let function_block = runtime.registry_mut().register(
+            "TimerFb",
+            Type::FunctionBlock {
+                name: "TimerFb".into(),
+            },
+        );
+        let function_block_alias = runtime.registry_mut().register(
+            "TimerAlias",
+            Type::Alias {
+                name: "TimerAlias".into(),
+                target: function_block,
+            },
+        );
+
+        assert_eq!(
+            class_type_name(class_alias, runtime.registry()).as_deref(),
+            Some("Motor")
+        );
+        assert_eq!(
+            function_block_type_name(function_block_alias, runtime.registry()).as_deref(),
+            Some("TimerFb")
+        );
+        assert!(class_type_name(TypeId::DINT, runtime.registry()).is_none());
+        assert!(function_block_type_name(TypeId::DINT, runtime.registry()).is_none());
     }
 
     fn register_interface(runtime: &mut crate::Runtime) -> TypeId {
@@ -530,6 +721,37 @@ mod tests {
             locals: vec![Value::Null; count],
             runtime_instance: None,
             instance_owner: None,
+        }
+    }
+
+    fn param(name: &str) -> Param {
+        Param {
+            name: name.into(),
+            type_id: TypeId::DINT,
+            direction: ParamDirection::In,
+            address: None,
+            default: None,
+        }
+    }
+
+    fn local(name: &str, initializer: Option<Expr>) -> VarDef {
+        VarDef {
+            name: name.into(),
+            type_id: TypeId::DINT,
+            initializer,
+            retain: crate::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        }
+    }
+
+    fn external_local(name: &str) -> VarDef {
+        VarDef {
+            external: true,
+            ..local(name, None)
         }
     }
 }

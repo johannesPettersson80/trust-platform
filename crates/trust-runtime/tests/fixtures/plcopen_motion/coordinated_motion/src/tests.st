@@ -245,6 +245,7 @@ TEST_PROGRAM plcopen_motion_coordinated_motion_seed_probe_smoke
 VAR
     Group : AXES_GROUP_REF;
     Seed : TRUST_GROUP_TestSeed;
+    Probe : TRUST_GROUP_TestProbe;
 END_VAR
 
 Group.GroupId := UDINT#99;
@@ -267,7 +268,16 @@ Seed(
     ActualRY := REAL#0.0,
     ActualRZ := REAL#0.0
 );
-ASSERT_TRUE(TRUE);
+Probe(Group := Group);
+ASSERT_TRUE(Probe.Status = MC_GROUP_STATUS#mcGroupStandby);
+ASSERT_TRUE(Probe.ActiveCoordSystem = MC_COORD_SYSTEM#mcMCS);
+ASSERT_TRUE(Probe.CommandedX = REAL#0.0);
+ASSERT_TRUE(Probe.CommandedY = REAL#0.0);
+ASSERT_TRUE(Probe.CommandedZ = REAL#0.0);
+ASSERT_TRUE(Probe.ActualX = REAL#0.0);
+ASSERT_TRUE(Probe.ActualY = REAL#0.0);
+ASSERT_TRUE(Probe.ActualZ = REAL#0.0);
+ASSERT_TRUE(Probe.TransformIdentity);
 END_TEST_PROGRAM
 
 TEST_PROGRAM plcopen_motion_coordinated_motion_group_membership_admin_fbs

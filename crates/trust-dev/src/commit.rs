@@ -336,7 +336,7 @@ mod tests {
     const TRACE_TEST_ID: &str = "TEST_DEV_COMMIT_SCOPE_TRACE_001";
     const TRACE_CASE_FILE: &str = "verification/cases/plcopen_devtools/DEV_COMMIT_SCOPE_001.toml";
     const TRACE_CASE_DIGEST: &str =
-        "sha256:abc30f653558fd4c40ff0f4e325482641a1c6eafb25d584b1b71ca56f433d2ea";
+        "sha256:b9ef57776fc509e2a304a09b39f408bf53b82e983ee23443f6e80c35f75db70c";
 
     fn unique_temp_dir(prefix: &str) -> PathBuf {
         let nanos = SystemTime::now()
@@ -379,9 +379,7 @@ mod tests {
 
     #[test]
     fn developer_commit_scope_trace_cases() {
-        if !git_available() {
-            return;
-        }
+        assert!(git_available(), "git is required for commit-scope proof");
         let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .and_then(Path::parent)
@@ -586,9 +584,7 @@ mod tests {
 
     #[test]
     fn commit_scopes_commit_to_project_path_without_sweeping_pre_staged_files() {
-        if !git_available() {
-            return;
-        }
+        assert!(git_available(), "git is required for commit-scope proof");
         let repo = unique_temp_dir("commit-scope");
         init_repo(&repo);
         let project = repo.join("project");
@@ -623,9 +619,7 @@ mod tests {
 
     #[test]
     fn commit_rejects_pre_staged_path_inside_project_without_mutation() {
-        if !git_available() {
-            return;
-        }
+        assert!(git_available(), "git is required for commit-scope proof");
         let repo = unique_temp_dir("commit-staged-collision");
         init_repo(&repo);
         seed_repo(&repo);
@@ -662,9 +656,7 @@ mod tests {
 
     #[test]
     fn repository_root_commit_rejects_any_pre_staged_path() {
-        if !git_available() {
-            return;
-        }
+        assert!(git_available(), "git is required for commit-scope proof");
         let repo = unique_temp_dir("commit-root-staged-collision");
         init_repo(&repo);
         seed_repo(&repo);
@@ -693,9 +685,7 @@ mod tests {
 
     #[test]
     fn dry_run_with_pre_staged_collision_reports_without_mutation() {
-        if !git_available() {
-            return;
-        }
+        assert!(git_available(), "git is required for commit-scope proof");
         let repo = unique_temp_dir("commit-dry-run-collision");
         init_repo(&repo);
         seed_repo(&repo);
@@ -733,9 +723,7 @@ mod tests {
 
     #[test]
     fn commit_rechecks_in_scope_staging_after_initial_collision_check() {
-        if !git_available() {
-            return;
-        }
+        assert!(git_available(), "git is required for commit-scope proof");
         let repo = unique_temp_dir("commit-late-staged-collision");
         init_repo(&repo);
         seed_repo(&repo);
@@ -771,9 +759,7 @@ mod tests {
 
     #[test]
     fn git_status_decodes_quoted_porcelain_paths_for_summary() {
-        if !git_available() {
-            return;
-        }
+        assert!(git_available(), "git is required for commit-scope proof");
         let repo = unique_temp_dir("quoted-status");
         init_repo(&repo);
         let project = repo.join("project");
@@ -801,9 +787,7 @@ mod tests {
         use std::ffi::OsString;
         use std::os::unix::ffi::OsStringExt;
 
-        if !git_available() {
-            return;
-        }
+        assert!(git_available(), "git is required for commit-scope proof");
         let repo = unique_temp_dir("non-utf8-status");
         init_repo(&repo);
         let project = repo.join(OsString::from_vec(b"project-\xFF".to_vec()));

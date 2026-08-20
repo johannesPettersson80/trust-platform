@@ -10,6 +10,9 @@
 > install/deploy/lifecycle contract, plus a real milestone plan that marks what "complete IDE" requires.
 > **§0.5 and §0.6 are AUTHORITATIVE** and supersede the run-card / sidebar / deploy specifics in
 > §4/§6/§8/§10 where they differ.
+> For shipped behavior, `docs/specs/25-vscode-product-contract.md` and
+> `docs/PRODUCT_DECISIONS.md` supersede every conflicting statement in this
+> historical plan, including statements marked authoritative below.
 > v5 round 2 (Codex review #6, 2026-06-23): stale §10 "later/DEFER" text stripped; **§0.6.12 node-action
 > density / progressive-disclosure** rule added; host empty-state verb = **`Set up runtime…`** (gated
 > wizard); remote `Apply changes` locked to the runtime node (Run bar = sim-only); §0.6.11 contract-
@@ -17,7 +20,7 @@
 > v5 round 3 (Codex review #7, 2026-06-23): first-run contradiction fixed (no project → `Create project`,
 > never "Start simulating"); **remote-install artifact source DECIDED** = download matching `linux-<arch>`
 > from GitHub release + checksum/signature (§0.6.2); v1 wording fixed (v1 = complete local + connect-
-> existing, includes NEW Check + persistent-local backends); "Network Canvas HOST NODE" → "Devices &
+> existing, includes Compile + persistent-local backends); "Network Canvas HOST NODE" → "Devices &
 > Connections host node"; "three **runtime/control** surfaces + Project/HMI launchers"; **omit (not grey)
 > unshipped-backend actions**, hide empty inspector sections; **`Connect` also sets the Run target**;
 > `Logs` only when a log backend exists; **local persistent runtime v1 = VS Code-managed background
@@ -66,8 +69,8 @@ There are exactly **three runtime/control surfaces**, with **non-overlapping** j
 
 | Surface | Owns | Verbs |
 |---|---|---|
-| **Run bar** (top of the truST sidebar) | selecting a run target + truST's *own* connection to it | **Start/Stop** (simulator only — truST owns that process) · **Connect/Disconnect** (remote) · **Apply changes** (**sim only** — remote apply/restart/deploy lives on the runtime node, §0.6.6). Validity is a **passive `No known errors` line**, NOT a `Check` button until phase 8 (§0.5.6). |
-| **Devices & Connections** (the graph; user-facing name for the canvas — internal name "Network Canvas" stays) | the runtime/device **inventory** + each runtime's whole **lifecycle** | per node, **disclosed by state** (one primary + ≤2 secondary + the rest in the inspector — 0.6.12): **Set up runtime…** (empty host) → **Set as run target** · **Start/Stop/Restart** · **Connect/Disconnect** · **Send to PLC** (deploy) · **Update/Uninstall** · **Logs** · **Settings**. Full contract: **§0.6** (density rule: **§0.6.12**). |
+| **Run bar** (top of the truST sidebar) | authoritative Compile, selecting a run target + truST's *own* connection to it | **Compile** · **Start/Stop** (simulator only — truST owns that process) · **Connect/Disconnect** (remote) · **Apply changes** (**sim only** — remote apply/restart/deploy lives on the runtime node, §0.6.6). |
+| **Devices & Connections** (the graph; user-facing name for the canvas — internal name "Network Canvas" stays) | the runtime/device **inventory** + each runtime's whole **lifecycle** | per node, **disclosed by state** (one primary + ≤2 secondary + the rest in the inspector — 0.6.12): **Set up runtime…** (empty host) → **Set as run target** · **Start/Stop/Restart** · **Connect/Disconnect** · **Deploy** · **Update/Uninstall** · **Logs** · **Settings**. Full contract: **§0.6** (density rule: **§0.6.12**). |
 | **Live Values** | live values **+ controlled write/force** | live state · I/O · memory/globals · **Write value · Force · Unforce/Release** (read by default; write/force are deliberate, gated, visually distinct). **No runtime lifecycle** (no Start/Stop/Connect). |
 
 The error v3 still had (Claude's §6): the Run card showed **Start/Stop for a connected remote**. That
@@ -145,7 +148,8 @@ reveal/focus the Run bar (command `trust.home.focus`), **no Start/Stop**. Exact 
 **Devices & Connections is the Network Canvas** — implementers MUST build to its existing contract, not a
 shallow launcher: per-node setup gear, Browse/Connect, discover, ADS tag browsing, `comm.apply`, offline
 + live topology, and per-node Start/Stop/Connect/Disconnect (+ `Set as run target`, 0.5.11). See
-`docs/internal/design/network-canvas-contract-v4.md` + `communication-network-canvas-spec.md`.
+`docs/specs/25-vscode-product-contract.md` section 5 and the reviewed product
+decisions in `docs/PRODUCT_DECISIONS.md`.
 
 ### 0.5.5 Live Values = read + controlled write/force (NOT read-only)
 
@@ -186,10 +190,11 @@ adapter, F5 / the debug toolbar) — not duplicated in Live Values. So: values �
 → the standard debug UI. (Open: if stepping/breakpoints aren't yet exposed, that's a debug-adapter scope
 item, tracked separately — it does not change Live Values's value-centric ownership.)
 
-**Placement NOT locked** (needs a visual pass): a **Live Values** sidebar launcher opens/focuses the live
-view; the view itself may stay an editor tab or move to a bottom-panel view — pick whichever reads best
-at real size (I/O + force tables want width; the narrow sidebar is the wrong home for the data itself).
-**Auto-reveal on Start/Connect**, or a one-click prompt.
+**Placement LOCKED by the reviewed 2026-07-26 product decision:** a **Live Values**
+sidebar launcher opens/focuses the editor-area view. When launched from Devices
+& Connections it reuses the active editor group; other routes use column two.
+The narrow sidebar does not own the value table. **Auto-reveal on
+Start/Connect**, or a one-click prompt.
 
 ### 0.5.6 Decisions
 
@@ -199,23 +204,21 @@ at real size (I/O + force tables want width; the narrow sidebar is the wrong hom
   working copy to a user-chosen folder → open. Never docs links; the user never hand-edits `.toml` to start.
 - **HMI** → **adaptive** (full contract in **0.5.13**): `Open HMI` when present, `Create HMI` when
   absent. Never a dead/disabled button.
-- **Send to PLC / Deploy** → **now SPECIFIED, not deferred-vague** — full contract in **§0.6.5**
-  (`Send to PLC` is the user-facing name; checks/builds first, transfers only what changed, reports
-  applied-live / restart-required / deploy-required, confirms before touching a remote, **never a dead
-  button**). It is a **later phase** (0.5.8 phase 13) but **designed now**, not a vague future item; the
-  control is absent/disabled-with-reason until its backend lands.
+- **Deploy** → the reviewed 2026-07-26 product decision supersedes the earlier
+  `Send to PLC` label. The fixed sidebar action remains visible but disabled
+  with a plain reason until a real backend exists; no palette deploy command is
+  contributed before then. The eventual backend still checks/builds first,
+  transfers only what changed, reports the applied mode, and confirms before
+  changing a remote.
 - **Apply changes** (= hot reload, `trust-lsp.debug.reload` exists) → **in the Run bar, simulator-only**;
   **remote apply/restart/deploy lives on the runtime node/inspector** (SPECIFIED in §0.6.6: live-apply if
-  supported / restart-required / deploy-required → route to `Send to PLC` / hidden if unsupported) — never
+  supported / restart-required / deploy-required → route to `Deploy` / hidden if unsupported) — never
   a non-working `Apply changes`, never fake success, never a remote `Apply changes` in the Run bar.
-- **Check program** → **`Check program`** (not bare "Check"). **Backend requirement (does not exist
-  today — verified):** the current "compile" in the Runtime Pane only **aggregates LSP diagnostics**
-  (`vscode.languages.getDiagnostics`) + does an `stReload`; it is NOT an authoritative whole-project
-  compile. So: the passive `✓ No errors` line is **diagnostics-derived and must read as "no known
-  errors", NOT "build OK"**; a real **`Check program` = an authoritative project compile/check contract**
-  is required before the button can claim a clean build. `Start` compiles-then-runs the simulator
-  regardless. Until the contract lands, ship the passive diagnostics line + `Start`, and label any
-  explicit check honestly ("Re-check diagnostics", not "Build OK").
+- **Compile** → **`Compile`** (not bare "Check"). The landed
+  `trust-lsp.checkProgram` route owns authoritative project validation.
+  Before a real result, diagnostics-derived state must not claim "build OK";
+  successful and failed result wording is governed by
+  `docs/specs/25-vscode-product-contract.md`.
 - **Naming — DECIDED (Johannes 2026-06-23):** the graph area is **`Devices & Connections`** — it owns
   runtimes + field devices + comms links (ADS/OPC UA/MQTT/EtherCAT), i.e. software connections too, which
   "Hardware" alone undersold. The live-values area is **`Live Values`** (NOT "Monitor" — "Monitor"
@@ -246,15 +249,18 @@ is a **usable shell**, NOT the complete IDE — do not market it as done.
 **Release line — v1 = phases 0–10 / v2 = phases 11–15 (DECIDED 2026-06-23):**
 - **v1 (phases 0–10) = the complete local + connect-existing workflow:** create → simulate → run a
   persistent runtime locally → connect a *running* remote → see / write / force values → HMI. **v1 is NOT
-  "existing backends only"** — it includes **two NEW backend pieces** (real `Check program`, phase 8, and
-  the persistent-local-runtime launcher, phase 9); only **connect-existing** (10) reuses today's backend.
+  "existing backends only"** — it includes the landed authoritative `Compile`
+  route and persistent-local-runtime launcher; connect-existing reuses the
+  runtime status/fleet topology backend.
 - **v2 (phases 11–15) = install / deploy / operate *remote* targets:** SSH native install (11) · Docker
-  (12) · `Send to PLC` deploy (13) · update/uninstall/logs (14) · remote force/unforce (15).
+  (12) · `Deploy` (13) · update/uninstall/logs (14) · remote force/unforce (15).
 - **Until a v2 backend lands, its UI is omitted by default** (preferred — see 0.6.12) **or, when the
-  action should exist but is blocked, disabled-with-reason.** v1 does **not** get filled with greyed-out
-  v2 buttons: the `Set up runtime…` wizard simply omits Install/Docker (or tucks them under an explicit
-  "More ways to run…" preview), `Send to PLC` is absent, remote force/unforce is absent (0.5.16). No dead
-  buttons promising v2 in a v1 build.
+  action should exist but is blocked, disabled-with-reason.** v1 does **not**
+  get filled with greyed-out v2 buttons: the fixed Deploy slot is the reviewed
+  exception and remains disabled with its reason. Install-over-SSH and Docker
+  remain visible in runtime setup but disabled with concrete reasons, and
+  remote force/release is capability- and authorization-gated rather than
+  blanket-hidden. No dead button promises working v2 behavior.
 
 **Milestone A — Shell (run / select / connect / see-values / HMI):**
 0. **Packaging prerequisite** — bundle `trust-runtime` into each platform VSIX (§10). Unblocks offline
@@ -271,7 +277,7 @@ is a **usable shell**, NOT the complete IDE — do not market it as done.
 7. **`Set as run target`** on graph runtime nodes (shared selected-target source of truth, 0.5.11).
 
 **Milestone B — Trust the build + a real local runtime:**
-8. **`Check program`** — real authoritative project-compile contract (0.5.6 / 0.5.17) replacing the passive
+8. **`Compile`** — real authoritative project-compile contract (0.5.6 / 0.5.17) replacing the passive
    line. *(backend: runtime/LSP side)*
 9. **Persistent local runtime** — launcher + service lifecycle around the bundled `trust-runtime`
    (start/stop/restart/status/logs), runtime node + `Run target` entry (0.6.1). *(backend: runtime side)*
@@ -285,7 +291,7 @@ is a **usable shell**, NOT the complete IDE — do not market it as done.
     *(backend: runtime side)*
 
 **Milestone D — Deploy + operate:**
-13. **Send to PLC / deploy** — check→build→transfer-what-changed→report applied-live/restart/deploy-
+13. **Deploy** — check→build→transfer-what-changed→report applied-live/restart/deploy-
     required→verify; confirm before remote; never a dead button (0.6.5). *(backend: runtime side)*
 14. **Update / uninstall + remote logs** — version check, in-place update preserving config/tokens,
     rollback/recovery, uninstall, node logs (0.6.7 / 0.6.9). *(backend: runtime side)*
@@ -303,7 +309,7 @@ Don't market A as "done."
 
 These are **backend/visual** unknowns; the UI phases 1–7 ship without them.
 
-1. **`Check program` compile contract** — does an authoritative whole-project compile exist or is it
+1. **`Compile` contract** — does an authoritative whole-project compile exist or is it
    scheduled? (Blocks phase 8 only. Until then: passive `No known errors` line + `Start`-compiles-first.)
 2. **`Apply changes` change-detection** — how is "source changed since loaded" determined for the sim?
    (Confirm it stays sim-only; remotes hidden.)
@@ -349,7 +355,9 @@ drop a live connection as a side effect of a dropdown change.)
 - **`Connect` (on a node or the Run bar) ALSO sets that runtime as the active `Run target`** — connecting
   implies controlling it (subject to the §0.5.10 confirm-before-dropping-a-live-connection rule).
   **`Set as run target`** is the distinct "select without connecting" action.
-- **Persistence:** `workspaceState` key (e.g. `trust.runTarget`) — per VS Code window/workspace.
+- **Persistence:** `workspaceState` is primary. A workspace-keyed global-state
+  value and extension-global-storage file are durable repair fallbacks across
+  real VS Code restart.
 - **Validation on read:** if the stored target is not in the current inventory (removed/stale), reset to
   **Simulator** and notify once. (This is the pattern the v3 Run card already uses — reuse it.)
 - **Multi-root:** the selected target is **window-level**; the *program* that Start runs resolves from
@@ -360,7 +368,8 @@ drop a live connection as a side effect of a dropdown change.)
 
 - **Manifest** bundled in the VSIX (e.g. `media/examples/manifest.json`): array of
   `{ id, title, description, path (folder within the bundle), hardware: "none" | "twincat" | "raspberrypi" | …, tags[] }`.
-- **`Start from example`** → QuickPick of manifest entries, each showing a **hardware-requirement badge**:
+- **`Start from example`** → searchable gallery with combinable hardware and
+  category filters. Each card shows a hardware-requirement badge:
   `No hardware` · `Requires TwinCAT` · `Requires Raspberry Pi`.
 - **On pick:** prompt for a destination folder → **copy the example into an editable working copy** there
   → open it (focus `main.st`). The user **never hand-edits `.toml`** to start; a `No hardware` starter is
@@ -374,6 +383,7 @@ drop a live connection as a side effect of a dropdown change.)
   3. **TwinCAT ADS** — `Requires TwinCAT`; Devices & Connections pre-wired for an ADS device.
   4. **Raspberry Pi (EtherCAT / GPIO)** — `Requires Raspberry Pi`; field-IO example.
   5. **HMI starter** — `No hardware`; ships an HMI descriptor so `Open HMI` works out of the box.
+  6. **PLCopen Motion single axis** — `No hardware`; portable vendored motion-library starter.
 
 ### 0.5.13 HMI (detection + create)
 
@@ -429,17 +439,15 @@ reason rather than failing. (Locks 0.5.5 per value kind.)
   force/release use `stIoForce`/`stIoRelease` and still disable with a reason when the runtime denies
   the operation or the target lacks the capability.
 
-### 0.5.17 `Check program` — backend contract (for the owning side; gates phase 8)
+### 0.5.17 `Compile` — landed authoritative project validation
 
-Not just diagnostics aggregation. Specify before phase 8:
-- **Command/request name** (e.g. `trust-lsp.checkProgram` or an LSP/runtime `workspace/executeCommand`).
-- **Project-root resolution** (active ST file’s workspace folder → first folder; multi-root aware).
-- **Output shape:** `{ ok, errors, warnings, issues: [{ file, line, column, severity, message, code }] }`
-  — mappable to VS Code diagnostics + the Run-bar validity line.
-- **Scope:** does it check **generated ST + HMI descriptor + `*.toml` config** too, or only authored ST?
-  (A complete IDE should validate the whole runnable project, not just source.)
-- Until it exists, the Run bar shows the passive **`No known errors`** line (diagnostics-derived) and
-  `Start` compiles-then-runs the simulator.
+- **Command:** `trust-lsp.checkProgram`.
+- **Placement:** fixed sidebar action plus command-palette escape hatch.
+- **Result:** structured `{ ok, errors, warnings, issues, source_count }` data
+  drives exact passed/failed summaries and the four-button state projection.
+- **Truth boundary:** diagnostics-derived pre-result state never claims a
+  successful build. The current normative wording and project-shell behavior
+  are owned by `docs/specs/25-vscode-product-contract.md`.
 
 ## 0.6 Runtime installation, deployment & lifecycle — COMPLETE PLC IDE CONTRACT (AUTHORITATIVE)
 
@@ -521,17 +529,18 @@ control is **absent or disabled-with-reason**, never a dead/lying button.
 - **Add endpoint manually** (a host/runtime already running elsewhere) → **validate** via runtime
   `status` / `fleet.topology`; show **reachable / unreachable / auth-required / insufficient-role**
   honestly.
-- **Token** stored in **VS Code SecretStorage**, never plaintext settings (0.6.8).
+- **Token** stored in **VS Code SecretStorage**. The reviewed 2026-07-26
+  compatibility boundary permits only the explicitly labelled read-only
+  `trust.runtime.authTokenFallback`; new or endpoint-specific tokens are never
+  written to plaintext settings (0.6.8).
 - On success: appears in Devices & Connections **and** the `Run target` dropdown.
 - **Backend:** **mostly EXISTS today** (reuses `fleetEndpoints` + runtime status/`fleet.topology`; needs
   no local `trust-runtime`). Work = surface it on the host node + the SecretStorage token flow. Phase 10
   (lowest-risk real-target phase).
 
-### 0.6.5 Deploy / Send to PLC
-- **User-facing name: `Send to PLC`** (tooltip: *"Download the program to the target"*). **Justification:**
-  controls engineers say "download to the PLC" (TIA/CODESYS), but bare "Download" collides with
-  file-download in a code editor; "Deploy" is devops jargon. **`Send to PLC`** is unambiguous,
-  action-oriented, collision-free — with the "download" tooltip to bridge TIA/CODESYS muscle memory.
+### 0.6.5 Deploy
+- **User-facing name: `Deploy`**. The reviewed 2026-07-26 product decision
+  supersedes the earlier `Send to PLC` wording.
 - **Must check/build first** (0.5.17) — never send an unbuildable program.
 - **Transfer only what's needed** — the program artifact (`program.stbc`) + changed `*.toml` config /
   runtime files; not a blind full copy.
@@ -539,8 +548,10 @@ control is **absent or disabled-with-reason**, never a dead/lying button.
   (files changed beyond hot-reload) — surfaced to the user, not guessed (0.6.6).
 - **Confirm before changing a remote target** (explicit per-target confirmation, 0.6.8).
 - **Report success/failure clearly** (0.6.9).
-- **Never a dead `Send to PLC` button:** the action is **absent/disabled-with-reason** unless it can do a
-  real transfer to the selected target (e.g. hidden for the Simulator, which needs no transfer).
+- **Never imply backend success:** until deployment exists, the fixed action is
+  visible but disabled with `Deploy is not available for this target yet.` No
+  palette action is contributed. Once implemented, capability-dependent
+  disabled/hidden states remain honest for the selected target.
 - **Backend (owning side, NEW):** a deploy/transfer contract (build → transfer → apply/restart/redeploy →
   verify). Phase 13.
 
@@ -554,7 +565,7 @@ control is **absent or disabled-with-reason**, never a dead/lying button.
   the connected runtime's capability —
   - **live-apply** if it supports online change → `Apply changes`;
   - **restart-required** if it can't hot-apply but the artifact is already deployed → `Restart required`;
-  - **deploy-required** if files changed beyond what's on the target → route to **`Send to PLC`** (0.6.5);
+  - **deploy-required** if files changed beyond what's on the target → route to **Deploy** (0.6.5);
   - **hidden** if the target exposes no apply path at all.
 - **Never fake success**, never a non-working `Apply changes`. Today attach-mode blocks remote reload ⇒
   until the live-apply/deploy backend lands, a connected remote shows **restart-required / deploy-required
@@ -572,7 +583,13 @@ control is **absent or disabled-with-reason**, never a dead/lying button.
 ### 0.6.8 Security (gates every remote install/deploy/lifecycle flow)
 - **Never store or collect plaintext SSH passwords.** Prefer the OS **ssh-agent** or a **user-driven
   terminal**; the extension must not handle SSH passwords itself.
-- **Runtime auth tokens → VS Code SecretStorage**, never plaintext settings / `*.toml` / logs.
+- **Runtime auth tokens → VS Code SecretStorage.** The only plaintext-settings
+  exception is the explicitly labelled read-only
+  `trust.runtime.authTokenFallback` compatibility input; the extension never
+  writes tokens there. A managed runtime's generated bootstrap token MAY be
+  read from that runtime project's `runtime.toml` solely for immediate
+  SecretStorage import before attach. Example fixtures and logs remain
+  token-free.
 - **Verify copied/downloaded artifacts by checksum + signature** before any install/update.
 - **Explicit confirmation before any remote install / update / deploy / stop** (per host/target).
 - **Never expose secrets** in logs, topology, screenshots, or tests — the visual gate + contract tests
@@ -603,10 +620,10 @@ control is **absent or disabled-with-reason**, never a dead/lying button.
 | Persistent local runtime | 9 | **NEW** launcher/service lifecycle | runtime side |
 | Remote native install (SSH) | 11 | **NEW** `host.detect`, `runtime.install.native`, service, logs | runtime side |
 | Docker runtime | 12 | **NEW** `runtime.install.docker` + container lifecycle | runtime side |
-| Send to PLC / deploy | 13 | **NEW** deploy/transfer + apply-mode contract | runtime side |
+| Deploy | 13 | **NEW** deploy/transfer + apply-mode contract | runtime side |
 | Update / uninstall / remote logs | 14 | **NEW** `runtime.update` / `uninstall` / `logs` | runtime side |
 | Remote Live Values force/unforce | 15 | **exists** via attach-safe `stIoForce`/`stIoRelease` forwarding to runtime-control `io.force`/`io.unforce` (0.5.5) | runtime side |
-| Real `Check program` | 8 | **NEW** authoritative project compile (0.5.17) | runtime/LSP side |
+| Real `Compile` | 8 | **NEW** authoritative project compile (0.5.17) | runtime/LSP side |
 
 Until each **NEW** contract lands, its UI control is **absent or disabled-with-reason** (0.6.0). v1
 real-target capability ships from the rows that already exist — **Simulate + Connect-existing**; the
@@ -653,7 +670,7 @@ from becoming the cluttered UI the whole overhaul exists to prevent.
 | Host, no runtime | **`Set up runtime…`** (wizard, 0.6.0) | — | host detect/settings |
 | Runtime installed, stopped | **Start** | Set as run target | Logs · Settings · Update · Uninstall |
 | Runtime running, not connected | **Connect** | Set as run target · Logs* | Deploy · Restart · Settings · Update · Uninstall |
-| Runtime connected | **Open Live Values** | Disconnect | Deploy (`Send to PLC` / apply / restart) · Logs* · Settings · Update · Uninstall |
+| Runtime connected | **Open Live Values** | Disconnect | Deploy (apply / restart / transfer) · Logs* · Settings · Update · Uninstall |
 | Runtime unhealthy / errored | **Logs*** (see the cause) | Restart | Settings · Update · Uninstall |
 
 - **`Connect` also sets that runtime as the active `Run target`** (connecting means "I want to control
@@ -665,7 +682,7 @@ from becoming the cluttered UI the whole overhaul exists to prevent.
   to `Restart` / `Settings` + the detected error reason.
 - **Update / Uninstall / advanced settings / logs live in the inspector** unless one of them *is* the
   current next action (e.g. unhealthy → `Logs` is primary, when a log backend exists).
-- **Remote `Apply changes` / `Restart` / `Send to PLC` live in the inspector's `Deploy` section** (0.6.6),
+- **Remote `Apply changes` / `Restart` / `Deploy` live in the inspector's `Deploy` section** (0.6.6),
   never on the Run bar.
 
 ## 0.7 Project kinds - Rust-first shell extension
@@ -753,8 +770,10 @@ Order matters: the canvas is already self-contained (P2 done — no `communicati
 - **6 ADS palette commands** → keep as **hidden internal escapes** (support/debug); all *user-facing*
   ADS actions become Canvas actions (diagnose/route/import). Respect roles: browse/import = Engineer,
   route-add = Admin.
-- **trust-twin** → **demote, do not cut** (it's a real differentiator) — under an advanced
-  "3D / Digital Twin" entry, off the main runtime/comms path.
+- **trust-twin VS Code panel** → **retired** by the reviewed 2026-07-26 product
+  decision. A future digital-twin product may return through a separately
+  reviewed surface; this extension does not activate, contribute, or package
+  the retired panel.
 
 ## 6. Run card — SUPERSEDED by §0.5.3 / §0.5.10
 
@@ -771,7 +790,7 @@ Order matters: the canvas is already self-contained (P2 done — no `communicati
 
 > Withdrawn — its #4 ("status bar + editor toolbar FIRST") and #5 ("activity-bar **home**") are the drift
 > v4 removes. Still-valid points are folded into §0.5: Communication panel removed (kept hidden until
-> canvas parity); ADS six hidden escapes; trust-twin demoted off the run/comms path; visual editors via
+> canvas parity); ADS six hidden escapes; the VS Code trust-twin panel retired; visual editors via
 > `New diagram…` under Project (0.5.14). Sequencing is now §0.5.8 (packaging → palette cleanup → run bar
 > → sidebar → monitor → starters → apply-changes → set-as-target → check-program).
 
@@ -852,7 +871,7 @@ items are NEW work for v4.
   the backend can actually do it (honest per node type, 0.6.11); `Logs` only when a log backend exists. ★
 - **The `Run target` dropdown is populated from the Devices & Connections inventory** (no separate list,
   no Add/Install/Connect entries in the dropdown). ★
-- **`Send to PLC` never appears unless it can do a real transfer** to the selected target (absent for the
+- **Deploy stays disabled with a reason until it can do a real transfer** to the selected target (disabled for the
   Simulator; disabled-with-reason when no deploy backend). ★
 - **Live Values keeps write / force / unforce / `Release all forces`** (0.5.16) — forced indicator +
   per-write audit feedback intact. ★
@@ -864,9 +883,9 @@ items are NEW work for v4.
   wording in user-facing UI · no fabricated green/connected state. ★
 
 Each phase: build → verify (headless contract tests + the above) → live Ext-Dev-Host pass with the visual
-gate → iterate. Landed backend contracts (`trust-runtime` bundling, real `Check program`, persistent
+gate → iterate. Landed backend contracts (`trust-runtime` bundling, real `Compile`, persistent
 local runtime, remote/managed I/O force/release) must light up their matching UI honestly. Remaining
-backend contracts (`host.detect`/install native+Docker, deploy/`Send to PLC`, update/uninstall/logs) are
+backend contracts (`host.detect`/install native+Docker, Deploy, update/uninstall/logs) are
 tracked with the owning side per 0.6.11; their matching UI ships absent/disabled-with-reason until each
 lands.
 
@@ -958,7 +977,7 @@ action: OS/arch, reachable?, Docker available?, control port, web port, status v
 - **Run a persistent local runtime** — packaging fix + a NEW launcher/service lifecycle around
   trust-runtime → **phase 9** (not free; a real workflow).
 - **Higher-risk but REQUIRED for "complete IDE" (designed in §0.6, built in their phases, gated on the
-  security work below):** remote SSH native install → **phase 11**; Docker → **phase 12**; Send to PLC /
+  security work below):** remote SSH native install → **phase 11**; Docker → **phase 12**; Deploy /
   deploy → **phase 13**; update / uninstall / logs → **phase 14**. These are **no longer "deferred as a
   vague future item"** — they are specified contracts with named backend owners (0.6.11).
 
@@ -966,7 +985,9 @@ action: OS/arch, reachable?, Docker available?, control port, web port, status v
 the OS ssh-agent / a user-driven terminal (the extension must not handle passwords). Remote install
 scripts — signed + checksummed artifacts, explicit per-host confirmation. Docker socket — privileged,
 confirm. Downloads — checksum + signature mandatory (avoided in v1: binaries are bundled). Control
-tokens — VS Code SecretStorage, never plaintext settings. ⇒ v1 (local + connect) touches NONE of these.
+tokens — VS Code SecretStorage, with only the reviewed read-only
+`trust.runtime.authTokenFallback` compatibility input in plaintext settings.
+⇒ v1 (local + connect) touches none of the install/deploy credential flows.
 
 **Terminology:** "Install runtime" → "Run on a device" / "Deploy"; lead with WHERE it runs (This
 computer / Raspberry Pi / IPC / Docker), native-vs-Docker is a secondary choice; keep "Host" in-canvas

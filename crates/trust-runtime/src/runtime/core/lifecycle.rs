@@ -1,8 +1,17 @@
 impl Runtime {
+    pub(crate) fn register_edge_inputs(
+        &mut self,
+        owner: impl Into<SmolStr>,
+        inputs: Vec<crate::program_model::EdgeInput>,
+    ) {
+        self.edge_inputs.insert(owner.into(), inputs);
+    }
+
     /// Create a new runtime with default profile and empty storage.
     #[must_use]
     pub fn new() -> Self {
         let mut runtime = Self {
+            resource_name: SmolStr::new("RESOURCE"),
             execution_backend: crate::execution_backend::ExecutionBackend::BytecodeVm,
             vm_module: None,
             profile: DateTimeProfile::default(),
@@ -23,6 +32,7 @@ impl Runtime {
             classes: IndexMap::new(),
             interfaces: IndexMap::new(),
             programs: IndexMap::new(),
+            edge_inputs: IndexMap::new(),
             globals: IndexMap::new(),
             tasks: Vec::new(),
             ready_tasks_scratch: Vec::new(),
@@ -235,10 +245,7 @@ impl Runtime {
     }
 
     /// Record a contained resource-cycle panic as a visible runtime fault.
-    pub fn resource_panic(
-        &mut self,
-        message: impl Into<smol_str::SmolStr>,
-    ) -> error::RuntimeError {
+    pub fn resource_panic(&mut self, message: impl Into<smol_str::SmolStr>) -> error::RuntimeError {
         let err = error::RuntimeError::ResourcePanic(message.into());
         self.apply_fault(
             err,
@@ -292,5 +299,4 @@ impl Runtime {
         }
         reported
     }
-
 }

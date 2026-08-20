@@ -50,13 +50,18 @@ impl SymbolCollector<'_> {
         qualified_name: SmolStr,
         name_range: TextRange,
     ) {
+        let errors_before_formation = self.diagnostics.error_count();
         // Create TYPE symbol first with placeholder type_id, so that nested symbols
         // (like enum values) can have this symbol as their parent
+        let predeclared_type_id = self
+            .table
+            .lookup_registered_type_name(qualified_name.as_str())
+            .unwrap_or(TypeId::UNKNOWN);
         let mut symbol = Symbol::new(
             SymbolId::UNKNOWN,
             type_name,
             SymbolKind::Type,
-            TypeId::UNKNOWN, // Placeholder, will be updated below
+            predeclared_type_id,
             name_range,
         );
         symbol.parent = self.current_parent();
@@ -107,10 +112,20 @@ impl SymbolCollector<'_> {
         }
 
         if let Some(type_decl) = type_def.parent() {
-            for initializer in type_decl.children().filter(|child| {
-                is_expression_kind(child.kind())
-                    && child.text_range().start() >= type_def.text_range().end()
-            }) {
+            let initializer = type_decl
+                .children()
+                .skip_while(|child| child.text_range() != type_def.text_range())
+                .skip(1)
+                .take_while(|child| child.kind() != SyntaxKind::Name)
+                .find(|child| is_expression_kind(child.kind()));
+            if let Some(initializer) = initializer {
+                if self.table.is_overlapping_struct_type(type_id) {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        initializer.text_range(),
+                        "STRUCT OVERLAP types cannot declare an explicit initializer",
+                    );
+                }
                 self.check_aggregate_initializer_fields(type_id, &initializer);
                 self.check_required_default_expression(type_id, &initializer);
                 let initializer_id =
@@ -122,6 +137,50 @@ impl SymbolCollector<'_> {
                     .set_type_default_initializer(type_id, initializer_id);
             }
         }
+
+        if self.diagnostics.error_count() > errors_before_formation
+            || self.type_formation_is_incomplete(type_id, &mut FxHashSet::default())
+        {
+            self.table.unpublish_type(type_id);
+        }
+    }
+
+    fn type_formation_is_incomplete(
+        &self,
+        type_id: TypeId,
+        visiting: &mut FxHashSet<TypeId>,
+    ) -> bool {
+        if type_id == TypeId::UNKNOWN {
+            return true;
+        }
+        if !visiting.insert(type_id) {
+            return false;
+        }
+
+        let incomplete = match self.table.type_by_id(type_id) {
+            Some(Type::Alias { target, .. }) => {
+                self.type_formation_is_incomplete(*target, visiting)
+            }
+            Some(Type::Array { element, .. }) => {
+                self.type_formation_is_incomplete(*element, visiting)
+            }
+            Some(Type::Struct { fields, .. }) => fields
+                .iter()
+                .any(|field| self.type_formation_is_incomplete(field.type_id, visiting)),
+            Some(Type::Union { variants, .. }) => variants
+                .iter()
+                .any(|variant| self.type_formation_is_incomplete(variant.type_id, visiting)),
+            Some(Type::Pointer { target } | Type::Reference { target }) => {
+                self.type_formation_is_incomplete(*target, visiting)
+            }
+            Some(Type::Subrange { base, .. } | Type::Enum { base, .. }) => {
+                self.type_formation_is_incomplete(*base, visiting)
+            }
+            Some(_) => false,
+            None => true,
+        };
+        visiting.remove(&type_id);
+        incomplete
     }
 
     fn register_imported_carrier_type(
@@ -292,6 +351,11 @@ impl SymbolCollector<'_> {
 
     pub(super) fn collect_struct_type(&mut self, node: &SyntaxNode, name: SmolStr) -> TypeId {
         let mut fields = Vec::new();
+        let mut seen_fields = FxHashMap::default();
+        let is_overlap = node
+            .children_with_tokens()
+            .filter_map(|element| element.into_token())
+            .any(|token| token.kind() == SyntaxKind::KwOverlap);
 
         for var_decl in node.children().filter(|n| n.kind() == SyntaxKind::VarDecl) {
             let (field_names, field_type, direct_address) = self.extract_var_decl_info(&var_decl);
@@ -303,12 +367,30 @@ impl SymbolCollector<'_> {
                     })
             });
             if let Some(expr) = initializer.as_ref() {
+                if is_overlap {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        expr.text_range(),
+                        "STRUCT OVERLAP members cannot declare initializers",
+                    );
+                }
                 self.check_string_initializer(field_type, expr);
                 self.check_aggregate_initializer_fields(field_type, expr);
                 self.check_required_default_expression(field_type, expr);
             }
             for (field_name, range) in field_names {
                 self.validate_identifier(&field_name, range, false);
+                let key = field_name.to_ascii_uppercase();
+                if let Some(previous) = seen_fields.insert(key, range) {
+                    self.diagnostics.add(
+                        Diagnostic::error(
+                            DiagnosticCode::DuplicateDeclaration,
+                            range,
+                            format!("duplicate structure field '{}'", field_name),
+                        )
+                        .with_related(previous, "previously declared here"),
+                    );
+                }
                 fields.push(StructField {
                     name: field_name,
                     type_id: field_type,
@@ -318,11 +400,62 @@ impl SymbolCollector<'_> {
             }
         }
 
-        self.table.register_struct_type(name, fields)
+        self.validate_struct_relative_layout(&fields, is_overlap, node.text_range());
+        let type_id = self.table.register_struct_type(name, fields);
+        if is_overlap {
+            self.table.register_overlapping_struct_type(type_id);
+        }
+        type_id
+    }
+
+    fn validate_struct_relative_layout(
+        &mut self,
+        fields: &[StructField],
+        is_overlap: bool,
+        range: TextRange,
+    ) {
+        if is_overlap {
+            return;
+        }
+
+        let mut occupied = Vec::new();
+        for field in fields {
+            let Some(address) = field.address.as_deref() else {
+                continue;
+            };
+            let Some(bit_width) = self.type_storage_bit_width(field.type_id) else {
+                continue;
+            };
+            let Some((start, end)) = relative_address_bit_interval(address, bit_width) else {
+                continue;
+            };
+            if occupied
+                .iter()
+                .any(|(other_start, other_end)| start < *other_end && *other_start < end)
+            {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    range,
+                    "relative structure fields overlap; declare STRUCT OVERLAP to share backing bits",
+                );
+                return;
+            }
+            occupied.push((start, end));
+        }
+    }
+
+    fn type_storage_bit_width(&self, type_id: TypeId) -> Option<u128> {
+        let resolved = self.table.resolve_alias_type(type_id);
+        if matches!(self.table.type_by_id(resolved), Some(Type::Bool)) {
+            return Some(1);
+        }
+        self.sizeof_type_bytes(resolved)
+            .and_then(|bytes| u128::from(bytes).checked_mul(8))
     }
 
     pub(super) fn collect_union_type(&mut self, node: &SyntaxNode, name: SmolStr) -> TypeId {
         let mut variants = Vec::new();
+        let mut seen_variants = FxHashMap::default();
 
         for var_decl in node.children().filter(|n| n.kind() == SyntaxKind::VarDecl) {
             let (field_names, field_type, direct_address) = self.extract_var_decl_info(&var_decl);
@@ -340,6 +473,17 @@ impl SymbolCollector<'_> {
             }
             for (field_name, range) in field_names {
                 self.validate_identifier(&field_name, range, false);
+                let key = field_name.to_ascii_uppercase();
+                if let Some(previous) = seen_variants.insert(key, range) {
+                    self.diagnostics.add(
+                        Diagnostic::error(
+                            DiagnosticCode::DuplicateDeclaration,
+                            range,
+                            format!("duplicate union variant '{}'", field_name),
+                        )
+                        .with_related(previous, "previously declared here"),
+                    );
+                }
                 variants.push(UnionVariant {
                     name: field_name,
                     type_id: field_type,
@@ -359,6 +503,9 @@ impl SymbolCollector<'_> {
         let mut base_type = TypeId::INT; // Default base type
 
         // Check for base type specification
+        let has_explicit_base = node
+            .children()
+            .any(|child| child.kind() == SyntaxKind::TypeRef);
         if let Some(type_ref) = node.children().find(|n| n.kind() == SyntaxKind::TypeRef) {
             base_type = self.resolve_type_from_ref(&type_ref);
         }
@@ -385,7 +532,13 @@ impl SymbolCollector<'_> {
             }
         }
 
-        let type_id = self.table.register_enum_type(name, base_type, values);
+        self.check_enum_value_ranges(base_type, &value_symbols);
+        let type_id = if has_explicit_base {
+            self.table
+                .register_named_value_type(name, base_type, values)
+        } else {
+            self.table.register_enum_type(name, base_type, values)
+        };
         for (value_name, value, range) in value_symbols {
             let mut symbol = Symbol::new(
                 SymbolId::UNKNOWN,
@@ -406,6 +559,9 @@ impl SymbolCollector<'_> {
         let mut next_value: i64 = 0;
         let mut base_type = TypeId::INT;
 
+        let has_explicit_base = node
+            .children()
+            .any(|child| child.kind() == SyntaxKind::TypeRef);
         if let Some(type_ref) = node.children().find(|n| n.kind() == SyntaxKind::TypeRef) {
             base_type = self.resolve_type_from_ref(&type_ref);
         }
@@ -425,7 +581,42 @@ impl SymbolCollector<'_> {
             }
         }
 
-        self.table.register_enum_type(name, base_type, values)
+        if has_explicit_base {
+            self.table
+                .register_named_value_type(name, base_type, values)
+        } else {
+            self.table.register_enum_type(name, base_type, values)
+        }
+    }
+
+    fn check_enum_value_ranges(&mut self, base_type: TypeId, values: &[(SmolStr, i64, TextRange)]) {
+        let resolved = self.table.resolve_alias_type(base_type);
+        let bounds = match self.table.type_by_id(resolved) {
+            Some(Type::SInt) => Some((i64::from(i8::MIN), i64::from(i8::MAX))),
+            Some(Type::Int) => Some((i64::from(i16::MIN), i64::from(i16::MAX))),
+            Some(Type::DInt) => Some((i64::from(i32::MIN), i64::from(i32::MAX))),
+            Some(Type::LInt) => Some((i64::MIN, i64::MAX)),
+            Some(Type::USInt) => Some((0, i64::from(u8::MAX))),
+            Some(Type::UInt) => Some((0, i64::from(u16::MAX))),
+            Some(Type::UDInt) => Some((0, i64::from(u32::MAX))),
+            Some(Type::ULInt) => Some((0, i64::MAX)),
+            _ => None,
+        };
+        let Some((lower, upper)) = bounds else {
+            return;
+        };
+        for (name, value, range) in values {
+            if *value < lower || *value > upper {
+                self.diagnostics.error(
+                    DiagnosticCode::OutOfRange,
+                    *range,
+                    format!(
+                        "named value '{}'={} is outside base type range {}..{}",
+                        name, value, lower, upper
+                    ),
+                );
+            }
+        }
     }
 
     pub(super) fn extract_enum_value(&mut self, node: &SyntaxNode) -> Option<i64> {
@@ -543,7 +734,16 @@ impl SymbolCollector<'_> {
             values.push(value);
         }
         if values.len() >= 2 {
-            Some((values[0], values[1]))
+            if values[0] > values[1] {
+                self.diagnostics.error(
+                    DiagnosticCode::OutOfRange,
+                    node.text_range(),
+                    "array dimension lower bound must not exceed upper bound",
+                );
+                None
+            } else {
+                Some((values[0], values[1]))
+            }
         } else if values.len() == 1 {
             Some((0, values[0]))
         } else {
@@ -702,7 +902,26 @@ impl SymbolCollector<'_> {
                     return None;
                 }
                 Err(err) => {
-                    self.report_const_eval_error(err, child.text_range());
+                    let mutable_name = match &err {
+                        ConstEvalError::UndefinedName(name)
+                            if self
+                                .table
+                                .resolve(name.as_str(), self.table.current_scope())
+                                .is_some() =>
+                        {
+                            Some(name)
+                        }
+                        _ => None,
+                    };
+                    if let Some(name) = mutable_name {
+                        self.diagnostics.error(
+                            DiagnosticCode::InvalidOperation,
+                            child.text_range(),
+                            format!("subrange bound '{name}' must be a constant expression"),
+                        );
+                    } else {
+                        self.report_const_eval_error(err, child.text_range());
+                    }
                     return None;
                 }
             }
@@ -772,17 +991,22 @@ impl SymbolCollector<'_> {
             }
         }
 
-        let symbol_id = self.table.resolve_qualified(parts);
-        if let Some(symbol) = symbol_id.and_then(|id| self.table.get(id)) {
-            if symbol.is_type() {
-                return SemanticOutcome::Resolved(symbol.type_id);
+        let current_namespace = self.current_namespace_path();
+        for prefix_len in (0..=current_namespace.len()).rev() {
+            let mut candidate = current_namespace[..prefix_len].to_vec();
+            candidate.extend_from_slice(parts);
+            let symbol_id = self.table.resolve_qualified(&candidate);
+            if let Some(symbol) = symbol_id.and_then(|id| self.table.get(id)) {
+                if symbol.is_type() {
+                    return SemanticOutcome::Resolved(symbol.type_id);
+                }
+                return SemanticOutcome::WrongKind {
+                    symbol_id: symbol.id,
+                    expected: SemanticRole::Type,
+                    actual: collector_semantic_role_for_symbol(symbol),
+                    range,
+                };
             }
-            return SemanticOutcome::WrongKind {
-                symbol_id: symbol.id,
-                expected: SemanticRole::Type,
-                actual: collector_semantic_role_for_symbol(symbol),
-                range,
-            };
         }
         self.resolve_project_type_path_outcome(parts, range)
     }
@@ -1019,4 +1243,29 @@ fn subrange_contains_star(node: &SyntaxNode) -> bool {
     node.descendants_with_tokens()
         .filter_map(|element| element.into_token())
         .any(|token| token.kind() == SyntaxKind::Star)
+}
+
+fn relative_address_bit_interval(address: &str, bit_width: u128) -> Option<(u128, u128)> {
+    let address = address.strip_prefix('%')?;
+    let (unit, offset) = address.split_at(1);
+    if !matches!(
+        unit,
+        "X" | "x" | "B" | "b" | "W" | "w" | "D" | "d" | "L" | "l"
+    ) {
+        return None;
+    }
+    let (byte, bit) = match offset.split_once('.') {
+        Some((byte, bit)) if unit.eq_ignore_ascii_case("X") => {
+            let bit = bit.parse::<u8>().ok()?;
+            if bit > 7 {
+                return None;
+            }
+            (byte.parse::<u128>().ok()?, u128::from(bit))
+        }
+        Some(_) => return None,
+        None => (offset.parse::<u128>().ok()?, 0),
+    };
+    let start = byte.checked_mul(8)?.checked_add(bit)?;
+    let end = start.checked_add(bit_width)?;
+    Some((start, end))
 }

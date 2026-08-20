@@ -114,17 +114,29 @@ END_PROGRAM
 
 pub(super) fn build_hmi_script_bundle(js_path: &Path) -> PathBuf {
     let root = js_path.parent().expect("hmi.js parent");
-    let modules_root = root.join("modules");
+    let repository_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let mut bundled = String::new();
     for module_path in HMI_MODULE_PATHS {
         let relative = module_path.trim_start_matches('/');
         let module_file = root.join(relative.strip_prefix("hmi/").unwrap_or(relative));
-        let content = resolve_module_with_parts(&module_file, &modules_root)
-            .unwrap_or_else(|| panic!("read {}", module_file.display()));
+        let content = repository_source_tree_read_to_string!(
+            (&module_file, &repository_root),
+            roots = ["crates/trust-runtime/src/web/ui"],
+            extension = "js",
+        )
+        .unwrap_or_else(|_| panic!("read {}", module_file.display()));
         bundled.push_str(content.as_str());
         bundled.push('\n');
     }
-    bundled.push_str(resolve_hmi_app_source(js_path, root).as_str());
+    bundled.push_str(
+        repository_source_tree_read_to_string!(
+            (js_path, &repository_root),
+            roots = ["crates/trust-runtime/src/web/ui"],
+            extension = "js",
+        )
+        .expect("read hmi.js")
+        .as_str(),
+    );
 
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -133,75 +145,6 @@ pub(super) fn build_hmi_script_bundle(js_path: &Path) -> PathBuf {
     let bundle_path = std::env::temp_dir().join(format!("trust-hmi-script-bundle-{unique}.js"));
     fs::write(&bundle_path, bundled).expect("write hmi script bundle");
     bundle_path
-}
-
-fn resolve_hmi_app_source(js_path: &Path, root: &Path) -> String {
-    let app = fs::read_to_string(js_path).expect("read hmi.js");
-    if !app.contains("Source moved into chunk files") {
-        return app;
-    }
-    let mut bundled = String::new();
-    for chunk_path in HMI_APP_CHUNK_PATHS {
-        let source_path = root.join(chunk_path);
-        let chunk_source = fs::read_to_string(&source_path)
-            .unwrap_or_else(|_| panic!("read {}", source_path.display()));
-        bundled.push_str(chunk_source.as_str());
-        bundled.push('\n');
-    }
-    bundled
-}
-
-fn resolve_module_with_parts(module_file: &Path, modules_root: &Path) -> Option<String> {
-    let file_name = module_file.file_name()?.to_str()?;
-    let mut source = fs::read_to_string(module_file).ok()?;
-    if file_name.contains("-part-") {
-        return Some(source);
-    }
-
-    let stem = file_name.strip_suffix(".js")?;
-    let prefix = format!("{stem}-part-");
-    let mut parts: Vec<(String, String)> = fs::read_dir(modules_root)
-        .ok()?
-        .filter_map(Result::ok)
-        .filter_map(|entry| {
-            let entry_name = entry.file_name().to_string_lossy().to_string();
-            if !entry_name.starts_with(&prefix) || !entry_name.ends_with(".js") {
-                return None;
-            }
-            fs::read_to_string(entry.path())
-                .ok()
-                .map(|content| (entry_name, content))
-        })
-        .collect();
-
-    parts.sort_by(|(left_name, _), (right_name, _)| {
-        module_part_sort_key(stem, left_name)
-            .cmp(&module_part_sort_key(stem, right_name))
-            .then_with(|| left_name.cmp(right_name))
-    });
-
-    for (_, part_source) in parts {
-        source.push('\n');
-        source.push_str(&part_source);
-    }
-    Some(source)
-}
-
-fn module_part_sort_key(stem: &str, file_name: &str) -> Vec<u32> {
-    let trimmed = file_name.strip_suffix(".js").unwrap_or(file_name);
-    let suffix = trimmed.strip_prefix(stem).unwrap_or(trimmed);
-    let mut key = Vec::new();
-    for segment in suffix.split("-part-").skip(1) {
-        let digits: String = segment
-            .chars()
-            .take_while(|ch| ch.is_ascii_digit())
-            .collect();
-        key.push(digits.parse::<u32>().unwrap_or(u32::MAX));
-    }
-    if key.is_empty() {
-        key.push(u32::MAX);
-    }
-    key
 }
 
 pub(super) fn run_node_hmi_script(js_path: &Path, script: &str, context: &str) {
@@ -221,12 +164,6 @@ pub(super) fn run_node_hmi_script(js_path: &Path, script: &str, context: &str) {
         String::from_utf8_lossy(&output.stderr)
     );
 }
-
-pub(super) const HMI_APP_CHUNK_PATHS: [&str; 3] = [
-    "chunks/hmi-js/hmi-01.js",
-    "chunks/hmi-js/hmi-02.js",
-    "chunks/hmi-js/hmi-03.js",
-];
 
 pub(super) const HMI_MODULE_PATHS: [&str; 10] = [
     "/hmi/modules/hmi-model-descriptor.js",

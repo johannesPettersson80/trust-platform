@@ -8,6 +8,14 @@ type InstanceInitContext<'a> = (
 );
 
 impl Runtime {
+    pub(crate) fn resource_name(&self) -> &SmolStr {
+        &self.resource_name
+    }
+
+    pub(crate) fn set_resource_name(&mut self, resource_name: SmolStr) {
+        self.resource_name = resource_name;
+    }
+
     /// Mutable access to variable storage (temporary API).
     pub fn storage_mut(&mut self) -> &mut VariableStorage {
         &mut self.storage
@@ -467,6 +475,11 @@ impl Runtime {
         let Some(binding) = self.access.get(name) else {
             return Err(error::RuntimeError::UndefinedVariable(name.into()));
         };
+        if !binding.writable {
+            return Err(error::RuntimeError::InvalidConfig(
+                format!("VAR_ACCESS '{name}' is read-only").into(),
+            ));
+        }
         if let Some(partial) = binding.partial {
             let current = self
                 .storage

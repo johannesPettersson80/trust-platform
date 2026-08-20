@@ -224,7 +224,16 @@ def validate_report_files(
         }
         if len(tests_by_id) != len(tests):
             failures.append("test catalog IDs must be present and unique")
-        failures.extend(validate_catalog_malformed_bindings(tests=tests_by_id, taxonomy=taxonomy))
+        failures.extend(
+            validate_catalog_malformed_bindings(
+                tests={
+                    test_id: record
+                    for test_id, record in tests_by_id.items()
+                    if record.get("area") == taxonomy.get("area")
+                },
+                taxonomy=taxonomy,
+            )
+        )
         failures.extend(
             validate_catalog_staleness(
                 root=root,

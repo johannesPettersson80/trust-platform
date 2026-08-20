@@ -56,7 +56,9 @@ impl ProjectConfig {
             roots.extend(self.include_paths.iter().cloned());
         }
         for lib in &self.libraries {
-            roots.push(lib.path.clone());
+            if !roots.contains(&lib.path) {
+                roots.push(lib.path.clone());
+            }
         }
         roots
     }
@@ -79,12 +81,21 @@ impl ProjectConfig {
 }
 
 /// Standard library selection settings.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct StdlibSettings {
     /// Named profile (e.g., "iec", "full", "none").
     pub profile: Option<String>,
     /// Allow list of function/FB names (case-insensitive).
     pub allow: Option<Vec<String>>,
+}
+
+impl Default for StdlibSettings {
+    fn default() -> Self {
+        Self {
+            profile: Some("full".to_string()),
+            allow: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -99,7 +110,7 @@ pub struct IndexingConfig {
     pub cache_dir: Option<PathBuf>,
     /// Optional memory budget for indexed (closed) documents, in MB.
     pub memory_budget_mb: Option<usize>,
-    /// Target percent of the budget to evict down to (0-100).
+    /// Target percent of the budget to evict down to (1-100).
     pub evict_to_percent: u8,
     /// Throttle delay (ms) when idle.
     pub throttle_idle_ms: u64,

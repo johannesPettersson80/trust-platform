@@ -17,6 +17,10 @@ pub enum BinaryOp {
     Pow,
     And,
     Or,
+    /// Boolean AND with source-level short-circuit evaluation.
+    AndThen,
+    /// Boolean OR with source-level short-circuit evaluation.
+    OrElse,
     Xor,
     Eq,
     Ne,
@@ -62,7 +66,11 @@ pub fn apply_binary(
         return result;
     }
     match op {
-        BinaryOp::And | BinaryOp::Or | BinaryOp::Xor => logical_or_bitwise(op, left, right),
+        BinaryOp::And
+        | BinaryOp::Or
+        | BinaryOp::AndThen
+        | BinaryOp::OrElse
+        | BinaryOp::Xor => logical_or_bitwise(op, left, right),
         BinaryOp::Eq => numeric_eq(left, right, true),
         BinaryOp::Ne => numeric_eq(left, right, false),
         BinaryOp::Add => numeric_arith(op, left, right),

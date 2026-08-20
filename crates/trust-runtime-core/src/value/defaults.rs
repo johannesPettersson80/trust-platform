@@ -32,6 +32,12 @@ pub fn default_value_for_type_id(
     let ty = registry
         .get(type_id)
         .ok_or(DefaultValueError::UnknownType)?;
+    if registry.is_named_value_type(type_id) {
+        let Type::Enum { base, .. } = ty else {
+            return Err(DefaultValueError::UnsupportedType);
+        };
+        return default_value_for_type_id(*base, registry, profile);
+    }
     default_value_for_type(ty, registry, profile)
 }
 
@@ -174,27 +180,214 @@ fn int_value_of_base(base: TypeId, value: i64) -> Result<Value, DefaultValueErro
 #[cfg(test)]
 mod tests {
     use super::{default_value_for_type_id, DefaultValueError};
-    use crate::value::{DateTimeProfile, Duration, Value};
-    use trust_hir::types::TypeRegistry;
+    use crate::value::{
+        DateTimeProfile, DateTimeValue, DateValue, Duration, LDateTimeValue, LDateValue,
+        LTimeOfDayValue, TimeOfDayValue, Value,
+    };
+    use alloc::{string::String, vec};
+    use trust_hir::types::{StructField, TypeRegistry, UnionVariant};
     use trust_hir::{Type, TypeId};
 
     #[test]
     fn defaults_for_core_elementary_values_match_runtime_contract() {
         let registry = TypeRegistry::new();
         let profile = DateTimeProfile::default();
+        let cases = [
+            (TypeId::BOOL, Value::Bool(false)),
+            (TypeId::SINT, Value::SInt(0)),
+            (TypeId::INT, Value::Int(0)),
+            (TypeId::DINT, Value::DInt(0)),
+            (TypeId::LINT, Value::LInt(0)),
+            (TypeId::USINT, Value::USInt(0)),
+            (TypeId::UINT, Value::UInt(0)),
+            (TypeId::UDINT, Value::UDInt(0)),
+            (TypeId::ULINT, Value::ULInt(0)),
+            (TypeId::REAL, Value::Real(0.0)),
+            (TypeId::LREAL, Value::LReal(0.0)),
+            (TypeId::BYTE, Value::Byte(0)),
+            (TypeId::WORD, Value::Word(0)),
+            (TypeId::DWORD, Value::DWord(0)),
+            (TypeId::LWORD, Value::LWord(0)),
+            (TypeId::TIME, Value::Time(Duration::ZERO)),
+            (TypeId::LTIME, Value::LTime(Duration::ZERO)),
+            (
+                TypeId::DATE,
+                Value::Date(DateValue::new(profile.epoch.ticks())),
+            ),
+            (TypeId::LDATE, Value::LDate(LDateValue::new(0))),
+            (TypeId::TOD, Value::Tod(TimeOfDayValue::new(0))),
+            (TypeId::LTOD, Value::LTod(LTimeOfDayValue::new(0))),
+            (
+                TypeId::DT,
+                Value::Dt(DateTimeValue::new(profile.epoch.ticks())),
+            ),
+            (TypeId::LDT, Value::Ldt(LDateTimeValue::new(0))),
+            (TypeId::STRING, Value::String("".into())),
+            (TypeId::WSTRING, Value::WString(String::new())),
+            (TypeId::CHAR, Value::Char(0)),
+            (TypeId::WCHAR, Value::WChar(0)),
+        ];
 
+        for (type_id, expected) in cases {
+            assert_eq!(
+                default_value_for_type_id(type_id, &registry, &profile),
+                Ok(expected),
+                "wrong default for {}",
+                type_id.builtin_name().expect("elementary type name")
+            );
+        }
+    }
+
+    #[test]
+    fn compound_defaults_preserve_declared_shape_order_and_identity() {
+        let mut registry = TypeRegistry::new();
+        let profile = DateTimeProfile::default();
+
+        let fixed_array = registry.register_array(TypeId::DINT, vec![(1, 2), (-1, 0)]);
+        let Value::Array(array) =
+            default_value_for_type_id(fixed_array, &registry, &profile).expect("fixed array")
+        else {
+            panic!("fixed array must retain the array runtime tag");
+        };
+        assert_eq!(array.dimensions(), &[(1, 2), (-1, 0)]);
+        assert_eq!(array.elements(), vec![Value::DInt(0); 4]);
+
+        let wildcard_array = registry.register_array(TypeId::BOOL, vec![(0, i64::MAX)]);
+        let Value::Array(array) =
+            default_value_for_type_id(wildcard_array, &registry, &profile).expect("wildcard array")
+        else {
+            panic!("wildcard array must retain the array runtime tag");
+        };
+        assert_eq!(array.dimensions(), &[(0, i64::MAX)]);
+        assert!(array.elements().is_empty());
+
+        let record = registry.register_struct(
+            "Record",
+            vec![
+                StructField {
+                    name: "count".into(),
+                    type_id: TypeId::DINT,
+                    address: None,
+                    default_initializer: None,
+                },
+                StructField {
+                    name: "enabled".into(),
+                    type_id: TypeId::BOOL,
+                    address: None,
+                    default_initializer: None,
+                },
+            ],
+        );
+        let Value::Struct(record) =
+            default_value_for_type_id(record, &registry, &profile).expect("struct")
+        else {
+            panic!("struct must retain the struct runtime tag");
+        };
+        assert_eq!(record.type_name().as_str(), "Record");
         assert_eq!(
-            default_value_for_type_id(TypeId::BOOL, &registry, &profile),
-            Ok(Value::Bool(false))
+            record
+                .fields()
+                .iter()
+                .map(|(name, value)| (name.as_str(), value))
+                .collect::<vec::Vec<_>>(),
+            vec![("count", &Value::DInt(0)), ("enabled", &Value::Bool(false))]
+        );
+
+        let choice = registry.register_union(
+            "Choice",
+            vec![
+                UnionVariant {
+                    name: "number".into(),
+                    type_id: TypeId::INT,
+                    address: None,
+                    default_initializer: None,
+                },
+                UnionVariant {
+                    name: "flag".into(),
+                    type_id: TypeId::BOOL,
+                    address: None,
+                    default_initializer: None,
+                },
+            ],
+        );
+        let Value::Struct(choice) =
+            default_value_for_type_id(choice, &registry, &profile).expect("union")
+        else {
+            panic!("union defaults use the portable struct representation");
+        };
+        assert_eq!(choice.type_name().as_str(), "Choice");
+        assert_eq!(
+            choice
+                .fields()
+                .iter()
+                .map(|(name, value)| (name.as_str(), value))
+                .collect::<vec::Vec<_>>(),
+            vec![("number", &Value::Int(0)), ("flag", &Value::Bool(false))]
+        );
+
+        let mode = registry.register_enum(
+            "Mode",
+            TypeId::INT,
+            vec![("Manual".into(), 7), ("Auto".into(), 9)],
+        );
+        let Value::Enum(mode) = default_value_for_type_id(mode, &registry, &profile).expect("enum")
+        else {
+            panic!("enum must retain the enum runtime tag");
+        };
+        assert_eq!(mode.type_name().as_str(), "Mode");
+        assert_eq!(mode.variant_name().as_str(), "Manual");
+        assert_eq!(mode.numeric_value(), 7);
+
+        let alias = registry.register(
+            "Counter",
+            Type::Alias {
+                name: "Counter".into(),
+                target: TypeId::DINT,
+            },
         );
         assert_eq!(
-            default_value_for_type_id(TypeId::TIME, &registry, &profile),
-            Ok(Value::Time(Duration::ZERO))
+            default_value_for_type_id(alias, &registry, &profile),
+            Ok(Value::DInt(0))
+        );
+
+        let reference = registry.register_reference(TypeId::DINT);
+        let pointer = registry.register_pointer(TypeId::BOOL);
+        assert_eq!(
+            default_value_for_type_id(reference, &registry, &profile),
+            Ok(Value::Reference(None))
         );
         assert_eq!(
-            default_value_for_type_id(TypeId::STRING, &registry, &profile),
-            Ok(Value::String("".into()))
+            default_value_for_type_id(pointer, &registry, &profile),
+            Ok(Value::Reference(None))
         );
+        assert_eq!(
+            default_value_for_type_id(TypeId::NULL, &registry, &profile),
+            Ok(Value::Null)
+        );
+
+        for (base, lower, expected) in [
+            (TypeId::SINT, -8, Value::SInt(-8)),
+            (TypeId::INT, -16, Value::Int(-16)),
+            (TypeId::DINT, -32, Value::DInt(-32)),
+            (TypeId::LINT, -64, Value::LInt(-64)),
+            (TypeId::USINT, 8, Value::USInt(8)),
+            (TypeId::UINT, 16, Value::UInt(16)),
+            (TypeId::UDINT, 32, Value::UDInt(32)),
+            (TypeId::ULINT, 64, Value::ULInt(64)),
+        ] {
+            let subrange = registry.register(
+                format!("Subrange{}", base.0),
+                Type::Subrange {
+                    base,
+                    lower,
+                    upper: lower + 1,
+                },
+            );
+            assert_eq!(
+                default_value_for_type_id(subrange, &registry, &profile),
+                Ok(expected)
+            );
+        }
     }
 
     #[test]
@@ -205,6 +398,39 @@ mod tests {
         assert_eq!(
             default_value_for_type_id(TypeId(u32::MAX), &registry, &profile),
             Err(DefaultValueError::UnknownType)
+        );
+    }
+
+    #[test]
+    fn default_construction_rejects_invalid_or_unsupported_types() {
+        let mut registry = TypeRegistry::new();
+        let profile = DateTimeProfile::default();
+        let invalid_array = registry.register_array(TypeId::INT, vec![(3, 2)]);
+        let empty_enum = registry.register_enum("Empty", TypeId::INT, vec![]);
+        let invalid_subrange = registry.register(
+            "BooleanSubrange",
+            Type::Subrange {
+                base: TypeId::BOOL,
+                lower: 0,
+                upper: 1,
+            },
+        );
+
+        assert_eq!(
+            default_value_for_type_id(invalid_array, &registry, &profile),
+            Err(DefaultValueError::InvalidArrayBounds)
+        );
+        assert_eq!(
+            default_value_for_type_id(empty_enum, &registry, &profile),
+            Err(DefaultValueError::EmptyEnum)
+        );
+        assert_eq!(
+            default_value_for_type_id(invalid_subrange, &registry, &profile),
+            Err(DefaultValueError::UnsupportedType)
+        );
+        assert_eq!(
+            default_value_for_type_id(TypeId::VOID, &registry, &profile),
+            Err(DefaultValueError::UnsupportedType)
         );
     }
 

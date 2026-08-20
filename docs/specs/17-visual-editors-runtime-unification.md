@@ -67,19 +67,16 @@ wrapper before launch.
 
 ## 5. UI Behavior Contract
 
-Visual editors share the same runtime control state model:
+The runtime entry and command-routing contract in Sections 1 through 4 remains
+authoritative. Runtime-control placement is now owned by
+`25-vscode-product-contract.md` and the reviewed product decision dated
+2026-07-26.
 
-- `mode: local | external`
-- `isExecuting: boolean`
-- `status: idle | running | stopped | error`
-- `lastError?: string`
-
-Right-pane runtime controls in visual editors MUST bind to the shared command routing in
-Section 4.
-
-Visual editor status indicators SHOULD expose the same state names and failure
-reasons so that `/ide`, VS Code, and automation tooling observe one runtime
-story instead of editor-specific variants.
+Visual editors MUST NOT embed duplicate runtime, I/O, runtime-settings, or
+compile-diagnostics panes. They use the truST sidebar for runtime lifecycle and
+Live Values for runtime values. This supersedes the earlier requirement for
+right-pane runtime controls without changing the shared Structured Text
+generation, launch, attach, or debug-command route.
 
 ## 6. Current Constraints
 

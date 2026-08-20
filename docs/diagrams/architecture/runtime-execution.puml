@@ -15,6 +15,7 @@ title truST Runtime: Bytecode, Scheduler, and Simulation Engine
 package "Runtime Core" as runtimeCore #LightGreen {
 
     class "Runtime" as runtime <<runtime/core.rs:22-44>> {
+        resource_name: SmolStr
         execution_backend: ExecutionBackend
         profile: DateTimeProfile
         storage: VariableStorage
@@ -53,14 +54,39 @@ package "Runtime Core" as runtimeCore #LightGreen {
     }
 
     component "online_change.rs\n(bytecode swap + warm-restart migration contract)" as runtimeOnlineChange
+    component "restart.rs\nPreparedRestart\n(fallible restart staging)" as runtimeRestart
+    component "retain_snapshot.rs\nqualified global/program capture\n+ atomic cloned-storage apply" as runtimeRetainSnapshot
+    component "retain_store.rs\nWarm load transaction\nCold store bypass" as runtimeRetainStore
+    component "harness::lower_configuration\nRESOURCE identity lowering" as resourceLowering
+    component "bytecode::encoder::RESOURCE_META\nexact active resource identity" as resourceEncoder
+    component "runtime::bytecode\nexact named selection + one-entry\nlegacy placeholder compatibility" as resourceSelection
     component "harness/initializer.rs\n(default + aggregate materialization)" as initializerService
     component "HIR SymbolTable.initializer_catalog\n(source ranges + InitializerId handles)" as hirInitCatalog
     component "program_model::InitializerCatalog\n(lowered Expr records)" as runtimeInitCatalog
+    component "trust-runtime-core::numeric::kind\nNumericKind + closed widening matrix" as coreNumericKind
+    component "trust-runtime-core::numeric\nexecution-domain conversions" as coreNumericConversions
+    component "trust-runtime-core::task::config\nportable task metadata" as coreTaskConfig
+    component "trust-runtime-core::task::state\nlogical baseline + overrun state" as coreTaskState
+    component "trust-runtime-core::task::readiness\nevent/periodic readiness decision" as coreTaskReadiness
     runtime ..> runtimeOnlineChange : hot-reload contract owner
+    runtimeOnlineChange --> runtimeRestart : prepare before bytecode replacement
+    runtimeOnlineChange --> runtimeRetainSnapshot : validate against prepared storage
+    runtimeRetainStore --> runtimeRestart : prepare restart before store commit
+    runtimeRetainStore --> runtimeRetainSnapshot : Warm only
+    runtimeRestart --> runtime : commit storage + lifecycle resets
+    runtimeRetainSnapshot --> runtime : commit one prepared storage image
+    resourceLowering --> runtime : set_resource_name()
+    runtime --> resourceEncoder : resource_name()
+    resourceSelection --> runtime : apply selected identity only after validation
     runtime ..> initializerService : startup/default materialization
     runtime --> runtimeInitCatalog : owns lowered catalog
     hirInitCatalog ..> runtimeInitCatalog : compile-time lowering copies/ translates defaults
     initializerService --> runtimeInitCatalog : reads TYPE/member defaults
+    coreNumericConversions --> coreNumericKind : target kind identity
+    runtime --> coreTaskConfig : owns configured tasks
+    runtime --> coreTaskState : stores scheduling state
+    runtime --> coreTaskReadiness : evaluates each cycle
+    coreTaskReadiness --> coreTaskState : updates exact state transition
 }
 
 package "Execution Engine" as backendPkg #LightYellow {
@@ -234,9 +260,10 @@ package "Lifecycle" as lifecyclePkg #LightGray {
     note right of start1
         Retain restore contract:
         • decode persisted Value tree
-        • use declared GlobalVarMeta type
-          and TypeRegistry to canonicalize
-          retained compound values before storage
+        • resolve global or qualified PROGRAM
+          variable identity and declared type
+        • clone candidate storage and canonicalize
+          every retained value before one swap
         • stale serialized enum type casing
           is repaired on load
         • enum mismatches, struct field drift,
@@ -258,13 +285,15 @@ package "Lifecycle" as lifecyclePkg #LightGray {
     rectangle "online_change()" as onlineChangeFlow #Wheat {
         card "1. queue ReloadBytecode command" as online1
         card "2. scheduler applies swap at cycle boundary" as online2
-        card "3. apply_online_change_bytes()" as online3
-        card "4. warm restart + retain reload\n(restart-entrypoint IP policy)" as online4
+        card "3. prepare warm-restart storage\n+ validate retained snapshot" as online3
+        card "4. validate/materialize bytecode\n+ apply resource metadata" as online4
+        card "5. infallible commit\nrestart storage + retained values" as online5
     }
 
     online1 --> online2
     online2 --> online3
     online3 --> online4
+    online4 --> online5
 }
 
 ' ============================================================

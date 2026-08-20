@@ -182,7 +182,7 @@ fn value_to_char(value: Value, wide: bool) -> Result<char, RuntimeError> {
             if chars.next().is_some() {
                 return Err(RuntimeError::TypeMismatch);
             }
-            return Ok(ch);
+            ch as u32
         }
         Value::WString(text) => {
             let mut chars = text.chars();
@@ -190,11 +190,16 @@ fn value_to_char(value: Value, wide: bool) -> Result<char, RuntimeError> {
             if chars.next().is_some() {
                 return Err(RuntimeError::TypeMismatch);
             }
-            return Ok(ch);
+            ch as u32
         }
         _ => return Err(RuntimeError::TypeMismatch),
     };
-    if !wide && code > u32::from(u8::MAX) {
+    let max_code = if wide {
+        u32::from(u16::MAX)
+    } else {
+        u32::from(u8::MAX)
+    };
+    if code > max_code {
         return Err(RuntimeError::Overflow);
     }
     core::char::from_u32(code).ok_or(RuntimeError::TypeMismatch)
@@ -229,9 +234,53 @@ mod tests {
 
     #[test]
     fn narrow_string_index_rejects_out_of_range_chars() {
+        let below_range = RuntimeError::IndexOutOfBounds {
+            index: 0,
+            lower: 1,
+            upper: i64::MAX,
+        };
+        assert_eq!(
+            read_string_element("AB", 0, false),
+            Err(below_range.clone())
+        );
+        assert_eq!(
+            write_string_element("AB", 0, Value::DInt(1), false),
+            Err(below_range)
+        );
+
+        let above_range = RuntimeError::IndexOutOfBounds {
+            index: 3,
+            lower: 1,
+            upper: 2,
+        };
+        assert_eq!(
+            read_string_element("AB", 3, false),
+            Err(above_range.clone())
+        );
+        assert_eq!(
+            write_string_element("AB", 3, Value::DInt(1), false),
+            Err(above_range)
+        );
+
         assert_eq!(
             read_string_element("🙂", 1, false),
             Err(RuntimeError::Overflow)
+        );
+        assert_eq!(
+            write_string_element("AB", 1, Value::String("🙂".into()), false),
+            Err(RuntimeError::Overflow)
+        );
+        assert_eq!(
+            write_string_element("AB", 1, Value::String("".into()), false),
+            Err(RuntimeError::TypeMismatch)
+        );
+        assert_eq!(
+            write_string_element("AB", 1, Value::String("XY".into()), false),
+            Err(RuntimeError::TypeMismatch)
+        );
+        assert_eq!(
+            write_string_element("AB", 1, Value::DInt(1), false),
+            Err(RuntimeError::TypeMismatch)
         );
     }
 
@@ -241,6 +290,14 @@ mod tests {
         assert_eq!(
             write_string_element("ÄB", 2, Value::WChar('Ω' as u16), true),
             Ok(String::from("ÄΩ"))
+        );
+        assert_eq!(
+            write_string_element("ÄB", 2, Value::WString("🙂".into()), true),
+            Err(RuntimeError::Overflow)
+        );
+        assert_eq!(
+            write_string_element("ÄB", 2, Value::WChar(0xD800), true),
+            Err(RuntimeError::TypeMismatch)
         );
     }
 }

@@ -74,7 +74,31 @@ pub(crate) fn apply_aggregate_overrides(
         current_instance,
         stdlib,
     };
+    let value = merge_type_default_aggregate(&ctx, value, type_id)?;
     coerce_initializer_value(&ctx, value, type_id, 0)
+}
+
+fn merge_type_default_aggregate(
+    ctx: &InitContext<'_>,
+    value: Value,
+    type_id: TypeId,
+) -> Result<Value, RuntimeError> {
+    if ctx.catalog.type_default(type_id).is_none() {
+        return Ok(value);
+    }
+    let Value::Struct(overrides) = value else {
+        return Ok(value);
+    };
+    let Value::Struct(base) = materialize_default_value(ctx, type_id, 0)? else {
+        return Ok(Value::Struct(overrides));
+    };
+    let mut fields = base.fields().clone();
+    for (name, value) in overrides.fields() {
+        fields.insert(name.clone(), value.clone());
+    }
+    Ok(Value::Struct(std::sync::Arc::new(
+        StructValue::from_canonical_parts(base.type_name().clone(), fields),
+    )))
 }
 
 pub(crate) fn default_value_for_type_id(
@@ -153,11 +177,8 @@ fn coerce_array_initializer(
         return Err(RuntimeError::TypeMismatch);
     };
     let expected_len = array_len(dimensions)?;
-    if array.elements().len() > expected_len {
-        return Err(RuntimeError::TypeMismatch);
-    }
     let mut elements = Vec::with_capacity(expected_len);
-    for value in array.elements() {
+    for value in array.elements().iter().take(expected_len) {
         elements.push(coerce_initializer_value(
             ctx,
             value.clone(),
@@ -225,3 +246,7 @@ fn coerce_union_initializer(
         .map(|value| Value::Struct(std::sync::Arc::new(value)))
         .map_err(|_| RuntimeError::TypeMismatch)
 }
+
+#[cfg(test)]
+#[path = "initializer_contract_tests.rs"]
+mod contract_tests;

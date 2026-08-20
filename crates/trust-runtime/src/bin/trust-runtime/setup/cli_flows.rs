@@ -15,6 +15,10 @@ fn run_cli_guided_interactive() -> anyhow::Result<()> {
     let default_bundle = default_bundle_path();
     let bundle_path = prompt::prompt_path("Project folder (runtime files)", &default_bundle)?;
     let defaults = SetupDefaults::from_bundle(&bundle_path);
+    let resource_name: String = prompt::prompt_string("PLC name", defaults.resource_name.as_str())?;
+    let cycle_ms = prompt::prompt_u64("Cycle time (ms)", defaults.cycle_ms)?;
+    let resource_name = SmolStr::new(resource_name);
+    wizard::validate_runtime_generation_inputs(&resource_name, cycle_ms)?;
     wizard::create_bundle_auto(Some(bundle_path.clone()))?;
     println!(
         "{}",
@@ -23,8 +27,6 @@ fn run_cli_guided_interactive() -> anyhow::Result<()> {
             bundle_path.display()
         ))
     );
-    let resource_name: String = prompt::prompt_string("PLC name", defaults.resource_name.as_str())?;
-    let cycle_ms = prompt::prompt_u64("Cycle time (ms)", defaults.cycle_ms)?;
     let write_system_io =
         prompt::prompt_yes_no("Write system-wide I/O config for this device?", true)?;
     if write_system_io {
@@ -53,7 +55,7 @@ fn run_cli_guided_interactive() -> anyhow::Result<()> {
         wizard::write_io_toml_with_driver(&io_path, driver.trim())?;
     }
     let runtime_path = bundle_path.join("runtime.toml");
-    wizard::write_runtime_toml(&runtime_path, &SmolStr::new(resource_name), cycle_ms)?;
+    wizard::write_runtime_toml(&runtime_path, &resource_name, cycle_ms)?;
     print_setup_complete(&bundle_path);
     Ok(())
 }

@@ -20,6 +20,49 @@ pub(super) fn scope_chain_for_node(node: &SyntaxNode) -> Vec<Option<SmolStr>> {
     const_scope_chain_from_parts(&namespace, &pou_stack)
 }
 
+pub(super) fn using_scopes_for_node(node: &SyntaxNode) -> Vec<Option<SmolStr>> {
+    let mut ancestors: Vec<_> = node.ancestors().collect();
+    ancestors.reverse();
+    let mut scopes = Vec::new();
+    for ancestor in ancestors {
+        for using in ancestor
+            .children()
+            .filter(|child| child.kind() == SyntaxKind::UsingDirective)
+        {
+            for name in using.children().filter(|child| {
+                matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName)
+            }) {
+                if let Some((parts, _)) = qualified_name_parts(&name) {
+                    let parts = parts.into_iter().map(|(part, _)| part).collect::<Vec<_>>();
+                    scopes.push(Some(qualified_name_string(&parts)));
+                }
+            }
+        }
+    }
+    scopes
+}
+
+pub(super) fn qualified_const_parts(node: &SyntaxNode) -> Option<Vec<SmolStr>> {
+    match node.kind() {
+        SyntaxKind::NameRef => {
+            first_ident_token(node).map(|token| vec![SmolStr::new(token.text())])
+        }
+        SyntaxKind::FieldExpr => {
+            let mut parts = Vec::new();
+            for token in node
+                .descendants_with_tokens()
+                .filter_map(|element| element.into_token())
+            {
+                if token.kind() == SyntaxKind::Ident {
+                    parts.push(SmolStr::new(token.text()));
+                }
+            }
+            (!parts.is_empty()).then_some(parts)
+        }
+        _ => None,
+    }
+}
+
 pub(super) fn const_scope_identity(
     namespace: &[SmolStr],
     pou_stack: &[SmolStr],

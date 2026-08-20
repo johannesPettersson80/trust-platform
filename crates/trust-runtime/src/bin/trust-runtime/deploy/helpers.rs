@@ -5,67 +5,124 @@ fn safe_state_changed(
     if prev.outputs.len() != next.outputs.len() {
         return true;
     }
-    let mut prev_set = BTreeSet::new();
-    for (address, value) in &prev.outputs {
-        prev_set.insert((format_address(address), format!("{value:?}")));
+    let mut matched = vec![false; next.outputs.len()];
+    for (previous_address, previous_value) in &prev.outputs {
+        let Some(index) =
+            next.outputs
+                .iter()
+                .enumerate()
+                .position(|(index, (next_address, next_value))| {
+                    !matched[index]
+                        && previous_address == next_address
+                        && previous_value == next_value
+                })
+        else {
+            return true;
+        };
+        matched[index] = true;
     }
-    let mut next_set = BTreeSet::new();
-    for (address, value) in &next.outputs {
-        next_set.insert((format_address(address), format!("{value:?}")));
-    }
-    prev_set != next_set
-}
-
-fn format_address(address: &IoAddress) -> String {
-    let area = match address.area {
-        trust_runtime::memory::IoArea::Input => "I",
-        trust_runtime::memory::IoArea::Output => "Q",
-        trust_runtime::memory::IoArea::Memory => "M",
-    };
-    let size = match address.size {
-        trust_runtime::io::IoSize::Bit => "X",
-        trust_runtime::io::IoSize::Byte => "B",
-        trust_runtime::io::IoSize::Word => "W",
-        trust_runtime::io::IoSize::DWord => "D",
-        trust_runtime::io::IoSize::LWord => "L",
-        trust_runtime::io::IoSize::Bytes(_) => "B",
-    };
-    if address.wildcard {
-        return format!("%{area}{size}*");
-    }
-    if address.size == trust_runtime::io::IoSize::Bit {
-        format!("%{area}{size}{}.{}", address.byte, address.bit)
-    } else {
-        format!("%{area}{size}{}", address.byte)
-    }
+    false
 }
 
 fn collect_sources(root: &Path) -> anyhow::Result<BTreeMap<String, Vec<u8>>> {
     let sources_root = root.join("src");
-    if !sources_root.is_dir() {
-        return Ok(BTreeMap::new());
-    }
-    let mut map = BTreeMap::new();
-    let patterns = ["**/*.st", "**/*.ST", "**/*.pou", "**/*.POU"];
-    for pattern in patterns {
-        for entry in glob::glob(&format!("{}/{}", sources_root.display(), pattern))? {
-            let path = entry?;
-            if !path.is_file() {
-                continue;
-            }
-            let relative = path
-                .strip_prefix(&sources_root)
-                .unwrap_or(&path)
-                .to_string_lossy()
-                .to_string();
-            if map.contains_key(&relative) {
-                continue;
-            }
-            let bytes = fs::read(&path)?;
-            map.insert(relative, bytes);
+    match fs::metadata(&sources_root) {
+        Ok(metadata) if metadata.is_dir() => {}
+        Ok(_) => anyhow::bail!("source path is not a directory: {}", sources_root.display()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(BTreeMap::new());
+        }
+        Err(error) => {
+            return Err(error)
+                .with_context(|| format!("inspect source directory {}", sources_root.display()));
         }
     }
+    let mut map = BTreeMap::new();
+    collect_sources_from_directory(&sources_root, &sources_root, &mut map)?;
     Ok(map)
+}
+
+fn collect_sources_from_directory(
+    sources_root: &Path,
+    directory: &Path,
+    map: &mut BTreeMap<String, Vec<u8>>,
+) -> anyhow::Result<()> {
+    let mut entries = fs::read_dir(directory)
+        .with_context(|| format!("read source directory {}", directory.display()))?
+        .collect::<Result<Vec<_>, _>>()
+        .with_context(|| format!("enumerate source directory {}", directory.display()))?;
+    entries.sort_by_key(std::fs::DirEntry::file_name);
+
+    for entry in entries {
+        let path = entry.path();
+        let file_type = entry
+            .file_type()
+            .with_context(|| format!("inspect source path {}", path.display()))?;
+        if file_type.is_dir() {
+            collect_sources_from_directory(sources_root, &path, map)?;
+            continue;
+        }
+        if !file_type.is_file() {
+            continue;
+        }
+        let is_source = path
+            .extension()
+            .and_then(std::ffi::OsStr::to_str)
+            .is_some_and(|extension| {
+                extension.eq_ignore_ascii_case("st") || extension.eq_ignore_ascii_case("pou")
+            });
+        if !is_source {
+            continue;
+        }
+        let relative = path
+            .strip_prefix(sources_root)
+            .expect("recursive source path remains beneath source root")
+            .to_str()
+            .with_context(|| format!("source path is not valid UTF-8: {}", path.display()))?
+            .replace(std::path::MAIN_SEPARATOR, "/");
+        let bytes =
+            fs::read(&path).with_context(|| format!("read source file {}", path.display()))?;
+        map.insert(relative, bytes);
+    }
+    Ok(())
+}
+
+fn file_content_changed(
+    previous_root: Option<&Path>,
+    next_root: &Path,
+    file_name: &str,
+) -> anyhow::Result<bool> {
+    let next_path = next_root.join(file_name);
+    let next = fs::read(&next_path)
+        .with_context(|| format!("read deployed configuration {}", next_path.display()))?;
+    let Some(previous_root) = previous_root else {
+        return Ok(true);
+    };
+    let previous_path = previous_root.join(file_name);
+    let previous = fs::read(&previous_path)
+        .with_context(|| format!("read previous configuration {}", previous_path.display()))?;
+    Ok(previous != next)
+}
+
+fn optional_file_content_changed(
+    previous_root: Option<&Path>,
+    next_root: &Path,
+    file_name: &str,
+) -> anyhow::Result<bool> {
+    let read_optional = |root: &Path| -> anyhow::Result<Option<Vec<u8>>> {
+        let path = root.join(file_name);
+        match fs::read(&path) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(error)
+                .with_context(|| format!("read deployed configuration {}", path.display())),
+        }
+    };
+    let next = read_optional(next_root)?;
+    let Some(previous_root) = previous_root else {
+        return Ok(true);
+    };
+    Ok(read_optional(previous_root)? != next)
 }
 
 fn diff_field<T: std::fmt::Display + PartialEq>(

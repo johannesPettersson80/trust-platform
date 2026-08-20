@@ -9,9 +9,14 @@ fn parse_doc_tags(
     let mut tags = ApiDocTags::default();
     let mut diagnostics = Vec::new();
     let mut current: Option<CurrentTag> = None;
+    let mut return_line = None;
+    let declared: HashMap<String, &SmolStr> = declared_params
+        .iter()
+        .map(|name| (name.as_str().to_ascii_uppercase(), name))
+        .collect();
 
     for line in &comment.lines {
-        let trimmed = line.trim();
+        let trimmed = line.text.trim();
         if trimmed.is_empty() {
             continue;
         }
@@ -25,7 +30,7 @@ fn parse_doc_tags(
                     if tags.brief.is_some() {
                         diagnostics.push(DocDiagnostic {
                             file: file.to_path_buf(),
-                            line: comment.start_line,
+                            line: line.line,
                             message: format!(
                                 "duplicate @brief tag for {} `{}`",
                                 kind.label(),
@@ -36,7 +41,7 @@ fn parse_doc_tags(
                     if remainder.is_empty() {
                         diagnostics.push(DocDiagnostic {
                             file: file.to_path_buf(),
-                            line: comment.start_line,
+                            line: line.line,
                             message: format!(
                                 "missing description for @brief on {} `{}`",
                                 kind.label(),
@@ -44,12 +49,16 @@ fn parse_doc_tags(
                             ),
                         });
                     }
-                    tags.brief = if remainder.is_empty() {
-                        None
+                    if tags.brief.is_none() {
+                        tags.brief = if remainder.is_empty() {
+                            None
+                        } else {
+                            Some(remainder.to_string())
+                        };
+                        current = Some(CurrentTag::Brief);
                     } else {
-                        Some(remainder.to_string())
-                    };
-                    current = Some(CurrentTag::Brief);
+                        current = Some(CurrentTag::Ignored);
+                    }
                 }
                 "param" => {
                     let mut param_parts = remainder.splitn(2, char::is_whitespace);
@@ -57,7 +66,7 @@ fn parse_doc_tags(
                     else {
                         diagnostics.push(DocDiagnostic {
                             file: file.to_path_buf(),
-                            line: comment.start_line,
+                            line: line.line,
                             message: format!(
                                 "malformed @param tag on {} `{}` (expected: @param <name> <description>)",
                                 kind.label(),
@@ -71,7 +80,7 @@ fn parse_doc_tags(
                     if description.is_empty() {
                         diagnostics.push(DocDiagnostic {
                             file: file.to_path_buf(),
-                            line: comment.start_line,
+                            line: line.line,
                             message: format!(
                                 "missing description for @param `{}` on {} `{}`",
                                 name,
@@ -80,17 +89,47 @@ fn parse_doc_tags(
                             ),
                         });
                     }
-                    tags.params.push(ApiParamDoc {
-                        name: SmolStr::new(name),
-                        description: description.to_string(),
-                    });
-                    current = Some(CurrentTag::Param(tags.params.len() - 1));
+                    if tags
+                        .params
+                        .iter()
+                        .any(|param| param.name.eq_ignore_ascii_case(name))
+                    {
+                        diagnostics.push(DocDiagnostic {
+                            file: file.to_path_buf(),
+                            line: line.line,
+                            message: format!(
+                                "duplicate @param entry for `{}` on {} `{}`",
+                                name,
+                                kind.label(),
+                                symbol_name
+                            ),
+                        });
+                        current = Some(CurrentTag::Ignored);
+                    } else {
+                        tags.params.push(ApiParamDoc {
+                            name: SmolStr::new(name),
+                            description: description.to_string(),
+                        });
+                        current = Some(CurrentTag::Param(tags.params.len() - 1));
+                    }
+                    if !declared.contains_key(&name.to_ascii_uppercase()) {
+                        diagnostics.push(DocDiagnostic {
+                            file: file.to_path_buf(),
+                            line: line.line,
+                            message: format!(
+                                "@param `{}` does not match any declared parameter on {} `{}`",
+                                name,
+                                kind.label(),
+                                symbol_name
+                            ),
+                        });
+                    }
                 }
                 "return" => {
                     if tags.returns.is_some() {
                         diagnostics.push(DocDiagnostic {
                             file: file.to_path_buf(),
-                            line: comment.start_line,
+                            line: line.line,
                             message: format!(
                                 "duplicate @return tag for {} `{}`",
                                 kind.label(),
@@ -101,7 +140,7 @@ fn parse_doc_tags(
                     if remainder.is_empty() {
                         diagnostics.push(DocDiagnostic {
                             file: file.to_path_buf(),
-                            line: comment.start_line,
+                            line: line.line,
                             message: format!(
                                 "missing description for @return on {} `{}`",
                                 kind.label(),
@@ -109,17 +148,22 @@ fn parse_doc_tags(
                             ),
                         });
                     }
-                    tags.returns = if remainder.is_empty() {
-                        None
+                    if tags.returns.is_none() {
+                        tags.returns = if remainder.is_empty() {
+                            None
+                        } else {
+                            Some(remainder.to_string())
+                        };
+                        return_line = Some(line.line);
+                        current = Some(CurrentTag::Return);
                     } else {
-                        Some(remainder.to_string())
-                    };
-                    current = Some(CurrentTag::Return);
+                        current = Some(CurrentTag::Ignored);
+                    }
                 }
                 other => {
                     diagnostics.push(DocDiagnostic {
                         file: file.to_path_buf(),
-                        line: comment.start_line,
+                        line: line.line,
                         message: format!(
                             "unknown documentation tag `@{}` on {} `{}`",
                             other,
@@ -141,6 +185,7 @@ fn parse_doc_tags(
                 }
             }
             Some(CurrentTag::Return) => append_with_space(&mut tags.returns, trimmed),
+            Some(CurrentTag::Ignored) => {}
             Some(CurrentTag::Detail) | None => {
                 tags.details.push(trimmed.to_string());
                 current = Some(CurrentTag::Detail);
@@ -148,44 +193,10 @@ fn parse_doc_tags(
         }
     }
 
-    let mut seen_params = HashSet::new();
-    let declared: HashMap<String, &SmolStr> = declared_params
-        .iter()
-        .map(|name| (name.as_str().to_ascii_uppercase(), name))
-        .collect();
-
-    for param in &tags.params {
-        let normalized = param.name.as_str().to_ascii_uppercase();
-        if !seen_params.insert(normalized.clone()) {
-            diagnostics.push(DocDiagnostic {
-                file: file.to_path_buf(),
-                line: comment.start_line,
-                message: format!(
-                    "duplicate @param entry for `{}` on {} `{}`",
-                    param.name,
-                    kind.label(),
-                    symbol_name
-                ),
-            });
-        }
-        if !declared.contains_key(&normalized) {
-            diagnostics.push(DocDiagnostic {
-                file: file.to_path_buf(),
-                line: comment.start_line,
-                message: format!(
-                    "@param `{}` does not match any declared parameter on {} `{}`",
-                    param.name,
-                    kind.label(),
-                    symbol_name
-                ),
-            });
-        }
-    }
-
     if tags.returns.is_some() && !has_return {
         diagnostics.push(DocDiagnostic {
             file: file.to_path_buf(),
-            line: comment.start_line,
+            line: return_line.unwrap_or(comment.start_line),
             message: format!(
                 "@return used on non-returning {} `{}`",
                 kind.label(),
@@ -193,6 +204,8 @@ fn parse_doc_tags(
             ),
         });
     }
+
+    diagnostics.sort_by_key(|diagnostic| diagnostic.line);
 
     (tags, diagnostics)
 }
@@ -213,4 +226,3 @@ fn append_string_with_space(target: &mut String, value: &str) {
         target.push_str(value);
     }
 }
-

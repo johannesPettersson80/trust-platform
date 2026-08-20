@@ -5,17 +5,12 @@ area = "hmi_ui"
 risk = "false_status"
 status = "implemented"
 owner = "trust-runtime"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-07-29"
 claim = "HMI, Devices and Connections, hover, CLI, and reports must not use conflicting connector status or freshness vocabulary."
 proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src", "editors/vscode/src"]
-tests = [
-  "TEST_UI_CONNECTOR_STATUS_TRACE_001",
-  "TEST_REVIEW_PEER_CONFIDENCE_REJECTION_001",
-  "TEST_REVIEW_PEER_TOPOLOGY_VISIBLE_FAILURE_001",
-  "TEST_REVIEW_PEER_TOPOLOGY_ERROR_RENDER_001",
-]
+tests = ["TEST_AUTO_08764DB36247B68D502F", "TEST_AUTO_46D2B3306A125A72A5B4", "TEST_AUTO_4C7F7BF0E967926694CF", "TEST_AUTO_50B6D52320D460D3E7FB", "TEST_AUTO_92B2B9132BF6D0826E57", "TEST_AUTO_A0759CF3F2D0078D6A64", "TEST_AUTO_BE5DA848938B7233D91D", "TEST_AUTO_DEBFC2798C267C9DB3C9", "TEST_REVIEW_PEER_CONFIDENCE_REJECTION_001", "TEST_REVIEW_PEER_TOPOLOGY_ERROR_RENDER_001", "TEST_REVIEW_PEER_TOPOLOGY_VISIBLE_FAILURE_001", "TEST_UI_CONNECTOR_STATUS_TRACE_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_UI_CONNECTOR_STATUS_TRACE_001_LOCK_BASELINE",

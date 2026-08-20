@@ -57,5 +57,8 @@ VAR_GLOBAL
     g_trust_motion_aborted0_command_id : ARRAY[0..31] OF UINT;
     g_trust_motion_aborted1_command_id : ARRAY[0..31] OF UINT;
     g_trust_motion_aborted2_command_id : ARRAY[0..31] OF UINT;
+    g_trust_motion_aborted0_error_id : ARRAY[0..31] OF WORD;
+    g_trust_motion_aborted1_error_id : ARRAY[0..31] OF WORD;
+    g_trust_motion_aborted2_error_id : ARRAY[0..31] OF WORD;
     g_trust_motion_vendor_bool_1000 : ARRAY[0..31] OF BOOL;
 END_VAR

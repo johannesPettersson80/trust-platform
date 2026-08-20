@@ -2,8 +2,6 @@
 
 use std::path::PathBuf;
 
-use anyhow::Context;
-
 use trust_runtime::bundle::detect_bundle_path;
 use trust_runtime::registry::{
     download_package, init_registry, list_packages, publish_package, registry_api_profile,
@@ -229,9 +227,6 @@ fn into_visibility(value: RegistryVisibilityArg) -> RegistryVisibility {
 fn resolve_project(project: Option<PathBuf>) -> anyhow::Result<PathBuf> {
     match project {
         Some(path) => Ok(path),
-        None => match detect_bundle_path(None) {
-            Ok(path) => Ok(path),
-            Err(_) => std::env::current_dir().context("failed to resolve current directory"),
-        },
+        None => detect_bundle_path(None).map_err(anyhow::Error::from),
     }
 }

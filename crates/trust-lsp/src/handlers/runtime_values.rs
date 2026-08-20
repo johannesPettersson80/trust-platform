@@ -29,11 +29,14 @@ pub(crate) enum ControlEndpoint {
 impl ControlEndpoint {
     pub(crate) fn parse(text: &str) -> Option<Self> {
         if let Some(rest) = text.strip_prefix("tcp://") {
-            return Some(Self::Tcp(rest.to_string()));
+            let rest = rest.trim();
+            return (!rest.is_empty()).then(|| Self::Tcp(rest.to_string()));
         }
         #[cfg(unix)]
         if let Some(rest) = text.strip_prefix("unix://") {
-            return Some(Self::Unix(std::path::PathBuf::from(rest)));
+            let path = std::path::Path::new(rest.trim());
+            return (!path.as_os_str().is_empty() && path.is_absolute())
+                .then(|| Self::Unix(path.to_path_buf()));
         }
         None
     }
@@ -60,7 +63,10 @@ impl ControlClient {
         Some(Self {
             seq: 1,
             reader: BufReader::new(stream),
-            auth: auth.map(|value| value.to_string()),
+            auth: auth.and_then(|value| {
+                let value = value.trim();
+                (!value.is_empty()).then(|| value.to_string())
+            }),
         })
     }
 
@@ -251,8 +257,7 @@ pub(crate) fn fetch_runtime_inline_values(
     )?;
     let scopes = scopes_value
         .get("scopes")
-        .and_then(|value| serde_json::from_value::<Vec<DebugScope>>(value.clone()).ok())
-        .unwrap_or_default();
+        .and_then(|value| serde_json::from_value::<Vec<DebugScope>>(value.clone()).ok())?;
     debug!(
         "inlineValue control scopes={:?}",
         scopes
@@ -266,24 +271,41 @@ pub(crate) fn fetch_runtime_inline_values(
     let mut retain_ref = None;
     let mut instances_ref = None;
     for scope in scopes {
-        match scope.name.to_ascii_lowercase().as_str() {
-            "locals" => locals_ref = Some(scope.variables_reference),
-            "globals" => globals_ref = Some(scope.variables_reference),
-            "retain" => retain_ref = Some(scope.variables_reference),
-            "instances" => instances_ref = Some(scope.variables_reference),
+        match scope.name.trim().to_ascii_lowercase().as_str() {
+            "locals" => {
+                if locals_ref.replace(scope.variables_reference).is_some() {
+                    return None;
+                }
+            }
+            "globals" => {
+                if globals_ref.replace(scope.variables_reference).is_some() {
+                    return None;
+                }
+            }
+            "retain" => {
+                if retain_ref.replace(scope.variables_reference).is_some() {
+                    return None;
+                }
+            }
+            "instances" if instances_ref.replace(scope.variables_reference).is_some() => {
+                return None;
+            }
             _ => {}
         }
     }
 
-    let mut locals = locals_ref
-        .and_then(|reference| fetch_variables(&mut client, reference))
-        .unwrap_or_default();
-    let globals = globals_ref
-        .and_then(|reference| fetch_variables(&mut client, reference))
-        .unwrap_or_default();
-    let retain = retain_ref
-        .and_then(|reference| fetch_variables(&mut client, reference))
-        .unwrap_or_default();
+    let mut locals = match locals_ref {
+        Some(reference) => fetch_variables(&mut client, reference)?,
+        None => FxHashMap::default(),
+    };
+    let globals = match globals_ref {
+        Some(reference) => fetch_variables(&mut client, reference)?,
+        None => FxHashMap::default(),
+    };
+    let retain = match retain_ref {
+        Some(reference) => fetch_variables(&mut client, reference)?,
+        None => FxHashMap::default(),
+    };
     debug!(
         "inlineValue control values locals={} globals={} retain={}",
         locals.len(),
@@ -292,10 +314,9 @@ pub(crate) fn fetch_runtime_inline_values(
     );
 
     if let Some(reference) = instances_ref {
-        if let Some(instance_vars) = fetch_instance_variables(&mut client, reference, owner_hints) {
-            for (name, value) in instance_vars {
-                locals.entry(name).or_insert(value);
-            }
+        let instance_vars = fetch_instance_variables(&mut client, reference, owner_hints)?;
+        for (name, value) in instance_vars {
+            locals.entry(name).or_insert(value);
         }
     }
     debug!(
@@ -326,7 +347,7 @@ fn fetch_instance_variables(
 
     if instances.is_empty() {
         debug!("inlineValue instances scope empty");
-        return None;
+        return Some(FxHashMap::default());
     }
     debug!(
         "inlineValue instances candidates={:?}",
@@ -398,7 +419,9 @@ fn fetch_instance_variables(
         debug!("inlineValue instance match single candidate");
     }
 
-    let reference = chosen?;
+    let Some(reference) = chosen else {
+        return Some(FxHashMap::default());
+    };
     fetch_variables(client, reference)
 }
 
@@ -412,15 +435,14 @@ fn fetch_variables(
     )?;
     let variables = vars_value
         .get("variables")
-        .and_then(|value| serde_json::from_value::<Vec<DebugVariable>>(value.clone()).ok())
-        .unwrap_or_default();
+        .and_then(|value| serde_json::from_value::<Vec<DebugVariable>>(value.clone()).ok())?;
     let mut out = FxHashMap::default();
     for variable in variables {
-        if variable.name.trim().is_empty() {
+        let name = variable.name.trim();
+        if name.is_empty() {
             continue;
         }
-        out.entry(SmolStr::new(variable.name))
-            .or_insert(variable.value);
+        out.entry(SmolStr::new(name)).or_insert(variable.value);
     }
     Some(out)
 }
@@ -431,3 +453,7 @@ struct DebugVariableRef {
     name: String,
     variables_reference: u32,
 }
+
+#[cfg(test)]
+#[path = "runtime_values/contract_tests.rs"]
+mod contract_tests;

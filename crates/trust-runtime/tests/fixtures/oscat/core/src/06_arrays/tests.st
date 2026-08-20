@@ -40,6 +40,7 @@ SortedData[2] := REAL#4.0;
 SortedData[3] := REAL#1.5;
 SortedData[4] := REAL#2.0;
 
+ASSERT_FALSE(IN := IS_SORTED(PT := ADR(SortedData), SIZE := UINT#20));
 ASSERT_TRUE(IN := _ARRAY_SORT(PT := ADR(SortedData), SIZE := UINT#20));
 ASSERT_TRUE(IN := IS_SORTED(PT := ADR(SortedData), SIZE := UINT#20));
 ASSERT_NEAR(EXPECTED := REAL#1.0, ACTUAL := SortedData[0], DELTA := REAL#0.001);

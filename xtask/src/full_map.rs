@@ -5,6 +5,8 @@ use std::process::Command;
 
 use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
+use syn::spanned::Spanned;
+use syn::visit::{self, Visit};
 
 use crate::software_map::{
     CliActionSummary, DependencyEdge, DependencyHygieneSummary, DependencyPolicyEntry, DiagramEdge,
@@ -2992,11 +2994,12 @@ fn collect_runtime_function_summaries(root: &Path) -> Result<Vec<FunctionSummary
             if file.extension().and_then(|ext| ext.to_str()) != Some("rs") {
                 continue;
             }
-            let source = fs::read_to_string(&file).unwrap_or_default();
+            let source = fs::read_to_string(&file)
+                .with_context(|| format!("read runtime source {}", file.display()))?;
             functions.extend(function_summaries_from_source(
                 &rel_path(root, &file),
                 &source,
-            ));
+            )?);
         }
     }
     functions.sort_by(|left, right| {
@@ -3010,75 +3013,63 @@ fn collect_runtime_function_summaries(root: &Path) -> Result<Vec<FunctionSummary
     Ok(functions)
 }
 
-fn function_summaries_from_source(path: &str, source: &str) -> Vec<FunctionSummary> {
-    let lines = source.lines().collect::<Vec<_>>();
-    let mut functions = Vec::new();
-    let mut index = 0usize;
-    while index < lines.len() {
-        let line = lines[index];
-        let Some(name) = function_name_from_line(line) else {
-            index += 1;
-            continue;
-        };
-        let start = index;
-        let mut cursor = index;
-        let mut saw_body = false;
-        let mut brace_depth = 0isize;
-        while cursor < lines.len() {
-            let body_line = strip_line_comment(lines[cursor]);
-            for ch in body_line.chars() {
-                match ch {
-                    '{' => {
-                        saw_body = true;
-                        brace_depth += 1;
-                    }
-                    '}' if saw_body => {
-                        brace_depth -= 1;
-                    }
-                    _ => {}
-                }
-            }
-            if saw_body && brace_depth <= 0 {
-                break;
-            }
-            cursor += 1;
-        }
-        if saw_body {
-            functions.push(FunctionSummary {
-                path: path.to_string(),
-                line: start + 1,
-                name,
-                line_count: cursor.saturating_sub(start) + 1,
-            });
-            index = cursor.saturating_add(1);
-        } else {
-            index += 1;
-        }
-    }
-    functions
+fn function_summaries_from_source(path: &str, source: &str) -> Result<Vec<FunctionSummary>> {
+    let file = syn::parse_file(source).with_context(|| format!("parse Rust source {path}"))?;
+    let mut collector = RustFunctionSummaryCollector {
+        path,
+        functions: Vec::new(),
+    };
+    collector.visit_file(&file);
+    Ok(collector.functions)
 }
 
-fn function_name_from_line(line: &str) -> Option<String> {
-    let trimmed = line.trim_start();
-    if trimmed.starts_with("//") {
-        return None;
+struct RustFunctionSummaryCollector<'a> {
+    path: &'a str,
+    functions: Vec<FunctionSummary>,
+}
+
+impl RustFunctionSummaryCollector<'_> {
+    fn push(&mut self, name: String, start_span: proc_macro2::Span, end_span: proc_macro2::Span) {
+        let start = start_span.start().line;
+        let end = end_span.end().line;
+        self.functions.push(FunctionSummary {
+            path: self.path.to_string(),
+            line: start,
+            name,
+            line_count: end.saturating_sub(start) + 1,
+        });
     }
-    let position = trimmed.find("fn ")?;
-    if position > 0 {
-        let before = &trimmed[..position];
-        let valid_prefix = before
-            .split_whitespace()
-            .all(|token| matches!(token, "pub" | "async" | "const" | "unsafe" | "extern"));
-        if !valid_prefix && !before.contains("pub(") {
-            return None;
+}
+
+impl<'ast> Visit<'ast> for RustFunctionSummaryCollector<'_> {
+    fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
+        self.push(
+            node.sig.ident.to_string(),
+            node.sig.fn_token.span,
+            node.span(),
+        );
+        visit::visit_item_fn(self, node);
+    }
+
+    fn visit_impl_item_fn(&mut self, node: &'ast syn::ImplItemFn) {
+        self.push(
+            node.sig.ident.to_string(),
+            node.sig.fn_token.span,
+            node.span(),
+        );
+        visit::visit_impl_item_fn(self, node);
+    }
+
+    fn visit_trait_item_fn(&mut self, node: &'ast syn::TraitItemFn) {
+        if node.default.is_some() {
+            self.push(
+                node.sig.ident.to_string(),
+                node.sig.fn_token.span,
+                node.span(),
+            );
         }
+        visit::visit_trait_item_fn(self, node);
     }
-    let rest = &trimmed[position + 3..];
-    let name = rest
-        .chars()
-        .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
-        .collect::<String>();
-    (!name.is_empty()).then_some(name)
 }
 
 fn collect_import_edges(root: &Path, known_modules: &BTreeSet<String>) -> Result<Vec<ImportEdge>> {
@@ -4342,7 +4333,49 @@ mod tests {
 
     #[test]
     fn function_size_summaries_count_multiline_function_bodies() {
-        let source = r#"
+        let source = r##"
+            const EMBEDDED_EXAMPLE: &str = r#"
+                fn phantom_from_string() {
+                    unreachable!();
+                }
+            "#;
+
+            /*
+            fn phantom_from_comment() {
+                unreachable!();
+            }
+            */
+
+            macro_rules! generated {
+                () => {
+                    fn phantom_from_macro() {}
+                };
+            }
+
+            unsafe extern "C" {
+                fn phantom_from_extern();
+            }
+
+            trait Demo {
+                fn phantom_from_required();
+
+                fn defaulted() {}
+            }
+
+            struct Subject;
+
+            impl Subject {
+                fn method() {}
+            }
+
+            fn outer() {
+                fn nested() {}
+                nested();
+            }
+
+            #[allow(
+                dead_code
+            )]
             pub(crate) fn tiny() {
                 helper();
             }
@@ -4356,17 +4389,43 @@ mod tests {
                     0
                 }
             }
-        "#;
+        "##;
 
-        let functions = function_summaries_from_source("crates/trust-runtime/src/demo.rs", source);
+        let functions = function_summaries_from_source("crates/trust-runtime/src/demo.rs", source)
+            .expect("valid Rust source should produce function summaries");
 
-        assert_eq!(functions.len(), 2);
+        let mut names = functions
+            .iter()
+            .map(|function| function.name.as_str())
+            .collect::<Vec<_>>();
+        names.sort_unstable();
+        assert_eq!(
+            names,
+            [
+                "defaulted",
+                "method",
+                "multiline_signature",
+                "nested",
+                "outer",
+                "tiny",
+            ]
+        );
         assert!(functions
             .iter()
             .any(|function| function.name == "tiny" && function.line_count == 3));
         assert!(functions.iter().any(|function| {
             function.name == "multiline_signature" && function.line_count == 9
         }));
+        assert!(!functions
+            .iter()
+            .any(|function| function.name.starts_with("phantom_from_")));
+        let error = function_summaries_from_source(
+            "crates/trust-runtime/src/malformed.rs",
+            "fn missing_body(",
+        )
+        .expect_err("malformed Rust must not silently erase architecture facts");
+
+        assert!(error.to_string().contains("parse Rust source"), "{error:#}");
     }
 
     #[test]

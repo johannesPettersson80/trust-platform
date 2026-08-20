@@ -18,6 +18,9 @@ package "VS Code Extension" as vscode #LightBlue {
     component "Runtime Panel\n(Webview)" as runtimePanel <<ioPanel.ts + io-panel/*>>
     component "Communication Panel\n(Webview)" as communicationPanel <<communication/*>>
     component "ADS Devices Panel\n(Webview)" as adsPanel <<adsPanel.ts>>
+    component "Devices & Connections\n(Network Canvas)" as networkCanvas <<networkCanvas/networkCanvasPanel.ts + webview/*>>
+    component "Fleet Topology Gateway\n(fetch + singleton/multi merge ingress)" as fleetTopologyGateway <<networkCanvas/fleetTopology.ts>>
+    component "Fleet Topology Identity\n(pure owner-scoped normalization)" as fleetTopologyIdentity <<networkCanvas/fleetTopologyIdentity.ts>>
     component "Runtime Target Resolver\n(single selected runtime context)" as runtimeTarget <<runtimeTarget.ts>>
     component "Runtime Control Client\n(shared JSON-line client)" as runtimeClient <<runtimeControlClient.ts>>
 
@@ -25,12 +28,17 @@ package "VS Code Extension" as vscode #LightBlue {
     extMain --> debugFactory : registers
     extMain --> communicationPanel : registers Communication command
     extMain --> adsPanel : registers ADS commands
+    extMain --> networkCanvas : registers Devices & Connections command
     runtimePanel --> runtimeTarget : owns runtime settings
     communicationPanel --> runtimeTarget : reads selected runtime\n(no duplicate chooser)
     communicationPanel --> runtimeClient : sends comm.* setup/status requests
     communicationPanel --> adsPanel : deep-links ADS workflows
     adsPanel --> runtimeTarget : reads selected runtime\n(no duplicate chooser)
     adsPanel --> runtimeClient : sends ADS control requests
+    networkCanvas --> runtimeTarget : resolves selected + configured runtimes
+    networkCanvas --> fleetTopologyGateway : routes singleton, overlay,\nand peer snapshots through one ingress
+    fleetTopologyGateway --> runtimeClient : fetches fleet.topology from\neach reachable target
+    fleetTopologyGateway --> fleetTopologyIdentity : clones + normalizes each response\nbefore dedupe/merge
 }
 
 note right of runtimePanel
@@ -38,6 +46,13 @@ note right of runtimePanel
     requests (stIoState/stIoWrite/stReload)
     and writes workspace settings that
     override runtime control endpoints.
+end note
+
+note right of fleetTopologyIdentity
+    Pure, deterministic, idempotent, non-mutating.
+    Lossless host/container/runtime owner tuples scope
+    endpoints, configured mesh externals, links, and shared used_by.
+    Ambiguous references fail closed without hiding unrelated facts.
 end note
 
 ' ============================================================
@@ -199,7 +214,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "Developer Workbench CLI\n(trust-dev)" as devCli
     component "Project Commit Workflow\n(trust-dev commit)" as commitWorkflow
     component "Agent JSON-RPC Workflow\n(trust-dev agent serve)" as agentWorkflow
-    component "ST Test + Docs Workflows\n(trust-dev test/docs)" as devTestDocs
+    component "ST Test + Docs Workflows\n(trust-dev test/docs)\ncompile before an unfiltered empty test result" as devTestDocs
     component "Registry Workflows\n(trust-runtime registry)" as registryCli
     component "BundleLoader" as bundleLoader
     component "IoDriverRegistry" as ioRegistry
@@ -375,6 +390,7 @@ sthir -down-> stsyntax : parse tree
 runtimePanel -down-> stdebug : custom DAP\n(I/O + source provenance + reload)
 communicationPanel -down-> controlServer : Communication comm.* requests\nthrough selected runtime endpoint
 adsPanel -down-> controlServer : ADS control requests\nthrough selected runtime endpoint
+runtimeClient -down-> controlServer : shared JSON-line control\n(comm.*, ADS, fleet.topology)
 
 ' Handlers to IDE
 featureHandler --> completion
@@ -408,8 +424,8 @@ mqttDriver --> mqttBroker : MQTT\nplain local or TLS/mTLS remote
 adsClient --> twincatPlc : ADS/AMS\nplain now, secure reserved
 adsOnboarding --> twincatPlc : ADS UDP identify/discover\nroute planning/add-route
 adsExternalClients --> adsServerCrate : ADS/AMS browse/read/write/notify\nplain now, secure reserved
-ctlClient --> controlServer : JSON IPC
-browserUi --> webServer : HTTP/HTTPS (/hmi, /ide, /api/*)
+ctlClient --> controlServer : JSON IPC\nshutdown acknowledgement precedes stop signal
+browserUi --> webServer : HTTP/HTTPS (/hmi, /ide, /api/*)\nshutdown response write precedes stop signal
 discovery --> browserUi : mDNS advertise
 meshSync --> peerRuntime : peer link (token + optional TLS)
 opcuaClients --> opcuaGateway : browse/read/write
@@ -430,6 +446,10 @@ legend right
 
     **Execution Path:**
     Source → trust-hir → harness → trust-runtime → trust-debug → DAP Client
+
+    **Fleet Display Path:**
+    fleet.topology response → pure owner-scoped identity normalization →
+    singleton/multi merge → Devices & Connections graph
 
     **Key Files:**
     • trust-lsp/src/main.rs - LSP server entry

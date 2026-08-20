@@ -11,7 +11,10 @@ import type {
   NetworkCanvasModel,
   NetworkDeviceStatus,
 } from "./model";
-import type { NetworkCanvasFleetRuntime } from "./fleetModel";
+import {
+  fleetRuntimeDisplayName,
+  type NetworkCanvasFleetRuntime,
+} from "./fleetModel";
 import { LOCAL_RUNTIME_NODE_ID } from "./webview/types";
 import type { ManagedRuntime } from "../localRuntimeModel";
 import { SIMULATOR_RUNTIME_ID } from "../trustHomeModel";
@@ -27,6 +30,23 @@ function deviceHealth(status: NetworkDeviceStatus): string {
       return "error";
     default:
       return "pending";
+  }
+}
+
+function managedRuntimeProjection(
+  local: ManagedRuntime
+): Pick<NCRuntime, "health" | "lifecycleState" | "detail"> {
+  switch (local.state) {
+    case "running":
+      return { health: "connected", lifecycleState: "running", detail: "Running (managed local runtime)." };
+    case "stopped":
+      return { health: "stopped", lifecycleState: "stopped", detail: "Stopped — Start it from this node." };
+    case "starting":
+      return { health: "pending", lifecycleState: "starting", detail: "Starting managed local runtime…" };
+    case "stopping":
+      return { health: "pending", lifecycleState: "stopping", detail: "Stopping managed local runtime…" };
+    case "unavailable":
+      return { health: "error", lifecycleState: "unavailable", detail: "Status unavailable — refresh before starting." };
   }
 }
 
@@ -100,6 +120,7 @@ function fleetGraph(
       protocol: link.protocol,
       role: link.role,
       status: link.status,
+      detail: link.detail,
       secure: link.secure,
     })),
     external: [
@@ -232,7 +253,7 @@ function localRuntimeGraph(model: NetworkCanvasModel): NCGraph {
 function mapTopoRuntime(rt: FleetTopologyRuntime): NCRuntime {
   return {
     id: rt.runtime_id,
-    name: topologyRuntimeDisplayName(rt),
+    name: fleetRuntimeDisplayName(rt),
     mode: rt.mode,
     health: rt.health,
     detail: rt.detail,
@@ -255,22 +276,6 @@ function mapTopoRuntime(rt: FleetTopologyRuntime): NCRuntime {
       children: ep.children ? ep.children.map((s) => ({ ...s })) : undefined,
     })),
   };
-}
-
-function topologyRuntimeDisplayName(rt: FleetTopologyRuntime): string {
-  const mode = rt.mode.trim().toLowerCase();
-  const rawName = rt.name.trim();
-  const runtimeId = rt.runtime_id.trim().toLowerCase();
-  if (
-    runtimeId === "runtime:local" ||
-    runtimeId === "runtime:project" ||
-    runtimeId === "resource" ||
-    /^resource$/i.test(rawName) ||
-    /^local simulator$/i.test(rawName)
-  ) {
-    return "Simulator";
-  }
-  return rawName || "Runtime";
 }
 
 // Host roll-up: green ONLY if every runtime is connected (never fabricate green).
@@ -381,6 +386,7 @@ function injectManagedRuntimes(
       }
       rt.managed = true;
       rt.managedName = local.name;
+      Object.assign(rt, managedRuntimeProjection(local));
       annotated.add(local.name);
     };
     for (const host of graph.hosts) {
@@ -397,11 +403,7 @@ function injectManagedRuntimes(
           id: `managed:${local.name}`,
           name: local.name,
           mode: "managed",
-          health: local.state === "running" ? "connected" : "stopped",
-          detail:
-            local.state === "running"
-              ? "Running (managed local runtime)."
-              : "Stopped — Start it from this node.",
+          ...managedRuntimeProjection(local),
           controlEndpoint: local.controlEndpoint || undefined,
           managed: true,
           managedName: local.name,

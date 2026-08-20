@@ -102,21 +102,20 @@ fn index_document_impl(
 
 pub(super) fn update_document(state: &ServerState, uri: &Url, version: i32, content: String) {
     let key = source_key_for_uri(uri);
-    let file_id = {
-        let mut project = state.project.write();
-        project.set_source_text(key, content.clone())
-    };
-
-    let access = next_document_access(state);
+    let mut project = state.project.write();
     let mut docs = state.documents.write();
-    if let Some(doc) = docs.get_mut(uri) {
-        doc.version = version;
-        doc.content = content;
-        doc.is_open = true;
-        doc.file_id = file_id;
-        touch_document(doc, access);
-        invalidate_project_caches(state);
-    }
+    let Some(doc) = docs.get_mut(uri).filter(|doc| doc.is_open) else {
+        return;
+    };
+    let file_id = project.set_source_text(key, content.clone());
+    let access = next_document_access(state);
+    doc.version = version;
+    doc.content = content;
+    doc.file_id = file_id;
+    touch_document(doc, access);
+    drop(docs);
+    drop(project);
+    invalidate_project_caches(state);
 }
 
 pub(super) fn close_document(state: &ServerState, uri: &Url) {

@@ -354,6 +354,77 @@ END_PROGRAM
 }
 
 #[test]
+pub(super) fn lsp_array_and_range_diagnostics_link_to_their_owning_iec_contracts() {
+    let source = r#"
+PROGRAM Test
+    VAR
+        Values : ARRAY[0..1] OF INT;
+        Label : STRING[2] := 'long';
+    END_VAR
+    Values[2] := 1;
+END_PROGRAM
+"#;
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///diagnostic-explainers.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+
+    let report = document_diagnostic(
+        &state,
+        tower_lsp::lsp_types::DocumentDiagnosticParams {
+            text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri },
+            identifier: None,
+            previous_result_id: None,
+            work_done_progress_params: Default::default(),
+            partial_result_params: Default::default(),
+        },
+    );
+    let tower_lsp::lsp_types::DocumentDiagnosticReportResult::Report(
+        tower_lsp::lsp_types::DocumentDiagnosticReport::Full(full),
+    ) = report
+    else {
+        panic!("expected full diagnostic report");
+    };
+
+    for (code, expected_iec, expected_spec) in [
+        (
+            "E303",
+            "IEC 61131-3 Ed.3 §6.4.4.5.1",
+            "docs/specs/09-semantic-rules.md",
+        ),
+        (
+            "E304",
+            "IEC 61131-3 Ed.3 §6.4.2; §6.4.4.3–6.4.4.5",
+            "docs/specs/02-data-types.md",
+        ),
+    ] {
+        let diagnostic = full
+            .full_document_diagnostic_report
+            .items
+            .iter()
+            .find(|diagnostic| {
+                matches!(
+                    diagnostic.code.as_ref(),
+                    Some(tower_lsp::lsp_types::NumberOrString::String(actual)) if actual == code
+                )
+            })
+            .unwrap_or_else(|| panic!("missing {code} diagnostic"));
+        let explain = diagnostic
+            .data
+            .as_ref()
+            .and_then(|value| value.get("explain"))
+            .expect("diagnostic explainer");
+        assert_eq!(
+            explain.get("iec").and_then(|value| value.as_str()),
+            Some(expected_iec)
+        );
+        assert_eq!(
+            explain.get("spec").and_then(|value| value.as_str()),
+            Some(expected_spec)
+        );
+    }
+}
+
+#[test]
 pub(super) fn lsp_diagnostics_no_burst_baseline_reports_real_errors() {
     let source = r#"
 PROGRAM Test

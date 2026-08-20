@@ -30,7 +30,11 @@ pub(super) fn resolve_request_role(
     client: Option<&str>,
 ) -> Result<AccessRole, AuthFailure> {
     let provided = request.auth.as_deref();
-    let expected = state.auth_token.lock().ok().and_then(|guard| guard.clone());
+    let expected = state
+        .auth_token
+        .lock()
+        .map_err(|_| AuthFailure::InvalidToken)?
+        .clone();
     if let Some(expected) = expected {
         if let Some(provided) = provided {
             if constant_time_eq(expected.as_str(), provided) {
@@ -79,3 +83,7 @@ fn control_client_is_untrusted_transport(client: Option<&str>) -> bool {
     }
     client.contains(':')
 }
+
+#[cfg(test)]
+#[path = "auth/contract_tests.rs"]
+mod contract_tests;

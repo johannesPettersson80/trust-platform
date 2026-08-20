@@ -492,3 +492,7 @@ pub(super) fn validate_st_sources(
         )),
     }
 }
+
+#[cfg(test)]
+#[path = "workspace/contract_tests.rs"]
+mod contract_tests;

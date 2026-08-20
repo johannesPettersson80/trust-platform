@@ -75,7 +75,7 @@ pub(crate) fn run_test_json(
         }));
     }
 
-    if tests.is_empty() {
+    if tests.is_empty() && discovered_total > 0 {
         return Ok(json!({
             "version": 1,
             "project": project_root.display().to_string(),
@@ -91,19 +91,22 @@ pub(crate) fn run_test_json(
         }));
     }
 
-    let compile_sources = collect_project_source_files(&project_root, None)?;
-    let extra_program_instances = tests
-        .iter()
-        .filter(|case| matches!(case.kind, TestKind::Program))
-        .map(|case| case.name.clone())
-        .collect::<BTreeSet<_>>();
-    let session = CompileSession::from_sources(compile_sources)
-        .with_extra_program_instances(extra_program_instances);
-    let mut runtime = session.build_runtime()?;
-    let bytecode = session.build_bytecode_bytes()?;
-    runtime
-        .apply_bytecode_bytes(&bytecode, None)
-        .context("failed to preload bytecode for ST test execution")?;
+    let mut runtime = compile_test_runtime(&project_root, &tests)?;
+    if tests.is_empty() {
+        return Ok(json!({
+            "version": 1,
+            "project": project_root.display().to_string(),
+            "summary": {
+                "total": 0,
+                "passed": 0,
+                "failed": 0,
+                "errors": 0,
+                "duration_ms": 0,
+                "discovered_total": discovered_total,
+            },
+            "tests": [],
+        }));
+    }
 
     let test_timeout = if timeout == 0 {
         None
@@ -149,4 +152,21 @@ pub(crate) fn run_test_json(
         serde_json::from_str(&rendered).context("parse rendered test json payload")?;
     payload["summary"]["discovered_total"] = json!(discovered_total);
     Ok(payload)
+}
+
+fn compile_test_runtime(project_root: &Path, tests: &[DiscoveredTest]) -> anyhow::Result<Runtime> {
+    let compile_sources = collect_project_source_files(project_root, None)?;
+    let extra_program_instances = tests
+        .iter()
+        .filter(|case| matches!(case.kind, TestKind::Program))
+        .map(|case| case.name.clone())
+        .collect::<BTreeSet<_>>();
+    let session = CompileSession::from_sources(compile_sources)
+        .with_extra_program_instances(extra_program_instances);
+    let mut runtime = session.build_runtime()?;
+    let bytecode = session.build_bytecode_bytes()?;
+    runtime
+        .apply_bytecode_bytes(&bytecode, None)
+        .context("failed to preload bytecode for ST test execution")?;
+    Ok(runtime)
 }

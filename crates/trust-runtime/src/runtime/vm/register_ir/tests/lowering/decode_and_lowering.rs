@@ -440,6 +440,48 @@ fn register_ir_lowering_handles_string_case_selector() {
 }
 
 #[test]
+fn register_executor_runs_enum_case_program_without_fallback() {
+    let source = r#"
+            TYPE Axis : (X, Z, G)
+            END_TYPE
+
+            PROGRAM Main
+            VAR
+                axis : Axis := Axis#Z;
+                outv : DINT := 0;
+            END_VAR
+            CASE axis OF
+                X: outv := 1;
+                Z: outv := 2;
+                G: outv := 3;
+            END_CASE;
+            END_PROGRAM
+        "#;
+
+    let (vm_module, pou_id) = vm_module_and_main_pou(source);
+    let lowered = lower_pou_to_register_ir(&vm_module, pou_id).expect("lower register ir");
+    verify_register_program(&lowered).expect("verify register ir");
+    assert_no_fallback(&lowered);
+
+    let mut harness = TestHarness::from_source(source).expect("create harness");
+    harness
+        .runtime_mut()
+        .set_execution_backend(ExecutionBackend::BytecodeVm)
+        .expect("set backend");
+    harness.runtime_mut().set_vm_register_profile_enabled(true);
+    harness.runtime_mut().reset_vm_register_profile();
+
+    let result = harness.cycle();
+    assert!(result.errors.is_empty(), "cycle errors: {:?}", result.errors);
+
+    assert_eq!(harness.get_output("outv"), Some(Value::DInt(2)));
+
+    let profile = harness.runtime().vm_register_profile_snapshot();
+    assert!(profile.register_programs_executed >= 1);
+    assert_eq!(profile.register_program_fallbacks, 0);
+}
+
+#[test]
 fn register_executor_runs_case_program_without_fallback() {
     let source = r#"
             VAR_GLOBAL

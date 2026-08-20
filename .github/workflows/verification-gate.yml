@@ -3,6 +3,8 @@ name: Verification Gate
 on:
   pull_request:
     branches: [master, main]
+  schedule:
+    - cron: "17 3 * * 2"
   workflow_dispatch:
 
 permissions:
@@ -10,23 +12,34 @@ permissions:
 
 jobs:
   verification-report:
-    name: Verification enforcing gate
+    name: Verification strict report
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Run enforcing verification gate
+      - name: Run PR verification report smoke
+        if: ${{ github.event_name == 'pull_request' }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          else
-            BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
-            HEAD_SHA="${{ github.sha }}"
-          fi
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          python3 scripts/verification_report_gate.py \
+            --base "${BASE_SHA}" \
+            --head "${HEAD_SHA}" \
+            --intent bugfix \
+            --strict \
+            --smoke \
+            --out-dir target/gate-artifacts/verification
+      - name: Run scheduled exhaustive verification-tooling report
+        if: ${{ github.event_name != 'pull_request' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
+          HEAD_SHA="${{ github.sha }}"
+          python3 scripts/check_verification_tooling_selftests.py
           python3 scripts/verification_report_gate.py \
             --base "${BASE_SHA}" \
             --head "${HEAD_SHA}" \

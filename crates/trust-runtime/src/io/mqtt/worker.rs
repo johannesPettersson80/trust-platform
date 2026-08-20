@@ -93,9 +93,7 @@ impl MqttWorker {
         {
             let mut state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
             if state.completed_input_seq < seq && state.latest_inputs.is_some() {
-                state.health = IoDriverHealth::Degraded {
-                    error: SmolStr::new("mqtt input refresh pending"),
-                };
+                state.health = mqtt_policy_health("mqtt input refresh pending", self.policy);
                 state.last_error = Some(SmolStr::new("mqtt input refresh pending"));
             }
             if state.completed_input_seq >= seq {
@@ -149,11 +147,9 @@ impl MqttWorker {
             }
             if Instant::now() >= deadline {
                 let mut state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
-                state.health = IoDriverHealth::Degraded {
-                    error: SmolStr::new("mqtt output handoff pending"),
-                };
+                state.health = mqtt_policy_health("mqtt output handoff pending", self.policy);
                 state.last_error = Some(SmolStr::new("mqtt output handoff pending"));
-                return Ok(());
+                return mqtt_result_from_health(&state.health);
             }
             thread::sleep(MQTT_WORKER_IDLE_POLL);
         }
@@ -170,12 +166,16 @@ impl MqttWorker {
     fn copy_latest_inputs(&self, inputs: &mut [u8]) -> Option<Result<(), RuntimeError>> {
         let state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
         let latest = state.latest_inputs.as_ref()?;
+        let result = mqtt_read_result_from_health(&state.health);
+        if result.is_err() {
+            return Some(result);
+        }
         let len = inputs.len().min(latest.len());
         inputs[..len].copy_from_slice(&latest[..len]);
         if len < inputs.len() {
             inputs[len..].fill(0);
         }
-        Some(mqtt_read_result_from_health(&state.health))
+        Some(result)
     }
 }
 
@@ -205,12 +205,13 @@ fn run_mqtt_worker(
                     state.next_reconnect = Instant::now() + driver.config.reconnect;
                     state.last_error = mqtt_health_error(&state.health);
                 }
-                if result.is_err() && matches!(state.health, IoDriverHealth::Ok) {
-                    state.health = IoDriverHealth::Degraded {
-                        error: SmolStr::new("mqtt output write failed"),
-                    };
-                    state.next_reconnect = Instant::now() + driver.config.reconnect;
-                    state.last_error = Some(SmolStr::new("mqtt output write failed"));
+                if let Err(error) = result {
+                    if matches!(state.health, IoDriverHealth::Ok) {
+                        state.health =
+                            mqtt_policy_health(error.to_string(), driver.config.on_error);
+                        state.next_reconnect = Instant::now() + driver.config.reconnect;
+                        state.last_error = mqtt_health_error(&state.health);
+                    }
                 }
             }
         }
@@ -296,13 +297,13 @@ fn mqtt_health_error(health: &IoDriverHealth) -> Option<SmolStr> {
     }
 }
 
-fn mqtt_policy_health(message: &'static str, policy: IoDriverErrorPolicy) -> IoDriverHealth {
+fn mqtt_policy_health(message: impl AsRef<str>, policy: IoDriverErrorPolicy) -> IoDriverHealth {
     match policy {
         IoDriverErrorPolicy::Fault => IoDriverHealth::Faulted {
-            error: SmolStr::new(message),
+            error: SmolStr::new(message.as_ref()),
         },
         IoDriverErrorPolicy::Warn | IoDriverErrorPolicy::Ignore => IoDriverHealth::Degraded {
-            error: SmolStr::new(message),
+            error: SmolStr::new(message.as_ref()),
         },
     }
 }

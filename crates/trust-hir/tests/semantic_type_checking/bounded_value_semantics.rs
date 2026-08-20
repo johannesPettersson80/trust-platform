@@ -78,6 +78,105 @@ END_PROGRAM
 }
 
 #[test]
+fn mixed_numeric_expression_requires_accuracy_preserving_common_type() {
+    let errors = check_errors(
+        r#"
+PROGRAM Main
+VAR
+    ulint_value : ULINT := ULINT#18446744073709551615;
+    real_value : REAL := REAL#1.0;
+    result : REAL;
+END_VAR
+result := ulint_value + real_value;
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::TypeMismatch),
+        "ULINT and REAL have no accuracy-preserving common type: {errors:?}"
+    );
+}
+
+#[test]
+fn representable_untyped_integer_literals_use_the_other_typed_operand() {
+    check_no_errors(
+        r#"
+PROGRAM Main
+VAR
+    uint_value : UINT := UINT#2;
+    arithmetic_left : UINT;
+    arithmetic_right : UINT;
+    equal_left : BOOL;
+    equal_right : BOOL;
+    maximum_left : UINT;
+    maximum_right : UINT;
+    minimum_left : UINT;
+    minimum_right : UINT;
+    real_value : REAL := REAL#2.0;
+    real_arithmetic_left : REAL;
+    real_arithmetic_right : REAL;
+    real_equal_integer : BOOL;
+    real_equal_left : BOOL;
+    real_equal_right : BOOL;
+    real_maximum_left : REAL;
+    real_maximum_right : REAL;
+END_VAR
+arithmetic_left := uint_value + 1;
+arithmetic_right := 1 + uint_value;
+equal_left := uint_value = 1;
+equal_right := 1 = uint_value;
+maximum_left := MAX(uint_value, 1);
+maximum_right := MAX(1, uint_value);
+minimum_left := MIN(uint_value, 1);
+minimum_right := MIN(1, uint_value);
+real_arithmetic_left := real_value + 1.0;
+real_arithmetic_right := 1.0 + real_value;
+real_equal_integer := real_value = 1;
+real_equal_left := real_value = 1.0;
+real_equal_right := 1.0 = real_value;
+real_maximum_left := MAX(real_value, 1.0);
+real_maximum_right := MAX(1.0, real_value);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn out_of_range_or_typed_cross_family_operands_are_not_contextual_literals() {
+    let errors = check_errors(
+        r#"
+PROGRAM Main
+VAR
+    usint_value : USINT := USINT#1;
+    uint_value : UINT := UINT#2;
+    usint_result : USINT;
+    uint_result : UINT;
+END_VAR
+usint_result := usint_value + 256;
+usint_result := MAX(usint_value, 256);
+uint_result := SINT#1 + uint_value;
+uint_result := MAX(SINT#1, uint_value);
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        errors
+            .iter()
+            .filter(|code| {
+                matches!(
+                    code,
+                    DiagnosticCode::TypeMismatch | DiagnosticCode::InvalidArgumentType
+                )
+            })
+            .count()
+            >= 4,
+        "every out-of-range or explicitly typed cross-family operand must be rejected: {errors:?}"
+    );
+}
+
+#[test]
 fn explicit_integer_to_float_conversion_and_representable_context_literals_are_accepted() {
     check_no_errors(
         r#"

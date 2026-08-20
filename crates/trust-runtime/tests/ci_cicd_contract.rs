@@ -3,6 +3,8 @@ use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+include!("../../../tests/support/repository_source_oracle.rs");
+
 static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 fn unique_temp_dir(prefix: &str) -> PathBuf {
@@ -375,7 +377,12 @@ fn ci_template_file_contains_expected_command_sequence() {
         .join("workflows")
         .join("templates")
         .join("trust-runtime-project-ci.yml");
-    let text = std::fs::read_to_string(&template).expect("read CI template");
+    let text = repository_source_tree_read_to_string!(
+        (&template, repo_root()),
+        roots = [".github/workflows"],
+        extension = "yml",
+    )
+    .expect("read CI template");
     assert!(
         text.contains(
             "cargo build -p trust-runtime --bin trust-runtime -p trust-dev --bin trust-dev"
@@ -550,7 +557,12 @@ fn ci_nightly_workflow_exposes_dispatch_artifacts_and_gate_enforcement() {
         .join(".github")
         .join("workflows")
         .join("nightly-reliability.yml");
-    let text = std::fs::read_to_string(workflow).expect("read nightly reliability workflow");
+    let text = repository_source_tree_read_to_string!(
+        (workflow, repo_root()),
+        roots = [".github/workflows"],
+        extension = "yml",
+    )
+    .expect("read nightly reliability workflow");
     assert!(
         text.contains("workflow_dispatch:"),
         "nightly workflow must expose manual workflow_dispatch entrypoint"
@@ -665,7 +677,12 @@ fn ci_reliability_summary_gate_returns_non_zero_on_budget_breach() {
 #[test]
 fn ci_vscode_extension_job_contract_wires_failure_to_release_gate() {
     let workflow = repo_root().join(".github").join("workflows").join("ci.yml");
-    let text = std::fs::read_to_string(workflow).expect("read CI workflow");
+    let text = repository_source_tree_read_to_string!(
+        (workflow, repo_root()),
+        roots = [".github/workflows"],
+        extension = "yml",
+    )
+    .expect("read CI workflow");
 
     let vscode_start = text
         .find("  vscode-extension:")

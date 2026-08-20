@@ -30,6 +30,12 @@ pub(in crate::web::ide) fn normalize_workspace_path(
     if trimmed.is_empty() {
         return Ok(String::new());
     }
+    if trimmed.contains('\\') {
+        return Err(IdeError::new(
+            IdeErrorKind::Forbidden,
+            "workspace paths must use relative forward-slash syntax",
+        ));
+    }
 
     let raw = Path::new(trimmed);
     if raw.is_absolute() || raw.has_root() {
@@ -63,6 +69,9 @@ pub(in crate::web::ide) fn normalize_workspace_path(
     }
 
     if parts.is_empty() {
+        if allow_root {
+            return Ok(String::new());
+        }
         return Err(IdeError::new(
             IdeErrorKind::InvalidInput,
             "workspace path is required",
@@ -245,3 +254,7 @@ pub(in crate::web::ide) fn compile_glob_pattern(
         )
     })
 }
+
+#[cfg(test)]
+#[path = "paths/contract_tests.rs"]
+mod contract_tests;

@@ -105,7 +105,12 @@ pub(super) fn handle_post_link_transport(
     }
 
     if payload.transport == RuntimeCloudLinkTransport::Realtime
-        && !runtime_cloud_link_is_same_host(ctx.discovery.as_ref(), source, target)
+        && !runtime_cloud_link_is_same_host_from_local(
+            ctx.discovery.as_ref(),
+            local_runtime.as_str(),
+            source,
+            target,
+        )
     {
         let response = Response::from_string(
             serde_json::to_string(&RuntimeCloudLinkTransportSetResponse {

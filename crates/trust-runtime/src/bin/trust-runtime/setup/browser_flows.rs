@@ -35,7 +35,7 @@ fn run_browser_setup_interactive() -> anyhow::Result<()> {
         None
     };
     let port = if advanced {
-        prompt::prompt_u64("Port", DEFAULT_SETUP_PORT.into())? as u16
+        setup_port_from_prompt_value(prompt::prompt_u64("Port", DEFAULT_SETUP_PORT.into())?)?
     } else {
         DEFAULT_SETUP_PORT
     };

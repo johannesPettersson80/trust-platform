@@ -3,14 +3,14 @@ id = "DEV_TEST_DISCOVERY_001"
 title = "Developer test discovery cannot silently skip supported filename case"
 area = "plcopen_devtools"
 risk = "false_status"
-status = "implemented"
+status = "gap_open"
 owner = "trust-dev"
 last_reviewed = "2026-07-17"
 claim = "Developer test discovery must not silently omit a supported source because of extension case."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-dev/src"]
-tests = ["TEST_DEV_TEST_DISCOVERY_TRACE_001"]
+tests = ["TEST_AUTO_024034593826EFD0DC25", "TEST_AUTO_9DA43D9B2EA2A3411356", "TEST_AUTO_EAD77AB30DBE5CC32785", "TEST_DEV_TEST_DISCOVERY_TRACE_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_DEV_TEST_DISCOVERY_TRACE_001_LOCK_BASELINE",
@@ -44,6 +44,14 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "Unsupported extensions are excluded and an empty supported-source set is reported as a visible failure rather than a successful empty run."
+
+[[behavior]]
+partition = { equals = "TEST_POU_DECLARATION_EXTRACTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-pou-discovery"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Test POU discovery preserves kind, namespace-qualified identity, declaration source line, and deterministic source order independently of following comments or trivia."
 
 [[coverage.cells]]
 dimension = "platform_or_filesystem_variation"

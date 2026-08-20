@@ -33,7 +33,7 @@ fn check_scope_tasks_and_programs(
         .children()
         .filter(|node| node.kind() == SyntaxKind::TaskConfig)
     {
-        check_task_priority(&task, diagnostics);
+        check_task_priority(symbols, &task, diagnostics);
     }
 
     for program in scope
@@ -86,7 +86,11 @@ pub(super) fn collect_tasks_in_scope(scope: &SyntaxNode) -> FxHashMap<SmolStr, T
     tasks
 }
 
-fn check_task_priority(task: &SyntaxNode, diagnostics: &mut DiagnosticBuilder) {
+fn check_task_priority(
+    symbols: &SymbolTable,
+    task: &SyntaxNode,
+    diagnostics: &mut DiagnosticBuilder,
+) {
     let Some((task_name, task_range)) = name_from_node(task) else {
         return;
     };
@@ -103,6 +107,20 @@ fn check_task_priority(task: &SyntaxNode, diagnostics: &mut DiagnosticBuilder) {
     };
 
     let fields = task_init_fields(&task_init);
+    for (field, range) in &fields.unknown_fields {
+        diagnostics.error(
+            DiagnosticCode::InvalidTaskConfig,
+            *range,
+            format!("TASK '{task_name}' has unknown initializer field '{field}'"),
+        );
+    }
+    for (field, range) in &fields.duplicate_fields {
+        diagnostics.error(
+            DiagnosticCode::InvalidTaskConfig,
+            *range,
+            format!("TASK '{task_name}' has duplicate initializer field '{field}'"),
+        );
+    }
     if fields.priority_expr.is_none() {
         diagnostics.error(
             DiagnosticCode::InvalidTaskConfig,
@@ -113,36 +131,54 @@ fn check_task_priority(task: &SyntaxNode, diagnostics: &mut DiagnosticBuilder) {
     }
 
     if let Some(expr) = fields.priority_expr {
-        if parse_unsigned_int_literal(&expr).is_none() {
+        if parse_unsigned_int_literal(&expr).is_none_or(|value| value > u64::from(u32::MAX)) {
+            let expression = expr.text().to_string();
+            let message = if expression.trim_start().starts_with('-') {
+                format!("TASK PRIORITY must be non-negative (task '{task_name}')")
+            } else if expression
+                .replace('_', "")
+                .trim()
+                .chars()
+                .all(|character| character.is_ascii_digit())
+            {
+                format!("TASK '{task_name}' PRIORITY is outside the supported u32 range")
+            } else {
+                format!("TASK '{task_name}' PRIORITY must be an unsigned integer literal")
+            };
             diagnostics.error(
                 DiagnosticCode::InvalidTaskConfig,
                 expr.text_range(),
-                format!("TASK '{task_name}' PRIORITY must be an unsigned integer literal"),
+                message,
             );
         }
     }
 
     if let Some(expr) = fields.single_expr {
-        match literal_kind(&expr) {
-            Some(LiteralKind::Bool) => {}
-            Some(_) => diagnostics.error(
+        if !is_bool_storage_reference(symbols, &expr) {
+            let detail = name_from_node(&expr)
+                .filter(|(name, _)| symbols.lookup(name.as_str()).is_none())
+                .map(|(name, _)| format!("references unknown variable '{name}'"))
+                .unwrap_or_else(|| "must name a visible BOOL storage variable".to_owned());
+            diagnostics.error(
                 DiagnosticCode::InvalidTaskConfig,
                 expr.text_range(),
-                format!("TASK '{task_name}' SINGLE must be a BOOL literal"),
-            ),
-            None => {}
+                format!("TASK '{task_name}' SINGLE {detail}"),
+            );
         }
     }
 
     if let Some(expr) = fields.interval_expr {
-        match literal_kind(&expr) {
-            Some(LiteralKind::Time) => {}
-            Some(_) => diagnostics.error(
+        if !is_nonnegative_time_literal(&expr) {
+            let detail = if expr.text().to_string().contains('-') {
+                "must be non-negative"
+            } else {
+                "must be a TIME literal"
+            };
+            diagnostics.error(
                 DiagnosticCode::InvalidTaskConfig,
                 expr.text_range(),
-                format!("TASK '{task_name}' INTERVAL must be a TIME literal"),
-            ),
-            None => {}
+                format!("TASK '{task_name}' INTERVAL {detail}"),
+            );
         }
     }
 }
@@ -152,6 +188,8 @@ struct TaskInitFields {
     priority_expr: Option<SyntaxNode>,
     single_expr: Option<SyntaxNode>,
     interval_expr: Option<SyntaxNode>,
+    unknown_fields: Vec<(SmolStr, TextRange)>,
+    duplicate_fields: Vec<(SmolStr, TextRange)>,
 }
 
 fn task_init_fields(node: &SyntaxNode) -> TaskInitFields {
@@ -194,13 +232,31 @@ fn task_init_fields(node: &SyntaxNode) -> TaskInitFields {
             j += 1;
         }
 
-        if name.eq_ignore_ascii_case("PRIORITY") {
+        let field = name.to_ascii_uppercase();
+        let duplicate = match field.as_str() {
+            "PRIORITY" => fields.priority_expr.is_some(),
+            "SINGLE" => fields.single_expr.is_some(),
+            "INTERVAL" => fields.interval_expr.is_some(),
+            _ => {
+                fields
+                    .unknown_fields
+                    .push((name.clone(), name_node.text_range()));
+                false
+            }
+        };
+        if duplicate {
+            fields
+                .duplicate_fields
+                .push((name.clone(), name_node.text_range()));
+        }
+
+        if field == "PRIORITY" {
             fields.priority_expr = expr_node.clone();
         }
-        if name.eq_ignore_ascii_case("SINGLE") {
+        if field == "SINGLE" {
             fields.single_expr = expr_node.clone();
         }
-        if name.eq_ignore_ascii_case("INTERVAL") {
+        if field == "INTERVAL" {
             fields.interval_expr = expr_node;
         }
 
@@ -210,14 +266,22 @@ fn task_init_fields(node: &SyntaxNode) -> TaskInitFields {
 }
 
 fn parse_unsigned_int_literal(node: &SyntaxNode) -> Option<u64> {
-    let token = node
+    if node.kind() != SyntaxKind::Literal {
+        return None;
+    }
+    let mut tokens = node
         .descendants_with_tokens()
         .filter_map(|element| element.into_token())
-        .find(|token| token.kind() == SyntaxKind::IntLiteral)?;
+        .filter(|token| !token.kind().is_trivia());
+    let token = tokens.next()?;
+    if token.kind() != SyntaxKind::IntLiteral || tokens.next().is_some() {
+        return None;
+    }
     let text = token.text().replace('_', "");
     text.parse::<u64>().ok()
 }
 
+#[cfg(test)]
 #[derive(Clone, Copy)]
 enum LiteralKind {
     Bool,
@@ -225,36 +289,68 @@ enum LiteralKind {
     Other,
 }
 
+#[cfg(test)]
 fn literal_kind(node: &SyntaxNode) -> Option<LiteralKind> {
+    if node.kind() != SyntaxKind::Literal {
+        return None;
+    }
     let mut saw_literal = false;
     for token in node
         .descendants_with_tokens()
         .filter_map(|element| element.into_token())
     {
         match token.kind() {
-            SyntaxKind::KwTrue | SyntaxKind::KwFalse => {
-                return Some(LiteralKind::Bool);
-            }
-            SyntaxKind::TimeLiteral => {
-                return Some(LiteralKind::Time);
-            }
+            SyntaxKind::KwTrue | SyntaxKind::KwFalse => return Some(LiteralKind::Bool),
+            SyntaxKind::TimeLiteral => return Some(LiteralKind::Time),
             SyntaxKind::IntLiteral
             | SyntaxKind::RealLiteral
             | SyntaxKind::StringLiteral
             | SyntaxKind::WideStringLiteral
             | SyntaxKind::DateLiteral
             | SyntaxKind::TimeOfDayLiteral
-            | SyntaxKind::DateAndTimeLiteral => {
-                saw_literal = true;
-            }
+            | SyntaxKind::DateAndTimeLiteral => saw_literal = true,
             _ => {}
         }
     }
-    if saw_literal {
-        Some(LiteralKind::Other)
-    } else {
-        None
+    saw_literal.then_some(LiteralKind::Other)
+}
+
+fn is_nonnegative_time_literal(node: &SyntaxNode) -> bool {
+    if node.kind() != SyntaxKind::Literal {
+        return false;
     }
+
+    node.descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .find(|token| token.kind() == SyntaxKind::TimeLiteral)
+        .is_some_and(|token| !token.text().contains('-'))
+}
+
+fn is_bool_storage_reference(symbols: &SymbolTable, node: &SyntaxNode) -> bool {
+    if node.kind() != SyntaxKind::NameRef {
+        return false;
+    }
+    let Some((name, _)) = name_from_node(node) else {
+        return false;
+    };
+    let Some(symbol_id) = symbols.lookup(name.as_str()) else {
+        return false;
+    };
+    let Some(symbol) = symbols.get(symbol_id) else {
+        return false;
+    };
+    if !matches!(
+        symbol.kind,
+        SymbolKind::Variable {
+            qualifier: VarQualifier::Global | VarQualifier::External
+        }
+    ) {
+        return false;
+    }
+    matches!(
+        symbols.type_by_id(symbols.resolve_alias_type(symbol.type_id)),
+        Some(Type::Bool)
+    )
 }
 
 pub(super) fn program_config_task_name(node: &SyntaxNode) -> Option<(SmolStr, TextRange)> {
@@ -312,3 +408,7 @@ pub(super) fn resolve_program_type(
 pub(super) fn normalize_task_name(name: &str) -> SmolStr {
     SmolStr::new(name.to_ascii_uppercase())
 }
+
+#[cfg(test)]
+#[path = "configuration/contract_tests.rs"]
+mod contract_tests;

@@ -3,6 +3,86 @@ use crate::db::diagnostics::is_expression_kind;
 use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 
 impl SymbolCollector<'_> {
+    pub(super) fn check_overlap_variable_initializers(&mut self, root: &SyntaxNode) {
+        for var_decl in root
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::VarDecl)
+        {
+            let Some(initializer) = var_decl
+                .children()
+                .find(|node| is_expression_kind(node.kind()))
+            else {
+                continue;
+            };
+            let initializes_overlap = var_decl
+                .children()
+                .filter(|node| node.kind() == SyntaxKind::Name)
+                .filter_map(|node| name_from_node(&node))
+                .filter_map(|(name, range)| self.table.lookup_by_name_range(name.as_str(), range))
+                .filter_map(|symbol_id| self.table.get(symbol_id))
+                .any(|symbol| self.table.is_overlapping_struct_type(symbol.type_id));
+            if initializes_overlap {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    initializer.text_range(),
+                    "variables of STRUCT OVERLAP type cannot declare an initializer",
+                );
+            }
+        }
+    }
+
+    pub(super) fn check_by_value_type_cycles(&mut self) {
+        let declarations = self
+            .table
+            .iter()
+            .filter(|symbol| matches!(symbol.kind, SymbolKind::Type))
+            .map(|symbol| (symbol.type_id, symbol.range, symbol.name.clone()))
+            .collect::<Vec<_>>();
+
+        for (type_id, range, name) in declarations {
+            let mut path = FxHashSet::default();
+            if self.type_reaches_by_value(type_id, type_id, &mut path, true) {
+                self.diagnostics.error(
+                    DiagnosticCode::CyclicDependency,
+                    range,
+                    format!("type '{name}' recursively contains itself by value"),
+                );
+                self.table.unpublish_type(type_id);
+            }
+        }
+    }
+
+    fn type_reaches_by_value(
+        &self,
+        start: TypeId,
+        current: TypeId,
+        path: &mut FxHashSet<TypeId>,
+        at_root: bool,
+    ) -> bool {
+        if !at_root && current == start {
+            return true;
+        }
+        if !path.insert(current) {
+            return false;
+        }
+
+        let children = match self.table.type_by_id(current) {
+            Some(Type::Alias { target, .. }) => vec![*target],
+            Some(Type::Array { element, .. }) => vec![*element],
+            Some(Type::Struct { fields, .. }) => fields.iter().map(|field| field.type_id).collect(),
+            Some(Type::Union { variants, .. }) => {
+                variants.iter().map(|variant| variant.type_id).collect()
+            }
+            Some(Type::Pointer { .. } | Type::Reference { .. }) | None => Vec::new(),
+            _ => Vec::new(),
+        };
+        let reaches = children
+            .into_iter()
+            .any(|child| self.type_reaches_by_value(start, child, path, false));
+        path.remove(&current);
+        reaches
+    }
+
     pub(super) fn check_access_and_config(&mut self, root: &SyntaxNode) {
         self.collect_program_instances(root);
         for node in root.descendants() {
@@ -133,12 +213,54 @@ impl SymbolCollector<'_> {
     }
 
     pub(super) fn check_var_block_modifiers(&mut self, root: &SyntaxNode) {
-        for block in root
-            .descendants()
-            .filter(|n| n.kind() == SyntaxKind::VarBlock)
-        {
+        for block in root.descendants().filter(|n| {
+            matches!(
+                n.kind(),
+                SyntaxKind::VarBlock | SyntaxKind::VarAccessBlock | SyntaxKind::VarConfigBlock
+            )
+        }) {
             let modifiers = var_block_modifiers(&block);
             let qualifier = var_qualifier_from_block(&block);
+
+            let mut modifier_counts = [0usize; 4];
+            for token in block
+                .descendants_with_tokens()
+                .filter_map(|element| element.into_token())
+            {
+                let slot = match token.kind() {
+                    SyntaxKind::KwConstant => Some(0),
+                    SyntaxKind::KwRetain => Some(1),
+                    SyntaxKind::KwNonRetain => Some(2),
+                    SyntaxKind::KwPersistent => Some(3),
+                    _ => None,
+                };
+                if let Some(slot) = slot {
+                    modifier_counts[slot] += 1;
+                }
+            }
+            if modifier_counts.iter().any(|count| *count > 1) {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    block.text_range(),
+                    "a variable section qualifier may occur only once",
+                );
+            }
+
+            if matches!(
+                block.kind(),
+                SyntaxKind::VarAccessBlock | SyntaxKind::VarConfigBlock
+            ) && (modifiers.constant
+                || modifiers.retain.is_some()
+                || modifiers.non_retain.is_some()
+                || modifiers.persistent.is_some())
+            {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    block.text_range(),
+                    "VAR_ACCESS and VAR_CONFIG do not accept variable section qualifiers",
+                );
+                continue;
+            }
 
             let retention_count = [
                 modifiers.retain.is_some(),
@@ -167,22 +289,242 @@ impl SymbolCollector<'_> {
                 );
             }
 
-            if retention_count > 0
-                && !matches!(
-                    qualifier,
-                    VarQualifier::Local
-                        | VarQualifier::Input
-                        | VarQualifier::Output
-                        | VarQualifier::Global
-                        | VarQualifier::Static
-                )
-            {
+            let owner = block
+                .ancestors()
+                .skip(1)
+                .find_map(|ancestor| match ancestor.kind() {
+                    SyntaxKind::Program
+                    | SyntaxKind::Function
+                    | SyntaxKind::FunctionBlock
+                    | SyntaxKind::Method
+                    | SyntaxKind::Class => Some(ancestor.kind()),
+                    _ => None,
+                });
+            let retention_allowed = match qualifier {
+                VarQualifier::Global | VarQualifier::Static => true,
+                VarQualifier::Local => matches!(
+                    owner,
+                    Some(SyntaxKind::Program | SyntaxKind::FunctionBlock | SyntaxKind::Class)
+                ),
+                VarQualifier::Input | VarQualifier::Output => {
+                    matches!(owner, Some(SyntaxKind::Program | SyntaxKind::FunctionBlock))
+                }
+                _ => false,
+            };
+
+            if retention_count > 0 && !retention_allowed {
                 let range =
                     retention_modifier_range(&modifiers).unwrap_or_else(|| block.text_range());
                 self.diagnostics.error(
                     DiagnosticCode::InvalidOperation,
                     range,
                     "RETAIN/NON_RETAIN/PERSISTENT not allowed in this VAR section",
+                );
+            }
+        }
+    }
+
+    pub(super) fn check_edge_declarations(&mut self, root: &SyntaxNode) {
+        for block in root
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::VarBlock)
+        {
+            let qualifier = var_qualifier_from_block(&block);
+            let is_constant = var_block_is_constant(&block);
+            let owner_kind = block
+                .ancestors()
+                .skip(1)
+                .find_map(|ancestor| match ancestor.kind() {
+                    SyntaxKind::Program
+                    | SyntaxKind::Function
+                    | SyntaxKind::FunctionBlock
+                    | SyntaxKind::Method
+                    | SyntaxKind::Class => Some(ancestor.kind()),
+                    _ => None,
+                });
+
+            for declaration in block
+                .children()
+                .filter(|node| node.kind() == SyntaxKind::VarDecl)
+            {
+                let edge_qualifiers = var_decl_edge_qualifiers(&declaration);
+                let Some((_, edge_range)) = edge_qualifiers.first().copied() else {
+                    continue;
+                };
+
+                if edge_qualifiers.len() != 1 {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        edge_range,
+                        "an edge declaration requires exactly one R_EDGE or F_EDGE suffix",
+                    );
+                }
+
+                if qualifier != VarQualifier::Input
+                    || !matches!(
+                        owner_kind,
+                        Some(SyntaxKind::Program | SyntaxKind::FunctionBlock)
+                    )
+                {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        edge_range,
+                        "R_EDGE and F_EDGE are valid only on PROGRAM or FUNCTION_BLOCK VAR_INPUT declarations",
+                    );
+                }
+
+                let type_id = declaration
+                    .children()
+                    .find(|child| child.kind() == SyntaxKind::TypeRef)
+                    .map(|type_ref| self.resolve_type_from_ref(&type_ref))
+                    .unwrap_or(TypeId::UNKNOWN);
+                if self.table.resolve_alias_type(type_id) != TypeId::BOOL {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        edge_range,
+                        "R_EDGE and F_EDGE require a BOOL input",
+                    );
+                }
+
+                if declaration
+                    .children()
+                    .any(|child| is_expression_kind(child.kind()))
+                {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        edge_range,
+                        "an edge declaration cannot have an initializer",
+                    );
+                }
+
+                if is_constant {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        edge_range,
+                        "an edge declaration is not valid in a CONSTANT input section",
+                    );
+                }
+            }
+        }
+    }
+
+    pub(super) fn check_source_generic_types(&mut self, root: &SyntaxNode) {
+        for token in root
+            .descendants_with_tokens()
+            .filter_map(|element| element.into_token())
+        {
+            if !matches!(
+                token.kind(),
+                SyntaxKind::KwAny
+                    | SyntaxKind::KwAnyDerived
+                    | SyntaxKind::KwAnyElementary
+                    | SyntaxKind::KwAnyMagnitude
+                    | SyntaxKind::KwAnyInt
+                    | SyntaxKind::KwAnyUnsigned
+                    | SyntaxKind::KwAnySigned
+                    | SyntaxKind::KwAnyReal
+                    | SyntaxKind::KwAnyNum
+                    | SyntaxKind::KwAnyDuration
+                    | SyntaxKind::KwAnyBit
+                    | SyntaxKind::KwAnyChars
+                    | SyntaxKind::KwAnyString
+                    | SyntaxKind::KwAnyChar
+                    | SyntaxKind::KwAnyDate
+            ) {
+                continue;
+            }
+            self.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                token.text_range(),
+                format!(
+                    "generic type category {} is valid only in built-in formal signatures",
+                    token.text()
+                ),
+            );
+        }
+    }
+
+    pub(super) fn check_member_access_declarations(&mut self, root: &SyntaxNode) {
+        for block in root
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::VarBlock)
+        {
+            let access = explicit_visibility_tokens(&block);
+            let Some((_, range)) = access.first().copied() else {
+                continue;
+            };
+            if access.len() != 1 {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    range,
+                    "a variable section accepts at most one access specifier",
+                );
+            }
+
+            let qualifier = var_qualifier_from_block(&block);
+            let owner = block
+                .ancestors()
+                .skip(1)
+                .find(|ancestor| {
+                    matches!(
+                        ancestor.kind(),
+                        SyntaxKind::Program
+                            | SyntaxKind::Function
+                            | SyntaxKind::FunctionBlock
+                            | SyntaxKind::Class
+                            | SyntaxKind::Method
+                            | SyntaxKind::Namespace
+                            | SyntaxKind::Configuration
+                            | SyntaxKind::Resource
+                    )
+                })
+                .map(|ancestor| ancestor.kind());
+            let allowed = matches!(
+                (owner, qualifier),
+                (
+                    Some(SyntaxKind::Class | SyntaxKind::FunctionBlock),
+                    VarQualifier::Local | VarQualifier::Static
+                )
+            );
+            if !allowed {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    range,
+                    "this variable section does not accept an access specifier",
+                );
+            }
+        }
+
+        for member in root
+            .descendants()
+            .filter(|node| matches!(node.kind(), SyntaxKind::Method | SyntaxKind::Property))
+        {
+            let access = explicit_visibility_tokens(&member);
+            let Some((_, range)) = access.first().copied() else {
+                continue;
+            };
+            if access.len() != 1 {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    range,
+                    "a member declaration accepts at most one access specifier",
+                );
+            }
+            let owner_is_interface = member
+                .ancestors()
+                .skip(1)
+                .find(|ancestor| {
+                    matches!(
+                        ancestor.kind(),
+                        SyntaxKind::Interface | SyntaxKind::Class | SyntaxKind::FunctionBlock
+                    )
+                })
+                .is_some_and(|ancestor| ancestor.kind() == SyntaxKind::Interface);
+            if owner_is_interface {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    range,
+                    "interface members have implicit public access and reject access specifiers",
                 );
             }
         }

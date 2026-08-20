@@ -374,6 +374,7 @@ ASSERT_EQUAL(INT#14, Constants.PN_MaxDecelerationSystem);
 ASSERT_EQUAL(INT#15, Constants.PN_MaxDecelerationAppl);
 ASSERT_EQUAL(INT#16, Constants.PN_MaxJerkSystem);
 ASSERT_EQUAL(INT#17, Constants.PN_MaxJerkAppl);
+ASSERT_EQUAL(INT#1000, Constants.PN_TRUST_VendorBool0);
 END_TEST_PROGRAM
 
 TEST_PROGRAM plcopen_motion_single_axis_error_constants_resolve
@@ -928,15 +929,15 @@ WriteBoolParameter(Axis := Axis, Execute := TRUE, ParameterNumber := Constants.P
 WriteBoolParameter(Axis := Axis, Execute := FALSE, ParameterNumber := Constants.PN_EnableLimitNeg, Value := TRUE, ExecutionMode := MC_EXECUTION_MODE#mcQueued);
 WriteBoolParameter(Axis := Axis, Execute := TRUE, ParameterNumber := Constants.PN_EnablePosLagMonitoring, Value := TRUE, ExecutionMode := MC_EXECUTION_MODE#mcImmediately);
 WriteBoolParameter(Axis := Axis, Execute := FALSE, ParameterNumber := Constants.PN_EnablePosLagMonitoring, Value := TRUE, ExecutionMode := MC_EXECUTION_MODE#mcImmediately);
-WriteBoolParameter(Axis := Axis, Execute := TRUE, ParameterNumber := INT#1000, Value := TRUE, ExecutionMode := MC_EXECUTION_MODE#mcQueued);
-WriteBoolParameter(Axis := Axis, Execute := FALSE, ParameterNumber := INT#1000, Value := TRUE, ExecutionMode := MC_EXECUTION_MODE#mcQueued);
+WriteBoolParameter(Axis := Axis, Execute := TRUE, ParameterNumber := Constants.PN_TRUST_VendorBool0, Value := TRUE, ExecutionMode := MC_EXECUTION_MODE#mcQueued);
+WriteBoolParameter(Axis := Axis, Execute := FALSE, ParameterNumber := Constants.PN_TRUST_VendorBool0, Value := TRUE, ExecutionMode := MC_EXECUTION_MODE#mcQueued);
 ReadBoolParameter(Axis := Axis, Enable := TRUE, ParameterNumber := Constants.PN_EnableLimitPos);
 ASSERT_TRUE(ReadBoolParameter.Value);
 ReadBoolParameter(Axis := Axis, Enable := TRUE, ParameterNumber := Constants.PN_EnableLimitNeg);
 ASSERT_TRUE(ReadBoolParameter.Value);
 ReadBoolParameter(Axis := Axis, Enable := TRUE, ParameterNumber := Constants.PN_EnablePosLagMonitoring);
 ASSERT_TRUE(ReadBoolParameter.Value);
-ReadBoolParameter(Axis := Axis, Enable := TRUE, ParameterNumber := INT#1000);
+ReadBoolParameter(Axis := Axis, Enable := TRUE, ParameterNumber := Constants.PN_TRUST_VendorBool0);
 ASSERT_TRUE(ReadBoolParameter.Value);
 END_TEST_PROGRAM
 
@@ -949,11 +950,16 @@ VAR
     ReadParameter : MC_ReadParameter;
     ReadBoolParameter : MC_ReadBoolParameter;
     SetPosition : MC_SetPosition;
+    Seed : TRUST_MOTION_TestAxisSeed;
+    MoveActive : MC_MoveAbsolute;
+    MoveQueued : MC_MoveAbsolute;
+    QueueProbe : TRUST_MOTION_TestAxisQueueProbe;
 END_VAR
 
 Axis.AxisId := UDINT#115;
 Axis.InternalIndex := UINT#19;
 Constants();
+Seed(Axis := Axis, ResetDefaults := TRUE, ApplyState := TRUE, State := MC_AXIS_STATUS#mcStandstill);
 ReadParameter(Axis := Axis, Enable := TRUE, ParameterNumber := Constants.PN_EnableLimitPos);
 ASSERT_TRUE(ReadParameter.Error);
 ASSERT_TRUE(ReadParameter.ErrorID = WORD#16#0001);
@@ -968,6 +974,10 @@ WriteParameter(Axis := Axis, Execute := TRUE, ParameterNumber := Constants.PN_Ma
 ASSERT_TRUE(WriteParameter.Error);
 ASSERT_TRUE(WriteParameter.ErrorID = WORD#16#0001);
 WriteParameter(Axis := Axis, Execute := FALSE, ParameterNumber := Constants.PN_MaxAccelerationAppl, Value := REAL#0.0 - REAL#1.0, ExecutionMode := MC_EXECUTION_MODE#mcImmediately);
+WriteParameter(Axis := Axis, Execute := TRUE, ParameterNumber := Constants.PN_CommandedPosition, Value := REAL#10.0, ExecutionMode := MC_EXECUTION_MODE#mcImmediately);
+ASSERT_TRUE(WriteParameter.Error);
+ASSERT_TRUE(WriteParameter.ErrorID = WORD#16#0100);
+WriteParameter(Axis := Axis, Execute := FALSE, ParameterNumber := Constants.PN_CommandedPosition, Value := REAL#10.0, ExecutionMode := MC_EXECUTION_MODE#mcImmediately);
 WriteParameter(Axis := Axis, Execute := TRUE, ParameterNumber := Constants.PN_CommandedPosition, Value := REAL#10.0, ExecutionMode := MC_EXECUTION_MODE#mcDelayed);
 ASSERT_TRUE(WriteParameter.Error);
 ASSERT_TRUE(WriteParameter.ErrorID = WORD#16#0500);
@@ -979,6 +989,35 @@ WriteBoolParameter(Axis := Axis, Execute := FALSE, ParameterNumber := Constants.
 SetPosition(Axis := Axis, Execute := TRUE, Position := REAL#5.0, Relative := FALSE, ExecutionMode := MC_EXECUTION_MODE#mcDelayed);
 ASSERT_TRUE(SetPosition.Error);
 ASSERT_TRUE(SetPosition.ErrorID = WORD#16#0500);
+Seed(Axis := Axis, ResetDefaults := TRUE, ApplyState := TRUE, State := MC_AXIS_STATUS#mcStandstill);
+MoveActive(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#2.0, Deceleration := REAL#2.0, Jerk := REAL#1.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+Seed(Axis := Axis, ResetDefaults := FALSE, ApplyState := TRUE, State := MC_AXIS_STATUS#mcDisabled);
+QueueProbe(Axis := Axis);
+ASSERT_TRUE(QueueProbe.ActiveCommandID <> UINT#0);
+ASSERT_TRUE(QueueProbe.QueueDepth = UINT#0);
+WriteParameter(Axis := Axis, Execute := TRUE, ParameterNumber := Constants.PN_CommandedPosition, Value := REAL#11.0, ExecutionMode := MC_EXECUTION_MODE#mcImmediately);
+ASSERT_TRUE(WriteParameter.Error);
+ASSERT_TRUE(WriteParameter.ErrorID = WORD#16#0100);
+ReadParameter(Axis := Axis, Enable := TRUE, ParameterNumber := Constants.PN_CommandedPosition);
+ASSERT_TRUE(ReadParameter.Value = REAL#10.0);
+WriteParameter(Axis := Axis, Execute := FALSE, ParameterNumber := Constants.PN_CommandedPosition, Value := REAL#11.0, ExecutionMode := MC_EXECUTION_MODE#mcImmediately);
+
+Seed(Axis := Axis, ResetDefaults := TRUE, ApplyState := TRUE, State := MC_AXIS_STATUS#mcStandstill);
+MoveActive(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#2.0, Deceleration := REAL#2.0, Jerk := REAL#1.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveQueued(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Position := REAL#20.0, Velocity := REAL#5.0, Acceleration := REAL#2.0, Deceleration := REAL#2.0, Jerk := REAL#1.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcBuffered);
+MoveActive(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#2.0, Deceleration := REAL#2.0, Jerk := REAL#1.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveQueued(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#20.0, Velocity := REAL#5.0, Acceleration := REAL#2.0, Deceleration := REAL#2.0, Jerk := REAL#1.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcBuffered);
+TRUST_MOTION_ClearActiveCommandSlot(AxisIndex := Axis.InternalIndex);
+Seed(Axis := Axis, ResetDefaults := FALSE, ApplyState := TRUE, State := MC_AXIS_STATUS#mcDisabled);
+QueueProbe(Axis := Axis);
+ASSERT_TRUE(QueueProbe.ActiveCommandID = UINT#0);
+ASSERT_TRUE(QueueProbe.QueueDepth = UINT#1);
+ASSERT_FALSE(TRUST_MOTION_CanInitializeReadOnlyParameter(AxisIndex := Axis.InternalIndex));
+WriteParameter(Axis := Axis, Execute := TRUE, ParameterNumber := Constants.PN_CommandedPosition, Value := REAL#12.0, ExecutionMode := MC_EXECUTION_MODE#mcImmediately);
+ASSERT_TRUE(WriteParameter.Error);
+ASSERT_TRUE(WriteParameter.ErrorID = WORD#16#0100);
+ReadParameter(Axis := Axis, Enable := TRUE, ParameterNumber := Constants.PN_CommandedPosition);
+ASSERT_TRUE(ReadParameter.Value = REAL#10.0);
 END_TEST_PROGRAM
 
 TEST_PROGRAM plcopen_motion_single_axis_execute_edge_and_continuous_update_semantics
@@ -1786,13 +1825,15 @@ ASSERT_TRUE(Probe.QueueDepth = UINT#0);
 ASSERT_TRUE(Probe.ActiveCommandID = UINT#0);
 END_TEST_PROGRAM
 
-TEST_PROGRAM plcopen_motion_single_axis_buffered_commands_report_commandaborted_after_active_fault
+TEST_PROGRAM plcopen_motion_single_axis_buffered_commands_report_error_after_active_fault
 VAR
     Axis : AXIS_REF;
     Seed : TRUST_MOTION_TestAxisSeed;
     MoveActive : MC_MoveAbsolute;
     MoveBuffered1 : MC_MoveAbsolute;
     MoveBuffered2 : MC_MoveAbsolute;
+    Reset : MC_Reset;
+    ReadAxisError : MC_ReadAxisError;
 END_VAR
 
 Axis.AxisId := UDINT#137;
@@ -1847,6 +1888,13 @@ MoveActive(
     Direction := MC_DIRECTION#mcCurrentDirection,
     BufferMode := MC_BUFFER_MODE#mcAborting
 );
+Reset(Axis := Axis, Execute := TRUE);
+ASSERT_TRUE(Reset.Done);
+ASSERT_FALSE(Reset.Error);
+Reset(Axis := Axis, Execute := FALSE);
+ReadAxisError(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadAxisError.Valid);
+ASSERT_TRUE(ReadAxisError.AxisErrorID = WORD#16#0000);
 MoveBuffered1(
     Axis := Axis,
     Execute := TRUE,
@@ -1871,8 +1919,12 @@ MoveBuffered2(
     Direction := MC_DIRECTION#mcCurrentDirection,
     BufferMode := MC_BUFFER_MODE#mcBuffered
 );
-ASSERT_TRUE(MoveBuffered1.CommandAborted);
-ASSERT_TRUE(MoveBuffered2.CommandAborted);
+ASSERT_TRUE(MoveBuffered1.Error);
+ASSERT_TRUE(MoveBuffered2.Error);
+ASSERT_TRUE(MoveBuffered1.ErrorID = WORD#16#0200);
+ASSERT_TRUE(MoveBuffered2.ErrorID = WORD#16#0200);
+ASSERT_FALSE(MoveBuffered1.CommandAborted);
+ASSERT_FALSE(MoveBuffered2.CommandAborted);
 ASSERT_FALSE(MoveBuffered1.Busy);
 ASSERT_FALSE(MoveBuffered2.Busy);
 END_TEST_PROGRAM
@@ -2282,7 +2334,7 @@ AxisStop.AxisId := UDINT#123;
 AxisStop.InternalIndex := UINT#27;
 SeedStop(Axis := AxisStop, ResetDefaults := TRUE, ApplyState := TRUE, State := MC_AXIS_STATUS#mcContinuousMotion, ApplyPowerStage := TRUE, PowerStage := TRUE);
 Stop(Axis := AxisStop, Execute := TRUE, Deceleration := REAL#2.0, Jerk := REAL#1.0);
-ASSERT_TRUE(Stop.Busy);
+ASSERT_FALSE(Stop.Busy);
 ASSERT_TRUE(Stop.Done);
 ReadStatusStop(Axis := AxisStop, Enable := TRUE);
 ASSERT_TRUE(ReadStatusStop.Stopping);
@@ -2811,7 +2863,7 @@ ASSERT_TRUE(ReadStatusHaltStop.Standstill);
 MoveVelocityStop(Axis := AxisHaltStop, Execute := TRUE, ContinuousUpdate := FALSE, Velocity := REAL#3.0, Acceleration := REAL#2.0, Deceleration := REAL#2.0, Jerk := REAL#1.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
 ASSERT_TRUE(MoveVelocityStop.InVelocity);
 StopHaltStop(Axis := AxisHaltStop, Execute := TRUE, Deceleration := REAL#2.0, Jerk := REAL#1.0);
-ASSERT_TRUE(StopHaltStop.Busy);
+ASSERT_FALSE(StopHaltStop.Busy);
 ASSERT_TRUE(StopHaltStop.Done);
 ReadStatusHaltStop(Axis := AxisHaltStop, Enable := TRUE);
 ASSERT_TRUE(ReadStatusHaltStop.Stopping);

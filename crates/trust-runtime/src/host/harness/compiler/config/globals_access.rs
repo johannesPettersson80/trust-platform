@@ -4,7 +4,7 @@ fn lower_global_var_block(
 ) -> Result<Vec<GlobalInit>, CompileError> {
     let mut globals = Vec::new();
     let kind = var_block_kind(var_block)?;
-    let qualifiers = var_block_qualifiers(var_block);
+    let qualifiers = var_block_qualifiers(var_block)?;
     for var_decl in var_block
         .children()
         .filter(|child| child.kind() == SyntaxKind::VarDecl)
@@ -19,22 +19,17 @@ fn lower_global_var_block(
                     .and_then(|lowered| resolve_initializer_enum_variant(expr, lowered, type_id, ctx))
             })
             .transpose()?;
-        if qualifiers.constant && matches!(kind, VarBlockKind::Global | VarBlockKind::Var) {
+        if qualifiers.constant && matches!(kind, VarBlockKind::Global) {
             if let Some(expr) = init_expr.as_ref() {
                 let value = ctx.eval_compile_time_const_initializer(expr, type_id)?;
                 for name in &parts.names {
-                    ctx.register_compile_time_const(name.as_str(), value.clone());
                     let qualified = namespace_qualified_name(var_block, name.as_str());
-                    ctx.register_compile_time_const(qualified.as_str(), value.clone());
+                    ctx.register_global_compile_time_const(qualified.as_str(), value.clone());
                 }
             }
         }
         match kind {
-            VarBlockKind::Global
-            | VarBlockKind::Var
-            | VarBlockKind::Input
-                | VarBlockKind::Output
-                | VarBlockKind::InOut => {
+            VarBlockKind::Global => {
                 for name in parts.names {
                     globals.push(GlobalInit {
                         name: namespace_qualified_name(var_block, name.as_str()),
@@ -45,13 +40,22 @@ fn lower_global_var_block(
                     });
                 }
             }
-            VarBlockKind::External => {
-                continue;
-            }
+            VarBlockKind::External => continue,
             _ => {
-                return Err(CompileError::new(
-                    "unsupported VAR block in CONFIGURATION/RESOURCE",
-                ));
+                let section = match kind {
+                    VarBlockKind::Input => "VAR_INPUT",
+                    VarBlockKind::Output => "VAR_OUTPUT",
+                    VarBlockKind::InOut => "VAR_IN_OUT",
+                    VarBlockKind::Var => "VAR",
+                    VarBlockKind::Stat => "VAR_STAT",
+                    VarBlockKind::Temp => "VAR_TEMP",
+                    VarBlockKind::External => unreachable!(),
+                    VarBlockKind::Unsupported => "unknown VAR block",
+                    VarBlockKind::Global => unreachable!(),
+                };
+                return Err(CompileError::new(format!(
+                    "unsupported variable section {section} in CONFIGURATION/RESOURCE"
+                )));
             }
         }
     }
@@ -59,12 +63,12 @@ fn lower_global_var_block(
 }
 
 #[derive(Default)]
-struct VarAccessResult {
-    globals: Vec<GlobalInit>,
-    access: Vec<AccessDecl>,
+pub(super) struct VarAccessResult {
+    pub(super) globals: Vec<GlobalInit>,
+    pub(super) access: Vec<AccessDecl>,
 }
 
-fn lower_var_access_block(
+pub(super) fn lower_var_access_block(
     var_block: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<VarAccessResult, CompileError> {
@@ -88,6 +92,13 @@ fn lower_var_access_block(
             .ok_or_else(|| CompileError::new("missing VAR_ACCESS type"))?;
         let type_id = lower_type_ref(&type_ref, ctx)?;
         let path = parse_access_path(&path_node, ctx)?;
+        let writable = access_decl
+            .children_with_tokens()
+            .filter_map(|element| element.into_token())
+            .any(|token| {
+                token.kind() == SyntaxKind::KwReadWrite
+                    || token.text().eq_ignore_ascii_case("READ_WRITE")
+            });
 
         match &path {
             AccessPath::Direct { text, .. } => {
@@ -100,7 +111,11 @@ fn lower_var_access_block(
                 });
             }
             AccessPath::Parts(_) => {
-                result.access.push(AccessDecl { name, path });
+                result.access.push(AccessDecl {
+                    name,
+                    path,
+                    writable,
+                });
             }
         }
     }

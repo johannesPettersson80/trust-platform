@@ -392,7 +392,7 @@
             .symbols
             .type_name(symbol.type_id)
             .expect("G should have a resolved type");
-        assert_eq!(type_name.as_str(), "LIB.CARRIER");
+        assert_eq!(type_name.as_str(), "Lib.CARRIER");
     }
 
     #[test]
@@ -483,6 +483,89 @@
         assert!(
             type_name.as_str().eq_ignore_ascii_case("Color"),
             "imported type should still resolve to Color, got {type_name}"
+        );
+    }
+
+    #[test]
+    fn analyze_salsa_imports_cross_file_enum_value_into_enclosing_scope() {
+        let mut db = Database::new();
+        let file_types = FileId(55);
+        let file_main = FileId(56);
+        db.set_source_text(
+            file_types,
+            "TYPE Phase : (Idle := 0, Running := 1); END_TYPE\n".to_string(),
+        );
+        db.set_source_text(
+            file_main,
+            "PROGRAM Main\nVAR\n    Current : Phase := Running;\nEND_VAR\nEND_PROGRAM\n"
+                .to_string(),
+        );
+
+        let analysis = db.analyze_salsa(file_main);
+
+        assert!(
+            analysis
+                .diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.is_error()),
+            "cross-file enum initializer should analyze without errors: {:?}",
+            analysis.diagnostics
+        );
+        let running_id = analysis
+            .symbols
+            .resolve("Running", ScopeId::GLOBAL)
+            .expect("imported enum value should resolve in the enclosing scope");
+        let running = analysis
+            .symbols
+            .get(running_id)
+            .expect("imported enum value should exist");
+        assert_eq!(running.kind, SymbolKind::EnumValue { value: 1 });
+        let parent_id = running.parent.expect("enum value should retain its type parent");
+        let parent = analysis
+            .symbols
+            .get(parent_id)
+            .expect("enum type parent should exist");
+        assert_eq!(parent.kind, SymbolKind::Type);
+        assert_eq!(parent.name, "Phase");
+    }
+
+    #[test]
+    fn analyze_salsa_keeps_cross_file_duplicate_enum_value_names_ambiguous() {
+        let mut db = Database::new();
+        let file_phase = FileId(57);
+        let file_status = FileId(58);
+        let file_main = FileId(59);
+        db.set_source_text(
+            file_phase,
+            "TYPE Phase : (Idle := 0, Running := 1); END_TYPE\n".to_string(),
+        );
+        db.set_source_text(
+            file_status,
+            "TYPE Status : (Stopped := 0, Running := 2); END_TYPE\n".to_string(),
+        );
+        db.set_source_text(
+            file_main,
+            "PROGRAM Main\nVAR\n    Current : Phase := Running;\nEND_VAR\nEND_PROGRAM\n"
+                .to_string(),
+        );
+
+        let analysis = db.analyze_salsa(file_main);
+        let error_codes: Vec<_> = analysis
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.is_error())
+            .map(|diagnostic| diagnostic.code)
+            .collect();
+
+        assert!(
+            error_codes.contains(&DiagnosticCode::CannotResolve),
+            "ambiguous imported enum value should report CannotResolve: {:?}",
+            analysis.diagnostics
+        );
+        assert!(
+            !error_codes.contains(&DiagnosticCode::DuplicateDeclaration),
+            "distinct enum values with the same spelling are ambiguous, not duplicate declarations: {:?}",
+            analysis.diagnostics
         );
     }
 

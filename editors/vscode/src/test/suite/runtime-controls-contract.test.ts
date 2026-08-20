@@ -303,7 +303,10 @@ suite("Managed local runtime model (Phase 9)", () => {
   test("normalizeManagedState + label", () => {
     assert.strictEqual(normalizeManagedState("running"), "running");
     assert.strictEqual(normalizeManagedState("stopped"), "stopped");
-    assert.strictEqual(normalizeManagedState(undefined), "stopped");
+    assert.strictEqual(normalizeManagedState("starting"), "starting");
+    assert.strictEqual(normalizeManagedState("stopping"), "stopping");
+    assert.strictEqual(normalizeManagedState(undefined), "unavailable");
+    assert.strictEqual(normalizeManagedState("unexpected"), "unavailable");
     assert.strictEqual(managedRuntimeLabel("cell1"), "cell1 (this computer)");
   });
 
@@ -316,6 +319,46 @@ suite("Managed local runtime model (Phase 9)", () => {
     assert.strictEqual(isManagedLifecycleSuccess("stop", "stopped"), true);
     assert.strictEqual(isManagedLifecycleSuccess("stop", "stopping"), false);
     assert.strictEqual(isManagedLifecycleSuccess("stop", "running"), false);
+  });
+
+  test("managed starting state is shown as Starting with lifecycle action disabled", () => {
+    const starting = selectedRuntime({
+      snapshot: snap(),
+      remotes: [],
+      managed: [
+        {
+          name: "cell1",
+          controlEndpoint: "tcp://127.0.0.1:9902",
+          state: "starting",
+        },
+      ],
+      selectedId: "cell1",
+    });
+
+    assert.strictEqual(starting.status, "starting");
+    assert.strictEqual(starting.statusLabel, "Starting…");
+    assert.strictEqual(starting.primary.action, "none");
+    assert.strictEqual(starting.primary.enabled, false);
+  });
+
+  test("managed stopping state is shown as Stopping with lifecycle action disabled", () => {
+    const stopping = selectedRuntime({
+      snapshot: snap(),
+      remotes: [],
+      managed: [
+        {
+          name: "cell1",
+          controlEndpoint: "tcp://127.0.0.1:9902",
+          state: "stopping",
+        },
+      ],
+      selectedId: "cell1",
+    });
+
+    assert.strictEqual(stopping.status, "stopping");
+    assert.strictEqual(stopping.statusLabel, "Stopping…");
+    assert.strictEqual(stopping.primary.action, "none");
+    assert.strictEqual(stopping.primary.enabled, false);
   });
 
   test("toManagedRuntimes merges fleet list + per-name status", () => {
@@ -337,9 +380,20 @@ suite("Managed local runtime model (Phase 9)", () => {
     assert.strictEqual(managed[0].state, "running");
     assert.strictEqual(managed[0].projectPath, "/fleet/cell1");
     assert.strictEqual(managed[0].logPath, "/tmp/cell1.log");
-    // No status reported → stopped (honest default, never "running").
-    assert.strictEqual(managed[1].state, "stopped");
+    // No status report is not evidence of a stopped process.
+    assert.strictEqual(managed[1].state, "unavailable");
     assert.strictEqual(managed[1].projectPath, "cell2");
+    const unavailable = selectedRuntime({
+      snapshot: snap(),
+      remotes: [],
+      managed,
+      selectedId: "cell2",
+    });
+    assert.strictEqual(unavailable.status, "unavailable");
+    assert.strictEqual(unavailable.statusLabel, "Status unavailable");
+    assert.strictEqual(unavailable.primary.action, "start");
+    assert.strictEqual(unavailable.primary.enabled, false);
+    assert.match(unavailable.primary.hint ?? "", /status|refresh/i);
   });
 
   test("managed local runtime auth token is parsed only from runtime.control", () => {
@@ -592,6 +646,16 @@ suite("Canvas runtime-node controls — honest per-runtime lifecycle (§8 P3b)",
     );
     assert.ok(stopped.some((c) => c.action === "openRuntimeLogs"), "managed has Logs");
     assert.ok(stopped.some((c) => c.action === "setAsRunTarget"), "managed offers Set as run target");
+
+    const unavailable = runtimeNodeControls({
+      isLocal: false,
+      managed: true,
+      health: "error",
+      attached: false,
+      logsAvailable: true,
+    });
+    assert.strictEqual(unavailable[0].action, "managedStart");
+    assert.strictEqual(unavailable[0].enabled, false);
   });
 });
 

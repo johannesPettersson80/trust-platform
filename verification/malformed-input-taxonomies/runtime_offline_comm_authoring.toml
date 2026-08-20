@@ -1,0 +1,42 @@
+schema_version = 1
+id = "MALFORMED_INPUT_RUNTIME_OFFLINE_COMM_AUTHORING_V1"
+title = "Runtime offline communication authoring malformed-input taxonomy"
+area = "runtime_safety"
+surface_id = "runtime_offline_comm_authoring"
+review_doc = "verification/malformed-input-taxonomies/runtime_offline_comm_authoring.md"
+last_reviewed = "2026-07-23"
+
+[[classes]]
+id = "runtime_comm_params_malformed_json"
+title = "Malformed communication parameter JSON"
+disposition = "required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-offline-communication-authoring-client"
+rationale = "The offline apply surface requires a decodable JSON object before delegation."
+
+[[classes]]
+id = "runtime_comm_params_non_object"
+title = "Non-object communication parameters"
+disposition = "required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-offline-communication-authoring-client"
+rationale = "Arrays and scalar JSON values cannot supply the named fields required by communication apply."
+
+[[classes]]
+id = "runtime_comm_snapshot_malformed_json"
+title = "Malformed cached communication snapshot JSON"
+disposition = "required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-offline-communication-authoring-client"
+rationale = "Cached browse authority requires a complete decodable JSON snapshot."
+
+[[classes]]
+id = "runtime_comm_snapshot_unreadable"
+title = "Unreadable cached communication snapshot"
+disposition = "required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-offline-communication-authoring-client"
+rationale = "A missing or unreadable snapshot cannot be replaced by invented cached authority."
+
+[[classes]]
+id = "runtime_comm_target_non_object"
+title = "Non-object communication browse target"
+disposition = "required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-offline-communication-authoring-client"
+rationale = "Browse target parameters require named fields and therefore a JSON object."

@@ -352,13 +352,11 @@ VAR
     I : INT;
 END_VAR
 Count := UINT_TO_INT(SIZE) / 4;
+IS_SORTED := Count > 0;
 FOR I := 0 TO Count - 2 DO
     IF PT^[I] > PT^[I + 1] THEN
         IS_SORTED := FALSE;
         EXIT;
     END_IF;
 END_FOR;
-IF Count > 0 THEN
-    IS_SORTED := TRUE;
-END_IF;
 END_FUNCTION

@@ -25,14 +25,29 @@ impl Runtime {
                 minor: version.minor,
             });
         }
-        let resource = match resource_name {
-            Some(name) => metadata
-                .resource(name)
-                .or_else(|| metadata.primary_resource()),
-            None => metadata.primary_resource(),
-        }
-        .ok_or_else(|| error::RuntimeError::InvalidBytecodeMetadata("resource".into()))?;
+        let (resource, legacy_identity) = match resource_name {
+            Some(name) => {
+                if let Some(resource) = metadata.resource(name) {
+                    (resource, None)
+                } else if let Some(resource) = legacy_placeholder_resource(metadata) {
+                    (resource, Some(SmolStr::new(name)))
+                } else {
+                    return Err(error::RuntimeError::InvalidBytecodeMetadata(
+                        format!("resource '{name}'").into(),
+                    ));
+                }
+            }
+            None => (
+                metadata.primary_resource().ok_or_else(|| {
+                    error::RuntimeError::InvalidBytecodeMetadata("resource".into())
+                })?,
+                None,
+            ),
+        };
         self.apply_resource_metadata(resource)?;
+        if let Some(resource_name) = legacy_identity {
+            self.resource_name = resource_name;
+        }
         self.vm_module = None;
         self.vm_local_init_plan_cache.invalidate_all();
         self.vm_register_lowering_cache.invalidate_all();
@@ -88,6 +103,7 @@ impl Runtime {
         for task in &resource.tasks {
             self.register_task(task.clone());
         }
+        self.resource_name = resource.name.clone();
         let _ = self.ensure_background_thread_id();
         Ok(())
     }
@@ -120,5 +136,85 @@ impl Runtime {
             }
         }
         Ok(())
+    }
+}
+
+fn legacy_placeholder_resource(
+    metadata: &crate::bytecode::BytecodeMetadata,
+) -> Option<&crate::bytecode::ResourceMetadata> {
+    let resource = metadata.resources.first()?;
+    (metadata.resources.len() == 1 && resource.name.eq_ignore_ascii_case("RESOURCE"))
+        .then_some(resource)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::bytecode::{
+        BytecodeMetadata, BytecodeVersion, ProcessImageConfig, ResourceMetadata,
+        SUPPORTED_MAJOR_VERSION, SUPPORTED_MINOR_VERSION,
+    };
+    use crate::value::Duration;
+
+    #[test]
+    fn legacy_placeholder_requires_one_resource_named_resource() {
+        let placeholder = metadata(vec![resource("rEsOuRcE")]);
+        assert_eq!(
+            legacy_placeholder_resource(&placeholder).map(|resource| resource.name.as_str()),
+            Some("rEsOuRcE")
+        );
+
+        for resources in [
+            Vec::new(),
+            vec![resource("Plant")],
+            vec![resource("RESOURCE"), resource("Other")],
+        ] {
+            assert!(legacy_placeholder_resource(&metadata(resources)).is_none());
+        }
+    }
+
+    #[test]
+    fn resource_metadata_accepts_case_only_program_reference_and_preserves_task_spelling() {
+        let mut runtime = Runtime::new();
+        runtime
+            .register_program(crate::task::ProgramDef {
+                name: "Main".into(),
+                vars: Vec::new(),
+                temps: Vec::new(),
+                using: Vec::new(),
+                body: Vec::new(),
+            })
+            .unwrap();
+        let mut selected = resource("Plant");
+        selected.tasks.push(TaskConfig {
+            name: "Fast".into(),
+            interval: Duration::from_millis(10),
+            single: None,
+            priority: 1,
+            programs: vec!["mAiN".into()],
+            fb_instances: Vec::new(),
+        });
+
+        runtime.apply_resource_metadata(&selected).unwrap();
+
+        assert_eq!(runtime.resource_name(), "Plant");
+        assert_eq!(runtime.tasks().len(), 1);
+        assert_eq!(runtime.tasks()[0].programs, vec![SmolStr::new("mAiN")]);
+    }
+
+    fn metadata(resources: Vec<ResourceMetadata>) -> BytecodeMetadata {
+        BytecodeMetadata {
+            version: BytecodeVersion::new(SUPPORTED_MAJOR_VERSION, SUPPORTED_MINOR_VERSION),
+            resources,
+        }
+    }
+
+    fn resource(name: &str) -> ResourceMetadata {
+        ResourceMetadata {
+            name: name.into(),
+            process_image: ProcessImageConfig::default(),
+            tasks: Vec::new(),
+        }
     }
 }

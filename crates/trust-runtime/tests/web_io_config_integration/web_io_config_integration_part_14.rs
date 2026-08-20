@@ -66,8 +66,8 @@ fn runtime_cloud_preflight_wan_requires_secure_profile_preconditions() {
 }
 
 #[test]
-fn runtime_cloud_preflight_denies_cross_site_cfg_apply_without_allowlist() {
-    let project = make_project("runtime-cloud-preflight-cross-site-deny");
+fn runtime_cloud_preflight_dev_allows_cross_site_cfg_apply_without_allowlist() {
+    let project = make_project("runtime-cloud-preflight-dev-cross-site-allow");
     let discovery = Arc::new(DiscoveryState::new());
     discovery.replace_entries(vec![DiscoveryEntry {
         id: SmolStr::new("site-b/runtime-b"),
@@ -85,7 +85,7 @@ fn runtime_cloud_preflight_denies_cross_site_cfg_apply_without_allowlist() {
 
     let payload = json!({
         "api_version": "1.0",
-        "request_id": "req-cross-site-deny-1",
+        "request_id": "req-dev-cross-site-allow-1",
         "connected_via": "runtime-a",
         "target_runtimes": ["site-b/runtime-b"],
         "actor": "spiffe://trust/site-a/operator-1",
@@ -98,26 +98,18 @@ fn runtime_cloud_preflight_denies_cross_site_cfg_apply_without_allowlist() {
     let body = ureq::post(&format!("{base}/api/runtime-cloud/actions/preflight"))
         .header("Content-Type", "application/json")
         .send(&payload.to_string())
-        .expect("runtime cloud cross-site deny preflight response")
+        .expect("runtime cloud dev cross-site preflight response")
         .body_mut()
         .read_to_string()
-        .expect("read runtime cloud cross-site deny preflight body");
+        .expect("read runtime cloud dev cross-site preflight body");
     let response: Value =
-        serde_json::from_str(&body).expect("parse runtime cloud cross-site deny preflight");
+        serde_json::from_str(&body).expect("parse runtime cloud dev cross-site preflight");
 
-    assert_eq!(
-        response.get("allowed").and_then(Value::as_bool),
-        Some(false)
-    );
-    assert_eq!(
-        response.get("denial_code").and_then(Value::as_str),
-        Some("permission_denied")
-    );
+    assert_eq!(response.get("allowed").and_then(Value::as_bool), Some(true));
     assert!(response
         .get("denial_reason")
         .and_then(Value::as_str)
-        .map(|value| value.contains("cross-site write action"))
-        .unwrap_or(false));
+        .is_none());
 
     let _ = std::fs::remove_dir_all(project);
 }

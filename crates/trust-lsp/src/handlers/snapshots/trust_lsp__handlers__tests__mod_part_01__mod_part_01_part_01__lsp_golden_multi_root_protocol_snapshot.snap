@@ -1,5 +1,6 @@
 ---
 source: crates/trust-lsp/src/handlers/tests/mod_part_01_part_01.rs
+assertion_line: 950
 expression: output
 ---
 {
@@ -8,7 +9,7 @@ expression: output
       "from": {
         "data": {
           "fileId": 0,
-          "symbolId": 185
+          "symbolId": 200
         },
         "kind": 2,
         "name": "Main",
@@ -52,7 +53,7 @@ expression: output
     {
       "data": {
         "fileId": 0,
-        "symbolId": 180
+        "symbolId": 195
       },
       "kind": 12,
       "name": "Foo",
@@ -543,50 +544,6 @@ expression: output
         "source": "truST"
       },
       {
-        "code": "W001",
-        "data": {
-          "explain": {
-            "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
-            "spec": "docs/specs/09-semantic-rules.md"
-          }
-        },
-        "message": "unused variable 'typed'",
-        "range": {
-          "end": {
-            "character": 9,
-            "line": 39
-          },
-          "start": {
-            "character": 4,
-            "line": 39
-          }
-        },
-        "severity": 2,
-        "source": "truST"
-      },
-      {
-        "code": "W001",
-        "data": {
-          "explain": {
-            "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
-            "spec": "docs/specs/09-semantic-rules.md"
-          }
-        },
-        "message": "unused variable 'y'",
-        "range": {
-          "end": {
-            "character": 5,
-            "line": 38
-          },
-          "start": {
-            "character": 4,
-            "line": 38
-          }
-        },
-        "severity": 2,
-        "source": "truST"
-      },
-      {
         "code": "W009",
         "data": {
           "explain": {
@@ -625,6 +582,50 @@ expression: output
           "start": {
             "character": 9,
             "line": 13
+          }
+        },
+        "severity": 2,
+        "source": "truST"
+      },
+      {
+        "code": "W001",
+        "data": {
+          "explain": {
+            "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
+            "spec": "docs/specs/09-semantic-rules.md"
+          }
+        },
+        "message": "unused variable 'typed'",
+        "range": {
+          "end": {
+            "character": 9,
+            "line": 39
+          },
+          "start": {
+            "character": 4,
+            "line": 39
+          }
+        },
+        "severity": 2,
+        "source": "truST"
+      },
+      {
+        "code": "W001",
+        "data": {
+          "explain": {
+            "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
+            "spec": "docs/specs/09-semantic-rules.md"
+          }
+        },
+        "message": "unused variable 'y'",
+        "range": {
+          "end": {
+            "character": 5,
+            "line": 38
+          },
+          "start": {
+            "character": 4,
+            "line": 38
           }
         },
         "severity": 2,
@@ -723,23 +724,6 @@ expression: output
     }
   ],
   "documentSymbol": [
-    {
-      "kind": 2,
-      "location": {
-        "range": {
-          "end": {
-            "character": 18,
-            "line": 1
-          },
-          "start": {
-            "character": 14,
-            "line": 1
-          }
-        },
-        "uri": "file:///workspace/golden/alpha/Main.st"
-      },
-      "name": "Conf (CONFIGURATION)"
-    },
     {
       "kind": 2,
       "location": {
@@ -859,6 +843,23 @@ expression: output
         "uri": "file:///workspace/golden/alpha/Main.st"
       },
       "name": "MyInt (TYPE (ALIAS))"
+    },
+    {
+      "kind": 2,
+      "location": {
+        "range": {
+          "end": {
+            "character": 18,
+            "line": 1
+          },
+          "start": {
+            "character": 14,
+            "line": 1
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Conf (CONFIGURATION)"
     }
   ],
   "executeCommandProjectInfo": {
@@ -2095,50 +2096,6 @@ expression: output
             "source": "truST"
           },
           {
-            "code": "W001",
-            "data": {
-              "explain": {
-                "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
-                "spec": "docs/specs/09-semantic-rules.md"
-              }
-            },
-            "message": "unused variable 'typed'",
-            "range": {
-              "end": {
-                "character": 9,
-                "line": 39
-              },
-              "start": {
-                "character": 4,
-                "line": 39
-              }
-            },
-            "severity": 2,
-            "source": "truST"
-          },
-          {
-            "code": "W001",
-            "data": {
-              "explain": {
-                "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
-                "spec": "docs/specs/09-semantic-rules.md"
-              }
-            },
-            "message": "unused variable 'y'",
-            "range": {
-              "end": {
-                "character": 5,
-                "line": 38
-              },
-              "start": {
-                "character": 4,
-                "line": 38
-              }
-            },
-            "severity": 2,
-            "source": "truST"
-          },
-          {
             "code": "W009",
             "data": {
               "explain": {
@@ -2177,6 +2134,50 @@ expression: output
               "start": {
                 "character": 9,
                 "line": 13
+              }
+            },
+            "severity": 2,
+            "source": "truST"
+          },
+          {
+            "code": "W001",
+            "data": {
+              "explain": {
+                "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
+                "spec": "docs/specs/09-semantic-rules.md"
+              }
+            },
+            "message": "unused variable 'typed'",
+            "range": {
+              "end": {
+                "character": 9,
+                "line": 39
+              },
+              "start": {
+                "character": 4,
+                "line": 39
+              }
+            },
+            "severity": 2,
+            "source": "truST"
+          },
+          {
+            "code": "W001",
+            "data": {
+              "explain": {
+                "iec": "IEC 61131-3 Ed.3 §6.5.2.2",
+                "spec": "docs/specs/09-semantic-rules.md"
+              }
+            },
+            "message": "unused variable 'y'",
+            "range": {
+              "end": {
+                "character": 5,
+                "line": 38
+              },
+              "start": {
+                "character": 4,
+                "line": 38
               }
             },
             "severity": 2,
@@ -4659,6 +4660,24 @@ expression: output
       "name": "ET"
     },
     {
+      "containerName": "TOF_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "ET"
+    },
+    {
       "containerName": "TON",
       "kind": 13,
       "location": {
@@ -4695,6 +4714,24 @@ expression: output
       "name": "ET"
     },
     {
+      "containerName": "TON_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "ET"
+    },
+    {
       "containerName": "TP",
       "kind": 13,
       "location": {
@@ -4714,6 +4751,24 @@ expression: output
     },
     {
       "containerName": "TP_LTIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "ET"
+    },
+    {
+      "containerName": "TP_TIME",
       "kind": 13,
       "location": {
         "range": {
@@ -4767,6 +4822,24 @@ expression: output
       "name": "ET"
     },
     {
+      "containerName": "TOF_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "ET"
+    },
+    {
       "containerName": "TON",
       "kind": 13,
       "location": {
@@ -4803,6 +4876,24 @@ expression: output
       "name": "ET"
     },
     {
+      "containerName": "TON_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "ET"
+    },
+    {
       "containerName": "TP",
       "kind": 13,
       "location": {
@@ -4822,6 +4913,24 @@ expression: output
     },
     {
       "containerName": "TP_LTIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "ET"
+    },
+    {
+      "containerName": "TP_TIME",
       "kind": 13,
       "location": {
         "range": {
@@ -4944,6 +5053,24 @@ expression: output
       "name": "IN"
     },
     {
+      "containerName": "TOF_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "IN"
+    },
+    {
       "containerName": "TON",
       "kind": 13,
       "location": {
@@ -4980,6 +5107,24 @@ expression: output
       "name": "IN"
     },
     {
+      "containerName": "TON_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "IN"
+    },
+    {
       "containerName": "TP",
       "kind": 13,
       "location": {
@@ -4999,6 +5144,24 @@ expression: output
     },
     {
       "containerName": "TP_LTIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "IN"
+    },
+    {
+      "containerName": "TP_TIME",
       "kind": 13,
       "location": {
         "range": {
@@ -5052,6 +5215,24 @@ expression: output
       "name": "IN"
     },
     {
+      "containerName": "TOF_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "IN"
+    },
+    {
       "containerName": "TON",
       "kind": 13,
       "location": {
@@ -5088,6 +5269,24 @@ expression: output
       "name": "IN"
     },
     {
+      "containerName": "TON_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "IN"
+    },
+    {
       "containerName": "TP",
       "kind": 13,
       "location": {
@@ -5107,6 +5306,24 @@ expression: output
     },
     {
       "containerName": "TP_LTIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "IN"
+    },
+    {
+      "containerName": "TP_TIME",
       "kind": 13,
       "location": {
         "range": {
@@ -5643,6 +5860,24 @@ expression: output
       "name": "PT"
     },
     {
+      "containerName": "TOF_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "PT"
+    },
+    {
       "containerName": "TON",
       "kind": 13,
       "location": {
@@ -5679,6 +5914,24 @@ expression: output
       "name": "PT"
     },
     {
+      "containerName": "TON_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "PT"
+    },
+    {
       "containerName": "TP",
       "kind": 13,
       "location": {
@@ -5698,6 +5951,24 @@ expression: output
     },
     {
       "containerName": "TP_LTIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "PT"
+    },
+    {
+      "containerName": "TP_TIME",
       "kind": 13,
       "location": {
         "range": {
@@ -5751,6 +6022,24 @@ expression: output
       "name": "PT"
     },
     {
+      "containerName": "TOF_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "PT"
+    },
+    {
       "containerName": "TON",
       "kind": 13,
       "location": {
@@ -5787,6 +6076,24 @@ expression: output
       "name": "PT"
     },
     {
+      "containerName": "TON_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "PT"
+    },
+    {
       "containerName": "TP",
       "kind": 13,
       "location": {
@@ -5806,6 +6113,24 @@ expression: output
     },
     {
       "containerName": "TP_LTIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "PT"
+    },
+    {
+      "containerName": "TP_TIME",
       "kind": 13,
       "location": {
         "range": {
@@ -6795,6 +7120,24 @@ expression: output
       "name": "Q"
     },
     {
+      "containerName": "TOF_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Q"
+    },
+    {
       "containerName": "TON",
       "kind": 13,
       "location": {
@@ -6831,6 +7174,24 @@ expression: output
       "name": "Q"
     },
     {
+      "containerName": "TON_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Q"
+    },
+    {
       "containerName": "TP",
       "kind": 13,
       "location": {
@@ -6850,6 +7211,24 @@ expression: output
     },
     {
       "containerName": "TP_LTIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "TP_TIME",
       "kind": 13,
       "location": {
         "range": {
@@ -7191,6 +7570,24 @@ expression: output
       "name": "Q"
     },
     {
+      "containerName": "TOF_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
       "containerName": "TON",
       "kind": 13,
       "location": {
@@ -7227,6 +7624,24 @@ expression: output
       "name": "Q"
     },
     {
+      "containerName": "TON_TIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
       "containerName": "TP",
       "kind": 13,
       "location": {
@@ -7246,6 +7661,24 @@ expression: output
     },
     {
       "containerName": "TP_LTIME",
+      "kind": 13,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "Q"
+    },
+    {
+      "containerName": "TP_TIME",
       "kind": 13,
       "location": {
         "range": {
@@ -8527,6 +8960,40 @@ expression: output
         },
         "uri": "file:///workspace/golden/alpha/Main.st"
       },
+      "name": "TOF_TIME (FUNCTION_BLOCK)"
+    },
+    {
+      "kind": 5,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "TOF_TIME (FUNCTION_BLOCK)"
+    },
+    {
+      "kind": 5,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
       "name": "TON (FUNCTION_BLOCK)"
     },
     {
@@ -8595,6 +9062,40 @@ expression: output
         },
         "uri": "file:///workspace/golden/alpha/Main.st"
       },
+      "name": "TON_TIME (FUNCTION_BLOCK)"
+    },
+    {
+      "kind": 5,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "TON_TIME (FUNCTION_BLOCK)"
+    },
+    {
+      "kind": 5,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
       "name": "TP (FUNCTION_BLOCK)"
     },
     {
@@ -8647,6 +9148,40 @@ expression: output
         "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
       },
       "name": "TP_LTIME (FUNCTION_BLOCK)"
+    },
+    {
+      "kind": 5,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/Main.st"
+      },
+      "name": "TP_TIME (FUNCTION_BLOCK)"
+    },
+    {
+      "kind": 5,
+      "location": {
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "uri": "file:///workspace/golden/alpha/trust-lsp.toml"
+      },
+      "name": "TP_TIME (FUNCTION_BLOCK)"
     },
     {
       "containerName": "Foo",

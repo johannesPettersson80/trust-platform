@@ -64,6 +64,25 @@ async function main(): Promise<void> {
   buildRustPackage(repoRoot, "trust-dev");
   buildRustPackage(repoRoot, "trust-debug");
 
+  const extensionTestsEnv: NodeJS.ProcessEnv = {
+    ST_LSP_TEST_SERVER: serverPath,
+    ST_RUNTIME_TEST_BIN: runtimePath,
+    ST_DEV_TEST_BIN: devPath,
+  };
+  const configuredTestGrep = process.env.TRUST_VSCODE_TEST_GREP?.trim();
+  if (configuredTestGrep) {
+    extensionTestsEnv.TRUST_VSCODE_TEST_GREP = configuredTestGrep;
+  }
+  for (const key of [
+    "TRUST_VSCODE_TEST_EVIDENCE",
+    "TRUST_VSCODE_TEST_SOURCE_COMMIT",
+  ]) {
+    const value = process.env[key]?.trim();
+    if (value) {
+      extensionTestsEnv[key] = value;
+    }
+  }
+
   await runTests({
     extensionDevelopmentPath,
     extensionTestsPath,
@@ -74,11 +93,7 @@ async function main(): Promise<void> {
       "--extensions-dir",
       extensionsDir,
     ],
-    extensionTestsEnv: {
-      ST_LSP_TEST_SERVER: serverPath,
-      ST_RUNTIME_TEST_BIN: runtimePath,
-      ST_DEV_TEST_BIN: devPath,
-    },
+    extensionTestsEnv,
   });
 }
 

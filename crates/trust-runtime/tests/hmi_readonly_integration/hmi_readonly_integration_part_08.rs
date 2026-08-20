@@ -120,11 +120,24 @@ fn hmi_process_asset_pack_templates_and_bindings_align() {
         "expected symbol library to contain many SVGs, found {symbol_svg_count}"
     );
 
-    let plant_svg = fs::read_to_string(hmi_root.join("plant.svg")).expect("read hmi/plant.svg");
-    let minimal_svg =
-        fs::read_to_string(hmi_root.join("plant-minimal.svg")).expect("read hmi/plant-minimal.svg");
-    let bindings_example = fs::read_to_string(hmi_root.join("plant.bindings.example.toml"))
-        .expect("read hmi/plant.bindings.example.toml");
+    let plant_svg = repository_source_tree_read_to_string!(
+        (hmi_root.join("plant.svg"), &repo_root),
+        roots = ["hmi"],
+        extension = "svg",
+    )
+    .expect("read hmi/plant.svg");
+    let minimal_svg = repository_source_tree_read_to_string!(
+        (hmi_root.join("plant-minimal.svg"), &repo_root),
+        roots = ["hmi"],
+        extension = "svg",
+    )
+    .expect("read hmi/plant-minimal.svg");
+    let bindings_example = repository_source_tree_read_to_string!(
+        (hmi_root.join("plant.bindings.example.toml"), &repo_root),
+        roots = ["hmi"],
+        extension = "toml",
+    )
+    .expect("read hmi/plant.bindings.example.toml");
 
     assert!(
         bindings_example.contains("svg = \"plant.svg\""),

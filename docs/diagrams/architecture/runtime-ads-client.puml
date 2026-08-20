@@ -25,6 +25,7 @@ package "Runtime Control / Web API" as runtimeApi #MistyRose {
     component "web/ads_routes.rs\n/api/ads/* wrappers" as adsWebRoutes
     component "host/ads/diagnostics.rs + diagnostics/*\nversioned JSON schema" as diagnosticsSchema
     component "host/ads/onboarding/*\ndiscover / identity / doctor / route" as onboardingEngine
+    component "onboarding/doctor/target_validation.rs\nmanual + active target guard" as doctorTargetValidation
 }
 
 package "Authoring Artifacts" as authoring #LightYellow {
@@ -46,13 +47,15 @@ package "trust-runtime::host::ads" as hostAds #LightCyan {
     component "generate.rs\nsnapshot + config -> generated ST" as generate
     component "validate.rs\noffline drift/type validation" as validate
     component "client.rs\nresolve declared global -> ValueRef + TypeId" as bridge
-    component "client/worker.rs\nbackground transport owner" as worker
-    component "client/cache.rs\nshared Value + Quality cache\nand write queue" as cache
+    component "client/worker.rs\ncorrelated transport owner\nstable candidate publication" as worker
+    component "client/cache.rs\nshared Value + Quality cache\ngeneration-tagged write queue" as cache
     component "transport.rs\nAdsTransport trait\n(domain types only)" as transport
     component "backend_host.rs\nhost transport selector" as hostBackend
     component "backend_ads_rs.rs\ndirect ADS/TCP backend" as backend
     component "backend_windows.rs\nTwinCAT native-router backend" as windowsBackend
     component "trust-tcads-native\nowned TcAdsDll port API" as tcadsNative
+    component "identity.rs\ncanonical AMS Net ID owner\ncanonicalize + strict parse" as adsIdentity
+    component "backend_ads_rs/connection.rs\nprivate source/router negotiation seam" as backendConnector
     component "mock.rs\nCI transport" as mock
 }
 
@@ -82,6 +85,7 @@ adsControl --> diagnosticsSchema
 adsWebRoutes --> diagnosticsSchema
 onboardingEngine --> diagnosticsSchema
 adsControl --> onboardingEngine : discover / identity /\ndoctor / route plan
+onboardingEngine --> doctorTargetValidation : Doctor target admission
 adsCli --> onboardingEngine : scriptable backend
 onboardingEngine --> twincat : ADS UDP identify/discover\nand route-add
 commBrowse --> twincat : Symbol Upload on exactly\none selected ADS server port
@@ -115,19 +119,24 @@ worker --> coreQuality
 transport --> coreSymbols
 transport --> coreMapping
 transport --> coreQuality
+onboardingEngine --> adsIdentity : canonicalize local AMS identity
+doctorTargetValidation --> adsIdentity : strict target identity check
+backend --> adsIdentity : strict target + local authority
 
 bridge --> globals : declared global lookup\nCompileError if missing
 bridge --> cache : scan-facing bridge
 bundleLoad --> bridge : resolve bindings\nat startup
 adsSubsystem --> bridge : owns bridges
 adsSubsystem --> worker : owns worker threads
-worker --> cache : updates reads/notifications\nand drains writes
+worker --> cache : exact correlated reads/notifications\n+ generation-conditional write results
 worker --> transport : owns network calls
 hostBackend ..|> transport
 hostBackend --> backend : remote target or\nnon-Windows host
 hostBackend --> windowsBackend : same-computer target\non Windows
 windowsBackend --> tcadsNative : safe owned port calls
 mock ..|> transport
+backend --> backendConnector : validated connect request
+backendConnector --> twincat : ads::Client::new only
 backend --> twincat : ADS/AMS sum-up read/write\nnotifications + symbol version
 tcadsNative --> twincat : installed TwinCAT router\nstate, symbols, reads + writes
 
@@ -137,6 +146,14 @@ cache --> storage : apply read + _quality values\nat input phase
 storage --> cache : capture changed write values\nat output phase
 globals --> surfaces : first-class generated variables
 globals --> opcua : export values + _quality
+
+note right of cache
+    Cache authority invariant:
+    handle/subscription candidates publish
+    only after exact correlation and stable
+    symbol-token proof. Older write results
+    cannot erase newer pending/error state.
+end note
 
 note right of scan
     Scan-boundary invariant:
@@ -158,6 +175,22 @@ note right of hostBackend
     keep the direct backend. Same-computer
     Windows targets use the installed TwinCAT
     router for the complete AdsTransport flow.
+end note
+
+note right of backend
+    External ads crate is confined to
+    backend_ads_rs.rs behind ads-wire.
+    AdsTransport signatures expose only
+    trust-owned domain types. connection.rs
+    owns bounded router/direct negotiation,
+    not another transport adapter.
+end note
+
+note right of adsIdentity
+    Onboarding may canonicalize reviewed
+    user input. Doctor and the live backend
+    require already-canonical six-octet
+    runtime authority.
 end note
 
 note bottom of core

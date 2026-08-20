@@ -60,8 +60,7 @@ fn numeric_dot_and_range_tokens_do_not_need_int_literal_dot_rewrite() {
             (TokenKind::DotDot, "..".to_string()),
             (TokenKind::IntLiteral, "5".to_string()),
             (TokenKind::RealLiteral, "1.0".to_string()),
-            (TokenKind::IntLiteral, "1".to_string()),
-            (TokenKind::Dot, ".".to_string()),
+            (TokenKind::Error, "1.".to_string()),
         ]
     );
 }

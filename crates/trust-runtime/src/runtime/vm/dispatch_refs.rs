@@ -2,9 +2,11 @@ use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
 use crate::memory::{FrameId, InstanceId, MemoryLocation};
+#[cfg(test)]
+use crate::value::write_value_path;
 use crate::value::{
     materialize_value_path, read_value_path_borrowed, single_ref_index, string_element_position,
-    write_value_path, RefSegment, Value, ValueRef,
+    RefSegment, Value, ValueRef,
 };
 #[cfg(test)]
 use crate::value::{ref_indices_from_iter, RefPath};
@@ -140,10 +142,13 @@ pub(super) fn store_ref(
             }
         }
         VmRef::Global { offset, path } => {
-            if runtime
-                .storage
-                .write_by_ref_parts(MemoryLocation::Global, *offset, path, value)
-            {
+            if runtime.storage.write_by_ref_parts_typed(
+                &runtime.registry,
+                MemoryLocation::Global,
+                *offset,
+                path,
+                value,
+            ) {
                 Ok(())
             } else {
                 Err(VmTrap::NullReference)
@@ -155,16 +160,19 @@ pub(super) fn store_ref(
                 frame.store_local(ref_idx, value)
             } else {
                 let slot = *offset;
-                write_vm_local_ref(frame, slot, path, value)
+                write_vm_local_ref(frame, slot, path, value, &runtime.registry)
             }
         }
         _ => {
             let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
             let (location, offset, path) = runtime_access_target(reference, frame)?;
-            if runtime
-                .storage
-                .write_by_ref_parts(location, offset, path, value)
-            {
+            if runtime.storage.write_by_ref_parts_typed(
+                &runtime.registry,
+                location,
+                offset,
+                path,
+                value,
+            ) {
                 Ok(())
             } else {
                 Err(VmTrap::NullReference)
@@ -355,11 +363,23 @@ pub(super) fn dynamic_store_ref(
         MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID))
     ) {
         let frame = frames.current_mut().ok_or(VmTrap::CallStackUnderflow)?;
-        return write_vm_local_ref(frame, reference.offset, &reference.path, value);
+        return write_vm_local_ref(
+            frame,
+            reference.offset,
+            &reference.path,
+            value,
+            &runtime.registry,
+        );
     }
     let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
     let value = normalize_dynamic_store_value(module, frame, reference, value)?;
-    if runtime.storage_mut().write_by_ref_ref(reference, value) {
+    if runtime.storage.write_by_ref_parts_typed(
+        &runtime.registry,
+        reference.location,
+        reference.offset,
+        &reference.path,
+        value,
+    ) {
         Ok(())
     } else {
         Err(VmTrap::NullReference)
@@ -385,9 +405,10 @@ fn write_vm_local_ref(
     offset: usize,
     path: &[RefSegment],
     value: Value,
+    registry: &trust_hir::types::TypeRegistry,
 ) -> Result<(), VmTrap> {
     let root = frame.locals.get_mut(offset).ok_or(VmTrap::NullReference)?;
-    if write_value_path(root, path, value) {
+    if crate::value::write_value_path_typed(root, path, value, registry) {
         Ok(())
     } else {
         Err(VmTrap::NullReference)

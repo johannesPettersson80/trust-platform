@@ -7,18 +7,13 @@ import shlex
 import sys
 import time
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Callable, Sequence
+from pathlib import Path, PurePosixPath
+from typing import Any, Sequence
 
 import release_candidate_guard as guard
 
 
-def remote_vscode_command() -> str:
-    return (
-        "cd editors/vscode && npm run lint && npm run compile && "
-        "TRUST_UI_TEST_BROWSER=/usr/bin/google-chrome "
-        'xvfb-run -a -s "-screen 0 1920x1080x24" npm test'
-    )
+ADVISORY_COMMAND_IDS = frozenset({"planner", "catalog_staleness", "selftests"})
 
 
 def tree_manifest(root: Path) -> dict[str, str]:
@@ -51,7 +46,6 @@ def command_record(
     cwd: Path,
     scope: str,
     log_dir: Path,
-    accepted_nonzero: Callable[[int, str], bool] | None = None,
 ) -> dict[str, Any]:
     start = time.monotonic()
     result = guard.run(command, cwd=cwd)
@@ -60,52 +54,14 @@ def command_record(
     log_path = log_dir / f"{command_id}.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_bytes(output)
-    accepted_advisory = (
-        result.returncode != 0
-        and accepted_nonzero is not None
-        and accepted_nonzero(result.returncode, result.stdout)
-    )
-    record = {
+    return {
         "id": command_id,
         "command": shlex.join(command),
-        "exit_status": 0 if accepted_advisory else result.returncode,
+        "exit_status": result.returncode,
         "output_sha256": guard.sha256_bytes(output),
         "duration_ms": duration_ms,
         "scope": scope,
     }
-    if accepted_advisory:
-        record["raw_exit_status"] = result.returncode
-        record["disposition"] = "accepted_planner_advisory"
-    return record
-
-
-def planner_exit_is_advisory(exit_status: int, output: str) -> bool:
-    if exit_status == 0:
-        return False
-    repo = guard.repo_root(Path.cwd())
-    if str(repo) not in sys.path:
-        sys.path.insert(0, str(repo))
-    from scripts.verification.report_gate import parse_planner_json, planner_finding_blocks
-
-    payload = parse_planner_json(output)
-    return payload is not None and not planner_finding_blocks(payload)
-
-
-def planner_command(
-    *, python: str, intent: str, baseline: str, paths: Sequence[str]
-) -> list[str]:
-    return [
-        python,
-        "scripts/plan_tests.py",
-        "--intent",
-        intent,
-        "--baseline",
-        baseline,
-        "--changed",
-        *paths,
-        "--format",
-        "json",
-    ]
 
 
 def synthetic_record(command_id: str, command: str, failures: Sequence[str]) -> dict[str, Any]:
@@ -122,6 +78,73 @@ def synthetic_record(command_id: str, command: str, failures: Sequence[str]) -> 
 
 def remote_command(host: str, worktree: str, command: str) -> list[str]:
     return ["ssh", host, f"cd {shlex.quote(worktree)} && {command}"]
+
+
+def remote_validation_commands(
+    *, vscode_changed: bool, remote_target: str
+) -> list[tuple[str, str]]:
+    target = validated_remote_target(remote_target)
+    target_env = f"CARGO_TARGET_DIR={shlex.quote(target)} CARGO_INCREMENTAL=0"
+    commands = [("remote_exact_head", "")]
+    if vscode_changed:
+        commands.append(
+            (
+                "remote_vscode",
+                "cd editors/vscode && npm run lint && npm run compile && "
+                f"{target_env} xvfb-run -a npm test",
+            )
+        )
+    commands.extend(
+        [
+            ("remote_fmt", "just fmt"),
+            ("remote_clippy", f"{target_env} just clippy"),
+            (
+                "remote_reclaim_before_test_all",
+                f"rm -rf -- {shlex.quote(target)} && mkdir -p -- {shlex.quote(target)}",
+            ),
+            ("remote_test_all", f"{target_env} just test-all"),
+            ("remote_clean_after", 'test -z "$(git status --porcelain=v1 --untracked-files=all)"'),
+        ]
+    )
+    return commands
+
+
+def validated_remote_target(remote_target: str) -> str:
+    path = PurePosixPath(remote_target)
+    generated_roots = (
+        PurePosixPath("/home/johannes/.cache/codex-targets"),
+        PurePosixPath("/tmp"),
+    )
+    if (
+        not path.is_absolute()
+        or ".." in path.parts
+        or not any(path != root and path.is_relative_to(root) for root in generated_roots)
+    ):
+        raise ValueError(f"remote target is not a safe generated-output path: {remote_target}")
+    return str(path)
+
+
+def local_maintenance_commands() -> tuple[tuple[str, list[str]], ...]:
+    return (
+        ("catalog_staleness", [sys.executable, "scripts/check_test_catalog_staleness.py"]),
+    )
+
+
+def strict_report_command(*, base_sha: str, head: str, intent: str) -> list[str]:
+    return [
+        sys.executable,
+        "scripts/verification_report_gate.py",
+        "--base",
+        base_sha,
+        "--head",
+        head,
+        "--intent",
+        intent,
+        "--strict",
+        "--smoke",
+        "--out-dir",
+        "target/gate-artifacts/verification-release-candidate",
+    ]
 
 
 def finish_artifact(
@@ -161,8 +184,13 @@ def finish_artifact(
 
 
 def stage_passed(records: Sequence[dict[str, Any]], command_ids: Sequence[str]) -> bool:
-    selected = [row for row in records if row["id"] in command_ids]
-    return len(selected) == len(command_ids) and all(row["exit_status"] == 0 for row in selected)
+    required_ids = tuple(
+        command_id for command_id in command_ids if command_id not in ADVISORY_COMMAND_IDS
+    )
+    selected = [row for row in records if row["id"] in required_ids]
+    return len(selected) == len(required_ids) and all(
+        row["exit_status"] == 0 for row in selected
+    )
 
 
 def prepare(args: Any) -> int:
@@ -200,22 +228,17 @@ def prepare(args: Any) -> int:
             log_dir=log_dir,
         )
     )
-    planner = planner_command(
-        python=sys.executable,
-        intent=args.intent,
-        baseline=base_sha,
-        paths=paths,
-    )
-    records.append(
-        command_record(
-            "planner",
-            planner,
-            cwd=repo,
-            scope="local",
-            log_dir=log_dir,
-            accepted_nonzero=planner_exit_is_advisory,
-        )
-    )
+    planner = [
+        sys.executable,
+        "scripts/plan_tests.py",
+        "--intent",
+        args.intent,
+        "--baseline",
+        base_sha,
+        "--changed",
+        *paths,
+    ]
+    records.append(command_record("planner", planner, cwd=repo, scope="local", log_dir=log_dir))
     vscode_changed = any(
         path == "editors/vscode" or path.startswith("editors/vscode/") for path in paths
     )
@@ -231,43 +254,47 @@ def prepare(args: Any) -> int:
             log_dir=log_dir,
         )
 
+    local_commands = local_maintenance_commands()
+    for command_id, command in local_commands:
+        records.append(command_record(command_id, command, cwd=repo, scope="local", log_dir=log_dir))
+    if not stage_passed(records, tuple(command_id for command_id, _ in local_commands)):
+        return finish_artifact(
+            repo,
+            head=head,
+            base_ref=args.base,
+            base_sha=base_sha,
+            vscode_changed=vscode_changed,
+            records=records,
+            log_dir=log_dir,
+        )
+
+    strict_command = strict_report_command(
+        base_sha=base_sha,
+        head=head,
+        intent=args.intent,
+    )
+    records.append(
+        command_record("strict_gate", strict_command, cwd=repo, scope="local", log_dir=log_dir)
+    )
+    if not stage_passed(records, ("strict_gate",)):
+        return finish_artifact(
+            repo,
+            head=head,
+            base_ref=args.base,
+            base_sha=base_sha,
+            vscode_changed=vscode_changed,
+            records=records,
+            log_dir=log_dir,
+        )
+
     remote_head_check = (
         f'test "$(git rev-parse HEAD)" = {shlex.quote(head)} && '
         'test -z "$(git status --porcelain=v1 --untracked-files=all)"'
     )
-    strict_command = shlex.join(
-        [
-            "python3",
-            "scripts/verification_report_gate.py",
-            "--base",
-            base_sha,
-            "--head",
-            head,
-            "--intent",
-            args.intent,
-            "--strict",
-            "--out-dir",
-            "target/gate-artifacts/verification-release-candidate",
-        ]
+    remote_commands = remote_validation_commands(
+        vscode_changed=vscode_changed, remote_target=args.remote_target
     )
-    remote_commands = [
-        ("remote_exact_head", remote_head_check),
-        ("catalog_staleness", "python3 scripts/check_test_catalog_staleness.py"),
-        ("selftests", "python3 scripts/check_verification_tooling_selftests.py"),
-        ("strict_gate", strict_command),
-    ]
-    if vscode_changed:
-        remote_commands.append(("remote_vscode", remote_vscode_command()))
-    remote_commands.extend(
-        [
-            ("remote_fmt", "just fmt"),
-            ("remote_clippy", f"CARGO_TARGET_DIR={shlex.quote(args.remote_target)} just clippy"),
-            ("remote_test_all", f"CARGO_TARGET_DIR={shlex.quote(args.remote_target)} just test-all"),
-        ]
-    )
-    remote_commands.append(
-        ("remote_clean_after", 'test -z "$(git status --porcelain=v1 --untracked-files=all)"')
-    )
+    remote_commands[0] = ("remote_exact_head", remote_head_check)
     for command_id, command in remote_commands:
         records.append(
             command_record(

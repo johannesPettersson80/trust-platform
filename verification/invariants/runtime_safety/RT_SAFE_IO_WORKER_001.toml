@@ -3,14 +3,14 @@ id = "RT_SAFE_IO_WORKER_001"
 title = "I/O workers cannot hide scan-thread safety failures"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime"
 last_reviewed = "2026-07-14"
 claim = "Protocol worker queues, reconnect loops, and snapshots must remain bounded and must expose stale or failed safe-state handoff truthfully."
-proof_level = "G2"
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/io"]
-tests = ["TEST_RUNTIME_SAFE_STATE_HANDOFF_001"]
+tests = ["TEST_RUNTIME_SAFE_STATE_HANDOFF_001", "TEST_RUNTIME_SAFE_STATE_MODBUS_PENDING_001", "TEST_RUNTIME_SAFE_STATE_MQTT_PENDING_001", "TEST_RUNTIME_SAFE_STATE_STOP_DEGRADED_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_SAFE_STATE_HANDOFF_001_RED",

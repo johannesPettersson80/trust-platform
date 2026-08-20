@@ -1,11 +1,30 @@
 # Verification Control Plane
 
-Status: initial seed for the PLC verification program.
+Status: historical metadata from the accepted PLC verification program.
 
 This directory holds machine-readable verification metadata. It does not move
 or replace executable tests. Native tests stay in `crates/*/tests`,
 `crates/*/src`, `editors/vscode/src/test`, `conformance`, `fuzz`, and gate
 scripts.
+
+## Current product contract
+
+The substantive completion chain is:
+
+```text
+written specification -> native executable test
+```
+
+Planner output, catalog linkage, denominator disposition, invariant state,
+evidence freshness, mutation results, and scanner facts are maintenance and
+archaeology aids. They cannot create a product requirement, substitute for a
+native assertion, or reject a change solely because a test is uncataloged or a
+metadata relationship is absent. Pull-request enforcement may still reject a
+failed executable gate or a genuine specification-integrity failure.
+
+The detailed material below documents the accepted historical metadata model.
+Where it describes planner, catalog, proof, or mutation state as merge-blocking,
+that sequencing is retired and does not override the current contract above.
 
 Current seed scope:
 
@@ -117,26 +136,30 @@ TOML shape convention:
   passing case summaries exactly cover each current committed case file, and
   `R1` also needs an approved release object. These rules do not promote any
   existing record or change report-only CI.
-- `scripts/verification_report_gate.py` is the enforcing pull-request front
-  door. It runs the canonical focused verification suite, the metadata/case-file
-  gate, and the Phase 16 product fence; re-derives planner output for changed
-  files; and rejects uncataloged changed tests. The workflow keeps
-  `permissions: contents: read` and invokes the command with `--strict`.
+- `scripts/verification_report_gate.py` is the reporting front door. Pull
+  requests and exact release-candidate preparation use `--smoke` to execute
+  only the report-boundary unit tests. Scheduled and manual workflow runs keep
+  the recursive verification-tooling suite, historical tooling self-tests, and
+  full metadata validator, then report those results together with planner and
+  uncataloged-test observations. Those maintenance commands,
+  historical Phase 16 readiness, governance companion-file advice, planner
+  findings, and absent catalog rows are advisory. Native Rust, VS Code, and
+  other product tests remain enforced by their owning CI jobs. Strict mode is
+  retained and fails closed if a non-advisory product-integrity command is
+  added to this report. The workflow keeps `permissions: contents: read`.
 - `scripts/verification/adversarial_selftest_tests.py` is the pilot's
   bypass-resistance fixture suite. It checks that shortcut attempts become
   failed validation, non-red proof, or report-only findings.
 
-### Enforcing verification gate fallback
+### Verification report strict fallback
 
-An apparent false block remains red until its cause is reviewed. A fallback must not remove `--strict`,
-weaken the required workflow, skip the failing
-command, or recast a failed run as passing. The author attaches the generated
-report, records a tracked override decision or fixes the specification,
-catalog, routing metadata, test, or gate defect, and must rerun the enforcing gate on the
-resulting commit. An emergency administrative merge bypass, when
-repository policy permits one, requires a linked incident and tracked override
-decision naming the exact failure and follow-up owner; it does not count as a
-green verification result.
+A non-advisory command failure remains red until its cause is reviewed. Do not
+remove `--strict` or weaken the workflow's read-only permissions. Recursive
+verification-tooling tests, the historical metadata validator,
+readiness/governance commands, planner findings, and catalog observations
+remain visible and advisory; they cannot block a specification-backed native
+test. A maintenance failure is still reported as failed and must not be
+rewritten as passing evidence.
 
 The report-only burn-in completed without a false block across at least three
 organic implementation slices: the Phase 2 unmapped-test debt closure, the
@@ -152,7 +175,7 @@ is closed rather than inferred from this procedure.
   outcomes against committed case IDs. Those IDs are associations only: blocked
   cases are not executed and mutation evidence does not close a spec gap.
 - Bytecode-validator mutation evidence carries `mutation_report_path` plus a
-  SHA-256 digest. The metadata validator rechecks the machine JSON against the
+  SHA-256 digest. Its standalone mutation validator can recheck the machine JSON against the
   cataloged runner/tool version, mutant selectors and commands, raw process
   outcomes, exhaustive case-ID partition, outcome counts, survivors, and source
   commit. Known infrastructure failures abort instead of counting as killed or
@@ -192,9 +215,10 @@ is closed rather than inferred from this procedure.
   `scripts/validate_malformed_input_coverage_report.py` for the reviewed
   bytecode/VM taxonomy, and `scripts/report_unmapped_test_debt.py` with
   `scripts/validate_unmapped_test_debt_report.py` for every non-catalog scanner
-  identity. `verification/test-catalog-denominator.toml` must simultaneously
-  partition every live fact into an exact catalog mapping or a reviewed
-  nonmapping; omission is unresolved debt and fails. These reports reject dirty
+  identity. `verification/test-catalog-denominator.toml` historically
+  partitioned live facts into catalog mappings or reviewed nonmappings. Missing
+  maintenance rows are reported but do not establish missing product behavior.
+  These reports reject dirty
   or symlinked provenance and require canonical JSON plus exact Markdown.
   Each generator requires a pristine source tree before it writes output.
   Reproduce multiple committed reports in separate clean worktrees, or restore
@@ -273,12 +297,13 @@ is closed rather than inferred from this procedure.
   assigned `command_role = "entrypoint"` row and no helper/reference row, and
   `commands` must be their exact ordered projection.
 - `veryquick` maps to `just verification-veryquick` on `trust-builder`. The
-  bounded recipe runs the canonical verification Python suite, metadata/case
+  bounded recipe runs the verification-report smoke tests, metadata/case
   consistency, existing HIR/runtime recipes, syntax and runtime-core tests,
   bytecode validation, and one deterministic conformance case. It is not a new
   broad local Raspberry Pi gate.
-- Run `python3 scripts/run_verification_focused_tests.py` for the canonical
-  verification-tooling suite. Discovery is recursive and deterministic, so the
+- Run `python3 scripts/run_verification_focused_tests.py` only for the exhaustive
+  verification-tooling maintenance suite used by scheduled/manual reporting.
+  Discovery is recursive and deterministic, so the
   Phase 3 lexical/source-geometry regressions and future `*_tests.py` modules
   cannot be omitted by a hand-maintained command. The production module
   `metadata_validator/ignored_tests.py` is explicitly excluded.
@@ -452,10 +477,11 @@ is closed rather than inferred from this procedure.
 `verification/governance.toml` is the closed Phase 14 maintenance contract. It
 defines owner aliases and allowed owners per area, 90-day metadata staleness,
 named grace periods, suite-composition semantics, area coverage templates,
-same-diff product/public-claim metadata requirements, review cadences, and the
-append-only retirement policy. The enforcing changed-file gate runs
-`python3 -m scripts.verification.governance`; `verification/retirements.toml`
-keeps obsolete evidence and invariant tombstones rather than deleting history.
+review cadences, and the append-only retirement policy. Historical same-diff
+metadata requirements are retired. The changed-file report still runs
+`python3 -m scripts.verification.governance` as advisory maintenance;
+`verification/retirements.toml` keeps obsolete evidence and invariant
+tombstones rather than deleting history.
 
 Committed report source revisions need not equal the current repository HEAD
 when their at-rest validators prove that the complete bound input closure is

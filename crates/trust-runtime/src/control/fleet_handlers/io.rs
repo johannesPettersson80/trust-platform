@@ -14,16 +14,9 @@ pub(super) fn driver_health_for_config<'a>(
     index: usize,
     driver: &str,
 ) -> Option<&'a IoDriverStatus> {
-    if io_health
-        .get(index)
-        .is_some_and(|status| same_driver_name(status.name.as_str(), driver))
-    {
-        return io_health.get(index);
-    }
-    let wanted_protocol = protocol_from_driver_name(driver);
     io_health
         .iter()
-        .filter(|status| protocol_from_driver_name(status.name.as_str()) == wanted_protocol)
+        .filter(|status| same_driver_name(status.name.as_str(), driver))
         .nth(index)
 }
 
@@ -102,12 +95,11 @@ pub(super) fn format_io_address(address: &IoAddress) -> String {
 }
 
 pub(super) fn driver_endpoint_address(params: &toml::Value) -> Option<String> {
-    params
-        .get("address")
-        .or_else(|| params.get("broker"))
-        .and_then(toml::Value::as_str)
+    ["address", "broker"]
+        .into_iter()
+        .filter_map(|key| params.get(key).and_then(toml::Value::as_str))
         .map(str::trim)
-        .filter(|value| !value.is_empty())
+        .find(|value| !value.is_empty())
         .map(ToOwned::to_owned)
 }
 
@@ -208,6 +200,9 @@ pub(super) fn is_secret_param_key(key: &str) -> bool {
             | "token"
             | "secret"
             | "client_secret"
+            | "credential"
+            | "credentials"
+            | "private_key"
             | "source_ip"
             | "source_cidr"
             | "allowed_clients"

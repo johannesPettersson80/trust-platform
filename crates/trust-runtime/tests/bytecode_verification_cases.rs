@@ -135,7 +135,7 @@ fn expected_rejection(case: &CaseRecord) -> Result<(&str, &str, Option<&str>), S
         return Err(format!("{} must require transactional rejection", case.id));
     }
     if expect.get("oracle_ref").and_then(toml::Value::as_str)
-        != Some("SPEC_BYTECODE_FORMAT_001#validator-before-apply")
+        != Some("SPEC_BYTECODE_FORMAT_001#7-4-validator-before-apply")
     {
         return Err(format!(
             "{} is missing the reviewed validator oracle",

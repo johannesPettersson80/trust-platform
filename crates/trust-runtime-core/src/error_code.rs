@@ -171,20 +171,215 @@ impl fmt::Display for StableErrorCode {
 #[cfg(test)]
 mod tests {
     use super::StableErrorCode;
+    use alloc::{
+        format,
+        string::{String, ToString},
+    };
 
     #[test]
-    fn stable_error_codes_use_lower_snake_case() {
-        for code in [
-            StableErrorCode::BytecodeInvalidMagic,
-            StableErrorCode::VmStackUnderflow,
-            StableErrorCode::RuntimeTypeMismatch,
-            StableErrorCode::RuntimeNonFiniteValue,
+    fn representative_stable_error_codes_use_exact_lower_snake_case() {
+        for (code, expected) in [
+            (
+                StableErrorCode::BytecodeInvalidMagic,
+                "bytecode_invalid_magic",
+            ),
+            (StableErrorCode::VmStackUnderflow, "vm_stack_underflow"),
+            (
+                StableErrorCode::RuntimeTypeMismatch,
+                "runtime_type_mismatch",
+            ),
+            (
+                StableErrorCode::RuntimeNonFiniteValue,
+                "runtime_non_finite_value",
+            ),
         ] {
             let text = code.as_str();
-            assert!(!text.is_empty());
+            assert_eq!(text, expected);
             assert!(text
                 .bytes()
                 .all(|byte| byte.is_ascii_lowercase() || byte == b'_'));
         }
+    }
+
+    #[test]
+    fn every_stable_error_code_has_exact_lower_snake_case_and_display_identity() {
+        use StableErrorCode::*;
+
+        let codes = [
+            BytecodeInvalidMagic,
+            BytecodeUnsupportedVersion,
+            BytecodeInvalidHeader,
+            BytecodeInvalidChecksum,
+            BytecodeInvalidSectionTable,
+            BytecodeSectionOutOfBounds,
+            BytecodeSectionOverlap,
+            BytecodeSectionAlignment,
+            BytecodeUnexpectedEof,
+            BytecodeInvalidSection,
+            BytecodeMissingSection,
+            BytecodeInvalidOpcode,
+            BytecodeInvalidJumpTarget,
+            BytecodeInvalidPouId,
+            BytecodeInvalidIndex,
+            VmStackUnderflow,
+            VmStackOverflow,
+            VmCallStackUnderflow,
+            VmCallStackOverflow,
+            VmUnsupportedOpcode,
+            VmUnsupportedReferenceLocation,
+            VmInvalidNativeCall,
+            VmBytecodeDecode,
+            RuntimeUndefinedVariable,
+            RuntimeUndefinedFunction,
+            RuntimeUndefinedProgram,
+            RuntimeUndefinedFunctionBlock,
+            RuntimeUndefinedTask,
+            RuntimeUndefinedLabel,
+            RuntimeUndefinedField,
+            RuntimeInvalidTaskSingle,
+            RuntimeInvalidIoAddress,
+            RuntimeTypeMismatch,
+            RuntimeInvalidArgumentCount,
+            RuntimeInvalidArgumentName,
+            RuntimeAssertionFailed,
+            RuntimeDivisionByZero,
+            RuntimeModuloByZero,
+            RuntimeOverflow,
+            RuntimeIndexOutOfBounds,
+            RuntimeSubrangeViolation,
+            RuntimeNullReference,
+            RuntimeInvalidControlFlow,
+            RuntimeForStepZero,
+            RuntimeConditionNotBool,
+            RuntimeCaseSelectorType,
+            RuntimeDateTimeRange,
+            RuntimeInvalidFrame,
+            RuntimeResourceFaulted,
+            RuntimeResourcePanic,
+            RuntimeIoDriver,
+            RuntimeIoTransport,
+            RuntimeIoAddress,
+            RuntimeIoFreshness,
+            RuntimeInitFailed,
+            RuntimeUnsupportedBytecodeVersion,
+            RuntimeInvalidBytecodeMetadata,
+            RuntimeInvalidBytecode,
+            RuntimeThreadSpawn,
+            RuntimeWatchdogTimeout,
+            RuntimeRestartLimitExceeded,
+            RuntimeSafeStateFailed,
+            RuntimeExecutionTimeout,
+            RuntimeSimulationFault,
+            RuntimeInvalidConfig,
+            RuntimeInvalidBundle,
+            RuntimeRetainStore,
+            RuntimeRetainCorruption,
+            RuntimeRetainMigration,
+            RuntimeControlError,
+            RuntimeStringCapacityExceeded,
+            RuntimeNonFiniteValue,
+        ];
+
+        assert_eq!(codes.len(), 72);
+        for (index, code) in codes.iter().copied().enumerate() {
+            assert!(
+                !codes[..index].contains(&code),
+                "duplicate stable code {code:?}"
+            );
+            assert_all_variants_are_listed(code);
+            let expected = camel_case_to_lower_snake(&format!("{code:?}"));
+            assert_eq!(code.as_str(), expected);
+            assert_eq!(code.to_string(), expected);
+        }
+    }
+
+    fn assert_all_variants_are_listed(code: StableErrorCode) {
+        use StableErrorCode::*;
+
+        match code {
+            BytecodeInvalidMagic
+            | BytecodeUnsupportedVersion
+            | BytecodeInvalidHeader
+            | BytecodeInvalidChecksum
+            | BytecodeInvalidSectionTable
+            | BytecodeSectionOutOfBounds
+            | BytecodeSectionOverlap
+            | BytecodeSectionAlignment
+            | BytecodeUnexpectedEof
+            | BytecodeInvalidSection
+            | BytecodeMissingSection
+            | BytecodeInvalidOpcode
+            | BytecodeInvalidJumpTarget
+            | BytecodeInvalidPouId
+            | BytecodeInvalidIndex
+            | VmStackUnderflow
+            | VmStackOverflow
+            | VmCallStackUnderflow
+            | VmCallStackOverflow
+            | VmUnsupportedOpcode
+            | VmUnsupportedReferenceLocation
+            | VmInvalidNativeCall
+            | VmBytecodeDecode
+            | RuntimeUndefinedVariable
+            | RuntimeUndefinedFunction
+            | RuntimeUndefinedProgram
+            | RuntimeUndefinedFunctionBlock
+            | RuntimeUndefinedTask
+            | RuntimeUndefinedLabel
+            | RuntimeUndefinedField
+            | RuntimeInvalidTaskSingle
+            | RuntimeInvalidIoAddress
+            | RuntimeTypeMismatch
+            | RuntimeInvalidArgumentCount
+            | RuntimeInvalidArgumentName
+            | RuntimeAssertionFailed
+            | RuntimeDivisionByZero
+            | RuntimeModuloByZero
+            | RuntimeOverflow
+            | RuntimeIndexOutOfBounds
+            | RuntimeSubrangeViolation
+            | RuntimeNullReference
+            | RuntimeInvalidControlFlow
+            | RuntimeForStepZero
+            | RuntimeConditionNotBool
+            | RuntimeCaseSelectorType
+            | RuntimeDateTimeRange
+            | RuntimeInvalidFrame
+            | RuntimeResourceFaulted
+            | RuntimeResourcePanic
+            | RuntimeIoDriver
+            | RuntimeIoTransport
+            | RuntimeIoAddress
+            | RuntimeIoFreshness
+            | RuntimeInitFailed
+            | RuntimeUnsupportedBytecodeVersion
+            | RuntimeInvalidBytecodeMetadata
+            | RuntimeInvalidBytecode
+            | RuntimeThreadSpawn
+            | RuntimeWatchdogTimeout
+            | RuntimeRestartLimitExceeded
+            | RuntimeSafeStateFailed
+            | RuntimeExecutionTimeout
+            | RuntimeSimulationFault
+            | RuntimeInvalidConfig
+            | RuntimeInvalidBundle
+            | RuntimeRetainStore
+            | RuntimeRetainCorruption
+            | RuntimeRetainMigration
+            | RuntimeControlError
+            | RuntimeStringCapacityExceeded
+            | RuntimeNonFiniteValue => {}
+        }
+    }
+
+    fn camel_case_to_lower_snake(name: &str) -> String {
+        let mut result = String::new();
+        for (index, character) in name.chars().enumerate() {
+            if index > 0 && character.is_ascii_uppercase() {
+                result.push('_');
+            }
+            result.push(character.to_ascii_lowercase());
+        }
+        result
     }
 }

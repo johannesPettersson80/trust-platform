@@ -3,6 +3,7 @@ use super::context::{
     action_context, is_top_level_stmt_list, pou_context, property_type_for_node, PouContext,
     PouContextResolution,
 };
+use crate::db::queries::name_from_node;
 
 pub(in crate::db) type ExpressionTypeMap = FxHashMap<(u32, u32), TypeId>;
 
@@ -12,6 +13,7 @@ pub(in crate::db) fn type_check_file(
     diagnostics: &mut DiagnosticBuilder,
 ) -> ExpressionTypeMap {
     let mut expression_types = ExpressionTypeMap::default();
+    diagnose_duplicate_actions(root, diagnostics);
 
     // Find all POUs and type-check their bodies
     for node in root.descendants() {
@@ -47,6 +49,43 @@ pub(in crate::db) fn type_check_file(
         }
     }
     expression_types
+}
+
+fn diagnose_duplicate_actions(root: &SyntaxNode, diagnostics: &mut DiagnosticBuilder) {
+    for owner in root
+        .descendants()
+        .filter(|node| matches!(node.kind(), SyntaxKind::Program | SyntaxKind::FunctionBlock))
+    {
+        let mut seen = FxHashMap::default();
+        for action in owner.descendants().filter(|node| {
+            node.kind() == SyntaxKind::Action
+                && node
+                    .ancestors()
+                    .skip(1)
+                    .find(|ancestor| {
+                        matches!(
+                            ancestor.kind(),
+                            SyntaxKind::Program | SyntaxKind::FunctionBlock
+                        )
+                    })
+                    .is_some_and(|ancestor| ancestor == owner)
+        }) {
+            let Some((name, range)) = name_from_node(&action) else {
+                continue;
+            };
+            let key = name.to_ascii_uppercase();
+            if let Some(previous_range) = seen.insert(key, range) {
+                diagnostics.add(
+                    Diagnostic::error(
+                        DiagnosticCode::DuplicateDeclaration,
+                        range,
+                        format!("duplicate action declaration of '{}'", name),
+                    )
+                    .with_related(previous_range, "previously declared here"),
+                );
+            }
+        }
+    }
 }
 
 /// Type checks a single POU (Program, Function, FunctionBlock, or Method).

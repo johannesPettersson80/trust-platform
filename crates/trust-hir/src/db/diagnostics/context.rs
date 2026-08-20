@@ -22,7 +22,9 @@ pub(in crate::db) fn is_global_symbol(symbols: &SymbolTable, symbol: &Symbol) ->
         SymbolKind::Variable {
             qualifier: VarQualifier::Global,
         } => parent_ok,
-        SymbolKind::Constant => parent_ok,
+        SymbolKind::Constant => {
+            parent_ok && symbol.declared_qualifier != Some(VarQualifier::External)
+        }
         _ => false,
     }
 }

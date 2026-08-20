@@ -46,7 +46,7 @@ fn resolve_web_role(
         }
         return None;
     }
-    let expected = token.lock().ok().and_then(|guard| guard.as_ref().cloned());
+    let expected = token.lock().ok()?.as_ref().cloned();
     let header = request
         .headers()
         .iter()
@@ -74,9 +74,21 @@ pub(super) fn auth_error_response(error: &str) -> Response<std::io::Cursor<Vec<u
     };
     Response::from_string(json!({ "ok": false, "error": error }).to_string())
         .with_status_code(status)
+        .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
 }
 
 pub(super) fn dispatch_control_request(
+    payload: serde_json::Value,
+    control_state: &ControlState,
+    client: Option<&str>,
+    request_token: Option<&str>,
+) -> crate::control::ControlResponse {
+    let mut response = prepare_control_request(payload, control_state, client, request_token);
+    complete_control_request(&mut response, control_state);
+    response
+}
+
+pub(super) fn prepare_control_request(
     payload: serde_json::Value,
     control_state: &ControlState,
     client: Option<&str>,
@@ -100,6 +112,21 @@ pub(super) fn dispatch_control_request(
     )
 }
 
+pub(super) fn complete_control_request(
+    response: &mut crate::control::ControlResponse,
+    control_state: &ControlState,
+) {
+    crate::control::complete_web_control_response_port(response, control_state);
+}
+
+pub(super) fn write_then_complete_control_requests<R>(
+    responses: &mut [crate::control::ControlResponse],
+    control_state: &ControlState,
+    write: impl FnOnce(&[crate::control::ControlResponse]) -> R,
+) -> R {
+    crate::control::write_then_complete_web_control_responses_port(responses, control_state, write)
+}
+
 pub(super) fn ide_session_token(request: &tiny_http::Request) -> Option<String> {
     request
         .headers()
@@ -121,3 +148,7 @@ pub(super) fn ide_error_response(error: IdeError) -> Response<std::io::Cursor<Ve
         .with_status_code(StatusCode(error.status_code()))
         .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
 }
+
+#[cfg(test)]
+#[path = "auth_helpers/contract_tests.rs"]
+mod contract_tests;

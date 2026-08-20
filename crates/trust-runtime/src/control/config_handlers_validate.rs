@@ -83,8 +83,9 @@ fn expect_string_map(
                 &format!("entry '{map_key}' must not be empty"),
             ));
         }
-        output.push((map_key.clone(), text.to_string()));
+        output.push((map_key.trim().to_string(), text.to_string()));
     }
+    output.sort();
     Ok(output)
 }
 
@@ -103,6 +104,15 @@ fn expect_wan_allow_write_rules(
                 &format!("entry {index} must be an object"),
             ));
         };
+        if let Some(unknown) = entry
+            .keys()
+            .find(|field| !matches!(field.as_str(), "action" | "target"))
+        {
+            return Err(config_value_error(
+                key,
+                &format!("entry {index} has unknown field '{unknown}'"),
+            ));
+        }
         let action = entry
             .get("action")
             .and_then(serde_json::Value::as_str)
@@ -138,6 +148,15 @@ fn expect_link_preference_rules(
                 &format!("entry {index} must be an object"),
             ));
         };
+        if let Some(unknown) = entry
+            .keys()
+            .find(|field| !matches!(field.as_str(), "source" | "target" | "transport"))
+        {
+            return Err(config_value_error(
+                key,
+                &format!("entry {index} has unknown field '{unknown}'"),
+            ));
+        }
         let source = entry
             .get("source")
             .and_then(serde_json::Value::as_str)

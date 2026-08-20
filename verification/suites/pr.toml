@@ -4,7 +4,7 @@ title = "Pull Request Verification"
 area = "suite"
 owner = "verification"
 status = "mapped"
-last_reviewed = "2026-07-12"
+last_reviewed = "2026-08-12"
 purpose = "Direct inventory of current pull-request jobs and their gate-script helpers; the changed-file verification gate is required and blocks merge on red results."
 duration_class = "medium"
 environment = "github_matrix"
@@ -60,6 +60,7 @@ inventory_ids = [
   "GATE_JOB_VERIFICATION_REPORT",
   "GATE_SCRIPT_ARCHITECTURE_EXTERNAL_SAFETY_AST_GREP",
   "GATE_SCRIPT_CHECK_GATE_OBSERVABILITY",
+  "GATE_SCRIPT_RELEASE_EVIDENCE_CONTRACT",
   "GATE_SCRIPT_RUNTIME_BOUNDARY_FAIL_CLOSED_AST_GREP",
   "GATE_SCRIPT_RUNTIME_CLOUD_SECURITY_PROFILE",
   "GATE_SCRIPT_RUNTIME_COMMS_BENCH",

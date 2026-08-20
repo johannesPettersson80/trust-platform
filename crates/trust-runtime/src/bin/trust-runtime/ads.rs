@@ -317,20 +317,10 @@ fn run_server_control(
         "params": params.unwrap_or_else(|| json!({})),
     });
     let response = crate::ctl::send_control_request_value(&target.endpoint, &request)?;
+    crate::ctl::ensure_control_response_ok(&response)?;
     if json_output {
         println!("{}", serde_json::to_string_pretty(&response)?);
         return Ok(());
-    }
-    let ok = response
-        .get("ok")
-        .and_then(serde_json::Value::as_bool)
-        .unwrap_or(false);
-    if !ok {
-        let error = response
-            .get("error")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("ADS server control request failed");
-        bail!("{error}");
     }
     let result = response
         .get("result")

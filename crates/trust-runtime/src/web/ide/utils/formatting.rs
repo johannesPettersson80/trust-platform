@@ -90,3 +90,7 @@ pub(in crate::web::ide) fn is_indent_line(upper_trimmed: &str) -> bool {
         || (upper_trimmed.starts_with("FOR ") && upper_trimmed.contains(" DO"))
         || (upper_trimmed.starts_with("WHILE ") && upper_trimmed.contains(" DO"))
 }
+
+#[cfg(test)]
+#[path = "formatting/contract_tests.rs"]
+mod contract_tests;

@@ -92,7 +92,7 @@ pub fn resolve_breakpoint_location(
 /// Convert a byte offset into a 0-based line/column.
 #[must_use]
 pub fn offset_to_line_col(source: &str, offset: u32) -> (u32, u32) {
-    let offset = usize::try_from(offset).unwrap_or(0);
+    let offset = usize::try_from(offset).unwrap_or(0).min(source.len());
     let line_starts = line_starts(source);
     let line_idx = match line_starts.binary_search(&offset) {
         Ok(idx) => idx,
@@ -145,3 +145,7 @@ mod tests {
         assert_eq!(resolved.start, inner_start as u32);
     }
 }
+
+#[cfg(test)]
+#[path = "resolve/contract_tests.rs"]
+mod contract_tests;

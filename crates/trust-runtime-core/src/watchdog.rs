@@ -286,8 +286,8 @@ impl Default for FaultSubsystem {
 #[cfg(test)]
 mod tests {
     use super::{
-        FaultAction, FaultDecision, FaultPolicy, FaultSubsystem, RetainMode, WatchdogAction,
-        WatchdogPolicy, WatchdogSubsystem,
+        FaultAction, FaultDecision, FaultInfo, FaultPolicy, FaultSubsystem, RetainMode,
+        WatchdogAction, WatchdogPolicy, WatchdogSubsystem,
     };
     use crate::error::RuntimeError;
     use crate::value::Duration;
@@ -337,6 +337,43 @@ mod tests {
                 apply_safe_state: false,
             }
         );
+
+        for (policy, expected) in [
+            (
+                FaultPolicy::Halt,
+                FaultDecision {
+                    action: FaultAction::Halt,
+                    apply_safe_state: false,
+                },
+            ),
+            (
+                FaultPolicy::SafeHalt,
+                FaultDecision {
+                    action: FaultAction::SafeHalt,
+                    apply_safe_state: true,
+                },
+            ),
+            (
+                FaultPolicy::Restart,
+                FaultDecision {
+                    action: FaultAction::Restart,
+                    apply_safe_state: false,
+                },
+            ),
+        ] {
+            let mut faults = FaultSubsystem::new();
+            faults.set_policy(policy);
+            assert_eq!(faults.decision(), expected);
+            assert_eq!(faults.policy(), policy);
+            assert!(!faults.is_faulted());
+            assert_eq!(faults.last_fault(), None);
+
+            faults.record(RuntimeError::WatchdogTimeout);
+            assert_eq!(faults.decision(), expected);
+            assert_eq!(faults.policy(), policy);
+            assert!(faults.is_faulted());
+            assert_eq!(faults.last_fault(), Some(&RuntimeError::WatchdogTimeout));
+        }
     }
 
     #[test]
@@ -366,6 +403,80 @@ mod tests {
     }
 
     #[test]
+    fn configuration_parsers_cover_complete_tokens_and_exact_invalid_text() {
+        for (text, expected) in [
+            ("halt", WatchdogAction::Halt),
+            (" SAFE_HALT ", WatchdogAction::SafeHalt),
+            ("\trestart\n", WatchdogAction::Restart),
+        ] {
+            assert_eq!(WatchdogAction::parse(text), Ok(expected));
+        }
+        for (text, expected) in [(" none ", RetainMode::None), ("FILE", RetainMode::File)] {
+            assert_eq!(RetainMode::parse(text), Ok(expected));
+        }
+        for (text, expected) in [
+            ("HALT", FaultPolicy::Halt),
+            (" safe_halt ", FaultPolicy::SafeHalt),
+            ("Restart", FaultPolicy::Restart),
+        ] {
+            assert_eq!(FaultPolicy::parse(text), Ok(expected));
+        }
+
+        assert_eq!(
+            WatchdogAction::parse(" warn "),
+            Err(RuntimeError::InvalidConfig(
+                "invalid watchdog action ' warn '".into()
+            ))
+        );
+        assert_eq!(
+            RetainMode::parse("memory"),
+            Err(RuntimeError::InvalidConfig(
+                "invalid retain mode 'memory'".into()
+            ))
+        );
+        assert_eq!(
+            FaultPolicy::parse("degrade"),
+            Err(RuntimeError::InvalidConfig(
+                "invalid fault policy 'degrade'".into()
+            ))
+        );
+    }
+
+    #[test]
+    fn subsystem_defaults_and_fault_info_preserve_inert_identity() {
+        for watchdog in [WatchdogSubsystem::new(), WatchdogSubsystem::default()] {
+            assert_eq!(watchdog.policy(), WatchdogPolicy::default());
+            assert_eq!(
+                watchdog.decision(),
+                FaultDecision {
+                    action: FaultAction::SafeHalt,
+                    apply_safe_state: true,
+                }
+            );
+        }
+
+        for faults in [FaultSubsystem::new(), FaultSubsystem::default()] {
+            assert_eq!(faults.policy(), FaultPolicy::Halt);
+            assert_eq!(
+                faults.decision(),
+                FaultDecision {
+                    action: FaultAction::Halt,
+                    apply_safe_state: false,
+                }
+            );
+            assert!(!faults.is_faulted());
+            assert_eq!(faults.last_fault(), None);
+        }
+
+        let info = FaultInfo {
+            reason: "cycle deadline expired".into(),
+        };
+        let cloned = info.clone();
+        assert_eq!(info.reason.as_str(), "cycle deadline expired");
+        assert_eq!(cloned.reason, info.reason);
+    }
+
+    #[test]
     fn watchdog_policy_default_is_disabled_safe_halt() {
         assert_eq!(
             WatchdogPolicy::default(),
@@ -390,6 +501,90 @@ mod tests {
 
         let disabled = WatchdogPolicy::default().normalized_for_runtime();
         assert_eq!(disabled.timeout, Duration::ZERO);
+    }
+
+    #[test]
+    fn watchdog_policy_normalization_and_installation_cover_boundaries() {
+        for (input, expected) in [
+            (
+                WatchdogPolicy {
+                    enabled: false,
+                    timeout: Duration::from_nanos(-1),
+                    action: WatchdogAction::Halt,
+                },
+                WatchdogPolicy {
+                    enabled: false,
+                    timeout: Duration::from_nanos(-1),
+                    action: WatchdogAction::Halt,
+                },
+            ),
+            (
+                WatchdogPolicy {
+                    enabled: true,
+                    timeout: Duration::from_nanos(-1),
+                    action: WatchdogAction::Restart,
+                },
+                WatchdogPolicy {
+                    enabled: true,
+                    timeout: Duration::from_millis(1),
+                    action: WatchdogAction::Restart,
+                },
+            ),
+            (
+                WatchdogPolicy {
+                    enabled: true,
+                    timeout: Duration::ZERO,
+                    action: WatchdogAction::Halt,
+                },
+                WatchdogPolicy {
+                    enabled: true,
+                    timeout: Duration::from_millis(1),
+                    action: WatchdogAction::Halt,
+                },
+            ),
+            (
+                WatchdogPolicy {
+                    enabled: true,
+                    timeout: Duration::from_millis(7),
+                    action: WatchdogAction::SafeHalt,
+                },
+                WatchdogPolicy {
+                    enabled: true,
+                    timeout: Duration::from_millis(7),
+                    action: WatchdogAction::SafeHalt,
+                },
+            ),
+        ] {
+            assert_eq!(input.normalized_for_runtime(), expected);
+
+            let mut watchdog = WatchdogSubsystem::new();
+            watchdog.set_policy(input);
+            assert_eq!(watchdog.policy(), expected);
+            assert_eq!(
+                watchdog.decision(),
+                FaultDecision::from_watchdog(expected.action)
+            );
+        }
+    }
+
+    #[test]
+    fn fault_record_and_policy_updates_preserve_independent_state() {
+        let mut faults = FaultSubsystem::new();
+        faults.set_policy(FaultPolicy::SafeHalt);
+        faults.record(RuntimeError::WatchdogTimeout);
+        assert_eq!(faults.policy(), FaultPolicy::SafeHalt);
+        assert!(faults.is_faulted());
+        assert_eq!(faults.last_fault(), Some(&RuntimeError::WatchdogTimeout));
+
+        faults.set_policy(FaultPolicy::Restart);
+        assert_eq!(faults.policy(), FaultPolicy::Restart);
+        assert!(faults.is_faulted());
+        assert_eq!(faults.last_fault(), Some(&RuntimeError::WatchdogTimeout));
+
+        faults.record(RuntimeError::DivisionByZero);
+        assert_eq!(faults.policy(), FaultPolicy::Restart);
+        assert!(faults.is_faulted());
+        assert_eq!(faults.last_fault(), Some(&RuntimeError::DivisionByZero));
     }
 
     #[test]
@@ -427,5 +622,10 @@ mod tests {
         faults.clear();
         assert!(!faults.is_faulted());
         assert!(faults.last_fault().is_none());
+        assert_eq!(faults.policy(), FaultPolicy::SafeHalt);
+        faults.clear();
+        assert!(!faults.is_faulted());
+        assert!(faults.last_fault().is_none());
+        assert_eq!(faults.policy(), FaultPolicy::SafeHalt);
     }
 }

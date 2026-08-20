@@ -1,0 +1,35 @@
+schema_version = 1
+id = "CASES_RT_INTEGER_I64_NORMALIZATION_001"
+title = "Generated cases for Integer runtime normalization preserves value or fails closed"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "planned"
+invariant = "RT_INTEGER_I64_NORMALIZATION_001"
+generator = "gen_cases_v2.py v1"
+generator_digest = "sha256:e557e3873c3813524fb791b2723d9c9a51a7f1d93b6d304bce60e5d36cc5c3ac"
+source_digest = "sha256:b5cb5369af606d6c35a60da0bfe5ee4e74f5c02076097dfa4930e87a66a1ae7e"
+last_reviewed = "2026-07-22"
+
+[[case]]
+id = "RT_INTEGER_I64_NORMALIZATION_001_SIGNED_INTEGER_RUNTIME_VALUE_83A65502"
+family = "happy_path"
+input = { source_partition = { equals = "SIGNED_INTEGER_RUNTIME_VALUE" }, scenario = "SIGNED_INTEGER_RUNTIME_VALUE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-9-integer-runtime-normalization-to-i64" }
+
+[[case]]
+id = "RT_INTEGER_I64_NORMALIZATION_001_UNSIGNED_REPRESENTABLE_RUNTIME_VALUE_6A87DD82"
+family = "happy_path"
+input = { source_partition = { equals = "UNSIGNED_REPRESENTABLE_RUNTIME_VALUE" }, scenario = "UNSIGNED_REPRESENTABLE_RUNTIME_VALUE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-9-integer-runtime-normalization-to-i64" }
+
+[[case]]
+id = "RT_INTEGER_I64_NORMALIZATION_001_ULINT_ABOVE_I64_MAXIMUM_0850630D"
+family = "above_max"
+input = { source_partition = { equals = "ULINT_ABOVE_I64_MAXIMUM" }, scenario = "ULINT_ABOVE_I64_MAXIMUM" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-9-integer-runtime-normalization-to-i64" }
+
+[[case]]
+id = "RT_INTEGER_I64_NORMALIZATION_001_NON_INTEGER_RUNTIME_VALUE_873BF90C"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "NON_INTEGER_RUNTIME_VALUE" }, scenario = "NON_INTEGER_RUNTIME_VALUE" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-9-integer-runtime-normalization-to-i64" }

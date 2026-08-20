@@ -1,5 +1,4 @@
 impl<'a, 'b> StandardChecker<'a, 'b> {
-
     pub(in crate::type_check) fn check_formal_arg_count(
         &mut self,
         bound: &BoundArgs,
@@ -16,26 +15,22 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         }
     }
 
-
     pub(in crate::type_check) fn base_type_id(&self, type_id: TypeId) -> TypeId {
         let resolved = self.checker.resolve_alias_type(type_id);
         self.checker.resolve_subrange_base(resolved)
     }
 
-
     pub(in crate::type_check) fn is_numeric_type(&self, type_id: TypeId) -> bool {
         self.checker
-            .resolved_type(type_id)
+            .resolved_type(self.base_type_id(type_id))
             .is_some_and(|ty| ty.is_numeric())
     }
 
-
     pub(in crate::type_check) fn is_integer_type(&self, type_id: TypeId) -> bool {
         self.checker
-            .resolved_type(type_id)
+            .resolved_type(self.base_type_id(type_id))
             .is_some_and(|ty| ty.is_integer())
     }
-
 
     pub(in crate::type_check) fn is_unsigned_int_type(&self, type_id: TypeId) -> bool {
         matches!(
@@ -44,20 +39,17 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         )
     }
 
-
     pub(in crate::type_check) fn is_real_type(&self, type_id: TypeId) -> bool {
         self.checker
             .resolved_type(type_id)
             .is_some_and(|ty| ty.is_float())
     }
 
-
     pub(in crate::type_check) fn is_bit_string_type(&self, type_id: TypeId) -> bool {
         self.checker
             .resolved_type(type_id)
             .is_some_and(|ty| ty.is_bit_string())
     }
-
 
     pub(in crate::type_check) fn is_string_type(&self, type_id: TypeId) -> bool {
         self.checker
@@ -70,7 +62,6 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             .resolved_type(type_id)
             .is_some_and(|ty| ty.is_chars())
     }
-
 
     pub(in crate::type_check) fn string_kind(&self, type_id: TypeId) -> Option<bool> {
         match self.checker.resolved_type(type_id)? {
@@ -88,7 +79,6 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         }
     }
 
-
     pub(in crate::type_check) fn normalize_string_type_id(&self, type_id: TypeId) -> TypeId {
         match self.string_kind(type_id) {
             Some(true) => TypeId::WSTRING,
@@ -97,18 +87,15 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         }
     }
 
-
     pub(in crate::type_check) fn is_time_related_type(&self, type_id: TypeId) -> bool {
         self.checker
             .resolved_type(type_id)
             .is_some_and(|ty| ty.is_time())
     }
 
-
     pub(in crate::type_check) fn is_time_duration_type(&self, type_id: TypeId) -> bool {
         matches!(self.base_type_id(type_id), TypeId::TIME | TypeId::LTIME)
     }
-
 
     pub(in crate::type_check) fn is_elementary_type(&self, type_id: TypeId) -> bool {
         let resolved = self.base_type_id(type_id);
@@ -148,13 +135,14 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         )
     }
 
-
     pub(in crate::type_check) fn common_numeric_type_for_args(
         &mut self,
         args: &[(CallArg, TypeId)],
     ) -> Option<TypeId> {
         let mut common: Option<TypeId> = None;
         let mut saw_untyped_real = false;
+        let mut deferred_ints: Vec<(&CallArg, TypeId)> = Vec::new();
+        let mut deferred_reals: Vec<&CallArg> = Vec::new();
         for (arg, ty) in args {
             let base = self.base_type_id(*ty);
             if base == TypeId::UNKNOWN {
@@ -170,12 +158,45 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             }
             if is_untyped_real_literal_expr(&arg.expr) {
                 saw_untyped_real = true;
+                deferred_reals.push(arg);
+                continue;
+            }
+            if is_untyped_int_literal_expr(&arg.expr) {
+                deferred_ints.push((arg, base));
                 continue;
             }
             common = Some(match common {
                 None => base,
-                Some(current) => self.checker.wider_numeric(current, base),
+                Some(current) => {
+                    let Some(common) = self.checker.wider_numeric(current, base) else {
+                        self.checker.diagnostics.error(
+                            DiagnosticCode::InvalidArgumentType,
+                            arg.range,
+                            "numeric arguments have no accuracy-preserving common type",
+                        );
+                        return None;
+                    };
+                    common
+                }
             });
+        }
+        if common.is_none() {
+            for (arg, base) in &deferred_ints {
+                common = Some(match common {
+                    None => *base,
+                    Some(current) => {
+                        let Some(common) = self.checker.wider_numeric(current, *base) else {
+                            self.checker.diagnostics.error(
+                                DiagnosticCode::InvalidArgumentType,
+                                arg.range,
+                                "numeric arguments have no accuracy-preserving common type",
+                            );
+                            return None;
+                        };
+                        common
+                    }
+                });
+            }
         }
         let common = match common {
             Some(base) => {
@@ -184,7 +205,15 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                     if base_ty.is_some_and(|ty| ty.is_float()) {
                         base
                     } else {
-                        TypeId::LREAL
+                        let Some(common) = self.checker.wider_numeric(base, TypeId::LREAL) else {
+                            self.checker.diagnostics.error(
+                                DiagnosticCode::InvalidArgumentType,
+                                args[0].0.range,
+                                "numeric arguments have no accuracy-preserving common type",
+                            );
+                            return None;
+                        };
+                        common
                     }
                 } else {
                     base
@@ -198,6 +227,30 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 }
             }
         };
+        for (arg, _) in &deferred_ints {
+            if !self.checker.is_contextual_int_literal(common, &arg.expr)
+                && !self.checker.is_contextual_real_literal(common, &arg.expr)
+            {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::InvalidArgumentType,
+                    arg.range,
+                    "integer literal is not representable by the common numeric type",
+                );
+                return None;
+            }
+            self.checker.record_expression_type(&arg.expr, common);
+        }
+        for arg in deferred_reals {
+            if !self.checker.is_contextual_real_literal(common, &arg.expr) {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::InvalidArgumentType,
+                    arg.range,
+                    "real literal is not representable by the common numeric type",
+                );
+                return None;
+            }
+            self.checker.record_expression_type(&arg.expr, common);
+        }
         for (arg, ty) in args {
             let base = self.base_type_id(*ty);
             if is_untyped_real_literal_expr(&arg.expr) && common == TypeId::REAL {
@@ -211,12 +264,12 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         Some(common)
     }
 
-
     pub(in crate::type_check) fn common_integer_type_for_args(
         &mut self,
         args: &[(CallArg, TypeId)],
     ) -> Option<TypeId> {
         let mut common: Option<TypeId> = None;
+        let mut deferred_ints: Vec<(&CallArg, TypeId)> = Vec::new();
         for (arg, ty) in args {
             let base = self.base_type_id(*ty);
             if base == TypeId::UNKNOWN {
@@ -230,12 +283,55 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 );
                 return None;
             }
+            if is_untyped_int_literal_expr(&arg.expr) {
+                deferred_ints.push((arg, base));
+                continue;
+            }
             common = Some(match common {
                 None => base,
-                Some(current) => self.checker.wider_numeric(current, base),
+                Some(current) => {
+                    let Some(common) = self.checker.wider_numeric(current, base) else {
+                        self.checker.diagnostics.error(
+                            DiagnosticCode::InvalidArgumentType,
+                            arg.range,
+                            "integer arguments have no accuracy-preserving common type",
+                        );
+                        return None;
+                    };
+                    common
+                }
             });
         }
+        if common.is_none() {
+            for (arg, base) in &deferred_ints {
+                common = Some(match common {
+                    None => *base,
+                    Some(current) => {
+                        let Some(common) = self.checker.wider_numeric(current, *base) else {
+                            self.checker.diagnostics.error(
+                                DiagnosticCode::InvalidArgumentType,
+                                arg.range,
+                                "integer arguments have no accuracy-preserving common type",
+                            );
+                            return None;
+                        };
+                        common
+                    }
+                });
+            }
+        }
         let common = common?;
+        for (arg, _) in &deferred_ints {
+            if !self.checker.is_contextual_int_literal(common, &arg.expr) {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::InvalidArgumentType,
+                    arg.range,
+                    "integer literal is not representable by the common integer type",
+                );
+                return None;
+            }
+            self.checker.record_expression_type(&arg.expr, common);
+        }
         for (arg, ty) in args {
             let base = self.base_type_id(*ty);
             if base != common {
@@ -245,5 +341,4 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         }
         Some(common)
     }
-
 }

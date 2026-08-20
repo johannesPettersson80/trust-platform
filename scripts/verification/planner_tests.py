@@ -8,7 +8,11 @@ import unittest
 
 from scripts.verification.metadata_validator.constants import ROOT
 from scripts.verification.metadata_validator.constants import AREAS
-from scripts.verification.planner import Planner, result_to_json, risk_changes_from_matrices
+from scripts.verification.planner import (
+    Planner,
+    result_to_json,
+    risk_changes_from_matrices,
+)
 
 
 class PlannerAreaRoutingTests(unittest.TestCase):
@@ -92,6 +96,53 @@ class PlannerAreaRoutingTests(unittest.TestCase):
         self.assertEqual(result.required_test_classes, ["metadata_validation"])
         self.assertIn("vscode_extension", result.matched_route_ids)
         self.assertEqual(result.required_suites, ["pr"])
+
+    def test_docs_metadata_validation_is_repository_global_not_per_area(self) -> None:
+        catalog = tomllib.loads(
+            (ROOT / "verification/test-catalog.toml").read_text()
+        )["tests"]
+        self.planner.tests = [
+            next(
+                row
+                for row in catalog
+                if row["id"] == "TEST_VERIFICATION_METADATA_GATE_001"
+            )
+        ]
+
+        result = self.planner.plan(
+            "docs",
+            ["CHANGELOG.md", "verification/spec-sources.toml"],
+            None,
+            None,
+        )
+
+        self.assertEqual(result.required_test_classes, ["metadata_validation"])
+        self.assertEqual(result.missing_test_classes, [])
+
+    def test_bugfix_metadata_validation_is_repository_global_not_per_area(self) -> None:
+        self.planner.tests = tomllib.loads(
+            (ROOT / "verification/test-catalog.toml").read_text()
+        )["tests"]
+
+        result = self.planner.plan(
+            "bugfix",
+            ["crates/trust-runtime/src/io/addressing.rs"],
+            None,
+            None,
+        )
+
+        self.assertIn("metadata_validation", result.required_test_classes)
+        self.assertNotIn("metadata_validation", result.missing_test_classes)
+
+    def test_bugfix_does_not_invent_malformed_input_for_non_parser_surface(self) -> None:
+        result = self.planner.plan(
+            "bugfix",
+            ["crates/trust-runtime/src/io/modbus/worker.rs"],
+            None,
+            None,
+        )
+
+        self.assertNotIn("negative_malformed_input", result.required_test_classes)
 
     def test_conditional_suites_are_reported_but_not_promoted(self) -> None:
         result = self.planner.plan(

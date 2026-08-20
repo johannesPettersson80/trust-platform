@@ -1,6 +1,7 @@
 trait ClassLike {
     fn name(&self) -> &SmolStr;
     fn base_name(&self) -> Option<SmolStr>;
+    fn interfaces(&self) -> &[SmolStr];
     fn methods(&self) -> &[MethodDef];
 }
 
@@ -19,6 +20,10 @@ impl ClassLike for FunctionBlockDef {
     fn methods(&self) -> &[MethodDef] {
         &self.methods
     }
+
+    fn interfaces(&self) -> &[SmolStr] {
+        &self.interfaces
+    }
 }
 
 impl ClassLike for ClassDef {
@@ -32,6 +37,10 @@ impl ClassLike for ClassDef {
 
     fn methods(&self) -> &[MethodDef] {
         &self.methods
+    }
+
+    fn interfaces(&self) -> &[SmolStr] {
+        &self.interfaces
     }
 }
 

@@ -59,12 +59,25 @@ function externalLabel(ext: NCExternal, links: readonly NCLink[]): string {
     link.protocol.replace(/_/g, " ").toLowerCase(),
   ]);
   const lower = name.toLowerCase();
+  const directional = new Set(["ads", "ads_server", "opcua", "opcua_client"]).has(
+    link.protocol
+  );
+  const renderedProtocol = directional
+    ? externalSub(ext.id, links)
+    : protocolName(link.protocol);
+  const renderedLower = renderedProtocol.toLowerCase();
+  if (directional && lower === renderedLower) {
+    return renderedProtocol;
+  }
+  if (directional && lower.startsWith(`${renderedLower} `)) {
+    return `${renderedProtocol}${name.slice(renderedProtocol.length)}`;
+  }
   for (const raw of rawProtocolNames) {
     if (lower === raw) {
-      return protocolName(link.protocol);
+      return renderedProtocol;
     }
     if (lower.startsWith(`${raw} `)) {
-      return `${protocolName(link.protocol)}${name.slice(raw.length)}`;
+      return `${renderedProtocol}${name.slice(raw.length)}`;
     }
   }
   return name;
@@ -195,6 +208,7 @@ export function buildGraph(
         label: rt.name,
         mode: rt.mode,
         health: rt.health,
+        lifecycleState: rt.lifecycleState,
         detail: rt.detail,
         endpointCount: rt.endpoints.length,
         container: containerTag,
@@ -398,13 +412,18 @@ export function buildGraph(
 
   // ---- Wiring channel: each wire gets its own lane (height) so the horizontal
   // runs never overlap; mesh peers share one fabric bus. ----
-  const meshEndpoints: Array<{ id: string; cx: number; status: string }> = [];
+  const meshEndpoints: Array<{ id: string; cx: number; status: string; detail: string }> = [];
   for (const host of hostsWithDraft) {
     const runtimes = [...host.runtimes, ...host.containers.flatMap((c) => c.runtimes)];
     for (const rt of runtimes) {
       for (const ep of rt.endpoints) {
         if (ep.protocol === "mesh" && endpointCx.has(ep.id)) {
-          meshEndpoints.push({ id: ep.id, cx: endpointCx.get(ep.id)!, status: ep.health });
+          meshEndpoints.push({
+            id: ep.id,
+            cx: endpointCx.get(ep.id)!,
+            status: ep.health,
+            detail: ep.detail,
+          });
         }
       }
     }
@@ -415,6 +434,9 @@ export function buildGraph(
   }
   const wireLinks = graph.links.filter(
     (l) => l.protocol !== "mesh" && knownIds.has(l.from) && knownIds.has(l.to)
+  );
+  const meshLinks = graph.links.filter(
+    (link) => link.protocol === "mesh" && knownIds.has(link.from) && knownIds.has(link.to)
   );
   // Left-to-right by source keeps adjacent lanes near their wires (fewer crossings).
   wireLinks.sort((a, b) => (endpointCx.get(a.from) ?? 0) - (endpointCx.get(b.from) ?? 0));
@@ -440,6 +462,7 @@ export function buildGraph(
 
   // External / device / peer nodes in a row at the bottom.
   let extX = 0;
+  const externalCx = new Map<string, number>();
   for (const ext of graph.external) {
     nodes.push({
       id: ext.id,
@@ -454,14 +477,23 @@ export function buildGraph(
       draggable: true,
       selectable: true,
     });
+    externalCx.set(ext.id, extX + EXT_W / 2);
     knownIds.add(ext.id);
     extX += EXT_W + 28;
   }
 
+  const topologyIsProven = (status: string): boolean =>
+    ["connected", "degraded", "error"].includes(status);
+
   // One cased wire per link, each on its own lane (centerY).
   const edges: Edge[] = [];
   wireLinks.forEach((link, lane) => {
-    const stroke = protocolColor(link.protocol);
+    const stroke =
+      link.status === "degraded"
+        ? t.warn
+        : link.status === "error"
+          ? t.danger
+          : protocolColor(link.protocol);
     const marker = { type: MarkerType.ArrowClosed, color: stroke, width: 16, height: 16 };
     // truST as server → clients connect INBOUND (arrow points at truST); else outbound.
     const inbound = link.role === "server";
@@ -472,7 +504,9 @@ export function buildGraph(
       type: "cased",
       data: {
         color: stroke,
-        dashed: link.status === "error" || link.status === "degraded" || link.status === "pending" || link.status === "draft",
+        dashed: !topologyIsProven(link.status),
+        status: link.status,
+        detail: link.detail,
         centerY: channelTop + lane * LANE_GAP,
         dimmed: linkDimmed(link),
       },
@@ -483,15 +517,36 @@ export function buildGraph(
 
   // Mesh fabric: every mesh peer drops straight down onto one shared bus-bar (§0.2/§4.4).
   if (meshEndpoints.length > 0) {
-    const meshDraft = meshEndpoints.some((endpoint) =>
-      ["pending", "draft", "configured_policy", "not_configured", "unknown"].includes(endpoint.status)
-    );
+    const meshPeerDrops = meshLinks.flatMap((link) => {
+      const externalId = externalCx.has(link.to)
+        ? link.to
+        : externalCx.has(link.from)
+          ? link.from
+          : undefined;
+      if (!externalId) {
+        return [];
+      }
+      return [{
+        edgeId: link.id,
+        nodeId: externalId,
+        cx: externalCx.get(externalId)!,
+        status: link.status,
+        detail: link.detail ?? "",
+      }];
+    });
+    const truthRows = meshPeerDrops.length > 0 ? meshPeerDrops : meshEndpoints;
+    const meshDraft = truthRows.some((row) => !topologyIsProven(row.status));
     const meshColor = meshDraft ? t.protocolMuted : protocolColor("mesh");
+    const participants = [
+      ...meshEndpoints.map((endpoint) => ({ id: endpoint.id, cx: endpoint.cx })),
+      ...meshPeerDrops.map((peer) => ({ id: peer.nodeId, cx: peer.cx })),
+    ];
     const pad = 36;
-    const naturalMinX = Math.min(...meshEndpoints.map((e) => e.cx)) - pad;
-    const naturalMaxX = Math.max(...meshEndpoints.map((e) => e.cx)) + pad;
+    const naturalMinX = Math.min(...participants.map((participant) => participant.cx)) - pad;
+    const naturalMaxX = Math.max(...participants.map((participant) => participant.cx)) + pad;
     const naturalWidth = naturalMaxX - naturalMinX;
-    const minBusWidth = meshEndpoints.length > 1 ? 168 : naturalWidth;
+    const peerCount = meshPeerDrops.length > 0 ? meshPeerDrops.length : meshEndpoints.length;
+    const minBusWidth = peerCount > 1 ? 168 : naturalWidth;
     const busCenterX = (naturalMinX + naturalMaxX) / 2;
     const minX = naturalWidth < minBusWidth ? busCenterX - minBusWidth / 2 : naturalMinX;
     const maxX = naturalWidth < minBusWidth ? busCenterX + minBusWidth / 2 : naturalMaxX;
@@ -504,21 +559,60 @@ export function buildGraph(
         label: "Mesh fabric",
         color: meshColor,
         draft: meshDraft,
-        showLabel: meshEndpoints.length > 1,
-        handles: meshEndpoints.map((e) => ({ id: `h-${e.id}`, x: e.cx - minX })),
+        showLabel: peerCount > 1,
+        handles: participants.map((participant) => ({
+          id: `h-${participant.id}`,
+          x: participant.cx - minX,
+        })),
       },
       style: { width: maxX - minX, height: 8 },
       draggable: false,
       selectable: false,
     });
     for (const e of meshEndpoints) {
+      const endpointColor =
+        meshPeerDrops.length === 0 && !meshDraft
+          ? e.status === "degraded"
+            ? t.warn
+            : e.status === "error"
+              ? t.danger
+              : protocolColor("mesh")
+          : meshColor;
       edges.push({
         id: `mesh-${e.id}`,
         source: e.id,
         target: busId,
         targetHandle: `h-${e.id}`,
         type: "cased",
-        data: { color: meshColor, dashed: meshDraft || e.status === "pending" || e.status === "draft" },
+        data: {
+          color: endpointColor,
+          dashed: meshDraft,
+          ...(meshPeerDrops.length === 0
+            ? { status: e.status, detail: e.detail }
+            : {}),
+        },
+      });
+    }
+    for (const peer of meshPeerDrops) {
+      const edgeColor = meshDraft
+        ? meshColor
+        : peer.status === "degraded"
+          ? t.warn
+          : peer.status === "error"
+            ? t.danger
+            : protocolColor("mesh");
+      edges.push({
+        id: peer.edgeId,
+        source: peer.nodeId,
+        target: busId,
+        targetHandle: `h-${peer.nodeId}`,
+        type: "cased",
+        data: {
+          color: edgeColor,
+          dashed: meshDraft || !topologyIsProven(peer.status),
+          status: peer.status,
+          detail: peer.detail,
+        },
       });
     }
   }

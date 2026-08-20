@@ -9,8 +9,8 @@ use text_size::TextRange;
 use crate::diagnostics::{DiagnosticBuilder, DiagnosticCode};
 use crate::semantic::{SemanticOutcome, LEGACY_UNKNOWN_TYPE_ID};
 use crate::symbols::{
-    ParamDirection, ScopeId, ScopeKind, SymbolId, SymbolKind, SymbolTable, UsingResolution,
-    Visibility,
+    EnumValueResolution, ParamDirection, ScopeId, ScopeKind, SymbolId, SymbolKind, SymbolTable,
+    UsingResolution, VarQualifier, Visibility,
 };
 use crate::types::{Type, TypeId};
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
@@ -29,6 +29,7 @@ mod validation;
 
 pub(crate) use literals::string_literal_info;
 pub use ops::{BinaryOp, UnaryOp};
+pub(crate) use standard::is_standard_function_name;
 
 fn non_value_role(kind: &SymbolKind) -> Option<&'static str> {
     match kind {

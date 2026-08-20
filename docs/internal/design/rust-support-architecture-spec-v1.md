@@ -655,7 +655,7 @@ into — every integration point named here is referenced again in §19.
   reuses the same `CompileSession` in-memory for diagnostics
   (`crates/trust-lsp/src/handlers/diagnostics.rs:21-24`).
 - **[v2 refinement] Pragmas are trivia at the syntax level**
-  (`token_kind_variants_part_01.rs:17-21`), **but a working semantic pragma
+  (`crates/trust-syntax/src/lexer/tokens/token_kind.rs:10-19`), **but a working semantic pragma
   family already exists**: `{attribute 'key' := 'value', …}` parsed from CST
   trivia for Open-OT authoring, with its own diagnostics
   (`trust-hir/src/openot_authoring.rs:264-337,2154-2156`). The `{external …}`

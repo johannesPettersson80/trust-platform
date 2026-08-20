@@ -18,11 +18,13 @@ from pathlib import Path
 try:
     from scripts.release_evidence_contract import (
         ReleaseEvidenceError,
+        decode_github_api_object,
         validate_release_publication,
     )
 except ModuleNotFoundError:  # Direct `python scripts/...` execution.
     from release_evidence_contract import (  # type: ignore[no-redef]
         ReleaseEvidenceError,
+        decode_github_api_object,
         validate_release_publication,
     )
 
@@ -90,8 +92,9 @@ def github_api_get(
     )
     try:
         with urllib.request.urlopen(req) as response:
-            body = response.read().decode("utf-8")
-            return response.status, json.loads(body) if body else {}
+            return response.status, decode_github_api_object(
+                response.read(), status=response.status, endpoint=path
+            )
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="replace")
         try:
@@ -139,7 +142,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def _main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     if args.event_name != "push" or args.ref not in {"refs/heads/main", "refs/heads/master"}:
@@ -191,6 +194,12 @@ def main(argv: list[str] | None = None) -> int:
             )
         time.sleep(poll_interval)
 
+    tag_type_proc = run_git(
+        ["cat-file", "-t", f"refs/tags/{expected_tag}"], check=False
+    )
+    if tag_type_proc.returncode != 0 or tag_type_proc.stdout.strip() != "tag":
+        return fail(f"Release tag {expected_tag} must be an annotated tag object.")
+
     ancestor_check = subprocess.run(
         ["git", "merge-base", "--is-ancestor", tag_commit, args.after],
         check=False,
@@ -199,6 +208,11 @@ def main(argv: list[str] | None = None) -> int:
         return fail(
             f"Tag {expected_tag} exists but points to {tag_commit}, which is not reachable from "
             f"{args.after}. Tag must match the released main history for version {current_version}."
+        )
+    if tag_commit != args.after:
+        return fail(
+            f"Tag {expected_tag} points to {tag_commit}, which does not match the exact "
+            f"main push SHA {args.after}."
         )
 
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
@@ -220,11 +234,18 @@ def main(argv: list[str] | None = None) -> int:
                 f"(status {runs_status}): {runs_payload.get('message', 'unknown error')}"
             )
 
+        workflow_runs = runs_payload.get("workflow_runs", [])
+        if not isinstance(workflow_runs, list) or any(
+            not isinstance(run, dict) for run in workflow_runs
+        ):
+            return fail("GitHub returned a malformed Release workflow run collection.")
         run_for_tag = next(
             (
                 run
-                for run in runs_payload.get("workflow_runs", [])
-                if run.get("head_branch") == expected_tag
+                for run in workflow_runs
+                if run.get("event") == "push"
+                and run.get("head_branch") == expected_tag
+                and run.get("head_sha") == tag_commit
             ),
             None,
         )
@@ -320,6 +341,13 @@ def main(argv: list[str] | None = None) -> int:
         f"workflow={run_url}"
     )
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        return _main(argv)
+    except ReleaseEvidenceError as exc:
+        return fail(str(exc))
 
 
 if __name__ == "__main__":

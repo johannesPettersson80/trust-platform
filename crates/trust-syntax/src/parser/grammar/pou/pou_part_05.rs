@@ -8,7 +8,7 @@ impl Parser<'_, '_> {
         self.start_node(SyntaxKind::Method);
 
         // Parse access modifier
-        if matches!(
+        while matches!(
             self.current(),
             TokenKind::KwPublic
                 | TokenKind::KwPrivate
@@ -24,7 +24,7 @@ impl Parser<'_, '_> {
             self.error("expected METHOD");
         }
 
-        if matches!(
+        while matches!(
             self.current(),
             TokenKind::KwPublic
                 | TokenKind::KwPrivate
@@ -62,7 +62,7 @@ impl Parser<'_, '_> {
 
         // Parse var blocks
         while self.current().is_var_keyword() {
-            self.parse_var_block();
+            self.parse_pou_var_block();
         }
 
         // Parse statements
@@ -83,7 +83,7 @@ impl Parser<'_, '_> {
     pub(crate) fn parse_method_signature(&mut self) {
         self.start_node(SyntaxKind::Method);
 
-        if matches!(
+        while matches!(
             self.current(),
             TokenKind::KwPublic
                 | TokenKind::KwPrivate
@@ -99,7 +99,7 @@ impl Parser<'_, '_> {
             self.error("expected METHOD");
         }
 
-        if matches!(
+        while matches!(
             self.current(),
             TokenKind::KwPublic
                 | TokenKind::KwPrivate
@@ -129,7 +129,7 @@ impl Parser<'_, '_> {
         }
 
         while self.current().is_var_keyword() {
-            self.parse_var_block();
+            self.parse_pou_var_block();
         }
 
         if self.at(TokenKind::KwEndMethod) {
@@ -146,7 +146,7 @@ impl Parser<'_, '_> {
         self.start_node(SyntaxKind::Property);
 
         // Parse access modifier
-        if matches!(
+        while matches!(
             self.current(),
             TokenKind::KwPublic
                 | TokenKind::KwPrivate

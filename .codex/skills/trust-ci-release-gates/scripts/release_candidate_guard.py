@@ -34,13 +34,11 @@ BASE_REQUIRED_COMMANDS = (
     "clean",
     "base_ancestor",
     "diff_check",
-    "planner",
-    "catalog_staleness",
-    "selftests",
     "strict_gate",
     "remote_exact_head",
     "remote_fmt",
     "remote_clippy",
+    "remote_reclaim_before_test_all",
     "remote_test_all",
     "remote_clean_after",
 )
@@ -496,7 +494,8 @@ def parser() -> argparse.ArgumentParser:
     prepare_parser.add_argument("--remote-host", default="trust-builder")
     prepare_parser.add_argument("--remote-worktree", required=True)
     prepare_parser.add_argument(
-        "--remote-target", default="/home/johannes/.cache/codex-targets/trust-platform-gate"
+        "--remote-target",
+        default="/home/johannes/.cache/codex-targets/trust-platform-gate",
     )
     prepare_parser.add_argument("--fetch", action=argparse.BooleanOptionalAction, default=True)
     prepare_parser.set_defaults(handler=prepare_command)

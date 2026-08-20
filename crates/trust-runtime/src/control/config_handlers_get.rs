@@ -61,12 +61,23 @@ pub(super) fn handle_config_get(id: u64, state: &ControlState) -> ControlRespons
             "log.level": settings.log_level.as_str(),
             "watchdog.enabled": settings.watchdog.enabled,
             "watchdog.timeout_ms": settings.watchdog.timeout.as_millis(),
-            "watchdog.action": format!("{:?}", settings.watchdog.action),
+            "watchdog.action": match settings.watchdog.action {
+                crate::watchdog::WatchdogAction::Halt => "halt",
+                crate::watchdog::WatchdogAction::SafeHalt => "safe_halt",
+                crate::watchdog::WatchdogAction::Restart => "restart",
+            },
             "resource.cycle_interval_ms": settings.cycle_interval.as_millis(),
             "runtime.execution_backend": settings.execution_backend.as_str(),
             "runtime.execution_backend_source": settings.execution_backend_source.as_str(),
-            "fault.policy": format!("{:?}", settings.fault_policy),
-            "retain.mode": format!("{:?}", settings.retain_mode),
+            "fault.policy": match settings.fault_policy {
+                crate::watchdog::FaultPolicy::Halt => "halt",
+                crate::watchdog::FaultPolicy::SafeHalt => "safe_halt",
+                crate::watchdog::FaultPolicy::Restart => "restart",
+            },
+            "retain.mode": match settings.retain_mode {
+                crate::watchdog::RetainMode::None => "none",
+                crate::watchdog::RetainMode::File => "file",
+            },
             "retain.save_interval_ms": settings.retain_save_interval.map(|val| val.as_millis()),
             "web.enabled": settings.web.enabled,
             "web.listen": settings.web.listen.as_str(),
@@ -155,8 +166,11 @@ pub(super) fn handle_config_get(id: u64, state: &ControlState) -> ControlRespons
             "control.mode": state
                 .control_mode
                 .lock()
-                .map(|mode| format!("{:?}", *mode))
-                .unwrap_or_else(|_| "Production".to_string()),
+                .map(|mode| match *mode {
+                    ControlMode::Production => "production",
+                    ControlMode::Debug => "debug",
+                })
+                .unwrap_or("production"),
             "simulation.enabled": settings.simulation.enabled,
             "simulation.time_scale": settings.simulation.time_scale,
             "simulation.mode": settings.simulation.mode_label.as_str(),

@@ -69,6 +69,32 @@ last_reviewed = "2026-07-18"
 
 [[required_specs]]
 schema_version = 1
+id = "REQ_SPEC_COMPILER_IEC_SEMANTIC_ANALYSIS"
+area = "compiler_iec"
+tag = "semantic_analysis"
+title = "HIR semantic-analysis and diagnostic contract"
+owner = "language"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-25"
+
+[[required_specs]]
+schema_version = 1
+id = "REQ_SPEC_COMPILER_IEC_CONFIG_TASKS"
+area = "compiler_iec"
+tag = "configuration_resource_task_binding"
+title = "Configuration, resource, task, and program-binding contract"
+owner = "language"
+status = "mapped"
+expected_authority = ["normative_product"]
+source_ref = "SPEC_IEC_CONFIG_TASKS_001"
+blocks = "test_mapping"
+last_reviewed = "2026-07-25"
+
+[[required_specs]]
+schema_version = 1
 id = "REQ_SPEC_RUNTIME_SCAN_CYCLE"
 area = "runtime_safety"
 tag = "scan_cycle_architecture"

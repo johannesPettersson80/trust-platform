@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use smol_str::SmolStr;
 use toml_edit::{value, Array, DocumentMut, InlineTable, Item, Table, Value as EditValue};
@@ -10,6 +10,9 @@ use super::{
     CommFieldError,
 };
 use crate::control::comm_handlers::contract::COMM_SCHEMA_VERSION;
+
+#[path = "runtime_file/path_policy.rs"]
+mod path_policy;
 
 pub(super) fn apply_runtime_protocol(
     project_root: Option<&Path>,
@@ -193,7 +196,7 @@ fn apply_opcua_client_protocol(
         Ok(doc) => doc,
         Err(response) => return *response,
     };
-    let params = match normalized_params(&request) {
+    let mut params = match normalized_params(&request) {
         Ok(params) => params,
         Err(field_errors) => {
             return blocked_response(
@@ -212,13 +215,35 @@ fn apply_opcua_client_protocol(
     let config_path = params
         .get("config_path")
         .and_then(toml::Value::as_str)
-        .filter(|value| !value.trim().is_empty())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
         .or(existing_config_path.as_deref())
         .unwrap_or("opcua_client.toml");
     let poll_interval_ms = params
         .get("poll_interval_ms")
         .and_then(toml::Value::as_integer);
-    let opcua_client_path = project_relative_path(project_root, config_path);
+    let opcua_client_path = match path_policy::project_sidecar_path(project_root, config_path) {
+        Ok(path) => path,
+        Err(message) => {
+            return blocked_response(
+                protocol,
+                String::new(),
+                request.action,
+                vec![field_error("config_path", message)],
+                Some(runtime_path.display().to_string()),
+                None,
+            )
+        }
+    };
+    let normalized_config_path = opcua_client_path
+        .strip_prefix(project_root)
+        .expect("project-confined OPC UA client path")
+        .to_string_lossy()
+        .into_owned();
+    params.insert(
+        "config_path".to_string(),
+        toml::Value::String(normalized_config_path),
+    );
     let connections = params.get("connections");
     let mut field_errors = Vec::new();
     if enabled
@@ -420,7 +445,7 @@ fn apply_ads_protocol(
         Ok(doc) => doc,
         Err(response) => return *response,
     };
-    let params = match normalized_params(&request) {
+    let mut params = match normalized_params(&request) {
         Ok(params) => params,
         Err(field_errors) => {
             return blocked_response(
@@ -440,10 +465,32 @@ fn apply_ads_protocol(
     let config_path = params
         .get("config_path")
         .and_then(toml::Value::as_str)
-        .filter(|value| !value.trim().is_empty())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
         .or(existing_config_path.as_deref())
         .unwrap_or("ads.toml");
-    let ads_path = project_relative_path(project_root, config_path);
+    let ads_path = match path_policy::project_sidecar_path(project_root, config_path) {
+        Ok(path) => path,
+        Err(message) => {
+            return blocked_response(
+                protocol,
+                String::new(),
+                request.action,
+                vec![field_error("config_path", message)],
+                Some(runtime_path.display().to_string()),
+                None,
+            )
+        }
+    };
+    let normalized_config_path = ads_path
+        .strip_prefix(project_root)
+        .expect("project-confined ADS path")
+        .to_string_lossy()
+        .into_owned();
+    params.insert(
+        "config_path".to_string(),
+        toml::Value::String(normalized_config_path),
+    );
     let requested_connections = connections_array(params.get("connections"));
     let effective_connections = match requested_connections {
         Some(connections) if request.action == CommApplyAction::Add => {
@@ -1089,11 +1136,6 @@ fn render_opcua_client_toml(
         .map_err(|error| field_error("_", format!("failed to render opcua_client.toml: {error}")))
 }
 
-fn project_relative_path(project_root: &Path, path: &str) -> PathBuf {
-    let path = PathBuf::from(path);
-    if path.is_relative() {
-        project_root.join(path)
-    } else {
-        path
-    }
-}
+#[cfg(test)]
+#[path = "runtime_file/contract_tests.rs"]
+mod contract_tests;

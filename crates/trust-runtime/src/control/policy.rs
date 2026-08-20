@@ -10,6 +10,9 @@ pub(crate) fn required_role_for_control_request(
     kind: &str,
     params: Option<&serde_json::Value>,
 ) -> AccessRole {
+    if kind == "ads.import_symbols.apply" {
+        return AccessRole::Engineer;
+    }
     match operation_policy(kind).map(|policy| policy.role) {
         Some(RolePolicy::Fixed(role)) => role,
         Some(RolePolicy::AdsDoctor) => required_role_for_ads_doctor(params),
@@ -25,8 +28,7 @@ fn required_role_for_comm_browse_symbols(params: Option<&serde_json::Value>) -> 
         return AccessRole::Viewer;
     };
     let has_live_target = params.get("target").is_some_and(|value| !value.is_null());
-    let has_snapshot = params.get("snapshot").is_some_and(|value| !value.is_null());
-    if has_live_target && !has_snapshot {
+    if has_live_target {
         AccessRole::Engineer
     } else {
         AccessRole::Viewer
@@ -38,8 +40,7 @@ fn required_role_for_ads_import_symbols(params: Option<&serde_json::Value>) -> A
         return AccessRole::Viewer;
     };
     let has_live_target = params.get("target").is_some_and(|value| !value.is_null());
-    let has_snapshot = params.get("snapshot").is_some_and(|value| !value.is_null());
-    if has_live_target && !has_snapshot {
+    if has_live_target {
         AccessRole::Engineer
     } else {
         AccessRole::Viewer
@@ -203,7 +204,7 @@ mod tests {
                     }
                 }))
             ),
-            AccessRole::Viewer
+            AccessRole::Engineer
         );
     }
 

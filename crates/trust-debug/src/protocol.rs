@@ -274,6 +274,10 @@ mod tests {
     }
 }
 
+#[cfg(test)]
+#[path = "protocol/wire_schema_tests.rs"]
+mod wire_schema_tests;
+
 /// Arguments for `initialize`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]

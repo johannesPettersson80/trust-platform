@@ -6,8 +6,8 @@ owner = "trust-syntax"
 status = "planned"
 invariant = "IEC_PARSE_RECOVER_001"
 generator = "gen_cases_v2.py v1"
-generator_digest = "sha256:45b265249f43f98568a6039a7b5e27801adc1345e4482b8b3b144c2759a9c5e9"
-source_digest = "sha256:f707985f7b563bdbfe3ba5739c74d39bedaffe6a532acc09824fceda5201c0fe"
+generator_digest = "sha256:e557e3873c3813524fb791b2723d9c9a51a7f1d93b6d304bce60e5d36cc5c3ac"
+source_digest = "sha256:d3f44cfb9c62fb5467a5e15233cb3267c253431a41df040af269489962335591"
 last_reviewed = "2026-07-14"
 
 [[case]]
@@ -21,6 +21,12 @@ id = "IEC_PARSE_RECOVER_001_CASE_LABEL_MISSING_COLON_D638EDB8"
 family = "wrong_type_or_shape"
 input = { source_partition = { equals = "CASE_LABEL_MISSING_COLON" }, scenario = "CASE_LABEL_MISSING_COLON" }
 expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy" }
+
+[[case]]
+id = "IEC_PARSE_RECOVER_001_IF_MISSING_THEN_489204D5"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "IF_MISSING_THEN" }, scenario = "IF_MISSING_THEN" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery" }
 
 [[case]]
 id = "IEC_PARSE_RECOVER_001_ELSIF_MISSING_THEN_1BE5365E"
@@ -71,10 +77,40 @@ input = { source_partition = { equals = "MISSING_INNER_TERMINATOR_AT_OUTER_BOUND
 expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy" }
 
 [[case]]
+id = "IEC_PARSE_RECOVER_001_MISSING_INNER_TERMINATOR_AT_OUTER_BOUNDARY_ONLY_0CB609C3"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "MISSING_INNER_TERMINATOR_AT_OUTER_BOUNDARY_ONLY" }, scenario = "MISSING_INNER_TERMINATOR_AT_OUTER_BOUNDARY_ONLY" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery" }
+
+[[case]]
 id = "IEC_PARSE_RECOVER_001_MISSING_POU_TERMINATOR_AT_EOF_CF2D3C17"
 family = "wrong_type_or_shape"
 input = { source_partition = { equals = "MISSING_POU_TERMINATOR_AT_EOF" }, scenario = "MISSING_POU_TERMINATOR_AT_EOF" }
 expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy" }
+
+[[case]]
+id = "IEC_PARSE_RECOVER_001_MISSING_TEST_PROGRAM_TERMINATOR_AT_EOF_2B9ECF69"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "MISSING_TEST_PROGRAM_TERMINATOR_AT_EOF" }, scenario = "MISSING_TEST_PROGRAM_TERMINATOR_AT_EOF" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#implementation-extension-test-pous" }
+
+[[case]]
+id = "IEC_PARSE_RECOVER_001_MISSING_STATEMENT_SEMICOLON_A0CB3F7E"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "MISSING_STATEMENT_SEMICOLON" }, scenario = "MISSING_STATEMENT_SEMICOLON" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery" }
+
+[[case]]
+id = "IEC_PARSE_RECOVER_001_INVALID_SIGNED_BASED_TYPED_LITERAL_37383396"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "INVALID_SIGNED_BASED_TYPED_LITERAL" }, scenario = "INVALID_SIGNED_BASED_TYPED_LITERAL" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery" }
+
+[[case]]
+id = "IEC_PARSE_RECOVER_001_HASH_WITHOUT_IDENTIFIER_37B9A1CE"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "HASH_WITHOUT_IDENTIFIER" }, scenario = "HASH_WITHOUT_IDENTIFIER" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery" }
 
 [[case]]
 id = "IEC_PARSE_RECOVER_001_UNKNOWN_TOKEN_98BED96C"

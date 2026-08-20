@@ -6,10 +6,62 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.54`
+- Specify runtime clock dispatch name/error identity and deterministic LSP
+  diagnostic-override collision precedence, including canonical-key priority
+  and alias-only lexical ordering.
+- The parser example-corpus test now fails when the checked-in example tree is
+  missing and parses every checked-in example instead of silently skipping the
+  suite.
+- Specify the nine shipped tutorial files as executable compile contracts and
+  lock the blinker, traffic-light, and motor-starter examples to their reviewed
+  clean-cycle timing and I/O sequences.
+- Specify the native browser-analysis and WebAssembly JSON adapter boundary for
+  native-result parity, opaque virtual document identity, full-set replacement,
+  and explicit JSON success and failure projections.
+- Specify the runtime variable-storage contract for instance-field resolution,
+  declared layouts, reference-helper equivalence, cache invalidation,
+  copy-on-write nested updates, and checked extreme array bounds.
+- Specify fail-closed host lvalue writes, bounded helper capabilities,
+  host-stage POU defaults and write-through behavior, IEC array repetition,
+  representative integer-base exponentiation and Boolean comparison results.
+- Specify retain codec compatibility, filesystem transaction visibility,
+  retry semantics, atomic migration, and typed migration/orphan events.
+- Specify mesh envelope metadata, subscription grammar, typed numeric decoding,
+  bounded malformed-input handling, readiness, liveliness, QoS, and snapshot
+  failure contracts without overstating TLS or query/reply proof.
+- Specify the ADS AMS/TCP prefix, frame-length cap, header/payload correlation,
+  canonical serialization, and response endpoint/correlation contract.
+- Specify per-cycle watchdog deadline arming/restoration and bounded automatic
+  restart backoff without treating host-runtime policy as an IEC deviation.
+- Align runtime scheduling documentation on priority, due-time, stable-index,
+  registered-high SINGLE, and background-program execution order.
+- Specify ADS notification cadence, on-change coalescing, watch-length source
+  sampling, invalidation, and representable FILETIME conversion.
+- Specify ADS service-port routing, router/system compatibility responses,
+  notification receiver binding, and bind-conflict startup failure.
+- Specify deterministic ADS server symbol assignment, duplicate rejection,
+  flag preservation, serialization identity, and local version progression.
+- Specify deterministic simulation-model activation, coupling and physics scan
+  boundaries, conflict rejection, replay, scripted faults, and scaled-clock
+  watchdog isolation.
+- Specify the `trust-st-complete-v1` PLCopen profile, ST/data-type interchange,
+  fail-closed import diagnostics, migration and CODESYS metadata, reviewed
+  vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
+
+Target release: `v0.24.62`
 
 ### Fixed
 
+- ci/vscode: the exact-SHA release-candidate guard now runs Extension Host
+  tests under Xvfb, and rendered Live Values layout proof discovers installed
+  Chromium and Google Chrome executables without a builder-specific override.
+  Exact-candidate checks use a fast report-boundary smoke, disable incremental
+  build duplication, and safely reclaim only the configured generated target
+  between Clippy and `test-all`; exhaustive verification-tooling fixtures remain
+  scheduled/manual maintenance.
+- Reject ADS client connections that declare no points and make the
+  communication authoring schema explain that activation requires at least one
+  connection with a selected point.
 - verification: case-table hashing now canonicalizes Windows CRLF checkout
   line endings, keeping committed case-file digests stable across runners.
 - ci/trust-runtime: the live Modbus+MQTT composition test now retries the
@@ -43,6 +95,360 @@ Target release: `v0.24.54`
 - docs: Communication overview pages now list Beckhoff ADS alongside Modbus,
   MQTT, and OPC UA so the public navigation path matches the shipped ADS
   client/server support.
+- Write the correlated runtime control acknowledgement before applying an
+  accepted shutdown stop signal, preventing managed fleet stop from losing its
+  response while the runtime process exits under load.
+- Update the VS Code dependency lock to patched `brace-expansion` and `js-yaml`
+  releases after their high-severity denial-of-service advisories.
+- Keep malformed numeric candidates such as a real literal with a trailing dot
+  as one fail-closed lexer error instead of publishing a valid numeric prefix.
+- Preserve the stable `E106` invalid-identifier diagnostic when malformed
+  identifier candidates are rejected directly by the lexer, instead of
+  degrading the editor diagnostic to a generic parser error.
+- Keep function-block parameter defaults in instance storage while encoding
+  recursive function/method call-local `IN` and `OUT` defaults, including
+  fixed and wildcard arrays, structs, unions, nested strings, and NULL
+  references. Constant validation now shares one bounded recursion policy and
+  rejects malformed aggregate frames and non-NULL reference identities, while
+  supplied interface and object-instance formals no longer fail bytecode
+  publication merely because no portable implicit constant exists.
+- Publish uniquely resolved cross-file enum values into their enclosing scope
+  so later program initializers can use them, while preserving ambiguity for
+  colliding variants from distinct enum types.
+- Preserve enum identity for unqualified `CASE` labels in bytecode lowering so
+  both VM execution paths select the matching branch without weakening
+  same-named constant shadowing.
+- Keep same-named fleet runtimes, endpoints, configured mesh peers, and links
+  distinct across hosts and containers when Devices & Connections displays or
+  combines legacy schema-v2/v3/v4 snapshots, including singleton topology,
+  while failing closed only for ambiguous references and preserving unrelated
+  topology.
+- Clamp LSP telemetry duration milliseconds at `u64::MAX` instead of wrapping
+  an overflowing duration into a small, misleading latency value.
+- Document the external-diagnostic JSON input contract, including trimmed,
+  case-insensitive string severities and numeric LSP severities.
+- Reject mutable BOOL, REAL, STRING, and aggregate-member dependencies in
+  explicit variable initializers instead of applying the constant-expression
+  rule only to direct integer initializers.
+- Preserve the IEC reference-declaration exception so `REF_TO` variables may
+  initialize from `REF(...)` of eligible existing storage while retaining the
+  canonical REF lvalue, type, visibility, and lifetime diagnostics.
+- Publish stable `C001`-`C005` LSP configuration diagnostics for unreadable or
+  malformed files, unknown standard-library profiles and workspace visibility,
+  invalid positive bounds, and ignored invalid severity overrides; E303/E304
+  explainers now link to their actual IEC array/range clauses.
+- Keep project source discovery inside the supported `.st`/`.pou` set after
+  resolving contained symbolic links, while retaining deterministic canonical
+  identity for valid contained aliases.
+- Preserve runtime link health detail in Devices & Connections and render
+  degraded/error links with distinct warning/error tones plus an accessible
+  hover/focus explanation.
+- Release tag and version-evidence guards now fail closed unless an annotated
+  tag resolves to the exact release commit, CI and Release runs match the exact
+  event, branch, and SHA with usable URLs, API collections are well formed,
+  successful API responses are top-level objects with stable endpoint/status
+  diagnostics instead of tracebacks, and published asset names are unique.
+- HIR temporal arithmetic now implements the complete documented IEC 61131-3
+  Table 35 operand/result matrix and rejects swapped, cross-family, and other
+  unlisted temporal combinations at the operator boundary.
+- Invalid user-defined type formations now remain internal diagnostic-recovery
+  records instead of becoming publicly discoverable types, while valid sibling
+  declarations continue to publish normally.
+- `CURRENT_DT()` now has an explicit UTC host-clock contract and preserves the
+  full millisecond `DT` tick range instead of overflowing when the intermediate
+  Unix timestamp exceeds signed nanoseconds.
+- OpenOT runtime conformance tests now carry the complete pinned authoring and
+  value-sampling Structured Text fixture closure, so those tests execute
+  independently of a sibling `open-ot-ref` checkout instead of failing at the
+  frozen-fixture boundary.
+- `trust-dev test` now compiles projects that contain no test POU before
+  reporting an empty run, so compile-negative fixtures cannot become false
+  successes merely by using ordinary `PROGRAM` declarations.
+- HIR and runtime timer registration now support the IEC 61131-3 Table 46
+  `TP_TIME`, `TON_TIME`, and `TOF_TIME` names with fixed TIME `PT`/`ET`
+  signatures and the same scan-step behavior as their overloaded base forms.
+- Bytecode `FOR` loops now derive their internal zero sentinel from the
+  evaluated step value, so valid unsigned control variables and steps no
+  longer fail strict numeric comparison with an unrelated `LINT` sentinel.
+- `trust-runtime play` now creates a project only for ordinary project
+  absence; current-directory and system-I/O configuration failures remain
+  visible instead of being treated as a first-run setup request.
+- ADS onboarding sum-up reads now reject unknown handles and incomplete,
+  duplicate, unknown, non-good, valueless, or descriptor-incompatible results
+  before projecting any wire value.
+- HIR now rejects an explicit integer variable initializer that depends on an
+  ordinary mutable variable, while preserving literal and declared-constant
+  integer expressions required by IEC 61131-3 Section 6.5.1.3.
+- File-backed retain snapshots now persist `PROGRAM` `VAR RETAIN` values under
+  collision-free qualified identities, restore the saved value on warm
+  restart, and remain unloaded on cold restart; the reliability test now
+  distinguishes a real store reload from unchanged live memory.
+- Debug breakpoints now emit at most one stop per breakpoint identity within a
+  runtime scan, preventing overlapping debug-map entries from repeatedly
+  stopping the same scan while preserving breakpoint re-hits on later scans.
+- Runtime bytecode documentation now matches the executable STBC 1.1 opcode
+  set and specifies source-to-section, resource/process-image, variable
+  metadata, and validation contracts used by the existing encoder and runtime.
+- trust-debug now rejects `stackTrace` requests for thread IDs that are absent
+  from the current DAP thread projection instead of returning a synthetic frame
+  for another thread; debug evaluation documentation now matches the shipped
+  side-effect-free standard-function whitelist.
+- trust-runtime-core and trust-hir now reject explicitly typed mixed numeric
+  operations when the operands have no accuracy-preserving common type instead
+  of silently widening values such as `ULINT` to `REAL`; representable untyped
+  numeric literals retain their valid contextual operand or overloaded-argument
+  type.
+- OSCAT: decimal rounding, random helpers, array shuffle, random generators,
+  and dew-point relative-humidity conversion now preserve their declared
+  `INT`/`REAL` types instead of failing at runtime when generic `LIMIT`
+  expressions widened untyped bounds; `IS_SORTED` now reports unsorted
+  nonempty arrays instead of overwriting its detected failure. OSCAT
+  bit-transfer documentation and tests now also honor truST's existing
+  rejection of non-finite `REAL` values.
+- VS Code: managed runtimes whose status command fails or returns an
+  unrecognized state are now shown as unavailable with lifecycle actions
+  disabled instead of being misreported as stopped and offered a misleading
+  Start action.
+- trust-syntax: `ACTION ... END_ACTION` declarations nested in a `PROGRAM` are
+  now parsed as action nodes instead of terminating the program statement list
+  early and cascading top-level parse diagnostics.
+- PLCopen Motion: `MC_Stop` no longer reports `Busy` and `Done`
+  simultaneously after reaching zero velocity, and public parameter writes to
+  standard read-only Part 1 values are now limited to the documented disabled,
+  idle initialization phase; the vendor BOOL extension is published as
+  `PN_TRUST_VendorBool0`. Buffered commands flushed by `ErrorStop` now report
+  `Error` with the retained axis fault code instead of `CommandAborted`, even
+  when `MC_Reset` runs before the buffered FB observes the flush.
+- trust-runtime: removing the final project I/O driver now retains `io.toml`
+  with an explicit no-driver posture, preserving safe-state policy and project
+  comments outside rewritten driver/safe-state items without implicitly
+  activating machine-wide system I/O fallback.
+- trust-runtime-core: indexed string replacement now applies the destination
+  `CHAR`/`WCHAR` width to one-scalar `STRING` and `WSTRING` values instead of
+  bypassing overflow validation.
+- trust-hir: unambiguous integer-valued enumerated constants are accepted as
+  array bounds, while nonconstant integer indexes are no longer rejected
+  solely because their declared subrange extends beyond those bounds; their
+  actual computed value remains bounds-checked at runtime.
+- VS Code: Devices & Connections now keeps established degraded and failed
+  links solid while using semantic health styling, and renders configured-only
+  links dashed so line style consistently represents topology proof.
+- trust-runtime: registry publish help now describes standard bundle detection
+  instead of claiming a current-directory fallback.
+- trust-runtime: `hmi init`, `hmi update`, and `hmi reset` now preserve standard
+  bundle-detection failures instead of silently treating an undetectable
+  current directory as the selected project.
+- trust-runtime: versioned deployment now rejects invalid pointer slots before
+  installation, copies enabled ADS and OPC UA client sidecars into the
+  installed bundle, and rejects symbolic links in the copied bundle closure.
+- trust-runtime: standalone `ide serve` now rejects a non-directory project
+  path before constructing control state or attempting to bind the web server.
+- trust-runtime: generated runtime templates and shipped examples no longer
+  serialize an empty mesh authentication token that current configuration
+  validation rejects; OSCAT runtime examples also include the required log,
+  retain, watchdog, and fault sections, restoring loadable example projects and
+  offline communication topology.
+- trust-runtime: Modbus worker input and output deadline results now preserve
+  the configured `fault`, `warn`, or `ignore` policy; faulted stale input no
+  longer copies a cached snapshot, and timed-out output remains queued.
+- trust-runtime: direct-address parsing now rejects sized, suffixed, spaced,
+  and otherwise malformed IEC wildcard forms, plus signed or non-decimal
+  address components such as `%IW+1`, instead of accepting partial or
+  ambiguous locations.
+- trust-runtime: Modbus `f32` point scaling now rejects finite internal `f64`
+  results that would narrow to infinity in the process image or wire payload.
+- trust-runtime: MQTT raw reads now select the newest payload drained for a
+  scan, while the default fault policy preserves stale-input, output-deadline,
+  and typed-output preflight failures instead of degrading them to success.
+- trust-runtime: OPC UA client configuration now rejects duplicate connection
+  names, empty endpoint authorities, anonymous credential fields, and
+  conflicting access aliases; client PKI operations ignore or reject symbolic
+  links detected at roots, entries, and promotion targets, and one-shot
+  read/write paths now invoke an exact service-result cardinality guard.
+- trust-runtime: OPC UA client workers now reject mismatched and stale-session
+  subscription events, preserve newer queued output generations across older
+  completions, reject non-finite scalar outputs before transport, and wake
+  promptly while revoking readable authority during shutdown.
+- trust-runtime: ADS server publication now selects bounded symbol sets in
+  canonical-name order, client policy compares parsed exact IP identities and
+  requires explicit opt-in for unpinned entries, and security-first write
+  rejection preserves precise ADS errors without queueing PLC mutations.
+- trust-runtime: ADS client workers now reject malformed or miscorrelated
+  handle, poll, subscription, and notification responses before publishing
+  authority; rebuild symbol-derived state only from stable token-bracketed
+  candidates; preserve newer generation-tagged output intent across older
+  completions and error projection; terminally retire only the correlated
+  rejected generation; reject non-finite output values before the shared queue;
+  and revoke cached input authority during prompt shutdown.
+- trust-runtime: active ADS device lookup now requires an IP-literal route's
+  host, AMS port, and supplied target AMS identity to identify the same Doctor
+  target instead of accepting a partial endpoint match.
+- trust-runtime: the ADS server Doctor now derives health from the live server
+  symbol table, rejects blank external proof and zero handles, requires complete
+  notification samples, and rejects response-direction or endpoint identity
+  mismatches before trusting loopback payloads.
+- trust-runtime: ADS client configuration parsing now rejects duplicate
+  connection names, noncanonical target AMS Net IDs, and blank or noncanonical
+  explicit local AMS Net IDs before constructing activation routes.
+- trust-runtime: ADS client configuration parsing now rejects zero or
+  non-STRING capacities, overflowing array byte lengths, and index-address
+  sizes that disagree with the declared scalar or array type.
+- trust-runtime: ADS client connections now reject noncanonical target or local
+  AMS Net IDs and target AMS port zero before invoking the connector or opening
+  TCP, while preserving cached symbol-handle and subscription state when
+  validation fails.
+- trust-runtime: the ADS Doctor now rejects malformed manual endpoints before
+  transport activity, rejects blank or absent explicit symbols at the upload
+  boundary, refuses active-device snapshots for another ADS endpoint, and no
+  longer reports empty, timestamp-less, or degraded live point sets as a
+  passing batch read.
+- trust-runtime: ADS diagnostics now fail closed for empty reports and
+  non-blocking failed steps, reject incomplete or role-mismatched TwinCAT
+  production evidence, and require the declared age, clock, deployed-config,
+  and live-status evidence to remain current before reporting readiness.
+- trust-runtime: live ADS onboarding discovery now retains distinct runtime
+  endpoints that share one host IP, and guarded write probes attempt and verify
+  restoration after probe-write or read-back failure while preserving any
+  restore failure in the returned diagnostic.
+- trust-runtime: Runtime Cloud preflight now rejects empty, blank, or duplicate
+  target lists instead of allowing an empty dispatch or repeating a target;
+  cross-site writes in `dev` and `plant` profiles no longer incorrectly require
+  a WAN allowlist, while `wan` remains explicit-allow only.
+- trust-runtime: Runtime Cloud control and I/O proxy planners now reject blank
+  routing/correlation fields and incompatible I/O proxy API versions before
+  preflight, returning a `400 contract_violation` instead of manufacturing an
+  invalid action request.
+- trust-runtime: Runtime Cloud configuration reconciliation now records only
+  the immutable desired snapshot actually applied; a newer desired revision
+  accepted during an in-flight success or failure remains pending instead of
+  being falsely reported in sync or stranded.
+- trust-runtime: Runtime Cloud forward-additive schema validation now rejects
+  blank or duplicate field names, zero-sized or overflowing ranges, overlaps,
+  and fields inserted before the prior layout end instead of reporting an
+  ambiguous memory layout as compatible.
+- trust-runtime: Runtime Cloud topology no longer reports invented latency or
+  packet-loss values from discovery-only presence, and loopback discovery for
+  one peer no longer classifies unrelated peer runtimes as same-host T0
+  candidates.
+- trust-runtime: Runtime Cloud dual-host HA now detects split-brain candidates
+  across the complete supplied HA group even when an action targets only one
+  candidate, and rejects a duplicate request while its first dispatch remains
+  in flight instead of starting the protected command twice.
+- trust-runtime: ADS onboarding now rejects malformed runtime-host and target
+  IP addresses and blank or malformed local AMS Net ID overrides before
+  constructing route authority, and canonicalizes valid six-octet overrides.
+- trust-runtime: ADS discovery now preserves distinct PLC runtime endpoints
+  that share one host IP while still deduplicating repeated observations of
+  the same AMS Net ID and AMS port.
+- trust-runtime: ADS route planning now encodes generated XML as data before
+  embedding it in PowerShell, preventing route-name here-string breakout, and
+  rejects blank one-shot credentials before calling the route wire.
+- trust-runtime: ADS server-control symbol import now confines its three
+  outputs to distinct project-relative non-symlink paths, keeps snapshots in
+  the canonical import cache, and permits follow-up regeneration only when the
+  existing generated ST still matches the current ADS configuration and cached
+  snapshots. Acknowledged Write-only symbols now remain Write-only instead of
+  acquiring a remote Read capability during import.
+- trust-runtime: ADS symbol import no longer treats an empty include pattern as
+  a wildcard, correctly backtracks `*` matches to anchored suffixes, and uses
+  the canonical ST lexer to prevent keywords from becoming generated variables.
+- trust-ads-server: malformed sum-up write and read/write frames are now fully
+  validated before any runtime write is queued, and notification-handle wrap
+  finds a free non-zero handle instead of replacing a live registration.
+- benchmarks: mesh query/reply and runtime-cloud dispatch now exercise the
+  exact `--payload-bytes` requested instead of silently capping at 256 bytes;
+  T0, mesh, and dispatch reports expose the effective payload length.
+- ADS CLI: `ads server ... --json` now rejects control responses with
+  `ok = false` or a missing Boolean `ok` instead of printing them and exiting
+  successfully; JSON and human output now share the control-envelope check.
+- trust-harness: an explicitly empty authoritative `sources` list now reports
+  `invalid_argument`; failed load/reload attempts preserve the live session,
+  and focused protocol tests lock source precedence, time-alias precedence,
+  zero-cycle `run_until`, and stable structural/runtime/boundary error kinds.
+- docs: the IEC deviations log now contains only concrete normative conflicts
+  or omissions. IEC-silent runtime/tool/vendor behavior remains in product
+  specifications, IEC-permitted non-finite `REAL` choices are recorded in the
+  decisions log, and the PLCopen LD interchange subset is routed to the
+  PLCopen deviations log.
+- trust-runtime: rejected online changes and restarts now preserve the live
+  variable/instance image, scan counter, fault state, telemetry scan state, and
+  queued debugger mutations when retained-value migration or restart instance
+  construction fails; warm-restart storage and retained values are staged
+  before the bytecode commit.
+- trust-runtime: newly encoded bytecode now preserves the declared IEC resource
+  identity, and named bytecode application rejects an unknown resource instead
+  of silently falling back to a different primary resource while retaining the
+  single-resource legacy-placeholder compatibility path and normalizing it to
+  the requested active resource identity.
+- trust-runtime: guided project setup now rebuilds runtime configuration,
+  generated ST configuration, and bytecode coherently; wizard source discovery
+  treats paths literally and includes project dependencies; generated resource
+  names are valid non-reserved ST identifiers; dangling project I/O links are
+  removed when system I/O is selected; and remote setup fails closed on secure
+  randomness or token-expiry overflow. Partial browser apply requests now share
+  the advertised safe defaults and cannot write system-wide I/O unless
+  `write_system_io` is explicitly true; interactive browser ports above 65535
+  are rejected instead of wrapping to another port; and CLI setup rejects
+  browser-only access, bind, port, and token-TTL options instead of silently
+  ignoring them, including explicitly supplied default values.
+- trust-runtime: runtime and I/O configuration now reject millisecond values
+  that cannot fit the signed-nanosecond duration, typed safe-state integers
+  outside their addressed BYTE/WORD/DWORD width, mixed legacy and multi-driver
+  I/O forms, and blank explicit paths, credentials, scalar selectors, or
+  collection/map entries instead of panicking, wrapping, silently ignoring
+  fields, substituting defaults, or downgrading authentication/source pins.
+- trust-runtime: `play` now validates restart and simulation-scale options
+  before auto-creating a selected project; runtime configuration rejects
+  unknown log levels instead of silently treating them as `info`; legacy
+  runtime-root source discovery treats paths literally and recursively; and
+  validation/startup summaries no longer present disabled I/O drivers as
+  active.
+- trust-runtime: registry publish without `--project` now preserves standard
+  bundle-detection failure instead of silently substituting a non-project
+  current directory and reporting a later invented-bundle error.
+- trust-runtime: managed-runtime status no longer reports `stopped` when local
+  auth config is invalid or a connected endpoint rejects/mangles the response;
+  lifecycle control now checks response IDs and bounds response lines, read-only
+  status/log calls do not create state, log tailing is memory-bounded by the
+  requested line count, and early child/PID persistence failures are cleaned up.
+- trust-runtime: HMI scaffolding now discovers compiler project sources and
+  local dependency sources recursively with literal filesystem paths, so glob
+  metacharacters in project names no longer produce a false empty project;
+  wizard Git setup now rejects malformed or dangling `.git` file markers.
+- trust-runtime: managed-fleet manifests now reject unsafe, whitespace-padded,
+  or duplicate runtime names, malformed control endpoints, zero ports, and
+  cross-role TCP port collisions before lifecycle mutation; fleet control-token
+  generation now fails closed when operating-system secure randomness is
+  unavailable.
+- trust-runtime: deprecated workbench-command aliases no longer let a directory
+  or non-executable sibling `trust-dev` shadow a usable PATH command, and Unix
+  signal termination now retains the conventional `128 + signal` exit status.
+- trust-runtime: deploy labels can no longer escape the bundle store, automatic
+  labels remain unique within the same second, relative deployment roots and
+  dangling pointers are handled correctly, ordinary files are not overwritten
+  as pointers, external pointers are rejected, and pruning preserves the
+  actual immediate rollback bundle. Deployment summaries now identify the new
+  bundle, detect every runtime and I/O configuration-file change, compare safe
+  states structurally, traverse source paths without glob interpretation, and
+  fail instead of silently discarding source-read errors.
+- trust-runtime: `ctl` now keeps the selected project's control token when an
+  explicit endpoint overrides only the endpoint, and exits non-zero for
+  rejected, malformed, oversized, timed-out, or mismatched-ID control responses
+  instead of reporting script success.
+- trust-runtime: the conformance runner now rejects malformed case IDs,
+  unknown category directories, case directories without manifests, source
+  paths that escape their case, and `compile_error` cases that compile
+  successfully instead of silently omitting or blessing invalid corpus entries.
+- trust-runtime: standalone `ide serve` now prioritizes an explicitly selected
+  root runtime, reports malformed primary runtime configuration before binding
+  the web server, and loads the selected workspace runtime's recursive,
+  deterministic build-source set instead of looking only in `<workspace>/src`.
+- trust-runtime: benchmark jitter summaries now report zero observations when
+  fewer than two latency samples exist instead of inventing a zero-valued
+  jitter measurement.
+- trust-runtime: mistyped top-level commands now receive the correct suggestion
+  when `--verbose` precedes the command, and the suggestion vocabulary includes
+  the shipped `check` and `agent` command families.
 - trust-runtime: pending debug writes and active forces are now cleared at
   runtime fault, stop, and restart boundaries so stale debugger mutations
   cannot cross a lifecycle transition.
@@ -148,6 +554,36 @@ Target release: `v0.24.54`
 - trust-runtime: MQTT typed input-point batches now commit their mapped
   process-image snapshot only after every payload validates, preventing values
   from a rejected non-finite batch from leaking into a later successful scan.
+- trust-runtime-core: integer operand normalization now has an explicit
+  fail-closed contract: every integer runtime tag preserves its mathematical
+  value when representable as `i64`, oversized `ULINT` values return overflow,
+  and non-integer tags return a type mismatch.
+- trust-runtime-core: unsigned integer result materialization now preserves
+  every representable `USINT`, `UINT`, `UDINT`, and `ULINT` value exactly,
+  rejects destination overflow, and rejects non-unsigned destination tags.
+- trust-runtime-core: retained snapshot insertion now has an explicit
+  deterministic contract: new names append, reinserting the same resolved
+  name replaces its value in place, and stored runtime values are preserved
+  exactly until the owning persistence or reload boundary validates them.
+- trust-runtime-core: task readiness now has an explicit deterministic
+  contract for SINGLE edge sampling, periodic suppression, backward and
+  forward logical-clock jumps, missed intervals, and saturating overrun
+  accounting.
+- trust-runtime-core: portable fault-state clearing now has an explicit
+  lifecycle contract: it atomically removes the fault flag and stored error,
+  preserves the configured fault policy, remains idempotent while healthy, and
+  does not itself claim resource recovery or safe-state handling.
+- trust-runtime-core: portable fault-policy decisions now have an explicit
+  projection contract for halt, safe-halt, and restart, including the exact
+  safe-state flag and the boundary between returning a decision and executing
+  recovery actions.
+- trust-runtime-core: fault recording and fault-policy replacement now have an
+  explicit state-preservation contract, including latest-error replacement and
+  changing policy while faulted without erasing the current fault.
+- trust-runtime-core: watchdog policy installation now has an explicit
+  normalization contract: enabled non-positive timeouts floor to one
+  millisecond, valid and disabled timeouts retain their values, and installing
+  policy does not itself execute a watchdog action.
 
 ### Added
 
@@ -155,11 +591,15 @@ Target release: `v0.24.54`
   port before browsing symbols, defaults to PLC port `851`, preserves non-851
   ports through browse/import/`ads.toml`, and distinguishes an unavailable ADS
   port, unsupported Symbol Upload, and an empty or incompatible symbol table.
+- The VS Code extension test harness now supports opt-in
+  `TRUST_VSCODE_TEST_GREP` filtering and optional per-test JSON output while
+  preserving the unfiltered `npm test` default.
+
 - verification: added direct cargo-fuzz targets for HIR lowering, PLCopen XML,
   bytecode containers, runtime configuration, LSP incremental edits, and HMI
-  payloads; linked all conformance cases, added direct runtime-anomaly tests,
-  and resolved six obsolete test skips, including retirement of a capture for
-  a runtime command that is intentionally hidden from the command palette.
+  payloads; added direct runtime-anomaly tests; and resolved six obsolete test
+  skips, including retirement of a capture for a runtime command that is
+  intentionally hidden from the command palette.
 - release: added digest-bound artifact provenance and result-derived
   conformance status assets, plus release checks binding the workspace version,
   tag, successful workflow, required assets, and GitHub Latest pointer.
@@ -167,10 +607,8 @@ Target release: `v0.24.54`
   added product-path malformed-bytecode case execution, and promoted the
   existing owner, reference, call, jump, stack, schema, checksum, and version
   rejection checks from quarantine into the regular test suite.
-- trust-runtime: added focused automatic-restart storage coverage and cataloged
-  the existing runtime panic-containment and bounded Modbus slow-device tests;
-  broader restart, latency, and reload-migration cases remain explicit
-  verification debt.
+- trust-runtime: added focused automatic-restart storage tests alongside the
+  existing runtime panic-containment and bounded Modbus slow-device tests.
 - trust-runtime: added a Viewer-gated `connectors.status` control surface that
   projects process-image I/O driver health and ADS client/server status into
   the shared connector status schema without changing the existing
@@ -395,6 +833,11 @@ Target release: `v0.24.54`
 
 ### Changed
 
+- vscode/docs: documented the shipped product contract for the truST sidebar,
+  Live Values, Devices & Connections, examples, libraries, HMI, and visual
+  editors; public guides now use the current Compile, Live Values, and direct
+  `+ Add` workflows instead of retired Runtime Panel, Check, and Edit-mode
+  wording.
 - branding: replaced font-dependent truST wordmarks and product icons with
   self-contained path-based assets across the public documentation, runtime Web
   IDE, and packaged VS Code extension.
@@ -479,6 +922,10 @@ Target release: `v0.24.54`
   directly for initialized locals, static locals, and function-block local
   member overrides instead of creating a temporary runtime storage frame on the
   native-call path.
+- trust-runtime: documented the stable signed-integer materialization policy:
+  representable `SINT`/`INT`/`DINT`/`LINT` results retain their exact value and
+  destination tag, while range overflow fails before storage instead of
+  wrapping, saturating, truncating, or substituting a value.
 
 ### Fixed
 

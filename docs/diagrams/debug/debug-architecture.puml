@@ -145,6 +145,7 @@ package "trust-runtime crate" as struntime #LightCoral {
             portin pending_stop
             portin stop_queue
             portin breakpoint_generation
+            portin breakpoint_stops_this_cycle
         }
         component "Mutex + Condvar" as sync
         component "apply_action()" as applyAction <<api/lifecycle_actions.rs>>
@@ -187,6 +188,7 @@ package "trust-runtime crate" as struntime #LightCoral {
     onStatement --> snapshot : captures
     onStatement --> frameLocs : per-frame location
 
+    execCycle --> debugState : begin_cycle()\nclear stopped identities
     execCycle --> debugWrite : pending debug writes
     debugCtx --> debugHook : storage-native statement context
 
@@ -358,6 +360,9 @@ note left of matchBp
     Cyclic task safety:
     cleared breakpoints must
     not re-trigger stale stops.
+    One exact breakpoint identity
+    stops at most once per scan;
+    begin_cycle re-arms it.
 end note
 
 note right of stopCoord

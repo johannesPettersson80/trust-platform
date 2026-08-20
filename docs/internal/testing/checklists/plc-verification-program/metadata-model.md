@@ -1,8 +1,9 @@
-# Verification Metadata Model
+# Historical Verification Metadata Model
 
-This document owns the future `verification/` control-plane data model. It fixes
-the schema drift risk by naming every committed metadata file, every schema, and
-the required fields for each record type.
+This document records the accepted Phase 1-16 metadata model. It is historical
+traceability, not a current product-work queue. Current completeness is decided
+directly by the owning written specification and native executable test, as
+described in **Post-Closure Behavior Delta** below.
 
 ## Storage Model
 
@@ -896,8 +897,8 @@ IDs in checklist order, at most two exact single-file selectors per shard,
 focused build/test commands, invariant ownership, and explicit
 `association_ids`. Each association must partition the shard's committed case
 or current scanner identities exactly; it is not a killed-by or executed-test
-claim. The static manifest and closed schema are validated through the primary
-metadata validator.
+claim. The static manifest and closed schema remain available to the standalone
+mutation contract validator; they do not sequence the primary product gate.
 
 The bytecode shard may bind the validated legacy report. Other shards remain
 `planned` until separately executed and cannot contain outcomes. A measured
@@ -980,6 +981,14 @@ atomized into stable class IDs. `required` classes name an active same-area
 oracle; `spec_gap` classes name an open/actionable same-area gap; blocked,
 deferred, and not-applicable dispositions carry their required rationale or
 reviewed reference.
+
+Additional reviewed, area-specific taxonomies live under
+`verification/malformed-input-taxonomies/*.toml` and use the closed
+`malformed-input-taxonomy-additional.schema.json` contract. Their class IDs are
+globally unique, their oracle or gap authority must belong to the same area,
+and each taxonomy has an exact Markdown mirror. Catalog validation joins the
+bytecode pilot and every additional taxonomy; the Phase 2 malformed-input
+coverage report remains intentionally scoped to the original bytecode pilot.
 
 Only `generated_test` rows with test class `negative_malformed_input` or `fuzz`
 may set `malformed_input_class_ids`. Negative rows require a nonempty reviewed
@@ -1104,14 +1113,6 @@ denominator cannot infer such a binding from source names or paths. Report v2
 retains all raw non-catalog identities while treating only an omitted fact as
 unresolved mapping debt; a complete report therefore requires zero unreviewed
 facts.
-
-All three Phase 2 reports are report-only. A complete, exhaustively reviewed
-denominator returns success; corrupt
-metadata, stale joins, unsafe or symlinked input paths, dirty source commits,
-noncanonical JSON, or Markdown that differs from the JSON-derived rendering
-fail. Source provenance binds report code and semantic inputs without binding
-the mutable evidence index or the report's own follow-up evidence row. Full
-metadata validation remains a separate current-tree health prerequisite.
 
 ### Conformance Alignment Report
 
@@ -1512,3 +1513,23 @@ Required fields:
 
 Evidence record details, traceability report rules, and verification-tooling
 self-test fixtures live in `metadata-evidence-traceability.md`.
+
+## Post-Closure Behavior Delta
+
+Post-closure product completeness is decided directly from observable behavior:
+the owning written specification states the expected result and a native
+executable test asserts it. Production functions, files, scanner facts,
+invariants, catalog links, evidence freshness, proof levels, and mutation
+results cannot independently create product work.
+
+The existing metadata remains historical traceability and tool input. A missing,
+stale, or empty metadata field is a metadata condition only; it does not prove
+that a product specification or native test is absent. Likewise, a broad
+aggregate metadata claim cannot reopen behavior already covered by precise
+specification sections and native assertions.
+
+The corrected Phase 18 board reviews only the surviving product diff after the
+accepted 2026-07-19 source baseline. It records concrete `missing_spec`,
+`missing_test`, `behavior_defect`, or `external_manual` rows and maintains no
+per-function index, mapping proposal plane, proof-promotion queue, mutation
+refresh queue, or fact-level burn-down overlay.

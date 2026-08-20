@@ -1,5 +1,7 @@
 use crate::value::Value;
-use trust_hir::TypeId;
+use trust_hir::{Type, TypeId};
+
+use crate::bytecode::BYTECODE_MAX_CONST_NESTING;
 
 use super::{BytecodeEncoder, BytecodeError, ConstEntry};
 
@@ -18,8 +20,16 @@ impl<'a> BytecodeEncoder<'a> {
             _ => type_id_for_value(value)
                 .ok_or_else(|| BytecodeError::InvalidSection("unsupported const value".into()))?,
         };
+        self.const_index_for_type(value, type_id)
+    }
+
+    pub(super) fn const_index_for_type(
+        &mut self,
+        value: &Value,
+        type_id: TypeId,
+    ) -> Result<u32, BytecodeError> {
         let type_idx = self.type_index(type_id)?;
-        let payload = encode_const_payload(value)?;
+        let payload = self.encode_const_payload_for_type(value, type_id, 0)?;
         let idx = self.const_pool.len() as u32;
         self.const_pool.push(ConstEntry {
             type_id: type_idx,
@@ -28,22 +38,160 @@ impl<'a> BytecodeEncoder<'a> {
         Ok(idx)
     }
 
-    pub(super) fn const_value_from_expr(
-        &self,
-        expr: &crate::program_model::Expr,
-    ) -> Result<Value, BytecodeError> {
-        crate::helper_eval::eval_const_expr(expr, &self.runtime.profile()).map_err(|err| {
-            let message = match err {
-                crate::helper_eval::ConstExprError::UnsupportedExpr => {
-                    "unsupported const expression".to_string()
+    fn encode_const_payload_for_type(
+        &mut self,
+        value: &Value,
+        type_id: TypeId,
+        depth: u8,
+    ) -> Result<Vec<u8>, BytecodeError> {
+        if depth > BYTECODE_MAX_CONST_NESTING {
+            return Err(BytecodeError::InvalidSection(
+                "const payload type recursion overflow".into(),
+            ));
+        }
+        let ty = self
+            .runtime
+            .registry()
+            .get(type_id)
+            .cloned()
+            .ok_or_else(|| BytecodeError::InvalidSection("unknown const type id".into()))?;
+        match ty {
+            Type::Alias { target, .. } | Type::Subrange { base: target, .. } => {
+                self.encode_const_payload_for_type(value, target, depth + 1)
+            }
+            Type::Enum { base, .. } if self.runtime.registry().is_named_value_type(type_id) => {
+                self.encode_const_payload_for_type(value, base, depth + 1)
+            }
+            Type::Array {
+                element,
+                dimensions,
+            } => {
+                let Value::Array(array) = value else {
+                    return Err(const_payload_type_mismatch("ARRAY", value));
+                };
+                if array.dimensions() != dimensions {
+                    return Err(BytecodeError::InvalidSection(
+                        "const ARRAY dimensions mismatch".into(),
+                    ));
                 }
-                crate::helper_eval::ConstExprError::Runtime(runtime) => {
-                    format!("unsupported const expression: {runtime}")
+                let mut payload = u32::try_from(array.elements().len())
+                    .map_err(|_| BytecodeError::InvalidSection("const ARRAY too large".into()))?
+                    .to_le_bytes()
+                    .to_vec();
+                for element_value in array.elements() {
+                    let child =
+                        self.encode_const_payload_for_type(element_value, element, depth + 1)?;
+                    push_child_payload(&mut payload, &child)?;
                 }
-            };
-            BytecodeError::InvalidSection(message.into())
-        })
+                Ok(payload)
+            }
+            Type::Struct { fields, .. } => {
+                let Value::Struct(struct_value) = value else {
+                    return Err(const_payload_type_mismatch("STRUCT", value));
+                };
+                let mut payload = u32::try_from(fields.len())
+                    .map_err(|_| BytecodeError::InvalidSection("const STRUCT too large".into()))?
+                    .to_le_bytes()
+                    .to_vec();
+                for field in fields {
+                    let field_value = struct_value
+                        .fields()
+                        .iter()
+                        .find(|(name, _)| name.eq_ignore_ascii_case(field.name.as_str()))
+                        .map(|(_, value)| value)
+                        .ok_or_else(|| {
+                            BytecodeError::InvalidSection(
+                                format!("const STRUCT missing field '{}'", field.name).into(),
+                            )
+                        })?;
+                    let child =
+                        self.encode_const_payload_for_type(field_value, field.type_id, depth + 1)?;
+                    push_child_payload(&mut payload, &child)?;
+                }
+                Ok(payload)
+            }
+            Type::Union { variants, .. } => {
+                let Value::Struct(union_value) = value else {
+                    return Err(const_payload_type_mismatch("UNION", value));
+                };
+                let mut payload = u32::try_from(variants.len())
+                    .map_err(|_| BytecodeError::InvalidSection("const UNION too large".into()))?
+                    .to_le_bytes()
+                    .to_vec();
+                for variant in variants {
+                    let variant_value = union_value
+                        .fields()
+                        .iter()
+                        .find(|(name, _)| name.eq_ignore_ascii_case(variant.name.as_str()))
+                        .map(|(_, value)| value)
+                        .ok_or_else(|| {
+                            BytecodeError::InvalidSection(
+                                format!("const UNION missing field '{}'", variant.name).into(),
+                            )
+                        })?;
+                    let child = self.encode_const_payload_for_type(
+                        variant_value,
+                        variant.type_id,
+                        depth + 1,
+                    )?;
+                    push_child_payload(&mut payload, &child)?;
+                }
+                Ok(payload)
+            }
+            Type::Reference { .. } | Type::Pointer { .. } => match value {
+                Value::Reference(None) | Value::Null => Ok(u32::MAX.to_le_bytes().to_vec()),
+                Value::Reference(Some(_)) => Err(BytecodeError::InvalidSection(
+                    "non-NULL reference constant is unsupported".into(),
+                )),
+                _ => Err(const_payload_type_mismatch("REFERENCE", value)),
+            },
+            Type::Bool
+            | Type::SInt
+            | Type::Int
+            | Type::DInt
+            | Type::LInt
+            | Type::USInt
+            | Type::UInt
+            | Type::UDInt
+            | Type::ULInt
+            | Type::Real
+            | Type::LReal
+            | Type::Byte
+            | Type::Word
+            | Type::DWord
+            | Type::LWord
+            | Type::Time
+            | Type::LTime
+            | Type::Date
+            | Type::LDate
+            | Type::Tod
+            | Type::LTod
+            | Type::Dt
+            | Type::Ldt
+            | Type::String { .. }
+            | Type::WString { .. }
+            | Type::Char
+            | Type::WChar
+            | Type::Enum { .. } => encode_const_payload(value),
+            _ => Err(BytecodeError::InvalidSection(
+                "unsupported const payload type".into(),
+            )),
+        }
     }
+}
+
+fn push_child_payload(payload: &mut Vec<u8>, child: &[u8]) -> Result<(), BytecodeError> {
+    let len = u32::try_from(child.len())
+        .map_err(|_| BytecodeError::InvalidSection("const child payload too large".into()))?;
+    payload.extend_from_slice(&len.to_le_bytes());
+    payload.extend_from_slice(child);
+    Ok(())
+}
+
+fn const_payload_type_mismatch(expected: &str, value: &Value) -> BytecodeError {
+    BytecodeError::InvalidSection(
+        format!("const payload expected {expected}, got {value:?}").into(),
+    )
 }
 
 pub(super) fn type_id_for_value(value: &Value) -> Option<TypeId> {

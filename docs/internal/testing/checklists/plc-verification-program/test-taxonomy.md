@@ -1,8 +1,14 @@
 # Test Taxonomy
 
-This document owns the testing matrix: which code changes require which proof,
-what each test class must prove, what coverage dimensions mean, and which
-malformed inputs must be considered.
+> **Historical Phase 0-16 record.** This taxonomy does not prescribe current
+> product work or make invariant, planner, catalog, or evidence state blocking.
+> Current test selection starts from the owning written product specification
+> and its native executable tests as defined by
+> `phase18-zero-debt-execution-board.md`.
+
+This document records the retired campaign testing matrix: which code changes
+were assigned which proof, what each test class meant, and which malformed
+inputs were inventoried.
 
 ## Code Area to Minimum Test Matrix
 
@@ -22,6 +28,7 @@ not exercised by that test class.
 | `runtime_scheduler_lifecycle` Scheduler/lifecycle/watchdog/deadline | `scheduler/**`, `runtime/core/**`, `watchdog.rs` | Debug/reproduce first; failing/protective safety test first | `runtime_safety_fail_closed`, `runtime_reliability`, `complete_program`, deadline/signal tests | Runtime vertical suite; PR/release suite |
 | `retain_restart_init_reset` Retain/restart/init/reset | `retain/**`, `runtime/restart.rs`, init services | Retain matrix invariant; failing warm/cold/fault/corrupt retain test first | `retain_integrity`, `runtime_restart`, init/reset tests, conformance retain/init cases | Runtime vertical tests; release suite |
 | `process_image_memory_map` Process image and memory map | IO image, `%I/%Q/%M`, VAR_CONFIG, bounds | Failing bounds/mapping test or conformance case first | `process_image`, `io_cycle`, memory-map conformance | Runtime vertical tests; UI/Live Values journeys if visible |
+| `direct_address_parser` Runtime direct-address parser | `io/addressing.rs`, `%I/%Q/%M` address shape and component bounds | Runtime address-format invariant; failing malformed-address regression first | Focused parser unit, integration, and malformed-input tests | Runtime vertical test; PR suite |
 | `modbus_mqtt_gpio_io` Modbus/MQTT/GPIO process I/O | `io/modbus*`, `io/mqtt*`, `io/gpio*`, point maps, queues | Slow/failure/device-state repro first; failing protocol/unit/loopback test first | Protocol unit tests, loopback integration, stale/queue/reconnect tests, `io_multidriver_live` | `runtime_comms_conformance_gate.sh`; hardware-lab before public hardware claim |
 | `ethercat_io` EtherCAT | `io/ethercat/**`, adapter/bus/process data/storage | Mockable construction proof or lab proof before ownership changes | `ethercat_driver`, storage/reconnect tests, process data tests | Device-in-loop EtherCAT gate for hardware claims |
 | `ads_opcua_connectors` ADS/OPC UA supervisory connectors | `host/ads/**`, `host/opcua/**` | Connection/state/reconnect repro or protocol mock first | `ads_cli_command`, `ads_web_api`, ADS library tests, `opcua_integration`, `opcua_client_runtime` | Runtime comms conformance; TwinCAT/OPC UA lab proof before public claim |
@@ -266,6 +273,11 @@ in `verification/malformed-input-taxonomy.toml`, with its human-readable mirror
 in `verification/malformed-input-taxonomy.md`. Catalog mappings use only
 explicit `malformed_input_class_ids`; names, paths, case IDs, and mutation
 associations never create a mapping.
+
+Additional surfaces are registered as closed, same-area taxonomy documents
+under `verification/malformed-input-taxonomies/`. Each class keeps an explicit
+oracle or gap reference and a globally unique ID; the bytecode pilot report
+does not infer coverage for these additional surfaces.
 
 ### ST Source, Lexer, Parser
 

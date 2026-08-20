@@ -63,6 +63,7 @@ impl TokenKind {
                 | Self::KwEndType
                 | Self::KwStruct
                 | Self::KwEndStruct
+                | Self::KwOverlap
                 | Self::KwUnion
                 | Self::KwEndUnion
                 | Self::KwArray

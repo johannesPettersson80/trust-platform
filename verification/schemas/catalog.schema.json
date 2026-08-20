@@ -95,6 +95,18 @@
       "items": { "type": "string" },
       "uniqueItems": true
     },
+    "mapping_assertion_source_digests": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    },
     "mutations": { "type": "array", "minItems": 1 }
   },
   "additionalProperties": true

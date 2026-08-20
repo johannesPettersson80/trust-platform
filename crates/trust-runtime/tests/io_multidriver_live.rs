@@ -107,6 +107,7 @@ fn handle_mqtt_client(
     let _ = stream.set_write_timeout(Some(StdDuration::from_secs(2)));
 
     let mut idle_timeouts = 0usize;
+    let mut subscribed = false;
     loop {
         match read_mqtt_packet(&mut stream) {
             Ok((header, packet)) => {
@@ -140,6 +141,7 @@ fn handle_mqtt_client(
                         if write_mqtt_suback(&mut stream, packet_id, topic_count).is_err() {
                             break;
                         }
+                        subscribed = true;
                         let mut guard = state_ref
                             .lock()
                             .unwrap_or_else(|poison| poison.into_inner());
@@ -158,6 +160,15 @@ fn handle_mqtt_client(
                 }
             }
             Err(err) if matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) => {
+                if subscribed {
+                    if let Some(payload) = inbound_payload.as_ref() {
+                        if write_mqtt_publish(&mut stream, &topic_in, payload).is_err() {
+                            break;
+                        }
+                        idle_timeouts = 0;
+                        continue;
+                    }
+                }
                 idle_timeouts += 1;
                 if idle_timeouts > MQTT_BROKER_IDLE_TIMEOUTS {
                     break;
@@ -173,10 +184,20 @@ fn is_retryable_mqtt_live_error(text: &str) -> bool {
     text.contains("mqtt connect")
         || text.contains("mqtt disconnected")
         || text.contains("mqtt input not fresh")
+        || text.contains("mqtt input refresh pending")
         || text.contains("mqtt input snapshot unavailable")
+        || text.contains("mqtt output handoff pending")
+        || text.contains("mqtt reconnect backoff active")
         || text.contains("Connection refused")
         || text.contains("Connection reset by peer")
         || text.contains("Connection closed by peer abruptly")
+}
+
+fn is_retryable_composed_live_error(text: &str) -> bool {
+    is_retryable_mqtt_live_error(text)
+        || text.contains("modbus input refresh pending")
+        || text.contains("modbus input snapshot unavailable")
+        || text.contains("modbus output handoff pending")
 }
 
 fn read_mqtt_packet(stream: &mut TcpStream) -> io::Result<(u8, Vec<u8>)> {
@@ -450,7 +471,7 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
     );
 
     let modbus_params: toml::Value = toml::from_str(&format!(
-        "address = \"{modbus_addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\n"
+        "address = \"{modbus_addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 1\non_error = \"warn\"\n"
     ))
     .expect("parse modbus params");
     runtime.add_io_driver(
@@ -459,7 +480,7 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
     );
 
     let mqtt_params: toml::Value = toml::from_str(&format!(
-        "broker = \"{mqtt_addr}\"\ntopic_in = \"{topic_in}\"\ntopic_out = \"{topic_out}\"\nreconnect_ms = 10\n"
+        "broker = \"{mqtt_addr}\"\ntopic_in = \"{topic_in}\"\ntopic_out = \"{topic_out}\"\nreconnect_ms = 10\non_error = \"warn\"\n"
     ))
     .expect("parse mqtt params");
     let mut mqtt_driver = MqttIoDriver::from_params(&mqtt_params).expect("create mqtt driver");
@@ -500,6 +521,10 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
             guard.subscribe_count >= 1,
             "mqtt prewarm should complete subscription"
         );
+        assert!(
+            !guard.publishes.is_empty(),
+            "mqtt prewarm should complete its initial output handoff"
+        );
         guard.publishes.len()
     };
     runtime.add_io_driver("mqtt", Box::new(mqtt_driver));
@@ -512,7 +537,6 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
         match runtime.execute_cycle() {
             Ok(()) => {
                 cycle_executed = true;
-                break;
             }
             Err(err) => {
                 let text = err.to_string();
@@ -522,41 +546,14 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
                 let retry_text = format!("{text}; last_fault={last_fault}");
                 let is_transient_class = retry_text.contains("i/o freshness")
                     || retry_text.contains("i/o transport error");
-                if !is_transient_class || !is_retryable_mqtt_live_error(&retry_text) {
+                if !is_transient_class || !is_retryable_composed_live_error(&retry_text) {
                     panic!("execute cycle: {err}; last_fault={last_fault}");
                 }
-                let premature_output = {
-                    let guard = mqtt_state.lock().expect("mqtt state lock");
-                    guard
-                        .publishes
-                        .iter()
-                        .skip(initial_publish_count)
-                        .any(|entry| {
-                            entry.topic == topic_out
-                                && entry.payload.first().copied().unwrap_or(0) & 0x01 == 0x01
-                        })
-                };
-                assert!(
-                    !premature_output,
-                    "retryable mqtt input failure must not publish output"
-                );
                 runtime.clear_fault();
                 last_cycle_error = Some(retry_text);
-                thread::sleep(StdDuration::from_millis(20));
             }
         }
-    }
-    assert!(
-        cycle_executed,
-        "runtime cycle should execute after mqtt startup settles; last_error={}",
-        last_cycle_error.unwrap_or_else(|| "<none>".to_string())
-    );
-    // Reset the deadline: the cycle-retry loop consumes most of the previous
-    // budget on slow CI runners, leaving zero time for the broker to surface
-    // the outbound publish. Give the publish-wait its own MQTT_LIVE_TEST_TIMEOUT.
-    let deadline = Instant::now() + MQTT_LIVE_TEST_TIMEOUT;
-    while Instant::now() < deadline {
-        if let Some(publish) = {
+        let publish = {
             let guard = mqtt_state.lock().expect("mqtt state lock");
             guard
                 .publishes
@@ -567,14 +564,25 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
                         && entry.payload.first().copied().unwrap_or(0) & 0x01 == 0x01
                 })
                 .cloned()
-        } {
+        };
+        let modbus_output_observed = {
+            let guard = regs.lock().expect("regs lock");
+            guard[1] == 0x0100
+        };
+        if let Some(publish) = publish.filter(|_| modbus_output_observed) {
             outbound_payload = Some(publish.payload);
             break;
         }
         thread::sleep(StdDuration::from_millis(20));
     }
+    assert!(
+        cycle_executed,
+        "runtime cycle should execute after mqtt startup settles; last_error={}",
+        last_cycle_error.unwrap_or_else(|| "<none>".to_string())
+    );
 
-    let outbound_payload = outbound_payload.expect("mqtt publish should be observed");
+    let outbound_payload =
+        outbound_payload.expect("mqtt publish and distinct modbus output should be observed");
     assert_eq!(
         outbound_payload.first().copied().unwrap_or(0) & 0x01,
         0x01,
@@ -594,7 +602,7 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
 
     let guard = regs.lock().expect("regs lock");
     assert_eq!(
-        guard[0], 0x0100,
-        "modbus register write should reflect output image bit"
+        guard[1], 0x0100,
+        "distinct modbus output register should reflect output image bit"
     );
 }

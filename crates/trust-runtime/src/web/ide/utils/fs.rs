@@ -9,7 +9,9 @@ pub(in crate::web::ide) fn collect_workspace_files(
     let entries = std::fs::read_dir(&dir)
         .map_err(|err| IdeError::new(IdeErrorKind::Internal, format!("read_dir failed: {err}")))?;
     for entry in entries.flatten() {
-        let path = entry.path();
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
         let file_name = entry.file_name();
         let file_name = file_name.to_string_lossy();
         if file_name.starts_with('.') {
@@ -20,11 +22,16 @@ pub(in crate::web::ide) fn collect_workspace_files(
         } else {
             relative.join(file_name.as_ref())
         };
-        if path.is_dir() {
+        if file_type.is_symlink() {
+            continue;
+        }
+        if file_type.is_dir() {
             collect_workspace_files(root, &next_relative, out)?;
             continue;
         }
-        out.push(next_relative.to_string_lossy().replace('\\', "/"));
+        if file_type.is_file() {
+            out.push(next_relative.to_string_lossy().replace('\\', "/"));
+        }
     }
     Ok(())
 }
@@ -57,7 +64,9 @@ pub(in crate::web::ide) fn collect_workspace_tree(
 
     let mut nodes = Vec::new();
     for entry in entries {
-        let path = entry.path();
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
         let name = entry.file_name().to_string_lossy().to_string();
         if name.starts_with('.') {
             continue;
@@ -67,7 +76,10 @@ pub(in crate::web::ide) fn collect_workspace_tree(
         } else {
             relative.join(&name)
         };
-        if path.is_dir() {
+        if file_type.is_symlink() {
+            continue;
+        }
+        if file_type.is_dir() {
             let children = collect_workspace_tree(root, &rel)?;
             nodes.push(IdeTreeNode {
                 name: name.clone(),
@@ -77,12 +89,18 @@ pub(in crate::web::ide) fn collect_workspace_tree(
             });
             continue;
         }
-        nodes.push(IdeTreeNode {
-            name,
-            path: rel.to_string_lossy().replace('\\', "/"),
-            kind: "file".to_string(),
-            children: Vec::new(),
-        });
+        if file_type.is_file() {
+            nodes.push(IdeTreeNode {
+                name,
+                path: rel.to_string_lossy().replace('\\', "/"),
+                kind: "file".to_string(),
+                children: Vec::new(),
+            });
+        }
     }
     Ok(nodes)
 }
+
+#[cfg(test)]
+#[path = "fs/contract_tests.rs"]
+mod contract_tests;

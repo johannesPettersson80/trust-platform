@@ -7,6 +7,10 @@ fn execute_test_case(
     let mut runtime = session
         .build_runtime()
         .map_err(|err| RuntimeError::ControlError(err.to_string().into()))?;
+    let bytecode = session
+        .build_bytecode_bytes()
+        .map_err(|err| RuntimeError::ControlError(err.to_string().into()))?;
+    runtime.apply_bytecode_bytes(&bytecode, None)?;
     execute_test_case_in_runtime(&mut runtime, case, timeout)
 }
 

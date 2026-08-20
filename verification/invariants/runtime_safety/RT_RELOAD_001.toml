@@ -3,14 +3,14 @@ id = "RT_RELOAD_001"
 title = "Runtime reload is transactionally consistent"
 area = "runtime_safety"
 risk = "silent_corruption"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-07-28"
 claim = "Online change and hot reload must not leave live runtime state partially applied or inconsistent with status."
-proof_level = "G2"
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime"]
-tests = ["TEST_RUNTIME_RELOAD_TRANSACTION_001"]
+tests = ["TEST_AUTO_1A54FB3BD7AFBA32F5B0", "TEST_AUTO_4F2995A2CBD7C4CB4598", "TEST_AUTO_536B258421ADD8E350A4", "TEST_AUTO_6881AED77BE0CFD99ED5", "TEST_AUTO_6D63E21F9D9B39D9AF6D", "TEST_AUTO_E067B79A22B8500C7619", "TEST_RUNTIME_RELOAD_TRANSACTION_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_RELOAD_TRANSACTION_001_RED",
@@ -19,7 +19,7 @@ evidence_refs = [
   "EVID_BROAD_REMOTE_PR_20260714_1F7316C15C47",
 ]
 spec_gap_refs = []
-missing = ["bytecode_resource_commit_failure_cases", "retain_migration_failure"]
+missing = ["bytecode_resource_commit_failure_cases"]
 
 [spec]
 status = "specified"
@@ -38,7 +38,61 @@ no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
 rationale = "Retained-state preparation completes before the live bytecode, storage, scan counter, or debug mutation state can be replaced."
 
+[[behavior]]
+partition = { equals = "COMPLETED_SCAN_BOUNDARY_COMMIT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "A reload waits for the blocked in-flight scan input phase and reports success only after the completed scan boundary becomes available for commit."
+
+[[behavior]]
+partition = { equals = "SUCCESSFUL_WARM_RELOAD_STORAGE_IMAGE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Successful identical-schema warm reload preserves the reviewed retained globals and program values while resetting non-retained storage and the reviewed function-block instance."
+
+[[behavior]]
+partition = { equals = "SUCCESSFUL_IO_REBIND" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "Successful warm reload rebinds the reviewed single BOOL output so the next cycle exposes the new program value through its runtime binding."
+
+[[behavior]]
+partition = { equals = "ENTRYPOINT_AND_SCAN_COUNTER_RESTART" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Successful reload resets the reviewed non-retained value and scan counter to zero, then executes the changed body from its entry point on the following cycle."
+
+[[behavior]]
+partition = { equals = "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "The reviewed out-of-range retained INT rejects with its cause-identifying subrange text while the old executable and scan counter remain live for the next cycle."
+
+[[behavior]]
+partition = { equals = "INVALID_BYTECODE_TYPED_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "The reviewed malformed four-byte module rejects as typed RuntimeError::Bytecode before any reload commit; no stable diagnostic text is claimed."
+
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
 state = "gap_open"
-rationale = "Producer-authentic red/green proof plus the reviewed PR broad gate cover retain-store read failure before live mutation; bytecode/resource commit and retained-migration failure cases remain pending."
+rationale = "Focused mapped tests now cover completed-scan commit, warm storage and I/O replacement, entrypoint/counter restart, retained-migration rejection, and typed malformed-byte rejection. Broader bytecode/resource commit failure cases remain pending."

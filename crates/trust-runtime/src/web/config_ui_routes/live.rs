@@ -28,18 +28,70 @@ fn normalize_live_target(raw: &str) -> Result<String, RuntimeError> {
     if trimmed.is_empty() {
         return Err(RuntimeError::InvalidConfig("target is required".into()));
     }
-    let with_scheme = if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
-        trimmed.to_string()
+    let (scheme, authority_with_slash) = if let Some(authority) = trimmed.strip_prefix("http://") {
+        ("http", authority)
+    } else if let Some(authority) = trimmed.strip_prefix("https://") {
+        ("https", authority)
+    } else if trimmed.contains("://")
+        || trimmed.starts_with("http:")
+        || trimmed.starts_with("https:")
+    {
+        return Err(RuntimeError::InvalidConfig(
+            "target scheme must be http or https".into(),
+        ));
     } else {
-        format!("http://{trimmed}")
+        ("http", trimmed)
     };
-    let normalized = with_scheme.trim_end_matches('/').to_string();
-    if normalized == "http:" || normalized == "https:" || normalized.ends_with("://") {
+
+    if authority_with_slash.ends_with("//") {
+        return Err(RuntimeError::InvalidConfig(
+            "target must not contain a path".into(),
+        ));
+    }
+    let authority = authority_with_slash
+        .strip_suffix('/')
+        .unwrap_or(authority_with_slash);
+    if authority.is_empty() {
         return Err(RuntimeError::InvalidConfig(
             "target must include host".into(),
         ));
     }
-    Ok(normalized)
+    if authority.contains(['/', '?', '#', '@']) {
+        return Err(RuntimeError::InvalidConfig(
+            "target must contain only a host and optional port".into(),
+        ));
+    }
+
+    let port = if authority.starts_with('[') {
+        let Some(bracket) = authority.find(']') else {
+            return Err(RuntimeError::InvalidConfig("invalid IPv6 target".into()));
+        };
+        if bracket == 1 {
+            return Err(RuntimeError::InvalidConfig(
+                "target must include host".into(),
+            ));
+        }
+        let suffix = &authority[bracket + 1..];
+        if suffix.is_empty() {
+            None
+        } else {
+            Some(suffix.strip_prefix(':').ok_or_else(|| {
+                RuntimeError::InvalidConfig("invalid IPv6 target authority".into())
+            })?)
+        }
+    } else {
+        if authority.matches(':').count() > 1 {
+            return Err(RuntimeError::InvalidConfig(
+                "IPv6 targets must use brackets".into(),
+            ));
+        }
+        authority.rsplit_once(':').map(|(_, port)| port)
+    };
+    if port.is_some_and(|port| port.is_empty() || !port.bytes().all(|byte| byte.is_ascii_digit())) {
+        return Err(RuntimeError::InvalidConfig("invalid target port".into()));
+    }
+
+    Ok(format!("{scheme}://{authority}"))
 }
 
 pub(super) fn config_ui_live_targets_snapshot() -> serde_json::Value {
@@ -326,3 +378,7 @@ pub(super) fn config_ui_live_runtime_cloud_overlay() -> Option<RuntimeCloudUiSta
         })
         .and_then(|value| serde_json::from_value::<RuntimeCloudUiState>(value).ok())
 }
+
+#[cfg(test)]
+#[path = "live/contract_tests.rs"]
+mod contract_tests;

@@ -3,6 +3,40 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+macro_rules! repository_source_tree_read_to_string {
+    (
+        $path_and_root:expr,
+        roots = [$($root:literal),+ $(,)?],
+        extension = $extension:literal $(,)?
+    ) => {{
+        let (path, repository_root) = $path_and_root;
+        let result = path.strip_prefix(repository_root).map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "repository source path escaped root",
+            )
+        });
+        result.and_then(|relative| {
+            let allowed_root = relative.components().next().is_some_and(
+                |component| {
+                    let component = component.as_os_str();
+                    false $(|| component == std::ffi::OsStr::new($root))+
+                },
+            );
+            let allowed_extension =
+                relative.extension().and_then(|value| value.to_str())
+                    == Some($extension);
+            if !allowed_root || !allowed_extension {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "repository source path is outside the declared tree",
+                ));
+            }
+            fs::read_to_string(path)
+        })
+    }};
+}
+
 #[derive(Debug, Deserialize)]
 struct TableMap {
     table: Vec<TableEntry>,
@@ -18,22 +52,69 @@ struct TableEntry {
 #[test]
 fn iec_table_coverage_report() {
     let repo_root = repo_root();
-    let map_path = repo_root.join("docs/specs/coverage/iec-table-test-map.toml");
-    let map = fs::read_to_string(&map_path).expect("read IEC table map");
-    let map: TableMap = toml::from_str(&map).expect("parse IEC table map");
+    let map_source = include_str!("../../../docs/specs/coverage/iec-table-test-map.toml");
+    let map = parse_table_map(map_source).expect("parse IEC table map");
 
     let test_names = collect_test_names(&repo_root);
+    let (report, missing) = render_coverage_report(&map, &test_names, &repo_root);
+
+    insta::assert_snapshot!(report);
+    assert_no_missing_tests(&missing).expect("all IEC table tests resolve");
+}
+
+#[test]
+fn malformed_iec_table_map_is_rejected() {
+    let malformed = r#"[[table]]
+id = "IEC_TABLE"
+tests = "not-an-array"
+"#;
+
+    let error = parse_table_map(malformed).expect_err("malformed map must reject");
+
+    assert!(error.to_string().contains("invalid type"));
+}
+
+#[test]
+fn missing_iec_table_test_name_is_reported_and_rejected() {
+    let map = parse_table_map(
+        r#"[[table]]
+id = "IEC_TABLE"
+spec = "docs/specs/example.md"
+tests = ["does_not_exist"]
+"#,
+    )
+    .expect("parse missing-name fixture");
+    let repo_root = PathBuf::from("/repo");
+    let (report, missing) = render_coverage_report(&map, &BTreeMap::new(), &repo_root);
+
+    assert!(report.contains("does_not_exist: MISSING"));
+    assert_eq!(missing, vec!["does_not_exist"]);
+    assert_eq!(
+        assert_no_missing_tests(&missing).unwrap_err(),
+        "missing IEC table tests: does_not_exist"
+    );
+}
+
+fn parse_table_map(source: &str) -> Result<TableMap, toml::de::Error> {
+    toml::from_str(source)
+}
+
+fn render_coverage_report(
+    map: &TableMap,
+    test_names: &BTreeMap<String, Vec<PathBuf>>,
+    repo_root: &Path,
+) -> (String, Vec<String>) {
     let mut missing = Vec::new();
     let mut report = String::new();
 
-    for entry in map.table {
+    for entry in &map.table {
         let spec = entry.spec.as_deref().unwrap_or("-");
         report.push_str(&format!("{} ({})\n", entry.id, spec));
-        for test_name in entry.tests {
-            let status = if let Some(paths) = test_names.get(&test_name) {
+        for test_name in &entry.tests {
+            let status = if let Some(paths) = test_names.get(test_name) {
                 let mut shown = paths
                     .iter()
-                    .map(|path| display_path(path, &repo_root))
+                    .map(|path| display_path(path, repo_root))
                     .collect::<Vec<_>>();
                 shown.sort();
                 format!("ok [{}]", shown.join(", "))
@@ -46,12 +127,15 @@ fn iec_table_coverage_report() {
         report.push('\n');
     }
 
-    insta::assert_snapshot!(report);
-    assert!(
-        missing.is_empty(),
-        "missing IEC table tests: {}",
-        missing.join(", ")
-    );
+    (report, missing)
+}
+
+fn assert_no_missing_tests(missing: &[String]) -> Result<(), String> {
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("missing IEC table tests: {}", missing.join(", ")))
+    }
 }
 
 fn repo_root() -> PathBuf {
@@ -79,7 +163,11 @@ fn collect_test_names(repo_root: &Path) -> BTreeMap<String, Vec<PathBuf>> {
             if path.is_dir() {
                 dirs.push(path);
             } else if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
-                let Ok(contents) = fs::read_to_string(&path) else {
+                let Ok(contents) = repository_source_tree_read_to_string!(
+                    (&path, repo_root),
+                    roots = ["crates", "tests"],
+                    extension = "rs",
+                ) else {
                     continue;
                 };
                 for test_name in parse_test_names(&contents) {

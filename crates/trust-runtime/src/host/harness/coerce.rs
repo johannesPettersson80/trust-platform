@@ -89,9 +89,6 @@ fn coerce_initializer_value_to_runtime_type(
             let Value::Array(ref mut target_array) = coerced else {
                 return Err(CompileError::new("expected array initializer"));
             };
-            if array.elements().len() > target_array.elements().len() {
-                return Err(CompileError::new("too many array initializer elements"));
-            }
             if target_array.dimensions() != dimensions.as_slice() {
                 target_array
                     .set_dimensions(dimensions.clone())
@@ -114,6 +111,9 @@ fn coerce_initializer_value_to_runtime_type(
             Ok(coerced)
         }
         Type::Subrange { base, .. } => {
+            coerce_initializer_value_to_type(value, *base, registry, profile)
+        }
+        Type::Enum { base, .. } if registry.is_named_value_type(type_id) => {
             coerce_initializer_value_to_type(value, *base, registry, profile)
         }
         Type::Struct { fields, .. } => {
@@ -308,8 +308,17 @@ fn coerce_real(value: Value, type_id: TypeId) -> Result<Value, CompileError> {
         Value::ULInt(v) => v as f64,
         _ => return Err(CompileError::new("expected numeric initializer")),
     };
+    if !value.is_finite() {
+        return Err(CompileError::new("expected finite numeric initializer"));
+    }
     match type_id {
-        TypeId::REAL => Ok(Value::Real(value as f32)),
+        TypeId::REAL => {
+            let value = value as f32;
+            if !value.is_finite() {
+                return Err(CompileError::new("initializer out of REAL range"));
+            }
+            Ok(Value::Real(value))
+        }
         TypeId::LREAL => Ok(Value::LReal(value)),
         _ => Ok(Value::LReal(value)),
     }
@@ -341,9 +350,13 @@ fn coerce_string(value: Value, type_id: TypeId) -> Result<Value, CompileError> {
 fn coerce_char(value: Value, type_id: TypeId) -> Result<Value, CompileError> {
     let to_char = |ch: char| -> Result<Value, CompileError> {
         match type_id {
-            TypeId::CHAR => Ok(Value::Char(ch as u8)),
-            TypeId::WCHAR => Ok(Value::WChar(ch as u16)),
-            _ => Ok(Value::Char(ch as u8)),
+            TypeId::CHAR if ch.is_ascii() => Ok(Value::Char(ch as u8)),
+            TypeId::CHAR => Err(CompileError::new("initializer out of CHAR range")),
+            TypeId::WCHAR => u16::try_from(ch as u32)
+                .map(Value::WChar)
+                .map_err(|_| CompileError::new("initializer out of WCHAR range")),
+            _ if ch.is_ascii() => Ok(Value::Char(ch as u8)),
+            _ => Err(CompileError::new("initializer out of CHAR range")),
         }
     };
     match value {
@@ -430,3 +443,7 @@ fn coerce_dt(value: Value, type_id: TypeId) -> Result<Value, CompileError> {
         _ => Ok(value),
     }
 }
+
+#[cfg(test)]
+#[path = "coerce_contract_tests.rs"]
+mod contract_tests;

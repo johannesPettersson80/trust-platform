@@ -32,3 +32,7 @@ include!("io/addressing.rs");
 include!("io/coercion.rs");
 include!("io/provenance.rs");
 include!("io/interface.rs");
+
+#[cfg(test)]
+#[path = "io/provenance_contract_tests.rs"]
+mod provenance_contract_tests;

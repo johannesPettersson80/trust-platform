@@ -1,5 +1,39 @@
 use super::*;
 
+fn contract_temp_dir(prefix: &str) -> PathBuf {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("time before Unix epoch")
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!(
+        "trust-dev-docs-{prefix}-{}-{stamp}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&path).expect("create documentation test directory");
+    path
+}
+
+fn contract_write(path: &Path, bytes: impl AsRef<[u8]>) {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).expect("create parent directory");
+    }
+    std::fs::write(path, bytes).expect("write documentation fixture");
+}
+
+fn contract_source(path: &str, text: &str) -> LoadedSource {
+    LoadedSource {
+        path: PathBuf::from(path),
+        text: text.to_string(),
+    }
+}
+
+#[path = "tests/discovery_contract.rs"]
+mod discovery_contract;
+#[path = "tests/publication_contract.rs"]
+mod publication_contract;
+
 #[test]
 fn parser_extraction_for_tagged_comments() {
     let sources = vec![LoadedSource {

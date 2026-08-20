@@ -7,6 +7,9 @@ mod io_nav;
 mod menu_nav;
 mod settings;
 
+#[cfg(test)]
+mod contract_tests;
+
 use catalog::{help_lines, info_lines, is_beginner_command, status_lines};
 use control_actions::{
     handle_access_command, handle_build_command, handle_control_command, handle_focus_command,
@@ -114,6 +117,11 @@ pub(super) fn execute_command(
                 state.prompt.set_output(vec![PromptLine::plain(
                     format!("Watching {name}."),
                     Style::default().fg(COLOR_GREEN),
+                )]);
+            } else {
+                state.prompt.set_output(vec![PromptLine::plain(
+                    "Usage: /watch <name>",
+                    Style::default().fg(COLOR_INFO),
                 )]);
             }
         }

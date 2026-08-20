@@ -82,6 +82,10 @@ pub(crate) fn prompt_choice(
 
 pub(crate) fn prompt_u64(label: &str, default: u64) -> anyhow::Result<u64> {
     let input = prompt_string(label, &default.to_string())?;
+    parse_prompt_u64(label, input.as_str())
+}
+
+fn parse_prompt_u64(label: &str, input: &str) -> anyhow::Result<u64> {
     input
         .parse::<u64>()
         .map_err(|err| anyhow::anyhow!("{label} must be a number: {err}"))
@@ -110,5 +114,93 @@ pub(crate) fn prompt_yes_no(label: &str, default: bool) -> anyhow::Result<bool> 
         "y" | "yes" => Ok(true),
         "n" | "no" => Ok(false),
         _ => anyhow::bail!("Please answer yes or no."),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+
+    use super::{parse_prompt_u64, prompt_u64};
+
+    const PROMPT_CHILD_ENV: &str = "TRUST_NUMERIC_PROMPT_TEST_CHILD";
+
+    fn run_prompt_child(input: &str) -> String {
+        let mut child = Command::new(std::env::current_exe().expect("resolve test binary"))
+            .args([
+                "--exact",
+                "prompt::tests::numeric_prompt_wrapper_preserves_zero_ordinary_default_and_errors",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(PROMPT_CHILD_ENV, "1")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("spawn numeric-prompt child");
+        child
+            .stdin
+            .take()
+            .expect("open numeric-prompt child stdin")
+            .write_all(input.as_bytes())
+            .expect("write numeric-prompt child input");
+        let output = child
+            .wait_with_output()
+            .expect("wait for numeric-prompt child");
+        assert!(
+            output.status.success(),
+            "numeric-prompt child failed\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout).expect("numeric-prompt child stdout is UTF-8")
+    }
+
+    #[test]
+    fn numeric_prompt_parser_accepts_the_complete_u64_range() {
+        assert_eq!(
+            parse_prompt_u64("Cycle time", "18446744073709551615").expect("parse maximum u64"),
+            u64::MAX
+        );
+    }
+
+    #[test]
+    fn numeric_prompt_parser_rejects_negative_non_numeric_and_overflow_values() {
+        for invalid in ["-1", "1.5", "18446744073709551616"] {
+            let error = parse_prompt_u64("Cycle time", invalid)
+                .expect_err("invalid numeric prompt input must fail");
+            assert!(
+                error
+                    .to_string()
+                    .starts_with("Cycle time must be a number:"),
+                "unexpected error: {error:#}"
+            );
+        }
+    }
+
+    #[test]
+    fn numeric_prompt_wrapper_preserves_zero_ordinary_default_and_errors() {
+        if std::env::var_os(PROMPT_CHILD_ENV).is_some() {
+            match prompt_u64("Cycle time", 73) {
+                Ok(value) => println!("PROMPT_RESULT=ok:{value}"),
+                Err(error) => println!("PROMPT_RESULT=error:{error}"),
+            }
+            return;
+        }
+
+        for (input, expected) in [
+            ("\n", "PROMPT_RESULT=ok:73"),
+            ("0\n", "PROMPT_RESULT=ok:0"),
+            ("42\n", "PROMPT_RESULT=ok:42"),
+            ("-1\n", "PROMPT_RESULT=error:Cycle time must be a number:"),
+        ] {
+            let stdout = run_prompt_child(input);
+            assert!(
+                stdout.contains(expected),
+                "numeric prompt returned the wrong result for {input:?}\nstdout:\n{stdout}"
+            );
+        }
     }
 }

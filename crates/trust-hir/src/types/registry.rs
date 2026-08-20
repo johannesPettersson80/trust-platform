@@ -1,7 +1,8 @@
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use smol_str::SmolStr;
 
 use super::defs::{ArrayDimensionExt, StructField, Type, TypeId, UnionVariant};
+use crate::symbols::EnumValueResolution;
 
 /// Type registry for managing all types.
 #[derive(Debug, Clone, Default)]
@@ -10,6 +11,10 @@ pub struct TypeRegistry {
     types: FxHashMap<TypeId, Type>,
     /// Name to type ID lookup.
     names: FxHashMap<SmolStr, TypeId>,
+    /// Explicit-base named integer value types.
+    named_value_types: FxHashSet<TypeId>,
+    /// IEC `STRUCT OVERLAP` types with shared addressed storage.
+    overlapping_struct_types: FxHashSet<TypeId>,
     /// Next type ID to assign.
     next_id: u32,
 }
@@ -21,6 +26,8 @@ impl TypeRegistry {
         let mut registry = Self {
             types: FxHashMap::default(),
             names: FxHashMap::default(),
+            named_value_types: FxHashSet::default(),
+            overlapping_struct_types: FxHashSet::default(),
             next_id: TypeId::USER_TYPES_START,
         };
 
@@ -102,6 +109,40 @@ impl TypeRegistry {
     ) -> TypeId {
         let name = name.into();
         self.register(name.clone(), Type::Enum { name, base, values })
+    }
+
+    /// Registers an explicit-base named integer value type.
+    pub fn register_named_value_type(
+        &mut self,
+        name: impl Into<SmolStr>,
+        base: TypeId,
+        values: Vec<(SmolStr, i64)>,
+    ) -> TypeId {
+        let type_id = self.register_enum(name, base, values);
+        self.named_value_types.insert(type_id);
+        type_id
+    }
+
+    /// Marks a pre-reserved type ID as an explicit-base named integer value type.
+    pub fn mark_named_value_type(&mut self, type_id: TypeId) {
+        self.named_value_types.insert(type_id);
+    }
+
+    /// Returns whether the type is an explicit-base named integer value type.
+    #[must_use]
+    pub fn is_named_value_type(&self, type_id: TypeId) -> bool {
+        self.named_value_types.contains(&type_id)
+    }
+
+    /// Marks a structured type as an IEC `STRUCT OVERLAP` declaration.
+    pub fn register_overlapping_struct_type(&mut self, type_id: TypeId) {
+        self.overlapping_struct_types.insert(type_id);
+    }
+
+    /// Returns whether the type is an IEC `STRUCT OVERLAP` declaration.
+    #[must_use]
+    pub fn is_overlapping_struct_type(&self, type_id: TypeId) -> bool {
+        self.overlapping_struct_types.contains(&type_id)
     }
 
     /// Registers an array type.
@@ -189,6 +230,27 @@ impl TypeRegistry {
             .get(name)
             .or_else(|| self.names.get(&SmolStr::new(name.to_uppercase())))
             .copied()
+    }
+
+    /// Resolves an unqualified enum value and reports ambiguity across enum types.
+    #[must_use]
+    pub fn resolve_enum_value_by_name(&self, name: &str) -> EnumValueResolution {
+        let mut matched = None;
+        for ty in self.types.values() {
+            let Type::Enum { values, .. } = ty else {
+                continue;
+            };
+            if let Some((_, value)) = values
+                .iter()
+                .find(|(value_name, _)| value_name.eq_ignore_ascii_case(name))
+            {
+                if matched.is_some() {
+                    return EnumValueResolution::Ambiguous;
+                }
+                matched = Some(*value);
+            }
+        }
+        matched.map_or(EnumValueResolution::NotFound, EnumValueResolution::Resolved)
     }
 }
 

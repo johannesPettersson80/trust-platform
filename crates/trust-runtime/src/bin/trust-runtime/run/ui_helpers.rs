@@ -22,13 +22,7 @@ fn print_trust_banner(
         );
         println!(
             "I/O drivers: {}",
-            bundle
-                .io
-                .drivers
-                .iter()
-                .map(|driver| driver.name.to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
+            enabled_io_driver_names(bundle).join(", ")
         );
         println!(
             "Control mode: {:?} (debug {})",
@@ -121,20 +115,7 @@ fn format_endpoint(endpoint: &ControlEndpoint) -> String {
 }
 
 fn load_sources(root: &Path) -> anyhow::Result<SourceRegistry> {
-    let mut files = Vec::new();
-    let patterns = ["**/*.st", "**/*.ST", "**/*.pou", "**/*.POU"];
-    for pattern in patterns {
-        for entry in glob::glob(&format!("{}/{}", root.display(), pattern))? {
-            let path = entry?;
-            if files.iter().any(|file: &SourceFile| file.path == path) {
-                continue;
-            }
-            let text = std::fs::read_to_string(&path)?;
-            let id = files.len() as u32;
-            files.push(SourceFile { id, path, text });
-        }
-    }
-    Ok(SourceRegistry::new(files))
+    load_source_registry(root, Some(root))
 }
 
 fn print_startup_summary(
@@ -171,16 +152,7 @@ fn print_startup_summary(
         execution_backend.as_str(),
         execution_backend_source.as_str()
     );
-    println!(
-        "io drivers: {}",
-        bundle
-            .io
-            .drivers
-            .iter()
-            .map(|driver| driver.name.to_string())
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
+    println!("io drivers: {}", enabled_io_driver_names(bundle).join(", "));
     println!("control mode: {:?}", bundle.runtime.control_mode);
     println!(
         "debug: {}",

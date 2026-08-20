@@ -357,7 +357,6 @@ resolution_status = "closed"
 resolution_source_ref = "SPEC_BYTECODE_FORMAT_001"
 closeout_evidence = ["EVID_VM_STABLE_ERROR_MODEL_BATCH_VALIDATION_20260716"]
 last_reviewed = "2026-07-17"
-
 [[spec_gaps]]
 schema_version = 1
 id = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
@@ -462,13 +461,13 @@ last_reviewed = "2026-07-18"
 [[spec_gaps]]
 schema_version = 1
 id = "SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001"
-title = "Behavior-locked public claim needs verification traceability"
+title = "Behavior-locked public claim needs direct contract authority"
 area = "release"
 risk = "false_status"
 owner = "docs"
 status = "spec_gap"
 gap_class = "public_claim_unproven"
-blocking_question = "Which runtime and debugger behaviors are locked by which tests, suites, and durable evidence?"
+blocking_question = "Does the public wording bind behavior claims to written specifications and direct native executable tests without making verification metadata authoritative?"
 affected_invariants = [
   "RUNTIME_BEHAVIOR_LOCKED_001",
   "DEBUG_BEHAVIOR_LOCKED_001",

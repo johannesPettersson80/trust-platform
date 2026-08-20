@@ -7,8 +7,12 @@ use trust_ads_core::{
 };
 
 use super::diagnostics::LocalIdentity;
+use super::identity::is_canonical_ams_net_id;
 use super::transport::{AdsNotificationMode, AdsPointAddress};
 use super::RuntimeError;
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdsClientConfig {
@@ -119,11 +123,12 @@ impl AdsToml {
         if self.connections.is_empty() {
             return invalid("ads.toml requires at least one [[connections]] entry");
         }
+        let mut connection_names = BTreeSet::new();
         let mut point_names = BTreeSet::new();
         let connections = self
             .connections
             .into_iter()
-            .map(|connection| connection.into_config(&mut point_names))
+            .map(|connection| connection.into_config(&mut connection_names, &mut point_names))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(AdsClientConfig { connections })
     }
@@ -132,10 +137,26 @@ impl AdsToml {
 impl ConnectionSection {
     fn into_config(
         self,
+        connection_names: &mut BTreeSet<String>,
         point_names: &mut BTreeSet<String>,
     ) -> Result<AdsConnectionConfig, RuntimeError> {
         let name = non_empty("connections.name", self.name)?;
-        let target_net_id = non_empty("connections.target_net_id", self.target_net_id)?;
+        if !connection_names.insert(name.clone()) {
+            return invalid(format!("ADS connection name '{name}' must be unique"));
+        }
+        let target_net_id = self.target_net_id;
+        if !is_canonical_ams_net_id(&target_net_id) {
+            return invalid(format!(
+                "invalid target AMS Net ID '{target_net_id}'; expected six decimal octets in canonical form"
+            ));
+        }
+        if let Some(local_net_id) = self.local_net_id.as_deref() {
+            if !is_canonical_ams_net_id(local_net_id) {
+                return invalid(format!(
+                    "invalid local AMS Net ID '{local_net_id}'; expected six decimal octets in canonical form"
+                ));
+            }
+        }
         let host = non_empty("connections.host", self.host)?;
         let transport = parse_transport(self.transport.as_deref().unwrap_or("secure"))?;
         let insecure_transport = self.insecure_transport.unwrap_or(false);
@@ -173,6 +194,11 @@ impl ConnectionSection {
             .into_iter()
             .map(|point| point.into_config(&name, point_names))
             .collect::<Result<Vec<_>, _>>()?;
+        if points.is_empty() {
+            return invalid(format!(
+                "ADS connection '{name}' requires at least one point"
+            ));
+        }
         Ok(AdsConnectionConfig { route, points })
     }
 }
@@ -195,6 +221,7 @@ impl PointSection {
             self.string_len,
             self.dimensions.unwrap_or_default(),
         )?;
+        validate_index_address_size(&address, &data_type)?;
         let access = parse_access(self.access.as_deref().unwrap_or("read"))?;
         let mode = parse_mode(self.mode.as_deref().unwrap_or("poll"))?;
         let notification_mode =
@@ -288,6 +315,12 @@ fn parse_data_type(
 ) -> Result<AdsDataTypeDescriptor, RuntimeError> {
     let trimmed = raw.trim();
     let (iec_type, parsed_string_len) = parse_iec_type(trimmed)?;
+    if !matches!(iec_type, IecDataType::String) && string_len.is_some() {
+        return invalid("ADS string_len is valid only for STRING");
+    }
+    if matches!(parsed_string_len, Some(0)) || matches!(string_len, Some(0)) {
+        return invalid("ADS STRING capacity must be at least 1");
+    }
     let string_len = parsed_string_len.or(string_len);
     if matches!(iec_type, IecDataType::String) && string_len.is_none() {
         return invalid("ADS STRING type requires a length, for example type='STRING(80)'");
@@ -307,12 +340,43 @@ fn parse_data_type(
             })
         })
         .collect::<Result<Vec<_>, RuntimeError>>()?;
-    Ok(AdsDataTypeDescriptor {
+    let descriptor = AdsDataTypeDescriptor {
         source_name: trimmed.to_string(),
         iec_type,
         dimensions,
         string_len,
+    };
+    declared_byte_len(&descriptor)?;
+    Ok(descriptor)
+}
+
+fn declared_byte_len(descriptor: &AdsDataTypeDescriptor) -> Result<usize, RuntimeError> {
+    descriptor.byte_len().map_err(|error| {
+        RuntimeError::InvalidConfig(
+            format!("ADS type metadata byte length overflows: {error}").into(),
+        )
     })
+}
+
+fn validate_index_address_size(
+    address: &AdsPointAddress,
+    descriptor: &AdsDataTypeDescriptor,
+) -> Result<(), RuntimeError> {
+    let AdsPointAddress::Index { size, .. } = address else {
+        return Ok(());
+    };
+    let declared_size = declared_byte_len(descriptor)?;
+    let configured_size = usize::try_from(*size).map_err(|_| {
+        RuntimeError::InvalidConfig(
+            format!("ADS index address size {size} exceeds the platform byte range").into(),
+        )
+    })?;
+    if configured_size != declared_size {
+        return invalid(format!(
+            "ADS index address size {size} does not match declared type size {declared_size}"
+        ));
+    }
+    Ok(())
 }
 
 fn parse_iec_type(raw: &str) -> Result<(IecDataType, Option<u16>), RuntimeError> {

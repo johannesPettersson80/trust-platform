@@ -28,6 +28,7 @@ pub(crate) fn lower_type_decls(
     semantic_file_id: trust_hir::db::FileId,
     file_id: u32,
     statement_locations: &mut Vec<SourceLocation>,
+    compile_time_consts: super::model::CompileTimeConsts,
 ) -> Result<(), CompileError> {
     for type_decl in syntax
         .descendants()
@@ -42,6 +43,7 @@ pub(crate) fn lower_type_decls(
             semantic_file_id,
             file_id,
             statement_locations,
+            compile_time_consts.clone(),
         )?;
     }
     Ok(())
@@ -116,6 +118,7 @@ fn lower_type_decl_node(
     semantic_file_id: trust_hir::db::FileId,
     file_id: u32,
     statement_locations: &mut Vec<SourceLocation>,
+    compile_time_consts: super::model::CompileTimeConsts,
 ) -> Result<(), CompileError> {
     let using = collect_using_directives(node);
     let mut ctx = LoweringContext {
@@ -126,7 +129,7 @@ fn lower_type_decl_node(
         semantic_db: Some(semantic_db),
         semantic_file_id: Some(semantic_file_id),
         statement_locations,
-        compile_time_consts: Default::default(),
+        compile_time_consts,
     };
     let mut pending_name: Option<SmolStr> = None;
     let mut last_type_id: Option<TypeId> = None;
@@ -140,23 +143,24 @@ fn lower_type_decl_node(
                 let name = pending_name
                     .take()
                     .ok_or_else(|| CompileError::new("missing type name"))?;
-                if ctx.registry.lookup(name.as_ref()).is_some() {
-                    return Err(CompileError::new(format!("duplicate type name '{name}'")));
-                }
-                let type_id = ctx.registry.reserve(name.clone());
+                let type_id = reserved_type_id(ctx.registry, &name)?;
                 let fields = lower_struct_def(&child, &mut ctx, initializer_catalog)?;
                 ctx.registry
                     .replace(type_id, trust_hir::Type::Struct { name, fields });
+                if child
+                    .children_with_tokens()
+                    .filter_map(|element| element.into_token())
+                    .any(|token| token.kind() == SyntaxKind::KwOverlap)
+                {
+                    ctx.registry.register_overlapping_struct_type(type_id);
+                }
                 last_type_id = Some(type_id);
             }
             SyntaxKind::UnionDef => {
                 let name = pending_name
                     .take()
                     .ok_or_else(|| CompileError::new("missing type name"))?;
-                if ctx.registry.lookup(name.as_ref()).is_some() {
-                    return Err(CompileError::new(format!("duplicate type name '{name}'")));
-                }
-                let type_id = ctx.registry.reserve(name.clone());
+                let type_id = reserved_type_id(ctx.registry, &name)?;
                 let fields = lower_struct_def(&child, &mut ctx, initializer_catalog)?;
                 let variants = fields
                     .into_iter()
@@ -175,43 +179,47 @@ fn lower_type_decl_node(
                 let name = pending_name
                     .take()
                     .ok_or_else(|| CompileError::new("missing type name"))?;
-                if ctx.registry.lookup(name.as_ref()).is_some() {
-                    return Err(CompileError::new(format!("duplicate type name '{name}'")));
-                }
                 let (base, values) = lower_enum_def(&child, &mut ctx)?;
-                last_type_id = Some(ctx.registry.register_enum(name, base, values));
+                let type_id = reserved_type_id(ctx.registry, &name)?;
+                ctx.registry
+                    .replace(type_id, trust_hir::Type::Enum { name, base, values });
+                if child
+                    .children()
+                    .any(|node| node.kind() == SyntaxKind::TypeRef)
+                {
+                    ctx.registry.mark_named_value_type(type_id);
+                }
+                last_type_id = Some(type_id);
             }
             SyntaxKind::ArrayType => {
                 let name = pending_name
                     .take()
                     .ok_or_else(|| CompileError::new("missing type name"))?;
-                if ctx.registry.lookup(name.as_ref()).is_some() {
-                    return Err(CompileError::new(format!("duplicate type name '{name}'")));
-                }
                 let target = lower_array_type_node(&child, &mut ctx)?;
-                last_type_id = Some(ctx.registry.register(
-                    name.clone(),
+                let type_id = reserved_type_id(ctx.registry, &name)?;
+                ctx.registry.replace(
+                    type_id,
                     trust_hir::Type::Alias {
                         name: name.clone(),
                         target,
                     },
-                ));
+                );
+                last_type_id = Some(type_id);
             }
             SyntaxKind::TypeRef => {
                 let name = pending_name
                     .take()
                     .ok_or_else(|| CompileError::new("missing type name"))?;
-                if ctx.registry.lookup(name.as_ref()).is_some() {
-                    return Err(CompileError::new(format!("duplicate type name '{name}'")));
-                }
                 let target = lower_type_ref(&child, &mut ctx)?;
-                last_type_id = Some(ctx.registry.register(
-                    name.clone(),
+                let type_id = reserved_type_id(ctx.registry, &name)?;
+                ctx.registry.replace(
+                    type_id,
                     trust_hir::Type::Alias {
                         name: name.clone(),
                         target,
                     },
-                ));
+                );
+                last_type_id = Some(type_id);
             }
             kind if is_expression_kind(kind) => {
                 let Some(type_id) = last_type_id else {
@@ -227,6 +235,19 @@ fn lower_type_decl_node(
         }
     }
     Ok(())
+}
+
+fn reserved_type_id(
+    registry: &trust_hir::types::TypeRegistry,
+    name: &str,
+) -> Result<TypeId, CompileError> {
+    let type_id = registry
+        .lookup(name)
+        .ok_or_else(|| CompileError::new(format!("type '{name}' was not predeclared")))?;
+    if !matches!(registry.get(type_id), Some(trust_hir::Type::Unknown)) {
+        return Err(CompileError::new(format!("duplicate type name '{name}'")));
+    }
+    Ok(type_id)
 }
 
 fn lower_struct_def(
@@ -455,14 +476,32 @@ pub(crate) fn resolve_type_name(
         return Ok(id);
     }
     if !name.contains('.') {
-        for namespace in &ctx.using {
-            let qualified = format!("{namespace}.{name}");
-            if let Some(id) = ctx.registry.lookup(&qualified) {
-                return Ok(id);
-            }
+        if let Some(id) = resolve_using_type(ctx.registry, name, &ctx.using)? {
+            return Ok(id);
         }
     }
     Err(CompileError::new(format!("unknown type '{name}'")))
+}
+
+fn resolve_using_type(
+    registry: &trust_hir::types::TypeRegistry,
+    type_name: &str,
+    using: &[SmolStr],
+) -> Result<Option<TypeId>, CompileError> {
+    let mut resolved = None;
+    for namespace in using {
+        let qualified = format!("{namespace}.{type_name}");
+        let Some(id) = registry.lookup(&qualified) else {
+            continue;
+        };
+        if resolved.is_some_and(|previous| previous != id) {
+            return Err(CompileError::new(format!(
+                "ambiguous type '{type_name}' across USING directives"
+            )));
+        }
+        resolved = Some(id);
+    }
+    Ok(resolved)
 }
 
 pub(crate) fn resolve_named_type(
@@ -476,13 +515,10 @@ pub(crate) fn resolve_named_type(
             .ok_or_else(|| CompileError::new("unknown type"));
     }
     if !type_name.contains('.') {
-        for namespace in using {
-            let qualified = format!("{namespace}.{type_name}");
-            if let Some(id) = registry.lookup(qualified.as_str()) {
-                return registry
-                    .type_name(id)
-                    .ok_or_else(|| CompileError::new("unknown type"));
-            }
+        if let Some(id) = resolve_using_type(registry, type_name, using)? {
+            return registry
+                .type_name(id)
+                .ok_or_else(|| CompileError::new("unknown type"));
         }
     }
     Err(CompileError::new(format!("unknown type '{type_name}'")))

@@ -6,8 +6,8 @@ owner = "trust-hir"
 status = "planned"
 invariant = "IEC_PREC_001"
 generator = "gen_cases_v2.py v1"
-generator_digest = "sha256:45b265249f43f98568a6039a7b5e27801adc1345e4482b8b3b144c2759a9c5e9"
-source_digest = "sha256:0498fa048327ac842476ddde0375be24a0ae4741f3e5a6409a49825be17d9f66"
+generator_digest = "sha256:e557e3873c3813524fb791b2723d9c9a51a7f1d93b6d304bce60e5d36cc5c3ac"
+source_digest = "sha256:164e05136c63ef4b8bfeb2f5a83d01e0d817db16d55bb3e3fac5b69918d9479c"
 last_reviewed = "2026-07-17"
 
 [[case]]
@@ -50,6 +50,12 @@ expect = { outcome = "accept_value", delta = { target = "set_to_expected", sibli
 id = "IEC_PREC_001_COMPARISON_BEFORE_BOOLEAN_AND_5391BC0E"
 family = "ordering_or_lifecycle"
 input = { source_partition = { equals = "COMPARISON_BEFORE_BOOLEAN_AND" }, scenario = "COMPARISON_BEFORE_BOOLEAN_AND" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence" }
+
+[[case]]
+id = "IEC_PREC_001_MULTIPLICATIVE_BEFORE_COMPARISON_E88C6775"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "MULTIPLICATIVE_BEFORE_COMPARISON" }, scenario = "MULTIPLICATIVE_BEFORE_COMPARISON" }
 expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence" }
 
 [[case]]

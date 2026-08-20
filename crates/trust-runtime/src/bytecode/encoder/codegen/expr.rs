@@ -193,6 +193,33 @@ impl<'a> BytecodeEncoder<'a> {
             }
             crate::program_model::Expr::Binary { op, left, right } => {
                 use crate::program_model::BinaryOp;
+                if matches!(op, BinaryOp::AndThen | BinaryOp::OrElse) {
+                    if !self.emit_expr(ctx, left, code)? {
+                        code.truncate(start_len);
+                        return Ok(false);
+                    }
+                    code.push(0x11); // DUP: preserve the left value as the branch result.
+                    let short_circuit = self.emit_jump_placeholder(
+                        code,
+                        if matches!(op, BinaryOp::AndThen) {
+                            0x04 // JUMP_IF_FALSE
+                        } else {
+                            0x03 // JUMP_IF_TRUE
+                        },
+                    );
+                    if !self.emit_expr(ctx, right, code)? {
+                        code.truncate(start_len);
+                        return Ok(false);
+                    }
+                    code.push(if matches!(op, BinaryOp::AndThen) {
+                        0x46 // AND
+                    } else {
+                        0x47 // OR
+                    });
+                    let end = code.len();
+                    self.patch_jump(code, short_circuit, end)?;
+                    return Ok(true);
+                }
                 let opcode = match op {
                     BinaryOp::Add => 0x40,
                     BinaryOp::Sub => 0x41,
@@ -202,6 +229,7 @@ impl<'a> BytecodeEncoder<'a> {
                     BinaryOp::Pow => 0x4C,
                     BinaryOp::And => 0x46,
                     BinaryOp::Or => 0x47,
+                    BinaryOp::AndThen | BinaryOp::OrElse => unreachable!(),
                     BinaryOp::Xor => 0x48,
                     BinaryOp::Eq => 0x50,
                     BinaryOp::Ne => 0x51,
@@ -252,151 +280,6 @@ impl<'a> BytecodeEncoder<'a> {
                 Ok(true)
             }
         }
-    }
-
-    fn emit_call_expr(
-        &mut self,
-        ctx: &CodegenContext,
-        target: &crate::program_model::Expr,
-        args: &[crate::program_model::CallArg],
-        code: &mut Vec<u8>,
-    ) -> Result<bool, BytecodeError> {
-        if let crate::program_model::Expr::Name(name) = target {
-            let key = SmolStr::new(name.to_ascii_uppercase());
-            if key == "REF" {
-                return self.emit_ref_builtin_call(ctx, args, code);
-            }
-        }
-
-        #[derive(Clone, Copy)]
-        enum NativeTargetKind {
-            Function,
-            FunctionBlock,
-            Method,
-            Stdlib,
-        }
-
-        fn native_kind_value(kind: NativeTargetKind) -> u32 {
-            match kind {
-                NativeTargetKind::Function => crate::bytecode::NATIVE_CALL_KIND_FUNCTION,
-                NativeTargetKind::FunctionBlock => crate::bytecode::NATIVE_CALL_KIND_FUNCTION_BLOCK,
-                NativeTargetKind::Method => crate::bytecode::NATIVE_CALL_KIND_METHOD,
-                NativeTargetKind::Stdlib => crate::bytecode::NATIVE_CALL_KIND_STDLIB,
-            }
-        }
-
-        let (kind, target_name, receiver_emitted) = match target {
-            crate::program_model::Expr::Field {
-                target: receiver,
-                field,
-            } => {
-                if !self.emit_expr(ctx, receiver, code)? {
-                    return Err(BytecodeError::InvalidSection(
-                        "unsupported CALL_NATIVE method receiver".into(),
-                    ));
-                }
-                (NativeTargetKind::Method, field.clone(), true)
-            }
-            crate::program_model::Expr::Name(name) => {
-                let key = SmolStr::new(name.to_ascii_uppercase());
-                if ctx.local_ref(name).is_some()
-                    || ctx.self_field_name(name).is_some()
-                    || self.resolve_name_ref(ctx, name)?.is_some()
-                {
-                    if !self.emit_expr(ctx, target, code)? {
-                        return Err(BytecodeError::InvalidSection(
-                            "unsupported CALL_NATIVE function-block target".into(),
-                        ));
-                    }
-                    (NativeTargetKind::FunctionBlock, name.clone(), true)
-                } else if let Some(function_name) = self.resolve_function_call_name(ctx, name) {
-                    (NativeTargetKind::Function, function_name, false)
-                } else if self.runtime.stdlib().get(name.as_str()).is_some()
-                    || crate::stdlib::time::is_runtime_clock_name(key.as_str())
-                    || crate::stdlib::time::is_split_name(key.as_str())
-                    || crate::stdlib::conversions::is_conversion_name(key.as_str())
-                {
-                    (NativeTargetKind::Stdlib, name.clone(), false)
-                } else {
-                    code.push(0x23); // LOAD_SELF
-                    (NativeTargetKind::Method, name.clone(), true)
-                }
-            }
-            _ => {
-                return Err(BytecodeError::InvalidSection(
-                    "unsupported CALL_NATIVE target expression".into(),
-                ));
-            }
-        };
-
-        let mut arg_tokens = Vec::with_capacity(args.len());
-        for arg in args {
-            let prefix = match &arg.value {
-                crate::program_model::ArgValue::Expr(expr) => {
-                    if !self.emit_expr(ctx, expr, code)? {
-                        return Err(BytecodeError::InvalidSection(
-                            "unsupported CALL_NATIVE argument expression".into(),
-                        ));
-                    }
-                    "E"
-                }
-                crate::program_model::ArgValue::Target(target) => {
-                    if let Some(reference) = self.resolve_lvalue_ref(ctx, target)? {
-                        let ref_idx = self.ref_index_for(&reference)?;
-                        code.push(0x22); // LOAD_REF_ADDR (static)
-                        code.extend_from_slice(&ref_idx.to_le_bytes());
-                    } else if !self.emit_dynamic_ref_for_lvalue(ctx, target, code)? {
-                        return Err(BytecodeError::InvalidSection(
-                            format!("unsupported CALL_NATIVE argument target: {:?}", target).into(),
-                        ));
-                    }
-                    "T"
-                }
-            };
-            let token = if let Some(name) = &arg.name {
-                SmolStr::new(format!("{prefix}:{}", name.as_str()))
-            } else {
-                SmolStr::new(prefix)
-            };
-            arg_tokens.push(token);
-        }
-
-        let symbol_idx = self.intern_native_call_symbol(&target_name, &arg_tokens);
-        let total_arg_count = if receiver_emitted {
-            args.len().saturating_add(1)
-        } else {
-            args.len()
-        };
-        let arg_count = u32::try_from(total_arg_count)
-            .map_err(|_| BytecodeError::InvalidSection("CALL_NATIVE arg_count overflow".into()))?;
-
-        code.push(0x09); // CALL_NATIVE
-        code.extend_from_slice(&native_kind_value(kind).to_le_bytes());
-        code.extend_from_slice(&symbol_idx.to_le_bytes());
-        code.extend_from_slice(&arg_count.to_le_bytes());
-        Ok(true)
-    }
-
-    fn resolve_function_call_name(
-        &self,
-        ctx: &CodegenContext,
-        name: &SmolStr,
-    ) -> Option<SmolStr> {
-        let key = SmolStr::new(name.to_ascii_uppercase());
-        if let Some(function) = self.runtime.functions().get(&key) {
-            return Some(function.name.clone());
-        }
-        if name.contains('.') {
-            return None;
-        }
-        for namespace in &ctx.using {
-            let qualified = SmolStr::new(format!("{namespace}.{name}"));
-            let key = SmolStr::new(qualified.to_ascii_uppercase());
-            if let Some(function) = self.runtime.functions().get(&key) {
-                return Some(function.name.clone());
-            }
-        }
-        None
     }
 
     fn emit_ref_lvalue(

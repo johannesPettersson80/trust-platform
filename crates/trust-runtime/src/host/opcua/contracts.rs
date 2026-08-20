@@ -208,11 +208,12 @@ impl OpcUaClientToml {
         if self.connections.is_empty() {
             return invalid_opcua_client("opcua_client.toml requires at least one [[connections]] entry");
         }
+        let mut connection_names = std::collections::BTreeSet::new();
         let mut point_names = std::collections::BTreeSet::new();
         let connections = self
             .connections
             .into_iter()
-            .map(|connection| connection.into_config(&mut point_names))
+            .map(|connection| connection.into_config(&mut connection_names, &mut point_names))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(OpcUaClientConfig { connections })
     }
@@ -221,13 +222,19 @@ impl OpcUaClientToml {
 impl OpcUaClientConnectionSection {
     fn into_config(
         self,
+        connection_names: &mut std::collections::BTreeSet<String>,
         point_names: &mut std::collections::BTreeSet<String>,
     ) -> Result<OpcUaClientConnectionConfig, RuntimeError> {
         let name = non_empty_opcua_client("connections.name", self.name)?;
-        let endpoint_url = non_empty_opcua_client("connections.endpoint_url", self.endpoint_url)?;
-        if !endpoint_url.starts_with("opc.tcp://") {
+        if !connection_names.insert(name.clone()) {
             return invalid_opcua_client(format!(
-                "OPC UA connection '{name}' endpoint_url must start with opc.tcp://"
+                "OPC UA connection name '{name}' is declared more than once"
+            ));
+        }
+        let endpoint_url = non_empty_opcua_client("connections.endpoint_url", self.endpoint_url)?;
+        if !valid_opc_tcp_endpoint(endpoint_url.as_str()) {
+            return invalid_opcua_client(format!(
+                "OPC UA connection '{name}' endpoint_url must use opc.tcp:// with a non-empty authority"
             ));
         }
         if self.points.is_empty() {
@@ -322,9 +329,7 @@ fn parse_client_auth(
     let auth = auth.unwrap_or("anonymous").trim().to_ascii_lowercase();
     match auth.as_str() {
         "anonymous" => {
-            if username.as_ref().is_some_and(|value| !value.trim().is_empty())
-                || password.as_ref().is_some_and(|value| !value.trim().is_empty())
-            {
+            if username.is_some() || password.is_some() {
                 return invalid_opcua_client(format!(
                     "OPC UA connection '{connection_name}' uses anonymous auth but also sets username/password"
                 ));
@@ -402,6 +407,11 @@ fn parse_opcua_client_access(
     access: Option<&str>,
     writable: Option<bool>,
 ) -> Result<OpcUaClientPointAccess, RuntimeError> {
+    if access.is_some() && writable.is_some() {
+        return invalid_opcua_client(
+            "OPC UA client point must not set both access and legacy writable",
+        );
+    }
     if let Some(writable) = writable {
         return Ok(if writable {
             OpcUaClientPointAccess::ReadWrite
@@ -417,6 +427,20 @@ fn parse_opcua_client_access(
             "OPC UA client point access must be read or read_write, got '{other}'"
         )),
     }
+}
+
+fn valid_opc_tcp_endpoint(value: &str) -> bool {
+    value
+        .strip_prefix("opc.tcp://")
+        .map(|remainder| {
+            let authority_end = remainder
+                .find(['/', '?', '#'])
+                .unwrap_or(remainder.len());
+            &remainder[..authority_end]
+        })
+        .is_some_and(|authority| {
+            !authority.is_empty() && !authority.chars().any(char::is_whitespace)
+        })
 }
 
 fn non_empty_opcua_client(field: &str, value: String) -> Result<String, RuntimeError> {

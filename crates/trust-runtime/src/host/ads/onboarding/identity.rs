@@ -4,6 +4,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use crate::ads::diagnostics::{
     LocalAddressCandidate, LocalIdentity, LocalNetworkClassification, RouteActionAvailability,
 };
+use crate::ads::identity::canonicalize_ams_net_id;
 use crate::ads::onboarding::errors::OnboardingError;
 
 /// Request to derive this host's ADS identity toward a target.
@@ -33,13 +34,7 @@ pub struct RuntimeAddressCandidate {
 }
 
 pub fn derive_default_ams_net_id(ip: &str) -> Option<String> {
-    let octets: Vec<&str> = ip.split('.').collect();
-    if octets.len() != 4 {
-        return None;
-    }
-    if octets.iter().any(|octet| octet.parse::<u8>().is_err()) {
-        return None;
-    }
+    let ip = ip.parse::<Ipv4Addr>().ok()?;
     Some(format!("{ip}.1.1"))
 }
 
@@ -98,15 +93,30 @@ pub fn derive_runtime_identity_from_source(
     candidates: Vec<RuntimeAddressCandidate>,
 ) -> Result<LocalIdentity, OnboardingError> {
     let chosen_ip = chosen_ip.into();
+    let chosen_ip = chosen_ip
+        .parse::<IpAddr>()
+        .map_err(|_| OnboardingError::new(format!("invalid runtime-host source IP '{chosen_ip}'")))?
+        .to_string();
+    let target_ip = request
+        .target_ip
+        .parse::<IpAddr>()
+        .map_err(|_| {
+            OnboardingError::new(format!("invalid ADS target IP '{}'", request.target_ip))
+        })?
+        .to_string();
     let ams_net_id = match request.local_net_id_override.as_ref() {
-        Some(override_id) if !override_id.trim().is_empty() => override_id.trim().to_string(),
-        _ => derive_default_ams_net_id(&chosen_ip).ok_or_else(|| {
+        Some(override_id) => canonicalize_ams_net_id(override_id).ok_or_else(|| {
+            OnboardingError::new(format!(
+                "invalid local AMS Net ID '{override_id}'; expected six decimal octets"
+            ))
+        })?,
+        None => derive_default_ams_net_id(&chosen_ip).ok_or_else(|| {
             OnboardingError::new(format!(
                 "cannot derive default AMS Net ID from non-IPv4 source address '{chosen_ip}'"
             ))
         })?,
     };
-    let classification = classify_identity_path(&chosen_ip, &request.target_ip, nic.as_deref());
+    let classification = classify_identity_path(&chosen_ip, &target_ip, nic.as_deref());
     let mut candidate_rows = candidates
         .into_iter()
         .map(|candidate| LocalAddressCandidate {
@@ -222,4 +232,78 @@ fn is_ipv4_link_local(addr: Ipv4Addr) -> bool {
 
 fn is_ipv6_unique_local(addr: std::net::Ipv6Addr) -> bool {
     (addr.segments()[0] & 0xfe00) == 0xfc00
+}
+
+#[cfg(test)]
+mod validation_tests {
+    use super::*;
+
+    fn identity_request(target_ip: &str, override_id: Option<&str>) -> IdentityRequest {
+        IdentityRequest {
+            target_ip: target_ip.to_string(),
+            local_net_id_override: override_id.map(ToString::to_string),
+        }
+    }
+
+    #[test]
+    fn default_ams_net_id_rejects_noncanonical_ipv4_text() {
+        assert_eq!(derive_default_ams_net_id("01.2.3.4"), None);
+    }
+
+    #[test]
+    fn identity_derivation_rejects_invalid_explicit_ams_net_id() {
+        for override_id in ["", "1.2.3.4.5", "1.2.3.4.5.999", "1.2.3.4.5.six"] {
+            let error = derive_runtime_identity_from_source(
+                &identity_request("192.168.10.5", Some(override_id)),
+                "192.168.10.20",
+                None,
+                None,
+                Vec::new(),
+            )
+            .expect_err("malformed explicit AMS Net ID must fail");
+            assert!(error.to_string().contains("AMS Net ID"), "{error}");
+        }
+    }
+
+    #[test]
+    fn identity_derivation_canonicalizes_explicit_ams_net_id() {
+        let identity = derive_runtime_identity_from_source(
+            &identity_request("192.168.10.5", Some("001.002.003.004.005.006")),
+            "192.168.10.20",
+            None,
+            None,
+            Vec::new(),
+        )
+        .expect("valid six-octet override");
+
+        assert_eq!(identity.ams_net_id, "1.2.3.4.5.6");
+    }
+
+    #[test]
+    fn identity_derivation_rejects_invalid_source_even_with_override() {
+        let error = derive_runtime_identity_from_source(
+            &identity_request("192.168.10.5", Some("1.2.3.4.5.6")),
+            "not-an-ip",
+            None,
+            None,
+            Vec::new(),
+        )
+        .expect_err("malformed selected source address must fail");
+
+        assert!(error.to_string().contains("source IP"), "{error}");
+    }
+
+    #[test]
+    fn identity_derivation_rejects_invalid_target_address() {
+        let error = derive_runtime_identity_from_source(
+            &identity_request("not-an-ip", None),
+            "192.168.10.20",
+            None,
+            None,
+            Vec::new(),
+        )
+        .expect_err("malformed target address must fail");
+
+        assert!(error.to_string().contains("target IP"), "{error}");
+    }
 }

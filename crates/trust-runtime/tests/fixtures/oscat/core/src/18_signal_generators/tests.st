@@ -97,7 +97,7 @@ RandomWave(PT := T#0ms, AM := REAL#1.0, OS := REAL#0.0);
 ASSERT_TRUE(IN := RandomWave.Q);
 
 RandomPulse(Enable := TRUE, Min_Time_ms := T#0ms, Max_Time_ms := T#0ms, TP_Q := T#0ms);
-ASSERT_TRUE(IN := TRUE);
+ASSERT_TRUE(IN := RandomPulse.xQ);
 
 DutyPwm(F := REAL#0.0, DC := REAL#0.5);
 ASSERT_FALSE(IN := DutyPwm.Q);

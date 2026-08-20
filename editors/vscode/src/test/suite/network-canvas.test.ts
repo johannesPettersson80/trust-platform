@@ -37,6 +37,7 @@ import {
   type CommProtocolSchema,
 } from "../../communication/schemaForm";
 import { protocolColor, protocolName } from "../../networkCanvas/webview/protocolMeta";
+import { t } from "../../networkCanvas/webview/theme";
 import {
   formatExposedGlobals,
   serverEndpointSummaryRows,
@@ -363,7 +364,7 @@ suite("Network Canvas", function () {
     assert.strictEqual(runtime.id, "runtime-a");
     assert.ok(runtime.endpoints.some((e) => e.id === "endpoint:runtime-a:mqtt"));
     assert.ok(graph.links.some((l) => l.protocol === "mesh"));
-    assert.ok(graph.external.some((x) => x.id === "external:mesh:0"));
+    assert.ok(graph.external.some((x) => x.id === "external:runtime-a:mesh:0"));
     assert.ok(
       graph.external.some((x) => x.id === "shared:mqtt:broker"),
       "shared MQTT broker nodes must render so publish/subscribe links are not dangling"
@@ -372,6 +373,53 @@ suite("Network Canvas", function () {
     assert.ok(
       graph.faults.some((f) => f.targetNodeId === "endpoint:runtime-a:mqtt"),
       "degraded endpoint surfaces as a fault"
+    );
+  });
+
+  test("degraded and error fleet-link status and detail survive full canvas projection", () => {
+    const topology = fleetTopology();
+    const degradedSource = topology.links.find((link) => link.status === "degraded");
+    assert.ok(degradedSource, "expected a degraded fleet link fixture");
+    degradedSource.detail = "Peer handshake is retrying.";
+
+    topology.links.push({
+      id: "link:mesh:error",
+      from: degradedSource.from,
+      to: degradedSource.to,
+      protocol: degradedSource.protocol,
+      role: degradedSource.role,
+      direction: degradedSource.direction,
+      same_host: degradedSource.same_host,
+      status: "error",
+      secure: degradedSource.secure,
+      detail: "Peer certificate was rejected.",
+    });
+
+    const canvas = buildCanvasGraph(buildNetworkCanvasModel({ topology }), topology);
+    const degraded = canvas.links.find((link) => link.id === degradedSource.id);
+    const error = canvas.links.find((link) => link.id === "link:mesh:error");
+    assert.strictEqual(
+      (degraded as unknown as { detail?: string })?.detail,
+      "Peer handshake is retrying."
+    );
+    assert.strictEqual(
+      (error as unknown as { detail?: string })?.detail,
+      "Peer certificate was rejected."
+    );
+
+    const rendered = buildGraph(canvas);
+    const degradedEdge = rendered.edges.find((edge) => edge.id === degradedSource.id);
+    const errorEdge = rendered.edges.find((edge) => edge.id === "link:mesh:error");
+    assert.deepStrictEqual(
+      {
+        status: degradedEdge?.data?.status,
+        detail: degradedEdge?.data?.detail,
+      },
+      { status: "degraded", detail: "Peer handshake is retrying." }
+    );
+    assert.deepStrictEqual(
+      { status: errorEdge?.data?.status, detail: errorEdge?.data?.detail },
+      { status: "error", detail: "Peer certificate was rejected." }
     );
   });
 
@@ -399,7 +447,7 @@ suite("Network Canvas", function () {
       "the same runtime must not also appear as an external system"
     );
     assert.ok(
-      graph.external.some((external) => external.id === "external:mesh:0"),
+      graph.external.some((external) => external.id === "external:runtime-a:mesh:0"),
       "unrelated external systems stay visible"
     );
   });
@@ -422,7 +470,10 @@ suite("Network Canvas", function () {
     }
     graph.external.forEach((x) => ids.add(x.id));
     for (const link of graph.links) {
-      assert.ok(ids.has(link.from) || ids.has(link.to), `link ${link.id} references known nodes`);
+      assert.ok(
+        ids.has(link.from) && ids.has(link.to),
+        `link ${link.id} references known nodes`
+      );
     }
   });
 
@@ -488,6 +539,42 @@ suite("Network Canvas", function () {
           status: "connected",
           secure: false,
         },
+        {
+          id: "link:degraded",
+          from: "endpoint:ads",
+          to: "external:ads",
+          protocol: "ads",
+          role: "client",
+          status: "degraded",
+          secure: false,
+        },
+        {
+          id: "link:configured",
+          from: "endpoint:ads",
+          to: "external:ads",
+          protocol: "ads",
+          role: "client",
+          status: "configured_policy",
+          secure: false,
+        },
+        {
+          id: "link:error",
+          from: "endpoint:ads",
+          to: "external:ads",
+          protocol: "ads",
+          role: "client",
+          status: "error",
+          secure: false,
+        },
+        {
+          id: "link:future-status",
+          from: "endpoint:ads",
+          to: "external:ads",
+          protocol: "ads",
+          role: "client",
+          status: "future_status",
+          secure: false,
+        },
       ],
       external: [
         { id: "external:openot", name: "openot peer", kind: "server" },
@@ -497,10 +584,22 @@ suite("Network Canvas", function () {
     });
     const draftEdge = graph.edges.find((edge) => edge.id === "link:openot");
     const liveEdge = graph.edges.find((edge) => edge.id === "link:ads");
+    const degradedEdge = graph.edges.find((edge) => edge.id === "link:degraded");
+    const configuredEdge = graph.edges.find((edge) => edge.id === "link:configured");
+    const errorEdge = graph.edges.find((edge) => edge.id === "link:error");
+    const futureStatusEdge = graph.edges.find((edge) => edge.id === "link:future-status");
     assert.ok(draftEdge, "expected the pending openot wire");
     assert.ok(liveEdge, "expected the connected ads wire");
     assert.strictEqual(draftEdge?.data?.dashed, true, "a pending link must render dashed, not as a live connection");
     assert.ok(!liveEdge?.data?.dashed, "a connected link must render solid");
+    assert.strictEqual(configuredEdge?.data?.dashed, true, "configured intent is not a proven live link");
+    assert.ok(!degradedEdge?.data?.dashed, "a proven degraded link stays solid and uses health styling");
+    assert.ok(!errorEdge?.data?.dashed, "a proven failed link stays solid and uses error styling");
+    assert.strictEqual(
+      futureStatusEdge?.data?.dashed,
+      true,
+      "an unrecognized status must fail closed as unproven"
+    );
   });
 
   test("draft/pending mesh peers drop a dashed bus wire; connected peers stay solid", () => {
@@ -541,6 +640,15 @@ suite("Network Canvas", function () {
                   health: "connected",
                   detail: "",
                 },
+                {
+                  id: "endpoint:mesh-future",
+                  kind: "field",
+                  protocol: "mesh",
+                  name: "Mesh (future status)",
+                  role: "peer",
+                  health: "future_status",
+                  detail: "",
+                },
               ],
             },
           ],
@@ -552,16 +660,118 @@ suite("Network Canvas", function () {
     });
     const draftMesh = graph.edges.find((edge) => edge.id === "mesh-endpoint:mesh-draft");
     const liveMesh = graph.edges.find((edge) => edge.id === "mesh-endpoint:mesh-live");
+    const futureMesh = graph.edges.find((edge) => edge.id === "mesh-endpoint:mesh-future");
     const meshBus = graph.nodes.find((node) => node.id === "bus:mesh");
     assert.ok(draftMesh, "expected a bus wire for the draft mesh peer");
     assert.ok(liveMesh, "expected a bus wire for the live mesh peer");
     assert.strictEqual(draftMesh?.data?.dashed, true, "a pending mesh peer must render dashed");
     assert.strictEqual(liveMesh?.data?.dashed, true, "a mixed draft/live fabric stays dashed until all peers are live");
+    assert.strictEqual(futureMesh?.data?.dashed, true, "an unrecognized mesh status must fail closed as unproven");
     assert.strictEqual(meshBus?.data?.draft, true, "mesh fabric must visibly carry the DRAFT state");
     assert.strictEqual(meshBus?.data?.showLabel, true, "a multi-peer mesh fabric needs its shared-bus label");
     assert.notStrictEqual(meshBus?.data?.color, "rgb(137,209,133)", "draft fabric must not use the live green");
     assert.strictEqual(draftMesh?.data?.color, meshBus?.data?.color, "draft mesh wires must use the same muted draft role as the bus");
     assert.strictEqual(liveMesh?.data?.color, meshBus?.data?.color, "mixed mesh fabric wires stay muted while any peer is draft");
+  });
+
+  test("an all-proven degraded/error mesh renders solid", () => {
+    const graph = buildGraph({
+      kind: "graph",
+      title: "Devices & Connections",
+      summary: "",
+      hosts: [
+        {
+          id: "host:local",
+          hostname: "this computer",
+          label: "local host",
+          health: "connected",
+          containers: [],
+          runtimes: [
+            {
+              id: "runtime:local",
+              name: "truST runtime",
+              mode: "simulate",
+              health: "connected",
+              detail: "",
+              endpoints: [
+                {
+                  id: "endpoint:mesh-degraded",
+                  kind: "field",
+                  protocol: "mesh",
+                  name: "Mesh (degraded)",
+                  role: "peer",
+                  health: "degraded",
+                  detail: "Mesh peer latency is elevated.",
+                },
+                {
+                  id: "endpoint:mesh-error",
+                  kind: "field",
+                  protocol: "mesh",
+                  name: "Mesh (error)",
+                  role: "peer",
+                  health: "error",
+                  detail: "Mesh peer authentication failed.",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      links: [],
+      external: [],
+      faults: [],
+    });
+
+    const degradedMesh = graph.edges.find((edge) => edge.id === "mesh-endpoint:mesh-degraded");
+    const errorMesh = graph.edges.find((edge) => edge.id === "mesh-endpoint:mesh-error");
+    const meshBus = graph.nodes.find((node) => node.id === "bus:mesh");
+    assert.strictEqual(degradedMesh?.data?.dashed, false);
+    assert.strictEqual(errorMesh?.data?.dashed, false);
+    assert.deepStrictEqual(
+      {
+        color: degradedMesh?.data?.color,
+        status: degradedMesh?.data?.status,
+        detail: degradedMesh?.data?.detail,
+      },
+      {
+        color: t.warn,
+        status: "degraded",
+        detail: "Mesh peer latency is elevated.",
+      }
+    );
+    assert.deepStrictEqual(
+      {
+        color: errorMesh?.data?.color,
+        status: errorMesh?.data?.status,
+        detail: errorMesh?.data?.detail,
+      },
+      {
+        color: t.danger,
+        status: "error",
+        detail: "Mesh peer authentication failed.",
+      }
+    );
+    assert.strictEqual(meshBus?.data?.draft, false);
+  });
+
+  test("production-shaped mesh links retain each configured peer status and detail on the shared fabric", () => {
+    const canvas = buildCanvasGraph(buildNetworkCanvasModel({ topology: fleetTopology() }), fleetTopology());
+    const rendered = buildGraph(canvas);
+    const peer = rendered.edges.find((edge) => edge.id === "link:mesh:peer");
+
+    assert.ok(peer, "the runtime's configured mesh target must remain wired to the shared fabric");
+    assert.deepStrictEqual(
+      {
+        dashed: peer?.data?.dashed,
+        status: peer?.data?.status,
+        detail: peer?.data?.detail,
+      },
+      {
+        dashed: false,
+        status: "degraded",
+        detail: "tcp/192.168.77.11:7447",
+      }
+    );
   });
 
   test("single-peer mesh fabric suppresses redundant bus label", () => {
@@ -968,11 +1178,12 @@ suite("Network Canvas", function () {
           secure: false,
         },
       ],
-      external: [{ id: "external:ads:server", name: "TwinCAT 5.23.91.12.1.1", kind: "server" }],
+      external: [{ id: "external:ads:server", name: "ads server", kind: "server" }],
       faults: [],
     });
     const external = graph.nodes.find((node) => node.id === "external:ads:server");
     assert.ok(external, "expected external ADS server node");
+    assert.strictEqual(external?.data.label, "ADS server");
     assert.strictEqual(external?.data.sub, "ADS server");
     assert.notStrictEqual(external?.data.sub, "ADS client server");
   });
@@ -1005,7 +1216,7 @@ suite("Network Canvas", function () {
     assert.strictEqual(report.hiddenErrorCount, 0);
     assert.strictEqual(
       filtered.summary,
-      "1 host · 1 runtime · 1 endpoint",
+      "1 host · 1 runtime · 2 endpoints",
       "footer summary follows visible endpoint nodes after filtering"
     );
   });
@@ -1019,7 +1230,18 @@ suite("Network Canvas", function () {
       cycle_ms: 10,
       health: "connected",
       detail: "",
-      endpoints: [],
+      endpoints: [
+        {
+          id: `endpoint:${id}:service`,
+          kind: "service",
+          protocol: "opcua_client",
+          name: `${id} service`,
+          health: "connected",
+          detail: "Ready.",
+          owned: true,
+          supports_test: false,
+        },
+      ],
     });
     const host = (id: string, runtimes: ReturnType<typeof rt>[], containers: unknown[] = []) => ({
       host_id: id,
@@ -1030,12 +1252,12 @@ suite("Network Canvas", function () {
       containers: containers as never[],
       runtimes,
     });
-    const link = (id: string) => ({
+    const link = (id: string, runtimeId: string, externalId: string) => ({
       id,
-      from: `${id}a`,
-      to: `${id}b`,
-      protocol: "mesh",
-      role: "peer",
+      from: `endpoint:${runtimeId}:service`,
+      to: externalId,
+      protocol: "opcua_client",
+      role: "client",
       direction: "out",
       same_host: false,
       status: "ok",
@@ -1044,14 +1266,14 @@ suite("Network Canvas", function () {
     const a: FleetTopologyResponse = {
       schema_version: 3,
       hosts: [host("H", [rt("A")])],
-      links: [link("L1")],
+      links: [link("L1", "A", "E1")],
       shared: [{ id: "S1", kind: "broker", name: "b", address: "x", used_by: ["A"] }],
       external: [{ id: "E1", name: "e1", kind: "peer", via_protocol: ["mesh"], direction: "out" }],
     };
     const b: FleetTopologyResponse = {
       schema_version: 2,
       hosts: [host("H", [rt("B")]), host("H2", [rt("C")])],
-      links: [link("L1"), link("L2")],
+      links: [link("L2", "B", "E2")],
       shared: [{ id: "S1", kind: "broker", name: "b", address: "x", used_by: ["B"] }],
       external: [
         { id: "E1", name: "e1", kind: "peer", via_protocol: ["mesh"], direction: "out" },
@@ -1064,12 +1286,12 @@ suite("Network Canvas", function () {
     assert.strictEqual(merged.hosts.length, 2, "host H appears once + H2");
     const h = merged.hosts.find((host) => host.host_id === "H");
     assert.strictEqual(h?.runtimes.length, 2, "H unions runtimes A + B");
-    assert.strictEqual(merged.links.length, 2, "L1 deduped, L1 + L2 kept");
+    assert.strictEqual(merged.links.length, 2, "both uniquely owned links are kept");
     assert.strictEqual(merged.external.length, 2, "E1 deduped, E1 + E2 kept");
     assert.deepStrictEqual(
-      merged.shared.find((s) => s.id === "S1")?.used_by.slice().sort(),
-      ["A", "B"],
-      "shared.used_by is unioned"
+      new Set(merged.shared.find((s) => s.id === "S1")?.used_by ?? []),
+      new Set(h?.runtimes.map((runtime) => runtime.runtime_id) ?? []),
+      "shared.used_by is rewritten to and unioned by normalized runtime identity"
     );
   });
 
@@ -1121,9 +1343,14 @@ suite("Network Canvas", function () {
 
     const endpoints = merged.hosts[0]?.runtimes[0]?.endpoints ?? [];
     assert.deepStrictEqual(
-      endpoints.map((endpoint) => endpoint.id).sort(),
-      ["endpoint:RESOURCE:ads", "endpoint:RESOURCE:simulated"],
+      endpoints.map((endpoint) => endpoint.protocol).sort(),
+      ["ads", "simulated"],
       "same-runtime live topology keeps configured endpoints waiting for restart"
+    );
+    assert.strictEqual(
+      new Set(endpoints.map((endpoint) => endpoint.id)).size,
+      2,
+      "the retained live and configured endpoints keep distinct display identities"
     );
   });
 
@@ -1552,6 +1779,84 @@ suite("Network Canvas", function () {
     assert.strictEqual(cell2?.health, "connected", "running managed runtime is green");
   });
 
+  test("managed starting runtime is pending with an Updating control", () => {
+    const graph = buildCanvasGraph(
+      buildNetworkCanvasModel("runtime_live"),
+      undefined,
+      undefined,
+      undefined,
+      [{ name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "starting" }]
+    );
+    const runtime = graph.hosts
+      .flatMap((host) => host.runtimes)
+      .find((candidate) => candidate.managedName === "cell1");
+    assert.strictEqual(runtime?.health, "pending");
+    assert.strictEqual(runtime?.lifecycleState, "starting");
+    assert.strictEqual(runtime?.detail, "Starting managed local runtime…");
+
+    const controls = runtimeNodeControls({
+      isLocal: false,
+      managed: runtime?.managed === true,
+      health: String(runtime?.health ?? ""),
+      attached: false,
+    });
+    assert.strictEqual(controls[0].action, "none");
+    assert.strictEqual(controls[0].label, "Updating…");
+    assert.strictEqual(controls[0].enabled, false);
+  });
+
+  test("managed stopping runtime is pending with an Updating control", () => {
+    const graph = buildCanvasGraph(
+      buildNetworkCanvasModel("runtime_live"),
+      undefined,
+      undefined,
+      undefined,
+      [{ name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "stopping" }]
+    );
+    const runtime = graph.hosts
+      .flatMap((host) => host.runtimes)
+      .find((candidate) => candidate.managedName === "cell1");
+    assert.strictEqual(runtime?.health, "pending");
+    assert.strictEqual(runtime?.lifecycleState, "stopping");
+    assert.strictEqual(runtime?.detail, "Stopping managed local runtime…");
+
+    const controls = runtimeNodeControls({
+      isLocal: false,
+      managed: runtime?.managed === true,
+      health: String(runtime?.health ?? ""),
+      attached: false,
+    });
+    assert.strictEqual(controls[0].action, "none");
+    assert.strictEqual(controls[0].label, "Updating…");
+    assert.strictEqual(controls[0].enabled, false);
+  });
+
+  test("managed unavailable runtime fails closed with Start disabled", () => {
+    const graph = buildCanvasGraph(
+      buildNetworkCanvasModel("runtime_live"),
+      undefined,
+      undefined,
+      undefined,
+      [{ name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "unavailable" }]
+    );
+    const runtime = graph.hosts
+      .flatMap((host) => host.runtimes)
+      .find((candidate) => candidate.managedName === "cell1");
+    assert.strictEqual(runtime?.health, "error");
+    assert.strictEqual(runtime?.lifecycleState, "unavailable");
+    assert.strictEqual(runtime?.detail, "Status unavailable — refresh before starting.");
+
+    const controls = runtimeNodeControls({
+      isLocal: false,
+      managed: runtime?.managed === true,
+      health: String(runtime?.health ?? ""),
+      attached: false,
+    });
+    assert.strictEqual(controls[0].action, "managedStart");
+    assert.strictEqual(controls[0].label, "Start");
+    assert.strictEqual(controls[0].enabled, false);
+  });
+
   test("selected run target is projected onto the graph node and rendered node data", () => {
     const graph = buildCanvasGraph(
       buildNetworkCanvasModel("runtime_live"),
@@ -1635,6 +1940,72 @@ suite("Network Canvas", function () {
     });
     assert.strictEqual(controls[0].action, "managedStop");
     assert.ok(controls.some((c) => c.action === "openRuntimeLogs"), "owned node offers Logs");
+  });
+
+  test("managed status overrides stale health on an existing fleet topology node", () => {
+    const expected = [
+      ["running", "connected", "Running (managed local runtime).", "managedStop", true],
+      ["stopped", "stopped", "Stopped — Start it from this node.", "managedStart", true],
+      ["starting", "pending", "Starting managed local runtime…", "none", false],
+      ["stopping", "pending", "Stopping managed local runtime…", "none", false],
+      [
+        "unavailable",
+        "error",
+        "Status unavailable — refresh before starting.",
+        "managedStart",
+        false,
+      ],
+    ] as const;
+
+    for (const [state, health, detail, action, enabled] of expected) {
+      const topology: FleetTopologyResponse = {
+        schema_version: 3,
+        hosts: [
+          {
+            host_id: "fleet:peer",
+            hostname: "peer",
+            arch: "",
+            os: "",
+            ips: [],
+            containers: [],
+            runtimes: [
+              {
+                runtime_id: "fleet:peer:rt",
+                name: "cell1",
+                control_endpoint: "tcp://127.0.0.1:9902",
+                mode: "online",
+                cycle_ms: 0,
+                health: "connected",
+                detail: "Stale topology health.",
+                endpoints: [],
+              },
+            ],
+          },
+        ],
+        links: [],
+        shared: [],
+        external: [],
+      };
+      const graph = buildCanvasGraph(
+        buildNetworkCanvasModel("runtime_live"),
+        undefined,
+        topology,
+        undefined,
+        [{ name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state }]
+      );
+      const runtime = graph.hosts.flatMap((host) => host.runtimes).find((item) => item.name === "cell1");
+      assert.strictEqual(runtime?.health, health, `${state} health must come from managed status`);
+      assert.strictEqual(runtime?.lifecycleState, state, `${state} lifecycle label must remain authoritative`);
+      assert.strictEqual(runtime?.detail, detail, `${state} detail must come from managed status`);
+      const controls = runtimeNodeControls({
+        isLocal: false,
+        managed: runtime?.managed === true,
+        health: String(runtime?.health ?? ""),
+        attached: false,
+      });
+      assert.strictEqual(controls[0].action, action, `${state} must expose the correct primary action`);
+      assert.strictEqual(controls[0].enabled, enabled, `${state} must use authoritative action availability`);
+    }
   });
 
   test("live managed topology preserves the stopped project runtime instead of morphing the canvas", () => {
@@ -1937,6 +2308,17 @@ function fleetTopology(): FleetTopologyResponse {
                 owned: true,
                 supports_test: true,
               },
+              {
+                id: "endpoint:runtime-a:mesh",
+                kind: "peer",
+                protocol: "mesh",
+                name: "Mesh / Zenoh",
+                role: "peer",
+                health: "degraded",
+                detail: "One configured peer.",
+                owned: true,
+                supports_test: false,
+              },
             ],
           },
         ],
@@ -1956,8 +2338,9 @@ function fleetTopology(): FleetTopologyResponse {
         detail: "MQTT broker referenced by io.toml",
       },
       {
-        from: "endpoint:runtime-a:mqtt",
-        to: "external:mesh:0",
+        id: "link:mesh:peer",
+        from: "endpoint:runtime-a:mesh",
+        to: "external:runtime-a:mesh:0",
         protocol: "mesh",
         direction: "outbound",
         same_host: false,
@@ -1977,7 +2360,7 @@ function fleetTopology(): FleetTopologyResponse {
     ],
     external: [
       {
-        id: "external:mesh:0",
+        id: "external:runtime-a:mesh:0",
         kind: "peer",
         name: "tcp/192.168.77.11:7447",
         via_protocol: ["mesh"],

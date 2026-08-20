@@ -7,6 +7,7 @@ mod const_utils;
 mod precollect;
 mod types;
 mod validation;
+mod variable_initializers;
 mod variables;
 
 pub(super) struct SymbolCollector<'a> {
@@ -50,6 +51,7 @@ impl<'a> SymbolCollector<'a> {
         self.phase_collect_symbols(root);
         self.phase_access_and_config(root);
         self.phase_resolve_types();
+        self.check_variable_initializer_constant_expressions(root);
         self.phase_global_links(root);
         self.phase_var_validation(root);
         self.phase_constants();
@@ -89,6 +91,7 @@ impl<'a> SymbolCollector<'a> {
     ) -> (SymbolTable, Vec<Diagnostic>) {
         let mut collector = Self::build(None);
         collector.table = table;
+        collector.check_variable_initializer_constant_expressions(root);
         collector.phase_access_and_config(root);
         collector.phase_var_validation_with_config_roots(root, project_roots);
         (collector.table, collector.diagnostics.finish())
@@ -126,6 +129,11 @@ impl<'a> SymbolCollector<'a> {
         config_roots: &[SyntaxNode],
     ) {
         self.check_var_block_modifiers(root);
+        self.check_edge_declarations(root);
+        self.check_source_generic_types(root);
+        self.check_member_access_declarations(root);
+        self.check_overlap_variable_initializers(root);
+        self.check_by_value_type_cycles();
         self.check_at_bindings(config_roots);
     }
 

@@ -7,6 +7,21 @@ fn lower_program_node(
     let using = collect_using_directives(program_node);
     let mut ctx = inputs.context(registry, using);
     let vars = lower_program_var_blocks(program_node, &mut ctx)?;
+    let mut globals = vars.globals;
+    let mut access = Vec::new();
+    for block in program_node
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::VarAccessBlock)
+    {
+        let lowered = super::config::lower_var_access_block(&block, &mut ctx)?;
+        globals.extend(lowered.globals);
+        for mut declaration in lowered.access {
+            if let AccessPath::Parts(parts) = &mut declaration.path {
+                parts.insert(0, AccessPart::Name(name.clone()));
+            }
+            access.push(declaration);
+        }
+    }
     let body = lower_stmt_list(program_node, &mut ctx)?;
     Ok(LoweredProgram {
         program: ProgramDef {
@@ -16,7 +31,8 @@ fn lower_program_node(
             using: ctx.using.clone(),
             body,
         },
-        globals: vars.globals,
+        globals,
+        access,
     })
 }
 
@@ -25,6 +41,7 @@ fn lower_function_block_node(
     ctx: &mut LoweringContext<'_>,
 ) -> Result<FunctionBlockDef, CompileError> {
     let name = qualified_pou_name(node)?;
+    let interfaces = lower_implemented_interfaces(node, ctx)?;
     let mut base = None;
     if let Some(extends_clause) = node
         .children()
@@ -73,6 +90,7 @@ fn lower_function_block_node(
     Ok(FunctionBlockDef {
         name,
         base,
+        interfaces,
         params,
         vars,
         temps,
@@ -87,6 +105,7 @@ fn lower_class_node(
     ctx: &mut LoweringContext<'_>,
 ) -> Result<ClassDef, CompileError> {
     let name = qualified_pou_name(node)?;
+    let interfaces = lower_implemented_interfaces(node, ctx)?;
     let mut base = None;
     if let Some(extends_clause) = node
         .children()
@@ -119,16 +138,44 @@ fn lower_class_node(
     Ok(ClassDef {
         name,
         base,
+        interfaces,
         vars,
         using: ctx.using.clone(),
         methods,
     })
 }
 
+fn lower_implemented_interfaces(
+    node: &SyntaxNode,
+    ctx: &LoweringContext<'_>,
+) -> Result<Vec<SmolStr>, CompileError> {
+    let Some(clause) = node
+        .children()
+        .find(|child| child.kind() == SyntaxKind::ImplementsClause)
+    else {
+        return Ok(Vec::new());
+    };
+    clause
+        .children()
+        .filter(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName))
+        .map(|name| resolve_named_type(ctx.registry, &node_text(&name), &ctx.using))
+        .collect()
+}
+
 fn lower_interface_node(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<InterfaceDef, CompileError> {
+    if node.children().any(|child| {
+        matches!(
+            child.kind(),
+            SyntaxKind::VarBlock | SyntaxKind::VarAccessBlock | SyntaxKind::VarConfigBlock
+        )
+    }) {
+        return Err(CompileError::new(
+            "direct variable sections are not supported in INTERFACE",
+        ));
+    }
     let name = qualified_pou_name(node)?;
     let mut base = None;
     if let Some(extends_clause) = node

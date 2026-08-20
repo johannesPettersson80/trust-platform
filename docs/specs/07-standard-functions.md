@@ -2,7 +2,8 @@
 
 IEC 61131-3 Edition 3.0 (2013) - Section 6.6.2.5
 
-This specification defines standard functions for trust-hir.
+This specification defines standard-function signatures for trust-hir and the
+bounded runtime results explicitly written below.
 
 ## 1. Overview
 
@@ -24,7 +25,7 @@ Standard functions are predefined functions available in all IEC 61131-3 impleme
 | `IS_VALID`, `IS_VALID_BCD` | Validate | fixed arity | Table 39 | Implemented |
 | `REF` | Reference | fixed arity | Table 12 | Implemented |
 | `LOWER_BOUND`, `UPPER_BOUND` | Array bound | fixed arity | IEC extension set | Implemented |
-| `ASSERT_*` | Test assertions | fixed arity | non-IEC | Extension; see `docs/IEC_DEVIATIONS.md` DEV-019 |
+| `ASSERT_*` | Test assertions | fixed arity | non-IEC | truST test-workflow extension |
 
 ### Function Characteristics
 
@@ -82,12 +83,23 @@ When STRING/WSTRING is an input or output, the string shall conform to the exter
 | `REAL_TO_LREAL` | Widening |
 | `LREAL_TO_REAL` | Narrowing and precision loss; a finite source that overflows basic-single range returns `RuntimeError::Overflow` |
 
-For every explicit conversion whose target is `REAL` or `LREAL`, truST returns
-`RuntimeError::Overflow` if the result would be NaN or either infinity. This
-includes string parsing, `LREAL_TO_REAL` narrowing, and the IEC Table 25 binary
-transfers `DWORD_TO_REAL` and `LWORD_TO_LREAL`. Finite binary transfers retain
-their exact bit-defined value. The rejection policy is implementer-specific
-under IEC 61131-3 section 6.6.2.5.2 and Table 23; see DEV-053.
+For an explicit numeric or binary-transfer conversion whose target is `REAL`
+or `LREAL`, truST returns `RuntimeError::Overflow` if the computed result would
+be NaN or either infinity. This includes `LREAL_TO_REAL` narrowing and the IEC
+Table 25 binary transfers `DWORD_TO_REAL` and `LWORD_TO_LREAL`. Finite binary
+transfers retain their exact bit-defined value. Text parsing rejects the
+non-finite spellings specified in section 2.7, but that rejection does not
+promise an exact runtime-error variant. The rejection policy is
+implementer-specific under IEC 61131-3 section 6.6.2.5.2 and Table 23; see
+`docs/IEC_DECISIONS.md#2026-07-22---non-finite-real-result-and-explicit-conversion-policy`.
+
+For conversion into `SINT`, `INT`, `DINT`, or `LINT`, a representable integer
+value is preserved exactly. A value outside the destination's IEC Table 10
+range returns `RuntimeError::Overflow`; truST does not wrap, saturate,
+truncate, or substitute an integer. This is the reviewed implementer-specific
+conversion fault policy specified by
+`docs/specs/10-runtime-semantics.md#6-8-signed-integer-result-materialization`;
+it is not an IEC deviation.
 
 ### 2.2 Bit Data Type Conversions (Table 24)
 
@@ -123,7 +135,7 @@ Binary transfer between bit strings and numeric types as listed in Table 25:
 
 Implementer extension note:
 - truST additionally provides `TIME_TO_DWORD` and `DWORD_TO_TIME` as
-  non-IEC conversion helpers; see `docs/IEC_DEVIATIONS.md` (DEV-021).
+  documented non-IEC conversion helpers.
 - These extensions use milliseconds:
   `TIME_TO_DWORD(T#123ms) = DWORD#123`,
   `DWORD_TO_TIME(DWORD#123) = T#123ms`.
@@ -143,8 +155,7 @@ Implementer extension note:
 
 Implementer extension note:
 - truST also accepts direct character-to-bitstring conversions such as
-  `CHAR_TO_BYTE` and `WCHAR_TO_WORD`; see `docs/IEC_DEVIATIONS.md`
-  (DEV-021).
+  `CHAR_TO_BYTE` and `WCHAR_TO_WORD` as documented vendor extensions.
 - Other conversions involving STRING/WSTRING (for example, numeric to string)
   remain implementer-specific. When provided, they shall follow the external
   literal representation rules in 6.3.3.
@@ -163,6 +174,69 @@ Implementer extension note:
 BCDValue := 16#0042;
 UIntValue := BCD_TO_UINT(BCDValue);  // UIntValue = 42
 ```
+
+### 2.7 Runtime Text-Conversion Representatives
+
+IEC 61131-3 Ed.3 section 6.6.2.5.2 requires conversions involving
+`STRING`/`WSTRING` to use the external representation of the source or
+destination type, while conversion-error handling remains
+implementer-specific. The bounded truST runtime contract contains these exact
+representatives:
+
+| Call | Result |
+|------|--------|
+| `DINT_TO_STRING(DINT#42)` | `STRING#'42'` |
+| `REAL_TO_STRING(REAL#1.25)` | `STRING#'1.25'` |
+| `DWORD_TO_STRING(DWORD#42)` | `STRING#'42'` |
+| `STRING_TO_DINT(STRING#'42')` | `DINT#42` |
+
+These representatives do not define canonical output spelling for every
+numeric or bit-string value. `STRING_TO_REAL('NaN')` and
+`STRING_TO_LREAL('inf')` reject without producing a runtime `REAL`/`LREAL`
+value. This specification intentionally does not freeze the runtime-error
+variant used for those two text-rejection cases.
+
+### 2.8 Runtime Conversion Dispatch and Boundary Contract
+
+The following requirements bind runtime execution of IEC 61131-3 Tables
+22-27 and the truST conversion extensions documented above:
+
+- Conversion names are ASCII case-insensitive. `SRC_TO_DST` and
+  `SRC_TRUNC_DST` validate the named source family before conversion;
+  `TO_DST`, `TRUNC_DST`, and `TRUNC` infer the source from the runtime value.
+  Every conversion requires exactly one argument.
+- Ordinary real-to-integer conversions round to nearest with ties to even.
+  `TRUNC`, `TRUNC_DST`, and `SRC_TRUNC_DST` truncate toward zero. Non-finite
+  inputs and results outside the complete destination range raise
+  `RuntimeError::Overflow`; this includes the `ULINT` upper boundary.
+- Integer narrowing and signed-to-unsigned conversion are checked numeric
+  conversions. Bit-string transfers are different: widening zero-extends and
+  narrowing preserves the rightmost destination-width bits. Bit-string to a
+  signed integer sign-extends from the destination width.
+- `REAL_TO_DWORD`, `DWORD_TO_REAL`, `LREAL_TO_LWORD`, and
+  `LWORD_TO_LREAL` are exact binary transfers for finite values. A transferred
+  NaN or infinity is rejected as `RuntimeError::Overflow`.
+- Text-to-integer conversion trims surrounding whitespace, accepts embedded
+  `_` separators, and accepts `base#digits` for bases 2 through 36 with an
+  optional sign on `digits`. An empty value, invalid digit, or base outside
+  2 through 36 raises `RuntimeError::TypeMismatch`; malformed input never
+  panics.
+- Text-to-real conversion accepts finite Rust/IEC-compatible decimal and
+  exponent text after whitespace and `_` normalization. NaN, infinity, and a
+  finite decimal whose destination result becomes non-finite raise
+  `RuntimeError::Overflow`.
+- Numeric and bit-string text output is decimal. Integral finite real output
+  retains a `.0` suffix. Character conversion requires exactly one Unicode
+  scalar for text input and checks the target `CHAR`/`WCHAR` code range.
+- BCD encoding accepts unsigned integers only and fails with
+  `RuntimeError::Overflow` when the decimal digits do not fit the destination
+  bit string. BCD decoding rejects every nibble above nine with
+  `RuntimeError::TypeMismatch` and checks the unsigned destination range.
+- Short `DT` extraction uses Euclidean day division at the one-millisecond
+  default profile, so instants before the epoch produce the preceding `DATE`
+  and a non-negative `TOD`. Long-to-short conversion floors sub-millisecond
+  instants consistently. `TIME_TO_DWORD` counts whole milliseconds and rejects
+  negative or greater-than-`u32::MAX` values.
 
 ## 3. Numerical Functions (Table 28)
 
@@ -208,12 +282,45 @@ Angle := ATAN2(DY, DX);   // Four-quadrant arctangent
 
 **Note**: ADD and MUL are extensible (can take more than 2 inputs).
 
+The `EXPT` standard-function signature remains the IEC `ANY_REAL`-base
+contract shown above. The reviewed `INT#2 ** INT#3` host-evaluator extension
+is separate and is recorded in
+[`IEC_DEVIATIONS.md`](../IEC_DEVIATIONS.md#2026-07-27---integer-base-exponentiation);
+it does not widen the standard-function signature.
+
 For finite `REAL` operands, `EXP` and `EXPT` return a value only when the
 result remains finite at IEC basic single width. A result outside that finite
 range raises `RuntimeError::Overflow` before assignment storage and leaves the
 target unchanged. The runtime does not clamp or store infinity or NaN. `LREAL`
 and other exceptional numerical-function behavior remain outside this rule;
-see `docs/specs/10-runtime-semantics.md` and DEV-043.
+see `docs/specs/10-runtime-semantics.md` and
+`docs/IEC_DECISIONS.md#2026-07-22---non-finite-real-result-and-explicit-conversion-policy`.
+
+### 3.1 Runtime Numerical Conformance Contract
+
+The following requirements bind the runtime implementation of IEC
+61131-3 Tables 28 and 29:
+
+- `ABS` preserves the operand's elementary numeric type. Unsigned values are
+  returned unchanged. The most-negative value of each signed integer type
+  raises `RuntimeError::Overflow`; it is never wrapped.
+- The named real functions accept `REAL` or `LREAL`. A `REAL` input produces a
+  `REAL` result and an `LREAL` input produces an `LREAL` result. A domain error
+  or non-finite result raises `RuntimeError::Overflow`.
+- `ATAN2(Y, X)` accepts matching real widths and the mixed
+  `REAL`/`LREAL` pairs. Either mixed pair produces `LREAL`.
+- Extensible `ADD` and `MUL` require at least two inputs and evaluate from left
+  to right. `SUB`, `DIV`, `MOD`, and `EXPT` require exactly two inputs, while
+  `MOVE` requires exactly one.
+- Date/time participation makes `ADD` a two-input operation. Duration
+  multiplication accepts the duration on either side of the scale factor;
+  duration division requires the duration on the left. These operations
+  preserve `TIME` versus `LTIME`.
+- Arithmetic errors, including division by zero and an unrepresentable
+  intermediate or result, are returned as runtime errors. No later variadic
+  input is evaluated after an earlier fold step fails.
+- `MOVE` returns an equal clone of its input value without numeric widening or
+  other conversion.
 
 ## 4. Bit Shift Functions (Table 30)
 
@@ -241,6 +348,23 @@ Z := ROL(X, 2);    // Z = 2#0000_0011 (bits rotated)
 | `NOT` | Bitwise NOT | `NOT(IN: ANY_BIT) : ANY_BIT` |
 
 **Note**: AND, OR, XOR are extensible.
+
+At runtime, shift and rotate functions preserve the input bit-string type and
+width. Bitwise Boolean functions return the common participating bit-string
+width; a narrower input is zero-extended to that width. The reviewed mixed
+representative is
+`OR(BYTE#16#0F, WORD#16#00F0) = WORD#16#00FF`.
+
+Shift counts are non-negative integers. For `SHL` and `SHR`, a count greater
+than or equal to the operand width produces zero at that same width. For `ROL`
+and `ROR`, the count is reduced modulo the operand width; zero and exact
+multiples of the width are identity operations for every bit-string width,
+including `LWORD`. A negative count raises `RuntimeError::TypeMismatch`.
+
+Extensible `AND`, `OR`, and `XOR` require at least two inputs. Their result
+width is the widest participating bit-string width, narrower values are
+zero-extended, and the final result is masked to that width. `NOT` requires one
+input, flips only the bits inside its declared width, and preserves that width.
 
 ```
 // Examples
@@ -275,6 +399,27 @@ Output := LIMIT(0, Input, 100);  // 0 <= Output <= 100
 Selected := MUX(Index, Value0, Value1, Value2, Value3);
 ```
 
+The runtime returns the selected input with its runtime value identity intact,
+including an enumerated value selected by `SEL`. Named invocation binds the
+documented formal names; the reviewed executed-ST representative
+`SEL(G := TRUE, IN0 := INT#4, IN1 := INT#7)` returns `INT#7`.
+
+### 6.1 Runtime Selection Conformance Contract
+
+- `SEL` requires a `BOOL` selector and exactly two data inputs. `FALSE` selects
+  `IN0`; `TRUE` selects `IN1`.
+- `MIN` and `MAX` require at least two inputs and compare every input after
+  resolving one common elementary runtime type.
+- `LIMIT` first resolves `MN`, `IN`, and `MX` to one common type, then returns
+  `MN` when `IN < MN`, `MX` when `IN > MX`, and `IN` otherwise.
+- `MUX` interprets `K` as a zero-based input number. A negative or out-of-range
+  selector raises `RuntimeError::IndexOutOfBounds`. All candidate inputs must
+  belong to one valid common type even when the selected candidate itself
+  would otherwise be usable.
+- Common numeric widening is applied before returning a selection result.
+  Incompatible signed/unsigned, narrow/wide string, time-family, or enum-family
+  inputs raise `RuntimeError::TypeMismatch`.
+
 ## 7. Comparison Functions (Table 33)
 
 | Function | Description | Signature |
@@ -287,6 +432,20 @@ Selected := MUX(Index, Value0, Value1, Value2, Value3);
 | `NE` | Not equal | `NE(IN1, IN2: ANY_ELEMENTARY) : BOOL` |
 
 **Note**: For GT, GE, EQ, LE, LT with multiple inputs, checks if sequence is monotonic. `NE` is not extensible.
+
+For values of the same enumerated type, runtime `EQ` and `NE` compare the
+enumerated value identity. The reviewed representatives are `EQ(RED, RED) =
+TRUE` and `NE(RED, GREEN) = TRUE`.
+
+The runtime comparison contract for IEC 61131-3 Table 33 is pairwise and
+adjacent: `GT(A, B, C)` means `(A > B) AND (B > C)`, with equivalent chaining
+for `GE`, `EQ`, `LE`, and `LT`. Those functions require at least two inputs;
+`NE` requires exactly two. Before comparison, all inputs resolve to one common
+elementary runtime type. Numeric widths may widen where the conversion is
+lossless under the normal numeric policy, while bit strings widen by
+zero-extension. Strings, time values, and enumerations compare only within
+their compatible family; incompatible families raise
+`RuntimeError::TypeMismatch`.
 
 ```
 // Examples
@@ -329,6 +488,34 @@ Pos := FIND('ABCABC', 'BC');           // 2 (first occurrence)
 **Position Notes**:
 - Position 1 is the first character
 - FIND returns 0 if not found
+- Runtime positions and lengths count Unicode scalar values, not UTF-8 bytes.
+  Thus `LEN('ÄBC') = 3`, `LEFT('ÄBC', 1) = 'Ä'`, and
+  `FIND('ÄBC', 'B') = 2`. The same element-count rule applies to the reviewed
+  `WSTRING` length.
+
+### 8.1 Runtime String Boundary Contract
+
+- Every result preserves the input family: `STRING` operations return
+  `STRING`, and `WSTRING` operations return `WSTRING`. Binary and variadic
+  operations reject mixed narrow/wide inputs.
+- `LEFT` and `RIGHT` return the empty string for a non-positive length and the
+  whole string when the requested length exceeds the element count.
+- `MID`, `DELETE`, and `REPLACE` use one-based positions. Positions below one
+  are clamped to the first element. A start beyond the final element returns
+  the empty string for `MID` and leaves the input unchanged for `DELETE` and
+  `REPLACE`.
+- `INSERT` treats `P` as the number of existing elements before the insertion:
+  zero inserts before the first element, `P = LEN(IN1)` appends, and larger
+  values also append. For example, `INSERT('AC', 'B', 1) = 'ABC'`.
+- `DELETE` with a non-positive length leaves the input unchanged.
+  `REPLACE` with a non-positive length inserts the replacement at its clamped
+  start without deleting an element.
+- `FIND` returns the one-based position of the first match and zero when no
+  match exists. A found position that cannot be represented as `INT` raises
+  `RuntimeError::Overflow`.
+- The internal `__TRUST_LIMIT_STRING(IN, L)` assignment helper truncates by
+  Unicode scalar count, preserves the string family, and rejects a negative or
+  otherwise non-`u32` capacity with `RuntimeError::Overflow`.
 
 ## 9. Date and Time Functions (Tables 35-36)
 
@@ -365,6 +552,67 @@ Pos := FIND('ABCABC', 'BC');           // 2 (first occurrence)
 - Overloaded `ADD`/`SUB` apply only within the TIME/DT/DATE/TOD set or the LTIME/LDT/LDATE/LTOD set.
 - Result range overflow is an error; output ranges are Implementer specific.
 
+IEC 61131-3 Ed.3 section 6.6.2.5.12 and Table 35 define the accepted operand
+and result families and require an error when the result exceeds the
+implementer-specific output range. Within that boundary, truST applies this
+product contract:
+
+- `TIME` and `LTIME` arithmetic preserves the operand width and uses checked
+  signed nanoseconds; a result outside `i64` is `RuntimeError::Overflow`.
+- Short `DATE`, `TOD`, and `DT` values use the active
+  `DateTimeProfile.resolution`. A duration is converted to whole profile ticks
+  by truncating toward zero. Short date/time differences convert their signed
+  tick difference back to a checked `TIME` duration.
+- Long `LDATE`, `LTOD`, and `LDT` values operate directly in signed
+  nanoseconds and produce `LTIME` for same-family subtraction.
+- Adding a duration to `TOD`, `LTOD`, `DT`, or `LDT` does not wrap at a day
+  boundary. It returns the checked signed result in the same value family.
+- `MUL_TIME`, `MUL_LTIME`, `DIV_TIME`, and `DIV_LTIME` accept signed or
+  unsigned integer and `REAL`/`LREAL` factors. Integer division and the final
+  real result truncate toward zero; zero division returns
+  `RuntimeError::DivisionByZero`; a non-numeric factor returns
+  `RuntimeError::TypeMismatch`; a non-finite or out-of-range result returns
+  `RuntimeError::Overflow`.
+- Ordering compares stored ticks or nanoseconds only when both operands have
+  the same runtime date/time family. Cross-family ordering returns
+  `RuntimeError::TypeMismatch`.
+
+### Runtime Clock Sources (`TIME`, `CURRENT_DT`)
+
+`TIME()` is a zero-argument truST product function that returns the supplied
+logical elapsed duration exactly. Supplying any actual argument is a
+compile-time wrong-argument-count error and is also rejected at the runtime
+dispatch boundary.
+
+`CURRENT_DT()` is a zero-argument truST product function. IEC 61131-3 Ed.3
+§6.4.2, Table 10, footnote b permits an implementer-defined `DT` range and
+precision; IEC does not define this host-clock function.
+
+The function has this complete product contract:
+
+- it samples `std::time::SystemTime` once per call and interprets that sample
+  as a UTC Unix timestamp;
+- it returns a timezone-naive `DT` whose epoch is
+  `DT#1970-01-01-00:00:00` and whose fixed resolution is one millisecond;
+- it truncates a positive sub-millisecond remainder toward the preceding
+  millisecond;
+- it accepts Unix timestamps from tick `0` through `i64::MAX` milliseconds,
+  inclusive;
+- a host value before the Unix epoch or above the representable millisecond
+  tick range returns `RuntimeError::Overflow` and produces no `DT` value;
+- local timezone, daylight-saving, and leap-second metadata are neither read
+  nor encoded;
+- the injected runtime/manual clock, scheduler scaling, simulation time, and
+  replay time do not replace or offset the host sample; and
+- samples are not clamped to be monotonic. A host-clock rollback may therefore
+  make a later call return an earlier `DT`.
+
+Deterministic runtime replay does not claim identical results for a program
+that calls `CURRENT_DT()` unless the surrounding environment controls the host
+clock. Programs that require replay-controlled elapsed time use `TIME()`
+instead. `CURRENT_DT` rejects every argument during HIR validation and at the
+runtime dispatch boundary.
+
 ### Date/Time Component Functions
 
 | Function | Description |
@@ -397,6 +645,13 @@ HalfTime := DIV_TIME(BaseTime, 2);
 ```
 
 ## 10. Validate Functions (Table 39)
+
+`IS_VALID` requires exactly one `REAL` or `LREAL` and returns whether it is
+finite. `IS_VALID_BCD` requires exactly one `BYTE`, `WORD`, `DWORD`, or
+`LWORD` and checks every nibble in the declared width; it returns `FALSE` for
+an invalid nibble rather than raising a BCD decoding error. Unsupported value
+families raise `RuntimeError::TypeMismatch`. Validation functions do not
+modify their input.
 
 | Function | Description | Signature |
 |----------|-------------|-----------|
@@ -513,6 +768,44 @@ The trust-hir should include definitions for all standard functions with:
 - Extensibility flag
 - Built-in implementation or intrinsic marker
 
+At runtime, standard-function registration and lookup normalize names to
+ASCII uppercase. Fixed parameter metadata preserves the documented formal
+order. Extensible metadata preserves fixed leading parameters, the uppercase
+variadic prefix, its first numeric suffix, and its minimum count. Conversion
+functions are parsed on demand after registered-function lookup; an unrecognized
+name raises `RuntimeError::UndefinedFunction`.
+
+### Runtime Shared-Helper Contract
+
+The common runtime path used by numerical, bitwise, selection, comparison,
+assertion, and timer functions obeys these rules:
+
+- Exact and minimum arity failures return
+  `RuntimeError::InvalidArgumentCount` with the required count and observed
+  count.
+- Common-type resolution widens compatible numeric and bit-string values,
+  preserves narrow versus wide string families, and requires an identical
+  date/time or enumeration family. Incompatible signed/unsigned or unrelated
+  elementary families return `RuntimeError::TypeMismatch`.
+- Common-value coercion is checked. It cannot silently wrap an out-of-range
+  numeric value. `CHAR` may join `STRING` and `WCHAR` may join `WSTRING` as a
+  one-element string.
+- Common comparison applies the requested relation after coercion. Floating
+  comparison follows finite IEEE ordering; NaN is not equal to itself and
+  satisfies `NE`.
+- Bit extraction and reconstruction preserve the declared widths 1, 8, 16,
+  32, and 64. Masks include exactly the requested low bits, with every width
+  of 64 or greater producing the full `u64` mask.
+- Duration scaling accepts finite numeric factors, uses ties-to-even rounding
+  at nanosecond precision, rejects division by zero, and returns overflow
+  rather than wrapping an unrepresentable result.
+
+The runtime clock dispatcher receives normalized uppercase names. `TIME`
+returns the supplied logical elapsed duration exactly. `CURRENT_DT` follows
+the host-clock contract above. Any other name returns
+`RuntimeError::UndefinedFunction` carrying the original unknown name without
+normalization or substitution.
+
 ## Non-IEC Extensions (MP-014)
 
 The following functions are non-IEC additions for the user-facing ST test framework:
@@ -530,7 +823,36 @@ The following functions are non-IEC additions for the user-facing ST test framew
 | `ASSERT_NEAR` | `ASSERT_NEAR(EXPECTED: ANY_NUM, ACTUAL: ANY_NUM, DELTA: ANY_NUM) : VOID` | Fails test when `ABS(EXPECTED-ACTUAL) > DELTA` |
 
 Compatibility notes:
-- These assertions are extension-only and not part of IEC 61131-3 Tables 22-36
-  or Table 39 (see `docs/IEC_DEVIATIONS.md`, DEV-019).
+- These assertions are truST test-workflow extensions and are not part of IEC
+  61131-3 Tables 22-36 or Table 39.
 - They are intended for `TEST_PROGRAM` / `TEST_FUNCTION_BLOCK` execution paths.
-- Runtime failures include assertion context (`expected` / `actual` and tolerance data for `ASSERT_NEAR`).
+- On success, every `ASSERT_*` runtime call returns `Value::Null`, the runtime
+  representation of the IEC-facing `VOID` result.
+- The reviewed mixed numeric comparisons are lossless `INT`/`DINT` equality
+  and ordering, plus finite `REAL`/`LREAL` comparison for `ASSERT_NEAR`. Other
+  mixed elementary-type pairs are not authorized by these representatives.
+- A condition failure returns `RuntimeError::AssertionFailed`; it does not
+  return a normal value.
+- Failure messages use user-facing value text rather than internal `Value`
+  debug forms. For the reviewed value families, integers use decimal text,
+  integral `REAL` values retain `.0`, Boolean values use `TRUE`/`FALSE`, and
+  `CHAR` values use single quotes.
+- The stable message forms for the reviewed relational assertions are:
+  - `ASSERT_EQUAL failed: expected {expected}, actual {actual}`
+  - `ASSERT_NOT_EQUAL failed: values should differ, left {left}, right {right}`
+  - `ASSERT_GREATER failed: value {value} is not greater than bound {bound}`
+  - `ASSERT_LESS failed: value {value} is not less than bound {bound}`
+  - `ASSERT_GREATER_OR_EQUAL failed: value {value} is not >= bound {bound}`
+  - `ASSERT_LESS_OR_EQUAL failed: value {value} is not <= bound {bound}`
+- An `ASSERT_NEAR` failure message identifies `ASSERT_NEAR` and includes its
+  `delta` context. No exact full-string format is promised for that message.
+
+Assertion calls enforce their documented arity and reject unsupported operand
+families with `RuntimeError::TypeMismatch`. `ASSERT_TRUE` and `ASSERT_FALSE`
+accept only `BOOL`. `ASSERT_NEAR` accepts finite numeric values, succeeds when
+`ABS(EXPECTED - ACTUAL) <= DELTA`, rejects a negative `DELTA` as
+`RuntimeError::AssertionFailed`, and rejects non-finite inputs as
+`RuntimeError::Overflow`. The inclusive boundary permits only the machine
+rounding tolerance introduced by converting the three finite operands to the
+runtime comparison width. A successful assertion always returns `Value::Null`;
+failed assertions never return a normal value.

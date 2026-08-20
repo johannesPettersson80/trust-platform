@@ -2,10 +2,10 @@ use std::net::IpAddr;
 
 use trust_ads_core::AdsRoute;
 
-use super::parse_ams_net_id;
+use super::parse_local_ams_net_id;
 use crate::ads::transport::AdsTransportError;
 
-const DEFAULT_SOURCE_PORT: u16 = 58_913;
+pub(super) const DEFAULT_SOURCE_PORT: u16 = 58_913;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum AdsSourcePolicy {
@@ -32,7 +32,7 @@ pub(super) fn ads_source_for_route(route: &AdsRoute) -> Result<ads::Source, AdsT
                 AdsTransportError::new("explicit ADS source policy requires a local AMS Net ID")
             })?;
             Ok(ads::Source::Addr(ads::AmsAddr::new(
-                parse_ams_net_id(local_net_id)?,
+                parse_local_ams_net_id(local_net_id)?,
                 DEFAULT_SOURCE_PORT,
             )))
         }
@@ -49,7 +49,7 @@ pub(super) fn ads_source_candidates_for_route(
     }
     let direct = if let Some(local_net_id) = route.local_net_id.as_ref() {
         ads::Source::Addr(ads::AmsAddr::new(
-            parse_ams_net_id(local_net_id)?,
+            parse_local_ams_net_id(local_net_id)?,
             DEFAULT_SOURCE_PORT,
         ))
     } else {

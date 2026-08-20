@@ -105,12 +105,14 @@ pub(super) fn io_endpoints(
 ) -> Vec<FleetEndpoint> {
     if !io_drivers.is_empty() {
         let mut endpoints = Vec::with_capacity(io_drivers.len());
-        let mut enabled_index = 0usize;
+        let mut enabled_protocol_counts = std::collections::HashMap::<String, usize>::new();
         for (index, driver) in io_drivers.iter().enumerate() {
             let health = if driver.enabled {
+                let protocol = protocol_from_driver_name(driver.name.as_str());
+                let protocol_index = enabled_protocol_counts.entry(protocol).or_default();
                 let health =
-                    driver_health_for_config(io_health, enabled_index, driver.name.as_str());
-                enabled_index += 1;
+                    driver_health_for_config(io_health, *protocol_index, driver.name.as_str());
+                *protocol_index += 1;
                 health
             } else {
                 None
@@ -180,7 +182,7 @@ pub(super) fn endpoint_from_driver_config(
             configured_details.ethercat_child,
         ),
         owned: true,
-        supports_test: driver.enabled && matches!(driver.name.as_str(), "modbus-tcp" | "mqtt"),
+        supports_test: driver.enabled && matches!(protocol.as_str(), "modbus_tcp" | "mqtt"),
         source: Some("self".to_string()),
     }
 }
@@ -194,6 +196,7 @@ pub(super) fn endpoint_from_driver_health(
 ) -> FleetEndpoint {
     let protocol = protocol_from_driver_name(driver.name.as_str());
     let role = driver_role(protocol.as_str()).to_string();
+    let supports_test = matches!(protocol.as_str(), "modbus_tcp" | "mqtt");
     let (health, detail) = driver_health(driver);
     FleetEndpoint {
         id: endpoint_instance_id(runtime_id, protocol.as_str(), index),
@@ -208,7 +211,7 @@ pub(super) fn endpoint_from_driver_health(
         params: None,
         children: Vec::new(),
         owned: true,
-        supports_test: matches!(driver.name.as_str(), "modbus-tcp" | "mqtt"),
+        supports_test,
         source: Some("self".to_string()),
     }
 }

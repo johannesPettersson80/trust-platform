@@ -100,6 +100,25 @@ END_PROGRAM
 "#;
 
     let mut runtime = TestHarness::from_source(source).unwrap().into_runtime();
+    runtime.register_task(TaskConfig {
+        name: "ExistingTask".into(),
+        interval: Duration::from_millis(10),
+        single: None,
+        priority: 0,
+        programs: vec!["Main".into()],
+        fb_instances: Vec::new(),
+    });
+    runtime.io_mut().resize(1, 1, 1);
+    runtime.io_mut().inputs_mut()[0] = 0x11;
+    runtime.io_mut().outputs_mut()[0] = 0x22;
+    runtime.io_mut().memory_mut()[0] = 0x33;
+
+    let before_backend = runtime.execution_backend();
+    let before_programs = runtime.programs().keys().cloned().collect::<Vec<_>>();
+    let before_tasks = format!("{:?}", runtime.tasks());
+    let before_inputs = runtime.io().inputs().to_vec();
+    let before_outputs = runtime.io().outputs().to_vec();
+    let before_memory = runtime.io().memory().to_vec();
     let metadata = BytecodeMetadata {
         version: BytecodeVersion::new(SUPPORTED_MAJOR_VERSION + 1, 0),
         resources: Vec::new(),
@@ -111,6 +130,27 @@ END_PROGRAM
     assert!(matches!(
         err,
         RuntimeError::UnsupportedBytecodeVersion { .. }
+    ));
+
+    assert_eq!(runtime.execution_backend(), before_backend);
+    assert_eq!(
+        runtime.programs().keys().cloned().collect::<Vec<_>>(),
+        before_programs
+    );
+    assert_eq!(format!("{:?}", runtime.tasks()), before_tasks);
+    assert_eq!(runtime.io().inputs(), before_inputs);
+    assert_eq!(runtime.io().outputs(), before_outputs);
+    assert_eq!(runtime.io().memory(), before_memory);
+
+    runtime.set_current_time(Duration::from_millis(10));
+    runtime.execute_cycle().unwrap();
+    let program_id = match runtime.storage().get_global("Main") {
+        Some(Value::Instance(id)) => *id,
+        other => panic!("expected program instance, got {other:?}"),
+    };
+    assert!(matches!(
+        runtime.storage().get_instance_var(program_id, "counter"),
+        Some(Value::Int(1) | Value::DInt(1) | Value::LInt(1))
     ));
 }
 

@@ -223,9 +223,18 @@ pub fn combine_date_and_tod_with_tz(
 #[cfg(test)]
 mod tests {
     use super::{
-        combine_date_and_tod, combine_date_and_tod_with_tz, DateTimeError, DateTimeValue,
-        DateValue, Duration, LDateTimeValue, LDateValue, LTimeOfDayValue, TimeOfDayValue,
+        combine_date_and_tod, combine_date_and_tod_with_tz, DateTimeError, DateTimeProfile,
+        DateTimeValue, DateValue, Duration, LDateTimeValue, LDateValue, LTimeOfDayValue,
+        TimeOfDayValue,
     };
+
+    #[test]
+    fn default_datetime_profile_uses_unix_epoch_and_millisecond_resolution() {
+        let profile = DateTimeProfile::default();
+
+        assert_eq!(profile.epoch.ticks(), 0);
+        assert_eq!(profile.resolution.as_nanos(), 1_000_000);
+    }
 
     #[test]
     fn duration_preserves_nanosecond_and_millisecond_views() {
@@ -233,6 +242,7 @@ mod tests {
 
         assert_eq!(duration.as_nanos(), 42_000_000);
         assert_eq!(duration.as_millis(), 42);
+        assert_eq!(Duration::from_nanos(-3).as_nanos(), -3);
         assert_eq!(Duration::from_micros(7).as_nanos(), 7_000);
         assert_eq!(Duration::from_secs(2).as_nanos(), 2_000_000_000);
     }

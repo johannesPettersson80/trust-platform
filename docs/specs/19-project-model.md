@@ -43,7 +43,7 @@ For file-backed `simulation.toml`, each optional
 or negative infinity before returning a configuration; it does not normalize,
 clamp, or substitute a value. This requirement covers TOML loading only and
 does not define programmatic `SignalCouplingRule` construction or source-value
-admission. (DEV-041)
+admission.
 
 ## 4. Lifecycle
 
@@ -52,6 +52,16 @@ admission. (DEV-041)
 3. Validate configuration and bundle contents
 4. Run or reload the runtime
 5. Drive HMI, tests, harness scenarios, or agent workflows against the same project
+
+### 4.1 HMI scaffold source set
+
+`trust-runtime hmi init|update|reset` compiles the same recursive project source
+set as the bundle builder, including resolved local package dependencies. Source
+directory and file names are literal filesystem names; spaces, Unicode, and glob
+metacharacters do not alter discovery. Supported `.st` and `.pou` extensions are
+matched with ASCII case-insensitivity and returned in deterministic path order.
+Unreadable or invalid source paths fail the scaffold operation instead of being
+treated as an empty project.
 
 ## 5. Related Specs
 

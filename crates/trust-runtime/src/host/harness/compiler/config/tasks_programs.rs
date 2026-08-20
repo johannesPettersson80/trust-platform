@@ -17,30 +17,60 @@ fn lower_task_config(
         .find(|child| child.kind() == SyntaxKind::TaskInit)
     {
         let mut current_key: Option<String> = None;
+        let mut seen_keys = std::collections::HashSet::new();
         for child in init.children() {
             match child.kind() {
                 SyntaxKind::Name => {
-                    current_key = Some(node_text(&child));
+                    let key = node_text(&child);
+                    let canonical = key.to_ascii_uppercase();
+                    if !matches!(canonical.as_str(), "INTERVAL" | "SINGLE" | "PRIORITY") {
+                        return Err(CompileError::new(format!(
+                            "unknown TASK initializer field '{key}'"
+                        )));
+                    }
+                    if !seen_keys.insert(canonical) {
+                        return Err(CompileError::new(format!(
+                            "duplicate TASK initializer field '{key}'"
+                        )));
+                    }
+                    current_key = Some(key);
                 }
                 _ if is_expression_kind(child.kind()) => {
                     if let Some(key) = current_key.take() {
                         match key.to_ascii_uppercase().as_str() {
                             "INTERVAL" => {
-                                interval = const_duration_from_node(&child, ctx)?;
+                                if child.text().to_string().contains('-') {
+                                    return Err(CompileError::new(
+                                        "TASK INTERVAL must be non-negative",
+                                    ));
+                                }
+                                interval = const_duration_from_node(&child, ctx).map_err(|error| {
+                                    CompileError::new(format!(
+                                        "invalid TASK INTERVAL: {error}"
+                                    ))
+                                })?;
                             }
                             "SINGLE" => {
                                 let name = extract_name_from_expr(&child).ok_or_else(|| {
-                                    CompileError::new("invalid SINGLE expression")
+                                    CompileError::new(
+                                        "TASK SINGLE requires a named BOOL storage variable",
+                                    )
                                 })?;
                                 single = Some(name);
                             }
                             "PRIORITY" => {
-                                let value = const_int_from_node(&child, ctx)?;
+                                let value = const_int_from_node(&child, ctx).map_err(|error| {
+                                    CompileError::new(format!(
+                                        "TASK PRIORITY is outside the supported u32 range: {error}"
+                                    ))
+                                })?;
                                 priority = u32::try_from(value).map_err(|_| {
-                                    CompileError::new("TASK PRIORITY must be non-negative")
+                                    CompileError::new(
+                                        "TASK PRIORITY must be non-negative and fit u32",
+                                    )
                                 })?;
                             }
-                            _ => {}
+                            _ => unreachable!(),
                         }
                     }
                 }

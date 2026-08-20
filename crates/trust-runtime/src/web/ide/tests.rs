@@ -363,7 +363,7 @@ fn format_structured_text_document_indents_common_blocks() {
 
 #[test]
 fn format_source_endpoint_returns_formatted_content_without_write() {
-    let project = project_dir("format-source");
+    let project = generated_test_root!(project_dir("format-source"));
     write_source(&project, "main.st", "PROGRAM Main\nEND_PROGRAM\n");
 
     let state = WebIdeState::new(Some(project.clone()));
@@ -383,7 +383,8 @@ fn format_source_endpoint_returns_formatted_content_without_write() {
     assert!(result.content.contains("  VAR"));
     assert!(result.content.contains("    A:INT;"));
 
-    let disk = std::fs::read_to_string(project.join("main.st")).expect("read disk source");
+    let disk = std::fs::read_to_string(generated_output_path!(project.join("main.st"), &project,))
+        .expect("read disk source");
     assert_eq!(disk, "PROGRAM Main\nEND_PROGRAM\n");
 
     let _ = std::fs::remove_dir_all(project);

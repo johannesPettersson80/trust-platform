@@ -455,6 +455,11 @@ END_PROGRAM
         "register errors: {:?}",
         register_cycle.errors
     );
+    assert_eq!(
+        register.get_output("axis"),
+        stack.get_output("axis"),
+        "enum selector storage diverged before CASE result projection"
+    );
     assert_eq!(register.get_output("outv"), stack.get_output("outv"));
     assert_eq!(register.get_output("outv"), Some(Value::DInt(2)));
 

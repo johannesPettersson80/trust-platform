@@ -427,4 +427,3 @@ fn register_ir_fuse_instruction_read_detection_covers_all_operands() {
         target,
     ));
 }
-

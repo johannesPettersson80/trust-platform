@@ -1,16 +1,18 @@
 //! Workspace/project configuration for trust-lsp.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
-use std::path::{Path, PathBuf};
+use std::collections::{BTreeMap, HashSet};
+use std::path::{Component, Path, PathBuf};
 use tower_lsp::lsp_types::DiagnosticSeverity;
 
 mod deps;
+mod diagnostics;
 mod git;
 mod load;
 mod lockfile;
 
 use deps::{parse_project_dependencies, resolve_manifest_dependencies};
+pub(crate) use diagnostics::configuration_issues;
 use git::{resolve_git_revision, run_git_command, validate_git_source_policy};
 use lockfile::{
     dependency_lock_path, dependency_lock_version, load_dependency_lock, sanitize_for_path,
@@ -132,11 +134,27 @@ fn apply_safety_overrides(settings: &mut DiagnosticSettings) {
     }
 }
 
-fn apply_severity_overrides(settings: &mut DiagnosticSettings, overrides: HashMap<String, String>) {
+fn apply_severity_overrides(
+    settings: &mut DiagnosticSettings,
+    overrides: BTreeMap<String, String>,
+) {
+    let mut aliases = Vec::new();
+    let mut canonical = Vec::new();
     for (code, severity) in overrides {
         if let Some(parsed) = parse_severity(&severity) {
-            settings.severity_overrides.insert(code, parsed);
+            let trimmed = code.trim();
+            let normalized = trimmed.to_ascii_uppercase();
+            if !normalized.is_empty() {
+                if trimmed == normalized {
+                    canonical.push((normalized, parsed));
+                } else {
+                    aliases.push((normalized, parsed));
+                }
+            }
         }
+    }
+    for (code, severity) in aliases.into_iter().chain(canonical) {
+        settings.severity_overrides.insert(code, severity);
     }
 }
 
@@ -166,7 +184,9 @@ impl From<WorkspaceSection> for WorkspaceSettings {
 impl TelemetryConfig {
     fn from_section(root: &Path, section: TelemetrySection) -> Self {
         let enabled = section.enabled.unwrap_or(false);
-        let path = section.path.map(|path| resolve_path(root, &path));
+        let path = section
+            .path
+            .and_then(|path| resolve_optional_path(root, &path));
         let path = if enabled {
             Some(path.unwrap_or_else(|| resolve_path(root, ".trust-lsp/telemetry.jsonl")))
         } else {
@@ -175,9 +195,65 @@ impl TelemetryConfig {
         TelemetryConfig {
             enabled,
             path,
-            flush_every: section.flush_every.unwrap_or(25),
+            flush_every: section
+                .flush_every
+                .filter(|value| *value != 0)
+                .unwrap_or(25),
         }
     }
+}
+
+fn normalize_optional_string(value: Option<String>) -> Option<String> {
+    value.and_then(|value| {
+        let value = value.trim();
+        (!value.is_empty()).then(|| value.to_string())
+    })
+}
+
+fn normalize_strings(values: Vec<String>, case_insensitive: bool) -> Vec<String> {
+    let mut seen = HashSet::new();
+    values
+        .into_iter()
+        .filter_map(|value| normalize_optional_string(Some(value)))
+        .filter(|value| {
+            let key = if case_insensitive {
+                value.to_ascii_lowercase()
+            } else {
+                value.clone()
+            };
+            seen.insert(key)
+        })
+        .collect()
+}
+
+fn normalize_path(path: PathBuf) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !normalized.pop() {
+                    normalized.push(component.as_os_str());
+                }
+            }
+            Component::Normal(value) => normalized.push(value),
+            Component::RootDir | Component::Prefix(_) => normalized.push(component.as_os_str()),
+        }
+    }
+    normalized
+}
+
+fn resolve_optional_path(root: &Path, entry: &str) -> Option<PathBuf> {
+    let entry = entry.trim();
+    if entry.is_empty() {
+        return None;
+    }
+    let path = PathBuf::from(entry);
+    Some(normalize_path(if path.is_absolute() {
+        path
+    } else {
+        root.join(path)
+    }))
 }
 #[derive(Debug, Deserialize)]
 struct ConfigFile {
@@ -229,7 +305,7 @@ struct IndexingSection {
     cache: Option<bool>,
     cache_dir: Option<String>,
     memory_budget_mb: Option<usize>,
-    evict_to_percent: Option<u8>,
+    evict_to_percent: Option<i64>,
     throttle_idle_ms: Option<u64>,
     throttle_active_ms: Option<u64>,
     throttle_max_ms: Option<u64>,
@@ -251,7 +327,7 @@ struct DiagnosticSection {
     #[serde(default)]
     external_paths: Vec<String>,
     #[serde(default)]
-    severity_overrides: HashMap<String, String>,
+    severity_overrides: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -359,12 +435,21 @@ enum DependencyLockEntry {
     Git { url: String, rev: String },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct DependencyLockFile {
     #[serde(default = "dependency_lock_version")]
     version: u32,
     #[serde(default)]
     dependencies: BTreeMap<String, DependencyLockEntry>,
+}
+
+impl Default for DependencyLockFile {
+    fn default() -> Self {
+        Self {
+            version: dependency_lock_version(),
+            dependencies: BTreeMap::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -399,18 +484,23 @@ impl From<StdlibSelection> for StdlibSettings {
         match selection {
             StdlibSelection::Allow(list) => StdlibSettings {
                 profile: None,
-                allow: Some(list),
+                allow: Some(normalize_strings(list, true)),
             },
             StdlibSelection::Profile(profile) => {
-                let normalized = profile.to_ascii_lowercase();
+                let normalized = profile.trim().to_ascii_lowercase();
                 if normalized == "none" {
                     StdlibSettings {
-                        profile: Some(profile),
+                        profile: Some(normalized),
                         allow: Some(Vec::new()),
+                    }
+                } else if matches!(normalized.as_str(), "full" | "iec") {
+                    StdlibSettings {
+                        profile: Some(normalized),
+                        allow: None,
                     }
                 } else {
                     StdlibSettings {
-                        profile: Some(profile),
+                        profile: Some("full".to_string()),
                         allow: None,
                     }
                 }
@@ -422,8 +512,8 @@ impl From<StdlibSelection> for StdlibSettings {
 impl From<RuntimeSection> for RuntimeConfig {
     fn from(section: RuntimeSection) -> Self {
         RuntimeConfig {
-            control_endpoint: section.control_endpoint,
-            control_auth_token: section.control_auth_token,
+            control_endpoint: normalize_optional_string(section.control_endpoint),
+            control_auth_token: normalize_optional_string(section.control_auth_token),
         }
     }
 }
@@ -431,14 +521,15 @@ impl From<RuntimeSection> for RuntimeConfig {
 impl From<BuildSection> for BuildConfig {
     fn from(section: BuildSection) -> Self {
         BuildConfig {
-            target: section.target,
-            profile: section.profile,
-            flags: section.flags,
-            defines: section.defines,
+            target: normalize_optional_string(section.target),
+            profile: normalize_optional_string(section.profile),
+            flags: normalize_strings(section.flags, false),
+            defines: normalize_strings(section.defines, true),
             dependencies_offline: section.dependencies_offline.unwrap_or(false),
             dependencies_locked: section.dependencies_locked.unwrap_or(false),
             dependency_lockfile: section
                 .dependency_lockfile
+                .and_then(|path| normalize_optional_string(Some(path)))
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("trust-lsp.lock")),
         }
@@ -448,11 +539,9 @@ impl From<BuildSection> for BuildConfig {
 impl From<DependencyPolicySection> for DependencyPolicy {
     fn from(section: DependencyPolicySection) -> Self {
         DependencyPolicy {
-            allowed_git_hosts: section
-                .allowed_git_hosts
+            allowed_git_hosts: normalize_strings(section.allowed_git_hosts, true)
                 .into_iter()
-                .map(|host| host.trim().to_ascii_lowercase())
-                .filter(|host| !host.is_empty())
+                .map(|host| host.to_ascii_lowercase())
                 .collect(),
             allow_http: section.allow_http.unwrap_or(false),
             allow_ssh: section.allow_ssh.unwrap_or(false),
@@ -463,10 +552,10 @@ impl From<DependencyPolicySection> for DependencyPolicy {
 impl From<TargetSection> for TargetProfile {
     fn from(section: TargetSection) -> Self {
         TargetProfile {
-            name: section.name,
-            profile: section.profile,
-            flags: section.flags,
-            defines: section.defines,
+            name: section.name.trim().to_string(),
+            profile: normalize_optional_string(section.profile),
+            flags: normalize_strings(section.flags, false),
+            defines: normalize_strings(section.defines, true),
         }
     }
 }
@@ -476,16 +565,18 @@ impl From<LibraryDependencyEntry> for LibraryDependency {
         match entry {
             LibraryDependencyEntry::Name(name) => {
                 let mut parts = name.splitn(2, '@');
-                let base = parts.next().unwrap_or("").to_string();
-                let version = parts.next().map(|part| part.trim().to_string());
+                let base = parts.next().unwrap_or("").trim().to_string();
+                let version = parts
+                    .next()
+                    .and_then(|part| normalize_optional_string(Some(part.to_string())));
                 LibraryDependency {
                     name: base,
-                    version: version.filter(|value| !value.is_empty()),
+                    version,
                 }
             }
             LibraryDependencyEntry::Detailed(section) => LibraryDependency {
-                name: section.name,
-                version: section.version,
+                name: section.name.trim().to_string(),
+                version: normalize_optional_string(section.version),
             },
         }
     }
@@ -493,17 +584,53 @@ impl From<LibraryDependencyEntry> for LibraryDependency {
 
 impl From<IndexingSection> for IndexingConfig {
     fn from(section: IndexingSection) -> Self {
+        let defaults = IndexingConfig::default();
+        let throttle_idle_ms = section
+            .throttle_idle_ms
+            .unwrap_or(defaults.throttle_idle_ms);
+        let throttle_active_ms = section
+            .throttle_active_ms
+            .unwrap_or(defaults.throttle_active_ms);
+        let throttle_max_ms = section.throttle_max_ms.unwrap_or(defaults.throttle_max_ms);
+        let throttle_active_window_ms = section
+            .throttle_active_window_ms
+            .unwrap_or(defaults.throttle_active_window_ms);
+        let coherent = throttle_idle_ms <= throttle_active_ms
+            && throttle_active_ms <= throttle_max_ms
+            && throttle_active_window_ms > 0;
         IndexingConfig {
-            max_files: section.max_files,
-            max_ms: section.max_ms,
+            max_files: (section.max_files != Some(0))
+                .then_some(section.max_files)
+                .flatten(),
+            max_ms: (section.max_ms != Some(0))
+                .then_some(section.max_ms)
+                .flatten(),
             cache_enabled: section.cache.unwrap_or(true),
-            cache_dir: section.cache_dir.map(PathBuf::from),
-            memory_budget_mb: section.memory_budget_mb,
-            evict_to_percent: section.evict_to_percent.unwrap_or(80),
-            throttle_idle_ms: section.throttle_idle_ms.unwrap_or(0),
-            throttle_active_ms: section.throttle_active_ms.unwrap_or(8),
-            throttle_max_ms: section.throttle_max_ms.unwrap_or(50),
-            throttle_active_window_ms: section.throttle_active_window_ms.unwrap_or(250),
+            cache_dir: normalize_optional_string(section.cache_dir).map(PathBuf::from),
+            memory_budget_mb: (section.memory_budget_mb != Some(0))
+                .then_some(section.memory_budget_mb)
+                .flatten(),
+            evict_to_percent: section.evict_to_percent.unwrap_or(80).clamp(1, 100) as u8,
+            throttle_idle_ms: if coherent {
+                throttle_idle_ms
+            } else {
+                defaults.throttle_idle_ms
+            },
+            throttle_active_ms: if coherent {
+                throttle_active_ms
+            } else {
+                defaults.throttle_active_ms
+            },
+            throttle_max_ms: if coherent {
+                throttle_max_ms
+            } else {
+                defaults.throttle_max_ms
+            },
+            throttle_active_window_ms: if coherent {
+                throttle_active_window_ms
+            } else {
+                defaults.throttle_active_window_ms
+            },
         }
     }
 }
@@ -516,21 +643,27 @@ pub(crate) fn find_config_file(root: &Path) -> Option<PathBuf> {
 }
 
 fn resolve_paths(root: &Path, entries: &[String]) -> Vec<PathBuf> {
-    entries
-        .iter()
-        .map(|entry| resolve_path(root, entry))
-        .collect()
+    let mut paths = Vec::new();
+    for entry in entries {
+        if let Some(path) = resolve_optional_path(root, entry) {
+            if !paths.contains(&path) {
+                paths.push(path);
+            }
+        }
+    }
+    paths
 }
 
 fn resolve_path(root: &Path, entry: &str) -> PathBuf {
-    let path = PathBuf::from(entry);
-    if path.is_absolute() {
-        path
-    } else {
-        root.join(path)
-    }
+    resolve_optional_path(root, entry).unwrap_or_else(|| root.to_path_buf())
 }
 
+#[cfg(test)]
+#[path = "config/configuration_contract_tests.rs"]
+mod configuration_contract_tests;
+#[cfg(test)]
+#[path = "config/dependency_contract_tests.rs"]
+mod dependency_contract_tests;
 #[cfg(test)]
 #[path = "config/tests.rs"]
 mod tests;

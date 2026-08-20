@@ -2,8 +2,8 @@ fn logical_or_bitwise(op: BinaryOp, left: Value, right: Value) -> Result<Value, 
     match (left, right) {
         (Value::Bool(a), Value::Bool(b)) => {
             let result = match op {
-                BinaryOp::And => a && b,
-                BinaryOp::Or => a || b,
+                BinaryOp::And | BinaryOp::AndThen => a && b,
+                BinaryOp::Or | BinaryOp::OrElse => a || b,
                 BinaryOp::Xor => a ^ b,
                 _ => return Err(RuntimeError::TypeMismatch),
             };
@@ -44,13 +44,21 @@ fn numeric_eq(left: Value, right: Value, is_eq: bool) -> Result<Value, RuntimeEr
     let left_kind = numeric_kind(&left);
     let right_kind = numeric_kind(&right);
     let Some(left_kind) = left_kind else {
-        return Ok(Value::Bool(if is_eq { left == right } else { left != right }));
+        return Ok(Value::Bool(if is_eq {
+            left == right
+        } else {
+            left != right
+        }));
     };
     let Some(right_kind) = right_kind else {
-        return Ok(Value::Bool(if is_eq { left == right } else { left != right }));
+        return Ok(Value::Bool(if is_eq {
+            left == right
+        } else {
+            left != right
+        }));
     };
 
-    let target = wider_numeric(left_kind, right_kind);
+    let target = wider_numeric(left_kind, right_kind).ok_or(RuntimeError::TypeMismatch)?;
     let matches = match target {
         NumericKind::Real | NumericKind::LReal => {
             let a = to_f64(&left)?;
@@ -105,7 +113,7 @@ fn ord_cmp<T: Ord>(op: BinaryOp, left: T, right: T) -> Result<Value, RuntimeErro
 fn numeric_cmp(op: BinaryOp, left: Value, right: Value) -> Result<Value, RuntimeError> {
     let left_kind = numeric_kind(&left).ok_or(RuntimeError::TypeMismatch)?;
     let right_kind = numeric_kind(&right).ok_or(RuntimeError::TypeMismatch)?;
-    let target = wider_numeric(left_kind, right_kind);
+    let target = wider_numeric(left_kind, right_kind).ok_or(RuntimeError::TypeMismatch)?;
     let result = match target {
         NumericKind::Real | NumericKind::LReal => {
             let a = to_f64(&left)?;

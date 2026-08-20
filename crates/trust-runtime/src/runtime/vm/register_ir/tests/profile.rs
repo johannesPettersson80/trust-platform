@@ -126,6 +126,8 @@ fn register_executor_profile_records_dynamic_ref_and_instance_lookup_counters() 
         function_ids: HashMap::new(),
         function_block_ids: HashMap::new(),
         class_ids: HashMap::new(),
+        parent_pou_ids: HashMap::new(),
+        interface_type_ids_by_pou: HashMap::new(),
         native_symbol_specs: Vec::new(),
         pou_params: HashMap::new(),
         pou_has_return_slot: HashSet::new(),

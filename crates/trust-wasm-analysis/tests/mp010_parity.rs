@@ -1,6 +1,4 @@
-use std::fs;
 use std::hint::black_box;
-use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use text_size::{TextRange, TextSize};
@@ -13,6 +11,8 @@ use trust_wasm_analysis::{
     HoverRequest, Position, Range, ReferencesRequest, RelatedInfoItem, RenameRequest,
     WasmAnalysisEngine,
 };
+
+include!("../../../tests/support/host_runtime_oracle.rs");
 
 #[path = "mp010_parity/mp010_parity_part_01.rs"]
 mod mp010_parity_part_01;

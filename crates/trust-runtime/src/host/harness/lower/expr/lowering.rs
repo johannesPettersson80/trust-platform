@@ -42,6 +42,9 @@ pub(in crate::harness) fn lower_lvalue(
                 first_expr_child(node).ok_or_else(|| CompileError::new("missing deref target"))?;
             Ok(LValue::Deref(Box::new(lower_expr(&expr, ctx)?)))
         }
+        SyntaxKind::ThisExpr | SyntaxKind::SuperExpr => {
+            Ok(LValue::Deref(Box::new(lower_expr(node, ctx)?)))
+        }
         _ => Err(CompileError::new("unsupported assignment target")),
     }
 }
@@ -58,6 +61,12 @@ pub(in crate::harness) fn lower_expr_with_context(
     ctx: &mut LoweringContext<'_>,
     expected_type: Option<TypeId>,
 ) -> Result<Expr, CompileError> {
+    if matches!(node.kind(), SyntaxKind::NameRef | SyntaxKind::FieldExpr) {
+        let name = node_text(node);
+        if let Some(value) = ctx.lookup_compile_time_const(&name) {
+            return Ok(Expr::Literal(value));
+        }
+    }
     match node.kind() {
         SyntaxKind::Literal => lower_literal_with_context(node, ctx, expected_type),
         SyntaxKind::NameRef => Ok(Expr::Name(node_text(node).into())),
@@ -73,7 +82,7 @@ pub(in crate::harness) fn lower_expr_with_context(
             })
         }
         SyntaxKind::BinaryExpr => {
-            let op = binary_op_from_node(node)?;
+            let mut op = binary_op_from_node(node)?;
             let exprs = direct_expr_children(node);
             if exprs.len() != 2 {
                 return Err(CompileError::new("invalid binary expression"));
@@ -81,6 +90,13 @@ pub(in crate::harness) fn lower_expr_with_context(
             let left_type = lower_expression_type(&exprs[0], ctx)?;
             let right_type = lower_expression_type(&exprs[1], ctx)?;
             let operand_context = binary_operand_context(op, expected_type, node, ctx)?;
+            if operand_context == Some(TypeId::BOOL) {
+                op = match op {
+                    BinaryOp::And => BinaryOp::AndThen,
+                    BinaryOp::Or => BinaryOp::OrElse,
+                    other => other,
+                };
+            }
             let mut left = lower_expr_with_context(&exprs[0], ctx, operand_context)?;
             let mut right = lower_expr_with_context(&exprs[1], ctx, operand_context)?;
             // Let a bare enum variant name on one side resolve against the
@@ -176,9 +192,20 @@ fn binary_operand_context(
         | BinaryOp::Pow
         | BinaryOp::And
         | BinaryOp::Or
+        | BinaryOp::AndThen
+        | BinaryOp::OrElse
         | BinaryOp::Xor => Ok(expected_type.or(lower_expression_type(node, ctx)?)),
         BinaryOp::Eq | BinaryOp::Ne | BinaryOp::Lt | BinaryOp::Le | BinaryOp::Gt | BinaryOp::Ge => {
-            Ok(None)
+            let operands = direct_expr_children(node);
+            if operands.len() != 2 {
+                return Ok(None);
+            }
+            let left = lower_expression_type(&operands[0], ctx)?;
+            let right = lower_expression_type(&operands[1], ctx)?;
+            Ok(match (left, right) {
+                (Some(left), Some(right)) if left == right => Some(left),
+                _ => None,
+            })
         }
     }
 }
@@ -292,14 +319,18 @@ fn lower_sizeof_expr(
         .find(|child| child.kind() == SyntaxKind::TypeRef)
     {
         let type_id = lower_type_ref(&type_ref, ctx)?;
-        return Ok(Expr::SizeOf(crate::program_model::SizeOfTarget::Type(type_id)));
+        return Ok(Expr::SizeOf(crate::program_model::SizeOfTarget::Type(
+            type_id,
+        )));
     }
     if let Some(expr_node) = node
         .children()
         .find(|child| is_expression_kind(child.kind()))
     {
         let type_id = lower_sizeof_operand_type(&expr_node, ctx)?;
-        return Ok(Expr::SizeOf(crate::program_model::SizeOfTarget::Type(type_id)));
+        return Ok(Expr::SizeOf(crate::program_model::SizeOfTarget::Type(
+            type_id,
+        )));
     }
     Err(CompileError::new("SIZEOF expects a type or expression"))
 }
@@ -401,7 +432,8 @@ fn lower_sizeof_value_operand_type(
     ) {
         return Ok(None);
     }
-    let runtime_type_id = import_hir_type_to_runtime(ctx.registry, analysis.symbols.as_ref(), hir_type_id)?;
+    let runtime_type_id =
+        import_hir_type_to_runtime(ctx.registry, analysis.symbols.as_ref(), hir_type_id)?;
     Ok(Some(runtime_type_id))
 }
 
@@ -417,11 +449,7 @@ fn offset_for_type_lookup(node: &SyntaxNode) -> u32 {
     let range = node.text_range();
     let end = u32::from(range.end());
     let start = u32::from(range.start());
-    if end > start {
-        end - 1
-    } else {
-        start
-    }
+    if end > start { end - 1 } else { start }
 }
 
 pub(in crate::harness) fn lower_expression_type(
@@ -717,7 +745,10 @@ fn lower_call_expr(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<E
     })
 }
 
-fn lower_ref_call_expr(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Expr, CompileError> {
+fn lower_ref_call_expr(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Expr, CompileError> {
     let arg_list = node
         .children()
         .find(|child| child.kind() == SyntaxKind::ArgList)
@@ -815,7 +846,10 @@ fn lower_aggregate_call_args(
     ctx: &mut LoweringContext<'_>,
     type_id: TypeId,
 ) -> Result<Vec<(SmolStr, Expr)>, CompileError> {
-    let Some(arg_list) = node.children().find(|child| child.kind() == SyntaxKind::ArgList) else {
+    let Some(arg_list) = node
+        .children()
+        .find(|child| child.kind() == SyntaxKind::ArgList)
+    else {
         return Ok(Vec::new());
     };
     let mut fields = Vec::new();
@@ -899,19 +933,18 @@ fn lower_call_arg(
 
     let expr_node =
         first_expr_child(node).ok_or_else(|| CompileError::new("missing call argument"))?;
+    let expected_type = match expected_type {
+        Some(expected_type) => Some(expected_type),
+        None => lower_expression_type(&expr_node, ctx)?,
+    };
     let value = if has_arrow {
         ArgValue::Target(lower_lvalue(&expr_node, ctx)?)
-    } else if field_expr_property_accessor_name(&expr_node, ctx, PropertyAccessor::Get)?.is_some()
-    {
+    } else if field_expr_property_accessor_name(&expr_node, ctx, PropertyAccessor::Get)?.is_some() {
         ArgValue::Expr(lower_expr_with_context(&expr_node, ctx, expected_type)?)
     } else {
         match lower_lvalue(&expr_node, ctx) {
             Ok(target) => ArgValue::Target(target),
-            Err(_) => ArgValue::Expr(lower_expr_with_context(
-                &expr_node,
-                ctx,
-                expected_type,
-            )?),
+            Err(_) => ArgValue::Expr(lower_expr_with_context(&expr_node, ctx, expected_type)?),
         }
     };
 

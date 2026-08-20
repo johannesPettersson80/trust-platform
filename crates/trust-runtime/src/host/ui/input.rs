@@ -156,14 +156,26 @@ pub(super) fn handle_prompt_key(
             return handle_prompt_submit(&input, client, state);
         }
         KeyCode::Backspace if state.prompt.cursor > 0 => {
-            state.prompt.cursor -= 1;
+            state.prompt.cursor = state.prompt.input[..state.prompt.cursor]
+                .char_indices()
+                .next_back()
+                .map(|(index, _)| index)
+                .unwrap_or(0);
             state.prompt.input.remove(state.prompt.cursor);
         }
         KeyCode::Left if state.prompt.cursor > 0 => {
-            state.prompt.cursor -= 1;
+            state.prompt.cursor = state.prompt.input[..state.prompt.cursor]
+                .char_indices()
+                .next_back()
+                .map(|(index, _)| index)
+                .unwrap_or(0);
         }
         KeyCode::Right if state.prompt.cursor < state.prompt.input.len() => {
-            state.prompt.cursor += 1;
+            state.prompt.cursor += state.prompt.input[state.prompt.cursor..]
+                .chars()
+                .next()
+                .map(char::len_utf8)
+                .unwrap_or(0);
         }
         KeyCode::Up => {
             if state.prompt.showing_suggestions {
@@ -213,7 +225,7 @@ pub(super) fn handle_prompt_key(
         }
         KeyCode::Char(ch) => {
             state.prompt.input.insert(state.prompt.cursor, ch);
-            state.prompt.cursor += 1;
+            state.prompt.cursor += ch.len_utf8();
         }
         _ => {}
     }

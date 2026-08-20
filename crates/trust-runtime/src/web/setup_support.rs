@@ -12,10 +12,9 @@ pub(super) fn default_bundle_root(bundle_root: &Option<PathBuf>) -> PathBuf {
 }
 
 fn default_resource_name(bundle_root: &Path) -> SmolStr {
-    let project_name = bundle_root
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("trust-plc");
+    let Some(project_name) = bundle_root.file_name().and_then(|name| name.to_str()) else {
+        return SmolStr::new_static("trust-plc");
+    };
     SmolStr::new(project_name.replace(|c: char| !c.is_ascii_alphanumeric(), "_"))
 }
 
@@ -339,14 +338,19 @@ pub(super) fn list_sources(bundle_root: &Path) -> Vec<String> {
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.extension().and_then(|v| v.to_str()) != Some("st") {
+        if !entry.file_type().is_ok_and(|file_type| file_type.is_file())
+            || !path
+                .extension()
+                .and_then(|value| value.to_str())
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("st"))
+        {
             continue;
         }
         if let Some(name) = path.file_name().and_then(|v| v.to_str()) {
             list.push(name.to_string());
         }
     }
-    list.sort();
+    list.sort_by_key(|name| name.to_ascii_lowercase());
     list
 }
 
@@ -458,3 +462,7 @@ pub(super) fn apply_setup(
 
     Ok("✓ Setup applied. Restart the runtime to load the new configuration.".to_string())
 }
+
+#[cfg(test)]
+#[path = "setup_support/contract_tests.rs"]
+mod contract_tests;

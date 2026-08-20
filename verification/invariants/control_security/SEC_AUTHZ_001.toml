@@ -3,18 +3,14 @@ id = "SEC_AUTHZ_001"
 title = "Runtime control authorization is explicit and default deny"
 area = "control_security"
 risk = "security"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime"
 last_reviewed = "2026-07-16"
 claim = "Runtime control, API, HMI, file-read, write, force, and release operations must have explicit denied and allowed role boundaries."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src", "crates/trust-debug/src"]
-tests = [
-  "TEST_DEBUG_AUTHORIZATION_MATRIX_001",
-  "TEST_CONTROL_AUTHORIZATION_FAILSAFE_001",
-  "TEST_CONTROL_AUTHORIZATION_TRACE_001",
-]
+tests = ["TEST_CONTROL_AUTHORIZATION_FAILSAFE_001", "TEST_CONTROL_AUTHORIZATION_TRACE_001", "TEST_DEBUG_AUTHORIZATION_MATRIX_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_RED",
@@ -25,9 +21,7 @@ evidence_refs = [
   "EVID_CONTROL_AUTHORIZATION_MATRIX_GAP_CLOSEOUT_20260716",
 ]
 spec_gap_refs = []
-missing = [
-  "broad_remote_gate",
-]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -69,7 +63,47 @@ outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Engineer may force and release I/O only after the debug surface is enabled, while Admin may enable that surface."
 
+[[behavior]]
+partition = { equals = "UNAUTHENTICATED_NETWORK_WITHOUT_CONFIGURED_TOKEN" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An unauthenticated network control connection receives Viewer authority and cannot perform configuration writes."
+
+[[behavior]]
+partition = { equals = "UNAUTHENTICATED_MODE_0600_UNIX_SOCKET" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A local mode-0600 Unix socket without configured authentication may receive Admin authority."
+
+[[behavior]]
+partition = { equals = "EXPLICIT_PAIRING_TOKEN_ON_UNIX_SOCKET" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An explicit pairing token retains its stored role on Unix transport and is never elevated by the local transport default."
+
+[[behavior]]
+partition = { equals = "SUFFICIENT_ROLE_WITH_READ_ONLY_PRODUCT_POSTURE" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Role authorization permits handler entry but does not override an HMI read-only posture."
+
+[[behavior]]
+partition = { equals = "EXPLICIT_CONTROL_ROLE_MATRIX" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-authorization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Viewer, Operator, Engineer, and Admin requests follow the explicit operation matrix; missing, invalid, or insufficient credentials retain distinct stable denial categories."
+
 [[coverage.cells]]
 dimension = "auth_or_permission"
-state = "covered"
-rationale = "The committed authorization trace covers the reviewed default-deny, debug activation, force, and release role boundaries with a current-contract lock comparison; a causal broad gate remains open."
+state = "gap_open"
+rationale = "Default-deny, debug activation, force, and release are covered; the frozen network, Unix, explicit-token, and read-only posture assertions await catalog mapping and a causal broad gate."

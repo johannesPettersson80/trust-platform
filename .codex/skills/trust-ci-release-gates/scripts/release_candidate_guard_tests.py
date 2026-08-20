@@ -97,61 +97,130 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             "\n".join(candidate_prepare.bootstrap_failures(destination, canonical)),
         )
 
-    def test_failed_cheap_preflight_blocks_the_next_stage(self) -> None:
+    def test_vscode_remote_gate_runs_under_headless_display(self) -> None:
+        commands = dict(
+            candidate_prepare.remote_validation_commands(
+                vscode_changed=True, remote_target="/tmp/trust-target"
+            )
+        )
+        self.assertIn("xvfb-run -a npm test", commands["remote_vscode"])
+
+    def test_remote_validation_reclaims_exact_target_before_test_all(self) -> None:
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=True, remote_target="/tmp/trust target"
+        )
+        command_ids = [command_id for command_id, _command in commands]
+
+        self.assertLess(
+            command_ids.index("remote_clippy"),
+            command_ids.index("remote_reclaim_before_test_all"),
+        )
+        self.assertLess(
+            command_ids.index("remote_reclaim_before_test_all"),
+            command_ids.index("remote_test_all"),
+        )
+        by_id = dict(commands)
+        self.assertEqual(
+            by_id["remote_reclaim_before_test_all"],
+            "rm -rf -- '/tmp/trust target' && mkdir -p -- '/tmp/trust target'",
+        )
+        for command_id in ("remote_vscode", "remote_clippy", "remote_test_all"):
+            self.assertIn("CARGO_INCREMENTAL=0", by_id[command_id])
+
+    def test_default_remote_target_is_an_absolute_validated_generated_path(self) -> None:
+        args = guard.parser().parse_args(
+            [
+                "prepare",
+                "--remote-worktree",
+                "/home/johannes/projects/exact-validation",
+            ]
+        )
+
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=False,
+            remote_target=args.remote_target,
+        )
+
+        self.assertIn(
+            "CARGO_TARGET_DIR=/home/johannes/.cache/codex-targets/trust-platform-gate",
+            dict(commands)["remote_test_all"],
+        )
+
+    def test_remote_target_rejects_repository_and_broad_paths(self) -> None:
+        for unsafe in (
+            "/",
+            "/tmp",
+            "/home/johannes",
+            "/home/johannes/projects/trust-platform",
+            "relative/target",
+            "/home/johannes/.cache/codex-targets/../source",
+        ):
+            with self.subTest(unsafe=unsafe), self.assertRaises(ValueError):
+                candidate_prepare.remote_validation_commands(
+                    vscode_changed=False,
+                    remote_target=unsafe,
+                )
+
+    def test_exact_candidate_uses_report_smoke_not_exhaustive_tooling(self) -> None:
+        maintenance_ids = [
+            command_id
+            for command_id, _command in candidate_prepare.local_maintenance_commands()
+        ]
+        self.assertEqual(maintenance_ids, ["catalog_staleness"])
+
+        command = candidate_prepare.strict_report_command(
+            base_sha="1" * 40,
+            head="2" * 40,
+            intent="bugfix",
+        )
+        self.assertIn("--smoke", command)
+        self.assertNotIn("scripts/check_verification_tooling_selftests.py", command)
+
+    def test_metadata_maintenance_is_advisory_but_candidate_integrity_blocks(self) -> None:
         records = [
             {"id": "bootstrap", "exit_status": 0},
+            {"id": "clean", "exit_status": 0},
+            {"id": "base_ancestor", "exit_status": 0},
+            {"id": "diff_check", "exit_status": 0},
             {"id": "planner", "exit_status": 4},
+            {"id": "catalog_staleness", "exit_status": 1},
+            {"id": "selftests", "exit_status": 1},
         ]
-        self.assertFalse(candidate_prepare.stage_passed(records, ("bootstrap", "planner")))
-
-    def test_planner_advisory_exit_is_accepted_without_hiding_raw_status(self) -> None:
-        payload = {
-            "areas": ["bytecode_vm", "runtime_safety"],
-            "missing_test_classes": ["runtime_vertical"],
-            "missing_test_classes_by_area": {
-                "runtime_safety": ["runtime_vertical"],
-            },
-            "spec_gaps": [],
-            "unmapped_files": [],
-            "unknown_areas": [],
-            "uninventoried_areas": [],
-        }
-        accepted = candidate_prepare.planner_exit_is_advisory(2, json.dumps(payload))
-        blocked = candidate_prepare.planner_exit_is_advisory(
-            4,
-            json.dumps({**payload, "unmapped_files": ["unknown/path"]}),
+        self.assertTrue(
+            candidate_prepare.stage_passed(
+                records,
+                (
+                    "bootstrap",
+                    "clean",
+                    "base_ancestor",
+                    "diff_check",
+                    "planner",
+                    "catalog_staleness",
+                    "selftests",
+                ),
+            )
         )
 
-        self.assertTrue(accepted)
-        self.assertFalse(blocked)
+        artifact = self.passing_artifact()
+        by_id = {row["id"]: row for row in artifact["commands"]}
+        for command_id in ("planner", "catalog_staleness", "selftests"):
+            row = by_id.get(command_id)
+            if row is None:
+                row = {
+                    "id": command_id,
+                    "command": command_id,
+                    "exit_status": 1,
+                    "output_sha256": "0" * 64,
+                    "duration_ms": 1,
+                    "scope": "local",
+                }
+                artifact["commands"].append(row)
+            row["exit_status"] = 1
+        self.assertEqual(guard.validate_artifact(self.repo, artifact, self.head), [])
 
-    def test_planner_command_requests_json_for_advisory_parser(self) -> None:
-        command = candidate_prepare.planner_command(
-            python="python3",
-            intent="bugfix",
-            baseline="a" * 40,
-            paths=["crates/trust-runtime/src/lib.rs"],
-        )
-
-        self.assertEqual(command[-2:], ["--format", "json"])
-
-    def test_remote_vscode_command_runs_rendered_tests_headlessly(self) -> None:
-        self.assertEqual(
-            candidate_prepare.remote_vscode_command(),
-            "cd editors/vscode && npm run lint && npm run compile && "
-            "TRUST_UI_TEST_BROWSER=/usr/bin/google-chrome "
-            'xvfb-run -a -s "-screen 0 1920x1080x24" npm test',
-        )
-
-    def test_expensive_validation_is_remote_with_absolute_target(self) -> None:
-        source = Path(candidate_prepare.__file__).read_text(encoding="utf-8")
-        guard_source = Path(candidate_prepare.guard.__file__).read_text(encoding="utf-8")
-
-        self.assertNotIn('command_record("strict_gate", strict_command, cwd=repo, scope="local"', source)
-        self.assertNotIn('default="$HOME/.cache/codex-targets/trust-platform-gate"', guard_source)
-        self.assertIn(
-            'default="/home/johannes/.cache/codex-targets/trust-platform-gate"',
-            guard_source,
+        records[0]["exit_status"] = 1
+        self.assertFalse(
+            candidate_prepare.stage_passed(records, ("bootstrap", "diff_check"))
         )
 
     def test_stale_head_and_base_are_rejected(self) -> None:

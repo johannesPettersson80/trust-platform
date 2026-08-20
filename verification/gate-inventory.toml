@@ -154,6 +154,28 @@ rationale = "CI aggregates required job results and gate markers into the releas
 
 [[surfaces]]
 schema_version = 1
+id = "GATE_SCRIPT_RELEASE_EVIDENCE_CONTRACT"
+discovery_id = "DISC_AD12BFBD95A4ACF053BE"
+source_kind = "gate_script"
+path = "scripts/release_evidence_contract_gate.sh"
+name = "release_evidence_contract_gate"
+command = "scripts/release_evidence_contract_gate.sh"
+variant = "Exact release evidence behavior-lock contract"
+command_role = "helper"
+disposition = "assigned"
+suite_ids = ["pr", "veryquick"]
+owner = "release"
+duration_class = "fast"
+environment = "trust_builder"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "required"
+required_env = []
+rationale = "The focused release guard suite accepts one exact release identity and fails closed on malformed, duplicated, missing, or non-exact evidence."
+
+[[surfaces]]
+schema_version = 1
 id = "GATE_SCRIPT_PREPUSH_CI"
 discovery_id = "DISC_949CD663563705798270"
 source_kind = "gate_script"
@@ -646,7 +668,7 @@ name = "verification_metadata_gate"
 command = "scripts/verification_metadata_gate.sh"
 variant = "metadata and generated-case consistency"
 command_role = "helper"
-disposition = "assigned"
+disposition = "report_only"
 suite_ids = ["veryquick"]
 owner = "verification"
 duration_class = "fast"
@@ -654,9 +676,9 @@ environment = "local_or_ci"
 artifact_kind = "none"
 artifact_paths = []
 artifact_retention = "none"
-enforcement = "planned"
+enforcement = "report_only"
 required_env = []
-rationale = "This is the narrow existing control-plane gate; final veryquick recipe composition is defined separately."
+rationale = "This metadata maintenance report still runs in veryquick, but its findings are advisory and cannot prevent the following native product tests from executing."
 
 [[surfaces]]
 schema_version = 1
@@ -666,7 +688,7 @@ source_kind = "gate_script"
 path = "scripts/verification_report_gate.py"
 name = "verification_report_gate"
 command = "python3 scripts/verification_report_gate.py"
-variant = "changed-file verification report"
+variant = "changed-file verification smoke or scheduled exhaustive report"
 command_role = "helper"
 disposition = "report_only"
 suite_ids = ["pr"]
@@ -678,7 +700,7 @@ artifact_paths = ["target/gate-artifacts/verification/"]
 artifact_retention = "machine_local"
 enforcement = "report_only"
 required_env = []
-rationale = "The helper renders the changed-file report; the assigned workflow invokes it with --strict and treats its exit status as required."
+rationale = "The helper renders the changed-file report; --smoke runs only report-boundary tests for PR and exact-candidate latency, while scheduled/manual runs retain exhaustive advisory maintenance."
 
 [[surfaces]]
 schema_version = 1
@@ -1348,19 +1370,19 @@ source_kind = "github_workflow_job"
 path = ".github/workflows/verification-gate.yml"
 name = "Verification Gate / verification-report"
 command = "workflow job .github/workflows/verification-gate.yml#verification-report"
-variant = "PR changed-file enforcing gate"
+variant = "PR smoke and scheduled exhaustive advisory verification report"
 command_role = "entrypoint"
 disposition = "assigned"
-suite_ids = ["pr"]
+suite_ids = ["nightly", "pr"]
 owner = "verification"
-duration_class = "fast"
+duration_class = "slow"
 environment = "github_ubuntu"
 artifact_kind = "ci_artifact"
 artifact_paths = ["verification-gate-report"]
 artifact_retention = "repository_default"
 enforcement = "required"
 required_env = []
-rationale = "The read-only workflow runs the changed-file gate with --strict, uploads its report, and blocks merge when the required verification surface is red."
+rationale = "The read-only workflow runs a blocking report-boundary smoke on pull requests and exact candidates, retains exhaustive advisory verification tooling on schedule/manual dispatch, and uploads either report."
 
 [[surfaces]]
 schema_version = 1

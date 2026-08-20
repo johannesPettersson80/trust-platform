@@ -12,7 +12,7 @@ use super::{BytecodeEncoder, BytecodeError};
 
 impl<'a> BytecodeEncoder<'a> {
     pub(super) fn build_resource_meta(&mut self) -> Result<ResourceMeta, BytecodeError> {
-        let name_idx = self.strings.intern("RESOURCE");
+        let name_idx = self.strings.intern(self.runtime.resource_name().clone());
         let (inputs, outputs, memory) = process_image_sizes(self.runtime.io());
         let inputs_size = to_u32(inputs, "inputs size")?;
         let outputs_size = to_u32(outputs, "outputs size")?;

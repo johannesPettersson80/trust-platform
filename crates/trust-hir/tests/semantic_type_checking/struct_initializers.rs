@@ -376,6 +376,37 @@ END_TYPE
 }
 
 #[test]
+fn hir_directly_derived_scalar_default_retains_alias_identity_and_initializer() {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+TYPE
+    Limited : INT := 100;
+END_TYPE
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let type_id = symbols
+        .lookup_registered_type_name("Limited")
+        .expect("Limited type");
+    let Type::Alias { name, target } = symbols.type_by_id(type_id).expect("Limited definition")
+    else {
+        panic!("expected directly-derived alias");
+    };
+    assert_eq!(name.as_str(), "Limited");
+    assert!(matches!(symbols.type_by_id(*target), Some(Type::Int)));
+
+    let initializer = symbols
+        .type_default_initializer(type_id)
+        .expect("TYPE-level scalar default initializer");
+    assert!(symbols.initializer(initializer).is_some());
+}
+
+#[test]
 fn hir_struct_field_default_initializer_is_recorded() {
     let mut db = Database::new();
     let file = FileId(0);

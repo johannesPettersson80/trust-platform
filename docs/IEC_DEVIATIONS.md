@@ -1,879 +1,300 @@
 # IEC Deviations Log
 
 Authoritative location:
-- This tracked file is the repository source of truth for IEC deviations/extensions.
+- This tracked file is the repository source of truth for IEC deviations.
 - Do not point tracked docs or code comments at legacy internal IEC deviation-log paths.
 
-This file tracks known, intentional deviations/extensions from strict IEC 61131-3 behavior.
+This file tracks known, intentional departures from normative IEC 61131-3
+requirements. Every entry must cite the exact IEC section/table, state the
+normative requirement, state truST's behavior, and explain the concrete
+conflict, omission, or relaxation.
 
-Classification note: an entry in this log is not automatically a claim of IEC
-non-conformance. Per the repository IEC-first rules, this file also records
-behavior that IEC explicitly leaves implementer-specific and truST product
-extensions outside IEC's scope. Each entry must state which category applies
-in its IEC reference.
+IEC-silent, out-of-scope, implementation-specific, platform/runtime, and
+truST-only API behavior belongs in the relevant product specification, not in
+this log. IEC-permitted interpretation choices belong in
+`docs/IEC_DECISIONS.md`. Existing entries are not classification precedent;
+re-check them against this rule when touched.
 
-## 2026-07-18 - Reject non-finite explicit conversion results
+## 2026-07-30 - Value-bearing RETURN statement
 
-- ID: DEV-053
-- Area: Standard numeric and bit-to-numeric conversion functions
-- IEC reference: IEC 61131-3 Ed.3 section 6.6.2.5.2 makes conversion accuracy
-  effects and execution errors implementer-specific; section 6.6.2.5.3 Table 23
-  specifically makes `LREAL_TO_REAL` value-range errors implementer-specific.
-  Section 6.6.2.5.5 Table 25 defines `DWORD_TO_REAL` and `LWORD_TO_LREAL` as
-  binary transfers. This entry records the product's implementer-specific
-  exceptional-value policy, not a contradiction of a required finite result.
-- Deviation/extension:
-  - Every explicit conversion targeting `REAL` or `LREAL` returns
-    `RuntimeError::Overflow` when parsing, narrowing, or binary transfer would
-    produce NaN, positive infinity, or negative infinity.
-  - Finite `DWORD_TO_REAL` and `LWORD_TO_LREAL` values preserve the IEC binary
-    transfer. No non-finite value is clamped or replaced.
-  - The error occurs before assignment storage, leaving the target unchanged.
+- ID: DEV-022
+- Area: Structured Text subprogram control statements
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 7.3.3.2.4 and the
+  `Subprog_Ctrl_Stmt` production in Annex A define the textual `RETURN`
+  statement as the keyword `RETURN` without an expression. Function results
+  are assigned through the function-name result variable.
+- truST behavior and conflict:
+  - truST additionally accepts `RETURN <expression>` in a function or
+    value-returning method.
+  - The expression is checked against the declared result type, supplies that
+    result, and exits the POU immediately.
+  - Accepting an expression after `RETURN` extends both the normative grammar
+    and the normative function-result assignment model.
 - Impact:
-  - PLC logic cannot synthesize a stored non-finite value through standard
-    explicit conversion functions.
+  - Source using value-bearing `RETURN` is accepted by truST but is not
+    portable to a strictly conforming IEC 61131-3 implementation.
 - Mitigation:
-  - Range-check before narrowing and represent exceptional state with an
-  explicit finite value and status rather than IEEE exceptional payloads.
+  - Portable source should assign the function-name result variable and then
+    use bare `RETURN`.
+  - truST rejects a value-bearing `RETURN` in a POU without a declared return
+    type and type-checks the expression before execution.
 
-## 2026-07-14 - Connector status and discovery truth vocabulary
+## 2026-07-27 - Integer-base exponentiation
 
-- ID: DEV-051
-- Area: Runtime connector supervision and editor discovery presentation
-- IEC reference: IEC 61131-3 does not define truST's protocol connector
-  lifecycle, supervisory health, discovery probes, or editor fleet topology.
-  This entry records a truST product extension outside the IEC language model,
-  not an IEC non-conformance.
-- Deviation/extension:
-  - Connector lifecycle, health, discovery confidence, and point-quality values
-    use the closed vocabularies in the runtime-engine specification.
-  - Unknown values fail visibly. An invalid peer status report cannot be
-    substituted with a healthy value or remove the peer's raw topology.
+- ID: DEV-021
+- Area: Structured Text arithmetic expressions
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.2.5.8 and Table 29
+  define `EXPT`/`**` with `IN1` of generic type `ANY_REAL`, `IN2` of generic
+  type `ANY_NUM`, and an output of the same type as `IN1`.
+- truST behavior and conflict:
+  - truST additionally accepts the reviewed integer expression
+    `INT#2 ** INT#3` and evaluates it to `INT#8`.
+  - Accepting an integer `IN1` extends the normative input domain beyond
+    `ANY_REAL`.
 - Impact:
-  - Operators can distinguish configured, reachable, protocol-confirmed,
-    degraded, stale, and faulted connectors without treating reachability as
-    protocol health.
+  - Source that uses this reviewed integer-base expression is accepted by
+    truST but is not portable to a strictly conforming IEC 61131-3
+    implementation.
 - Mitigation:
-  - Keep producers and consumers on the shared closed vocabulary and preserve
-    topology with an explicit error when a version mismatch is encountered.
-
-## 2026-07-14 - EtherCAT hardware unavailability is terminal per driver
-
-- ID: DEV-052
-- Area: EtherCAT connector initialization and recovery
-- IEC reference: IEC 61131-3 does not define EtherCAT adapter discovery,
-  EtherCrab process-data allocation, or truST's driver recovery lifecycle. This
-  entry records a truST product extension outside the IEC language model, not
-  an IEC non-conformance.
-- Deviation/extension:
-  - Missing hardware does not block project construction or runtime startup;
-    the first wire operation reports the unavailable resource.
-  - A post-allocation initialization failure is terminal for that driver
-    instance and requires rebuilding it before another allocation attempt.
-- Impact:
-  - Missing hardware fails visibly without an unbounded scan-cycle retry or
-    repeated process-data allocation.
-- Mitigation:
-  - Rebuild the driver after correcting adapter or topology configuration and
-    use the mock adapter only as software evidence, never hardware proof.
-
-## 2026-07-14 - Runtime control and debugger role authorization
-
-- ID: DEV-050
-- Area: Runtime control, debugger, I/O, HMI, configuration, and pairing access
-- IEC reference: IEC 61131-3 does not define truST's host control protocol,
-  pairing tokens, debugger transport, or product role hierarchy. This entry
-  records a truST security extension outside the IEC language model, not an IEC
-  non-conformance.
-- Deviation/extension:
-  - Control roles are ordered Viewer, Operator, Engineer, and Admin, with every
-    supported request assigned an explicit minimum role.
-  - Debug writes, forces, and releases require Engineer; enabling debug or
-    changing control mode requires Admin.
-  - Unclassified future request types use an Admin fail-safe rather than
-    inheriting Viewer authority.
-- Impact:
-  - Lower-role clients cannot activate the debug surface or mutate PLC state;
-    adding a new request without updating the matrix cannot silently expose it
-    to a read-only client.
-- Mitigation:
-  - Commission tokens and pairing roles explicitly, keep production debug
-    disabled, and review the role matrix whenever a control operation is added.
-
-## 2026-07-14 - Exclude debugger pause dwell from watchdog execution time
-
-- ID: DEV-049
-- Area: Runtime debugger pause and watchdog accounting
-- IEC reference: IEC 61131-3 does not define truST's debugger protocol,
-  statement-boundary pause mechanism, or host watchdog accounting while an
-  operator inspects a stopped program. This entry records a truST product
-  extension outside the IEC language model, not a contradiction of an IEC
-  requirement.
-- Deviation/extension:
-  - A watchdog measures active cycle execution. Time spent waiting at a
-    debugger statement-boundary pause is excluded from the current cycle's
-    execution and output-commit deadlines.
-  - Resume continues the suspended cycle with the remaining active-execution
-    budget rather than resetting the watchdog to a new full interval.
-  - A resource pause between cycles starts no new scan or watchdog interval.
-- Impact:
-  - An operator may inspect a paused program longer than the configured
-    watchdog timeout without manufacturing a watchdog fault, while genuine
-    active-execution overruns remain bounded.
-- Mitigation:
-  - Production deployments should keep debug attach disabled unless explicitly
-    commissioned. Stop or fault the resource when safe-state handling is
-    required instead of relying on a debugger pause.
-
-## 2026-07-14 - Automatic runtime fault restart uses warm storage semantics
-
-- ID: DEV-048
-- Area: Runtime fault recovery and retain lifecycle
-- IEC reference: IEC 61131-3 Ed.3 section 6.5.6 defines retentive-variable
-  storage, but it does not define truST's host `FaultPolicy`, watchdog retry
-  action, or automatic recovery loop.
-- Deviation/extension:
-  - A non-panic cycle fault or watchdog timeout configured for automatic
-    restart uses the runtime's warm-restart transition.
-  - `RETAIN` values are preserved; `NON_RETAIN` and ordinary initialized
-    storage are reinitialized.
-  - A contained resource panic is not retried automatically, and automatic
-    non-panic retries are limited to three consecutive attempts.
-- Impact:
-  - Recovery preserves declared retained process state, but ordinary working
-    state is reinitialized before execution resumes.
-- Mitigation:
-  - Declare state `RETAIN` only when it must survive automatic recovery, and
-    treat restart-limit exhaustion or a resource panic as an operator-visible
-    fault requiring intervention.
-
-## 2026-07-14 - Bound debug writes and forces to a runtime lifecycle
-
-- ID: DEV-047
-- Area: Runtime and debug-adapter write/force lifecycle
-- IEC reference: IEC 61131-3 does not define truST's DAP or runtime-control
-  write, force, release, detach, authorization, or process-lifecycle protocol.
-  This entry records a truST product extension outside the IEC language model,
-  not a contradiction of an IEC requirement.
-- Deviation/extension:
-  - Debug writes are one-shot requests consumed at the next scan boundary.
-  - Forces persist across ordinary scans, pause/resume, and non-terminating
-    debugger disconnect until explicit release.
-  - Deliberate stop, fault handling, and warm or cold restart clear pending
-    writes and active forces before safe-state handling or execution resumes.
-  - Safe-state output has precedence over forcing at stop and fault boundaries.
-  - Authorization changes govern later commands and do not silently alter an
-    existing force.
-- Impact:
-  - A pre-restart or pre-fault debug mutation cannot be replayed into a new
-    runtime lifecycle. Detaching a client does not unexpectedly change the
-    running PLC state.
-- Mitigation:
-  - Operators must explicitly release forces during an ordinary attached
-    session and must reapply any intended force after a restart.
-
-## 2026-07-14 - Require confirmed safe-state driver handoff
-
-- ID: DEV-046
-- Area: Runtime safe-state output handoff
-- IEC reference: IEC 61131-3 does not define truST's host I/O worker queues,
-  protocol reconnect policy, driver-health model, or physical safe-state
-  acknowledgement boundary. This entry records an implementer-specific host
-  runtime policy, not a contradiction of an IEC requirement.
-- Deviation/extension:
-  - A configured safe-state attempt succeeds only when every configured driver
-    accepts the output image and immediately reports `Ok` health.
-  - `Degraded` or `Faulted` health is an unconfirmed physical handoff even when
-    a driver's ordinary `warn` or `ignore` policy suppresses its transport
-    error.
-  - The runtime attempts all configured drivers, reports the first failure, and
-    does not let a deliberate stop enter `Stopped` when safe-state delivery is
-    unconfirmed.
-  - Worker handoff remains bounded. Queued, reconnecting, and timed-out writes
-    fail the confirmation attempt instead of blocking indefinitely or being
-    reported as physically safe.
-- Impact:
-  - A runtime may report a safe-state failure even if a queued worker write
-    reaches the device later. This is the conservative outcome because delivery
-    was not confirmed at the stop/fault boundary.
-- Mitigation:
-  - Keep protocol workers healthy, configure explicit safe outputs, and treat a
-    safe-state failure or `Faulted` stop as requiring operator or supervisory
-    recovery before assuming outputs are safe.
-
-## 2026-07-14 - Reject non-finite values at typed runtime admission boundaries
-
-- ID: DEV-045
-- Area: Runtime typed I/O, protocol, API, configuration, and retain boundaries
-- IEC reference: IEC 61131-3 Ed.3 Section 6.4.2.1, Table 10 defines
-  `REAL`/`LREAL` using IEC 60559 and makes results involving infinity or
-  not-a-number implementer-specific; Section 6.6.2.5.15, Table 39 defines
-  `IS_VALID` but does not define external admission policy. This entry records
-  an implementer-specific product policy, not a contradiction of an IEC
-  requirement.
-- Deviation/extension:
-  - truST rejects NaN, positive infinity, negative infinity, and declared-width
-    overflow at every typed runtime admission boundary enumerated in
-    `docs/specs/11-runtime-engine.md#floating-point-boundary-admission-policy`.
-  - Rejection occurs before the external value changes PLC storage or an
-    accepted driver snapshot. Multi-point Modbus reads and MQTT payload batches
-    are transactional: a rejected point cannot leak an earlier point from the
-    same rejected batch into a later scan.
-  - Untyped raw-byte/register transport remains possible, but a declared
-    `REAL`/`LREAL` binding validates the representation before exposing it as a
-    typed value. Rejection never clamps, normalizes, or substitutes a default.
-- Impact:
-  - External systems cannot use non-finite IEEE values as ordinary PLC process
-    inputs through a typed truST boundary.
-- Mitigation:
-  - Validate values at the producing system and represent exceptional state as
-    an explicit finite value/status pair. PLC programs may use `IS_VALID` for
-    in-process values where the applicable operation permits them.
-
-## 2026-07-13 - Reject non-finite typed process-image outputs
-
-- ID: DEV-044
-- Area: Runtime typed `%Q`/`%M` process-image egress
-- IEC reference: IEC 61131-3 Ed.3 defines directly represented variables and
-  `REAL`/`LREAL`, but does not define truST's process-image serialization and
-  driver-commit transaction.
-- Deviation/extension:
-  - Typed `%Q` and `%M` `REAL`/`LREAL` bindings reject values that are not
-    finite at their declared width. Conversion to `REAL` also rejects a finite
-    wider value when basic-single narrowing becomes non-finite.
-  - Every eligible binding is validated before any output or marker image
-    mutation. Rejection leaves the pending image unchanged and prevents the
-    normal driver-output commit.
-  - The runtime does not clamp, normalize, substitute, or emit non-finite IEEE
-    output bits. Configured safe-state fault handling remains separate.
-- Impact:
-  - Non-finite floating state cannot silently cross the typed process-image
-    boundary or partially update a physical-output transaction.
-- Mitigation:
-  - Validate and range-check process values before the scan reaches its output
-    phase, and model exceptional state with an explicit status value.
-
-## 2026-07-13 - Fault on non-finite REAL named-function results
-
-- ID: DEV-043
-- Area: Runtime `REAL` numerical functions
-- IEC reference: IEC 61131-3 Ed.3 Tables 28-29 define `EXP` and `EXPT`, while
-  §6.4.2.1 Table 10 footnote e defines exceptional basic-single
-  floating-point results as implementer-specific.
-- Deviation/extension:
-  - For finite `REAL` operands, `EXP` and `EXPT` return
-    `RuntimeError::Overflow` when the result is not finite at basic-single
-    width.
-  - The error occurs before assignment storage, so the target retains its
-    previous value. The runtime does not clamp or store infinity or NaN.
-  - This decision does not define `LREAL`, non-finite operands, subnormal
-    underflow, signed zero, explicit conversions, or domain behavior for other
-    numerical functions.
-- Impact:
-  - Programs cannot use infinity or NaN produced by these `REAL` functions as
-    ordinary stored process state.
-- Mitigation:
-  - Scale or range-check operands before the call and represent exceptional
-    state with an explicit status value.
-
-## 2026-07-13 - Fault on non-finite REAL binary results
-
-- ID: DEV-042
-- Area: Runtime `REAL` binary arithmetic
-- IEC reference: IEC 61131-3 Ed.3 §6.4.2.1, Table 10 footnote e defines
-  exceptional results for basic-single floating-point arithmetic as
-  implementer-specific.
-- Deviation/extension:
-  - For finite `REAL` operands, binary `+`, `-`, `*`, `/`, and `**` return
-    `RuntimeError::Overflow` when the result is not finite at basic-single
-    width.
-  - The error occurs before assignment storage, so the target retains its
-    previous value. The runtime does not clamp or store infinity or NaN.
-  - This decision does not define `LREAL`, subnormal underflow, signed zero,
-    non-finite operands, explicit conversions, or named numerical functions.
-- Impact:
-  - Programs cannot use infinity or NaN produced by these `REAL` binary
-    operators as ordinary stored process state.
-- Mitigation:
-  - Scale or range-check operands before the operation and represent exceptional
-    state with an explicit status value.
-
-## 2026-07-13 - Reject non-finite simulation coupling thresholds
-
-- ID: DEV-041
-- Area: File-backed simulation configuration
-- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559, but it
-  does not define truST's implementer-specific `simulation.toml` coupling
-  policy.
-- Deviation/extension:
-  - The `simulation.toml` loader rejects a `[[couplings]].threshold` containing
-    `NaN`, positive infinity, or negative infinity before activating the
-    configuration.
-  - Rejection does not normalize, clamp, or substitute a threshold. Finite
-    threshold comparison behavior is unchanged.
-- Impact:
-  - Simulation files cannot use a non-finite value as an ordinary coupling
-    decision threshold.
-- Mitigation:
-  - Model exceptional simulation state explicitly with finite values and
-    scripted disturbances.
-
-## 2026-07-13 - Reject non-finite managed-debug I/O values
-
-- ID: DEV-040
-- Area: Debug adapter Live Values floating-point ingress
-- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559, but it
-  does not define truST's implementer-specific DAP `stIoWrite` and `stIoForce`
-  requests.
-- Deviation/extension:
-  - In managed local debug sessions, values submitted for declared `REAL` and
-    `LREAL` addresses are interpreted as semantic decimal floating-point
-    values, not as raw `DWORD`/`LWORD` bit patterns.
-  - The adapter rejects `NaN`, positive infinity, negative infinity, and
-    values that overflow the declared floating-point width before queuing,
-    forcing, or mutating the process image.
-  - Rejection preserves the previous process-image value and force state and
-    returns a failed DAP response. Attach-mode requests remain governed by the
-    separate runtime control endpoint contract.
-- Impact:
-  - A managed debugger cannot use non-finite values or their integer bit
-    encodings as ordinary `REAL`/`LREAL` Live Values inputs.
-- Mitigation:
-  - Use an explicit finite value/status pair when non-finite state must be
-    represented to a PLC program.
-
-## 2026-07-13 - Reject non-finite file-backed retained values
-
-- ID: DEV-039
-- Area: Runtime retain persistence
-- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559 and defines
-  retentive-variable restart behavior, but it does not define truST's
-  implementer-specific file-backed retain image format or admission policy.
-- Deviation/extension:
-  - truST rejects retained `REAL`/`LREAL` values containing `NaN`, positive
-    infinity, or negative infinity when saving or loading a file-backed retain
-    snapshot. The rule applies recursively to arrays and structures.
-  - A rejected save leaves the last durable snapshot unchanged. A rejected
-    load applies no entries from the snapshot and leaves the runtime's retained
-    values unchanged.
-  - The runtime does not clamp, normalize, or replace a non-finite retained
-    value with a default.
-- Impact:
-  - Projects cannot persist non-finite values through truST's file-backed retain
-    store as ordinary process state.
-- Mitigation:
-  - Use `IS_VALID` and project logic to convert intentional non-finite internal
-    state into an explicit finite status/value pair before persistence.
-
-## 2026-07-13 - Reject out-of-range runtime mesh numeric inputs
-
-- ID: DEV-038
-- Area: Runtime mesh numeric ingress
-- IEC reference: IEC 61131-3 defines the ranges of elementary integer types and
-  defines `REAL`/`LREAL` using IEC 60559, but it does not define truST's
-  implementer-specific runtime mesh transport.
-- Deviation/extension:
-  - truST decodes an inbound mesh number against the configured local target
-    type and rejects integers outside that type's range.
-  - A mesh number targeting `REAL` or `LREAL` is rejected when conversion would
-    produce `NaN`, positive infinity, or negative infinity.
-  - Rejection queues no mesh update and leaves the local PLC value unchanged;
-    the runtime does not clamp, wrap, normalize, or substitute a default.
-- Impact:
-  - Mesh peers cannot rely on Rust-style narrowing casts or non-finite values as
-    ordinary process-data inputs.
-- Mitigation:
-  - Validate and scale values at the publishing peer so they fit the subscribed
-    IEC target type.
-
-## 2026-07-13 - Reject non-finite ADS input values
-
-- ID: DEV-037
-- Area: Runtime ADS floating-point ingress
-- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559 and exposes
-  `IS_VALID` for detecting `NaN` and infinity, but it does not define how an
-  ADS client or server must admit those values into PLC storage.
-- Deviation/extension:
-  - truST rejects ADS `REAL`/`LREAL` client reads, notifications, and server
-    writes containing `NaN`, positive infinity, or negative infinity.
-  - Rejection occurs before client cache acceptance, server write queuing, or
-    PLC storage mutation and also applies to non-finite array elements.
-- Impact:
-  - ADS peers cannot use non-finite values as ordinary floating-point process
-    inputs in truST.
-- Mitigation:
-  - Validate or normalize the value at the ADS peer when a project intentionally
-    uses non-finite values for out-of-band signaling.
-
-## 2026-07-13 - Reject non-finite OPC UA client input samples
-
-- ID: DEV-036
-- Area: Runtime OPC UA client floating-point ingress
-- IEC reference: IEC 61131-3 defines `REAL`/`LREAL` using IEC 60559 and exposes
-  `IS_VALID` for detecting `NaN` and infinity, but it does not define how a
-  host OPC UA client must admit those values into PLC storage.
-- Deviation/extension:
-  - truST rejects OPC UA client `Float`/`Double` input samples containing
-    `NaN`, positive infinity, or negative infinity before cache acceptance or
-    PLC storage mutation.
-  - The affected point becomes faulted and the previous PLC value is retained.
-  - The value is not normalized, clamped, or replaced with a default.
-- Impact:
-  - An OPC UA server cannot use non-finite scalar values as ordinary
-    `REAL`/`LREAL` process inputs in truST.
-- Mitigation:
-  - Validate or normalize the source value at the OPC UA server when a project
-    intentionally uses non-finite values for out-of-band signaling.
-
-## 2026-07-13 - Watchdog output-commit and empty safe-state policy
-
-- ID: DEV-035
-- Area: Runtime watchdog and physical output commit
-- IEC reference: IEC 61131-3 does not standardize truST's host-runtime watchdog
-  thresholds, fault action, or physical driver commit boundary.
-- Deviation/extension:
-  - truST checks the watchdog deadline before the physical output-driver write.
-  - An expired deadline prevents the pending process-image output from being
-    written.
-  - Fault handling writes configured safe-state values when at least one value
-    is configured. With an empty safe-state configuration, it performs no
-    physical output write.
-- Impact:
-  - Without configured safe outputs, the device remains at its last physically
-    committed state after the watchdog fault; the uncommitted current-cycle
-    image is never used as an implicit safe state.
-- Mitigation:
-  - Configure explicit safe-state outputs for installations that require a
-    physical transition on watchdog fault.
-
-## 2026-04-27 - `UNION` aggregate initialization as truST extension
-
-- Area: Structured Text data types and initializers
-- IEC reference: IEC 61131-3 Ed.3 defines structured aggregate initialization
-  for structures and FB declarations; `UNION` is not a core Ed.3 data-type
-  construct in the same way as `STRUCT`.
-- Deviation:
-  - truST accepts `UNION` / `END_UNION` as a vendor-style data type and routes
-    named union aggregate initializers through the same checked initializer
-    machinery as structures.
-- Impact:
-  - Projects can use named union defaults in truST, but strict IEC exporters may
-    need to lower or reject these declarations.
-- Mitigation:
-  - The behavior is explicit in parser/HIR/runtime tests and uses the same
-    unknown/duplicate-field diagnostics as structure initialization.
-
-## 2026-02-25 - CTUD single-input profile in LD v2 node model
-
-- Area: Ladder Diagram counter node representation
-- IEC reference: Counter FBs (IEC 61131-3 Ed.3, counter FB tables)
-- Deviation:
-  - LD schema v2 `counter` node currently exposes one power input.
-  - `CTUD` is executed as CU-driven (rising-edge increment) in this profile; separate CD/QD wiring is not represented in node schema yet.
-- Impact:
-  - Full dual-input CTUD semantics are not available in current LD node contract.
-- Mitigation:
-  - Behavior is explicit in tests and docs; future schema extension can add dedicated CU/CD/R/LD pins.
-
-## 2026-02-25 - TP/TOF ET exposure uses internal millisecond state
-
-- Area: Ladder Diagram timer diagnostics/state exposure
-- IEC reference: Timer FBs (IEC 61131-3 Ed.3, timer timing tables)
-- Deviation:
-  - Internal ET storage for TP/TOF diagnostics is represented as implementation-facing millisecond state in `%MW_LD_TIMER_<instance>_ET`.
-- Impact:
-  - Exposed ET key is engine-internal and not a normative IEC variable contract.
-- Mitigation:
-  - Runtime behavior (`Q` transitions) is tested; ET key is documented as implementation detail.
-
-## 2026-02-25 - PLCopen LD interop subset
-
-- Area: PLCopen LD import/export
-- IEC reference: PLCopen XML graphical-body interchange profiles (vendor ecosystem variance)
-- Deviation:
-  - LD import/export currently targets the supported LD network-body subset used by `editors/vscode/src/ladder/plcopenLdInterop.ts`.
-  - Unsupported graphical/vendor constructs are skipped with explicit diagnostics.
-- Impact:
-  - Not all vendor-specific graphical metadata/layout constructs are round-tripped.
-- Mitigation:
-  - Unsupported constructs are reported deterministically and covered by interop tests.
-
-## 2026-02-27 - LD node operands use free-form string references
-
-- Area: LD schema v2 operand contract
-- IEC reference: Section 8.2 LD operands with declaration-driven typing and scope
-- Deviation:
-  - Node operands (`contact.variable`, `coil.variable`, compare/math operands) are represented as plain strings in schema v2.
-  - Schema v2 does not yet provide explicit `symbolRef` vs `directAddress` discriminators.
-- Impact:
-  - Symbolic and direct-address references are syntactically mixed at profile level.
-  - Additional validation is required to enforce strict declaration-driven addressing policies.
-- Mitigation:
-  - Normative spec defines symbolic-first policy; profile constraints are documented in `docs/specs/16-ladder-profile-trust.md`.
-
-## 2026-02-27 - Runtime forcing path symbolic support closure
-
-- Area: LD runtime I/O write/force operations
-- IEC reference: Implementation-specific external I/O binding around LD execution model
-- Previous deviation:
-  - Runtime write/force/release operations were direct-address centric.
-- Current status:
-  - Closed in this stream. Runtime write/force/release now resolve declared symbols
-    (including scoped references) in addition to direct `%IX*` addressing.
-- Impact:
-  - Symbol-first LD projects can be exercised from runtime controls without mandatory
-    direct-address operands in node fields.
-
-## 2026-02-27 - LD contact/coil symbol subset (Table 75/76)
-
-- Area: Ladder Diagram symbol set exposed in schema v2/editor tooling
-- IEC reference: IEC 61131-3 Ed.3 Table 75 (Contacts), Table 76 (Coils)
-- Deviation:
-  - Current schema v2/editor profile implements static contacts (`NO`, `NC`) and coil
-    variants (`NORMAL`, `NEGATED`, `SET`, `RESET`).
-  - Transition-sensing contact/coil variants from Table 75/76 are not yet represented in
-    node schema.
-- Impact:
-  - Users cannot model transition-sensing LD symbols directly in the current profile.
-- Mitigation:
-  - Unsupported symbol forms are not silently coerced; they are rejected with explicit
-    diagnostics.
-
-## 2026-04-11 - Numeric hazard diagnostics for ST expressions
-
-- Area: Structured Text diagnostics
-- IEC reference: IEC 61131-3 Ed.3 defines expression evaluation and runtime fault behavior, but does not require warnings for floating-point equality or literal zero divisors.
-- Deviation:
-  - The type checker emits `W013` for `=`/`<>` comparisons when either operand is `REAL`/`LREAL`.
-  - The type checker emits `W014` for `DIV`/`MOD` expressions whose right-hand operand is a literal zero.
-- Impact:
-  - truST reports additional proactive diagnostics beyond strict IEC conformance.
-- Mitigation:
-  - These are configurable tooling warnings under `[diagnostics].warn_numeric_hazards`, and severities can still be overridden per code.
-
-## 2026-04-11 - File-scope `VAR_GLOBAL` as vendor-style GVL
-
-- Area: Structured Text global-variable declarations
-- IEC reference: IEC 61131-3 Ed.3 models globals through `PROGRAM`/`CONFIGURATION`/`RESOURCE`; vendor ecosystems such as CODESYS/TwinCAT also use standalone GVL source files.
-- Deviation:
-  - truST accepts top-level file-scope `VAR_GLOBAL ... END_VAR` blocks and treats them as global variable libraries (GVLs).
-- Impact:
-  - CODESYS/TwinCAT-style GVL source files compile directly in truST without wrapping them in a `CONFIGURATION`.
-- Mitigation:
-  - Duplicate global names in the same effective namespace are rejected.
-  - Strict-IEC reshaping remains available as an adapter/export concern rather than a core-language requirement.
-
-## 2026-04-11 - Namespaced vendor-style GVLs
-
-- Area: Structured Text global-variable declarations
-- IEC reference: `NAMESPACE`-scoped global-variable libraries are a vendor extension rather than an IEC Ed.3 construct.
-- Deviation:
-  - truST accepts `NAMESPACE ... VAR_GLOBAL ... END_NAMESPACE`.
-  - Qualified access such as `GVL.shared` resolves against the namespaced global directly.
-  - CODESYS `{attribute 'qualified_only'}` is not enforced as a semantic restriction in core truST yet.
-- Impact:
-  - Vendor-style namespaced GVLs compile directly in truST, including qualified reads/writes.
-  - Projects imported from vendor tooling may still allow bare access where CODESYS would require qualification.
-- Mitigation:
-  - Strict import/export paths may keep wrapper or injected-`VAR_EXTERNAL` transforms for external consumers that need them, including PLCopen import calls that opt into `PlcopenImportGlobalVarMode::StrictIecAdapter`.
-  - Documentation calls out the current `qualified_only` limitation explicitly.
-
-## 2026-04-11 - Optional `VAR_EXTERNAL` for vendor-parity global access
-
-- Area: Structured Text global-variable access
-- IEC reference: IEC 61131-3 Ed.3 §6.5.2.2 / Figure 8 requires explicit `VAR_EXTERNAL` linkage for external global access.
-- Deviation:
-  - truST accepts direct global access without requiring a matching `VAR_EXTERNAL` declaration.
-  - `VAR_EXTERNAL` remains supported and type-checked when authors choose to declare it.
-  - This vendor-parity path applies to configuration/resource globals, file-scope GVLs, and qualified namespaced GVL access.
-- Impact:
-  - CODESYS/TwinCAT-style ST authored without injected `VAR_EXTERNAL` blocks compiles directly in truST.
-- Mitigation:
-  - Undefined bare names still diagnose as errors.
-  - Strict-IEC export/adapter flows may still synthesize `VAR_EXTERNAL` declarations when targeting stricter consumers, including the optional PLCopen strict-adapter import mode.
-
-## 2026-04-11 - `VAR_STAT` runtime semantics
-
-- Area: Structured Text static variables
-- IEC reference: `VAR_STAT` is a vendor extension and is not defined by IEC 61131-3 Ed.3.
-- Deviation:
-  - truST accepts `VAR_STAT` and gives it persistent storage semantics.
-  - In `FUNCTION`, `VAR_STAT` persists across calls to that function definition.
-  - In `METHOD`, `VAR_STAT` persists per enclosing instance and per method.
-  - In `PROGRAM`, `FUNCTION_BLOCK`, and `CLASS`, `VAR_STAT` behaves as ordinary instance storage in the enclosing instance-bearing scope.
-- Impact:
-  - Vendor-authored code using `VAR_STAT` compiles and preserves static state without rewriting to IEC-only forms.
-- Mitigation:
-  - `VAR_STAT` remains an explicit vendor extension in docs/specs.
-  - Strict-IEC export/adapter paths may rewrite or reject `VAR_STAT` for consumers that do not support it.
-
-## 2026-04-17 - ADR / SIZEOF built-ins
-
-- ID: DEV-016
-- Area: ADR / SIZEOF built-ins
-- IEC reference: Not specified in IEC 61131-3 Ed3; vendor extension.
-- Deviation:
-  - truST parses and executes `ADR(...)` and `SIZEOF(...)` as built-in expressions.
-  - `SIZEOF(...)` returns a `DINT` byte count for the static storage representation of either an explicit `type_ref` or a storage operand (`var`, field/index access, dereference, `THIS.field`) without evaluating the operand.
-  - Bare identifiers resolve variables before type names, matching common CODESYS shadowing behavior.
-  - `SIZEOF(...)` is const-foldable when the static type is known.
-  - `STRING[n]` reports `n`, `WSTRING[n]` reports `2n`.
-  - `POINTER TO` / `REF_TO` operands report the platform pointer word size (`sizeof(usize)`), not truST's internal runtime handle layout.
-  - Open arrays, unsized strings/WSTRINGs, and whole FB/class/interface instances are rejected.
-- Impact:
-  - Common vendor ST patterns like `ARRAY[0..SIZEOF(packet)-1] OF BYTE` compile and fold deterministically.
-  - Pointer `SIZEOF` matches platform pointer width rather than leaking the size of truST's private runtime reference handle.
-  - `ADR(str)` yields a typed pointer/reference-compatible handle for string dereference/indexing, not a raw byte-array reinterpretation of string storage.
-- Mitigation:
-  - This behavior is documented as a vendor extension rather than an IEC core feature.
-
-## 2026-04-17 - Runtime STRING / WSTRING element semantics
-
-- ID: DEV-017
-- Area: Runtime string indexing, character access, and stdlib string element operations
-- IEC reference:
-  - IEC 61131-3 Ed.3 Table 10 defines `STRING` as single-byte and `WSTRING` as double-byte character strings.
-  - IEC examples and common vendor practice use 1-based element access for `str[idx]`.
-- Deviation:
-  - truST stores `STRING` as UTF-8 text and `WSTRING` as Rust `String` text rather than raw single-byte / UCS-2 buffers.
-  - Public runtime element access is 1-based for both `STRING` and `WSTRING`.
-  - `STRING[idx]`, `LEN`, `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE`, and `FIND` operate on Unicode scalar elements, not raw UTF-8 bytes.
-  - `WSTRING[idx]` and the same stdlib helpers operate on the same Unicode scalar element model rather than raw 16-bit code units.
-  - Materializing a `STRING` element as `CHAR` still requires the selected scalar value to fit in `u8`; otherwise the runtime reports overflow.
-  - Materializing a `WSTRING` element as `WCHAR` requires the scalar value to fit in `u16`.
-  - `SIZEOF(STRING[n])` and `SIZEOF(WSTRING[n])` remain storage-oriented (`n` and `2n` respectively), while runtime value sizing uses the same scalar-element counts described above.
-- Impact:
-  - Non-ASCII text behaves consistently across VM ref indexing and the shipped string stdlib, but the behavior is not raw IEC byte/code-unit indexing.
-  - Existing projects that feed UTF-8 strings through file, MQTT, or fieldbus paths get stable element access semantics instead of mixed byte/scalar behavior.
-- Mitigation:
-- The runtime and docs now use one explicit element model end-to-end.
-- A future raw-byte/raw-code-unit storage rewrite would be a separate compatibility project because it would require changing the underlying runtime value representation.
-
-## 2026-04-20 - POINTER TO support beyond IEC REF_TO
-
-- ID: DEV-018
-- Area: Structured Text pointer types and runtime pointer operations
-- IEC reference: `REF_TO` is standardized in IEC 61131-3 Ed.3 §6.4.4.10.2;
-  `POINTER TO`, `ADR`, and dereference-style pointer workflows are vendor
-  extensions.
-- Deviation:
-  - truST supports typed `POINTER TO` declarations in the language/type system.
-  - `ADR(...)`, dereference (`^`), `NULL`, and `?=` work for pointers in both
-    `trust-hir` and `trust-runtime`.
-  - `POINTER TO` shares the runtime reference storage model used by `REF_TO`.
-  - Pointer arithmetic is not supported.
-- Impact:
-  - Vendor-authored pointer-oriented ST can compile and execute in truST
-    without rewriting to IEC-only `REF_TO` forms.
-- Mitigation:
-  - The extension is documented explicitly in specs and remains typed and
-    non-arithmetic.
-
-## 2026-04-20 - Assertion helper functions for test POUs
-
-- ID: DEV-019
-- Area: Standard-library assertion helpers
-- IEC reference: IEC 61131-3 Ed.3 Tables 22-36 do not define assertion
-  functions such as `ASSERT_TRUE` / `ASSERT_FALSE`.
-- Deviation:
-  - truST ships `ASSERT_TRUE`, `ASSERT_FALSE`, `ASSERT_EQUAL`,
-    `ASSERT_NOT_EQUAL`, `ASSERT_GREATER`, `ASSERT_LESS`,
-    `ASSERT_GREATER_OR_EQUAL`, `ASSERT_LESS_OR_EQUAL`, and `ASSERT_NEAR`.
-  - These functions are executed by the runtime test framework and report
-    assertion context in failure output.
-- Impact:
-  - Test POUs can use built-in assertion helpers instead of encoding
-    expectations manually in ST control flow.
-- Mitigation:
-  - The helpers are documented as non-IEC test extensions and scoped to the
-    testing/runtime workflow.
-
-## 2026-04-20 - Reserved SFC keywords without textual SFC body syntax
+  - Portable source should convert the base to `REAL` or `LREAL` before
+    exponentiation.
+  - The expression and runtime specifications label that reviewed integer
+    form as a truST extension. Other integer operand combinations and
+    boundaries require their own specification behavior and focused proof.
+
+## 2026-07-26 - `REF(...)` rejects CONSTANT-qualified variables
 
 - ID: DEV-020
-- Area: Lexing and SFC authoring profile
-- IEC reference: IEC 61131-3 Ed.3 reserves SFC keywords and defines SFC
-  constructs, but truST currently ships visual SFC authoring rather than a
-  textual SFC body syntax inside the ST parser.
-- Deviation:
-  - truST reserves SFC keywords such as `STEP`, `TRANSITION`, and `ACTION`.
-  - truST ships a visual SFC editor/profile in the public docs.
-  - Textual SFC body syntax is not currently accepted as part of the ST parser.
+- Area: Structured Text reference operations
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.4.4.10.3 defines
+  `REF(...)` for a variable or instance and forbids temporary variables,
+  including `VAR_TEMP` and variables inside functions. Section 6.5.4 defines
+  CONSTANT-qualified declarations as variables and does not exclude them from
+  `REF(...)`.
+- truST behavior and conflict:
+  - `trust-hir` rejects `REF(c)` whenever `c` is CONSTANT-qualified.
+  - This adds a restriction not present in the normative reference-operation
+    rule.
 - Impact:
-  - SFC-related words remain unavailable as identifiers even though textual SFC
-    bodies are not yet part of the shipped ST grammar.
+  - IEC source may read a constant through a reference, but the equivalent
+    source is rejected by truST.
 - Mitigation:
-  - The reserved-keyword scope and authoring workflow are documented explicitly
-    in the lexer spec and visual-editor docs.
+  - Pass the constant value directly or copy it into non-CONSTANT storage
+    before taking a reference.
+  - This deviation closes when the type system can represent a read-only
+    reference target without permitting mutation through the reference.
+
+## 2026-07-26 - Non-NULL reference defaults on type and aggregate members
+
+- ID: DEV-019
+- Area: Structured Text reference initialization
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.4.4.10.2 permits a
+  reference to be initialized with `NULL` or with `REF(...)` naming an already
+  declared variable, function-block instance, or class instance.
+- truST behavior and conflict:
+  - truST accepts `NULL` as a reference type/member default.
+  - During user-defined type and aggregate-member default collection,
+    `trust-hir` rejects every non-`NULL` reference initializer, including
+    `REF(target)`, with `InvalidOperation`.
+  - Rejecting the standard-permitted `REF(target)` form omits part of the
+    normative reference-initialization model.
+- Impact:
+  - IEC source that embeds an address-bound reference default in a type or
+    aggregate member is rejected by truST.
+- Mitigation:
+  - Use a `NULL` default and assign the reference after an instance has been
+    created.
+  - This deviation closes only when HIR retains and validates safe
+    address-bound reference defaults without weakening lifetime checks.
+
+## 2026-07-26 - Mixed positional-prefix and formal-suffix calls
+
+- ID: DEV-018
+- Area: Structured Text textual call parameter binding
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.1.4.2 defines a
+  textual parameter list as either:
+  - a formal parameter list consisting of `:=` input/in-out assignments and
+    `=>` output assignments, whose ordering is insignificant; or
+  - a non-formal parameter list containing exactly the parameters of the
+    definition in declaration order, excluding `EN` and `ENO`.
+- truST behavior and conflict:
+  - truST additionally accepts a hybrid call when all positional arguments
+    precede all formal assignments, for example `Add(1, b := 2)`.
+  - Such a list is neither the IEC formal form nor the IEC non-formal form, so
+    accepting it extends the normative textual-call grammar and binding rules.
+  - A formal assignment followed by a positional argument remains rejected.
+- Impact:
+  - Source using this convenience syntax is accepted by truST but is not
+    portable to strictly conforming IEC 61131-3 implementations.
+- Mitigation:
+  - Portable source should use either a wholly formal or wholly non-formal
+    parameter list.
+  - The semantic specification labels the hybrid form as a truST extension,
+    and the compiler still enforces the positional-prefix ordering.
+
+## 2026-04-20 - Runtime STRING / WSTRING element semantics
+
+- ID: DEV-017
+- Area: Runtime string indexing, character access, and standard string operations
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.3.3 and Table 10 define
+  `STRING` as a single-byte character string and `WSTRING` as a double-byte
+  character string using the ISO/IEC 10646 character model.
+- truST behavior and conflict:
+  - truST stores both `STRING` and `WSTRING` as Rust `String` values.
+  - Indexed access and `LEN`, `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`,
+    `REPLACE`, and `FIND` operate on Unicode scalar elements rather than raw
+    single-byte or UTF-16 code units.
+  - Materializing a `STRING` element as `CHAR` still requires the selected
+    scalar value to fit in `u8`; materializing a `WSTRING` element as `WCHAR`
+    requires it to fit in `u16`.
+  - `SIZEOF(STRING[n])` and `SIZEOF(WSTRING[n])` remain storage-oriented (`n`
+    and `2n` respectively), while runtime value operations use scalar-element
+    counts.
+  - This scalar-element model conflicts with the standard's byte/code-unit
+    representation for non-ASCII text.
+- Impact:
+  - Non-ASCII text behaves consistently across VM reference indexing and the
+    shipped string library, but it is not raw IEC byte/code-unit indexing.
+- Mitigation:
+  - The runtime and specifications use one explicit element model end to end.
+  - A raw-byte/raw-code-unit rewrite is a separate compatibility change because
+    it requires changing the underlying runtime value representation.
 
 ## 2026-04-20 - Simplified `VAR_ACCESS` / `VAR_CONFIG` path validation
 
 - ID: DEV-003
 - Area: Structured Text access-path and configuration-variable validation
-- IEC reference: IEC 61131-3 Ed.3 §6.5.2.2, Tables 13-16
-- Deviation:
-  - truST validates declared access-path shape and target-type compatibility.
-  - Cross-resource / cross-program-instance mapping is not modeled completely in
-    `trust-hir`.
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.5.2.2 and Tables 13-16
+  define access paths and configuration-variable targets across configurations,
+  resources, program instances, globals, function blocks, and directly
+  represented variables, including matching target types.
+- truST behavior and conflict:
+  - truST validates the accepted access-path shape and target-type compatibility.
+  - `trust-hir` does not completely model or statically validate every
+    cross-resource and cross-program-instance mapping required by those forms.
+  - The missing topology validation is an omission from the normative access
+    path model, not an IEC-silent product choice.
 - Impact:
   - Full IEC communication-service topology is not statically proven in the
     language layer.
 - Mitigation:
-  - The supported subset is documented in the variables spec and enforced
-    consistently for the accepted forms.
+  - The supported subset is documented in the variables specification and
+    enforced consistently for accepted forms.
 
 ## 2026-04-20 - Assignment-attempt compatibility is runtime-oriented
 
 - ID: DEV-006
 - Area: `?=` assignment-attempt semantics
-- IEC reference: IEC 61131-3 Ed.3 §6.6.6.7.2, Table 71
-- Deviation:
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.6.7 and Table 52
+  define `?=` as a compatibility check for interface implementation and safe
+  class/function-block reference downcasts, returning a valid reference only
+  for a compatible instance and `NULL` otherwise.
+- truST behavior and conflict:
   - truST accepts `?=` for typed reference-style assignment attempts.
   - `trust-hir` does not fully enforce inheritance/interface compatibility for
-    the source/target pair during static analysis.
+    every source/target pair during static analysis; some incompatibility is
+    deferred to runtime `NULL` behavior.
+  - Deferring compatibility checks that can be derived statically is an
+    incomplete implementation of the normative assignment-attempt type model.
 - Impact:
-  - Some compatibility failures are deferred to runtime null-result behavior
-    instead of being diagnosed statically.
+  - Some compatibility failures are observed at runtime instead of being
+    diagnosed statically.
 - Mitigation:
   - The operator remains typed, null-producing behavior is documented, and
-    callers must check before dereference.
-
-## 2026-04-20 - `PERSISTENT` behaves like `RETAIN`
-
-- ID: DEV-007
-- Area: Variable persistence qualifiers
-- IEC reference: `PERSISTENT` is a vendor extension, not an IEC Ed.3 storage
-  qualifier.
-- Deviation:
-  - truST accepts `PERSISTENT` and validates it with the same storage semantics
-    as `RETAIN`.
-- Impact:
-  - Vendor-authored code using `PERSISTENT` compiles without rewriting to IEC
-    core qualifiers.
-- Mitigation:
-  - The qualifier is documented explicitly as a vendor extension.
-
-## 2026-04-20 - Standard FB semantic ownership split
-
-- ID: DEV-010
-- Area: Standard function-block modeling
-- IEC reference: IEC 61131-3 Ed.3 §6.6.3.5, Tables 43-46, Figure 15
-- Deviation:
-  - `trust-hir` validates standard FB signatures and static types only.
-  - `trust-runtime` executes the stateful timer/counter/trigger behavior.
-- Impact:
-  - Static docs/specs must distinguish language-level signature knowledge from
-    runtime behavior/state.
-- Mitigation:
-  - The standard-FB spec now documents the split explicitly and cross-links the
-    runtime-owned deviations.
+    callers must test the result before dereference.
 
 ## 2026-04-20 - ASCII-only identifier validation
 
 - ID: DEV-013
 - Area: Lexical identifier support
-- IEC reference: IEC 61131-3 Ed.3 §6.1.1-6.1.2 permits broader character sets
-  than truST currently accepts.
-- Deviation:
-  - truST validates identifiers using ASCII letters, digits, and `_` only.
-  - Unicode identifiers are not currently accepted.
+- Normative IEC requirement: IEC 61131-3 Ed.3 sections 6.1.1-6.1.2 and Tables
+  1-2 define textual characters using ISO/IEC 10646 and identifiers using
+  letters, digits, and permitted underscores.
+- truST behavior and conflict:
+  - truST accepts ASCII letters, digits, and `_` in identifiers and uses ASCII
+    case folding.
+  - Non-ASCII ISO/IEC 10646 letters are rejected even when they otherwise form
+    a valid IEC identifier.
+  - Rejecting those standard-defined characters is a supported-character-set
+    omission.
 - Impact:
-  - Some IEC-valid identifiers from broader character sets are rejected.
+  - IEC source using non-ASCII identifiers does not compile in truST.
 - Mitigation:
-  - The lexer spec calls out the current limitation explicitly.
+  - The lexer specification and diagnostics state the current ASCII subset
+    explicitly.
 
-## 2026-04-20 - Extra non-IEC conversion helpers
+## 2026-04-11 - Optional `VAR_EXTERNAL` for vendor-parity global access
 
-- ID: DEV-021
-- Area: Standard-library conversion functions
-- IEC reference: IEC 61131-3 Ed.3 Tables 22-27 do not define `TIME_TO_DWORD`,
-  `DWORD_TO_TIME`, or direct character-to-bitstring conversions such as
-  `CHAR_TO_BYTE`.
-- Deviation:
-  - truST ships `TIME_TO_DWORD` / `DWORD_TO_TIME` using millisecond units.
-  - truST accepts direct character-to-bitstring conversions such as
-    `CHAR_TO_BYTE` and `WCHAR_TO_WORD`.
+- Area: Structured Text global-variable access
+- Normative IEC requirement: IEC 61131-3 Ed.3 sections 6.5.2.1-6.5.2.2 and
+  Figure 8 require a global variable to be redeclared in the consuming POU with
+  a matching `VAR_EXTERNAL` declaration before it is accessible there.
+- truST behavior and conflict:
+  - truST accepts direct global access without a matching `VAR_EXTERNAL`
+    declaration.
+  - `VAR_EXTERNAL` remains supported and type-checked when authors declare it.
+  - This relaxed path applies to configuration/resource globals, file-scope
+    vendor GVLs, and qualified namespaced GVL access.
+  - Permitting direct access relaxes the normative explicit-linkage requirement.
 - Impact:
-  - Vendor-oriented conversion workflows compile without custom wrappers.
+  - CODESYS/TwinCAT-style source without injected `VAR_EXTERNAL` blocks compiles
+    directly in truST.
 - Mitigation:
-  - These helpers are documented as non-IEC conversion extensions in the
-    standard-functions spec.
+  - Undefined names still diagnose as errors, and strict IEC export/adapter
+    flows may synthesize `VAR_EXTERNAL` declarations.
 
-## 2026-04-20 - Debugger visibility is broader than access-specifier rules
+## 2026-04-11 - Missing WHILE/REPEAT termination-guarantee analysis
 
-- ID: DEV-023
-- Area: Debug-adapter variable visibility
-- IEC reference: IEC 61131-3 Ed.3 §6.5.2.3 access-specifier rules
-- Deviation:
-  - The debugger may expose `PRIVATE`, `PROTECTED`, and `INTERNAL` members for
-    inspection even when normal source-level access rules would hide them.
+- Area: Structured Text iteration safety
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 7.3.3.4.1 requires an
+  error when a `WHILE` or `REPEAT` algorithm cannot guarantee satisfaction of
+  its termination condition or execution of an `EXIT` statement.
+- truST behavior and conflict:
+  - truST parses, type-checks, and executes `WHILE` and `REPEAT`, but
+    `trust-hir` does not prove that each loop can terminate.
+  - A loop whose termination cannot be guaranteed is therefore not rejected
+    solely for that normative error condition.
 - Impact:
-  - Debug inspection is more permissive than source-level member access.
+  - Source can compile even when the standard requires rejection because the
+    loop can act as an unbounded wait or execution loop.
 - Mitigation:
-  - The behavior is documented explicitly as a debug-surface deviation.
+  - Authors must keep termination conditions locally evident and must not use
+    iteration for inter-process synchronization; a future control-flow analysis
+    must diagnose the missing guarantee before this deviation can close.
 
-## 2026-04-20 - Per-resource hot reload with retained globals
+## 2026-02-27 - LD contact/coil symbol subset
 
-- ID: DEV-024
-- Area: Runtime online change / hot reload
-- IEC reference: IEC 61131-3 does not standardize truST's runtime reload API.
-- Deviation:
-  - truST hot reload operates per resource rather than as a single-file-only
-    mechanism.
-  - Retained globals are preserved across the warm-restart style reload path.
-  - Reload preparation is transactional: a fallible bytecode, resource, or
-    retained-state preparation step cannot replace the live program or state.
+- Area: Ladder Diagram symbol set exposed in schema v2/editor tooling
+- Normative IEC requirement: IEC 61131-3 Ed.3 Tables 75-76 define the standard
+  contact and coil symbol families, including transition-sensing forms.
+- truST behavior and conflict:
+  - The current schema v2/editor profile implements static contacts (`NO`,
+    `NC`) and coil variants (`NORMAL`, `NEGATED`, `SET`, `RESET`).
+  - Transition-sensing contact/coil variants from Tables 75-76 are not
+    represented in the node schema.
+  - The missing standard symbols are an omission from the IEC LD surface.
 - Impact:
-  - The reload scope is broader and more runtime-oriented than earlier
-    single-file wording suggested.
+  - Users cannot model transition-sensing LD symbols directly in the current
+    profile.
 - Mitigation:
-  - The engine/LSP/debug docs define the per-resource transaction boundary and
-    require failed preparation to leave the old program executable.
+  - Unsupported symbol forms are rejected explicitly rather than silently
+    coerced.
 
-## 2026-04-20 - Debug forcing includes outputs as well as inputs
+## 2026-02-25 - CTUD single-input profile in LD v2 node model
 
-- ID: DEV-025
-- Area: Runtime debug I/O forcing
-- IEC reference: IEC 61131-3 does not define truST's DAP/control forcing
-  surface.
-- Deviation:
-  - truST allows debugger/control forcing for output areas in addition to input
-    areas.
+- Area: Ladder Diagram counter node representation
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.3.5.4 and Table 45
+  define `CTUD` with separate `CU`, `CD`, `R`, `LD`, and `PV` inputs and `QU`,
+  `QD`, and `CV` outputs.
+- truST behavior and conflict:
+  - The LD schema v2 `counter` node exposes one power input.
+  - `CTUD` is executed as CU-driven rising-edge increment; separate `CD`, `QD`,
+    `R`, and `LD` wiring is not represented by this node profile.
+  - This omits required `CTUD` inputs, outputs, and state transitions from the
+    IEC-defined function-block behavior available through this LD surface.
 - Impact:
-  - The debug/runtime control path can simulate or override both sides of the
-    process image.
+  - Full dual-input `CTUD` semantics are unavailable in the current LD node
+    contract.
 - Mitigation:
-  - The behavior is documented explicitly in runtime-engine/debug docs.
-
-## 2026-04-20 - Test-oriented POU declarations
-
-- ID: DEV-033
-- Area: POU declarations
-- IEC reference: IEC 61131-3 Ed.3 does not define `TEST_PROGRAM` or
-  `TEST_FUNCTION_BLOCK`.
-- Deviation:
-  - truST accepts `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` as test-oriented
-    declaration forms for the built-in test workflow.
-- Impact:
-  - Test POUs can be authored directly without wrapping test logic into regular
-    IEC POUs plus external harness glue.
-- Mitigation:
-  - The declarations are documented as explicit non-IEC extensions and paired
-    with the assertion-helper runtime workflow.
-
-## 2026-04-20 - Siemens SCL `#local` reference prefix
-
-- ID: DEV-034
-- Area: Structured Text name references
-- IEC reference: IEC 61131-3 Ed.3 does not define `#identifier` as a local-name
-  reference operator in ST expressions/statements.
-- Deviation:
-  - truST accepts `#identifier` and lowers it as the same local name reference
-    as `identifier`.
-  - Malformed uses still diagnose with `expected identifier after '#'`.
-- Impact:
-  - Siemens-authored SCL that prefixes local names with `#` compiles without
-    source rewriting.
-- Mitigation:
-  - The behavior is documented as a vendor-compatibility extension rather than
-    IEC core syntax.
+  - The subset is explicit in tests and the LD profile; a future schema version
+    can add dedicated `CU`, `CD`, `R`, and `LD` pins plus `QU`/`QD` outputs.

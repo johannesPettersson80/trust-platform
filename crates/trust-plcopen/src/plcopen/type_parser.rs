@@ -10,7 +10,9 @@ fn format_task_declaration(task: &TaskDecl) -> String {
     if let Some(interval) = task
         .interval
         .as_ref()
+        .filter(|value| !value.trim().is_empty())
         .map(|value| normalize_task_interval_literal(value))
+        .filter(|value| !value.trim().is_empty())
     {
         elements.push(format!("INTERVAL := {}", interval.trim()));
     } else if task.single.is_none() {
@@ -134,7 +136,7 @@ fn parse_type_expression_node(node: roxmltree::Node<'_, '_>) -> Option<String> {
     match kind.as_str() {
         "derived" => attribute_ci(node, "name")
             .map(|name| name.trim().to_string())
-            .filter(|name| !name.is_empty()),
+            .filter(|name| is_valid_qualified_identifier(name)),
         "string" | "wstring" => {
             let mut base = kind.to_ascii_uppercase();
             if let Some(length) = attribute_ci(node, "length")
@@ -142,6 +144,9 @@ fn parse_type_expression_node(node: roxmltree::Node<'_, '_>) -> Option<String> {
                 .map(|raw| raw.trim().to_string())
                 .filter(|raw| !raw.is_empty())
             {
+                if !is_valid_string_length(&length) {
+                    return None;
+                }
                 base.push('[');
                 base.push_str(&length);
                 base.push(']');
@@ -182,10 +187,13 @@ fn parse_array_type_expression(array_node: roxmltree::Node<'_, '_>) -> Option<St
 
 fn parse_struct_type_expression(struct_node: roxmltree::Node<'_, '_>) -> Option<String> {
     let mut fields = Vec::new();
+    let mut seen_names = HashSet::new();
+    let mut field_count = 0usize;
     for variable in struct_node.children().filter(|child| {
         is_element_named_ci(*child, "variable") || is_element_named_ci(*child, "member")
     }) {
-        let Some(name) = attribute_ci(variable, "name")
+        field_count += 1;
+        let name = attribute_ci(variable, "name")
             .or_else(|| {
                 variable
                     .children()
@@ -193,23 +201,26 @@ fn parse_struct_type_expression(struct_node: roxmltree::Node<'_, '_>) -> Option<
                     .and_then(extract_text_content)
             })
             .map(|raw| raw.trim().to_string())
-            .filter(|value| !value.is_empty())
-        else {
-            continue;
-        };
-        let Some(var_type) = first_child_element_ci(variable, "type")
+            .filter(|value| !value.is_empty())?;
+        if !is_valid_st_identifier(&name)
+            || !seen_names.insert(name.to_ascii_lowercase())
+        {
+            return None;
+        }
+        let var_type = first_child_element_ci(variable, "type")
             .and_then(parse_type_expression_container)
             .or_else(|| {
                 first_child_element_ci(variable, "baseType")
                     .and_then(parse_type_expression_container)
-            })
-        else {
-            continue;
-        };
+            })?;
         let initializer = first_child_element_ci(variable, "initialValue")
             .and_then(parse_initial_value)
             .map_or_else(String::new, |value| format!(" := {value}"));
         fields.push(format!("    {name} : {var_type}{initializer};"));
+    }
+
+    if field_count == 0 || fields.is_empty() {
+        return None;
     }
 
     let mut out = String::from("STRUCT\n");
@@ -224,17 +235,22 @@ fn parse_struct_type_expression(struct_node: roxmltree::Node<'_, '_>) -> Option<
 fn parse_enum_type_expression(enum_node: roxmltree::Node<'_, '_>) -> Option<String> {
     let values_parent = first_child_element_ci(enum_node, "values").unwrap_or(enum_node);
     let mut values = Vec::new();
+    let mut seen_names = HashSet::new();
+    let mut value_count = 0usize;
     for value in values_parent
         .children()
         .filter(|child| is_element_named_ci(*child, "value"))
     {
-        let Some(name) = attribute_ci(value, "name")
+        value_count += 1;
+        let name = attribute_ci(value, "name")
             .or_else(|| extract_text_content(value))
             .map(|raw| raw.trim().to_string())
-            .filter(|raw| !raw.is_empty())
-        else {
-            continue;
-        };
+            .filter(|raw| !raw.is_empty())?;
+        if !is_valid_st_identifier(&name)
+            || !seen_names.insert(name.to_ascii_lowercase())
+        {
+            return None;
+        }
         if let Some(raw_value) = attribute_ci(value, "value")
             .map(|raw| raw.trim().to_string())
             .filter(|raw| !raw.is_empty())
@@ -245,7 +261,7 @@ fn parse_enum_type_expression(enum_node: roxmltree::Node<'_, '_>) -> Option<Stri
         }
     }
 
-    if values.is_empty() {
+    if value_count == 0 || values.is_empty() {
         None
     } else {
         Some(format!("({})", values.join(", ")))
@@ -322,3 +338,19 @@ fn is_elementary_type_tag(name: &str) -> bool {
     )
 }
 
+fn is_valid_st_identifier(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
+fn is_valid_qualified_identifier(value: &str) -> bool {
+    !value.is_empty() && value.split('.').all(is_valid_st_identifier)
+}
+
+fn is_valid_string_length(value: &str) -> bool {
+    value.parse::<u64>().is_ok_and(|length| length > 0)
+}

@@ -110,6 +110,8 @@ pub enum DiagnosticCode {
     FloatingPointEquality,
     /// Division or modulo by literal zero.
     LiteralDivisionByZero,
+    /// Array initializer cardinality differs from the declared capacity.
+    ArrayInitializerCardinality,
 
     // Info/Hints (I001-I099)
     /// Suggested simplification.
@@ -168,6 +170,7 @@ impl DiagnosticCode {
             Self::SharedGlobalTaskHazard => "W012",
             Self::FloatingPointEquality => "W013",
             Self::LiteralDivisionByZero => "W014",
+            Self::ArrayInitializerCardinality => "W015",
             // Info
             Self::Simplification => "I001",
             Self::StyleSuggestion => "I002",
@@ -220,7 +223,8 @@ impl DiagnosticCode {
             | Self::NondeterministicIo
             | Self::SharedGlobalTaskHazard
             | Self::FloatingPointEquality
-            | Self::LiteralDivisionByZero => DiagnosticSeverity::Warning,
+            | Self::LiteralDivisionByZero
+            | Self::ArrayInitializerCardinality => DiagnosticSeverity::Warning,
 
             // Info/Hints
             Self::Simplification | Self::StyleSuggestion => DiagnosticSeverity::Hint,
@@ -359,6 +363,15 @@ impl DiagnosticBuilder {
         self.diagnostics.iter().any(Diagnostic::is_error)
     }
 
+    /// Returns the number of errors recorded so far.
+    #[must_use]
+    pub fn error_count(&self) -> usize {
+        self.diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.is_error())
+            .count()
+    }
+
     /// Consumes the builder and returns the diagnostics.
     #[must_use]
     pub fn finish(self) -> Vec<Diagnostic> {
@@ -402,3 +415,7 @@ mod tests {
         assert_eq!(diagnostics.len(), 2);
     }
 }
+
+#[cfg(test)]
+#[path = "diagnostics/contract_tests.rs"]
+mod contract_tests;

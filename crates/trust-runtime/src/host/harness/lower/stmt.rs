@@ -8,9 +8,9 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 use super::super::util::{direct_expr_children, first_expr_child, is_statement_kind, node_text};
 use super::super::{lower_type_ref, CompileError, LoweringContext};
 use super::expr::{
-    const_value_from_node, enum_literal_value, field_expr_property_accessor_name,
-    lower_enclosing_storage_type, lower_expr, lower_expr_with_context, lower_expression_type,
-    lower_lvalue, resolve_initializer_enum_variant, PropertyAccessor,
+    field_expr_property_accessor_name, lower_enclosing_storage_type, lower_expr,
+    lower_expr_with_context, lower_expression_type, lower_lvalue, resolve_initializer_enum_variant,
+    PropertyAccessor,
 };
 
 pub(in crate::harness) fn lower_stmt_list(
@@ -120,9 +120,12 @@ fn lower_assign(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt
         });
     }
     if assignment_is_attempt(node) {
+        let target_type = target_type
+            .ok_or_else(|| CompileError::new("assignment-attempt target type is unresolved"))?;
         Ok(Stmt::AssignAttempt {
             target,
             value,
+            target_type,
             location,
         })
     } else {
@@ -396,18 +399,11 @@ fn const_case_label_value(
     selector_type: Option<TypeId>,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<Value, CompileError> {
-    match const_value_from_node(node, ctx) {
-        Ok(value) => Ok(value),
-        Err(err) => {
-            let Some(type_id) = selector_type else {
-                return Err(err);
-            };
-            if node.kind() != SyntaxKind::NameRef {
-                return Err(err);
-            }
-            enum_literal_value(node_text(node).as_str(), type_id, ctx.registry).ok_or(err)
-        }
+    let mut expr = lower_expr(node, ctx)?;
+    if let Some(type_id) = selector_type {
+        expr = resolve_initializer_enum_variant(node, expr, type_id, ctx)?;
     }
+    ctx.eval_compile_time_const_expr(&expr)
 }
 
 fn const_case_label_int(

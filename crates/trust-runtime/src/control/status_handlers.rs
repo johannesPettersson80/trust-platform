@@ -1,44 +1,53 @@
 use std::sync::atomic::Ordering;
 
 use crate::io::{IoDriverHealth, IoDriverStatus};
-use crate::linux_rt::{LinuxRtConfig, LinuxRtRuntimeStatus};
 use serde_json::json;
 
 use super::types::{runtime_event_to_json, HistorianAlertsParams, HistorianQueryParams};
 use super::{ControlResponse, ControlState};
 
+#[cfg(test)]
+#[path = "status_handlers/projection_contract_tests.rs"]
+mod projection_contract_tests;
+
+#[cfg(test)]
+#[path = "status_handlers/event_contract_tests.rs"]
+mod event_contract_tests;
+
+#[cfg(test)]
+#[path = "status_handlers/historian_contract_tests.rs"]
+mod historian_contract_tests;
+
 pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
     let status = state.resource.state();
     let error = state.resource.last_error().map(|err| err.to_string());
-    let settings = state.settings.lock().ok().map(|guard| guard.clone());
-    let simulation = settings.as_ref().map(|cfg| cfg.simulation.clone());
-    let io_health = state
+    let Ok(settings) = state.settings.lock().map(|guard| guard.clone()) else {
+        return unavailable(id, "runtime settings");
+    };
+    let simulation = settings.simulation.clone();
+    let Ok(io_health) = state
         .io_health
         .lock()
-        .ok()
         .map(|guard| guard.iter().map(io_health_to_json).collect::<Vec<_>>())
-        .unwrap_or_default();
-    let metrics = state
-        .metrics
+    else {
+        return unavailable(id, "I/O health");
+    };
+    let Ok(metrics) = state.metrics.lock().map(|guard| guard.snapshot()) else {
+        return unavailable(id, "runtime metrics");
+    };
+    let Ok(realtime) = state.realtime_status.lock().map(|guard| guard.clone()) else {
+        return unavailable(id, "realtime status");
+    };
+    let Ok(control_mode) = state
+        .control_mode
         .lock()
-        .ok()
-        .map(|guard| guard.snapshot())
-        .unwrap_or_default();
-    let realtime = state
-        .realtime_status
-        .lock()
-        .ok()
-        .map(|guard| guard.clone())
-        .unwrap_or_else(|| LinuxRtRuntimeStatus::from_config(LinuxRtConfig::default()));
+        .map(|mode| format!("{:?}", *mode).to_ascii_lowercase())
+    else {
+        return unavailable(id, "control mode");
+    };
     // Runtime settings are the single source of truth for selected backend mode/source.
-    let execution_backend = settings
-        .as_ref()
-        .map(|cfg| cfg.execution_backend.as_str())
-        .unwrap_or("vm");
-    let execution_backend_source = settings
-        .as_ref()
-        .map(|cfg| cfg.execution_backend_source.as_str())
-        .unwrap_or("default");
+    let execution_backend = settings.execution_backend.as_str();
+    let execution_backend_source = settings.execution_backend_source.as_str();
     ControlResponse::ok(
         id,
         json!({
@@ -48,23 +57,13 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
             "plc_name": state.resource_name.as_str(),
             "uptime_ms": metrics.uptime_ms,
             "debug_enabled": state.debug_enabled.load(Ordering::Relaxed),
-            "control_mode": state
-                .control_mode
-                .lock()
-                .map(|mode| format!("{:?}", *mode).to_ascii_lowercase())
-                .unwrap_or_else(|_| "production".to_string()),
+            "control_mode": control_mode,
             "execution_backend": execution_backend,
             "execution_backend_source": execution_backend_source,
-            "simulation_mode": simulation
-                .as_ref()
-                .map(|cfg| cfg.mode_label.as_str())
-                .unwrap_or("production"),
-            "simulation_enabled": simulation.as_ref().map(|cfg| cfg.enabled).unwrap_or(false),
-            "simulation_time_scale": simulation.as_ref().map(|cfg| cfg.time_scale).unwrap_or(1),
-            "simulation_warning": simulation
-                .as_ref()
-                .map(|cfg| cfg.warning.as_str())
-                .unwrap_or(""),
+            "simulation_mode": simulation.mode_label.as_str(),
+            "simulation_enabled": simulation.enabled,
+            "simulation_time_scale": simulation.time_scale,
+            "simulation_warning": simulation.warning.as_str(),
             "hmi_read_only": true,
             "metrics": {
                 "cycle_ms": {
@@ -143,12 +142,12 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
 pub(super) fn handle_health(id: u64, state: &ControlState) -> ControlResponse {
     let status = state.resource.state();
     let error = state.resource.last_error().map(|err| err.to_string());
-    let io_health = state
-        .io_health
-        .lock()
-        .ok()
-        .map(|guard| guard.clone())
-        .unwrap_or_default();
+    let Ok(io_health) = state.io_health.lock().map(|guard| guard.clone()) else {
+        return unavailable(id, "I/O health");
+    };
+    let Ok(realtime) = state.realtime_status.lock().map(|guard| guard.clone()) else {
+        return unavailable(id, "realtime status");
+    };
     let has_faulted_driver = io_health
         .iter()
         .any(|entry| matches!(entry.health, IoDriverHealth::Faulted { .. }));
@@ -158,7 +157,8 @@ pub(super) fn handle_health(id: u64, state: &ControlState) -> ControlResponse {
             | crate::scheduler::ResourceState::Ready
             | crate::scheduler::ResourceState::Paused
     ) && error.is_none()
-        && !has_faulted_driver;
+        && !has_faulted_driver
+        && realtime.errors.is_empty();
     ControlResponse::ok(
         id,
         json!({
@@ -171,13 +171,10 @@ pub(super) fn handle_health(id: u64, state: &ControlState) -> ControlResponse {
 }
 
 pub(super) fn handle_task_stats(id: u64, state: &ControlState) -> ControlResponse {
-    let metrics = state
-        .metrics
-        .lock()
-        .ok()
-        .map(|guard| guard.snapshot())
-        .unwrap_or_default();
-    let tasks = metrics
+    let Ok(metrics) = state.metrics.lock().map(|guard| guard.snapshot()) else {
+        return unavailable(id, "runtime metrics");
+    };
+    let mut tasks = metrics
         .tasks
         .iter()
         .map(|task| {
@@ -191,6 +188,7 @@ pub(super) fn handle_task_stats(id: u64, state: &ControlState) -> ControlRespons
             })
         })
         .collect::<Vec<_>>();
+    tasks.sort_by(|left, right| left["name"].as_str().cmp(&right["name"].as_str()));
     let top_contributors = metrics
         .profiling
         .top_contributors
@@ -222,15 +220,17 @@ pub(super) fn handle_events_tail(
     params: Option<serde_json::Value>,
     state: &ControlState,
 ) -> ControlResponse {
-    let limit = params
-        .and_then(|value| value.get("limit").cloned())
-        .and_then(|value| value.as_u64())
-        .unwrap_or(50) as usize;
-    let events = state
+    let limit = match parse_bounded_limit(params.as_ref(), 50, 1_000, &["limit"]) {
+        Ok(limit) => limit,
+        Err(error) => return invalid_params(id, error),
+    };
+    let Ok(events) = state
         .events
         .lock()
         .map(|guard| guard.iter().rev().take(limit).cloned().collect::<Vec<_>>())
-        .unwrap_or_default();
+    else {
+        return unavailable(id, "event store");
+    };
     let payload = events
         .into_iter()
         .map(runtime_event_to_json)
@@ -243,18 +243,23 @@ pub(super) fn handle_faults(
     params: Option<serde_json::Value>,
     state: &ControlState,
 ) -> ControlResponse {
-    let limit = params
-        .and_then(|value| value.get("limit").cloned())
-        .and_then(|value| value.as_u64())
-        .unwrap_or(50) as usize;
-    let events = state
-        .events
-        .lock()
-        .map(|guard| guard.iter().rev().take(limit).cloned().collect::<Vec<_>>())
-        .unwrap_or_default();
-    let faults = events
+    let limit = match parse_bounded_limit(params.as_ref(), 50, 1_000, &["limit"]) {
+        Ok(limit) => limit,
+        Err(error) => return invalid_params(id, error),
+    };
+    let Ok(faults) = state.events.lock().map(|guard| {
+        guard
+            .iter()
+            .rev()
+            .filter(|event| matches!(event, crate::debug::RuntimeEvent::Fault { .. }))
+            .take(limit)
+            .cloned()
+            .collect::<Vec<_>>()
+    }) else {
+        return unavailable(id, "event store");
+    };
+    let faults = faults
         .into_iter()
-        .filter(|event| matches!(event, crate::debug::RuntimeEvent::Fault { .. }))
         .map(runtime_event_to_json)
         .collect::<Vec<_>>();
     ControlResponse::ok(id, json!({ "faults": faults }))
@@ -269,12 +274,34 @@ pub(super) fn handle_historian_query(
         return ControlResponse::error(id, "historian disabled".into());
     };
     let params = match params {
-        Some(value) => match serde_json::from_value::<HistorianQueryParams>(value) {
-            Ok(parsed) => parsed,
-            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
-        },
+        Some(value) => {
+            if let Err(error) = validate_object_fields(
+                &value,
+                &["variable", "since_ms", "limit"],
+                &["variable", "since_ms", "limit"],
+            ) {
+                return invalid_params(id, error);
+            }
+            match serde_json::from_value::<HistorianQueryParams>(value) {
+                Ok(parsed) => parsed,
+                Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
+            }
+        }
         None => HistorianQueryParams::default(),
     };
+    let mut params = params;
+    if let Some(variable) = params.variable.as_mut() {
+        *variable = variable.trim().to_string();
+        if variable.is_empty() {
+            return invalid_params(id, "variable must not be blank");
+        }
+    }
+    if params
+        .limit
+        .is_some_and(|limit| !(1..=5_000).contains(&limit))
+    {
+        return invalid_params(id, "limit must be in 1..=5000");
+    }
     let items = historian.query(
         params.variable.as_deref(),
         params.since_ms,
@@ -292,14 +319,78 @@ pub(super) fn handle_historian_alerts(
         return ControlResponse::error(id, "historian disabled".into());
     };
     let params = match params {
-        Some(value) => match serde_json::from_value::<HistorianAlertsParams>(value) {
-            Ok(parsed) => parsed,
-            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
-        },
+        Some(value) => {
+            if let Err(error) = validate_object_fields(&value, &["limit"], &["limit"]) {
+                return invalid_params(id, error);
+            }
+            match serde_json::from_value::<HistorianAlertsParams>(value) {
+                Ok(parsed) => parsed,
+                Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
+            }
+        }
         None => HistorianAlertsParams::default(),
     };
+    if params
+        .limit
+        .is_some_and(|limit| !(1..=1_000).contains(&limit))
+    {
+        return invalid_params(id, "limit must be in 1..=1000");
+    }
     let items = historian.alerts(params.limit.unwrap_or(200));
     ControlResponse::ok(id, json!({ "items": items }))
+}
+
+fn parse_bounded_limit(
+    params: Option<&serde_json::Value>,
+    default: usize,
+    maximum: usize,
+    allowed_fields: &[&str],
+) -> Result<usize, &'static str> {
+    let Some(params) = params else {
+        return Ok(default);
+    };
+    validate_object_fields(params, allowed_fields, &["limit"])?;
+    let Some(value) = params.get("limit") else {
+        return Ok(default);
+    };
+    let Some(limit) = value.as_u64().and_then(|value| usize::try_from(value).ok()) else {
+        return Err("limit must be an integer");
+    };
+    if !(1..=maximum).contains(&limit) {
+        return Err("limit is outside the supported range");
+    }
+    Ok(limit)
+}
+
+fn validate_object_fields(
+    value: &serde_json::Value,
+    allowed_fields: &[&str],
+    non_null_fields: &[&str],
+) -> Result<(), &'static str> {
+    let Some(object) = value.as_object() else {
+        return Err("parameters must be an object");
+    };
+    if object
+        .keys()
+        .any(|key| !allowed_fields.contains(&key.as_str()))
+    {
+        return Err("unknown parameter field");
+    }
+    if non_null_fields
+        .iter()
+        .any(|field| object.get(*field).is_some_and(serde_json::Value::is_null))
+    {
+        return Err("parameter fields must not be null");
+    }
+    Ok(())
+}
+
+fn invalid_params(id: u64, error: impl std::fmt::Display) -> ControlResponse {
+    ControlResponse::error(id, format!("invalid params: {error}"))
+}
+
+fn unavailable(id: u64, component: &str) -> ControlResponse {
+    ControlResponse::error(id, format!("{component} unavailable"))
 }
 
 fn io_health_to_json(entry: &IoDriverStatus) -> serde_json::Value {

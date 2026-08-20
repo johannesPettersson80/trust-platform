@@ -2,7 +2,7 @@
 
 #![allow(missing_docs)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Condvar, Mutex};
@@ -14,7 +14,7 @@ use crate::memory::{FrameId, InstanceId};
 use crate::program_model::{Expr, LValue};
 use crate::value::Value;
 
-use super::breakpoints::matches_breakpoint;
+use super::breakpoints::{matches_breakpoint, BreakpointCycleKey};
 use super::hook::{DebugHook, DebugRuntimeContext};
 use super::trace::trace_debug;
 use super::{

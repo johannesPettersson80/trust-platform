@@ -321,6 +321,13 @@ pub(super) fn handle_config_set(
         }
     }
 
+    if settings.web.auth.eq_ignore_ascii_case("token") && auth_token.is_none() {
+        return ControlResponse::error(
+            id,
+            config_value_error("web.auth", "token mode requires control.auth_token"),
+        );
+    }
+
     *settings_guard = settings.clone();
 
     if auth_changed {

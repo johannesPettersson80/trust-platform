@@ -169,6 +169,23 @@ class TestCatalogDenominatorTests(unittest.TestCase):
                 [_nonmapping_review(self.unmapped), _mapped_review(self.mapped)]
             )
 
+    def test_reviewed_oracle_limitations_are_explicit_owned_nonmappings(self) -> None:
+        for reason in (
+            "assertion_oracle_unresolved",
+            "not_catalogable_product_oracle",
+        ):
+            with self.subTest(reason=reason):
+                result = self.analyze(
+                    [
+                        _mapped_review(self.mapped),
+                        _nonmapping_review(self.unmapped, reason),
+                    ]
+                )
+                self.assertEqual(
+                    1,
+                    result["summary"]["by_nonmapping_reason"][reason],
+                )
+
     def test_ignored_nonmapping_requires_exact_ignored_registry_join(self) -> None:
         ignored = _fact(
             "DISC_00000000000000000003",

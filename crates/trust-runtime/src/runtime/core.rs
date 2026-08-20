@@ -8,7 +8,7 @@ use crate::io::{IoDriver, IoDriverStatus, IoInterface, IoSafeState};
 use crate::memory::{AccessMap, FrameId, InstanceId, VariableStorage};
 use crate::metrics::RuntimeMetrics;
 use crate::program_model::{
-    ClassDef, FunctionBlockDef, FunctionDef, InitializerCatalog, InterfaceDef,
+    ClassDef, EdgeInput, FunctionBlockDef, FunctionDef, InitializerCatalog, InterfaceDef,
 };
 use crate::program_model::{Expr, LValue};
 use crate::retain::{RetainManager, RetainStore};
@@ -36,6 +36,7 @@ use super::watchdog_subsystem::WatchdogSubsystem;
 
 /// Minimal runtime entry point (extended later).
 pub struct Runtime {
+    pub(super) resource_name: SmolStr,
     pub(super) execution_backend: ExecutionBackend,
     pub(super) vm_module: Option<Arc<super::vm::VmModule>>,
     pub(super) profile: DateTimeProfile,
@@ -56,6 +57,7 @@ pub struct Runtime {
     pub(super) classes: IndexMap<SmolStr, ClassDef>,
     pub(super) interfaces: IndexMap<SmolStr, InterfaceDef>,
     pub(super) programs: IndexMap<SmolStr, ProgramDef>,
+    pub(super) edge_inputs: IndexMap<SmolStr, Vec<EdgeInput>>,
     pub(super) globals: IndexMap<SmolStr, GlobalVarMeta>,
     pub(super) tasks: Vec<TaskConfig>,
     pub(super) ready_tasks_scratch: Vec<super::types::ReadyTask>,
@@ -84,6 +86,7 @@ pub struct Runtime {
 impl std::fmt::Debug for Runtime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Runtime")
+            .field("resource_name", &self.resource_name)
             .field("execution_backend", &self.execution_backend)
             .field("vm_module_loaded", &self.vm_module.is_some())
             .field("profile", &self.profile)
@@ -133,6 +136,13 @@ include!("core/diagnostics.rs");
 include!("core/accessors.rs");
 include!("core/evaluation.rs");
 include!("core/scheduling.rs");
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(test)]
+#[path = "core/accessor_contract_tests.rs"]
+mod accessor_contract_tests;
 
 impl Default for Runtime {
     fn default() -> Self {

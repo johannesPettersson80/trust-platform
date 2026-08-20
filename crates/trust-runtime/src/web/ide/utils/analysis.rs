@@ -74,6 +74,36 @@ pub(in crate::web::ide) fn apply_text_edits(
     text: &str,
     edits: &[trust_ide::rename::TextEdit],
 ) -> Result<String, IdeError> {
+    let mut ranges = Vec::with_capacity(edits.len());
+    for edit in edits {
+        let start = usize::try_from(u32::from(edit.range.start())).map_err(|_| {
+            IdeError::new(
+                IdeErrorKind::InvalidInput,
+                "invalid rename edit range start",
+            )
+        })?;
+        let end = usize::try_from(u32::from(edit.range.end())).map_err(|_| {
+            IdeError::new(IdeErrorKind::InvalidInput, "invalid rename edit range end")
+        })?;
+        if end > text.len() || !text.is_char_boundary(start) || !text.is_char_boundary(end) {
+            return Err(IdeError::new(
+                IdeErrorKind::InvalidInput,
+                "rename edit range out of bounds",
+            ));
+        }
+        ranges.push((start, end));
+    }
+    ranges.sort_unstable();
+    if ranges
+        .windows(2)
+        .any(|pair| pair[1].0 < pair[0].1 || pair[1].0 == pair[0].0)
+    {
+        return Err(IdeError::new(
+            IdeErrorKind::InvalidInput,
+            "rename edit ranges overlap",
+        ));
+    }
+
     let mut sorted = edits.to_vec();
     sorted.sort_by_key(|edit| std::cmp::Reverse(edit.range.start()));
 
@@ -88,12 +118,6 @@ pub(in crate::web::ide) fn apply_text_edits(
         let end = usize::try_from(u32::from(edit.range.end())).map_err(|_| {
             IdeError::new(IdeErrorKind::InvalidInput, "invalid rename edit range end")
         })?;
-        if start > end || end > output.len() {
-            return Err(IdeError::new(
-                IdeErrorKind::InvalidInput,
-                "rename edit range out of bounds",
-            ));
-        }
         output.replace_range(start..end, edit.new_text.as_str());
     }
     Ok(output)
@@ -320,3 +344,7 @@ pub(in crate::web::ide) fn is_identifier(text: &str) -> bool {
     }
     chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
 }
+
+#[cfg(test)]
+#[path = "analysis/contract_tests.rs"]
+mod contract_tests;

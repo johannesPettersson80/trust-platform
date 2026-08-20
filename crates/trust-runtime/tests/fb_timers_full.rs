@@ -9,6 +9,9 @@ fn timer_variants() {
             ton : TON;
             tof : TOF;
             tp : TP;
+            ton_t : TON_TIME;
+            tof_t : TOF_TIME;
+            tp_t : TP_TIME;
             ton_l : TON_LTIME;
             tof_l : TOF_LTIME;
             tp_l : TP_LTIME;
@@ -23,6 +26,9 @@ fn timer_variants() {
             q_ton : BOOL; et_ton : TIME;
             q_tof : BOOL; et_tof : TIME;
             q_tp : BOOL; et_tp : TIME;
+            q_ton_t : BOOL; et_ton_t : TIME;
+            q_tof_t : BOOL; et_tof_t : TIME;
+            q_tp_t : BOOL; et_tp_t : TIME;
             q_ton_l : BOOL; et_ton_l : LTIME;
             q_tof_l : BOOL; et_tof_l : LTIME;
             q_tp_l : BOOL; et_tp_l : LTIME;
@@ -30,6 +36,9 @@ fn timer_variants() {
         ton(IN := in_ton, PT := pt, Q => q_ton, ET => et_ton);
         tof(IN := in_tof, PT := pt, Q => q_tof, ET => et_tof);
         tp(IN := in_tp, PT := pt, Q => q_tp, ET => et_tp);
+        ton_t(IN := in_ton, PT := pt, Q => q_ton_t, ET => et_ton_t);
+        tof_t(IN := in_tof, PT := pt, Q => q_tof_t, ET => et_tof_t);
+        tp_t(IN := in_tp, PT := pt, Q => q_tp_t, ET => et_tp_t);
         ton_l(IN := in_ton_l, PT := pt_l, Q => q_ton_l, ET => et_ton_l);
         tof_l(IN := in_tof_l, PT := pt_l, Q => q_tof_l, ET => et_tof_l);
         tp_l(IN := in_tp_l, PT := pt_l, Q => q_tp_l, ET => et_tp_l);
@@ -51,6 +60,12 @@ fn timer_variants() {
     harness.assert_eq("et_tof", Value::Time(Duration::ZERO));
     harness.assert_eq("q_tp", Value::Bool(false));
     harness.assert_eq("et_tp", Value::Time(Duration::ZERO));
+    harness.assert_eq("q_ton_t", Value::Bool(false));
+    harness.assert_eq("et_ton_t", Value::Time(Duration::ZERO));
+    harness.assert_eq("q_tof_t", Value::Bool(false));
+    harness.assert_eq("et_tof_t", Value::Time(Duration::ZERO));
+    harness.assert_eq("q_tp_t", Value::Bool(false));
+    harness.assert_eq("et_tp_t", Value::Time(Duration::ZERO));
     harness.assert_eq("q_ton_l", Value::Bool(false));
     harness.assert_eq("et_ton_l", Value::LTime(Duration::ZERO));
     harness.assert_eq("q_tof_l", Value::Bool(false));
@@ -72,6 +87,12 @@ fn timer_variants() {
     harness.assert_eq("et_tof", Value::Time(Duration::ZERO));
     harness.assert_eq("q_tp", Value::Bool(true));
     harness.assert_eq("et_tp", Value::Time(Duration::from_millis(5)));
+    harness.assert_eq("q_ton_t", Value::Bool(false));
+    harness.assert_eq("et_ton_t", Value::Time(Duration::from_millis(5)));
+    harness.assert_eq("q_tof_t", Value::Bool(true));
+    harness.assert_eq("et_tof_t", Value::Time(Duration::ZERO));
+    harness.assert_eq("q_tp_t", Value::Bool(true));
+    harness.assert_eq("et_tp_t", Value::Time(Duration::from_millis(5)));
     harness.assert_eq("q_ton_l", Value::Bool(false));
     harness.assert_eq("et_ton_l", Value::LTime(Duration::from_millis(5)));
     harness.assert_eq("q_tof_l", Value::Bool(true));
@@ -87,6 +108,12 @@ fn timer_variants() {
     harness.assert_eq("et_tof", Value::Time(Duration::ZERO));
     harness.assert_eq("q_tp", Value::Bool(false));
     harness.assert_eq("et_tp", Value::Time(Duration::from_millis(10)));
+    harness.assert_eq("q_ton_t", Value::Bool(true));
+    harness.assert_eq("et_ton_t", Value::Time(Duration::from_millis(10)));
+    harness.assert_eq("q_tof_t", Value::Bool(true));
+    harness.assert_eq("et_tof_t", Value::Time(Duration::ZERO));
+    harness.assert_eq("q_tp_t", Value::Bool(false));
+    harness.assert_eq("et_tp_t", Value::Time(Duration::from_millis(10)));
     harness.assert_eq("q_ton_l", Value::Bool(true));
     harness.assert_eq("et_ton_l", Value::LTime(Duration::from_millis(10)));
     harness.assert_eq("q_tof_l", Value::Bool(true));

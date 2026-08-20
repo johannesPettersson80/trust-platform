@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from .metadata_validator.constants import HIGH_RISKS
-from .metadata_validator.integrity import OPEN_GAP_RESOLUTIONS
+from .metadata_validator.integrity import UNRESOLVED_GAP_RESOLUTIONS
 from .metadata_validator.oracle_refs import ORACLE_AUTHORITIES
 
 
@@ -111,8 +111,11 @@ def _invariant_row(
             raise ValueError(f"{invariant_id} gap oracle requires status = spec_gap")
         if oracle_ref not in spec_gap_refs:
             raise ValueError(f"{invariant_id} gap oracle is not attached through spec_gap_refs")
-        if gap.get("status") != "spec_gap" or gap.get("resolution_status") not in OPEN_GAP_RESOLUTIONS:
-            raise ValueError(f"{invariant_id} gap oracle must name an open actionable spec gap")
+        if (
+            gap.get("status") != "spec_gap"
+            or gap.get("resolution_status") not in UNRESOLVED_GAP_RESOLUTIONS
+        ):
+            raise ValueError(f"{invariant_id} gap oracle must name an unresolved spec gap")
         oracle_state = "spec_gap_blocked"
     else:
         if invariant_status == "spec_gap":

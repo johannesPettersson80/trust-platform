@@ -3,14 +3,14 @@ id = "IEC_TIMER_001"
 title = "Timer scan-step and lifecycle semantics are explicit"
 area = "compiler_iec"
 risk = "safety_critical"
-status = "implemented"
+status = "gap_open"
 owner = "language"
-last_reviewed = "2026-07-12"
+last_reviewed = "2026-07-27"
 claim = "TP, TON, TOF, and their LTIME variants follow the written executed-scan state machines, including the TOF ET-equals-PT post-expiry hold until rearm."
-proof_level = "G2"
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-hir/src", "crates/trust-runtime/src"]
-tests = ["TEST_IEC_TIMER_TRACE_001"]
+tests = ["TEST_AUTO_2CE44F0CAE069A77A47E", "TEST_AUTO_FB9C21E77224EA856F14", "TEST_IEC_TIMER_TRACE_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_IEC_TIMER_TRACE_001_RED",
@@ -60,6 +60,14 @@ oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tp---pulse-timer"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "A protective TP trace holds IN true through PT and observes the pulse ending on the executed threshold scan without asserting short-input or retrigger behavior."
+
+[[behavior]]
+partition = { equals = "TP_TIME_POST_EXPIRY_HOLD_AND_REARM" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#tp---pulse-timer"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "After a TP pulse reaches PT, an executed held-high call keeps Q false and ET at PT; an executed low-input call resets ET to zero, and the next executed rising edge starts a new pulse. This does not claim active-pulse retrigger behavior."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"

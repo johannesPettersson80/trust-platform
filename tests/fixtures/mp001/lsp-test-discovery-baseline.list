@@ -22,6 +22,7 @@ handlers::tests::completion_hover::lsp_completion_returns_none_when_request_tick
 handlers::tests::completion_hover::lsp_completion_suggests_method_formal_parameters: test
 handlers::tests::completion_hover::lsp_hover_member_method_and_property: test
 handlers::tests::completion_hover::lsp_hover_respects_stdlib_filter: test
+handlers::tests::core::core_part_01::lsp_array_and_range_diagnostics_link_to_their_owning_iec_contracts: test
 handlers::tests::core::core_part_01::lsp_diagnostics_no_burst_baseline_reports_real_errors: test
 handlers::tests::core::core_part_01::lsp_hover_uses_utf16_position_and_range_after_supplementary_scalar: test
 handlers::tests::core::core_part_01::lsp_hover_uses_utf16_positions_after_bare_cr_line_endings: test
@@ -38,10 +39,15 @@ handlers::tests::core::core_part_01::lsp_workspace_diagnostics_cancelled_request
 handlers::tests::core::core_part_02::lsp_diagnostics_respect_config_toggles: test
 handlers::tests::core::core_part_02::lsp_learner_diagnostics_include_did_you_mean_and_conversion_guidance: test
 handlers::tests::core::core_part_02::lsp_supports_virtual_document_uris: test
+handlers::tests::core::core_part_03::lsp_config_diagnostics_classify_full_eviction_integer_domain: test
 handlers::tests::core::core_part_03::lsp_config_diagnostics_report_dependency_cycle_issues: test
+handlers::tests::core::core_part_03::lsp_config_diagnostics_report_invalid_normalized_values: test
 handlers::tests::core::core_part_03::lsp_config_diagnostics_report_library_dependency_issues: test
+handlers::tests::core::core_part_03::lsp_config_diagnostics_report_malformed_configuration: test
+handlers::tests::core::core_part_03::lsp_config_diagnostics_report_upper_eviction_bound_normalization: test
 handlers::tests::core::core_part_03::lsp_learner_diagnostics_include_syntax_habit_hints: test
 handlers::tests::core::core_part_03::lsp_learner_diagnostics_no_hint_noise_on_valid_code: test
+handlers::tests::core::core_part_03::lsp_workspace_config_diagnostics_report_read_failure: test
 handlers::tests::core::core_part_04::lsp_document_symbols_include_configuration_hierarchy: test
 handlers::tests::core::core_part_04::lsp_external_diagnostics_provide_quick_fixes: test
 handlers::tests::core::core_part_04::lsp_workspace_symbols_include_dependency_sources: test

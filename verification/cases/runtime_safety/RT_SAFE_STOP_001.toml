@@ -7,7 +7,7 @@ status = "mapped"
 invariant = "RT_SAFE_STOP_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:0d925c07e727884eef655dc070e6f6a099ead42c72907c27b52b68a612c99499"
-source_digest = "sha256:d915127439274c752647dd5b80c08df11430ff0645fec0516f579090c9f3f2d9"
+source_digest = "sha256:f229982101d361b53f171efe05f32d19bab4a98d99b77ad01cffbab0745c5af5"
 last_reviewed = "2026-07-14"
 
 [[case]]

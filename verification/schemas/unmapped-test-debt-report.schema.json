@@ -98,12 +98,14 @@
         "ignored_registry_owned_facts": { "type": "integer", "minimum": 0 },
         "by_nonmapping_reason": {
           "type": "object",
-          "required": ["fuzz_program_owned", "gate_inventory_owned", "ignored_test_registry_owned", "no_reviewed_spec_or_invariant_binding"],
+          "required": ["assertion_oracle_unresolved", "fuzz_program_owned", "gate_inventory_owned", "ignored_test_registry_owned", "no_reviewed_spec_or_invariant_binding", "not_catalogable_product_oracle"],
           "properties": {
+            "assertion_oracle_unresolved": { "type": "integer", "minimum": 0 },
             "fuzz_program_owned": { "type": "integer", "minimum": 0 },
             "gate_inventory_owned": { "type": "integer", "minimum": 0 },
             "ignored_test_registry_owned": { "type": "integer", "minimum": 0 },
-            "no_reviewed_spec_or_invariant_binding": { "type": "integer", "minimum": 0 }
+            "no_reviewed_spec_or_invariant_binding": { "type": "integer", "minimum": 0 },
+            "not_catalogable_product_oracle": { "type": "integer", "minimum": 0 }
           },
           "additionalProperties": false
         },

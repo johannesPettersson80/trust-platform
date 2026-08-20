@@ -224,7 +224,8 @@ Initial explainer coverage:
 | E106 | IEC 61131-3 Ed.3 §6.1.2 | `docs/specs/01-lexical-elements.md` |
 | E201/E202/E203 | IEC 61131-3 Ed.3 §7.3.2 | `docs/specs/05-expressions.md` |
 | E301/E302 | IEC 61131-3 Ed.3 §7.3.1 | `docs/specs/09-semantic-rules.md` |
-| E303/E304 | IEC 61131-3 Ed.3 §6.2.6 | `docs/specs/02-data-types.md` |
+| E303 | IEC 61131-3 Ed.3 §6.4.4.5.1 | `docs/specs/09-semantic-rules.md` |
+| E304 | IEC 61131-3 Ed.3 §6.4.2; §6.4.4.3–6.4.4.5 | `docs/specs/02-data-types.md` |
 | W004 | IEC 61131-3 Ed.3 §7.3.3.3.3 | `docs/specs/06-statements.md` |
 | W005 | IEC 61131-3 Ed.3 §6.4.2 | `docs/specs/02-data-types.md` |
 | W008/W009 | Tooling quality lint (non-IEC) | `docs/specs/09-semantic-rules.md` |
@@ -370,6 +371,135 @@ The target speed for the motor in RPM.
 Range: 0.0 to 3000.0
 ```
 
+#### 6.6 Focused editor and command decisions
+
+The following rules are truST language-tooling product contracts. They do not
+change IEC 61131-3 program semantics.
+
+##### 6.6.1 Client setting aliases
+
+- Where a VS Code/LSP setting accepts both camelCase and snake_case spellings,
+  camelCase is canonical and wins when both aliases are present.
+- Alias lookup ignores values of the wrong JSON type and proceeds to the next
+  reviewed alias rather than coercing them.
+- The `stlsp` section takes precedence over legacy `trust-lsp` aliases.
+  Runtime settings accept the documented nested and top-level forms without
+  merging unrelated keys.
+
+##### 6.6.2 HMI command and descriptor diagnostics
+
+- HMI commands reject malformed argument shapes and invalid styles before
+  filesystem mutation. Valid initialization and binding requests return the
+  deterministic scaffold and external binding catalogue.
+- HMI TOML diagnostics use open-buffer content, accept valid pages, and report
+  invalid widget, type, property, and binding data without requiring a
+  successful runtime compile.
+- Near-match suggestions rank the closest valid binding first and suppress
+  low-confidence noise.
+
+##### 6.6.3 URI and virtual-document handling
+
+- File URI conversion preserves spaces and fragments and normalizes supported
+  platform-specific drive and extended-length forms without changing the
+  underlying path identity.
+- Virtual-document URIs are accepted for request processing when the client
+  supplies their text; they are not rewritten as local file paths.
+- Platform-gated URI tests that cannot execute on the current platform remain
+  explicit nonmapping evidence rather than cross-platform proof.
+
+##### 6.6.4 Completion recovery and visibility
+
+- Recovery completion in an incomplete statement keeps visible scope symbols.
+- Member completion enforces declared visibility.
+- Formal-parameter completion supports function and method calls and suppresses
+  formals already used by the call.
+- A cancelled completion request returns no completion payload. Cancellation
+  is not reported as an empty successful analysis result.
+
+##### 6.6.5 Learner hints
+
+- Learner diagnostics MAY add `Did you mean`, conversion, and common syntax
+  habit guidance when the primary diagnostic has a high-confidence correction.
+- Valid code and low-confidence candidates receive no learner-hint noise.
+
+##### 6.6.6 OpenOT editor projection
+
+- OpenOT completion exposes only documented keys and values.
+- OpenOT inlay hints identify the emitted record.
+- The OpenOT logging code action is offered only for a declaration whose type
+  supports that action.
+
+##### 6.6.7 Hover fallback and presentation
+
+- When resolved runtime/type information is unavailable, hover falls back to
+  the declaration's written type rather than omitting or inventing a type.
+- Hover presents initializer and retention qualifiers from the declaration and
+  keeps function-block member sections and parameter constants explicit.
+
+##### 6.6.8 Runtime inline-value merge
+
+- Runtime instance fields merge into the matching local/namespace projection.
+  Runtime values override the same resolved local identity; unrelated locals,
+  constants, and instances remain present.
+- CamelCase and snake_case runtime client settings follow the precedence rule
+  in section 6.6.1.
+
+##### 6.6.9 Call-hierarchy file authority
+
+- Call hierarchy includes incoming and outgoing calls only from the request's
+  allowed project files. Dependency or excluded-file calls do not leak into a
+  scoped result.
+
+##### 6.6.10 Namespace relocation transaction order
+
+- Namespace relocation applies create operations first, then content edits,
+  then deletion of an emptied source file.
+- Failure before the delete phase leaves the original source available; no
+  command may delete first and attempt recovery afterward.
+
+##### 6.6.11 Browser and WebAssembly analysis projection
+
+The browser analysis engine owns an in-memory document set. A successful
+replacement makes exactly the supplied URI and text pairs the next analysis
+snapshot. Its status reports that snapshot's document count and URI identities.
+Repeated full-set replacements must not retain diagnostics produced only by
+superseded text, including when several documents change in one replacement.
+
+For the same accepted document set and request, the browser projection of
+diagnostics, hover, and completion must preserve the corresponding native
+analysis result. This is a result-projection requirement for the reviewed
+features and fixtures; it does not claim identical performance, allocation, or
+every unreviewed native capability.
+
+Completion preserves visible program variables for partial statement prefixes
+and declared structure members after member access. Function-block hover
+preserves declared input and output types instead of replacing resolved types
+with unknown placeholders.
+
+Browser navigation and refactoring treat supplied source keys as opaque virtual
+document identities. Plain names such as `program.st` are not rewritten into
+filesystem URIs. In the reviewed cases, definition preserves its asserted
+cross-document target identity, references and rename preserve the asserted URI
+membership, and document highlight preserves the asserted occurrence count.
+These feature requests also accept the reviewed cursor positions at an
+identifier boundary or immediately adjacent punctuation. This does not claim
+exact ranges, highlight kinds, edit contents, conflict handling, edit
+application, or atomicity beyond the asserted results.
+
+The WebAssembly JSON adapter is a serialization boundary over the same browser
+engine:
+
+- malformed document JSON returns an explicit error rather than a successful
+  empty snapshot;
+- accepted document JSON returns a parseable replacement result;
+- status JSON returns the current document count and URI identities; and
+- diagnostic JSON returns the current diagnostics for the requested URI.
+
+These are truST product and host-adapter contracts. They do not define IEC
+program semantics and are not IEC 61131-3 deviations. The reviewed tests invoke
+the native Rust facades; they do not by themselves prove a `wasm32`,
+`wasm-bindgen`, JavaScript, or rendered-browser integration lane.
+
 ---
 
 ### 7. LSP Protocol
@@ -440,6 +570,34 @@ configured runtime control endpoint use a 250 ms I/O bound. An unavailable,
 silent, or malformed endpoint produces no runtime-derived inline values and
 returns within that bound; static inline values remain independently
 available. This timeout behavior is tooling policy, not IEC program semantics.
+
+The endpoint scheme is exactly `tcp://`, plus `unix://` on Unix platforms,
+with a nonempty address/path after configuration-level trimming. Each
+newline-delimited JSON request starts at ID 1 and increments monotonically,
+uses `type = "debug.scopes"` or `type = "debug.variables"`, carries the exact
+frame or variables reference in `params`, and includes `auth` only when a
+nonblank configured token exists. An empty response, malformed JSON, missing
+required response fields, `ok = false`, or absent result fails the current
+runtime snapshot without exposing partial data.
+
+The scopes result must contain one unambiguous, nonzero reference for each
+advertised known scope. Known names are case-insensitive `locals`, `globals`,
+`retain`, and `instances`; unknown scopes are ignored. Each requested
+variables result must contain a valid array of string name/value pairs. Names
+are trimmed, blank names are discarded, and duplicate names retain their first
+value. If any advertised locals/globals/retain scope cannot be fetched, the
+entire runtime snapshot is rejected rather than mixing values from different
+runtime observations.
+
+Instance selection is deterministic. Owner hints are considered in caller
+order, case-insensitively: an exact qualified `type#instance` prefix wins,
+then an exact type name, then a unique unqualified base-name match. Ambiguous
+base-name matches select nothing. If no hint selects and exactly one instance
+exists, that instance is used; multiple unmatched instances are ignored.
+Selected instance variables supplement locals, while explicit locals win on
+duplicate names. Instance or optional-scope absence is not itself an error.
+Authentication tokens and returned variable values are never written to
+diagnostic or debug logs.
 
 #### 7.2 Document Synchronization
 
@@ -539,6 +697,77 @@ program execution or an IEC 61131-3 deviation.
 - Basic supply-chain trust policy is configurable via `[dependency_policy]`:
   - `allowed_git_hosts = ["example.com"]` allow-list (empty = any host).
   - `allow_http` (default false), `allow_ssh` (default false).
+
+##### Dependency graph, trust, and lock integrity
+
+Dependency identity is nonblank, trimmed, and case-insensitive throughout the
+complete transitive graph. Declaration order does not affect resolution or
+diagnostics. A manifest entry sets exactly one nonblank source: a path string
+or `path` table entry, or a nonblank `git` URL. Path entries cannot carry git
+selectors. Git entries may carry at most one nonblank `rev`, `tag`, or
+`branch`. Optional versions are trimmed, nonblank exact package-version
+constraints; truST does not silently coerce version syntax.
+
+Local paths resolve relative to the manifest that owns the entry and are
+canonicalized before identity comparison, lock recording, or indexing. The
+resolved target must be a readable directory. A missing dependency manifest
+is permitted for a source-only package and yields an unspecified version; a
+present unreadable or malformed manifest is `L001` and the invalid package is
+not exposed as a resolved library.
+
+Resolution is transitive and deterministic. Each canonical
+case-insensitive dependency identity resolves to exactly one canonical source
+and one compatible version requirement. A second declaration for the same
+identity with another source is `L003`; a conflicting required/resolved version
+is `L002`. Self-dependencies and longer cycles are `L004`, with the cycle path
+reported. A cycle, conflict, malformed entry, missing source, or invalid
+manifest never produces a partially authoritative library entry for the
+affected identity. Independent valid graph components remain available and
+retain their own diagnostics.
+
+`trust-lsp.lock` schema version `1` records every resolved dependency in
+case-insensitive deterministic name order. Path entries record the canonical
+path. Git entries record the exact URL and full resolved commit. Locked mode
+requires a matching entry for every unpinned source, including local path
+identity; a missing entry, unsupported lock version, source-kind mismatch,
+canonical-path mismatch, URL mismatch, malformed lock, or empty revision is
+`L006` and blocks that dependency. Explicit git pins must resolve to the same
+commit as a matching locked entry when locked mode is enabled.
+
+Unlocked resolution writes a new lock only after the entire graph resolves
+without issues. Publication is atomic: create parent directories, write and
+flush a sibling temporary file, then replace the destination. A failed encode,
+write, flush, or rename preserves the previous lock byte-for-byte and emits
+`L006`. Locked and offline resolution never rewrites the lock. A custom
+`build.dependency_lockfile` path is resolved relative to the project root.
+
+Offline mode performs no clone, fetch, checkout that changes the cached
+worktree, or other network access. It requires the named cache plus a matching
+full commit from the lock or explicit revision and reports `L007` when the
+source or revision is unavailable. Normal online mode may populate or refresh
+the deterministic `.trust-lsp/deps/git/<sanitized-name>-<url-hash>` cache.
+Cache directory names are stable across processes and do not contain path
+separators or credentials.
+
+Local paths and `file://` git URLs are local sources. HTTPS is enabled by
+default. Plain HTTP and SSH/SCP syntax require their explicit policy flags.
+When `allowed_git_hosts` is nonempty, host comparison is
+case-insensitive and accepts the exact host or its subdomains only; suffix
+lookalikes are rejected. User information and ports do not change the host
+identity, bracketed IPv6 hosts are parsed as one host, credentials are never
+copied into diagnostics or cache names, and unknown URL schemes are `L005`.
+Trust rejection happens before clone, fetch, cache creation, or lock mutation.
+
+The stable resolver codes are:
+
+- `L001`: missing/unreadable source, manifest, or source operation;
+- `L002`: package-version mismatch;
+- `L003`: conflicting source declarations for one dependency identity;
+- `L004`: dependency cycle;
+- `L005`: malformed dependency entry or rejected source policy;
+- `L006`: lock schema, identity, content, or publication failure; and
+- `L007`: offline cache or revision unavailable.
+
 - `[[libraries]]` can declare `dependencies` (array of `{ name, version? }`) to model library graphs; missing dependencies or version mismatches are reported as config diagnostics.
 - Library/dependency graphs report missing references (L001), version mismatches (L002), conflicting declarations (L003), and dependency cycles (L004).
 - `[[libraries]]` can declare `docs` (array of markdown files) to attach vendor library documentation to hover/completion. Each file uses `# SymbolName` headings followed by doc text.
@@ -558,6 +787,255 @@ program execution or an IEC 61131-3 deviation.
 - Indexing progress is reported via `window/workDoneProgress` when supported by the client.
 - Workspace indexing runs in the background; adaptive throttling yields between files to keep interactive edits responsive (tooling behavior, non-IEC).
 - Stdlib selection currently filters standard function/FB docs and completions (IEC 61131-3 Ed.3, Tables 22–36, 43–46).
+
+##### Configuration normalization and bounded values
+
+Configuration diagnostics use a stable `C` namespace:
+
+- `C001`: the selected configuration file cannot be read or parsed;
+- `C002`: an unknown standard-library profile fell back to `full`;
+- `C003`: a configured numeric bound was outside its documented domain, or
+  the throttle tuple was incoherent, and normalization fell back to a safe
+  documented value or tuple;
+- `C004`: an unknown workspace visibility fell back to `public`; and
+- `C005`: a diagnostic severity override has a blank code or unknown severity and was ignored.
+
+Configuration filename precedence is `trust-lsp.toml`, then
+`.trust-lsp.toml`, then `trustlsp.toml`. An absent file produces the documented
+defaults. A present unreadable or malformed file is not partially applied:
+the server retains the selected config path, uses the complete safe default
+model, and reports the parse/read failure through the configuration diagnostic
+surface.
+
+Every textual scalar is trimmed. Empty optional strings become absent.
+Path lists discard empty entries, resolve relative entries against the project
+root, preserve absolute entries, and deduplicate canonical identities while
+retaining first-declaration order. The same normalization applies to include,
+library, documentation, external-diagnostic, cache, telemetry, and lock paths.
+`indexing_roots` uses explicit include roots instead of the workspace root,
+then adds resolved libraries once; without includes it uses the workspace root.
+
+The standard-library profiles are canonical lowercase `full`, `iec`, and
+`none`. An explicit allow list is trimmed, removes blank entries, and
+deduplicates names case-insensitively in first-declaration order. `none`
+produces an explicit empty allow list. An unknown named profile uses `full`
+and emits a configuration diagnostic rather than silently disabling symbols.
+When no explicit selection exists, the vendor fallback described above is
+applied by the feature filter.
+
+Indexing optional budgets, memory budgets, and telemetry `flush_every` are
+positive when present. Invalid zero values use their documented defaults or
+become unbounded as appropriate and emit a configuration diagnostic.
+`evict_to_percent` is normalized to `1..=100`. Throttle delays satisfy
+`idle <= active <= max`; the activity window is positive. Invalid
+relations use the corresponding default tuple atomically so one bad field
+cannot create an incoherent mix. An out-of-range eviction percentage or an
+incoherent throttle tuple emits `C003` so this replacement is visible to the
+user. Disabling the cache makes
+`index_cache_dir()` return none even when a path is configured.
+
+Workspace visibility is case-insensitive `public`, `private`, or `hidden`;
+unknown text falls back to `public` with a configuration diagnostic. Private
+roots answer only nonempty queries and hidden roots answer none. Target names
+are nonblank and case-insensitively unique. Build target/profile, target
+profile, flags, and defines are trimmed; blank values are removed and list
+values deduplicated in first-declaration order.
+
+Diagnostic rule-pack names and override codes are normalized
+case-insensitively. Safety packs establish their complete baseline first,
+vendor-specific pack adjustments apply next, and explicit `warn_*` booleans
+and severity overrides apply last. Override aliases are `error|err`,
+`warning|warn`, `info|information`, and `hint`. Blank codes or unknown
+severities are ignored with a configuration diagnostic; accepted codes are
+stored uppercase, with exactly one severity stored per normalized code. When
+multiple raw override keys normalize to the same code, entries within the
+alias and trimmed-canonical groups are applied in raw-key lexical order, and
+the trimmed canonical uppercase group is applied after all aliases.
+Consequently, the lexical-last alias wins an alias-only collision, while a
+trimmed canonical uppercase key always wins when one is present. This is a
+truST LSP configuration rule and does not change IEC program semantics.
+
+Telemetry is disabled by default. Enabling it without a path selects
+`.trust-lsp/telemetry.jsonl`; an explicit path is retained even while disabled
+so later enablement is stable. Runtime control endpoint and token values are
+trimmed, with blank values treated as absent. Configuration orientation and
+debug output expose only whether a token exists, never its value.
+
+##### 7.6.1 Workspace coordination and helper projections
+
+The first-index-pass signal is a one-way latch. A waiter that subscribes before
+completion remains blocked until the pass is marked complete or the bounded
+deadlock timeout expires. Marking completion is idempotent, and a waiter that
+subscribes after completion returns immediately.
+
+Background workspace requests acquire the configured background permit before
+their work begins, so the default single-permit lane serializes them. Closing
+the limiter disables admission blocking rather than preventing the already
+supported background operation from running.
+
+Library documentation is cached by workspace configuration. Repeated reads
+under an unchanged configuration reuse the same parsed map. Reapplying
+workspace configuration invalidates the entry and the next read observes the
+current documentation contents.
+
+The command wrapper and its `ServerContext` implementation project identical
+`projectInfo` results for the same workspace state. IDE source helpers preserve
+the following deterministic projections used by commands and refactors:
+
+- a variable declaration's declared type is the trimmed text after `:` and
+  before an initializer or terminator, including aggregate type text;
+- exact symbol ranges resolve to their owning variable declaration and carry
+  that declared type;
+- source text selected by a valid range is trimmed; and
+- extending a range to its line end preserves its start and includes the
+  trailing LF or CRLF when one is present.
+
+These are truST tooling contracts. They do not add IEC language semantics.
+
+##### 7.6.2 UTF-16 text positions and incremental changes
+
+Document positions use zero-based lines and UTF-16 code-unit columns, as
+required by the LSP default position encoding. The line index recognizes LF,
+CRLF, and lone CR as line terminators, excludes terminator bytes from line
+text, and represents a trailing terminator with a final empty line. An offset
+inside a multi-byte scalar moves to that scalar's start. An offset inside any
+line terminator maps to the preceding line end; an offset beyond the document
+maps to end-of-file. Supplementary Unicode scalars count as two UTF-16 units.
+
+Position-to-offset conversion rejects a line outside the document. A column
+inside a supplementary scalar selects the scalar's start, and a column beyond
+the line defaults to the line end, matching the LSP position rule. Conversions
+at every scalar boundary and at end-of-file round-trip. UTF-16 length
+calculation clamps byte inputs to scalar boundaries and returns zero for an
+empty or reversed interval.
+
+Incremental changes are applied in declaration order, and each range is
+interpreted against the text produced by all preceding changes. A range-less
+change replaces the complete document and can be followed by another
+incremental change. Insertion, deletion, single-line replacement, and
+multi-line replacement preserve all untouched bytes and line-ending style.
+An out-of-range start or end line and a start after the normalized end fail
+closed with a stable typed error. The caller receives no partially updated
+document when any change in a batch is invalid.
+
+This is the LSP text synchronization contract. It does not alter IEC source
+semantics.
+
+##### 7.6.3 Persisted and external-input integrity
+
+The persistent index cache is an optimization, never semantic authority.
+`index.json` has an explicit schema version. An absent, unreadable, malformed,
+or unsupported-version file loads as an empty current-version cache. A cache
+hit requires the current file to exist, be readable UTF-8, and match the
+recorded size, modification time, and content hash; metadata equality alone is
+insufficient. Updating unchanged content refreshes its disk signature without
+duplicating the entry. Removal and retention operate on normalized path
+identities. Saving publishes one complete JSON document and must not destroy a
+previous valid cache if serialization or replacement fails. Cache failure may
+cost performance but cannot change diagnostics, symbols, or language results.
+
+Library documentation files use CommonMark-style ATX headings (`#` through
+`######`, with required whitespace) as symbol boundaries. Heading text is
+trimmed and indexed case-insensitively; prose before the first valid heading,
+blank headings, and headings with an empty body do not create entries. Body
+line order and paragraph breaks are preserved with surrounding blank space
+trimmed. A later declaration of the same symbol replaces the earlier one,
+including declarations from later configured files. Missing, unreadable, or
+non-UTF-8 documentation files contribute no entries and do not erase entries
+already read from other files. Lookup is ASCII-case-insensitive.
+
+Library graph identities and dependency references are ASCII-case-insensitive
+after configuration normalization. Graph node order follows configuration
+order. An absent dependency emits `L001`; an explicit version requirement with
+no exact configured match emits `L002`; conflicting declarations of one
+library identity emit one deterministic `L003`; and each distinct dependency
+cycle, including a self-cycle, emits one deterministic canonical `L004`.
+Unversioned requirements accept any configured version. Duplicate dependency
+edges and duplicate declarations do not duplicate issues. Issue ordering is
+stable: conflicts, missing/version issues in configuration order, then
+canonical cycles.
+
+Each configured external-diagnostics JSON file is one atomic input document.
+It is either a top-level list or an object with a `diagnostics` list. An
+unreadable, malformed, or schema-invalid document contributes nothing rather
+than partially applying entries. Each entry must select a target using `uri`
+when present, otherwise a path resolved against the project root; invalid URIs
+and entries for another document are ignored. LSP ranges are zero-based and
+preserved exactly. String severity values are trimmed before
+ASCII-case-insensitive matching and accept
+`error|warning|info|information|hint`. Numeric severity values accept LSP
+values `1..=4`. An absent or invalid severity defaults to warning. Source
+defaults to `external`. String codes remain strings. Optional fix data
+preserves its title, replacement text, and optional replacement range. File and
+entry declaration order determine diagnostic order.
+
+Telemetry is disabled unless explicitly opted in and records only aggregate
+event identities and duration statistics. The event vocabulary is stable and
+contains no source text, URI, workspace path, symbol, diagnostic message,
+runtime endpoint, authentication token, or user identifier. Durations are
+whole milliseconds, clamped to `u64`, with saturating count and total and exact
+minimum/maximum. Events aggregate by identity until the positive flush
+threshold is reached or an explicit flush, disable, sink-path change, or
+threshold change occurs. Each successful flush appends exactly one JSONL
+record and clears the aggregate. Empty flushes do not create records. A failed
+open, directory creation, or write retains the aggregate for retry rather than
+silently discarding it. Switching or disabling a sink first attempts to flush
+the old aggregate; a failed flush remains observable and must not be replaced
+as though publication succeeded.
+
+These cache, documentation, graph, external-diagnostic, and telemetry rules
+are truST product contracts outside IEC 61131-3. They do not define PLC
+language semantics.
+
+##### 7.6.4 Server-state lifecycle and cache contract
+
+A newly constructed server state has no documents, workspace folders, workspace
+configurations, library-document entries, semantic tokens, diagnostics, or
+call-hierarchy results. Client capability flags are false, configuration is
+JSON `null`, activity age is the never-recorded sentinel, and the document and
+semantic-request generations begin at one. `Default` and `new` establish the
+same state. A `Document` records UTF-8 content size in bytes, not Unicode scalar
+count.
+
+Workspace folders and client configuration are stored as owned snapshots;
+mutating a returned value cannot alter server state. Capability flags are
+independent. Pull diagnostics are selected only when the client supports both
+pull diagnostics and diagnostic refresh. Workspace configuration has one entry
+per root, with replacement on the same root. The primary configuration is the
+highest numeric workspace priority. URI lookup chooses the deepest matching
+root, regardless of primary priority, and returns no configuration outside all
+registered roots.
+
+Document state follows these fail-closed rules:
+
+- opening creates or promotes one tracked open document and updates the semantic
+  project under the URI's source identity;
+- indexing never overwrites an open editor buffer, and re-indexing identical
+  closed content is a no-op;
+- updating an unknown or non-open document is a no-op and must not create an
+  untracked semantic-project source;
+- closing an unknown document and removing an unknown document are no-ops;
+- URI, file-ID, and document lookups remain bidirectionally consistent for
+  tracked documents; and
+- configuration-scoped file-ID projection includes path sources under that
+  configuration's indexing roots and excludes sources outside them.
+
+Every committed project-text mutation advances the document generation once
+and clears both call-hierarchy caches. No-op lifecycle notifications do neither.
+Call-hierarchy reads return owned snapshots, so caller mutation cannot alter a
+cached response.
+
+Semantic request tickets are monotonically increasing generations. Starting or
+explicitly cancelling a request invalidates every older ticket. A cancelled
+ticket cannot insert or replace semantic-token or diagnostic cache state.
+Accepted semantic-token writes receive a new result ID and replace the URI's
+token snapshot. Diagnostic writes reuse a result ID only when both content and
+diagnostic hashes match; a change to either hash creates a new result ID.
+
+Editor activity changes the never-recorded sentinel to a nonnegative elapsed
+age. The database callback holds a read view of the same project whose sources
+are managed by document lifecycle operations. These state-management rules are
+truST tooling behavior and do not alter IEC 61131-3 language semantics.
 
 ---
 
@@ -749,11 +1227,11 @@ tests/corpus/
    - Stepping is statement-level only; expressions are not single-stepped
    - Debug evaluation is restricted to side-effect-free expressions and a small pure stdlib whitelist
    - Hot reload is implemented via a custom request and supports per-resource
-     reloads with retained globals preserved across warm restart (see DEV-024)
+     reloads with retained globals preserved across warm restart
    - I/O write/force/release supports both input and output areas through the
      DAP/control bridge. Attach-mode runtimes use explicit Live Values custom
      requests (`stIoWrite`, `stIoForce`, `stIoRelease`) instead of
-     `setExpression` (see DEV-025)
+     `setExpression`
 
 
 ---
@@ -832,7 +1310,7 @@ Runtime exposes an ST-complete PLCopen XML profile through `trust-runtime plcope
 
 - `trust-runtime plcopen profile` prints the supported profile contract.
 - `trust-runtime plcopen export` exports ST project content to PLCopen XML.
-- `trust-runtime plcopen import` imports supported PLCopen ST project content into `sources/`:
+- `trust-runtime plcopen import` imports supported PLCopen ST project content into `src/`:
   - ST POUs (`PROGRAM`, `FUNCTION`, `FUNCTION_BLOCK`)
   - supported `types/dataTypes` subset (`elementary`, `derived`, `array`, `struct`, `enum`, `subrange`) materialized as generated `TYPE` declarations
   - project model declarations in `instances/configurations/resources/tasks/program instances`

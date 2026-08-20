@@ -84,6 +84,17 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         Ok(())
     }
 
+    /// Restart and apply the configured retain store for warm mode.
+    pub fn restart_with_retain_store(
+        &mut self,
+        mode: crate::RestartMode,
+    ) -> Result<(), RuntimeError> {
+        self.runtime.restart_with_retain_store(mode)?;
+        let now = scaled_time(self.clock.now(), self.time_scale);
+        self.runtime.reset_task_timing(now);
+        Ok(())
+    }
+
     /// Execute one cycle using the current clock time.
     pub fn tick(&mut self) -> Result<(), RuntimeError> {
         let now = self.clock.now();

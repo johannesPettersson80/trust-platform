@@ -3,6 +3,8 @@
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+mod openot_support;
+
 use open_ot_carriage::concurrent::{ConcurrentRawConsumer, ConcurrentStore};
 use open_ot_carriage::consumer::LossAccountingConsumer;
 use open_ot_carriage::control::ControlBlockSnapshot;
@@ -101,66 +103,25 @@ fn st_fb_telemetry_config_for_many(
     }
 }
 
-fn openot_iec_dir() -> PathBuf {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    manifest_dir.join("../../../open-ot-ref/st/iec61131")
-}
-
-fn openot_ref_dir() -> PathBuf {
-    openot_iec_dir()
-        .parent()
-        .and_then(|path| path.parent())
-        .expect("IEC dir has open-ot-ref root")
-        .to_path_buf()
-}
-
 fn reactor_program() -> String {
-    let path = openot_ref_dir().join("examples/reactor/Reactor.st");
-    std::fs::read_to_string(&path)
-        .unwrap_or_else(|err| panic!("read reactor example {}: {err}", path.display()))
-}
-
-fn openot_st_source_paths() -> Vec<PathBuf> {
-    let source_dir = openot_iec_dir().join("src");
-    let mut paths = std::fs::read_dir(&source_dir)
-        .unwrap_or_else(|err| panic!("read OpenOT ST source dir {}: {err}", source_dir.display()))
-        .map(|entry| entry.expect("read OpenOT ST source entry").path())
-        .filter(|path| path.extension().is_some_and(|ext| ext == "st"))
-        .collect::<Vec<_>>();
-    paths.sort();
-    paths
+    openot_support::REACTOR_PROGRAM.to_owned()
 }
 
 fn openot_st_source_files(main_source: &str) -> Vec<SourceFile> {
-    let mut sources = openot_st_source_paths()
+    let mut sources = openot_support::ST_LIBRARY_SOURCES
         .iter()
-        .map(|path| {
-            let text = std::fs::read_to_string(path)
-                .unwrap_or_else(|err| panic!("read OpenOT ST source {}: {err}", path.display()));
-            let name = path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .expect("OpenOT ST source filename must be UTF-8");
-            SourceFile::with_path(name, text)
-        })
+        .map(|(name, source)| SourceFile::with_path(*name, *source))
         .collect::<Vec<_>>();
     sources.push(SourceFile::with_path("main.st", main_source));
     sources
 }
 
 fn openot_st_test_sources(test_name: &str, main_source: &str) -> Vec<String> {
-    let mut sources = openot_st_source_paths()
+    let mut sources = openot_support::ST_LIBRARY_SOURCES
         .iter()
-        .map(|path| {
-            std::fs::read_to_string(path)
-                .unwrap_or_else(|err| panic!("read OpenOT ST source {}: {err}", path.display()))
-        })
+        .map(|(_, source)| (*source).to_owned())
         .collect::<Vec<_>>();
-    let test_path = openot_iec_dir().join("tests").join(test_name);
-    sources.push(
-        std::fs::read_to_string(&test_path)
-            .unwrap_or_else(|err| panic!("read OpenOT ST test {}: {err}", test_path.display())),
-    );
+    sources.push(openot_support::st_test_source(test_name).to_owned());
     sources.push(main_source.to_string());
     sources
 }
@@ -966,10 +927,29 @@ fn openot_telemetry_authoring_showcase_renders_typed_audit_log() {
     assert_eq!(consumer.rejected_records(), 0);
 
     let overflow = run_authoring_showcase_overflow();
-    write_authoring_showcase_artifacts(&retained_records, &audit_log, &overflow, &program)
-        .expect("write OpenOT authoring showcase artifact");
+    let artifact_dir = temp_shm_path("authoring-showcase-artifacts");
+    write_authoring_showcase_artifacts(
+        &artifact_dir,
+        &retained_records,
+        &audit_log,
+        &overflow,
+        &program,
+    )
+    .expect("write OpenOT authoring showcase artifact");
+    for name in [
+        "batch-log.txt",
+        "batch-log.json",
+        "openot-definition.json",
+        "README.md",
+    ] {
+        assert!(
+            artifact_dir.join(name).is_file(),
+            "showcase artifact {name} was not written"
+        );
+    }
 
     drop(std::fs::remove_file(path));
+    drop(std::fs::remove_dir_all(artifact_dir));
 }
 
 #[test]
@@ -2954,13 +2934,13 @@ fn slot(record: &Record, key: u16) -> Option<&Slot> {
 }
 
 fn write_authoring_showcase_artifacts(
+    reactor_dir: &std::path::Path,
     records: &[ReadRecord],
     audit_log: &[String],
     overflow: &OverflowSummary,
     reactor_source: &str,
 ) -> std::io::Result<()> {
-    let reactor_dir = openot_ref_dir().join("examples/reactor");
-    std::fs::create_dir_all(&reactor_dir)?;
+    std::fs::create_dir_all(reactor_dir)?;
 
     let mut text = String::new();
     text.push_str("OpenOT Reactor Batch Log\n\n");
@@ -2993,7 +2973,7 @@ fn write_authoring_showcase_artifacts(
         format!("{definition_json}\n"),
     )?;
 
-    write_reactor_readme(&reactor_dir, &text)?;
+    write_reactor_readme(reactor_dir, &text)?;
 
     Ok(())
 }

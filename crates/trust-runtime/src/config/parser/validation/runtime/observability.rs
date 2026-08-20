@@ -48,10 +48,10 @@ fn parse_observability_section(
         .include
         .unwrap_or_default()
         .into_iter()
-        .map(|entry| entry.trim().to_string())
-        .filter(|entry| !entry.is_empty())
-        .map(SmolStr::new)
-        .collect::<Vec<_>>();
+        .map(|entry| {
+            parse_nonempty_entry(entry, "runtime.observability.include").map(SmolStr::new)
+        })
+        .collect::<Result<Vec<_>, RuntimeError>>()?;
     for pattern in &include {
         Pattern::new(pattern.as_str()).map_err(|err| {
             RuntimeError::InvalidConfig(
@@ -69,15 +69,15 @@ fn parse_observability_section(
         ));
     }
 
-    let history_path = observability_section
-        .history_path
-        .map(|path| path.trim().to_string())
-        .filter(|path| !path.is_empty())
-        .unwrap_or_else(|| "history/historian.jsonl".to_string());
+    let history_path = parse_optional_path(
+        "runtime.observability.history_path",
+        observability_section.history_path,
+    )?
+    .unwrap_or_else(|| PathBuf::from("history/historian.jsonl"));
     let prometheus_path = observability_section
         .prometheus_path
-        .map(|path| path.trim().to_string())
-        .filter(|path| !path.is_empty())
+        .map(|path| parse_nonempty_entry(path, "runtime.observability.prometheus_path"))
+        .transpose()?
         .unwrap_or_else(|| "/metrics".to_string());
     if !prometheus_path.starts_with('/') {
         return Err(RuntimeError::InvalidConfig(
@@ -97,7 +97,7 @@ fn parse_observability_section(
         sample_interval_ms,
         mode,
         include,
-        history_path: PathBuf::from(history_path),
+        history_path,
         max_entries,
         prometheus_enabled: observability_section.prometheus_enabled.unwrap_or(true),
         prometheus_path: SmolStr::new(prometheus_path),
@@ -127,6 +127,11 @@ fn parse_alert(alert: AlertSection) -> Result<AlertRule, RuntimeError> {
             "runtime.observability.alerts[].debounce_samples must be >= 1".into(),
         ));
     }
+    let hook = alert
+        .hook
+        .map(|value| parse_nonempty_entry(value, "runtime.observability.alerts[].hook"))
+        .transpose()?
+        .map(SmolStr::new);
 
     Ok(AlertRule {
         name: SmolStr::new(alert.name.trim()),
@@ -134,13 +139,6 @@ fn parse_alert(alert: AlertSection) -> Result<AlertRule, RuntimeError> {
         above: alert.above,
         below: alert.below,
         debounce_samples,
-        hook: alert.hook.and_then(|hook| {
-            let trimmed = hook.trim().to_string();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(SmolStr::new(trimmed))
-            }
-        }),
+        hook,
     })
 }

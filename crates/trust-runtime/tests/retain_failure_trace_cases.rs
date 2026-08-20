@@ -14,7 +14,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_SAFE_RETAIN_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:9739265a8c6c8b5a6eeb787dca2acdffc7235dc8bd25f0b317519d2aed6e84da";
+    "sha256:24c738107963ad44a8bbe9c39e4cb42154cad336f99b41406e06b50e37f5936f";
 const CASE_ID: &str = "RT_SAFE_RETAIN_001_SNAPSHOT_REJECTS_ATOMICALLY_ON_LATE_INCOMPATIBLE_VALUE";
 
 const RETAIN_SOURCE: &str = r#"

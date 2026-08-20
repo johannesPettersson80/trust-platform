@@ -19,14 +19,50 @@ It is designed for:
 Each response is either:
 
 ```json
-{"ok":true,"data":{...}}
+{"ok":true,"protocol_version":2,"data":{...}}
 ```
 
 or:
 
 ```json
-{"ok":false,"error":{"kind":"invalid_argument","message":"...","data":null}}
+{"ok":false,"protocol_version":2,"error":{"kind":"invalid_argument","message":"...","data":null}}
 ```
+
+Malformed JSON, an unsupported command, or a failed command produces one error
+response for that input line. The process then continues with the same session
+and reads the next non-empty line. Process startup fails only when command-line
+or protocol-version selection is invalid, or when the transport itself cannot
+be read or written.
+
+## Protocol Versions
+
+Protocol version 2 is the default. Set
+`TRUST_HARNESS_PROTOCOL_VERSION=1|2`, `--protocol-version 1|2`, or
+`--protocol-version=1|2` to select explicitly. A command-line selection
+overrides the environment. Any other argument, a missing command-line value,
+or a version other than 1 or 2 fails process startup.
+
+Every line response includes the selected `protocol_version`, including
+errors. Version 2 reports each watched value independently:
+
+```json
+{
+  "values": {
+    "ready": {"status":"ok","value":{"type":"BOOL","value":true}},
+    "missing": {
+      "status":"error",
+      "code":"unresolved_name",
+      "message":"boundary path 'missing' did not resolve to a declared value",
+      "path":"missing",
+      "candidates":[]
+    }
+  }
+}
+```
+
+Version 1 preserves the legacy `name -> typed value` watch shape. Because that
+shape cannot represent an entry error, any failed watch promotes the complete
+request to a boundary error response.
 
 ## Commands
 
@@ -66,6 +102,18 @@ errors.
 
 `reload` uses the same `source` / `sources` parameters.
 
+`sources` must contain at least one source. When both `source` and `sources`
+are present, `sources` is authoritative. An explicitly empty authoritative
+`sources` list is an `invalid_argument` error; omitting both fields is an
+`invalid_request` error. A successful `load` replaces the session with a fresh
+harness only after compilation and its initial cycle succeed. A failed load
+preserves the previous loaded session, or leaves the session unloaded if none
+existed.
+
+`reload` requires a loaded session. It preserves supported retained values,
+virtual time, and cycle count. A compilation or retained-state migration
+failure preserves the complete previous session.
+
 ## Cycle Control
 
 Advance ten cycles while moving virtual time forward by `10 ms` each cycle:
@@ -85,6 +133,14 @@ Take a passive snapshot:
 ```json
 {"cmd":"snapshot","watch":["motor_run","fault","et"]}
 ```
+
+`cycle` defaults to `count: 1`, `dt_ms: 0`, and an empty watch list.
+`advance_time` accepts `duration_ms`; the legacy `dt_ms` spelling remains an
+alias, and `duration_ms` wins when both are present. `snapshot` does not run a
+cycle or advance virtual time. `run_until` checks the current value before its
+first cycle, so an already-matching value reports `cycles_ran: 0`. Earlier
+completed cycles and time advances remain committed if a later requested cycle
+or bounded run fails. Negative time increments return `invalid_argument`.
 
 ## I/O Manipulation
 
@@ -152,6 +208,10 @@ If `max_cycles` is exceeded, the protocol returns:
 {"cmd":"restart","mode":"warm"}
 ```
 
+The mode defaults to `cold` and is ASCII case-insensitive. `warm` preserves
+variables declared `RETAIN`; `cold` restores their declared initial values.
+Unsupported modes return `invalid_request`.
+
 ## Typed Value Format
 
 The protocol uses a stable typed JSON shape.
@@ -187,6 +247,24 @@ Current stable `error.kind` values:
 - `runtime_error`
 - `runtime_cycle_error`
 - `run_until_timeout`
+
+Boundary failures use their stable boundary code as `error.kind`:
+
+- `unresolved_name`
+- `unbound_program`
+- `ambiguous_name`
+- `unsupported_path_syntax`
+- `wrong_kind`
+- `undeclared_binding`
+- `internal_lock_failure`
+- `internal_failure`
+
+Boundary error data contains `path` when one exists and a deterministic
+`candidates` array. `runtime_cycle_error` data contains the ordered runtime
+error strings. `run_until_timeout` data contains the target name, cycle
+budget, and expected typed value. Missing request fields, unsupported commands,
+and unsupported restart modes are structural `invalid_request` errors;
+semantic value and non-negative-duration validation uses `invalid_argument`.
 
 ## Current Observability Scope
 

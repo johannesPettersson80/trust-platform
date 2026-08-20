@@ -3,18 +3,14 @@ id = "DEV_COMMIT_SCOPE_001"
 title = "Developer commit helpers expose unrelated staged scope"
 area = "plcopen_devtools"
 risk = "data_loss"
-status = "implemented"
+status = "gap_open"
 owner = "trust-dev"
 last_reviewed = "2026-07-18"
 claim = "Developer commit helpers must not silently include unrelated pre-staged changes."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-dev/src"]
-tests = [
-  "TEST_DEV_COMMIT_SCOPE_TRACE_001",
-  "TEST_REVIEW_COMMIT_SCOPE_CONTAINMENT_001",
-  "TEST_REVIEW_COMMIT_SCOPE_RACE_001",
-]
+tests = ["TEST_AUTO_5CAA8F58E6FE55E25F56", "TEST_AUTO_6769CA7C879039E59098", "TEST_AUTO_8ECA38A3365D2E70B739", "TEST_AUTO_9921E8E6B44B04E436F6", "TEST_AUTO_DDA759DC285FFED0BB01", "TEST_AUTO_DFEEA0B862E8D1A4B44B", "TEST_DEV_COMMIT_SCOPE_TRACE_001", "TEST_REVIEW_COMMIT_SCOPE_CONTAINMENT_001", "TEST_REVIEW_COMMIT_SCOPE_RACE_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_DEV_COMMIT_SCOPE_TRACE_001_LOCK_BASELINE",
@@ -57,6 +53,14 @@ oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-scoped-commit"
 outcome = "accept_value"
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
 rationale = "Dry-run and cancellation report the selected scope without mutating index, worktree, or history."
+
+[[behavior]]
+partition = { equals = "STATUS_PATH_FIDELITY" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-scoped-commit"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "NUL-delimited Git status preserves a reviewed Unicode path for display, and Unix non-UTF-8 project pathspec handling returns a status entry without panicking; this does not claim quoted-path decoding or exact non-UTF-8 display bytes."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"

@@ -70,7 +70,7 @@ pub fn common_kind(values: &[Value]) -> Result<CommonKind, RuntimeError> {
         common = Some(match (common.take(), next) {
             (None, kind) => kind,
             (Some(CommonKind::Numeric(a)), CommonKind::Numeric(b)) => {
-                CommonKind::Numeric(wider_numeric(a, b))
+                CommonKind::Numeric(wider_numeric(a, b).ok_or(RuntimeError::TypeMismatch)?)
             }
             (Some(CommonKind::Bit(a)), CommonKind::Bit(b)) => CommonKind::Bit(a.max(b)),
             (Some(CommonKind::String { wide: a }), CommonKind::String { wide: b }) => {
