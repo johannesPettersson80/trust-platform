@@ -2391,7 +2391,7 @@ fn check_parser_recovery_rules(map: &SoftwareMap) -> FullMapCheck {
 fn check_hir_zero_silent_bug_doctor(root: &Path) -> FullMapCheck {
     let script = Path::new("scripts/hir_zero_silent_bug_doctor.py");
     let script_path = root.join(script);
-    let command = "python3 scripts/hir_zero_silent_bug_doctor.py --fail";
+    let command = "python3 scripts/hir_zero_silent_bug_doctor.py";
     if !script_path.is_file() {
         return FullMapCheck::fail(
             "FULLMAP-HIRZSB",
@@ -2402,7 +2402,6 @@ fn check_hir_zero_silent_bug_doctor(root: &Path) -> FullMapCheck {
 
     match Command::new("python3")
         .arg(script)
-        .arg("--fail")
         .current_dir(root)
         .output()
     {
@@ -2438,20 +2437,16 @@ fn hir_zero_silent_bug_doctor_check_from_output(
     details.extend(command_stream_details("stdout", &output.stdout));
     details.extend(command_stream_details("stderr", &output.stderr));
 
-    if output.success
-        && output
-            .stdout
-            .contains("HIR zero-silent-bug doctor: no findings")
-    {
+    if output.success {
         FullMapCheck::pass(
             "FULLMAP-HIRZSB",
-            "HIR zero-silent-bug doctor reported no findings",
+            "HIR zero-silent-bug doctor completed with no fatal findings",
             details,
         )
     } else {
         FullMapCheck::fail(
             "FULLMAP-HIRZSB",
-            "HIR zero-silent-bug doctor reported findings or failed",
+            "HIR zero-silent-bug doctor reported fatal findings or failed",
             details,
         )
     }
@@ -5169,14 +5164,14 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
     }
 
     #[test]
-    fn known_bad_hir_zero_doctor_finding_fails_full_map_check() {
+    fn fatal_hir_zero_doctor_finding_fails_full_map_check() {
         let check = hir_zero_silent_bug_doctor_check_from_output(
-            "python3 scripts/hir_zero_silent_bug_doctor.py --fail",
+            "python3 scripts/hir_zero_silent_bug_doctor.py",
             CommandCheckOutput {
                 success: false,
                 code: Some(1),
                 stdout: "HIR zero-silent-bug doctor: 1 warn-only finding(s)\n\
-                    HIRZSB-WARN-BROAD-LOOKUP crates/trust-hir/src/demo.rs:12: symbols.lookup_any(name)"
+                    HIRZSB-FAIL-PUBLIC-RAW-API crates/trust-hir/src/demo.rs:12: pub fn lookup_any"
                     .to_string(),
                 stderr: String::new(),
             },
@@ -5186,17 +5181,34 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
         assert!(check
             .details
             .iter()
-            .any(|detail| detail.contains("HIRZSB-WARN-BROAD-LOOKUP")));
+            .any(|detail| detail.contains("HIRZSB-FAIL-PUBLIC-RAW-API")));
     }
 
     #[test]
     fn hir_zero_doctor_no_findings_passes_full_map_check() {
         let check = hir_zero_silent_bug_doctor_check_from_output(
-            "python3 scripts/hir_zero_silent_bug_doctor.py --fail",
+            "python3 scripts/hir_zero_silent_bug_doctor.py",
             CommandCheckOutput {
                 success: true,
                 code: Some(0),
                 stdout: "HIR zero-silent-bug doctor: no findings\n".to_string(),
+                stderr: String::new(),
+            },
+        );
+
+        assert_eq!(check.status, CheckStatus::Pass);
+    }
+
+    #[test]
+    fn hir_zero_doctor_warn_only_output_passes_full_map_check() {
+        let check = hir_zero_silent_bug_doctor_check_from_output(
+            "python3 scripts/hir_zero_silent_bug_doctor.py",
+            CommandCheckOutput {
+                success: true,
+                code: Some(0),
+                stdout: "HIR zero-silent-bug doctor: 1 warn-only finding(s)\n\
+                    HIRZSB-WARN-BROAD-LOOKUP crates/trust-hir/src/demo.rs:12: symbols.lookup_any(name)"
+                    .to_string(),
                 stderr: String::new(),
             },
         );

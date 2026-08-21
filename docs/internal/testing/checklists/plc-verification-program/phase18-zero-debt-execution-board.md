@@ -1,8 +1,15 @@
 # Phase 18 Post-Closure Behavior Delta
 
-Status: corrective behavior audit closed; exact-SHA candidate validated.
+Status: corrective behavior audit closed; CI-repair candidate validation in progress.
 
-Current row: none.
+Current row: CI-repair pre-push parity.
+
+Before any corrective push, run the complete CI-equivalent gate set for the
+frozen SHA: formatting, strict Clippy with CI features and denied warnings,
+supply-chain policy, architecture doctor/full-map, conformance including the
+runtime-VM corpus profile, public browser capture suite, and the supported
+OS-path test contracts. Do not substitute a builder-only broad test for these
+workflow-specific checks.
 
 ## Accepted Baseline
 

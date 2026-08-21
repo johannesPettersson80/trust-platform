@@ -288,7 +288,7 @@ impl AgentServer {
                     AgentCommandError::io(
                         format!("failed to read '{}': {error}", full_path.display()),
                         json!({
-                            "path": relative_path.display().to_string(),
+                            "path": super::workspace_path_display(&relative_path),
                         }),
                     )
                 })?;

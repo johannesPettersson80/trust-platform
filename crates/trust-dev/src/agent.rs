@@ -213,12 +213,12 @@ impl AgentServer {
             AgentCommandError::io(
                 format!("failed to read '{}': {error}", full_path.display()),
                 json!({
-                    "path": relative_path.display().to_string(),
+                    "path": workspace_path_display(&relative_path),
                 }),
             )
         })?;
         Ok(json!({
-            "path": relative_path.display().to_string(),
+            "path": workspace_path_display(&relative_path),
             "text": text,
         }))
     }
@@ -239,7 +239,7 @@ impl AgentServer {
                             full_path.display()
                         ),
                         json!({
-                            "path": relative_path.display().to_string(),
+                            "path": workspace_path_display(&relative_path),
                         }),
                     )
                 })?;
@@ -249,12 +249,12 @@ impl AgentServer {
             AgentCommandError::io(
                 format!("failed to write '{}': {error}", full_path.display()),
                 json!({
-                    "path": relative_path.display().to_string(),
+                    "path": workspace_path_display(&relative_path),
                 }),
             )
         })?;
         Ok(json!({
-            "path": relative_path.display().to_string(),
+            "path": workspace_path_display(&relative_path),
             "bytes_written": params.text.len(),
         }))
     }
@@ -503,6 +503,10 @@ fn normalize_workspace_path(path: &str) -> Result<PathBuf, AgentCommandError> {
     }
 
     Ok(normalized)
+}
+
+pub(super) fn workspace_path_display(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
 }
 
 fn json_rpc_response_id(value: &JsonValue) -> JsonValue {

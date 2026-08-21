@@ -61,6 +61,12 @@ class CargoAuditPolicyTests(unittest.TestCase):
         errors = policy.validate_report(report, [allowed_entry()])
         self.assertTrue(any("unsupported cargo-audit warning" in error for error in errors))
 
+    def test_unsound_warning_is_informational(self) -> None:
+        report = audit_report()
+        report["warnings"]["unsound"] = [{"kind": "unsound", "id": "RUSTSEC-0000-0000"}]
+        errors = policy.validate_report(report, [allowed_entry()])
+        self.assertEqual(errors, [])
+
     def test_vulnerability_fails(self) -> None:
         report = audit_report()
         report["vulnerabilities"] = {"found": True, "count": 1, "list": [{}]}

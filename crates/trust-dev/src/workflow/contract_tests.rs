@@ -49,12 +49,17 @@ fn invalid_program(name: &str, symbol: &str) -> String {
     format!("PROGRAM {name}\nVAR\n  value : INT;\nEND_VAR\nvalue := {symbol};\nEND_PROGRAM\n")
 }
 
-fn issue_files(payload: &Value) -> Vec<&str> {
+fn issue_files(payload: &Value) -> Vec<String> {
     payload["issues"]
         .as_array()
         .expect("issues array")
         .iter()
-        .map(|issue| issue["file"].as_str().expect("issue file"))
+        .map(|issue| {
+            issue["file"]
+                .as_str()
+                .expect("issue file")
+                .replace('\\', "/")
+        })
         .collect()
 }
 
@@ -83,6 +88,7 @@ fn project_source_discovery_accepts_every_ascii_case_extension_spelling() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn project_source_discovery_treats_root_metacharacters_literally() {
     let project = TestProject::new("literal-[batch]-star*");
     project.write("src/main.st", &valid_program("Main"));

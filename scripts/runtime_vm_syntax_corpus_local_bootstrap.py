@@ -52,7 +52,7 @@ interfaces = []
 enabled = false
 listen = "0.0.0.0:5200"
 tls = false
-auth_token = ""
+auth_token = "runtime-vm-syntax-corpus-local-only"
 publish = []
 
 [runtime.opcua]

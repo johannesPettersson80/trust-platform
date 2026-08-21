@@ -5855,7 +5855,11 @@ function hwActivate() {
   } else {
     hwStopLivePolling();
   }
-  if (!(typeof state === "object" && state && state.ready)) {
+  // Project I/O configuration is available as soon as the IDE session has
+  // selected a project.  Do not make the hardware surface wait for the
+  // editor's WASM analysis bootstrap: that can be unavailable while the
+  // authenticated configuration endpoint is already usable.
+  if (!(typeof state === "object" && state && state.activeProject)) {
     setTimeout(() => {
       const active = typeof ideGetActiveTab === "function"
         ? ideGetActiveTab()

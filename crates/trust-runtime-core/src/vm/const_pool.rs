@@ -306,9 +306,11 @@ fn decode_primitive_constant(prim_id: u16, payload: &[u8]) -> Result<Value, Runt
             if !payload.len().is_multiple_of(2) {
                 return Err(invalid_bytecode("invalid WSTRING const payload length"));
             }
-            let units = payload
-                .chunks_exact(2)
-                .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+            let (units, remainder) = payload.as_chunks::<2>();
+            debug_assert!(remainder.is_empty());
+            let units = units
+                .iter()
+                .map(|unit| u16::from_le_bytes(*unit))
                 .collect::<Vec<_>>();
             let text = String::from_utf16(&units)
                 .map_err(|err| invalid_bytecode(format!("invalid WSTRING const UTF-16: {err}")))?;

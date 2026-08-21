@@ -52,6 +52,11 @@ Target release: `v0.24.62`
 
 ### Fixed
 
+- trust-dev: Agent workspace read/write responses now use portable `/`-separated
+  relative paths on every supported host, keeping JSON-RPC consumers and
+  cross-platform automation stable.
+- trust-runtime: Hardware settings controls remain clickable and render the
+  selected project's configured drivers before editor analysis is ready.
 - trust-runtime: Hardware settings now keep the driver panel reachable in the
   scrollable settings surface, and control authentication tokens use masked
   password input instead of being displayed as plain text.
