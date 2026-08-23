@@ -52,6 +52,12 @@ Target release: `v0.24.62`
 
 ### Fixed
 
+- trust-dev: Generated API documentation now keeps source identities relative
+  to the selected project on macOS and Windows as well as Linux, instead of
+  leaking a platform-specific absolute temporary path.
+- ci/docs: Browser capture navigation now retries a transient editor-server
+  startup stall within the same rendered journey, preventing a healthy capture
+  run from being reported as a flaky documentation failure.
 - trust-dev: Agent workspace read/write responses now use portable `/`-separated
   relative paths on every supported host, keeping JSON-RPC consumers and
   cross-platform automation stable.

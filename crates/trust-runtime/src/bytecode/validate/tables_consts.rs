@@ -126,9 +126,11 @@ fn validate_const_payload_entry(
                         "invalid WSTRING const payload length".into(),
                     ));
                 }
-                let units = payload
-                    .chunks_exact(2)
-                    .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+                let (units, remainder) = payload.as_chunks::<2>();
+                debug_assert!(remainder.is_empty());
+                let units = units
+                    .iter()
+                    .map(|chunk| u16::from_le_bytes(*chunk))
                     .collect::<Vec<_>>();
                 String::from_utf16(&units).map_err(|err| {
                     BytecodeError::InvalidSection(

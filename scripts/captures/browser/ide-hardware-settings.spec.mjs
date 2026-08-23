@@ -4,9 +4,24 @@ import { ensureParent, publicImagePath } from "../lib/paths.mjs";
 async function openIde(page, route = "/ide") {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(String(error?.message || error)));
-  const response = await page.goto(`http://127.0.0.1:18080${route}`, {
-    waitUntil: "domcontentloaded",
-  });
+  const url = `http://127.0.0.1:18080${route}`;
+  let response;
+  let lastError;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      response = await page.goto(url, {
+        waitUntil: "domcontentloaded",
+        timeout: 20_000,
+      });
+      break;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 5) {
+        throw lastError;
+      }
+      await page.waitForTimeout(1_000);
+    }
+  }
   expect(response?.ok()).toBeTruthy();
   await expect(page.locator("#ideTabNav")).toHaveAttribute("role", "tablist");
   await expect(page.locator("#statusProject")).toContainText(
