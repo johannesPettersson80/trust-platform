@@ -285,7 +285,7 @@ Angle := ATAN2(DY, DX);   // Four-quadrant arctangent
 The `EXPT` standard-function signature remains the IEC `ANY_REAL`-base
 contract shown above. The reviewed `INT#2 ** INT#3` host-evaluator extension
 is separate and is recorded in
-[`IEC_DEVIATIONS.md`](../IEC_DEVIATIONS.md#2026-07-27---integer-base-exponentiation);
+[`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md#2026-07-27---integer-base-exponentiation);
 it does not widen the standard-function signature.
 
 For finite `REAL` operands, `EXP` and `EXPT` return a value only when the

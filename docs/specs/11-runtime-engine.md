@@ -3372,8 +3372,8 @@ four and eight bytes respectively. Multi-byte values use canonical
 little-endian byte order. The reviewed matrix proves exact encode/decode
 round trips for its named representative values; it does not select behavior
 for noncanonical `BOOL` bytes, every elementary value, or non-finite egress.
-Non-finite ingress remains governed by
-[ADS floating-point ingress](#ads-floating-point-ingress).
+Non-finite ingress remains governed by the ADS client configuration and
+activation contract.
 
 For the reviewed `STRING(8)` partition, the declared capacity is eight payload
 bytes and the fixed layout is nine bytes including the terminator. Decoding the
@@ -3712,7 +3712,7 @@ names and their generated quality names are unique across every connection.
 
 Imported ADS scalar descriptors project to the corresponding supported IEC
 BOOL, signed and unsigned integer, REAL/LREAL, bit-string, and STRING type
-names defined by [Data Types](05-data-types.md). STRING capacity and every
+names defined by [Data Types](02-data-types.md). STRING capacity and every
 inclusive array lower/upper bound are retained. Poll and notification modes and
 read, write, or read-write access are serialized without silently changing the
 selected capability. Malformed current configuration, missing selection,

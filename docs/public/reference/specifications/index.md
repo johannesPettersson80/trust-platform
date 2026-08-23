@@ -70,6 +70,8 @@ for task-oriented programming docs.
 - [23 Connector Status](23-connector-status.md)
 - [24 Release Evidence](24-release-evidence.md)
 
-## Full Source Index
+## Published Source Index
 
---8<-- "docs/specs/README.md:3"
+This public site publishes the specifications listed above. Later internal
+contract specifications remain maintained in `docs/specs/` but are not part of
+the public reference set.

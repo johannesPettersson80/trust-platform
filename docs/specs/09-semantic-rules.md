@@ -125,7 +125,7 @@ PI := 3.0;  // ERROR: Cannot modify CONSTANT
 | =, <> | ANY_ELEMENTARY | Incompatible types |
 
 The exact reviewed integer-base `**` extension is recorded in
-[`IEC_DEVIATIONS.md`](../IEC_DEVIATIONS.md#2026-07-27---integer-base-exponentiation).
+[`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md#2026-07-27---integer-base-exponentiation).
 
 ### 3.2 Statement Type Errors
 
@@ -162,7 +162,7 @@ IEC 61131-3 Ed.3 §6.6.1.4.1 requires VAR_IN_OUT parameters to be “properly ma
 | VAR_IN_OUT mapping | Missing binding, non-lvalue, constant target, temporary, reference-typed declaration, or non-exact type |
 | Non-formal calls | Positional argument count must match parameters (excluding EN/ENO) |
 | IEC call-form separation | IEC 61131-3 Ed.3 section 6.6.1.4.2 defines separate formal and non-formal lists |
-| truST mixed-call extension | A positional prefix followed by formal assignments is accepted; a repeated occupied parameter or positional argument after a formal assignment is rejected ([`DEV-018`](../IEC_DEVIATIONS.md#2026-07-26---mixed-positional-prefix-and-formal-suffix-calls)) |
+| truST mixed-call extension | A positional prefix followed by formal assignments is accepted; a repeated occupied parameter or positional argument after a formal assignment is rejected ([`DEV-018`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md#2026-07-26---mixed-positional-prefix-and-formal-suffix-calls)) |
 | Writable aliasing | Two output/in-out/ENO connections resolve to the same or overlapping caller storage |
 | Execution control | EN/ENO supplied positionally, EN connected with `=>`, ENO connected with `:=`, or `REF(EN)` / `REF(ENO)` |
 

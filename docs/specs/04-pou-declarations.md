@@ -162,7 +162,7 @@ IEC 61131-3 Ed.3 section 6.6.1.4.2 defines formal and non-formal parameter
 lists as separate call forms. truST also accepts a mixed convenience form when
 all positional arguments precede all formal arguments, for example
 `Add(1, b := 2)`. This is the intentional extension recorded as
-[`DEV-018`](../IEC_DEVIATIONS.md#2026-07-26---mixed-positional-prefix-and-formal-suffix-calls);
+[`DEV-018`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md#2026-07-26---mixed-positional-prefix-and-formal-suffix-calls);
 portable source should use one IEC call form throughout.
 
 ### EN/ENO Mechanism (Section 6.6.1.6)
@@ -193,7 +193,7 @@ outputs even when it explicitly leaves `ENO` false. A runtime execution error
 reports the error and commits no result/output/in-out/instance-state transfer.
 `REF(EN)` and `REF(ENO)` are invalid. These implementer-specific choices are
 recorded in
-[`IEC_DECISIONS.md`](../IEC_DECISIONS.md#2026-07-30---pou-call-evaluation-execution-control-and-output-transfer).
+[`IEC_DECISIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DECISIONS.md#2026-07-30---pou-call-evaluation-execution-control-and-output-transfer).
 
 ```
 FUNCTION SafeDiv : REAL

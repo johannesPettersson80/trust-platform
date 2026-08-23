@@ -2155,7 +2155,7 @@ formals. Rejecting this before execution makes transfer independent of
 parameter declaration order. An input may snapshot storage that is also the
 single target of one output or in-out. These implementer-specific rules are
 recorded in
-[`IEC_DECISIONS.md`](../IEC_DECISIONS.md#2026-07-30---pou-call-evaluation-execution-control-and-output-transfer).
+[`IEC_DECISIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DECISIONS.md#2026-07-30---pou-call-evaluation-execution-control-and-output-transfer).
 
 #### 7.6 Host-stage POU evaluation contract
 

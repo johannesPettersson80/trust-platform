@@ -129,7 +129,7 @@ Shared rules:
   accepts a positional prefix followed by formal assignments, but rejects any
   positional argument after the first formal assignment. This non-portable
   extension is recorded as
-  [`DEV-018`](../IEC_DEVIATIONS.md#2026-07-26---mixed-positional-prefix-and-formal-suffix-calls).
+  [`DEV-018`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md#2026-07-26---mixed-positional-prefix-and-formal-suffix-calls).
 - In that extension, the positional prefix occupies consecutive eligible
   parameters in declaration order, excluding `EN` and `ENO`. The formal suffix
   may be written in any order but cannot bind a parameter already occupied by
@@ -150,7 +150,7 @@ Shared rules:
   other actual, target resolution, and the body, preserves caller targets and
   function-block/receiver state, copies only `FALSE` to a connected `ENO`, and
   returns the declared type default for a value-producing callable. See
-  [`IEC_DECISIONS.md`](../IEC_DECISIONS.md#2026-07-30---pou-call-evaluation-execution-control-and-output-transfer).
+  [`IEC_DECISIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DECISIONS.md#2026-07-30---pou-call-evaluation-execution-control-and-output-transfer).
 
 At the parser boundary, an empty argument list and complete positional or
 formal argument lists are accepted without claiming callable resolution or

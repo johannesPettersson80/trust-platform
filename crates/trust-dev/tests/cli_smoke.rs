@@ -66,7 +66,8 @@ fn oscat_replaced_upstream_name_remains_absent() {
         "{}\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
-    );
+    )
+    .replace('\\', "/");
     assert!(diagnostics.contains("src/main.st: expected expression"));
     assert!(diagnostics.contains("src/tests.st: expected expression"));
 }
