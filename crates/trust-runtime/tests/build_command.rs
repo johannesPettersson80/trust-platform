@@ -54,6 +54,10 @@ fn json_stdout(output: &Output) -> JsonValue {
     })
 }
 
+fn reported_path_ends_with(path: &str, suffix: &str) -> bool {
+    path.replace('\\', "/").ends_with(suffix)
+}
+
 #[test]
 fn build_ci_reports_sources_override_and_local_dependencies() {
     let project = unique_temp_dir("build-ci-dependencies");
@@ -107,11 +111,11 @@ END_FUNCTION
     let sources = payload["sources"].as_array().expect("source array");
     assert!(sources.iter().any(|path| {
         path.as_str()
-            .is_some_and(|path| path.ends_with("custom_sources/main.st"))
+            .is_some_and(|path| reported_path_ends_with(path, "custom_sources/main.st"))
     }));
     assert!(sources.iter().any(|path| {
         path.as_str()
-            .is_some_and(|path| path.ends_with("deps/lib-a/src/lib.st"))
+            .is_some_and(|path| reported_path_ends_with(path, "deps/lib-a/src/lib.st"))
     }));
     assert_eq!(
         payload["resolved_dependencies"],
