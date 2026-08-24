@@ -90,7 +90,7 @@ def remote_validation_commands(
         commands.append(
             (
                 "remote_vscode",
-                "cd editors/vscode && npm run lint && npm run compile && "
+                "cd editors/vscode && npm ci && npm run lint && npm run compile && "
                 f"{target_env} xvfb-run -a npm test",
             )
         )

@@ -103,6 +103,7 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
                 vscode_changed=True, remote_target="/tmp/trust-target"
             )
         )
+        self.assertIn("npm ci &&", commands["remote_vscode"])
         self.assertIn("xvfb-run -a npm test", commands["remote_vscode"])
 
     def test_full_suite_is_builder_only_before_candidate_validation(self) -> None:
