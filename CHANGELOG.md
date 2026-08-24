@@ -56,7 +56,8 @@ Target release: `v0.24.62`
   portable TOML paths on Windows, normalize platform-native source-list paths
   in build and check assertions, and keep absolute and escaping sidecar paths fail-closed;
   `CURRENT_DT` boundary tests no longer depend on host `SystemTime`
-  representations.
+  representations; deployment pointer replacement now removes its Windows
+  directory-symlink backup correctly.
 - trust-plcopen: Exported source-map paths now use portable `/` separators on
   Windows as well as Unix hosts, keeping project-relative artifact identities
   stable for automation consumers.

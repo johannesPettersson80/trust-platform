@@ -347,7 +347,7 @@ fn replace_symlink(link: &Path, target: &Path) -> anyhow::Result<()> {
                 .with_context(|| format!("publish deployment pointer '{}'", link.display()));
         }
         if had_link {
-            fs::remove_file(&backup).with_context(|| {
+            fs::remove_dir(&backup).with_context(|| {
                 format!("remove deployment pointer backup '{}'", backup.display())
             })?;
         }
