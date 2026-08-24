@@ -52,6 +52,10 @@ Target release: `v0.24.62`
 
 ### Fixed
 
+- ci/trust-runtime: The managed-fleet CLI lifecycle integration test now bounds
+  each spawned command and reports its command line and captured output on a
+  timeout, preventing an opaque Windows job hang from consuming the complete
+  retry budget.
 - trust-runtime: ADS import defaults and runtime test fixtures now preserve
   portable TOML paths on Windows, normalize platform-native source-list paths
   in build and check assertions, and keep absolute and escaping sidecar paths fail-closed;
