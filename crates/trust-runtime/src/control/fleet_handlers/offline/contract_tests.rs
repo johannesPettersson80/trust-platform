@@ -539,6 +539,14 @@ fn fleet_offline_contract_absolute_sidecar_path_is_rejected_before_read() {
     let project = TestProject::new("absolute-sidecar-project");
     let external = TestProject::new("absolute-sidecar-external");
     external.write("ads.toml", ads_toml());
+    let escaped_path = toml::Value::String(
+        external
+            .path()
+            .join("ads.toml")
+            .to_string_lossy()
+            .into_owned(),
+    )
+    .to_string();
     project.write(
         "runtime.toml",
         runtime_toml(
@@ -546,9 +554,8 @@ fn fleet_offline_contract_absolute_sidecar_path_is_rejected_before_read() {
                 r#"
 [runtime.ads]
 enabled = true
-config_path = "{}"
+config_path = {escaped_path}
 "#,
-                external.path().join("ads.toml").display()
             )
             .as_str(),
         ),

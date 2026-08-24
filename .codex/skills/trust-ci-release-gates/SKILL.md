@@ -37,9 +37,12 @@ push-and-repair attempts.
    maintenance. Its strict report command runs only the report-boundary smoke;
    exhaustive recursive verification-tooling self-tests remain scheduled/manual
    maintenance. Required acceptance remains bootstrap parity, a clean exact
-   candidate and base, diff integrity, the strict smoke, the applicable native
-   product gates, and final remote broad gates. Any commit, base movement, missing
-   required command, or dirty checkout invalidates the artifact.
+   candidate and base, diff integrity, the strict smoke, a successful
+   trust-builder `just test-all` on the frozen candidate, the applicable native
+   product gates, and final remote broad gates. The guard records this as
+   `remote_test_all`; it never runs a full suite on the invoking workstation.
+   Any commit, base
+   movement, missing required command, or dirty checkout invalidates the artifact.
 2. Push the frozen candidate once. The installed pre-push hook rejects a release-sensitive push
    without a passing artifact for the exact head and current base.
 3. Wait for every required GitHub check. Before editing after a red candidate, collect the whole
@@ -139,6 +142,9 @@ Prevent known Windows-only regressions in `trust-lsp` tests:
 - In trust-platform checkouts on a Raspberry Pi or other slow local host, do not run broad local Rust/runtime gates as the default proof path.
 - Use the remote builder for full validation first, especially `just test-all`.
 - Ask before starting expensive local commands such as workspace `cargo test`, `cargo test -p trust-runtime ...`, local `just test`, local `just clippy`, or local `just test-all`.
+- When the user explicitly requires local full-suite proof before a new release
+  candidate, run local `just test-all` after the strict smoke and before any
+  remote validation; the release-candidate guard enforces and records it.
 - Run required project gates with full Rust gates on the remote builder:
   - `just fmt`
   - `just clippy`

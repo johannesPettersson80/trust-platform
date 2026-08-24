@@ -409,6 +409,10 @@ fn current_dt(now: SystemTime) -> Result<DateTimeValue, RuntimeError> {
     let elapsed = now
         .duration_since(UNIX_EPOCH)
         .map_err(|_| RuntimeError::Overflow)?;
+    current_dt_elapsed(elapsed)
+}
+
+fn current_dt_elapsed(elapsed: std::time::Duration) -> Result<DateTimeValue, RuntimeError> {
     let profile = DateTimeProfile::default();
     let resolution =
         u128::try_from(profile.resolution.as_nanos()).map_err(|_| RuntimeError::Overflow)?;
@@ -520,8 +524,9 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
 #[cfg(test)]
 mod tests {
     use super::{
-        current_dt, is_runtime_clock_name, runtime_clock_value, runtime_clock_value_at,
-        DateTimeValue, Duration, RuntimeError, SystemTime, Value, UNIX_EPOCH,
+        current_dt, current_dt_elapsed, is_runtime_clock_name, runtime_clock_value,
+        runtime_clock_value_at, DateTimeValue, Duration, RuntimeError, SystemTime, Value,
+        UNIX_EPOCH,
     };
     use std::time::Duration as StdDuration;
 
@@ -550,11 +555,10 @@ mod tests {
 
     #[test]
     fn current_dt_preserves_the_full_nonnegative_dt_tick_range() {
-        let host_time = UNIX_EPOCH
-            .checked_add(StdDuration::from_millis(i64::MAX as u64))
-            .expect("SystemTime represents the maximum DT millisecond tick");
-
-        assert_eq!(current_dt(host_time), Ok(DateTimeValue::new(i64::MAX)));
+        assert_eq!(
+            current_dt_elapsed(StdDuration::from_millis(i64::MAX as u64)),
+            Ok(DateTimeValue::new(i64::MAX))
+        );
     }
 
     #[test]
@@ -569,12 +573,11 @@ mod tests {
         let before_epoch = UNIX_EPOCH
             .checked_sub(StdDuration::from_nanos(1))
             .expect("SystemTime represents one nanosecond before the Unix epoch");
-        let above_max = UNIX_EPOCH
-            .checked_add(StdDuration::from_millis(i64::MAX as u64 + 1))
-            .expect("SystemTime represents one millisecond above the DT tick range");
-
         assert_eq!(current_dt(before_epoch), Err(RuntimeError::Overflow));
-        assert_eq!(current_dt(above_max), Err(RuntimeError::Overflow));
+        assert_eq!(
+            current_dt_elapsed(StdDuration::from_millis(i64::MAX as u64 + 1)),
+            Err(RuntimeError::Overflow)
+        );
     }
 
     #[test]

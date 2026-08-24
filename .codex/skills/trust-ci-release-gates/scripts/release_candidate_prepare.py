@@ -130,6 +130,11 @@ def local_maintenance_commands() -> tuple[tuple[str, list[str]], ...]:
     )
 
 
+def local_candidate_validation_commands() -> tuple[tuple[str, list[str]], ...]:
+    """Keep full-suite execution on the configured remote builder."""
+    return ()
+
+
 def strict_report_command(*, base_sha: str, head: str, intent: str) -> list[str]:
     return [
         sys.executable,

@@ -105,6 +105,17 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         )
         self.assertIn("xvfb-run -a npm test", commands["remote_vscode"])
 
+    def test_full_suite_is_builder_only_before_candidate_validation(self) -> None:
+        self.assertNotIn("local_test_all", guard.BASE_REQUIRED_COMMANDS)
+        self.assertEqual(candidate_prepare.local_candidate_validation_commands(), ())
+        commands = dict(
+            candidate_prepare.remote_validation_commands(
+                vscode_changed=False, remote_target="/tmp/trust-target"
+            )
+        )
+        self.assertIn("remote_test_all", commands)
+        self.assertIn("just test-all", commands["remote_test_all"])
+
     def test_remote_validation_reclaims_exact_target_before_test_all(self) -> None:
         commands = candidate_prepare.remote_validation_commands(
             vscode_changed=True, remote_target="/tmp/trust target"
