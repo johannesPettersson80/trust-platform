@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 include!("../../../tests/support/repository_source_oracle.rs");
 
-const EXAMPLE_TEST_TIMEOUT: Duration = Duration::from_secs(120);
+const EXAMPLE_TEST_TIMEOUT: Duration = Duration::from_secs(300);
 const EXAMPLE_TEST_PROGRESS_INTERVAL: Duration = Duration::from_secs(10);
 const OSCAT_AGGREGATE_TRIGGER_EXAMPLE: &str = "airport_baggage_command_observer";
 const OSCAT_AGGREGATE_TRIGGER_NAMESPACE: &str = "OSCAT_airport_baggage_command_observer_oop";

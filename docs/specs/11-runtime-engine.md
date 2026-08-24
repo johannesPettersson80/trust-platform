@@ -3943,8 +3943,8 @@ The standalone IDE resource contract is:
   equivalent typed `too_large` error before writing.
 
 These are focused reference-environment budgets. They are regression gates for
-the shipped authoring path, not universal real-time guarantees for arbitrary
-hardware or projects.
+the shipped authoring path on the x86_64 CI reference environment, not
+universal real-time guarantees for arbitrary hardware or projects.
 
 ###### Unified Web IDE shell contract
 

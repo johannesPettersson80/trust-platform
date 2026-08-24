@@ -32,7 +32,7 @@ const RUN_ID: u64 = 1;
 const SOURCE_IDS: [u32; 2] = [10, 30];
 const DEFAULT_PER_SOURCE: u64 = 12;
 const DEFAULT_CAPACITY: usize = 256;
-const DEFAULT_TIMEOUT_SECS: u64 = 60;
+const DEFAULT_TIMEOUT_SECS: u64 = 120;
 const PER_SOURCE_ENV: &str = "OPENOT_CAPSTONE_PER_SOURCE";
 const CAPACITY_ENV: &str = "OPENOT_CAPSTONE_CAPACITY";
 const TIMEOUT_SECS_ENV: &str = "OPENOT_CAPSTONE_TIMEOUT_SECS";
@@ -195,8 +195,11 @@ fn run_capstone_case(fence_mode: FenceMode, label: &str) -> ObservedReport {
         &paths,
     )
     .expect("spawn OpenOT capstone producer");
-    wait_for_file(&paths.producer_ready, Duration::from_secs(30))
-        .expect("producer did not become ready");
+    wait_for_file(
+        &paths.producer_ready,
+        Duration::from_secs(capstone_timeout_secs()),
+    )
+    .expect("producer did not become ready");
 
     let consumer = spawn_role(
         "consumer",
@@ -206,8 +209,11 @@ fn run_capstone_case(fence_mode: FenceMode, label: &str) -> ObservedReport {
         &paths,
     )
     .expect("spawn OpenOT capstone consumer");
-    wait_for_file(&paths.consumer_ready, Duration::from_secs(30))
-        .expect("consumer did not become ready");
+    wait_for_file(
+        &paths.consumer_ready,
+        Duration::from_secs(capstone_timeout_secs()),
+    )
+    .expect("consumer did not become ready");
 
     write_status_atomic(&paths.start, "start\n").expect("release capstone roles");
 

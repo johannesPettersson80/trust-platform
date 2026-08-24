@@ -371,6 +371,11 @@ pub(super) fn read_source_file(bundle_root: &Path, name: &str) -> Result<String,
 }
 
 pub(super) fn read_hmi_asset_file(project_root: &Path, name: &str) -> Result<String, RuntimeError> {
+    if Path::new(name).extension().and_then(|value| value.to_str()) != Some("svg") {
+        return Err(RuntimeError::InvalidConfig(
+            "unsupported hmi asset type (only .svg is allowed)".into(),
+        ));
+    }
     let hmi_dir = project_root.join("hmi");
     let requested = hmi_dir.join(name);
     let hmi_dir = hmi_dir
@@ -381,11 +386,6 @@ pub(super) fn read_hmi_asset_file(project_root: &Path, name: &str) -> Result<Str
         .map_err(|err| RuntimeError::InvalidConfig(format!("hmi asset not found: {err}").into()))?;
     if !requested.starts_with(&hmi_dir) {
         return Err(RuntimeError::InvalidConfig("invalid hmi asset path".into()));
-    }
-    if requested.extension().and_then(|value| value.to_str()) != Some("svg") {
-        return Err(RuntimeError::InvalidConfig(
-            "unsupported hmi asset type (only .svg is allowed)".into(),
-        ));
     }
     std::fs::read_to_string(&requested).map_err(|err| {
         RuntimeError::InvalidConfig(format!("failed to read hmi asset '{}': {err}", name).into())

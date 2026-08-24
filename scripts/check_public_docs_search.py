@@ -182,6 +182,8 @@ def score_doc(query_tokens: list[str], query: str, doc: dict[str, str]) -> int:
         "vscode" in query_tokens or ("vs" in query_tokens and "code" in query_tokens)
     ):
         score += 35
+    if base_location == "start/installation/" and "install" in query_tokens:
+        score += 35
     if base_location.startswith("operate/debugging-and-runtime-panel/") and (
         query.lower() == "debug" or ("runtime" in query_tokens and "panel" in query_tokens)
     ):

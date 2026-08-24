@@ -40,13 +40,6 @@ impl Drop for ConfigProject {
     }
 }
 
-fn path_strings(paths: &[PathBuf]) -> Vec<String> {
-    paths
-        .iter()
-        .map(|path| path.to_string_lossy().into_owned())
-        .collect()
-}
-
 #[test]
 fn configuration_filename_precedence_is_stable() {
     let project = ConfigProject::new("filename-precedence");
@@ -229,11 +222,12 @@ fn relative_index_cache_directory_resolves_against_root() {
 #[test]
 fn absolute_index_cache_directory_is_preserved() {
     let project = ConfigProject::new("cache-absolute");
-    let config = project.config("[indexing]\ncache_dir = \"/var/cache/trust-index\"");
-    assert_eq!(
-        config.index_cache_dir(),
-        Some(PathBuf::from("/var/cache/trust-index"))
-    );
+    let cache_dir = std::env::temp_dir().join("trust-lsp-absolute-cache");
+    let config = project.config(&format!(
+        "[indexing]\ncache_dir = {}",
+        toml::Value::String(cache_dir.to_string_lossy().into_owned())
+    ));
+    assert_eq!(config.index_cache_dir(), Some(cache_dir));
 }
 
 #[test]
@@ -770,11 +764,11 @@ docs = [" docs/api.md ", "", "docs/api.md", "docs/types.md"]
         vec![("Core", Some("2.0")), ("Utils", Some("3"))]
     );
     assert_eq!(
-        path_strings(&library.docs),
-        path_strings(&[
+        library.docs,
+        vec![
             project.root.join("docs/api.md"),
-            project.root.join("docs/types.md"),
-        ])
+            project.root.join("docs/types.md")
+        ]
     );
 }
 

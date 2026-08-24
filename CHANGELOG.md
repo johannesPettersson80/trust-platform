@@ -52,6 +52,15 @@ Target release: `v0.24.62`
 
 ### Fixed
 
+- trust-runtime: HMI asset requests now reject uppercase `.SVG` spellings
+  consistently on case-insensitive filesystems, preserving the documented
+  lowercase-only asset policy.
+- ci/trust-runtime: The OpenOT fenced cross-process capstone uses one
+  configurable 120-second startup and completion budget, avoiding false
+  failures on slower hosts without relaxing its delivery or loss assertions.
+- ci/trust-runtime: The focused OSCAT aggregate-project harness now permits a
+  five-minute child-test budget on slower hosts while retaining periodic
+  progress reporting and the same pass/fail oracle.
 - trust-dev: Generated API documentation now keeps source identities relative
   to the selected project on macOS and Windows as well as Linux, instead of
   leaking a platform-specific absolute temporary path.
