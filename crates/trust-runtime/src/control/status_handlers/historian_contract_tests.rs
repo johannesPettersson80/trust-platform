@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Value};
@@ -16,6 +17,8 @@ END_VAR
 END_PROGRAM
 "#;
 
+static NEXT_HISTORY_PATH_ID: AtomicU64 = AtomicU64::new(0);
+
 fn state() -> ControlState {
     crate::control::tests::hmi_test_state(SOURCE)
 }
@@ -25,8 +28,9 @@ fn temp_history_path(name: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock after epoch")
         .as_nanos();
+    let sequence = NEXT_HISTORY_PATH_ID.fetch_add(1, Ordering::Relaxed);
     std::env::temp_dir().join(format!(
-        "trust-status-contract-{name}-{}-{stamp}.jsonl",
+        "trust-status-contract-{name}-{}-{stamp}-{sequence}.jsonl",
         std::process::id()
     ))
 }

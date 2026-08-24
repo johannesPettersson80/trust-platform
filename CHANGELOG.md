@@ -52,6 +52,9 @@ Target release: `v0.24.62`
 
 ### Fixed
 
+- trust-plcopen: Exported source-map paths now use portable `/` separators on
+  Windows as well as Unix hosts, keeping project-relative artifact identities
+  stable for automation consumers.
 - trust-runtime: HMI asset requests now reject uppercase `.SVG` spellings
   consistently on case-insensitive filesystems, preserving the documented
   lowercase-only asset policy.

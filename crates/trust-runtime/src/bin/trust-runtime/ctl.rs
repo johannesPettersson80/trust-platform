@@ -615,10 +615,8 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("system clock")
             .as_nanos();
-        let root = std::env::temp_dir().join(format!(
-            "trust-runtime-ctl-unix-{}-{unique}",
-            std::process::id()
-        ));
+        let root =
+            std::path::PathBuf::from("/tmp").join(format!("trt-{}-{unique}", std::process::id()));
         std::fs::create_dir(&root).expect("create Unix control test directory");
         let socket = root.join("control.sock");
         let listener = UnixListener::bind(&socket).expect("bind Unix control socket");
