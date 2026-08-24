@@ -406,9 +406,13 @@ fn runtime_clock_value_at(
 }
 
 fn current_dt(now: SystemTime) -> Result<DateTimeValue, RuntimeError> {
-    let elapsed = now
-        .duration_since(UNIX_EPOCH)
-        .map_err(|_| RuntimeError::Overflow)?;
+    current_dt_from_epoch_elapsed(now.duration_since(UNIX_EPOCH).ok())
+}
+
+fn current_dt_from_epoch_elapsed(
+    elapsed: Option<std::time::Duration>,
+) -> Result<DateTimeValue, RuntimeError> {
+    let elapsed = elapsed.ok_or(RuntimeError::Overflow)?;
     current_dt_elapsed(elapsed)
 }
 
@@ -524,9 +528,9 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
 #[cfg(test)]
 mod tests {
     use super::{
-        current_dt, current_dt_elapsed, is_runtime_clock_name, runtime_clock_value,
-        runtime_clock_value_at, DateTimeValue, Duration, RuntimeError, SystemTime, Value,
-        UNIX_EPOCH,
+        current_dt, current_dt_elapsed, current_dt_from_epoch_elapsed, is_runtime_clock_name,
+        runtime_clock_value, runtime_clock_value_at, DateTimeValue, Duration, RuntimeError,
+        SystemTime, Value, UNIX_EPOCH,
     };
     use std::time::Duration as StdDuration;
 
@@ -570,10 +574,10 @@ mod tests {
 
     #[test]
     fn current_dt_rejects_pre_epoch_and_out_of_range_host_time() {
-        let before_epoch = UNIX_EPOCH
-            .checked_sub(StdDuration::from_nanos(1))
-            .expect("SystemTime represents one nanosecond before the Unix epoch");
-        assert_eq!(current_dt(before_epoch), Err(RuntimeError::Overflow));
+        assert_eq!(
+            current_dt_from_epoch_elapsed(None),
+            Err(RuntimeError::Overflow)
+        );
         assert_eq!(
             current_dt_elapsed(StdDuration::from_millis(i64::MAX as u64 + 1)),
             Err(RuntimeError::Overflow)
