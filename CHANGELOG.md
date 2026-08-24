@@ -54,7 +54,7 @@ Target release: `v0.24.62`
 
 - trust-runtime: ADS import defaults and runtime test fixtures now preserve
   portable TOML paths on Windows, normalize platform-native source-list paths
-  in assertions, and keep absolute and escaping sidecar paths fail-closed;
+  in build and check assertions, and keep absolute and escaping sidecar paths fail-closed;
   `CURRENT_DT` boundary tests no longer depend on host `SystemTime`
   representations.
 - trust-plcopen: Exported source-map paths now use portable `/` separators on

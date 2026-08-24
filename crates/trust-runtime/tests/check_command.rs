@@ -75,6 +75,10 @@ fn json_stdout(output: &Output) -> JsonValue {
     })
 }
 
+fn reported_path_ends_with(path: &str, suffix: &str) -> bool {
+    path.replace('\\', "/").ends_with(suffix)
+}
+
 #[test]
 fn check_accepts_project_without_writing_program_stbc() {
     let project = unique_temp_dir("check-ok");
@@ -303,10 +307,10 @@ END_FUNCTION
     let sources = payload["sources"].as_array().expect("sources");
     assert!(sources.iter().any(|path| path
         .as_str()
-        .is_some_and(|path| path.ends_with("custom_sources/main.st"))));
+        .is_some_and(|path| reported_path_ends_with(path, "custom_sources/main.st"))));
     assert!(sources.iter().any(|path| path
         .as_str()
-        .is_some_and(|path| path.ends_with("deps/lib-a/src/lib.st"))));
+        .is_some_and(|path| reported_path_ends_with(path, "deps/lib-a/src/lib.st"))));
     assert!(!project.join("program.stbc").exists());
 
     let _ = std::fs::remove_dir_all(project);
