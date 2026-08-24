@@ -35,10 +35,10 @@ fn committed_seed_bytes() -> Vec<u8> {
 }
 
 fn decode_hex(value: &str) -> Vec<u8> {
-    assert!(value.len().is_multiple_of(2), "hex length must be even");
-    value
-        .as_bytes()
-        .chunks_exact(2)
+    let (pairs, remainder) = value.as_bytes().as_chunks::<2>();
+    assert!(remainder.is_empty(), "hex length must be even");
+    pairs
+        .iter()
         .map(|pair| {
             let text = std::str::from_utf8(pair).expect("hex is ASCII");
             u8::from_str_radix(text, 16).expect("valid hex byte")
@@ -135,7 +135,7 @@ fn expected_rejection(case: &CaseRecord) -> Result<(&str, &str, Option<&str>), S
         return Err(format!("{} must require transactional rejection", case.id));
     }
     if expect.get("oracle_ref").and_then(toml::Value::as_str)
-        != Some("SPEC_BYTECODE_FORMAT_001#validator-before-apply")
+        != Some("SPEC_BYTECODE_FORMAT_001#7-4-validator-before-apply")
     {
         return Err(format!(
             "{} is missing the reviewed validator oracle",

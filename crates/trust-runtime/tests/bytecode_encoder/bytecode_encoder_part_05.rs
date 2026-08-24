@@ -181,6 +181,34 @@ END_CONFIGURATION
 }
 
 #[test]
+fn encoder_resource_meta_preserves_declared_resource_name() {
+    let source = r#"
+PROGRAM Main
+END_PROGRAM
+
+CONFIGURATION Plant
+RESOURCE PackagingCell ON CPU
+TASK T (INTERVAL := T#10ms, PRIORITY := 0);
+PROGRAM MainInstance WITH T : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#;
+
+    let module = bytecode_module_from_source(source).expect("encode configured program");
+    let metadata = module.metadata().expect("decode resource metadata");
+
+    assert!(
+        metadata.resource("PackagingCell").is_some(),
+        "encoded resources were {:?}",
+        metadata
+            .resources
+            .iter()
+            .map(|resource| resource.name.as_str())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn encoder_accepts_case_insensitive_names_in_call_heavy_if_blocks() {
     let source = r#"
 TYPE CONSTANTS_PHYS :

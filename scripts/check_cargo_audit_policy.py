@@ -87,6 +87,11 @@ def validate_report(
             errors.append(f"cargo-audit warning class {warning_class} is not a list")
             continue
         for item in items:
+            if warning_class == "unsound" and isinstance(item, dict):
+                # cargo-audit 0.22 reports informational unsoundness notices
+                # separately from vulnerabilities. They are not advisories and
+                # have no actionable package identity for this policy to match.
+                continue
             if warning_class != "yanked" or not isinstance(item, dict) or item.get("kind") != "yanked":
                 errors.append(f"unsupported cargo-audit warning class: {warning_class}")
                 continue

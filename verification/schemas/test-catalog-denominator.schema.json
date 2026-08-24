@@ -23,12 +23,16 @@
       "type": "object",
       "required": [
         "no_reviewed_spec_or_invariant_binding",
+        "assertion_oracle_unresolved",
+        "not_catalogable_product_oracle",
         "ignored_test_registry_owned",
         "fuzz_program_owned",
         "gate_inventory_owned"
       ],
       "properties": {
         "no_reviewed_spec_or_invariant_binding": { "const": "The fact remains part of its native test suite, but no hand-reviewed catalog row authorizes a specification, invariant, oracle, or expected-result claim for it. It is retired from mapping debt without being deleted." },
+        "assertion_oracle_unresolved": { "const": "The test has product-facing assertions, but the reviewed assertion extractor cannot close one or more helper or external-oracle calls. It remains runnable and explicit without claiming catalog proof." },
+        "not_catalogable_product_oracle": { "const": "The test is a harness, static-presence, zero-assertion, or authority-contradictory check that cannot honestly prove an accepted product invariant. It remains runnable without catalog proof." },
         "ignored_test_registry_owned": { "const": "The ignored or conditional fact is governed by its exact Phase 3 ignored-test registry row and has no separate hand-reviewed invariant catalog mapping." },
         "fuzz_program_owned": { "const": "The fuzz target is governed by the dedicated Phase 9 fuzz-program and crash-regression ledgers rather than an inferred invariant catalog mapping." },
         "gate_inventory_owned": { "const": "The gate script or workflow job is governed by the Phase 5 gate inventory and suite-routing contracts rather than a product-test invariant mapping." }
@@ -127,6 +131,8 @@
         "reason_code": {
           "enum": [
             "no_reviewed_spec_or_invariant_binding",
+            "assertion_oracle_unresolved",
+            "not_catalogable_product_oracle",
             "ignored_test_registry_owned",
             "fuzz_program_owned",
             "gate_inventory_owned"

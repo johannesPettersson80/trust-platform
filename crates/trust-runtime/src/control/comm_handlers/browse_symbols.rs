@@ -1,10 +1,11 @@
+use std::collections::BTreeSet;
 #[cfg(feature = "ads-wire")]
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use trust_ads_core::{SymbolFlag, SymbolSnapshot};
+use trust_ads_core::{SymbolFlag, SymbolSnapshot, SYMBOL_SNAPSHOT_SCHEMA_VERSION};
 
 use crate::ads::diagnostics::{CredentialChannelClassification, TargetIdentity};
 #[cfg(feature = "ads-wire")]
@@ -29,6 +30,7 @@ use super::super::{ControlResponse, ControlState};
 const BROWSE_SYMBOLS_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct BrowseSymbolsRequest {
     protocol: String,
     #[serde(default)]
@@ -50,6 +52,7 @@ struct BrowseSymbolsRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct BrowseTarget {
     #[serde(default)]
     local: bool,
@@ -139,9 +142,20 @@ pub(super) fn browse_symbols_value(
     state: Option<&ControlState>,
     project_root: Option<&Path>,
 ) -> Result<Value, String> {
+    if !params.is_object()
+        || params
+            .get("target")
+            .is_some_and(|target| !target.is_null() && !target.is_object())
+    {
+        return Err(
+            "invalid comm.browse_symbols payload: expected an object request and object target"
+                .to_string(),
+        );
+    }
     let mut request: BrowseSymbolsRequest = serde_json::from_value(params)
         .map_err(|error| format!("invalid comm.browse_symbols payload: {error}"))?;
     request.protocol = canonical_protocol(request.protocol.as_str());
+    request.kind = request.kind.trim().to_ascii_lowercase().replace('-', "_");
     if is_local_symbol_picker(&request) {
         return browse_local_project_symbols(request, project_root);
     }
@@ -201,6 +215,7 @@ fn browse_ads_symbols(
     _state: Option<&ControlState>,
 ) -> Result<Value, String> {
     if let Some(mut snapshot) = request.snapshot {
+        validate_cached_ads_snapshot(&snapshot)?;
         snapshot.canonicalize();
         let connection_name = request
             .connection_name
@@ -758,23 +773,13 @@ impl BrowseTarget {
     fn opcua_endpoint_url(&self) -> Result<String, String> {
         let endpoint_url = self.endpoint_url.trim();
         if !endpoint_url.is_empty() {
-            return Ok(endpoint_url.to_string());
+            return normalize_opcua_endpoint(endpoint_url);
         }
         let host = self.ip.trim();
         if host.is_empty() {
             return Err("OPC UA browse target needs endpoint_url or host".to_string());
         }
-        if host.starts_with("opc.tcp://") {
-            Ok(host.to_string())
-        } else if host.contains('/')
-            || host
-                .rsplit_once(':')
-                .is_some_and(|(_, port)| port.parse::<u16>().is_ok())
-        {
-            Ok(format!("opc.tcp://{host}"))
-        } else {
-            Ok(format!("opc.tcp://{host}:4840"))
-        }
+        normalize_opcua_endpoint(host)
     }
 
     fn opcua_security_profile(&self) -> Result<crate::opcua::OpcUaSecurityProfile, String> {
@@ -787,7 +792,12 @@ impl BrowseTarget {
         Ok(crate::opcua::OpcUaSecurityProfile {
             policy,
             mode,
-            allow_anonymous: self.auth.as_deref().unwrap_or("anonymous") == "anonymous",
+            allow_anonymous: self
+                .auth
+                .as_deref()
+                .unwrap_or("anonymous")
+                .trim()
+                .eq_ignore_ascii_case("anonymous"),
         })
     }
 
@@ -827,12 +837,19 @@ impl BrowseTarget {
 
     fn into_identity(self) -> Result<TargetIdentity, String> {
         let host = self.ip.trim();
-        if host.is_empty() {
+        if host.is_empty()
+            || host.chars().any(char::is_whitespace)
+            || host.chars().any(|ch| matches!(ch, '/' | '?' | '#' | '@'))
+            || host.contains("://")
+        {
             return Err("ADS browse target needs host/ip".to_string());
         }
         let ams_net_id = self.ams_net_id.trim();
-        if ams_net_id.is_empty() {
-            return Err("ADS browse target needs ams_net_id".to_string());
+        let mut octets = ams_net_id.split('.');
+        if !(0..6).all(|_| octets.next().is_some_and(|part| part.parse::<u8>().is_ok()))
+            || octets.next().is_some()
+        {
+            return Err("ADS browse target needs a six-octet ams_net_id".to_string());
         }
         let ams_port = self.ams_port.unwrap_or(851);
         if ams_port == 0 {
@@ -846,6 +863,99 @@ impl BrowseTarget {
             tc_version: self.tc_version,
         })
     }
+}
+
+fn normalize_opcua_endpoint(raw: &str) -> Result<String, String> {
+    let endpoint = if let Some(endpoint) = raw.strip_prefix("opc.tcp://") {
+        endpoint
+    } else {
+        if raw.contains("://") {
+            return Err("OPC UA endpoint must use the opc.tcp scheme".to_string());
+        }
+        raw
+    };
+    if endpoint.contains(['?', '#']) {
+        return Err("OPC UA endpoint must not contain a query or fragment".to_string());
+    }
+    let (authority, path) = endpoint
+        .split_once('/')
+        .map_or((endpoint, ""), |(authority, path)| (authority, path));
+    let (host, port) = opcua_authority(authority)?;
+    let authority = match (port, path.is_empty()) {
+        (Some(port), _) => format!("{host}:{port}"),
+        (None, true) => format!("{host}:4840"),
+        (None, false) => host,
+    };
+    if path.is_empty() {
+        Ok(format!("opc.tcp://{authority}"))
+    } else {
+        Ok(format!("opc.tcp://{authority}/{path}"))
+    }
+}
+
+fn opcua_authority(authority: &str) -> Result<(String, Option<u16>), String> {
+    if authority.is_empty() || authority.chars().any(char::is_whitespace) || authority.contains('@')
+    {
+        return Err("OPC UA endpoint needs a valid authority".to_string());
+    }
+    if let Some(bracketed) = authority.strip_prefix('[') {
+        let (host, suffix) = bracketed
+            .split_once(']')
+            .ok_or_else(|| "OPC UA endpoint has invalid bracketed IPv6".to_string())?;
+        host.parse::<std::net::Ipv6Addr>()
+            .map_err(|_| "OPC UA endpoint has invalid bracketed IPv6".to_string())?;
+        let port = if suffix.is_empty() {
+            None
+        } else {
+            Some(parse_opcua_port(suffix.strip_prefix(':').ok_or_else(
+                || "OPC UA endpoint has invalid authority".to_string(),
+            )?)?)
+        };
+        return Ok((format!("[{host}]"), port));
+    }
+    if authority.matches(':').count() > 1 {
+        return Err("OPC UA IPv6 authorities must be bracketed".to_string());
+    }
+    match authority.rsplit_once(':') {
+        Some((host, port)) if !host.is_empty() => {
+            Ok((host.to_string(), Some(parse_opcua_port(port)?)))
+        }
+        Some(_) => Err("OPC UA endpoint has invalid authority".to_string()),
+        None => Ok((authority.to_string(), None)),
+    }
+}
+
+fn parse_opcua_port(port: &str) -> Result<u16, String> {
+    port.parse::<u16>()
+        .ok()
+        .filter(|port| *port != 0)
+        .ok_or_else(|| "OPC UA endpoint port must be 1..65535".to_string())
+}
+
+fn validate_cached_ads_snapshot(snapshot: &SymbolSnapshot) -> Result<(), String> {
+    if snapshot.schema_version != SYMBOL_SNAPSHOT_SCHEMA_VERSION {
+        return Err(format!(
+            "ADS snapshot schema {} is unsupported",
+            snapshot.schema_version
+        ));
+    }
+    if snapshot.route_name.trim().is_empty() {
+        return Err("ADS snapshot route_name must not be blank".to_string());
+    }
+    let mut names = BTreeSet::new();
+    for symbol in &snapshot.symbols {
+        let name = symbol.name.as_str();
+        if name.is_empty()
+            || name.trim() != name
+            || name.split('.').any(str::is_empty)
+            || !names.insert(name)
+        {
+            return Err(format!(
+                "ADS snapshot has invalid or duplicate symbol path '{name}'"
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn opcua_node_to_symbol(node: crate::opcua::OpcUaBrowseNode) -> SymbolTreeNode {
@@ -878,6 +988,10 @@ fn sanitize_id(value: &str) -> String {
         })
         .collect()
 }
+
+#[cfg(test)]
+#[path = "browse_symbols/contract_tests.rs"]
+mod contract_tests;
 
 #[cfg(test)]
 mod tests;

@@ -92,7 +92,7 @@ pub(crate) fn eval_storage_expr_with_stdlib(
             apply_unary(*op, value)
         }
         Expr::Binary { op, left, right } => {
-            if *op == BinaryOp::And {
+            if matches!(op, BinaryOp::And | BinaryOp::AndThen) {
                 let left_value = eval_storage_expr_with_stdlib(
                     storage,
                     registry,
@@ -114,7 +114,7 @@ pub(crate) fn eval_storage_expr_with_stdlib(
                 )?;
                 return apply_binary(*op, left_value, right_value, profile);
             }
-            if *op == BinaryOp::Or {
+            if matches!(op, BinaryOp::Or | BinaryOp::OrElse) {
                 let left_value = eval_storage_expr_with_stdlib(
                     storage,
                     registry,
@@ -382,34 +382,63 @@ fn eval_array_initializer_elements(
 ) -> Result<Vec<Value>, RuntimeError> {
     let mut values = Vec::new();
     for expr in elements {
-        if let Some((count, repeated_args)) = array_repeat_group(expr)? {
-            for _ in 0..count {
-                for arg in repeated_args {
-                    let crate::program_model::ArgValue::Expr(value_expr) = &arg.value else {
-                        return Err(RuntimeError::TypeMismatch);
-                    };
-                    values.push(eval_storage_expr_with_stdlib(
-                        storage,
-                        registry,
-                        profile,
-                        current_instance,
-                        stdlib,
-                        value_expr,
-                    )?);
-                }
-            }
-            continue;
-        }
-        values.push(eval_storage_expr_with_stdlib(
+        eval_array_initializer_element(
             storage,
             registry,
             profile,
             current_instance,
             stdlib,
             expr,
-        )?);
+            &mut values,
+            0,
+        )?;
     }
     Ok(values)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn eval_array_initializer_element(
+    storage: &VariableStorage,
+    registry: &TypeRegistry,
+    profile: &DateTimeProfile,
+    current_instance: Option<InstanceId>,
+    stdlib: Option<&StandardLibrary>,
+    expr: &Expr,
+    values: &mut Vec<Value>,
+    depth: u8,
+) -> Result<(), RuntimeError> {
+    if depth > 64 {
+        return Err(RuntimeError::TypeMismatch);
+    }
+    if let Some((count, repeated_args)) = array_repeat_group(expr)? {
+        for _ in 0..count {
+            for arg in repeated_args {
+                let crate::program_model::ArgValue::Expr(value_expr) = &arg.value else {
+                    return Err(RuntimeError::TypeMismatch);
+                };
+                eval_array_initializer_element(
+                    storage,
+                    registry,
+                    profile,
+                    current_instance,
+                    stdlib,
+                    value_expr,
+                    values,
+                    depth + 1,
+                )?;
+            }
+        }
+        return Ok(());
+    }
+    values.push(eval_storage_expr_with_stdlib(
+        storage,
+        registry,
+        profile,
+        current_instance,
+        stdlib,
+        expr,
+    )?);
+    Ok(())
 }
 
 fn array_repeat_group(expr: &Expr) -> Result<Option<(usize, &[CallArg])>, RuntimeError> {
@@ -841,11 +870,11 @@ fn index_to_i64(value: Value) -> Result<i64, RuntimeError> {
         Value::USInt(v) => Ok(v as i64),
         Value::UInt(v) => Ok(v as i64),
         Value::UDInt(v) => Ok(v as i64),
-        Value::ULInt(v) => Ok(v as i64),
+        Value::ULInt(v) => i64::try_from(v).map_err(|_| RuntimeError::Overflow),
         Value::Byte(v) => Ok(v as i64),
         Value::Word(v) => Ok(v as i64),
         Value::DWord(v) => Ok(v as i64),
-        Value::LWord(v) => Ok(v as i64),
+        Value::LWord(v) => i64::try_from(v).map_err(|_| RuntimeError::Overflow),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -889,6 +918,10 @@ fn size_error_to_runtime(err: SizeOfError) -> RuntimeError {
         SizeOfError::UnknownType | SizeOfError::UnsupportedType => RuntimeError::TypeMismatch,
     }
 }
+
+#[cfg(test)]
+#[path = "storage_expr/contract_tests.rs"]
+mod contract_tests;
 
 #[cfg(test)]
 mod tests {

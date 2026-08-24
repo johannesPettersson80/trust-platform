@@ -29,7 +29,7 @@ pub enum RegistryAction {
         /// Registry root directory.
         #[arg(long = "registry")]
         registry: PathBuf,
-        /// Project folder directory (defaults to auto-detect or current directory).
+        /// Project folder directory (defaults to standard bundle detection).
         #[arg(long = "project", alias = "bundle")]
         project: Option<PathBuf>,
         /// Override package name (defaults to runtime resource name).

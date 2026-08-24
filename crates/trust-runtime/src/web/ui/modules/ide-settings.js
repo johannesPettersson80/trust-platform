@@ -147,7 +147,7 @@ const SETTINGS_CATEGORIES = [
       { key: "tls.cert_path", label: "TLS Certificate Path", type: "text", default: "" },
       { key: "tls.key_path", label: "TLS Key Path", type: "text", default: "" },
       { key: "tls.ca_path", label: "TLS CA Path", type: "text", default: "" },
-      { key: "control.auth_token", label: "Control Auth Token", type: "text", default: "" },
+      { key: "control.auth_token", label: "Control Auth Token", type: "password", default: "" },
       { key: "deploy.require_signed", label: "Require Signed Deploy", type: "toggle", default: false },
       { key: "deploy.keyring_path", label: "Deploy Keyring Path", type: "text", default: "" },
     ],
@@ -645,6 +645,7 @@ const SETTINGS_RUNTIME_SELECTION_EVENT = "ide-runtime-selection-changed";
 const settingsState = {
   activeCategory: "all",
   pendingFocusKey: null,
+  loadGeneration: 0,
   searchQuery: "",
   values: {},
   loaded: false,
@@ -2967,6 +2968,7 @@ async function settingsApplyValue(key, value, options) {
 // -- Load settings -----------------------------------------------------------
 
 async function settingsLoad() {
+  const loadGeneration = ++settingsState.loadGeneration;
   settingsApplyDefaults();
   settingsState.ioConfig = null;
   settingsState.ioConfigText = "";
@@ -3031,6 +3033,10 @@ async function settingsLoad() {
   } catch {
     // Keep defaults when io.toml cannot be loaded.
   }
+
+  // A newer settings activation may finish first.  Its form owns the pending
+  // focus request; an older response must not replace that focused DOM tree.
+  if (loadGeneration !== settingsState.loadGeneration) return;
 
   settingsState.loaded = true;
   settingsState.loadedRuntimeScope = settingsResolveRuntimeScope();

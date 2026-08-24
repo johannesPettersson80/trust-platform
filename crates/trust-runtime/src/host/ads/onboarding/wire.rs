@@ -3,8 +3,8 @@ use crate::ads::onboarding::errors::{OnboardingWireError, OnboardingWireErrorKin
 use crate::ads::onboarding::route::{RouteAddRequest, RouteRemoveRequest};
 #[cfg(feature = "ads-wire")]
 use crate::ads::{
-    AdsDeviceState, AdsHandleRequest, AdsNotificationMode, AdsPointAddress, AdsResolvedHandle,
-    AdsSubscribeRequest, AdsWriteRequest, HostAdsClient,
+    AdsDeviceState, AdsHandleRequest, AdsNotificationMode, AdsPointAddress, AdsReadResult,
+    AdsResolvedHandle, AdsRsTransport, AdsSubscribeRequest, AdsWriteRequest,
 };
 #[cfg(feature = "ads-wire")]
 use std::collections::BTreeMap;
@@ -19,9 +19,6 @@ use trust_ads_core::{
 };
 use trust_ads_core::{AdsDataTypeDescriptor, IecDataType, SymbolDescriptor, SymbolFlag};
 use trust_runtime_core::value::Value;
-
-#[cfg(feature = "ads-wire")]
-mod identity;
 
 #[cfg(feature = "ads-wire")]
 const DEFAULT_ADS_PLC_PORT: u16 = 851;
@@ -97,7 +94,7 @@ pub struct AdsRsOnboardingWire {
     tcp_probe_timeout: Duration,
     udp_broadcast_window: Duration,
     transport_key: Option<String>,
-    transport: Option<HostAdsClient>,
+    transport: Option<AdsRsTransport>,
     local_identity: Option<LocalIdentity>,
     symbols_by_name: BTreeMap<String, SymbolDescriptor>,
     handles_by_id: BTreeMap<u32, AdsResolvedHandle>,
@@ -133,7 +130,7 @@ impl AdsRsOnboardingWire {
         &mut self,
         target: &TargetIdentity,
         failure_kind: OnboardingWireErrorKind,
-    ) -> Result<&mut HostAdsClient, OnboardingWireError> {
+    ) -> Result<&mut AdsRsTransport, OnboardingWireError> {
         let key = self.transport_key_for(target);
         if self.transport_key.as_deref() != Some(key.as_str()) {
             self.transport = None;
@@ -143,7 +140,7 @@ impl AdsRsOnboardingWire {
         }
         if self.transport.is_none() {
             let route = self.route_for_target(target);
-            let mut transport = HostAdsClient::new(route);
+            let mut transport = AdsRsTransport::new(route);
             transport
                 .connect()
                 .map_err(|error| map_transport_error(failure_kind, "connect ADS target", error))?;
@@ -280,6 +277,27 @@ impl AdsRsOnboardingWire {
             ))
         }
     }
+
+    fn restore_original_value(
+        &mut self,
+        target: &TargetIdentity,
+        resolved: &AdsResolvedHandle,
+        original: &Value,
+    ) -> Result<(), OnboardingWireError> {
+        self.write_one_value(target, resolved, original.clone(), "restore value")?;
+        let restored = self.read_until_value(target, resolved, original)?;
+        if restored == *original {
+            Ok(())
+        } else {
+            Err(OnboardingWireError::new(
+                OnboardingWireErrorKind::WrongPlcPort,
+                format!(
+                    "ADS guarded write restore mismatch for '{}': original {:?}, restored {:?}",
+                    resolved.point_name, original, restored
+                ),
+            ))
+        }
+    }
 }
 
 #[cfg(feature = "ads-wire")]
@@ -292,7 +310,19 @@ impl Default for AdsRsOnboardingWire {
 #[cfg(feature = "ads-wire")]
 impl AdsOnboardingWire for AdsRsOnboardingWire {
     fn udp_identify(&mut self, target_ip: &str) -> Result<TargetIdentity, OnboardingWireError> {
-        identity::identify_target(target_ip, self.tcp_probe_timeout)
+        let info = ads::udp::get_info((target_ip, ads::UDP_PORT)).map_err(|error| {
+            OnboardingWireError::new(
+                OnboardingWireErrorKind::UdpIdentifyBlocked,
+                format!("ADS UDP identify failed for {target_ip}: {error}"),
+            )
+        })?;
+        Ok(TargetIdentity {
+            name: Some(info.hostname),
+            ip: target_ip.to_string(),
+            ams_net_id: info.netid.to_string(),
+            ams_port: DEFAULT_ADS_PLC_PORT,
+            tc_version: tc_version_string(info.twincat_version),
+        })
     }
 
     fn udp_identify_all(
@@ -443,44 +473,7 @@ impl AdsOnboardingWire for AdsRsOnboardingWire {
                     error,
                 )
             })?;
-        let mut payloads = Vec::with_capacity(results.len());
-        for result in results {
-            if result.quality.state != QualityState::Good {
-                return Err(OnboardingWireError::new(
-                    OnboardingWireErrorKind::WrongPlcPort,
-                    result
-                        .quality
-                        .detail
-                        .unwrap_or_else(|| "ADS sum-up read returned non-good quality".to_string()),
-                ));
-            }
-            let Some(value) = result.value else {
-                return Err(OnboardingWireError::new(
-                    OnboardingWireErrorKind::WrongPlcPort,
-                    "ADS sum-up read returned no value",
-                ));
-            };
-            let handle = resolved
-                .iter()
-                .find(|handle| handle.point_name == result.point_name)
-                .ok_or_else(|| {
-                    OnboardingWireError::new(
-                        OnboardingWireErrorKind::WrongPlcPort,
-                        format!(
-                            "ADS sum-up read returned unknown point '{}'",
-                            result.point_name
-                        ),
-                    )
-                })?;
-            let bytes = ads_bytes_from_value(&handle.data_type, &value).map_err(|error| {
-                OnboardingWireError::new(
-                    OnboardingWireErrorKind::WrongPlcPort,
-                    format!("map ADS value for '{}': {error}", handle.point_name),
-                )
-            })?;
-            payloads.push(bytes);
-        }
-        Ok(payloads)
+        project_sumup_payloads(&resolved, results)
     }
 
     fn guarded_write_probe(
@@ -528,30 +521,19 @@ impl AdsOnboardingWire for AdsRsOnboardingWire {
             )
         })?;
         let original = self.read_one_value(target, &resolved)?;
-        self.write_one_value(target, &resolved, probe.value.clone(), "probe value")?;
-        let probe_read_back = self.read_until_value(target, &resolved, &probe.value)?;
-        if probe_read_back != probe.value {
-            let _ = self.write_one_value(target, &resolved, original.clone(), "restore value");
-            return Err(OnboardingWireError::new(
-                OnboardingWireErrorKind::WrongPlcPort,
-                format!(
-                    "ADS guarded write read-back mismatch for '{}': wrote {:?}, read {:?}",
-                    probe.symbol, probe.value, probe_read_back
-                ),
-            ));
-        }
-        self.write_one_value(target, &resolved, original.clone(), "restore value")?;
-        let restored = self.read_until_value(target, &resolved, &original)?;
-        if restored != original {
-            return Err(OnboardingWireError::new(
-                OnboardingWireErrorKind::WrongPlcPort,
-                format!(
-                    "ADS guarded write restore mismatch for '{}': original {:?}, restored {:?}",
-                    probe.symbol, original, restored
-                ),
-            ));
-        }
-        Ok(())
+        let probe_write =
+            self.write_one_value(target, &resolved, probe.value.clone(), "probe value");
+        require_probe_write(probe_write, || {
+            self.restore_original_value(target, &resolved, &original)
+        })?;
+        let probe_read_back = self.read_until_value(target, &resolved, &probe.value);
+        require_expected_probe_readback(
+            probe_read_back,
+            &probe.value,
+            probe.symbol.as_str(),
+            || self.restore_original_value(target, &resolved, &original),
+        )?;
+        self.restore_original_value(target, &resolved, &original)
     }
 
     fn subscribe_notification(
@@ -635,211 +617,8 @@ impl AdsOnboardingWire for AdsRsOnboardingWire {
     }
 }
 
-/// Named mock scenarios required by the onboarding failure-mode suite.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MockAdsOnboardingScenario {
-    Healthy,
-    WrongIp,
-    DirectedIdentifyBlocked,
-    LoopbackIdentifyBlocked,
-    WrongAmsNetId,
-    MissingRoute,
-    FirewallBlocked,
-    WrongPlcPort,
-    SecureRequired,
-    EmptySymbols,
-    NotificationFailure,
-}
-
-/// Deterministic mock implementation for control-plane tests.
-#[derive(Debug, Clone)]
-pub struct MockAdsOnboardingWire {
-    scenario: MockAdsOnboardingScenario,
-    target: TargetIdentity,
-}
-
-impl MockAdsOnboardingWire {
-    pub fn new(scenario: MockAdsOnboardingScenario) -> Self {
-        Self {
-            scenario,
-            target: TargetIdentity {
-                name: Some("CX-1234".to_string()),
-                ip: "192.168.10.5".to_string(),
-                ams_net_id: "5.23.91.12.1.1".to_string(),
-                ams_port: 851,
-                tc_version: Some("3.1.4024".to_string()),
-            },
-        }
-    }
-
-    fn fail(
-        kind: OnboardingWireErrorKind,
-        detail: impl Into<String>,
-    ) -> Result<(), OnboardingWireError> {
-        Err(OnboardingWireError::new(kind, detail))
-    }
-
-    fn sample_symbol() -> SymbolDescriptor {
-        SymbolDescriptor::new(
-            "MAIN.Temperature",
-            AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
-            0x4020,
-            0,
-            4,
-        )
-        .with_flag(SymbolFlag::Read)
-        .with_flag(SymbolFlag::Write)
-    }
-}
-
-impl Default for MockAdsOnboardingWire {
-    fn default() -> Self {
-        Self::new(MockAdsOnboardingScenario::Healthy)
-    }
-}
-
-impl AdsOnboardingWire for MockAdsOnboardingWire {
-    fn udp_identify(&mut self, target_ip: &str) -> Result<TargetIdentity, OnboardingWireError> {
-        if matches!(
-            self.scenario,
-            MockAdsOnboardingScenario::WrongIp | MockAdsOnboardingScenario::DirectedIdentifyBlocked
-        ) || (self.scenario == MockAdsOnboardingScenario::LoopbackIdentifyBlocked
-            && matches!(target_ip, "127.0.0.1" | "localhost"))
-        {
-            return Err(OnboardingWireError::new(
-                OnboardingWireErrorKind::UdpIdentifyBlocked,
-                "target did not answer UDP identify",
-            ));
-        }
-        Ok(self.target.clone())
-    }
-
-    fn udp_identify_all(
-        &mut self,
-        target_ip: &str,
-    ) -> Result<Vec<TargetIdentity>, OnboardingWireError> {
-        if self.scenario == MockAdsOnboardingScenario::DirectedIdentifyBlocked {
-            return Ok(vec![self.target.clone()]);
-        }
-        self.udp_identify(target_ip).map(|target| vec![target])
-    }
-
-    fn tcp_probe_48898(&mut self, _target_ip: &str) -> Result<(), OnboardingWireError> {
-        if self.scenario == MockAdsOnboardingScenario::FirewallBlocked {
-            return Self::fail(
-                OnboardingWireErrorKind::Tcp48898Blocked,
-                "TCP 48898 did not accept a connection",
-            );
-        }
-        Ok(())
-    }
-
-    fn check_route(
-        &mut self,
-        _target: &TargetIdentity,
-        _local: &LocalIdentity,
-    ) -> Result<(), OnboardingWireError> {
-        if self.scenario == MockAdsOnboardingScenario::MissingRoute {
-            return Self::fail(
-                OnboardingWireErrorKind::RouteMissing,
-                "target rejected route-back identity",
-            );
-        }
-        Ok(())
-    }
-
-    fn verify_ams_target(&mut self, target: &TargetIdentity) -> Result<(), OnboardingWireError> {
-        if self.scenario == MockAdsOnboardingScenario::WrongAmsNetId
-            || target.ams_net_id != self.target.ams_net_id
-        {
-            return Self::fail(
-                OnboardingWireErrorKind::WrongAmsNetId,
-                "target AMS Net ID did not match",
-            );
-        }
-        Ok(())
-    }
-
-    fn read_state(&mut self, _target: &TargetIdentity) -> Result<String, OnboardingWireError> {
-        match self.scenario {
-            MockAdsOnboardingScenario::WrongPlcPort => Err(OnboardingWireError::new(
-                OnboardingWireErrorKind::WrongPlcPort,
-                "PLC runtime port did not respond",
-            )),
-            MockAdsOnboardingScenario::SecureRequired => Err(OnboardingWireError::new(
-                OnboardingWireErrorKind::SecureRequired,
-                "target requires Secure ADS",
-            )),
-            _ => Ok("run".to_string()),
-        }
-    }
-
-    fn upload_symbols(
-        &mut self,
-        _target: &TargetIdentity,
-    ) -> Result<Vec<SymbolDescriptor>, OnboardingWireError> {
-        if self.scenario == MockAdsOnboardingScenario::EmptySymbols {
-            return Ok(Vec::new());
-        }
-        Ok(vec![Self::sample_symbol()])
-    }
-
-    fn resolve_handle(
-        &mut self,
-        _target: &TargetIdentity,
-        symbol: &str,
-    ) -> Result<u32, OnboardingWireError> {
-        if symbol.is_empty() {
-            return Err(OnboardingWireError::new(
-                OnboardingWireErrorKind::NoSymbols,
-                "symbol name was empty",
-            ));
-        }
-        Ok(42)
-    }
-
-    fn sumup_read(
-        &mut self,
-        _target: &TargetIdentity,
-        handles: &[u32],
-    ) -> Result<Vec<Vec<u8>>, OnboardingWireError> {
-        Ok(handles.iter().map(|_| vec![0, 0, 0, 0]).collect())
-    }
-
-    fn guarded_write_probe(
-        &mut self,
-        _target: &TargetIdentity,
-        _probe: &GuardedWriteProbe,
-    ) -> Result<(), OnboardingWireError> {
-        Ok(())
-    }
-
-    fn subscribe_notification(
-        &mut self,
-        _target: &TargetIdentity,
-        _symbol: &str,
-    ) -> Result<(), OnboardingWireError> {
-        if self.scenario == MockAdsOnboardingScenario::NotificationFailure {
-            return Self::fail(
-                OnboardingWireErrorKind::NotificationFailure,
-                "notification sample was not delivered",
-            );
-        }
-        Ok(())
-    }
-
-    fn symbol_version(&mut self, _target: &TargetIdentity) -> Result<u32, OnboardingWireError> {
-        Ok(1)
-    }
-
-    fn add_route(&mut self, _request: &RouteAddRequest) -> Result<(), OnboardingWireError> {
-        Ok(())
-    }
-
-    fn remove_route(&mut self, _request: &RouteRemoveRequest) -> Result<(), OnboardingWireError> {
-        Ok(())
-    }
-}
+mod mock;
+pub use mock::*;
 
 #[cfg(feature = "ads-wire")]
 fn udp_identify_all(
@@ -887,11 +666,7 @@ fn udp_identify_all(
                     continue;
                 };
                 let identity = target_identity_from_udp_message(&message, peer);
-                if !results.iter().any(|existing: &TargetIdentity| {
-                    existing.ip == identity.ip || existing.ams_net_id == identity.ams_net_id
-                }) {
-                    results.push(identity);
-                }
+                push_unique_target_identity(&mut results, identity);
             }
             Err(error)
                 if matches!(
@@ -918,6 +693,141 @@ fn udp_identify_all(
     } else {
         Ok(results)
     }
+}
+
+#[cfg(feature = "ads-wire")]
+fn push_unique_target_identity(results: &mut Vec<TargetIdentity>, identity: TargetIdentity) {
+    let seen = results.iter().any(|existing| {
+        existing.ams_net_id == identity.ams_net_id && existing.ams_port == identity.ams_port
+    });
+    if !seen {
+        results.push(identity);
+    }
+}
+
+#[cfg(feature = "ads-wire")]
+fn project_sumup_payloads(
+    resolved: &[AdsResolvedHandle],
+    results: Vec<AdsReadResult>,
+) -> Result<Vec<Vec<u8>>, OnboardingWireError> {
+    if results.len() != resolved.len() {
+        return Err(OnboardingWireError::new(
+            OnboardingWireErrorKind::WrongPlcPort,
+            format!(
+                "ADS sum-up read returned {} results for {} requested handles",
+                results.len(),
+                resolved.len()
+            ),
+        ));
+    }
+    let mut results_by_point = BTreeMap::new();
+    for result in results {
+        if !resolved
+            .iter()
+            .any(|handle| handle.point_name == result.point_name)
+        {
+            return Err(OnboardingWireError::new(
+                OnboardingWireErrorKind::WrongPlcPort,
+                format!(
+                    "ADS sum-up read returned unknown point '{}'",
+                    result.point_name
+                ),
+            ));
+        }
+        let point_name = result.point_name.clone();
+        if results_by_point
+            .insert(point_name.clone(), result)
+            .is_some()
+        {
+            return Err(OnboardingWireError::new(
+                OnboardingWireErrorKind::WrongPlcPort,
+                format!("ADS sum-up read returned duplicate point '{point_name}'"),
+            ));
+        }
+    }
+
+    let mut payloads = Vec::with_capacity(resolved.len());
+    for handle in resolved {
+        let result = results_by_point
+            .remove(handle.point_name.as_str())
+            .ok_or_else(|| {
+                OnboardingWireError::new(
+                    OnboardingWireErrorKind::WrongPlcPort,
+                    format!(
+                        "ADS sum-up read omitted requested point '{}'",
+                        handle.point_name
+                    ),
+                )
+            })?;
+        if result.quality.state != QualityState::Good {
+            return Err(OnboardingWireError::new(
+                OnboardingWireErrorKind::WrongPlcPort,
+                result
+                    .quality
+                    .detail
+                    .unwrap_or_else(|| "ADS sum-up read returned non-good quality".to_string()),
+            ));
+        }
+        let Some(value) = result.value else {
+            return Err(OnboardingWireError::new(
+                OnboardingWireErrorKind::WrongPlcPort,
+                "ADS sum-up read returned no value",
+            ));
+        };
+        let bytes = ads_bytes_from_value(&handle.data_type, &value).map_err(|error| {
+            OnboardingWireError::new(
+                OnboardingWireErrorKind::WrongPlcPort,
+                format!("map ADS value for '{}': {error}", handle.point_name),
+            )
+        })?;
+        payloads.push(bytes);
+    }
+    Ok(payloads)
+}
+
+#[cfg(feature = "ads-wire")]
+fn require_expected_probe_readback(
+    readback: Result<Value, OnboardingWireError>,
+    expected: &Value,
+    symbol: &str,
+    restore: impl FnOnce() -> Result<(), OnboardingWireError>,
+) -> Result<(), OnboardingWireError> {
+    let failure = match readback {
+        Ok(actual) if actual == *expected => return Ok(()),
+        Ok(actual) => OnboardingWireError::new(
+            OnboardingWireErrorKind::WrongPlcPort,
+            format!(
+                "ADS guarded write read-back mismatch for '{symbol}': wrote {expected:?}, read {actual:?}"
+            ),
+        ),
+        Err(error) => error,
+    };
+    Err(restore_after_probe_failure(failure, restore))
+}
+
+#[cfg(feature = "ads-wire")]
+fn require_probe_write(
+    write: Result<(), OnboardingWireError>,
+    restore: impl FnOnce() -> Result<(), OnboardingWireError>,
+) -> Result<(), OnboardingWireError> {
+    match write {
+        Ok(()) => Ok(()),
+        Err(error) => Err(restore_after_probe_failure(error, restore)),
+    }
+}
+
+#[cfg(feature = "ads-wire")]
+fn restore_after_probe_failure(
+    mut failure: OnboardingWireError,
+    restore: impl FnOnce() -> Result<(), OnboardingWireError>,
+) -> OnboardingWireError {
+    if let Err(restore_error) = restore() {
+        failure.detail = format!(
+            "{}; restoring the original value also failed: {}",
+            failure.detail, restore_error
+        );
+    }
+    failure
 }
 
 #[cfg(feature = "ads-wire")]
@@ -988,3 +898,6 @@ fn map_transport_error(
 ) -> OnboardingWireError {
     OnboardingWireError::new(kind, format!("{context}: {error}"))
 }
+
+#[cfg(all(test, feature = "ads-wire"))]
+mod tests;

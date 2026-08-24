@@ -242,14 +242,18 @@ pub(crate) fn runtime_cloud_topology_feature_flags(
 }
 
 pub(crate) fn runtime_cloud_addresses_share_host(source: &[IpAddr], target: &[IpAddr]) -> bool {
-    if target.iter().any(IpAddr::is_loopback) {
-        return true;
-    }
     if source.is_empty() || target.is_empty() {
         return false;
     }
-    let source_set = source.iter().copied().collect::<HashSet<_>>();
-    target.iter().any(|address| source_set.contains(address))
+    let source_set = source
+        .iter()
+        .copied()
+        .filter(|address| !address.is_loopback())
+        .collect::<HashSet<_>>();
+    target
+        .iter()
+        .filter(|address| !address.is_loopback())
+        .any(|address| source_set.contains(address))
 }
 
 fn runtime_cloud_link_key(source: &str, target: &str) -> Option<String> {

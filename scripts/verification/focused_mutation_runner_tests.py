@@ -18,6 +18,7 @@ from .focused_mutation_artifact import (
     validate_execution_artifact,
     validate_execution_artifact_source,
 )
+from . import focused_mutation_runner
 from .focused_mutation_runner import (
     CommandResult,
     artifact_output_path,
@@ -31,6 +32,36 @@ from .mutation_program_contract import load_mutation_program
 
 
 class FocusedMutationClassificationTests(unittest.TestCase):
+    def test_cli_uses_artifact_independent_shard_execution_preflight(self) -> None:
+        program = load_mutation_program(ROOT)
+        shard_id = "MUTATION_SHARD_HIR_DIAGNOSTICS_001"
+        with (
+            patch.object(focused_mutation_runner, "load_mutation_program", return_value=program),
+            patch.object(
+                focused_mutation_runner,
+                "validate_mutation_program_contract",
+                side_effect=AssertionError("full artifact validation is circular before execution"),
+                create=True,
+            ),
+            patch.object(
+                focused_mutation_runner,
+                "validate_mutation_program_for_shard_execution",
+                return_value=["preflight sentinel"],
+            ) as preflight,
+        ):
+            result = focused_mutation_runner.main(
+                [
+                    "--shard-id",
+                    shard_id,
+                    "--json-out",
+                    program["shards"][2]["result_artifact_path"],
+                    "--target-dir",
+                    str(ROOT / "target" / "focused-mutation-test"),
+                ]
+            )
+        self.assertEqual(1, result)
+        preflight.assert_called_once_with(ROOT, program, shard_id)
+
     def test_package_is_derived_from_exact_reviewed_build_command(self) -> None:
         self.assertEqual(
             "trust-runtime",

@@ -10,7 +10,7 @@ const AUTHORIZATION_TEST_ID: &str = "TEST_CONTROL_AUTHORIZATION_TRACE_001";
 const AUTHORIZATION_CASE_FILE: &str =
     "verification/cases/control_security/SEC_AUTHZ_001.toml";
 const AUTHORIZATION_CASE_FILE_DIGEST: &str =
-    "sha256:8357b5118a28f7d76ca0937f41c8c529719cd95bdcd018dc54c1a4561a35c4ed";
+    "sha256:12ea61d6c323b1b4bb623aa428ea3f2d1de50c891d598008a8c5cdd39488e2f2";
 
 const AUTHORIZATION_SOURCE: &str = r#"
 PROGRAM Main

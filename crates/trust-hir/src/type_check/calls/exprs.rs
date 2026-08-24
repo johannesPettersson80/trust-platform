@@ -1,4 +1,3 @@
-use super::super::*;
 use super::*;
 use crate::semantic::SemanticOutcome;
 
@@ -60,10 +59,15 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             ),
                         );
                     }
-                    for ((expr, _, idx_type), (lower, upper)) in
-                        index_exprs.iter().zip(dimensions.iter())
+                    for ((expr, _, _), (lower, upper)) in index_exprs.iter().zip(dimensions.iter())
                     {
-                        self.check_array_index_bounds(expr, *idx_type, *lower, *upper);
+                        self.check_index_bounds(
+                            expr,
+                            *lower,
+                            *upper,
+                            DiagnosticCode::InvalidArrayIndex,
+                            "array",
+                        );
                     }
                     return SemanticOutcome::Resolved(element);
                 }
@@ -76,11 +80,12 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         );
                     }
                     if let Some(max_len) = max_len {
-                        self.check_array_index_bounds(
+                        self.check_index_bounds(
                             &index_exprs[0].0,
-                            index_exprs[0].2,
                             1,
                             i64::from(*max_len),
+                            DiagnosticCode::OutOfRange,
+                            "string",
                         );
                     }
                     return SemanticOutcome::Resolved(TypeId::CHAR);
@@ -94,11 +99,12 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         );
                     }
                     if let Some(max_len) = max_len {
-                        self.check_array_index_bounds(
+                        self.check_index_bounds(
                             &index_exprs[0].0,
-                            index_exprs[0].2,
                             1,
                             i64::from(*max_len),
+                            DiagnosticCode::OutOfRange,
+                            "wstring",
                         );
                     }
                     return SemanticOutcome::Resolved(TypeId::WCHAR);
@@ -149,7 +155,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         let field_name = self.checker.resolve_ref().get_name_from_ref(member);
 
         if field_name.is_none() {
-            if let Some(outcome) = self.infer_partial_bit_access_outcome(base_type, member) {
+            if let Some(outcome) = self.infer_partial_bit_access_outcome(base_type, base, member) {
                 return outcome;
             }
             return self.checker.unknown_type_outcome(member.text_range());
@@ -227,9 +233,22 @@ impl<'a, 'b> CallChecker<'a, 'b> {
     fn infer_partial_bit_access_outcome(
         &mut self,
         base_type: TypeId,
+        base: &SyntaxNode,
         member: &SyntaxNode,
     ) -> Option<SemanticOutcome<TypeId>> {
         let access = parse_partial_access(member.text().to_string().trim())?;
+        if base.kind() == SyntaxKind::NameRef
+            && base
+                .descendants_with_tokens()
+                .filter_map(|element| element.into_token())
+                .any(|token| token.kind() == SyntaxKind::DirectAddress)
+        {
+            return Some(self.checker.diagnostic_type_outcome(
+                DiagnosticCode::InvalidOperation,
+                base.text_range(),
+                "partial access is not valid on a directly represented address",
+            ));
+        }
         let resolved = self.checker.resolve_alias_type(base_type);
         if base_type == TypeId::UNKNOWN || resolved == TypeId::UNKNOWN {
             return Some(
@@ -256,7 +275,13 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             (Type::DWord, PartialAccess::Word(_)) => (TypeId::WORD, 1u8),
             (Type::LWord, PartialAccess::Word(_)) => (TypeId::WORD, 3u8),
             (Type::LWord, PartialAccess::DWord(_)) => (TypeId::DWORD, 1u8),
-            _ => return None,
+            _ => {
+                return Some(self.checker.diagnostic_type_outcome(
+                    DiagnosticCode::TypeMismatch,
+                    member.text_range(),
+                    "partial access selector is not valid for the base type",
+                ));
+            }
         };
         let index = access.index();
         if index > max_index {
@@ -342,36 +367,20 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         SemanticOutcome::Resolved(self.checker.symbols.register_pointer_type(operand))
     }
 
-    fn check_array_index_bounds(
+    fn check_index_bounds(
         &mut self,
         expr: &SyntaxNode,
-        idx_type: TypeId,
         lower: i64,
         upper: i64,
+        diagnostic: DiagnosticCode,
+        kind: &str,
     ) {
         if let Some(value_int) = self.checker.eval_const_int_expr_or_report(expr) {
             if value_int < lower || value_int > upper {
                 self.checker.diagnostics.error(
-                    DiagnosticCode::OutOfRange,
+                    diagnostic,
                     expr.text_range(),
-                    format!(
-                        "array index {} outside bounds {}..{}",
-                        value_int, lower, upper
-                    ),
-                );
-                return;
-            }
-        }
-
-        if let Some((_, idx_lower, idx_upper)) = self.checker.subrange_bounds(idx_type) {
-            if idx_lower < lower || idx_upper > upper {
-                self.checker.diagnostics.error(
-                    DiagnosticCode::OutOfRange,
-                    expr.text_range(),
-                    format!(
-                        "array index subrange {}..{} outside bounds {}..{}",
-                        idx_lower, idx_upper, lower, upper
-                    ),
+                    format!("{kind} index {value_int} outside bounds {lower}..{upper}"),
                 );
             }
         }

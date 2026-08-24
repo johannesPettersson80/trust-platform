@@ -10,6 +10,7 @@ use std::time::Duration;
 use anyhow::Context;
 use indexmap::IndexMap;
 use smol_str::SmolStr;
+use trust_runtime::bundle_builder::collect_project_source_files;
 use trust_runtime::config::{
     ControlMode, RuntimeCloudProfile, RuntimeConfig, WebAuthMode, WebConfig,
 };
@@ -44,9 +45,18 @@ pub fn run_ide_serve(project: Option<PathBuf>, listen: String) -> anyhow::Result
     if !project_root.exists() {
         anyhow::bail!("project path '{}' does not exist", project_root.display());
     }
+    if !project_root.is_dir() {
+        anyhow::bail!(
+            "project path '{}' is not a directory",
+            project_root.display()
+        );
+    }
 
-    let runtime_id =
-        detect_primary_runtime_id(&project_root).unwrap_or_else(|_| SmolStr::new("config-ui"));
+    let runtime_id = if primary_runtime_config_path(&project_root).is_some() {
+        detect_primary_runtime_id(&project_root)?
+    } else {
+        SmolStr::new("config-ui")
+    };
     let control_state = build_config_mode_control_state(project_root.clone(), runtime_id, &listen)
         .context("build config UI control state")?;
 
@@ -81,12 +91,28 @@ pub fn run_ide_serve(project: Option<PathBuf>, listen: String) -> anyhow::Result
 }
 
 fn detect_primary_runtime_id(project_root: &Path) -> Result<SmolStr, RuntimeError> {
-    let mut runtime_paths = Vec::new();
     let direct = project_root.join("runtime.toml");
     if direct.is_file() {
-        runtime_paths.push(direct);
+        let runtime = RuntimeConfig::load(direct)?;
+        return Ok(runtime.resource_name);
     }
 
+    let Some(path) = primary_runtime_config_path(project_root) else {
+        return Err(RuntimeError::InvalidConfig(
+            "no runtime.toml found for standalone IDE serve".into(),
+        ));
+    };
+    let runtime = RuntimeConfig::load(path)?;
+    Ok(runtime.resource_name)
+}
+
+fn primary_runtime_config_path(project_root: &Path) -> Option<PathBuf> {
+    let direct = project_root.join("runtime.toml");
+    if direct.is_file() {
+        return Some(direct);
+    }
+
+    let mut runtime_paths = Vec::new();
     if let Ok(entries) = std::fs::read_dir(project_root) {
         for entry in entries.flatten() {
             let Ok(file_type) = entry.file_type() else {
@@ -103,13 +129,7 @@ fn detect_primary_runtime_id(project_root: &Path) -> Result<SmolStr, RuntimeErro
     }
 
     runtime_paths.sort();
-    let Some(path) = runtime_paths.first() else {
-        return Err(RuntimeError::InvalidConfig(
-            "no runtime.toml found for standalone IDE serve".into(),
-        ));
-    };
-    let runtime = RuntimeConfig::load(path)?;
-    Ok(runtime.resource_name)
+    runtime_paths.into_iter().next()
 }
 
 fn build_config_mode_control_state(
@@ -255,28 +275,149 @@ fn build_config_mode_control_state(
 }
 
 fn load_source_registry(project_root: &Path) -> SourceRegistry {
-    let src_root = project_root.join("src");
-    let mut files = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(&src_root) {
-        for (index, entry) in entries.flatten().enumerate() {
-            let path = entry.path();
-            if path.extension().and_then(|value| value.to_str()) != Some("st") {
-                continue;
-            }
-            let Ok(text) = std::fs::read_to_string(&path) else {
-                continue;
-            };
+    let source_project = primary_runtime_config_path(project_root)
+        .and_then(|path| path.parent().map(Path::to_path_buf))
+        .unwrap_or_else(|| project_root.to_path_buf());
+    let canonical_workspace = project_root
+        .canonicalize()
+        .unwrap_or_else(|_| project_root.to_path_buf());
+    let files = collect_project_source_files(source_project.as_path(), None)
+        .unwrap_or_default()
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, source)| {
+            let path = PathBuf::from(source.path?);
             let relative = path
-                .strip_prefix(project_root)
-                .ok()
-                .map(|p| p.to_path_buf())
-                .unwrap_or(path.clone());
-            files.push(SourceFile {
+                .strip_prefix(&canonical_workspace)
+                .map(Path::to_path_buf)
+                .unwrap_or(path);
+            Some(SourceFile {
                 id: index as u32 + 1,
                 path: relative,
-                text,
-            });
-        }
-    }
+                text: source.text,
+            })
+        })
+        .collect();
     SourceRegistry::new(files)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::*;
+    use trust_runtime::bundle_template::render_runtime_toml;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time after epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "trust-runtime-config-ui-{name}-{}-{stamp}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&path).expect("create config UI test directory");
+        path
+    }
+
+    fn write_runtime(project: &Path, resource_name: &str) {
+        std::fs::create_dir_all(project).expect("create runtime project");
+        std::fs::write(
+            project.join("runtime.toml"),
+            render_runtime_toml(&SmolStr::new(resource_name), 10),
+        )
+        .expect("write runtime.toml");
+    }
+
+    #[test]
+    fn primary_runtime_detection_prefers_the_explicit_project_root() {
+        let workspace = temp_dir("primary-root");
+        write_runtime(&workspace, "root-runtime");
+        write_runtime(&workspace.join("aaa-child"), "child-runtime");
+
+        assert_eq!(
+            detect_primary_runtime_id(&workspace).expect("detect primary runtime"),
+            SmolStr::new("root-runtime")
+        );
+
+        let _ = std::fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn source_registry_uses_the_selected_workspace_runtime_and_build_source_order() {
+        let workspace = temp_dir("workspace-sources");
+        let runtime = workspace.join("runtime-a");
+        write_runtime(&runtime, "runtime-a");
+        std::fs::create_dir_all(runtime.join("src/nested")).expect("create nested sources");
+        std::fs::write(runtime.join("src/zeta.st"), "PROGRAM Zeta\nEND_PROGRAM\n")
+            .expect("write zeta source");
+        std::fs::write(
+            runtime.join("src/nested/alpha.ST"),
+            "PROGRAM Alpha\nEND_PROGRAM\n",
+        )
+        .expect("write alpha source");
+        std::fs::write(
+            runtime.join("src/function.pou"),
+            "FUNCTION Answer : INT\nAnswer := 42;\nEND_FUNCTION\n",
+        )
+        .expect("write pou source");
+
+        let registry = load_source_registry(&workspace);
+        let paths = registry
+            .files()
+            .iter()
+            .map(|file| file.path.to_string_lossy().replace('\\', "/"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            paths,
+            vec![
+                "runtime-a/src/function.pou",
+                "runtime-a/src/nested/alpha.ST",
+                "runtime-a/src/zeta.st",
+            ]
+        );
+        assert_eq!(
+            registry
+                .files()
+                .iter()
+                .map(|file| file.id)
+                .collect::<Vec<_>>(),
+            vec![1, 2, 3]
+        );
+
+        let _ = std::fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn config_mode_control_state_is_local_nonexecuting_and_source_backed() {
+        let project = temp_dir("control-state");
+        write_runtime(&project, "control-state-runtime");
+        std::fs::create_dir_all(project.join("src")).expect("create source directory");
+        std::fs::write(project.join("src/main.st"), "PROGRAM Main\nEND_PROGRAM\n")
+            .expect("write main source");
+
+        let state = build_config_mode_control_state(
+            project.clone(),
+            SmolStr::new("control-state-runtime"),
+            "127.0.0.1:18080",
+        )
+        .expect("build config mode control state");
+        assert_eq!(state.project_root.as_deref(), Some(project.as_path()));
+        assert_eq!(state.resource_name, SmolStr::new("control-state-runtime"));
+        assert_eq!(state.sources.files().len(), 1);
+        assert!(!state.control_requires_auth);
+        assert!(!state
+            .debug_enabled
+            .load(std::sync::atomic::Ordering::Relaxed));
+
+        let settings = state.settings.lock().expect("settings lock");
+        assert!(settings.web.enabled);
+        assert!(!settings.discovery.enabled);
+        assert!(!settings.mesh.enabled);
+        drop(settings);
+
+        drop(state);
+        let _ = std::fs::remove_dir_all(project);
+    }
 }

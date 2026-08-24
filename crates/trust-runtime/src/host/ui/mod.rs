@@ -38,6 +38,9 @@ mod render;
 mod state;
 
 #[cfg(test)]
+mod console_contract_tests;
+
+#[cfg(test)]
 mod tests;
 
 use client::ControlClient;

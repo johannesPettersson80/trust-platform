@@ -22,7 +22,8 @@ pub use stack::OperandStack;
 
 #[cfg(test)]
 mod tests {
-    use alloc::{boxed::Box, vec, vec::Vec};
+    use alloc::{boxed::Box, sync::Arc, vec, vec::Vec};
+    use indexmap::IndexMap;
     use smol_str::SmolStr;
 
     use crate::{
@@ -33,7 +34,7 @@ mod tests {
         error::{RuntimeError, StableErrorCode},
         memory::InstanceId,
         program_model::{BinaryOp, UnaryOp},
-        value::{DateTimeProfile, Value},
+        value::{ArrayValue, DateTimeProfile, StructValue, Value},
     };
 
     use super::{FrameStack, OperandStack, VmFrame, VmTrap, VM_MAX_CALL_DEPTH};
@@ -77,6 +78,7 @@ mod tests {
         assert_eq!(super::opcode_operand_len(0x09), Some(12));
         assert_eq!(super::opcode_operand_len(0x62), Some(4));
         assert_eq!(super::opcode_operand_len(0x63), Some(4));
+        assert_eq!(super::opcode_operand_len(0x64), Some(4));
         assert_eq!(super::opcode_operand_len(0x16), Some(1));
         assert_eq!(super::opcode_operand_len(0xFF), None);
 
@@ -267,6 +269,190 @@ mod tests {
     }
 
     #[test]
+    fn vm_const_pool_decoder_preserves_recursive_aggregate_payloads() {
+        let strings = StringTable {
+            entries: vec![
+                SmolStr::new("Pair"),
+                SmolStr::new("Values"),
+                SmolStr::new("Label"),
+                SmolStr::new("PairUnion"),
+            ],
+        };
+        let types = TypeTable {
+            offsets: vec![],
+            entries: vec![
+                type_entry(
+                    TypeKind::Primitive,
+                    TypeData::Primitive {
+                        prim_id: 7,
+                        max_length: 0,
+                    },
+                ),
+                type_entry(
+                    TypeKind::Primitive,
+                    TypeData::Primitive {
+                        prim_id: 24,
+                        max_length: 16,
+                    },
+                ),
+                type_entry(
+                    TypeKind::Array,
+                    TypeData::Array {
+                        elem_type_id: 0,
+                        dims: vec![(1, 2)],
+                    },
+                ),
+                TypeEntry {
+                    kind: TypeKind::Struct,
+                    name_idx: Some(0),
+                    data: TypeData::Struct {
+                        fields: vec![
+                            Field {
+                                name_idx: 1,
+                                type_id: 2,
+                            },
+                            Field {
+                                name_idx: 2,
+                                type_id: 1,
+                            },
+                        ],
+                    },
+                },
+                TypeEntry {
+                    kind: TypeKind::Union,
+                    name_idx: Some(3),
+                    data: TypeData::Union {
+                        fields: vec![
+                            Field {
+                                name_idx: 1,
+                                type_id: 2,
+                            },
+                            Field {
+                                name_idx: 2,
+                                type_id: 1,
+                            },
+                        ],
+                    },
+                },
+            ],
+        };
+        let mut array_payload = 2_u32.to_le_bytes().to_vec();
+        for value in [7_i16, 9_i16] {
+            array_payload.extend_from_slice(&2_u32.to_le_bytes());
+            array_payload.extend_from_slice(&value.to_le_bytes());
+        }
+        let mut struct_payload = 2_u32.to_le_bytes().to_vec();
+        struct_payload.extend_from_slice(&(array_payload.len() as u32).to_le_bytes());
+        struct_payload.extend_from_slice(&array_payload);
+        struct_payload.extend_from_slice(&5_u32.to_le_bytes());
+        struct_payload.extend_from_slice(b"ready");
+        let const_pool = ConstPool {
+            entries: vec![
+                const_entry(3, struct_payload.clone()),
+                const_entry(4, struct_payload),
+            ],
+        };
+
+        let decoded = super::decode_const_pool_entries(&const_pool, &types, &strings).unwrap();
+        let mut fields = IndexMap::new();
+        fields.insert(
+            SmolStr::new("Values"),
+            Value::Array(Box::new(ArrayValue::from_canonical_parts(
+                vec![Value::Int(7), Value::Int(9)],
+                vec![(1, 2)],
+            ))),
+        );
+        fields.insert(SmolStr::new("Label"), Value::String("ready".into()));
+        assert_eq!(
+            decoded[0],
+            Value::Struct(Arc::new(StructValue::from_canonical_parts(
+                "Pair".into(),
+                fields.clone(),
+            )))
+        );
+        assert_eq!(
+            decoded[1],
+            Value::Struct(Arc::new(StructValue::from_canonical_parts(
+                "PairUnion".into(),
+                fields,
+            )))
+        );
+    }
+
+    #[test]
+    fn vm_const_pool_decoder_accepts_fixed_nesting_boundary() {
+        let mut entries = vec![type_entry(
+            TypeKind::Primitive,
+            TypeData::Primitive {
+                prim_id: 7,
+                max_length: 0,
+            },
+        )];
+        for target_type_id in 0..64_u32 {
+            entries.push(type_entry(
+                TypeKind::Alias,
+                TypeData::Alias { target_type_id },
+            ));
+        }
+        let types = TypeTable {
+            offsets: vec![],
+            entries,
+        };
+        let const_pool = ConstPool {
+            entries: vec![const_entry(64, 7_i16.to_le_bytes().to_vec())],
+        };
+        assert_eq!(
+            super::decode_const_pool_entries(&const_pool, &types, &StringTable::default())
+                .expect("64 nested constant type references must decode"),
+            [Value::Int(7)]
+        );
+    }
+
+    #[test]
+    fn vm_const_pool_decoder_preserves_wildcard_array_and_null_reference_defaults() {
+        let types = TypeTable {
+            offsets: vec![],
+            entries: vec![
+                type_entry(
+                    TypeKind::Primitive,
+                    TypeData::Primitive {
+                        prim_id: 7,
+                        max_length: 0,
+                    },
+                ),
+                type_entry(
+                    TypeKind::Array,
+                    TypeData::Array {
+                        elem_type_id: 0,
+                        dims: vec![(0, i64::MAX)],
+                    },
+                ),
+                type_entry(
+                    TypeKind::Reference,
+                    TypeData::Reference { target_type_id: 0 },
+                ),
+            ],
+        };
+        let const_pool = ConstPool {
+            entries: vec![
+                const_entry(1, 0_u32.to_le_bytes().to_vec()),
+                const_entry(2, u32::MAX.to_le_bytes().to_vec()),
+            ],
+        };
+        assert_eq!(
+            super::decode_const_pool_entries(&const_pool, &types, &StringTable::default())
+                .expect("wildcard and NULL defaults must decode"),
+            [
+                Value::Array(Box::new(ArrayValue::from_canonical_parts(
+                    vec![],
+                    vec![(0, i64::MAX)],
+                ))),
+                Value::Reference(None),
+            ]
+        );
+    }
+
+    #[test]
     fn vm_const_pool_decoder_rejects_bad_payload_and_type_shapes() {
         let strings = StringTable::default();
         let string_types = TypeTable {
@@ -290,22 +476,22 @@ mod tests {
             }) if detail.as_str().contains("UTF-8")
         ));
 
-        let unsupported_types = TypeTable {
+        let malformed_types = TypeTable {
             offsets: vec![],
             entries: vec![type_entry(
                 TypeKind::Struct,
                 TypeData::Struct { fields: vec![] },
             )],
         };
-        let unsupported = ConstPool {
+        let malformed = ConstPool {
             entries: vec![const_entry(0, vec![])],
         };
         assert!(matches!(
-            super::decode_const_pool_entries(&unsupported, &unsupported_types, &strings),
+            super::decode_const_pool_entries(&malformed, &malformed_types, &strings),
             Err(RuntimeError::Bytecode {
                 code: StableErrorCode::VmBytecodeDecode,
                 detail,
-            }) if detail.as_str().contains("unsupported const type kind")
+            }) if detail.as_str().contains("struct/union const")
         ));
     }
 

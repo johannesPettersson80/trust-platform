@@ -73,3 +73,42 @@ impl MetricsSubsystem {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn metrics_subsystem_is_optional_and_routes_all_runtime_measurements() {
+        let mut subsystem = MetricsSubsystem::new();
+        assert!(subsystem.start_timer().is_none());
+        subsystem.record_cycle(StdDuration::from_millis(1));
+        subsystem.record_task(&"Fast".into(), StdDuration::from_millis(2));
+        subsystem.record_profile_call("program", &"Main".into(), StdDuration::from_millis(3));
+        subsystem.record_overrun(&"Fast".into(), 4);
+        subsystem.record_fault();
+
+        let sink = Arc::new(Mutex::new(RuntimeMetrics::new()));
+        subsystem.set_sink(sink.clone());
+        assert!(subsystem.start_timer().is_some());
+        subsystem.set_execution_backend(ExecutionBackend::BytecodeVm);
+        subsystem.record_cycle(StdDuration::from_millis(1));
+        subsystem.record_task(&"Fast".into(), StdDuration::from_millis(2));
+        subsystem.record_profile_call("program", &"Main".into(), StdDuration::from_millis(3));
+        subsystem.record_overrun(&"Fast".into(), 4);
+        subsystem.record_fault();
+
+        let snapshot = sink.lock().unwrap().snapshot();
+        assert_eq!(snapshot.execution_backend, ExecutionBackend::BytecodeVm);
+        assert_eq!(snapshot.cycle.last_ms, 1.0);
+        assert_eq!(snapshot.cycle.min_ms, 1.0);
+        assert_eq!(snapshot.cycle.max_ms, 1.0);
+        assert_eq!(snapshot.tasks.len(), 1);
+        assert_eq!(snapshot.tasks[0].name, "Fast");
+        assert_eq!(snapshot.tasks[0].overruns, 4);
+        assert_eq!(snapshot.overruns, 4);
+        assert_eq!(snapshot.faults, 1);
+        assert_eq!(snapshot.profiling.calls.len(), 1);
+        assert_eq!(snapshot.profiling.calls[0].key, "program:Main");
+    }
+}

@@ -152,17 +152,12 @@ fn run_resource_loop_core<C, F>(
             None
         };
         if let Some(mode) = pending_restart {
-            if let Err(err) = runner.restart(mode) {
+            if let Err(err) = runner.restart_with_retain_store(mode) {
                 set_last_error(&last_error, err);
                 set_resource_state(&state, ResourceState::Faulted);
                 break;
             }
             automatic_restarts.reset();
-            if let Err(err) = runner.runtime.load_retain_store() {
-                set_last_error(&last_error, err);
-                set_resource_state(&state, ResourceState::Faulted);
-                break;
-            }
         }
 
         if paused {

@@ -199,14 +199,19 @@ END_FUNCTION_BLOCK"#
 #[test]
 // IEC 61131-3 Ed.3 Table 56 / Table 72 (ACTION declaration)
 fn test_action() {
-    insta::assert_snapshot!(snapshot_parse(
-        r#"PROGRAM Test
-    ACTION Reset
+    let source = r#"PROGRAM Test
+    ACTION Reset:
         x := 0;
         y := 0;
     END_ACTION
-END_PROGRAM"#
-    ));
+END_PROGRAM"#;
+    let parsed = parse(source);
+    assert!(
+        parsed.ok(),
+        "expected ACTION declaration to parse, got: {:?}",
+        parsed.errors()
+    );
+    insta::assert_snapshot!(snapshot_parse(source));
 }
 
 #[test]
@@ -303,12 +308,17 @@ END_CONFIGURATION"#
 
 #[test]
 fn test_var_access_with_index_and_bit() {
-    insta::assert_snapshot!(snapshot_parse(
-        r#"CONFIGURATION Conf
+    let source = r#"CONFIGURATION Conf
 VAR_ACCESS
     Acc1 : Station_1.P1.arr[1] : INT READ_ONLY;
-    Acc2 : Station_1.P1.word.0 : BOOL READ_WRITE;
+    Acc2 : Station_1.P1.bits.0 : BOOL READ_WRITE;
 END_VAR
-END_CONFIGURATION"#
-    ));
+END_CONFIGURATION"#;
+    let parsed = parse(source);
+    assert!(
+        parsed.ok(),
+        "expected indexed and bit-selected VAR_ACCESS paths to parse, got: {:?}",
+        parsed.errors()
+    );
+    insta::assert_snapshot!(snapshot_parse(source));
 }

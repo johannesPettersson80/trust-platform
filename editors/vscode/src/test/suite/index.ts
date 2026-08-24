@@ -1,10 +1,18 @@
 import Mocha from "mocha";
+import {
+  attachConfiguredMochaEvidence,
+  configuredMochaGrep,
+} from "./mochaSelection";
 
 export function run(): Promise<void> {
   const mocha = new Mocha({
     ui: "tdd",
     color: true,
   });
+  const selectedTests = configuredMochaGrep(process.env);
+  if (selectedTests) {
+    mocha.grep(selectedTests);
+  }
 
   mocha.suite.emit("pre-require", global, "nofile", mocha);
   require("./diagnostics.test");
@@ -47,20 +55,23 @@ export function run(): Promise<void> {
   require("./ads-tag-selection-interactions.test");
   require("./ads-tag-config-mutation.test");
   require("./network-canvas-session-model.test");
+  require("./network-canvas-fleet-identity.test");
   require("./ads-status-summary.test");
   require("./connector-status-contract.test");
   require("./libraries-model.test");
   require("./library-code-actions.test");
   require("./snippets.test");
   require("./st-tests.integration.test");
+  require("./mocha-selection.test");
 
   return new Promise((resolve, reject) => {
-    mocha.run((failures: number) => {
+    const runner = mocha.run((failures: number) => {
       if (failures > 0) {
         reject(new Error(`${failures} test(s) failed.`));
       } else {
         resolve();
       }
     });
+    attachConfiguredMochaEvidence(runner, process.env);
   });
 }

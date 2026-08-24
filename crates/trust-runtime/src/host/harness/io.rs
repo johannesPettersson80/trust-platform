@@ -17,3 +17,7 @@ include!("io/address_parse.rs");
 include!("io/io_bindings.rs");
 include!("io/direct_field_bindings.rs");
 include!("io/sizing.rs");
+
+#[cfg(test)]
+#[path = "io/io_contract_tests.rs"]
+mod io_contract_tests;

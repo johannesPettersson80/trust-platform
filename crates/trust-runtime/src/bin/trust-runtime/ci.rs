@@ -95,6 +95,13 @@ mod tests {
             classify_error("missing runtime.toml at /tmp/project/runtime.toml"),
             EXIT_INVALID_CONFIG
         );
+        assert_eq!(classify_error("invalid config value"), EXIT_INVALID_CONFIG);
+        assert_eq!(classify_error("missing program.stbc"), EXIT_INVALID_CONFIG);
+        assert_eq!(classify_error("missing io.toml"), EXIT_INVALID_CONFIG);
+        assert_eq!(
+            classify_error("TCP control endpoint requires a host and port"),
+            EXIT_INVALID_CONFIG
+        );
     }
 
     #[test]
@@ -105,6 +112,23 @@ mod tests {
     #[test]
     fn classify_timeout_code() {
         assert_eq!(classify_error("operation timed out"), EXIT_TIMEOUT);
+        assert_eq!(classify_error("request timeout"), EXIT_TIMEOUT);
+    }
+
+    #[test]
+    fn recognized_error_precedence_is_stable() {
+        assert_eq!(
+            classify_error("assertion failed after operation timed out during compile"),
+            EXIT_TIMEOUT
+        );
+        assert_eq!(
+            classify_error("assertion failed while compile failed"),
+            EXIT_TEST_FAILED
+        );
+        assert_eq!(
+            classify_error("compile failed because runtime.toml was missing"),
+            EXIT_BUILD_FAILED
+        );
     }
 
     #[test]
@@ -119,6 +143,38 @@ mod tests {
         );
         assert_eq!(
             classify_error_with_command("bad bundle", Some("validate")),
+            EXIT_INVALID_CONFIG
+        );
+        assert_eq!(
+            classify_error_with_command("expected expression", Some("check")),
+            EXIT_BUILD_FAILED
+        );
+        assert_eq!(
+            classify_error_with_command("unexpected runtime issue", Some("other")),
+            EXIT_INTERNAL
+        );
+        assert_eq!(
+            classify_error_with_command("unexpected runtime issue", None),
+            EXIT_INTERNAL
+        );
+    }
+
+    #[test]
+    fn command_context_does_not_override_recognized_error() {
+        assert_eq!(
+            classify_error_with_command("operation timed out", Some("validate")),
+            EXIT_TIMEOUT
+        );
+        assert_eq!(
+            classify_error_with_command("assertion failed", Some("build")),
+            EXIT_TEST_FAILED
+        );
+        assert_eq!(
+            classify_error_with_command("compile failed", Some("validate")),
+            EXIT_BUILD_FAILED
+        );
+        assert_eq!(
+            classify_error_with_command("missing runtime.toml", Some("test")),
             EXIT_INVALID_CONFIG
         );
     }

@@ -593,8 +593,12 @@ fn diagnostic_explainer(code: &str, message: &str) -> Option<DiagnosticExplainer
             iec_ref: "IEC 61131-3 Ed.3 §6.2; §6.8.2; Table 62",
             spec_path: "docs/specs/09-semantic-rules.md",
         }),
-        "E303" | "E304" => Some(DiagnosticExplainer {
-            iec_ref: "IEC 61131-3 Ed.3 §6.2.6",
+        "E303" => Some(DiagnosticExplainer {
+            iec_ref: "IEC 61131-3 Ed.3 §6.4.4.5.1",
+            spec_path: "docs/specs/09-semantic-rules.md",
+        }),
+        "E304" => Some(DiagnosticExplainer {
+            iec_ref: "IEC 61131-3 Ed.3 §6.4.2; §6.4.4.3–6.4.4.5",
             spec_path: "docs/specs/02-data-types.md",
         }),
         "W004" => Some(DiagnosticExplainer {

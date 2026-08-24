@@ -2,6 +2,14 @@ use super::*;
 
 #[test]
 fn web_ide_reference_performance_gates_contract() {
+    if std::env::consts::ARCH != "x86_64" {
+        eprintln!(
+            "skipping x86_64 reference-environment performance budget on {}",
+            std::env::consts::ARCH
+        );
+        return;
+    }
+
     let project = make_project("perf-gates");
     let state = control_state(source_fixture(), ControlMode::Debug, None);
     let base = start_test_server(state, project.clone(), WebAuthMode::Local);

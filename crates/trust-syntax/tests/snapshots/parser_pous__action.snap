@@ -1,39 +1,33 @@
 ---
 source: crates/trust-syntax/tests/parser_pous.rs
-assertion_line: 201
-expression: "snapshot_parse(r#\"PROGRAM Test\n    ACTION Reset\n        x := 0;\n        y := 0;\n    END_ACTION\nEND_PROGRAM\"#)"
+assertion_line: 214
+expression: snapshot_parse(source)
 ---
-SourceFile@0..88
-  Program@0..17
+SourceFile@0..89
+  Program@0..89
     KwProgram@0..7 "PROGRAM"
     Name@7..17
       Ident@8..12 "Test"
-    StmtList@17..17
-  KwAction@17..23 "ACTION"
-  Ident@24..29 "Reset"
-  Ident@38..39 "x"
-  Assign@40..42 ":="
-  IntLiteral@43..44 "0"
-  Semicolon@44..45 ";"
-  Ident@54..55 "y"
-  Assign@56..58 ":="
-  IntLiteral@59..60 "0"
-  Semicolon@60..61 ";"
-  KwEndAction@66..76 "END_ACTION"
-  KwEndProgram@77..88 "END_PROGRAM"
-
----
-Errors:
-  - expected END_PROGRAM at 17..23
-  - expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE at 17..23
-  - expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE at 24..29
-  - expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE at 38..39
-  - expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE at 40..42
-  - expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE at 43..44
-  - expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE at 44..45
-  - expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE at 54..55
-  - expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE at 56..58
-  - expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE at 59..60
-  - expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE at 60..61
-  - expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE at 66..76
-  - expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE at 77..88
+    StmtList@17..78
+      Action@17..78
+        KwAction@17..23 "ACTION"
+        Name@23..29
+          Ident@24..29 "Reset"
+        Colon@29..30 ":"
+        StmtList@30..67
+          AssignStmt@30..55
+            NameRef@30..41
+              Ident@39..40 "x"
+            Assign@41..43 ":="
+            Literal@43..45
+              IntLiteral@44..45 "0"
+            Semicolon@45..46 ";"
+          AssignStmt@55..67
+            NameRef@55..57
+              Ident@55..56 "y"
+            Assign@57..59 ":="
+            Literal@59..61
+              IntLiteral@60..61 "0"
+            Semicolon@61..62 ";"
+        KwEndAction@67..77 "END_ACTION"
+    KwEndProgram@78..89 "END_PROGRAM"

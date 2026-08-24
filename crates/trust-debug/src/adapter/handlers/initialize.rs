@@ -34,12 +34,28 @@ impl DebugAdapter {
         &mut self,
         request: Request<Value>,
     ) -> DispatchOutcome {
-        let args = request
-            .arguments
-            .clone()
-            .and_then(|value| serde_json::from_value::<InitializeArguments>(value).ok())
-            .unwrap_or_default();
+        if self.initialized {
+            return DispatchOutcome {
+                responses: vec![self.error_response(&request, "already initialized")],
+                ..DispatchOutcome::default()
+            };
+        }
+        let args = match request.arguments.clone() {
+            Some(value) => match serde_json::from_value::<InitializeArguments>(value) {
+                Ok(args) => args,
+                Err(_) => {
+                    return DispatchOutcome {
+                        responses: vec![
+                            self.error_response(&request, "invalid initialize arguments")
+                        ],
+                        ..DispatchOutcome::default()
+                    };
+                }
+            },
+            None => InitializeArguments::default(),
+        };
 
+        self.initialized = true;
         self.coordinate = CoordinateConverter::new(
             args.lines_start_at1.unwrap_or(true),
             args.columns_start_at1.unwrap_or(true),
@@ -81,6 +97,12 @@ impl DebugAdapter {
     }
 
     pub(in crate::adapter) fn handle_launch(&mut self, request: Request<Value>) -> DispatchOutcome {
+        if !self.initialized {
+            return DispatchOutcome {
+                responses: vec![self.error_response(&request, "initialize required")],
+                ..DispatchOutcome::default()
+            };
+        }
         if self.remote_session.is_some() {
             return DispatchOutcome {
                 responses: vec![
@@ -89,13 +111,26 @@ impl DebugAdapter {
                 ..DispatchOutcome::default()
             };
         }
-        let args = request
-            .arguments
-            .clone()
-            .and_then(|value| serde_json::from_value::<LaunchArguments>(value).ok())
-            .unwrap_or_default();
+        let args = match request.arguments.clone() {
+            Some(value) => match serde_json::from_value::<LaunchArguments>(value) {
+                Ok(args) => args,
+                Err(_) => {
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(&request, "invalid launch arguments")],
+                        ..DispatchOutcome::default()
+                    };
+                }
+            },
+            None => LaunchArguments::default(),
+        };
         let mut events = Vec::new();
         if !self.launch_state.is_configured() {
+            if self.launch_state.has_pending_launch() {
+                return DispatchOutcome {
+                    responses: vec![self.error_response(&request, "start already pending")],
+                    ..DispatchOutcome::default()
+                };
+            }
             let since = self
                 .launch_state
                 .pending_since()
@@ -260,6 +295,12 @@ impl DebugAdapter {
         &mut self,
         request: Request<Value>,
     ) -> DispatchOutcome {
+        if !self.initialized {
+            return DispatchOutcome {
+                responses: vec![self.error_response(&request, "initialize required")],
+                ..DispatchOutcome::default()
+            };
+        }
         let pending = self.launch_state.take_pending();
         self.launch_state.set_configured();
         let mut events =
@@ -329,19 +370,38 @@ impl DebugAdapter {
     }
 
     pub(in crate::adapter) fn handle_attach(&mut self, request: Request<Value>) -> DispatchOutcome {
+        if !self.initialized {
+            return DispatchOutcome {
+                responses: vec![self.error_response(&request, "initialize required")],
+                ..DispatchOutcome::default()
+            };
+        }
         if self.remote_session.is_some() {
             return DispatchOutcome {
                 responses: vec![self.error_response(&request, "already attached")],
                 ..DispatchOutcome::default()
             };
         }
-        let args = request
-            .arguments
-            .clone()
-            .and_then(|value| serde_json::from_value::<AttachArguments>(value).ok())
-            .unwrap_or_default();
+        let args = match request.arguments.clone() {
+            Some(value) => match serde_json::from_value::<AttachArguments>(value) {
+                Ok(args) => args,
+                Err(_) => {
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(&request, "invalid attach arguments")],
+                        ..DispatchOutcome::default()
+                    };
+                }
+            },
+            None => AttachArguments::default(),
+        };
         let mut events = Vec::new();
         if !self.launch_state.is_configured() {
+            if self.launch_state.has_pending_launch() {
+                return DispatchOutcome {
+                    responses: vec![self.error_response(&request, "start already pending")],
+                    ..DispatchOutcome::default()
+                };
+            }
             let since = self
                 .launch_state
                 .pending_since()

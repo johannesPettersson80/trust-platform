@@ -7,7 +7,7 @@ use std::thread;
 
 use crate::error::RuntimeError;
 
-use super::{handle_request_line, ControlEndpoint, ControlState};
+use super::{prepare_request_line, ControlEndpoint, ControlState};
 
 pub(crate) fn spawn_control_server(
     endpoint: &ControlEndpoint,
@@ -54,8 +54,9 @@ fn handle_client(stream: std::net::TcpStream, state: Arc<ControlState>, client: 
     };
     let mut writer = stream;
     for line in reader.lines().map_while(Result::ok) {
-        if let Some(response) = handle_request_line(&line, &state, client.as_deref()) {
-            let _ = writeln!(writer, "{response}");
+        if let Some(response) = prepare_request_line(&line, &state, client.as_deref()) {
+            let _ = writeln!(writer, "{}", response.response());
+            response.complete(&state);
         }
     }
 }
@@ -68,8 +69,9 @@ fn handle_unix_client(stream: std::os::unix::net::UnixStream, state: Arc<Control
     };
     let mut writer = stream;
     for line in reader.lines().map_while(Result::ok) {
-        if let Some(response) = handle_request_line(&line, &state, Some("unix")) {
-            let _ = writeln!(writer, "{response}");
+        if let Some(response) = prepare_request_line(&line, &state, Some("unix")) {
+            let _ = writeln!(writer, "{}", response.response());
+            response.complete(&state);
         }
     }
 }

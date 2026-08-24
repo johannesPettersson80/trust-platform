@@ -3,21 +3,14 @@ id = "RT_SAFE_RESTART_001"
 title = "Restart labels map to deterministic retain behavior"
 area = "runtime_safety"
 risk = "wrong_result"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-07-28"
 claim = "Warm, cold, and fault restart labels must preserve the documented retain behavior deterministically."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/retain", "crates/trust-runtime/src/runtime"]
-tests = [
-  "TEST_RUNTIME_RESTART_STORAGE_TRACE_001",
-  "TEST_RUNTIME_RESTART_COLD_STORAGE_001",
-  "TEST_RUNTIME_RESTART_WARM_STORAGE_001",
-  "TEST_RUNTIME_RESTART_AUTOMATIC_STORAGE_001",
-  "TEST_CONFORMANCE_RETAIN_RESTART_002",
-  "TEST_CONFORMANCE_RETAIN_MATRIX_001",
-]
+tests = ["TEST_AUTO_182C52FEEC07497CCAED", "TEST_AUTO_6DD50B772CED1C582EC6", "TEST_AUTO_DFC00804D131838F18B2", "TEST_CONFORMANCE_RETAIN_MATRIX_001", "TEST_CONFORMANCE_RETAIN_RESTART_002", "TEST_RUNTIME_RESTART_AUTOMATIC_STORAGE_001", "TEST_RUNTIME_RESTART_COLD_STORAGE_001", "TEST_RUNTIME_RESTART_STORAGE_TRACE_001", "TEST_RUNTIME_RESTART_WARM_STORAGE_001"]
 gates = []
 evidence_refs = [
   "EVID_TEST_RUNTIME_RESTART_STORAGE_TRACE_001_LOCK_BASELINE",
@@ -42,6 +35,15 @@ delta = { target = "set_to_expected", siblings = "expected_delta", retain = "exp
 rationale = "Cold restart initializes retained, NON_RETAIN, and ordinary storage from declared values."
 
 [[behavior]]
+partition = { equals = "COLD_RESTART_WITH_RETAIN_STORE_SKIPS_LOAD" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A cold restart through the harness initializes retained variables and does not apply the configured persisted snapshot."
+
+[[behavior]]
 partition = { equals = "WARM_RESTART_STORAGE" }
 case_family = "persistence_or_recovery"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
@@ -56,6 +58,23 @@ oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Automatic recovery from a non-panic cycle fault uses the warm-restart storage transition and clears the handled error."
+
+[[behavior]]
+partition = { equals = "STARTUP_RETAIN_LOAD_BY_RESTART_MODE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Cold startup leaves declared retained initialization intact, while warm startup loads the validated retained snapshot before execution."
+
+[[behavior]]
+partition = { equals = "FAILED_WARM_RESTART_INSTANCE_CONSTRUCTION_PRESERVES_LIVE_RUNTIME" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#direct-restart-preparation-transaction"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A reviewed missing function-block definition rejects warm restart as UndefinedFunctionBlock while preserving the live instance value, queued debug force, executable path, and cycle counter."
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"

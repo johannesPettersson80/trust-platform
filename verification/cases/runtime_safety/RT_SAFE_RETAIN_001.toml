@@ -7,7 +7,7 @@ status = "mapped"
 invariant = "RT_SAFE_RETAIN_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:9eb545ffade5f03b9fb81e8cd99a44da54d649f8d7f31474e5ed975b295b710e"
-source_digest = "sha256:c72393f35a196486460a642cc92d3f951df9bca653e67df776d6ef37ac5afdce"
+source_digest = "sha256:e58e81717f15aba04f537d4c33d5e9d7bf2d90f2da3f1c29ece5139e63eb8378"
 last_reviewed = "2026-07-14"
 
 [[case]]

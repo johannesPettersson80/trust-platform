@@ -34,6 +34,7 @@ EXIT_USAGE = 5
 EXIT_METADATA_INVALID = 6
 BEHAVIOR_INTENTS = {"bugfix", "feature"}
 HIGHEST_RISK = "safety_critical"
+GLOBAL_INTENT_TEST_CLASSES = {"metadata_validation"}
 
 
 class MetadataValidationError(RuntimeError):
@@ -177,6 +178,10 @@ class Planner:
         waiver_notes: set[str] = set()
         uninventoried: list[str] = []
         intent_row = self.intent_requirements.get(intent, {})
+        intent_classes = set(intent_row.get("required_test_classes", []))
+        global_intent_classes = intent_classes & GLOBAL_INTENT_TEST_CLASSES
+        area_intent_classes = intent_classes - global_intent_classes
+        required_classes.update(global_intent_classes)
 
         if unmapped:
             risk_notes.add(
@@ -208,7 +213,11 @@ class Planner:
                         f"{requirement['id']} waived by {requirement.get('decision_ref', '<missing decision_ref>')}"
                     )
 
-            area_required_classes: set[str] = set(intent_row.get("required_test_classes", []))
+            area_required_classes: set[str] = (
+                set()
+                if intent == "docs"
+                else set(area_intent_classes)
+            )
             area_required_families: set[str] = set()
             if intent in BEHAVIOR_INTENTS:
                 area_required_classes.update(area_row.get("required_test_classes", []))
@@ -234,6 +243,19 @@ class Planner:
             missing_classes.update(area_missing_classes)
             if area_missing_classes:
                 missing_classes_by_area[area_id] = area_missing_classes
+
+        if global_intent_classes:
+            global_intent_tests = [
+                test
+                for test in self.tests
+                if test.get("test_class") in global_intent_classes
+                and test_counts_as_runnable(test)
+            ]
+            existing_tests.update(test["id"] for test in global_intent_tests)
+            missing_classes.update(
+                global_intent_classes
+                - {test.get("test_class") for test in global_intent_tests}
+            )
 
         if spec_gaps:
             missing_classes.clear()

@@ -1,11 +1,11 @@
 # Phase 10 Focused Mutation Program
 
 Generator: `mutation-program-audit v1`
-Source revision: `ea78013921d1731b5d808c76adc4621edf396eff`
-Generated: `2026-07-20T08:40:00+02:00`
+Source revision: `1eeba0a7a4ce0ca585d6395f560a8a33a096ea37`
+Generated: `2026-07-23T10:12:25Z`
 Platform: `linux-x86_64`
-Generated JSON SHA-256: `0603119aaaa380188a32ba7721fe69ac8e39542832a06e060f14dc7e6fb0baef`
-Input SHA-256: `sha256:41513dc703bd9f0581eb82540951eabba0ca2db4d3e9ce6b7320e2c6e439df69`
+Generated JSON SHA-256: `096731e0e941070ae144b8aa0bf87729cb360498225df11fa391a0da200e259b`
+Input SHA-256: `sha256:7def1fa242f584161114b8033904781b2b5eec947a8fe0679a8780dc9034dcc8`
 
 This report separates five validated measured shards from one planned connector
 shard. It creates no proof, invariant coverage, spec-gap closure, release
@@ -33,7 +33,7 @@ evidence, product behavior, or CI enforcement change.
 | `MUTATION_SHARD_RUNTIME_VALUE_CONVERSION_001` | `bytecode_vm` | `measured` | 1 | 1 | `docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-runtime-value-conversion-mutation.json` (`sha256:dcfe38dad50f4e2008bec764335ff920c63065731b2015d9f8d4e834ec637940`) |
 | `MUTATION_SHARD_HIR_DIAGNOSTICS_001` | `compiler_iec` | `measured` | 1 | 1 | `docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-hir-subrange-diagnostics-mutation.json` (`sha256:d9a2c0af24cf9ec69b5a0c7f3109a0c02ed2152d27fc7e8fd5c69e2e71ee22d8`) |
 | `MUTATION_SHARD_PARSER_RECOVERY_001` | `compiler_iec` | `measured` | 1 | 1 | `docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-parser-recovery-mutation.json` (`sha256:3330e2600c1ea938bf57ebf67b4126ae1372d4ad8447032cb46832dab3a55c8e`) |
-| `MUTATION_SHARD_RETAIN_RESTART_001` | `runtime_safety` | `measured` | 1 | 1 | `docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-retain-restart-mutation.json` (`sha256:2d7d09ba12e20aa791c467fdce969c45dd7c25e6e75f8d2333df10680d30ca9c`) |
+| `MUTATION_SHARD_RETAIN_RESTART_001` | `runtime_safety` | `measured` | 1 | 1 | `docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-retain-restart-mutation.json` (`sha256:e02958b1559f62fb92b9ff8f32d9e16a32ef003cb7803bdec1d5cc41a1b97481`) |
 | `MUTATION_SHARD_CONNECTOR_STATUS_PROJECTION_001` | `protocols` | `planned` | 1 | 0 | none |
 
 ## Outcomes

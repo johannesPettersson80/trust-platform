@@ -91,6 +91,9 @@ def validate_partition_contract(
     if "equals" not in partition:
         if "case_family" in behavior:
             fail(path, f"{owner_id} case_family is only allowed for equals partitions")
+        dimension = behavior.get("coverage_dimension")
+        if dimension is not None and dimension not in CASE_FAMILIES:
+            fail(path, f"{owner_id} behavior coverage_dimension must be canonical")
         return
     value = partition["equals"]
     if isinstance(value, str) and not LABEL_RE.fullmatch(value):
@@ -98,3 +101,5 @@ def validate_partition_contract(
     family = behavior.get("case_family")
     if family not in CASE_FAMILIES:
         fail(path, f"{owner_id} equals partition requires canonical case_family")
+    if "coverage_dimension" in behavior:
+        fail(path, f"{owner_id} equals partition uses case_family, not coverage_dimension")

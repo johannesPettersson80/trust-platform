@@ -1,5 +1,6 @@
 use super::defs::{Type, TypeId};
 use super::registry::TypeRegistry;
+use rustc_hash::FxHashSet;
 
 pub(crate) fn is_accuracy_preserving_implicit_conversion(target: &Type, source: &Type) -> bool {
     matches!(
@@ -25,6 +26,10 @@ impl TypeRegistry {
     /// Checks if two types are compatible for assignment.
     #[must_use]
     pub fn is_assignable(&self, target: TypeId, source: TypeId) -> bool {
+        if self.get(target).is_some_and(is_generic_type) {
+            return self.generic_accepts(target, source);
+        }
+
         if target == source {
             return true;
         }
@@ -36,6 +41,56 @@ impl TypeRegistry {
             (Some(t), Some(s)) => self.types_compatible(t, s),
             _ => false,
         }
+    }
+
+    fn generic_accepts(&self, target: TypeId, source: TypeId) -> bool {
+        let Some(source) = self.resolve_alias(source) else {
+            return false;
+        };
+        if !is_concrete_value_type(source) {
+            return false;
+        }
+
+        let family_source = match source {
+            Type::Subrange { base, .. } => {
+                let Some(base) = self.resolve_alias(*base) else {
+                    return false;
+                };
+                base
+            }
+            source => source,
+        };
+
+        match self.get(target) {
+            Some(Type::Any) => true,
+            Some(Type::AnyDerived) => source.is_derived(),
+            Some(Type::AnyElementary) => source.is_elementary(),
+            Some(Type::AnyMagnitude) => family_source.is_numeric() || family_source.is_duration(),
+            Some(Type::AnyInt) => family_source.is_integer(),
+            Some(Type::AnyUnsigned) => family_source.is_unsigned(),
+            Some(Type::AnySigned) => family_source.is_signed(),
+            Some(Type::AnyReal) => family_source.is_float(),
+            Some(Type::AnyNum) => family_source.is_numeric(),
+            Some(Type::AnyDuration) => family_source.is_duration(),
+            Some(Type::AnyBit) => family_source.is_bit_string(),
+            Some(Type::AnyChars) => family_source.is_chars(),
+            Some(Type::AnyString) => family_source.is_string(),
+            Some(Type::AnyChar) => family_source.is_char(),
+            Some(Type::AnyDate) => family_source.is_date(),
+            _ => false,
+        }
+    }
+
+    fn resolve_alias(&self, type_id: TypeId) -> Option<&Type> {
+        let mut current = type_id;
+        let mut visited = FxHashSet::default();
+        while visited.insert(current) {
+            match self.get(current)? {
+                Type::Alias { target, .. } => current = *target,
+                ty => return Some(ty),
+            }
+        }
+        None
     }
 
     fn types_compatible(&self, target: &Type, source: &Type) -> bool {
@@ -115,4 +170,50 @@ impl TypeRegistry {
         }
         ty
     }
+}
+
+fn is_generic_type(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Any
+            | Type::AnyDerived
+            | Type::AnyElementary
+            | Type::AnyMagnitude
+            | Type::AnyInt
+            | Type::AnyUnsigned
+            | Type::AnySigned
+            | Type::AnyReal
+            | Type::AnyNum
+            | Type::AnyDuration
+            | Type::AnyBit
+            | Type::AnyChars
+            | Type::AnyString
+            | Type::AnyChar
+            | Type::AnyDate
+    )
+}
+
+fn is_concrete_value_type(ty: &Type) -> bool {
+    !matches!(
+        ty,
+        Type::Unknown
+            | Type::Void
+            | Type::Null
+            | Type::Any
+            | Type::AnyDerived
+            | Type::AnyElementary
+            | Type::AnyMagnitude
+            | Type::AnyInt
+            | Type::AnyUnsigned
+            | Type::AnySigned
+            | Type::AnyReal
+            | Type::AnyNum
+            | Type::AnyDuration
+            | Type::AnyBit
+            | Type::AnyChars
+            | Type::AnyString
+            | Type::AnyChar
+            | Type::AnyDate
+            | Type::Alias { .. }
+    )
 }

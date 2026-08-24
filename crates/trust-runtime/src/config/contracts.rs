@@ -392,3 +392,7 @@ pub struct TaskOverride {
     pub programs: Vec<SmolStr>,
     pub single: Option<SmolStr>,
 }
+
+#[cfg(test)]
+#[path = "contracts/contract_tests.rs"]
+mod contract_tests;

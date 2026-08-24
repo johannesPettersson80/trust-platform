@@ -93,14 +93,15 @@ impl TelemetryCollector {
             .unwrap_or(true);
         if needs_reset {
             if let Some(sink) = guard.as_mut() {
-                sink.flush();
+                if !sink.flush() {
+                    return;
+                }
             }
             *guard = Some(TelemetrySink::new(path, config.flush_every));
         }
         if let Some(sink) = guard.as_mut() {
             sink.record(event.as_str(), duration);
-            if sink.pending_events >= sink.flush_every {
-                sink.flush();
+            if sink.pending_events >= sink.flush_every && sink.flush() {
                 sink.reset();
             }
         }
@@ -108,15 +109,18 @@ impl TelemetryCollector {
 
     pub fn flush(&self) {
         if let Some(sink) = self.sink.lock().as_mut() {
-            sink.flush();
-            sink.reset();
+            if sink.flush() {
+                sink.reset();
+            }
         }
     }
 
     fn disable(&self) {
         let mut guard = self.sink.lock();
         if let Some(sink) = guard.as_mut() {
-            sink.flush();
+            if !sink.flush() {
+                return;
+            }
         }
         *guard = None;
     }
@@ -139,7 +143,7 @@ impl TelemetryMetric {
             self.min_ms = self.min_ms.min(duration_ms);
             self.max_ms = self.max_ms.max(duration_ms);
         }
-        self.count += 1;
+        self.count = self.count.saturating_add(1);
         self.total_ms = self.total_ms.saturating_add(duration_ms);
     }
 }
@@ -162,9 +166,9 @@ impl TelemetrySink {
     }
 
     fn record(&mut self, event: &'static str, duration: Duration) {
-        let duration_ms = duration.as_millis() as u64;
+        let duration_ms = u64::try_from(duration.as_millis()).unwrap_or(u64::MAX);
         self.metrics.entry(event).or_default().record(duration_ms);
-        self.pending_events += 1;
+        self.pending_events = self.pending_events.saturating_add(1);
     }
 
     fn reset(&mut self) {
@@ -172,9 +176,9 @@ impl TelemetrySink {
         self.pending_events = 0;
     }
 
-    fn flush(&mut self) {
+    fn flush(&mut self) -> bool {
         if self.metrics.is_empty() {
-            return;
+            return true;
         }
         if let Some(parent) = self.path.parent() {
             if let Err(err) = std::fs::create_dir_all(parent) {
@@ -182,7 +186,7 @@ impl TelemetrySink {
                     "Failed to create telemetry directory {}: {err}",
                     parent.display()
                 );
-                return;
+                return false;
             }
         }
 
@@ -218,12 +222,14 @@ impl TelemetrySink {
                     "Failed to open telemetry file {}: {err}",
                     self.path.display()
                 );
-                return;
+                return false;
             }
         };
         if let Err(err) = writeln!(file, "{}", record) {
             warn!("Failed to write telemetry record: {err}");
+            return false;
         }
+        true
     }
 }
 
@@ -266,3 +272,7 @@ mod tests {
         fs::remove_dir_all(root).ok();
     }
 }
+
+#[cfg(test)]
+#[path = "telemetry/contract_tests.rs"]
+mod contract_tests;

@@ -60,20 +60,53 @@ impl SymbolCollector<'_> {
                 parse_int_literal_from_node(node).ok_or(ConstEvalError::NotConstant)
             }
             SyntaxKind::SizeOfExpr => self.try_eval_sizeof_int_expr(node, scopes, guard),
-            SyntaxKind::NameRef => {
-                let name = first_ident_token(node)
-                    .map(|token| token.text().to_string())
-                    .ok_or(ConstEvalError::NotConstant)?;
+            SyntaxKind::NameRef | SyntaxKind::FieldExpr => {
+                let parts = qualified_const_parts(node).ok_or(ConstEvalError::NotConstant)?;
+                let name = parts.last().cloned().ok_or(ConstEvalError::NotConstant)?;
+                if parts.len() > 1 {
+                    let scope = Some(qualified_name_string(&parts[..parts.len() - 1]));
+                    let resolved =
+                        self.try_resolve_const_value_for_scope(name.as_str(), &scope, guard);
+                    if matches!(resolved, Err(ConstEvalError::UndefinedName(_))) {
+                        if let Some(symbol_id) = self.table.resolve_qualified(&parts) {
+                            if self
+                                .table
+                                .get(symbol_id)
+                                .is_some_and(|symbol| !symbol.is_constant)
+                            {
+                                return Err(ConstEvalError::NotConstant);
+                            }
+                        }
+                    }
+                    return resolved;
+                }
                 match self.try_resolve_const_value(&name, scopes, guard) {
                     Ok(value) => Ok(value),
                     Err(ConstEvalError::UndefinedName(_)) => {
-                        match self.table.resolve_enum_value_by_name(&name) {
+                        let mut imported = None;
+                        for scope in using_scopes_for_node(node) {
+                            match self.try_resolve_const_value_for_scope(
+                                name.as_str(),
+                                &scope,
+                                guard,
+                            ) {
+                                Ok(value) if imported.replace(value).is_some() => {
+                                    return Err(ConstEvalError::AmbiguousName(name));
+                                }
+                                Ok(_) | Err(ConstEvalError::UndefinedName(_)) => {}
+                                Err(error) => return Err(error),
+                            }
+                        }
+                        if let Some(value) = imported {
+                            return Ok(value);
+                        }
+                        match self.table.resolve_enum_value_by_name(name.as_str()) {
                             EnumValueResolution::Resolved(value) => Ok(value),
                             EnumValueResolution::NotFound => {
-                                Err(ConstEvalError::UndefinedName(SmolStr::new(name.as_str())))
+                                Err(ConstEvalError::UndefinedName(name))
                             }
                             EnumValueResolution::Ambiguous => {
-                                Err(ConstEvalError::AmbiguousName(SmolStr::new(name.as_str())))
+                                Err(ConstEvalError::AmbiguousName(name))
                             }
                         }
                     }
@@ -207,7 +240,7 @@ impl SymbolCollector<'_> {
         }
     }
 
-    fn sizeof_type_bytes(&self, type_id: TypeId) -> Option<u64> {
+    pub(super) fn sizeof_type_bytes(&self, type_id: TypeId) -> Option<u64> {
         let mut stack = Vec::new();
         self.sizeof_type_bytes_inner(type_id, &mut stack)
     }
@@ -306,6 +339,10 @@ impl SymbolCollector<'_> {
         let key = const_key(scope, name);
         if let Some(value) = self.const_values.get(&key) {
             return Ok(*value);
+        }
+        if let Some(value) = self.table.const_value(scope, name) {
+            self.const_values.insert(key, value);
+            return Ok(value);
         }
         let expr = self
             .const_exprs

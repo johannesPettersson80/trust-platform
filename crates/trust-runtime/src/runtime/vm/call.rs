@@ -374,20 +374,11 @@ fn execute_native_vm_function_block_call(
         .record_call_op(RegisterCallOpKind::FunctionBlockCallEntry);
     let out_bindings =
         bind_vm_function_block_arguments(runtime, module, caller_frame, pou_id, instance_id, args)?;
-    if super::register_ir::try_execute_pou_with_register_ir_with_locals(
-        runtime,
-        module,
-        pou_id,
-        Some(instance_id),
-        None,
-        false,
-        caller_depth.saturating_add(1),
-        Some(shared_budget),
-    )
-    .map_err(VmTrap::from)?
-    .is_none()
-    {
-        super::dispatch::execute_pou_stack_with_locals(
+    let edge_transaction =
+        super::edge::EdgeInputTransaction::begin(runtime, module, pou_id, Some(instance_id))
+            .map_err(VmTrap::Runtime)?;
+    let execution_result = (|| -> Result<(), VmTrap> {
+        if super::register_ir::try_execute_pou_with_register_ir_with_locals(
             runtime,
             module,
             pou_id,
@@ -397,8 +388,27 @@ fn execute_native_vm_function_block_call(
             caller_depth.saturating_add(1),
             Some(shared_budget),
         )
-        .map_err(VmTrap::from)?;
+        .map_err(VmTrap::from)?
+        .is_none()
+        {
+            super::dispatch::execute_pou_stack_with_locals(
+                runtime,
+                module,
+                pou_id,
+                Some(instance_id),
+                None,
+                false,
+                caller_depth.saturating_add(1),
+                Some(shared_budget),
+            )
+            .map_err(VmTrap::from)?;
+        }
+        Ok(())
+    })();
+    if let Some(edge_transaction) = edge_transaction {
+        edge_transaction.restore(runtime);
     }
+    execution_result?;
 
     let mut prepared_outputs = Vec::with_capacity(out_bindings.len());
     for binding in out_bindings {

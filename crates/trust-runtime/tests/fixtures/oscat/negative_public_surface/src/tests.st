@@ -1,4 +1,4 @@
-TEST_PROGRAM oscat_negative_public_surface
+PROGRAM oscat_negative_public_surface
 VAR
     WrongOverride : REAL;
 END_VAR
@@ -11,4 +11,4 @@ WrongOverride := OVERRIDE(
     X3 := REAL#3.0,
     E3 := FALSE
 );
-END_TEST_PROGRAM
+END_PROGRAM

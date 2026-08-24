@@ -17,7 +17,8 @@ mod worker;
 mod point_map;
 use point_map::{
     decode_modbus_numeric, encode_modbus_numeric, read_image_bool, read_image_numeric,
-    write_image_bool, write_image_numeric, ModbusInputPoint, ModbusOutputPoint, ModbusPointToml,
+    validate_modbus_point_maps, write_image_bool, write_image_numeric, ModbusInputPoint,
+    ModbusOutputPoint, ModbusPointToml,
 };
 use worker::ModbusWorker;
 
@@ -75,6 +76,7 @@ impl ModbusTcpConfig {
             .into_iter()
             .map(|point| ModbusOutputPoint::from_toml(point, output_function))
             .collect::<Result<Vec<_>, _>>()?;
+        validate_modbus_point_maps(&input_points, &output_points)?;
         Ok(Self {
             address,
             unit_id: params.unit_id.unwrap_or(1),

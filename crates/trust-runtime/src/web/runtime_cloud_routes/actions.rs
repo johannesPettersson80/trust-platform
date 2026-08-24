@@ -148,6 +148,7 @@ pub(super) fn handle_post_dispatch(
     };
 
     let mut results = Vec::new();
+    let mut deferred_control_responses = Vec::new();
     let payload_text = control_payload.to_string();
     let dispatch_budget_ms = action.query_budget_ms.unwrap_or(1_500).min(10_000);
     let dispatch_deadline = std::time::Instant::now() + Duration::from_millis(dispatch_budget_ms);
@@ -231,7 +232,7 @@ pub(super) fn handle_post_dispatch(
         }
 
         let target_result = if decision.runtime_id == local_runtime {
-            let control_response = dispatch_control_request(
+            let control_response = prepare_control_request(
                 control_payload.clone(),
                 ctx.control_state,
                 Some("runtime-cloud"),
@@ -260,6 +261,7 @@ pub(super) fn handle_post_dispatch(
                 )
             };
             let audit_id = runtime_cloud_extract_audit_id(&response_value);
+            deferred_control_responses.push(control_response);
             RuntimeCloudDispatchTargetResult {
                 runtime_id: decision.runtime_id.clone(),
                 ok,
@@ -381,5 +383,9 @@ pub(super) fn handle_post_dispatch(
     let response =
         Response::from_string(serde_json::to_string(&report).unwrap_or_else(|_| "{}".to_string()))
             .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
-    let _ = request.respond(response);
+    let _ = write_then_complete_control_requests(
+        &mut deferred_control_responses,
+        ctx.control_state,
+        |_| request.respond(response),
+    );
 }

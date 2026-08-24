@@ -156,7 +156,7 @@ mod tests {
         );
         assert_eq!(
             array_offset_i64(&[(i64::MIN, i64::MAX)], &[i64::MAX]),
-            Some(usize::MAX)
+            usize::try_from(u64::MAX).ok()
         );
     }
 

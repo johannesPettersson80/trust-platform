@@ -10,8 +10,7 @@ This document defines the current truST LD profile that implements
 This profile covers:
 
 - LD source schema used by VS Code visual editor (`.ladder.json`, schema v2).
-- Runtime execution behavior currently implemented for LD in the extension stack.
-- Runtime control surface parity contract for visual editors.
+- Deterministic Ladder authoring and lowering into generated Structured Text.
 - PLCopen LD interop subset.
 - Known profile constraints and deviations.
 
@@ -70,28 +69,33 @@ Supported node kinds and profile fields:
 - `math`: `op (ADD|SUB|MUL|DIV)`, `left`, `right`, `output`
 - topology nodes: `branchSplit`, `branchMerge`, `junction`
 
-## 4. Runtime Execution Profile
+## 4. Authoring-to-Runtime Lowering
 
-Current runtime profile behavior:
+The shipped runtime path is the generated Structured Text companion and runtime
+wrapper defined by `17-visual-editors-runtime-unification.md`. The authoring
+model preserves:
 
 - Deterministic network order: ascending `network.order`.
-- Deterministic node tie-break in engine traversal for ambiguous coordinates.
-- Scan-cycle style execution with buffered write commit boundary.
 - Topology validation rejects malformed or non-resolvable graph shapes.
 - Visual editor runtime controls execute through generated `.st` companion + runtime-entry
   wrapper (`*.visual.runtime.st`) and the shared Structured Text debug command path.
 
-Implementation anchors:
+`ladderEngine.ts` is a retained editor/component model and is not an
+independent product-runtime oracle. Its tests MUST NOT override Structured Text
+runtime semantics. In particular, generated division follows the Structured
+Text runtime's divide-by-zero fault behavior; a component fallback value of
+zero is not shipped runtime authority.
 
-- `editors/vscode/src/ladder/ladderEngine.ts`
+Primary implementation anchors:
+
 - `editors/vscode/src/visual/companionSt.ts`
 - `editors/vscode/src/visual/runtime/stRuntimeCommands.ts`
 - `editors/vscode/src/debug.ts`
-- `editors/vscode/src/test/suite/ladder-engine.test.ts`
 
-## 5. Variable and Address Resolution in Current Profile
+## 5. Variable and Address Resolution
 
-Current execution behavior supports both declaration-first symbols and direct addresses:
+The authoring-to-ST lowering supports declaration-first symbols and direct
+addresses:
 
 - node fields such as `contact.variable` / `coil.variable` are string references and may
   contain symbols or `%I/%Q/%M` direct addresses.
@@ -101,43 +105,18 @@ Current execution behavior supports both declaration-first symbols and direct ad
 - symbol resolution uses local-first precedence with optional explicit qualification:
   - unqualified: `local` then `global`
   - qualified: `LOCAL::Name` / `GLOBAL::Name` (also `LOCAL.Name` / `GLOBAL.Name`)
-- runtime write/force/release pathways resolve symbolic references as well as direct
-  `%IX*` addresses.
 
-I/O panel behavior:
+## 6. Runtime Surface Ownership
 
-- `%IX*` treated as inputs
-- `%QX*` treated as outputs
-- `%MX*` and `%MW*` treated as marker/memory state
-- declared symbols are surfaced with resolved values, including scoped names when local
-  and global declarations shadow each other
+Runtime placement is owned by
+`25-vscode-product-contract.md` section 8.1. Ladder MUST NOT embed a duplicate
+runtime, I/O, runtime-settings, or compile-diagnostics pane. Runtime lifecycle
+stays in the truST sidebar and runtime values stay in Live Values.
 
-## 6. Runtime Control UI Parity Contract
-
-Visual editors (Ladder/Statechart/Blockly) share a runtime control contract with:
-
-- mode: `local | external`
-- state: `isExecuting`, `status`, optional `lastError`
-- actions: `setMode`, `start`, `stop`, `openRuntimePanel`, `openRuntimeSettings`
-
-Current right-pane contract:
-
-- ST-style runtime controls and I/O tree are embedded in visual editor right pane.
-- Right pane width persists per editor type and is user-resizable.
-- Ladder-specific edit tools are presented in the same right pane as a tools view.
-- Start/stop and mode actions route to shared ST command handlers
-  (`trust-lsp.debug.start|attach|stop`), with visual sources auto-synced to companion and
-  runtime-entry ST files before launch.
-- Right-pane I/O write/force/release routes to shared ST I/O command handlers
-  (`trust-lsp.debug.io.write|force|release`).
-
-Implementation anchors:
-
-- `editors/vscode/src/visual/runtime/runtimeController.ts`
-- `editors/vscode/src/visual/runtime/runtimeMessages.ts`
-- `editors/vscode/src/visual/runtime/runtimePanelBridge.ts`
-- `editors/vscode/src/visual/runtime/rightPaneResize.ts`
-- `editors/vscode/src/ioPanel.ts`
+The Ladder right pane remains an authoring surface. Its width MAY persist per
+editor type, and its tools/edit/view state MAY use the shared visual-editor
+persistence contract, but that persistence does not authorize retired runtime
+actions or schemas.
 
 ## 7. PLCopen LD Interoperability Profile
 
@@ -164,18 +143,22 @@ Normative ambiguities and profile differences are tracked here:
 - `docs/IEC_DECISIONS.md`
 - `docs/IEC_DEVIATIONS.md`
 
-At the time of writing, key profile deviations include CTUD pin-model constraints and
-schema-level free-form operand strings (`symbol` and direct-address tokens share the same
-field type).
+At the time of writing, the CTUD pin-model constraint is an IEC deviation. The
+schema-level free-form operand string (`symbol` and direct-address tokens share
+the same field type) is a truST editor/schema constraint documented by this
+product profile, not an IEC deviation.
 
 ## 9. Verification Evidence
 
 Primary test evidence for this profile:
 
 - `editors/vscode/src/test/suite/ladder-schema.test.ts`
-- `editors/vscode/src/test/suite/ladder-engine.test.ts`
 - `editors/vscode/src/test/suite/ladder-editor-ops.test.ts`
 - `editors/vscode/src/test/suite/plcopen-ld-interop.test.ts`
-- `editors/vscode/src/test/suite/visual-runtime-controller.test.ts`
-- `editors/vscode/src/test/suite/visual-runtime-panel-bridge.test.ts`
+- `editors/vscode/src/test/suite/visual-companion.test.ts`
 - `editors/vscode/src/test/suite/visual-right-pane-resize.test.ts`
+
+The retained Ladder engine, embedded runtime-panel bridge, and embedded I/O
+panel tests are component or historical behavior locks only. They are not
+evidence for the shipped runtime route. Positive runtime and presentation
+claims require generated-ST execution and rendered extension evidence.

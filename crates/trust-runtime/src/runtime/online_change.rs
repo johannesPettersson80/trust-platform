@@ -18,9 +18,11 @@ impl Runtime {
         resource_name: Option<&str>,
     ) -> Result<super::RuntimeMetadata, error::RuntimeError> {
         let retained = self.retain.load()?;
+        let restart = self.prepare_restart(super::types::RestartMode::Warm)?;
+        let retained = self.prepare_retain_snapshot_for_restart(&retained, &restart)?;
         self.apply_bytecode_bytes(bytes, resource_name)?;
-        self.restart(super::types::RestartMode::Warm)?;
-        self.apply_retain_snapshot(&retained)?;
+        self.commit_restart(restart);
+        self.commit_retain_snapshot(retained);
         Ok(self.metadata_snapshot())
     }
 }

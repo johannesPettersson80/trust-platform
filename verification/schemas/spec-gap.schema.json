@@ -42,6 +42,17 @@
     "affected_invariants": { "type": "array", "items": { "type": "string" } },
     "affected_tests": { "type": "array", "items": { "type": "string" } },
     "candidate_spec_sources": { "type": "array", "items": { "type": "string" } },
+    "resolution_status": {
+      "enum": [
+        "open",
+        "registered_backlog",
+        "decision_recorded",
+        "spec_updated",
+        "test_mapped",
+        "closed",
+        "rejected"
+      ]
+    },
     "resolution_source_ref": { "type": "string", "minLength": 1 },
     "test_deferral_ref": { "type": "string", "minLength": 1 },
     "closeout_evidence": { "type": "array", "items": { "type": "string" } }

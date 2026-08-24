@@ -17,6 +17,13 @@ pub(crate) fn resolve_read(runtime: &Runtime, path: &str) -> Result<Value, Bound
     if let Some(value) = runtime.storage().get_global(path) {
         return Ok(value.clone());
     }
+    if let Some((instance_id, member)) = find_qualified_program_var(runtime, path) {
+        return runtime
+            .storage()
+            .get_instance_var_recursive(instance_id, member.as_str())
+            .cloned()
+            .ok_or_else(|| BoundaryError::UnresolvedName { path: path.into() });
+    }
     if let Some((instance_id, _)) = find_program_var_instance(runtime, path)? {
         return runtime
             .storage()
@@ -51,6 +58,26 @@ pub(crate) fn resolve_read(runtime: &Runtime, path: &str) -> Result<Value, Bound
     .map_err(|error| BoundaryError::from_runtime(path, error))
 }
 
+fn find_qualified_program_var(runtime: &Runtime, path: &str) -> Option<(InstanceId, SmolStr)> {
+    let storage = runtime.storage();
+    runtime.programs().values().find_map(|program| {
+        let member = path
+            .strip_prefix(program.name.as_str())?
+            .strip_prefix('.')?;
+        let Value::Instance(instance_id) = storage.get_global(program.name.as_ref())? else {
+            return None;
+        };
+        if member.is_empty()
+            || storage
+                .get_instance_var_recursive(*instance_id, member)
+                .is_none()
+        {
+            return None;
+        }
+        Some((*instance_id, SmolStr::new(member)))
+    })
+}
+
 pub(crate) fn resolve_write(
     runtime: &mut Runtime,
     path: &str,
@@ -76,8 +103,7 @@ pub(crate) fn resolve_write(
     }
 
     let target = parse_write_path(runtime, path)?;
-    let current_instance = match target
-        .root_name()
+    let current_instance = match lvalue_root_name(&target)
         .ok_or_else(|| BoundaryError::UnsupportedPathSyntax {
             path: path.into(),
             reason: "assignment path must start with a declared name".to_string(),
@@ -197,20 +223,35 @@ fn expr_root_name(expr: &Expr) -> Option<&SmolStr> {
     match expr {
         Expr::Name(name) => Some(name),
         Expr::Index { target, .. } | Expr::Field { target, .. } => expr_root_name(target),
-        Expr::Deref(_) | Expr::This | Expr::Super => None,
+        Expr::Deref(target) => expr_root_name(target),
+        Expr::Ref(target) => lvalue_root_name(target),
+        Expr::This | Expr::Super => None,
         Expr::Literal(_)
         | Expr::ArrayInitializer(_)
         | Expr::StructInitializer(_)
         | Expr::SizeOf(_)
         | Expr::Call { .. }
         | Expr::Unary { .. }
-        | Expr::Binary { .. }
-        | Expr::Ref(_) => None,
+        | Expr::Binary { .. } => None,
+    }
+}
+
+fn lvalue_root_name(target: &LValue) -> Option<&SmolStr> {
+    match target {
+        LValue::Name(name) => Some(name),
+        LValue::Index { target, .. } | LValue::Field { target, .. } => lvalue_root_name(target),
+        LValue::Deref(expr) => expr_root_name(expr),
     }
 }
 
 fn is_simple_name(path: &str) -> bool {
-    !path
-        .chars()
-        .any(|ch| matches!(ch, '.' | '[' | ']' | '(' | ')' | '^'))
+    let mut chars = path.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first == '_' || first.is_alphabetic()) && chars.all(|ch| ch == '_' || ch.is_alphanumeric())
 }
+
+#[cfg(test)]
+#[path = "resolver_contract_tests.rs"]
+mod contract_tests;

@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+include!("../../../tests/support/repository_source_oracle.rs");
+
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -10,9 +12,19 @@ fn workspace_root() -> PathBuf {
 }
 
 fn read_workspace_file(relative: &str) -> String {
-    fs::read_to_string(workspace_root().join(relative))
-        .unwrap_or_else(|err| panic!("read {relative}: {err}"))
-        .replace("\r\n", "\n")
+    let repository_root = workspace_root();
+    repository_source_tree_read_to_string!(
+        (repository_root.join(relative), &repository_root),
+        roots = [
+            "crates/trust-ide/src",
+            "crates/trust-hir/src",
+            "crates/trust-lsp/src",
+            "crates/trust-runtime/src",
+        ],
+        extension = "rs",
+    )
+    .unwrap_or_else(|err| panic!("read {relative}: {err}"))
+    .replace("\r\n", "\n")
 }
 
 fn rust_files_under(relative: &str) -> Vec<PathBuf> {
@@ -121,10 +133,18 @@ fn runtime_initializer_service_is_the_source_level_funnel() {
     let allowed = [
         root.join("crates/trust-runtime/src/host/harness/coerce.rs"),
         root.join("crates/trust-runtime/src/host/harness/initializer.rs"),
+        // Direct unit coverage for the coercion primitive is compiled only
+        // through coerce.rs under cfg(test); it is not a production caller.
+        root.join("crates/trust-runtime/src/host/harness/coerce_contract_tests.rs"),
     ];
 
     for path in rust_files_under("crates/trust-runtime/src") {
-        let source = fs::read_to_string(&path).expect("read rust source");
+        let source = repository_source_tree_read_to_string!(
+            (&path, &root),
+            roots = ["crates/trust-runtime/src"],
+            extension = "rs",
+        )
+        .expect("read rust source");
         if !source.contains("coerce_initializer_value_to_type(") {
             continue;
         }
@@ -228,8 +248,14 @@ fn runtime_var_decl_parts_are_structural_not_positional_tuples() {
         "runtime declaration lowering must expose named VarDeclParts"
     );
 
+    let root = workspace_root();
     for file in rust_files_under("crates/trust-runtime/src/host/harness") {
-        let source = fs::read_to_string(&file).expect("read harness source");
+        let source = repository_source_tree_read_to_string!(
+            (&file, &root),
+            roots = ["crates/trust-runtime/src/host/harness"],
+            extension = "rs",
+        )
+        .expect("read harness source");
         assert!(
             !source.contains("let (names, type_ref, initializer, address) = parse_var_decl"),
             "{} still destructures parse_var_decl positionally",
@@ -240,8 +266,14 @@ fn runtime_var_decl_parts_are_structural_not_positional_tuples() {
 
 #[test]
 fn dependency_boundaries_for_initializer_metadata_hold() {
+    let root = workspace_root();
     for file in rust_files_under("crates/trust-hir/src") {
-        let source = fs::read_to_string(&file).expect("read HIR source");
+        let source = repository_source_tree_read_to_string!(
+            (&file, &root),
+            roots = ["crates/trust-hir/src"],
+            extension = "rs",
+        )
+        .expect("read HIR source");
         assert!(
             !source.contains("trust_runtime"),
             "{} must not depend on trust-runtime",
@@ -368,7 +400,13 @@ fn init_benchmark_cli_and_fixture_are_reproducible() {
     let fixture =
         workspace_root().join("crates/trust-runtime/tests/fixtures/init_bench/runtime.toml");
     assert!(fixture.exists(), "init bench fixture must be checked in");
-    let runtime_toml = fs::read_to_string(fixture).expect("read init bench runtime.toml");
+    let repository_root = workspace_root();
+    let runtime_toml = repository_source_tree_read_to_string!(
+        (fixture, &repository_root),
+        roots = ["crates/trust-runtime/tests/fixtures/init_bench"],
+        extension = "toml",
+    )
+    .expect("read init bench runtime.toml");
     assert!(runtime_toml.contains("[runtime]"));
     assert!(runtime_toml.contains("execution_backend = \"vm\""));
     assert!(runtime_toml.contains("auth_token = \"trust-init-bench-fixture-token\""));

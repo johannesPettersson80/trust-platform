@@ -7,8 +7,8 @@ Date: 2026-07-14
 `SPEC_GAP_DEBUG_PAUSE_WATCHDOG_001` recorded that debugger pause interaction
 with cycle deadlines, watchdogs, I/O, safe state, and resume was unspecified.
 The product contract is now written in `docs/specs/11-runtime-engine.md` and
-`docs/specs/13-debug-adapter.md`, with the host/debugger extension classified as
-DEV-049 rather than an IEC conformance deviation.
+`docs/specs/13-debug-adapter.md`. IEC 61131-3 does not define the host/debugger
+mechanism, so it is a truST product contract rather than an IEC deviation.
 
 Two focused integration tests were added in
 `crates/trust-runtime/tests/debug_pause_watchdog.rs`:

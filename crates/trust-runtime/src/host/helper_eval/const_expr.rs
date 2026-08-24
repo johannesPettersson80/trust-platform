@@ -29,6 +29,7 @@ impl fmt::Display for ConstExprError {
 
 impl std::error::Error for ConstExprError {}
 
+#[cfg(test)]
 pub(crate) fn eval_const_expr(
     expr: &Expr,
     profile: &DateTimeProfile,
@@ -96,30 +97,47 @@ fn eval_array_initializer_elements(
 ) -> Result<Vec<Value>, ConstExprError> {
     let mut values = Vec::new();
     for expr in elements {
-        if let Some((count, repeated_args)) = array_repeat_group(expr)? {
-            for _ in 0..count {
-                for arg in repeated_args {
-                    let crate::program_model::ArgValue::Expr(value_expr) = &arg.value else {
-                        return Err(ConstExprError::UnsupportedExpr);
-                    };
-                    values.push(eval_const_expr_with_resolver_and_registry(
-                        value_expr,
-                        profile,
-                        registry,
-                        resolve_name,
-                    )?);
-                }
-            }
-            continue;
-        }
-        values.push(eval_const_expr_with_resolver_and_registry(
-            expr,
-            profile,
-            registry,
-            resolve_name,
-        )?);
+        eval_array_initializer_element(profile, registry, resolve_name, expr, &mut values, 0)?;
     }
     Ok(values)
+}
+
+fn eval_array_initializer_element(
+    profile: &DateTimeProfile,
+    registry: &TypeRegistry,
+    resolve_name: &impl Fn(&str) -> Option<Value>,
+    expr: &Expr,
+    values: &mut Vec<Value>,
+    depth: u8,
+) -> Result<(), ConstExprError> {
+    if depth > 64 {
+        return Err(ConstExprError::UnsupportedExpr);
+    }
+    if let Some((count, repeated_args)) = array_repeat_group(expr)? {
+        for _ in 0..count {
+            for arg in repeated_args {
+                let crate::program_model::ArgValue::Expr(value_expr) = &arg.value else {
+                    return Err(ConstExprError::UnsupportedExpr);
+                };
+                eval_array_initializer_element(
+                    profile,
+                    registry,
+                    resolve_name,
+                    value_expr,
+                    values,
+                    depth + 1,
+                )?;
+            }
+        }
+        return Ok(());
+    }
+    values.push(eval_const_expr_with_resolver_and_registry(
+        expr,
+        profile,
+        registry,
+        resolve_name,
+    )?);
+    Ok(())
 }
 
 fn array_repeat_group(
@@ -169,6 +187,10 @@ fn qualified_const_name(expr: &Expr) -> Option<String> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+#[path = "const_expr/contract_tests.rs"]
+mod contract_tests;
 
 #[cfg(test)]
 mod tests {

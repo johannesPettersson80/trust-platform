@@ -31,8 +31,8 @@ corresponding ecosystem is detected.
 | `siemens-tia` | `SFB4` | `TON` | Siemens on-delay timer alias mapped to IEC TON. |
 | `siemens-tia` | `SFB5` | `TOF` | Siemens off-delay timer alias mapped to IEC TOF. |
 | `rockwell-studio5000` | `TONR` | `TON` | Retentive behavior may differ; review manually. |
-| `schneider-ecostruxure` / `codesys` | `R_EDGE` | `R_TRIG` | Edge alias mapped to IEC R_TRIG. |
-| `schneider-ecostruxure` / `codesys` | `F_EDGE` | `F_TRIG` | Edge alias mapped to IEC F_TRIG. |
+| `schneider-ecostruxure` / `codesys` / `openplc` | `R_EDGE` | `R_TRIG` | Edge alias mapped to IEC R_TRIG. |
+| `schneider-ecostruxure` / `codesys` / `openplc` | `F_EDGE` | `F_TRIG` | Edge alias mapped to IEC F_TRIG. |
 | `mitsubishi-gxworks3` | `DIFU` | `R_TRIG` | Differential-up alias mapped to IEC R_TRIG. |
 | `mitsubishi-gxworks3` | `DIFD` | `F_TRIG` | Differential-down alias mapped to IEC F_TRIG. |
 

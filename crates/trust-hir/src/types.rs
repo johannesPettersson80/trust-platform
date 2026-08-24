@@ -8,6 +8,10 @@ mod compat;
 mod defs;
 mod registry;
 
+#[cfg(test)]
+#[path = "types/contract_tests.rs"]
+mod contract_tests;
+
 pub(crate) use compat::is_accuracy_preserving_implicit_conversion;
 pub use defs::{
     ArrayDimensionExt, InitializerCatalog, InitializerId, InitializerRecord, StructField, Type,

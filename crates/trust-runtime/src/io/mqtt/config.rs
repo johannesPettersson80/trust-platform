@@ -119,6 +119,7 @@ impl MqttIoConfig {
             .into_iter()
             .map(MqttOutputPoint::from_toml)
             .collect::<Result<Vec<_>, _>>()?;
+        validate_mqtt_point_maps(&input_points, &output_points)?;
         let sparkplug = SparkplugConfig::from_toml(params.sparkplug)?;
         validate_sparkplug_profile(sparkplug.as_ref(), &input_points, &output_points)?;
 
@@ -173,9 +174,10 @@ fn parse_tls_config(
         return Ok(None);
     }
 
-    let ca_path = params.tls_ca_path.as_deref().ok_or_else(|| {
-        RuntimeError::InvalidConfig("mqtt tls=true requires tls_ca_path".into())
-    })?;
+    let ca_path = params
+        .tls_ca_path
+        .as_deref()
+        .ok_or_else(|| RuntimeError::InvalidConfig("mqtt tls=true requires tls_ca_path".into()))?;
     let ca = read_tls_file(ca_path, "tls_ca_path")?;
     let client_auth = match (
         params.tls_client_cert_path.as_deref(),

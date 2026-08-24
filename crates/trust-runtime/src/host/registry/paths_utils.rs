@@ -36,6 +36,9 @@ fn normalize_required_field(label: &str, value: &str) -> anyhow::Result<String> 
 }
 
 fn validate_identifier(label: &str, value: &str) -> anyhow::Result<()> {
+    if matches!(value, "." | "..") {
+        anyhow::bail!("{label} must be one confined path segment");
+    }
     if value
         .chars()
         .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
@@ -43,6 +46,24 @@ fn validate_identifier(label: &str, value: &str) -> anyhow::Result<()> {
         return Ok(());
     }
     anyhow::bail!("{label} contains unsupported characters (allowed: A-Z a-z 0-9 - _ .)");
+}
+
+fn validate_stored_package_path(registry_root: &Path, package_root: &Path) -> anyhow::Result<()> {
+    let packages_root = registry_packages_path(registry_root);
+    for path in [package_root.parent().unwrap_or(package_root), package_root] {
+        let metadata = fs::symlink_metadata(path)
+            .with_context(|| format!("failed to inspect stored package path {}", path.display()))?;
+        if metadata.file_type().is_symlink() {
+            anyhow::bail!(
+                "stored package path must not contain symlinks: {}",
+                path.display()
+            );
+        }
+    }
+    if !package_root.starts_with(&packages_root) {
+        anyhow::bail!("stored package identity escaped registry packages directory");
+    }
+    Ok(())
 }
 
 fn canonical_or_self(path: &Path) -> PathBuf {

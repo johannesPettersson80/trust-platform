@@ -3,11 +3,11 @@ id = "DEBUG_AUTH_001"
 title = "Debug writes and forces require explicit authorization"
 area = "control_security"
 risk = "security"
-status = "implemented"
+status = "gap_open"
 owner = "trust-debug"
 last_reviewed = "2026-07-16"
 claim = "A default viewer or control connection must not gain write, force, or release authority without an explicit authorization contract."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "security_policy"
 source_refs = ["crates/trust-debug/src", "crates/trust-runtime/src"]
 tests = [
@@ -24,9 +24,7 @@ evidence_refs = [
   "EVID_CONTROL_AUTHORIZATION_MATRIX_GAP_CLOSEOUT_20260716",
 ]
 spec_gap_refs = []
-missing = [
-  "broad_remote_gate",
-]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"

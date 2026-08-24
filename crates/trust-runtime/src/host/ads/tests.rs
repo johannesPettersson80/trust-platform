@@ -215,8 +215,8 @@ fn generates_deterministic_ads_interface_from_snapshot_and_config() {
 }
 
 #[test]
-fn generates_interface_when_another_discovered_port_has_no_points_or_snapshot() {
-    let config = parse_ads_toml(
+fn rejects_discovered_port_without_selected_points_before_interface_generation() {
+    let error = parse_ads_toml(
         r#"
 [[connections]]
 name = "TwinCAT_100_67_6_217_1_1_port_301"
@@ -240,17 +240,14 @@ var = "main_temperature"
 type = "REAL"
 "#,
     )
-    .expect("valid two-port ADS config");
-    let snapshot = SymbolSnapshot::new(
-        "TwinCAT_100_67_6_217_1_1_port_851",
-        vec![real_symbol("MAIN.Temperature")],
+    .expect_err("every persisted ADS connection must select at least one point");
+
+    assert!(
+        error
+            .to_string()
+            .contains("TwinCAT_100_67_6_217_1_1_port_301' requires at least one point"),
+        "unexpected validation error: {error}"
     );
-
-    let generated = generate_ads_interface(&config, &[snapshot])
-        .expect("an empty discovered ADS port must not require a symbol snapshot");
-
-    assert_eq!(generated.point_count, 1);
-    assert!(generated.source.contains("main_temperature : REAL;"));
 }
 
 #[test]

@@ -4,7 +4,9 @@
 
 use serde_json::{json, Value};
 
-use crate::runtime_cloud::contracts::ReasonCode;
+use crate::runtime_cloud::contracts::{
+    evaluate_compatibility, ContractCompatibility, ReasonCode, RUNTIME_CLOUD_API_VERSION,
+};
 use crate::runtime_cloud::routing::RuntimeCloudActionRequest;
 
 pub(crate) const RUNTIME_CLOUD_IO_PROXY_ACTOR: &str = "runtime-cloud-io-proxy";
@@ -59,6 +61,24 @@ pub(crate) fn runtime_cloud_io_proxy_plan(
     connected_via: &str,
     now_ns: u64,
 ) -> Result<RuntimeCloudIoProxyPlan, RuntimeCloudIoProxyPlanError> {
+    match evaluate_compatibility(api_version, RUNTIME_CLOUD_API_VERSION) {
+        Ok(ContractCompatibility::Exact | ContractCompatibility::AdditiveWithinMajor) => {}
+        Ok(ContractCompatibility::BreakingMajor) => {
+            return Err(RuntimeCloudIoProxyPlanError {
+                code: ReasonCode::ContractViolation,
+                message: format!(
+                    "unsupported api_version '{api_version}' for runtime cloud {RUNTIME_CLOUD_API_VERSION}"
+                ),
+            });
+        }
+        Err(error) => {
+            return Err(RuntimeCloudIoProxyPlanError {
+                code: ReasonCode::ContractViolation,
+                message: error.to_string(),
+            });
+        }
+    }
+
     let target_runtime = target_runtime.trim();
     if target_runtime.is_empty() {
         return Err(RuntimeCloudIoProxyPlanError {
@@ -72,6 +92,14 @@ pub(crate) fn runtime_cloud_io_proxy_plan(
         return Err(RuntimeCloudIoProxyPlanError {
             code: ReasonCode::ContractViolation,
             message: "actor is required".to_string(),
+        });
+    }
+
+    let connected_via = connected_via.trim();
+    if connected_via.is_empty() {
+        return Err(RuntimeCloudIoProxyPlanError {
+            code: ReasonCode::ContractViolation,
+            message: "connected_via is required".to_string(),
         });
     }
 
@@ -184,5 +212,38 @@ mod tests {
 
         assert_eq!(error.code, ReasonCode::ContractViolation);
         assert_eq!(error.message, "actor is required");
+    }
+
+    #[test]
+    fn proxy_plan_rejects_invalid_api_versions() {
+        for api_version in ["1", "2.0"] {
+            let error = runtime_cloud_io_proxy_plan(
+                RuntimeCloudIoProxyOperation::WriteConfig,
+                api_version,
+                RUNTIME_CLOUD_IO_PROXY_ACTOR,
+                "runtime-b",
+                "runtime-a",
+                7,
+            )
+            .expect_err("invalid API versions must fail during proxy planning");
+
+            assert_eq!(error.code, ReasonCode::ContractViolation);
+        }
+    }
+
+    #[test]
+    fn proxy_plan_rejects_blank_connected_via() {
+        let error = runtime_cloud_io_proxy_plan(
+            RuntimeCloudIoProxyOperation::ReadConfig,
+            "1.0",
+            RUNTIME_CLOUD_IO_PROXY_ACTOR,
+            "runtime-b",
+            " ",
+            7,
+        )
+        .expect_err("blank connected_via must fail");
+
+        assert_eq!(error.code, ReasonCode::ContractViolation);
+        assert!(error.message.contains("connected_via"));
     }
 }

@@ -1,21 +1,14 @@
 //! HMI scaffold command handlers.
 
-use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use trust_runtime::bundle::detect_bundle_path;
-use trust_runtime::bundle_builder::resolve_sources_root;
-use trust_runtime::harness::{CompileSession, SourceFile as HarnessSourceFile};
+use trust_runtime::bundle_builder::{collect_project_source_files, resolve_sources_root};
+use trust_runtime::harness::CompileSession;
 use trust_runtime::hmi::{self, HmiScaffoldMode, HmiSourceRef};
 
 use crate::cli::{HmiAction, HmiStyleArg};
 use crate::style;
-
-#[derive(Debug, Clone)]
-struct LoadedSource {
-    path: PathBuf,
-    text: String,
-}
 
 pub fn run_hmi(project: Option<PathBuf>, action: HmiAction) -> anyhow::Result<()> {
     match action {
@@ -39,28 +32,26 @@ fn run_hmi_scaffold(
 ) -> anyhow::Result<()> {
     let project_root = match project {
         Some(path) => path,
-        None => match detect_bundle_path(None) {
-            Ok(path) => path,
-            Err(_) => std::env::current_dir()?,
-        },
+        None => detect_bundle_path(None)?,
     };
 
     let sources_root = resolve_sources_root(&project_root, None)?;
-    let sources = load_sources(&sources_root)?;
+    let sources = collect_project_source_files(&project_root, None)?;
     if sources.is_empty() {
         anyhow::bail!("no ST sources found under {}", sources_root.display());
     }
 
-    let compile_sources = sources
+    let source_paths = sources
         .iter()
         .map(|source| {
-            HarnessSourceFile::with_path(
-                source.path.to_string_lossy().as_ref(),
-                source.text.clone(),
-            )
+            source
+                .path
+                .as_deref()
+                .map(PathBuf::from)
+                .ok_or_else(|| anyhow::anyhow!("project source is missing path metadata"))
         })
-        .collect::<Vec<_>>();
-    let runtime = CompileSession::from_sources(compile_sources).build_runtime()?;
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let runtime = CompileSession::from_sources(sources.clone()).build_runtime()?;
     let metadata = runtime.metadata_snapshot();
     let snapshot = trust_runtime::debug::DebugSnapshot {
         storage: runtime.storage().clone(),
@@ -69,8 +60,9 @@ fn run_hmi_scaffold(
 
     let source_refs = sources
         .iter()
-        .map(|source| HmiSourceRef {
-            path: source.path.as_path(),
+        .zip(&source_paths)
+        .map(|(source, path)| HmiSourceRef {
+            path: path.as_path(),
             text: source.text.as_str(),
         })
         .collect::<Vec<_>>();
@@ -95,20 +87,4 @@ fn run_hmi_scaffold(
     );
     println!("{}", summary.render_text());
     Ok(())
-}
-
-fn load_sources(root: &Path) -> anyhow::Result<Vec<LoadedSource>> {
-    let mut paths = BTreeSet::new();
-    for pattern in ["**/*.st", "**/*.ST", "**/*.pou", "**/*.POU"] {
-        for entry in glob::glob(&format!("{}/{}", root.display(), pattern))? {
-            paths.insert(entry?);
-        }
-    }
-
-    let mut sources = Vec::with_capacity(paths.len());
-    for path in paths {
-        let text = std::fs::read_to_string(&path)?;
-        sources.push(LoadedSource { path, text });
-    }
-    Ok(sources)
 }

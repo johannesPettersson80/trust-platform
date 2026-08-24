@@ -15,7 +15,7 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/12-bytecode.md"
 version = "current"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-08-01"
 covers = [
   "bytecode_container",
   "bytecode_validator_semantic_contract",
@@ -33,9 +33,155 @@ covers = [
   "collection_count_bounds",
   "fixed_vm_resource_limits",
   "determinism_and_resource_limits",
+  "vm_call_binding_and_copy_back",
+  "vm_reference_resolution",
+  "optimized_backend_semantic_equivalence",
+  "register_ir_lowering_verification_and_fusion",
+  "tier1_specialization",
   "stable_error_code_model",
 ]
 known_limitations = []
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_IEC_STATEMENTS_001"
+title = "truST IEC statement and malformed-source recovery contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/06-statements.md"
+version = "current"
+last_reviewed = "2026-08-01"
+covers = ["statement_syntax", "control_flow_syntax", "call_argument_parser_boundaries", "malformed_source_recovery", "parser_diagnostics"]
+known_limitations = ["Partial-tree recovery is a truST tooling contract; it does not make malformed Structured Text valid IEC source."]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_IEC_POU_DECLARATIONS_001"
+title = "truST IEC and product POU declaration contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/04-pou-declarations.md"
+version = "current"
+last_reviewed = "2026-08-01"
+covers = ["pou_declarations", "pou_terminators", "pou_statement_list_ownership", "action_parser_boundaries", "action_semantic_ownership", "syntax_kind_pou_owner_classification", "test_pou_extensions"]
+known_limitations = ["TEST_PROGRAM and TEST_FUNCTION_BLOCK are documented truST extensions rather than IEC POU kinds."]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_IEC_SEMANTIC_RULES_001"
+title = "truST HIR semantic-analysis contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/09-semantic-rules.md"
+version = "current"
+last_reviewed = "2026-08-01"
+covers = ["semantic_analysis", "name_resolution", "assignment_target_validation", "assignment_type_compatibility", "array_index_validation", "property_accessor_validation", "return_flow_validation", "semantic_diagnostic_ownership", "textual_action_semantics", "hir_initializer_retention", "default_initialization_and_constant_evaluation"]
+known_limitations = ["The static policy for a subrange-typed array index whose declared range exceeds the array bounds remains under review and is not made authoritative by this registration."]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_IEC_CONFIG_TASKS_001"
+title = "truST configuration, resource, task, and program-binding contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/18-configurations-resources-tasks.md"
+version = "current"
+last_reviewed = "2026-07-26"
+covers = [
+  "configuration_resource_task_binding",
+  "configuration_declarations",
+  "configuration_parser_composition",
+  "resource_declarations",
+  "task_parameter_validation",
+  "program_task_binding",
+  "program_type_validation",
+  "configuration_name_resolution",
+]
+known_limitations = [
+  "Nested and cross-file VAR_CONFIG target resolution is owned by the variable contract and remains outside this source until that supported subset is reviewed.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_WEB_IDE_FULL_001"
+title = "truST Web IDE full specification"
+area = "control_security"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "internal"
+locator_kind = "tracked_file"
+path = "docs/internal/runtime/trust-runtime-web-ide-full-specification.md"
+version = "current"
+last_reviewed = "2026-07-21"
+covers = [
+  "web_ide_local_asset_boundary",
+  "web_ide_editor_engine",
+  "web_ide_browser_product_contract",
+]
+known_limitations = [
+  "The specification constrains the runtime boundary around vendored editor and graph libraries; upstream internals remain governed by recorded provenance and version.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_HMI_OPERATOR_FIRST_001"
+title = "truST operator-first browser HMI specification"
+area = "hmi_ui"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/guides/HMI_OPERATOR_FIRST_SPECIFICATION.md"
+version = "v4"
+last_reviewed = "2026-07-30"
+covers = [
+  "hmi_descriptor_layout_projection",
+  "hmi_process_svg_rendering",
+  "hmi_widget_quality_rendering",
+  "hmi_websocket_and_polling_transport",
+  "hmi_responsive_and_kiosk_layout",
+  "hmi_standalone_export",
+]
+known_limitations = [
+  "Automated integration and JavaScript contract tests do not replace a separately retained rendered-browser acceptance artifact.",
+  "The local latency budgets are focused reference-fixture regression gates rather than universal realtime guarantees.",
+]
 conflicts_with = []
 
 [[spec_sources]]
@@ -973,9 +1119,9 @@ visible_steps = [
   "Install truST from the Marketplace.",
   "Open the shipped tutorial in VS Code.",
   "Open src/main.st and src/config.st.",
-  "Run Structured Text: Open Runtime Panel.",
-  "Start the runtime in Local mode.",
-  "Toggle %IX0.0 and confirm PumpRunning changes in the runtime panel.",
+  "Choose Simulator in the truST sidebar and press Start.",
+  "Open Live Values.",
+  "Toggle %IX0.0 and confirm PumpRunning changes in Live Values.",
   "Open /hmi from the same running project and confirm the dashboard updates.",
   "Set one breakpoint and press F5 to verify the debugger path.",
 ]
@@ -1305,34 +1451,9 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/11-runtime-engine.md"
 version = "current"
-last_reviewed = "2026-07-18"
-covers = [
-  "scan_cycle_architecture",
-  "clock_abstraction",
-  "bounded_process_image_io",
-  "fault_channel",
-  "watchdog",
-  "safe_halt",
-  "retain_restart",
-  "retain_failure_transactions",
-  "debug_mutation_lifecycle",
-  "online_change_transaction",
-  "hmi_write_authz",
-  "opcua_nonfinite_ingress",
-  "ads_nonfinite_ingress",
-  "mesh_numeric_ingress",
-  "file_retain_nonfinite_ingress",
-  "managed_debug_floating_point_ingress",
-  "simulation_coupling_thresholds",
-  "typed_process_image_nonfinite_egress",
-  "connector_status_truth_contract",
-  "protocol_discovery_confidence_contract",
-  "ethercat_unavailable_resource_contract",
-]
-known_limitations = [
-  "Safe-state output handoff under worker queue-full/reconnecting/down conditions needs a stronger contract; see SPEC_GAP_RUNTIME_SAFE_STATE_001.",
-  "The non-finite admission contract and 22 mapped tests cover the named shipped boundaries; exhaustive value-width, subnormal, signed-zero, aggregate-shape, attach-mode, and future-boundary depth remains explicit in RT_SAFE_NAN_001 rather than being claimed complete.",
-]
+last_reviewed = "2026-08-12"
+covers = ["scan_cycle_architecture", "clock_abstraction", "runtime_logical_time_and_non_pacing_tick", "current_dt_host_clock_boundary", "bounded_process_image_io", "process_image_bounds_and_transactional_metadata", "process_image_interface_and_binding_transaction", "typed_process_image_snapshot", "io_cycle_binding_and_driver_registry", "driver_registry_validation_and_construction", "io_provenance_labels", "driver_provenance_projection", "gpio_driver_contract", "gpio_parameter_backend_handoff", "modbus_driver_contract", "mqtt_driver_contract", "modbus_mqtt_typed_point_map", "ethercat_driver_contract", "fault_channel", "fault_policy_decision_projection", "fault_state_clear_lifecycle", "watchdog", "safe_halt", "task_readiness_and_overrun_accounting", "resource_runner_cycle_transaction", "retain_restart", "retain_snapshot_identity_and_order", "retain_failure_transactions", "recursive_retain_identity_migration", "direct_restart_preparation_transaction", "debug_mutation_lifecycle", "online_change_transaction", "runtime_agent_command_conformance", "hmi_write_authz", "hmi_schema_and_live_state", "hmi_descriptor_atomic_reload", "hmi_alarm_trend_and_event_lifecycle", "control_audit_visibility", "runtime_control_request_and_source_boundary", "runtime_control_authentication_and_operation_roles", "runtime_control_configuration_transaction", "runtime_control_io_and_variable_mutation", "runtime_control_status_events_and_historian_projection", "communication_schema_capability_discovery_probe_and_browse", "communication_runtime_file_mutation", "fleet_host_protocol_io_link_topology_and_offline_projection", "debug_projection_fail_closed", "runtime_configuration_value_model", "runtime_core_state_and_accessor_contract", "standalone_web_ide_sessions_and_workspace", "standalone_web_ide_analysis_tasks_and_budgets", "standalone_web_ide_utility_contracts", "standalone_configuration_ui_route_contracts", "runtime_web_authentication_and_denial", "runtime_web_post_admission", "runtime_web_helper_grammar", "runtime_web_setup_and_io_projection", "operator_console_projection", "deployment_signature_policy", "managed_fleet_operator_projection", "opcua_nonfinite_ingress", "opcua_server_surface_and_security", "ads_nonfinite_ingress", "ads_error_recovery", "ads_generated_product_surface", "ads_core_value_codec_and_descriptor_size", "ads_core_point_quality_lifecycle", "communication_discovery_and_browse", "communication_cli_defaults", "ads_cli_argument_binding", "benchmark_cli_defaults", "plcopen_cli_surface", "runtime_cli_execution_backend", "runtime_startup_policy", "project_runtime_source_loading", "windows_runtime_executable_stack_link_contract", "runtime_bundle_builder_dependency_resolution", "namespace_qualified_multifile_runtime_assembly", "mdns_discovery_lifecycle", "protocol_web_control_bridge", "mesh_numeric_ingress", "realtime_t0_transport_contract", "realtime_t0_cycle_contract", "linux_realtime_host_profile_contract", "historian_alert_debounce_and_hook_contract", "file_retain_nonfinite_ingress", "managed_debug_floating_point_ingress", "simulation_coupling_thresholds", "typed_process_image_nonfinite_egress", "connector_status_truth_contract", "protocol_discovery_confidence_contract", "ethercat_unavailable_resource_contract"]
+known_limitations = ["Safe-state output handoff under worker queue-full/reconnecting/down conditions needs a stronger contract; see SPEC_GAP_RUNTIME_SAFE_STATE_001.", "The non-finite admission contract and 22 mapped tests cover the named shipped boundaries; exhaustive value-width, subnormal, signed-zero, aggregate-shape, attach-mode, and future-boundary depth remains explicit in RT_SAFE_NAN_001 rather than being claimed complete.", "Focused software tests do not establish physical GPIO or EtherCAT topology behavior, external Modbus/MQTT interoperability, a reference Tahu decode, detached worker join completion, or one shared cross-driver invocation-order trace.", "Realtime T0 software tests establish bounded functional shared-memory and cycle-accounting behavior only; they do not establish worst-case latency, deadline compliance, PREEMPT_RT readiness, production page-lock success, or hard-real-time certification."]
 conflicts_with = []
 
 [[spec_sources]]
@@ -1349,17 +1470,81 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/10-runtime-semantics.md"
 version = "current"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-08-01"
 covers = [
+  "host_expression_evaluation",
+  "host_pou_evaluation",
+  "host_statement_debug_hook",
+  "host_statement_execution",
+  "source_to_runtime_expression_lowering",
+  "source_to_runtime_statement_lowering",
+  "source_to_runtime_pou_type_variable_assembly",
+  "project_wide_source_assembly",
+  "in_process_test_harness_api",
+  "harness_compilation_transaction",
+  "harness_configuration_and_access_assembly",
+  "harness_automation_state_and_typed_value_codec",
+  "harness_debug_expression_and_lvalue_parsing",
+  "harness_boundary_io",
+  "harness_symbolic_boundary_protocol",
+  "textual_action_runtime_rejection",
+  "generic_type_runtime_rejection",
+  "integer_runtime_operand_normalization",
+  "numeric_execution_domain_normalization",
   "process_image_model",
+  "portable_runtime_value_and_program_model_contracts",
+  "portable_task_configuration_metadata",
+  "portable_bytecode_scheduler_and_vm_helper_contracts",
+  "vm_module_and_local_initialization_contracts",
   "scan_cycle_execution",
   "retain_values",
   "runtime_value_model",
+  "runtime_value_presentation",
+  "runtime_value_reference_traversal",
+  "runtime_program_model_structure",
+  "runtime_subsystem_helper_contracts",
+  "initializer_and_reference_architecture",
+  "user_type_runtime_materialization",
+  "edge_declaration_runtime_execution",
+  "signed_integer_result_materialization",
+  "unsigned_integer_result_materialization",
   "vm_instruction_budget",
   "stable_error_code_model",
 ]
 known_limitations = [
   "This source does not by itself close bytecode validator or safe-state hardware proof gaps.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_VM_PORTABLE_CORE_001"
+title = "truST portable bytecode scheduler and VM helper semantics"
+area = "bytecode_vm"
+owner = "trust-runtime-core"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/10-runtime-semantics.md"
+version = "current"
+last_reviewed = "2026-07-30"
+covers = [
+  "portable_bytecode_records",
+  "portable_bytecode_reader",
+  "portable_task_ordering",
+  "portable_retain_and_resource_lifecycle",
+  "portable_vm_operand_and_frame_stacks",
+  "portable_vm_constant_pool_decode",
+  "portable_vm_dispatch_helpers",
+  "portable_vm_sizeof",
+  "portable_vm_trap_mapping",
+  "portable_vm_reference_materialization",
+]
+known_limitations = [
+  "This product contract does not replace crafted-bytecode validator, host-runtime safe-state, hardware, or platform proof.",
 ]
 conflicts_with = []
 
@@ -1377,10 +1562,22 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/10-runtime-semantics.md"
 version = "current"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-30"
 covers = [
   "vm_value_tag_semantics",
   "runtime_value_tags",
+  "runtime_datetime_value_model",
+  "runtime_datetime_profile",
+  "portable_date_time_operator_semantics",
+  "portable_primitive_value_adapters",
+  "portable_numeric_normalization",
+  "portable_compound_value_construction",
+  "portable_program_model_name_identity",
+  "portable_nonnumeric_comparison",
+  "portable_partial_access",
+  "portable_reference_paths",
+  "portable_array_offset_and_shape",
+  "portable_structure_mutation",
   "declared_type_materialization",
   "declared_type_conversion_semantics",
   "variable_initializer_materialization",
@@ -1392,6 +1589,9 @@ covers = [
   "bounded_string_runtime_writes",
   "string_bound_write_semantics",
   "bounded_string_family_rejection",
+  "runtime_string_element_semantics",
+  "runtime_string_indexing",
+  "runtime_string_reference_propagation",
   "subrange_runtime_write_enforcement",
   "subrange_runtime_write_semantics",
   "real_binary_arithmetic_overflow",
@@ -1418,19 +1618,9 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/13-debug-adapter.md"
 version = "current"
-last_reviewed = "2026-07-16"
-covers = [
-  "dap_launch_attach",
-  "breakpoint_stop_semantics",
-  "debug_scope_visibility",
-  "reload_stop_precedence",
-  "managed_debug_floating_point_ingress",
-  "debug_mutation_lifecycle",
-  "online_change_transaction",
-]
-known_limitations = [
-  "The debug mutation lifecycle is specified, but disconnect, pause, fault, and authorization-change case depth remains unproven; managed-local floating-point admission does not establish attach-mode runtime-control admission.",
-]
+last_reviewed = "2026-08-01"
+covers = ["dap_launch_attach", "dap_lifecycle_request_ordering", "breakpoint_stop_semantics", "live_cyclic_breakpoint_eligibility", "debug_control_execution", "debug_event_fallback", "debug_trace_environment_and_file_sink", "debug_scope_visibility", "reload_stop_precedence", "managed_debug_floating_point_ingress", "debug_mutation_lifecycle", "online_change_transaction", "dap_transport_and_session_projection", "managed_runtime_debug_mutation_and_active_reload"]
+known_limitations = ["The debug mutation lifecycle is specified, but disconnect, pause, fault, and authorization-change case depth remains unproven; managed-local floating-point admission does not establish attach-mode runtime-control admission."]
 conflicts_with = []
 
 [[spec_sources]]
@@ -1478,10 +1668,15 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/IEC_DEVIATIONS.md"
 version = "current"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-26"
 covers = [
   "iec_deviations",
+  "integer_runtime_operand_normalization",
+  "non_null_reference_defaults_on_type_and_aggregate_members",
+  "ref_rejects_constant_qualified_variables",
+  "runtime_string_element_semantics",
   "vendor_extensions",
+  "unsigned_integer_result_materialization",
   "watchdog_output_commit",
 ]
 known_limitations = [
@@ -1610,14 +1805,14 @@ locator_kind = "tracked_file"
 path = "README.md"
 version = "current"
 last_reviewed = "2026-07-17"
-claim_text = "Runtime + debugger: pre-1.0; only explicitly mapped invariants are behavior-locked by tests and durable evidence"
+claim_text = "Runtime + debugger: pre-1.0; behavior claims are locked by their written product specifications and direct native executable tests, with proof class stated separately where environment-specific evidence is required"
 surface_ref = "README.md"
 covers = [
   "behavior_locked_public_claim",
   "test_suite_truth",
 ]
 known_limitations = [
-  "The claim applies only to listed invariant/test/evidence mappings and does not imply release validation or IEC conformance.",
+  "The claim does not imply release validation or IEC conformance, and environment-specific proof remains separate.",
 ]
 conflicts_with = []
 
@@ -1635,12 +1830,53 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/22-developer-workflows.md"
 version = "current"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-08-01"
 covers = [
   "source_discovery",
   "supported_source_extensions",
+  "test_pou_discovery",
+  "test_case_execution",
+  "per_case_deadline_scope",
+  "test_reporting_and_ci_output",
+  "native_runtime_ci_fixture_compatibility",
+  "ci_reliability_and_release_gate_artifact_contract",
+  "shipped_project_example_corpus",
+  "ci_performance_reference_environment_gap",
+  "developer_ci_exit_classification",
+  "api_documentation_generation",
   "project_scoped_commit",
   "pre_staged_collision",
+  "package_registry_storage_and_integrity",
+  "hmi_scaffold_deterministic_generation",
+  "hmi_scaffold_page_and_widget_mapping",
+  "hmi_scaffold_update_and_loader_precedence",
+]
+known_limitations = []
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_AGENT_API_V1_001"
+title = "truST Agent API v1 product contract"
+area = "plcopen_devtools"
+owner = "trust-dev"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/20-agent-api-v1.md"
+version = "current"
+last_reviewed = "2026-08-01"
+covers = [
+  "agent_json_rpc_envelope_and_dispatch",
+  "agent_harness_request_and_result_transaction",
+  "agent_language_workflow_projection",
+  "agent_project_and_source_root_resolution",
+  "agent_workspace_io_and_containment",
+  "agent_workspace_relative_path_lexical_normalization",
+  "agent_workspace_parent_escape_rejection",
 ]
 known_limitations = []
 conflicts_with = []
@@ -1659,15 +1895,20 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/23-connector-status.md"
 version = "current"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-07-26"
 covers = [
   "connector_state_vocabulary",
   "connector_health_vocabulary",
+  "versioned_connector_report_shape",
+  "driver_policy_projection",
+  "ads_point_quality_and_counts",
+  "process_image_protocol_projection",
   "discovery_confidence",
+  "tcp_only_confidence_wire_value",
   "point_quality",
   "cross_surface_status_projection",
 ]
-known_limitations = []
+known_limitations = ["Report serialization and projection evidence does not by itself prove a live external transport or physical device."]
 conflicts_with = []
 
 [[spec_sources]]
@@ -1691,6 +1932,7 @@ covers = [
   "source_build",
   "public_source_build_proof",
   "dependency_exceptions",
+  "vendored_dependency_provenance",
   "artifact_provenance",
   "release_version_chain",
   "hardware_claim_levels",
@@ -1747,14 +1989,71 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/05-expressions.md"
 version = "current"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-08-01"
 covers = [
   "expression_syntax",
   "operator_precedence",
   "operator_associativity",
+  "expression_operator_type_checking",
+  "parser_sizeof_operand_classification",
+  "parser_product_call_forms",
+]
+known_limitations = ["The source records implementer-specific choices and does not replace the unavailable external IEC text as an IEC conformance oracle."]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_IEC_LEXICAL_ELEMENTS_001"
+title = "truST IEC lexical-elements contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/01-lexical-elements.md"
+version = "current"
+last_reviewed = "2026-08-01"
+covers = ["character_set", "identifiers", "keywords", "comments", "pragmas", "numeric_literals", "character_string_literals", "time_literals", "runtime_literal_materialization", "lexer_token_classification", "lexer_source_fidelity", "lexer_candidate_rejection_boundaries", "lexer_parser_handoff", "comment_family_nesting", "line_comment_terminators", "temporal_shape_value_boundary", "syntax_kind_token_node_and_trivia"]
+known_limitations = ["This normative product source cites IEC 61131-3 but does not replace the registered external IEC source for conformance proof.", "The documented ASCII-only identifier limitation remains DEV-013."]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_IEC_VARIABLES_001"
+title = "truST IEC variable contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/03-variables.md"
+version = "current"
+last_reviewed = "2026-08-01"
+covers = [
+  "variable_declarations",
+  "variable_initializer_constant_expression",
+  "variable_initializer_diagnostic_contract",
+  "declaration_initializer_classification",
+  "syntax_kind_initializer_classification",
+  "aggregate_initializer_recovery",
+  "edge_declaration_parser_boundaries",
+  "edge_declaration_semantics",
+  "member_access_semantics",
+  "directly_represented_variables",
+  "direct_address_lexical_forms",
+  "direct_address_semantic_binding",
+  "var_access_validation",
+  "var_config_resolution",
+  "variable_length_array_parser_semantic_boundary",
 ]
 known_limitations = [
-  "The source records implementer-specific choices and does not replace the unavailable external IEC text as an IEC conformance oracle.",
+  "This normative product source cites IEC 61131-3 but does not replace the registered external IEC source for conformance proof.",
 ]
 conflicts_with = []
 
@@ -1772,18 +2071,9 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/02-data-types.md"
 version = "current"
-last_reviewed = "2026-07-15"
-covers = [
-  "elementary_data_types",
-  "string_assignment_binding_boundaries",
-  "string_bounds",
-  "subrange_types",
-  "accuracy_preserving_implicit_conversions",
-]
-known_limitations = [
-  "The focused assignment and POU binding contract does not claim IEC certification.",
-  "This product source does not by itself establish IEC conformance.",
-]
+last_reviewed = "2026-08-01"
+covers = ["elementary_data_types", "generic_type_semantics", "user_defined_type_semantics", "array_bounds", "partial_access_semantics", "character_access", "string_assignment_binding_boundaries", "string_bounds", "parenthesized_string_length_compatibility", "subrange_types", "accuracy_preserving_implicit_conversions", "iec_reference_operations_and_lifetime", "trust_pointer_and_indirect_write_policy", "pointer_to_variable_length_array_syntax", "data_type_parser_acceptance_and_recovery_boundaries"]
+known_limitations = ["The focused assignment and POU binding contract does not claim IEC certification.", "This product source does not by itself establish IEC conformance.", "Acceptance of named enumeration values as array limits remains under review."]
 conflicts_with = []
 
 [[spec_sources]]
@@ -1800,16 +2090,45 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/08-standard-function-blocks.md"
 version = "current"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-08-01"
+covers = ["standard_function_blocks", "standard_function_block_runtime_state", "timer_function_blocks", "timer_elapsed_time", "timer_scan_step_semantics", "timer_ltime_parity"]
+known_limitations = ["The timer contract is written, but restart, PT-change, short-input, and clock-step branches remain outside the first trace proof.", "This product source does not by itself establish IEC conformance."]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_IEC_STANDARD_FUNCTIONS_001"
+title = "truST IEC standard-function product contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/07-standard-functions.md"
+version = "current"
+last_reviewed = "2026-08-01"
 covers = [
-  "standard_function_blocks",
-  "timer_function_blocks",
-  "timer_elapsed_time",
-  "timer_scan_step_semantics",
-  "timer_ltime_parity",
+  "standard_functions",
+  "standard_function_runtime_results",
+  "standard_function_conversion_boundaries",
+  "standard_function_core_helper_contracts",
+  "standard_function_text_conversion_representatives",
+  "standard_function_assertion_extension_results",
+  "time_arithmetic_functions",
+  "portable_time_operator_semantics",
+  "date_time_component_functions",
+  "date_time_split_functions",
+  "day_of_week_function",
+  "current_dt_host_clock_boundary",
 ]
 known_limitations = [
-  "The timer contract is written, but restart, PT-change, short-input, and clock-step branches remain outside the first trace proof.",
+  "The reviewed runtime text-conversion outputs are representative and do not define formatting for every elementary value.",
+  "Non-finite text-to-real parsing rejects without a stable runtime-error variant.",
+  "Planned runtime-result invariants do not establish catalog assignment or execution proof.",
+  "The mapped pilot tests exercise representative direct and executed-ST paths; exhaustive overflow and invalid-component partitions remain visible in invariant coverage.",
   "This product source does not by itself establish IEC conformance.",
 ]
 conflicts_with = []
@@ -1817,7 +2136,7 @@ conflicts_with = []
 [[spec_sources]]
 schema_version = 2
 id = "SPEC_LSP_CONTRACT_001"
-title = "truST LSP product contract candidate"
+title = "truST LSP product contract"
 area = "editor_safety"
 owner = "trust-lsp"
 status = "mapped"
@@ -1828,8 +2147,12 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/14-lsp.md"
 version = "current"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-08-01"
 covers = [
+  "browser_wasm_analysis_projection",
+  "browser_virtual_document_identity",
+  "browser_document_snapshot_replacement",
+  "wasm_json_analysis_adapter",
   "diagnostic_cancellation",
   "document_close_durable_project_truth",
   "lsp_position_encoding",
@@ -1838,6 +2161,37 @@ covers = [
   "lsp_partial_result_delivery",
   "lsp_inline_value_latency",
   "rename_conflict_safety",
+  "completion_hover_signature_help",
+  "diagnostics_and_result_delivery",
+  "navigation_symbols_links_hierarchies",
+  "rename_and_source_refactors",
+  "formatting_and_ranges",
+  "workspace_configuration_and_indexing",
+  "semantic_tokens",
+  "inlay_and_inline_values",
+  "code_actions_and_quick_fixes",
+  "document_sync_uri_and_lifecycle",
+  "client_setting_alias_precedence",
+  "hmi_command_and_descriptor_errors",
+  "uri_and_virtual_document_normalization",
+  "completion_recovery_visibility_and_formal_suppression",
+  "learner_hint_threshold",
+  "openot_editor_projection",
+  "hover_declared_type_fallback",
+  "runtime_inline_value_merge_precedence",
+  "completion_cancellation_response",
+  "call_hierarchy_allowed_file_filter",
+  "namespace_relocation_transaction_order",
+  "lsp_configuration_normalization",
+  "lsp_dependency_resolution_lock_and_trust",
+  "lsp_document_text_utf16_and_change_transaction",
+  "lsp_external_diagnostic_ingestion",
+  "lsp_index_cache_integrity",
+  "lsp_library_document_ingestion",
+  "lsp_library_graph_diagnostics",
+  "lsp_runtime_value_snapshot",
+  "lsp_server_state_lifecycle",
+  "lsp_telemetry_aggregation_transaction",
 ]
 known_limitations = []
 conflicts_with = []
@@ -1884,10 +2238,22 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md"
 version = "current"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-08-01"
 covers = [
+  "plcopen_adapter_artifacts",
+  "plcopen_codesys_metadata",
+  "plcopen_global_variable_projection",
+  "plcopen_import_failures",
+  "plcopen_migration_reports",
   "plcopen_non_st_rejection",
+  "plcopen_project_model",
+  "plcopen_profile_identity",
+  "plcopen_semantic_export",
+  "plcopen_semantic_import",
   "plcopen_st_import",
+  "plcopen_st_roundtrip",
+  "plcopen_transactional_publication",
+  "plcopen_vendor_library_shims",
   "plcopen_fixture_provenance",
 ]
 known_limitations = [
@@ -1970,7 +2336,7 @@ visibility = "internal"
 locator_kind = "tracked_file"
 path = "docs/internal/testing/checklists/plc-verification-program/metadata-model.md"
 version = "current"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-08-12"
 covers = [
   "verification_metadata_contract",
   "case_proof_contract",
@@ -1979,4 +2345,184 @@ covers = [
 known_limitations = [
   "The contract validates verification metadata and evidence integrity; it does not independently prove product behavior.",
 ]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+title = "VS Code Product Contract"
+area = "editor_safety"
+owner = "editors-vscode"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/25-vscode-product-contract.md"
+version = "current"
+last_reviewed = "2026-07-26"
+covers = ["1_product_shell_and_command_exposure", "2_discover", "3_examples_project_scaffolding_and_packaged_tools", "4_live_values", "5_devices_connections", "6_sidebar_actions_compile_update_and_authentication", "7_libraries", "8_shared_hmi_and_visual_editor_contract", "9_tooling_and_example_truth", "10_proof_limits_and_remaining_authority_gaps", "11_existing_authoring_workflow_contracts"]
+known_limitations = []
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_MITSUBISHI_GXWORKS3_COMPATIBILITY_001"
+title = "Mitsubishi GX Works3 Compatibility v1 (Deliverable 8)"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "internal"
+locator_kind = "tracked_file"
+path = "docs/guides/MITSUBISHI_GXWORKS3_COMPATIBILITY.md"
+version = "current"
+last_reviewed = "2026-07-26"
+covers = ["scope", "supported_gx_works3_subset_v1", "known_gaps_incompatibilities", "migration_guidance", "regression_coverage"]
+known_limitations = []
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001"
+title = "PLCopen Motion Library for truST - Specification v0.2"
+area = "plcopen_devtools"
+owner = "trust-plcopen"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "internal"
+locator_kind = "tracked_file"
+path = "docs/internal/references/PLCopenMotion/plcopen_motion_library_spec_for_truST_v0_1.md"
+version = "current"
+last_reviewed = "2026-07-26"
+covers = ["1_purpose", "2_source_hierarchy", "3_public_api_stance", "4_compliance_and_scope_model", "5_library_package_structure_in_trust", "6_trust_specific_implementation_constraints", "7_public_reference_and_derived_types", "8_public_enums_and_canonical_data_types", "9_units_and_scaling", "10_execution_semantics", "11_output_semantics", "12_error_model", "13_axis_state_model", "14_group_state_model", "15_mandatory_implementation_choice_single_axis_commands_on_grouped_axes", "16_buffering_and_command_queue_semantics", "17_coordinated_motion_blend_model", "18_commandaccepted_and_commandid", "19_public_fb_profiles", "20_axis_kernel_contract", "21_group_kernel_contract", "22_kinematics_and_transforms", "23_dynamic_coordinate_system_rule", "24_tracking_vs_synchronization", "25_group_stop_behavior", "26_tool_and_payload_support", "27_naming_rules", "28_acceptance_tests", "29_oop_facade_mapping", "30_recommended_implementation_order", "31_final_recommendation"]
+known_limitations = ["The software-only Phase A kernel uses falling Execute as a deterministic simulated-completion signal; hardware adapters must complete from backend progress.", "The Phase A single-axis profile publishes but rejects all mcBlending modes until blending semantics are implemented."]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_OSCAT_LIBRARY_PROFILE_001"
+title = "OSCAT Library Product Profile"
+area = "plcopen_devtools"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/31-oscat-library-profile.md"
+version = "current"
+last_reviewed = "2026-07-29"
+covers = [
+  "1_scope_and_authority",
+  "2_classic_package_contract",
+  "3_oop_facade_contract",
+  "3_4_shipped_oop_example_projects",
+  "4_verification_partitions",
+]
+known_limitations = [
+  "T_PLC_US is a millisecond-derived compatibility projection, not a sub-millisecond hardware clock.",
+  "Random-helper conformance requires a non-tautological observable property; callability alone is not proof.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_HIR_SEMANTIC_KERNEL_001"
+title = "HIR Semantic Kernel Contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/26-hir-semantic-kernel.md"
+version = "current"
+last_reviewed = "2026-08-01"
+covers = ["1_source_identity_and_revision_lifecycle", "2_query_reuse_and_invalidation", "3_cross_file_semantic_translation", "4_stable_semantic_outcomes_and_diagnostic_context", "5_declaration_catalog", "6_concurrency_and_cancellation", "7_primitive_model_fail_closed_rules", "8_symbol_table_scope_and_type_registry_contract", "diagnostic_builder_and_registry_contract", "project_source_identity_registry"]
+known_limitations = []
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_OPENOT_AUTHORING_001"
+title = "OpenOT Authoring Product Contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/27-openot-authoring.md"
+version = "current"
+last_reviewed = "2026-07-27"
+covers = ["1_diagnostic_boundary", "2_value_attributes", "3_state_attributes", "4_alarm_and_message_attributes", "5_condition_lifecycle_attributes", "6_batch_recipe_and_material_events", "7_operator_and_security_events", "8_e_signatures", "9_decision_partitions", "10_runtime_authoring_translation", "11_structured_text_producer_execution", "12_runtime_telemetry_publication", "13_event_materialization_and_definition_resolution", "14_consumer_reconciliation"]
+known_limitations = []
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_HIR_WARNING_POLICY_001"
+title = "HIR Warning Policy"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/28-hir-warning-policy.md"
+version = "current"
+last_reviewed = "2026-07-26"
+covers = ["1_unused_declarations", "2_implicit_conversion", "3_cyclomatic_complexity", "4_unreachable_statements", "5_nondeterministic_values_and_i_o", "6_shared_global_task_hazards", "7_floating_point_equality", "8_literal_zero_divisor", "9_stability_and_suppression"]
+known_limitations = []
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"
+title = "HIR SIZEOF and Allocation Contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/29-hir-sizeof-and-allocation.md"
+version = "current"
+last_reviewed = "2026-07-26"
+covers = ["1_sizeof_result_and_accepted_operands", "2_sizeof_rejected_operands", "3_allocation_and_deletion"]
+known_limitations = []
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_VERIFICATION_INVENTORY_001"
+title = "Verification Inventory Contract"
+area = "verification"
+owner = "verification"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/30-verification-inventory.md"
+version = "current"
+last_reviewed = "2026-07-29"
+covers = ["iec_table_test_inventory", "evidence_boundary", "reachable_assertion_helper_closure", "repository_oracle_digest_closure", "generated_and_host_oracle_classification", "exact_vscode_execution_evidence"]
+known_limitations = []
 conflicts_with = []

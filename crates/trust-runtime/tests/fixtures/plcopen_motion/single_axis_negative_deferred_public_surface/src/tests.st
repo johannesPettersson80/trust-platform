@@ -1,4 +1,4 @@
-TEST_PROGRAM plcopen_motion_single_axis_deferred_public_fbs_are_absent
+PROGRAM plcopen_motion_single_axis_deferred_public_fbs_are_absent
 VAR
     MoveSuperimposed : MC_MoveSuperimposed;
     HaltSuperimposed : MC_HaltSuperimposed;
@@ -13,4 +13,4 @@ VAR
     TouchProbe : MC_TouchProbe;
     AbortTrigger : MC_AbortTrigger;
 END_VAR
-END_TEST_PROGRAM
+END_PROGRAM

@@ -6,6 +6,19 @@ use crate::io::IoAddress;
 
 use super::{expr, stmt};
 
+/// Edge-qualified input metadata retained by the host runtime.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EdgeInput {
+    pub name: SmolStr,
+    pub qualifier: trust_hir::symbols::EdgeQualifier,
+}
+
+/// Stable internal storage name for an edge input's previous sampled phase.
+#[must_use]
+pub fn edge_phase_storage_name(owner: &str, input: &str) -> SmolStr {
+    SmolStr::new(format!("\0st_rt_edge_phase\0{owner}\0{input}"))
+}
+
 /// Parameter declaration for POUs.
 #[derive(Debug, Clone)]
 pub struct Param {
@@ -25,6 +38,7 @@ pub struct VarDef {
     pub retain: crate::RetainPolicy,
     pub static_storage: bool,
     pub external: bool,
+    pub in_out: bool,
     pub constant: bool,
     pub address: Option<IoAddress>,
 }
@@ -53,6 +67,7 @@ pub enum FunctionBlockBase {
 pub struct FunctionBlockDef {
     pub name: SmolStr,
     pub base: Option<FunctionBlockBase>,
+    pub interfaces: Vec<SmolStr>,
     pub params: Vec<Param>,
     pub vars: Vec<VarDef>,
     pub temps: Vec<VarDef>,
@@ -78,6 +93,7 @@ pub struct MethodDef {
 pub struct ClassDef {
     pub name: SmolStr,
     pub base: Option<SmolStr>,
+    pub interfaces: Vec<SmolStr>,
     pub vars: Vec<VarDef>,
     pub using: Vec<SmolStr>,
     pub methods: Vec<MethodDef>,
@@ -91,3 +107,7 @@ pub struct InterfaceDef {
     pub using: Vec<SmolStr>,
     pub methods: Vec<MethodDef>,
 }
+
+#[cfg(test)]
+#[path = "types/contract_tests.rs"]
+mod contract_tests;

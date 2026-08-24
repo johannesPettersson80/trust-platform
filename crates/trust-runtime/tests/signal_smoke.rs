@@ -162,10 +162,48 @@ fn assert_graceful_signal_stop(signal: &str) {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let structured = stdout
+        .lines()
+        .filter(|line| line.trim_start().starts_with('{'))
+        .map(|line| {
+            serde_json::from_str::<serde_json::Value>(line).unwrap_or_else(|err| {
+                panic!("structured log line must be JSON: {err}; line={line}")
+            })
+        })
+        .collect::<Vec<_>>();
     assert!(
-        stdout.contains("\"event\":\"runtime_exit\"") && stdout.contains("\"status\":\"stopped\""),
-        "runtime must report the ordinary stopped exit path after SIG{signal}; stdout:\n{stdout}"
+        !structured.is_empty(),
+        "runtime must emit structured lifecycle events; stdout:\n{stdout}"
     );
+    for event in &structured {
+        assert!(
+            event["ts"].as_u64().is_some(),
+            "structured event must carry a Unix-millisecond timestamp: {event}"
+        );
+        assert!(
+            matches!(
+                event["level"].as_str(),
+                Some("error" | "warn" | "info" | "debug" | "trace")
+            ),
+            "structured event must carry a canonical level: {event}"
+        );
+        assert!(
+            event["event"].as_str().is_some(),
+            "structured event must carry an event name: {event}"
+        );
+        assert!(
+            event.get("data").is_some(),
+            "structured event must carry event data: {event}"
+        );
+    }
+    let exit = structured
+        .iter()
+        .find(|event| event["event"] == "runtime_exit")
+        .unwrap_or_else(|| {
+            panic!("runtime must report the ordinary stopped exit path; stdout:\n{stdout}")
+        });
+    assert_eq!(exit["level"], "debug");
+    assert_eq!(exit["data"]["status"], "stopped");
     assert!(
         !stdout.contains("runtime_safe_state_failed"),
         "safe-state application must not fail during SIG{signal} shutdown; stdout:\n{stdout}"

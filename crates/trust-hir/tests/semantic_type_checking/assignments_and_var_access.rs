@@ -321,6 +321,7 @@ END_FUNCTION_BLOCK
 }
 
 #[test]
+// IEC 61131-3 Ed.3 §§6.4.4.5.1, 6.6.1.2.4
 fn test_array_bounds_enum_values() {
     let mut db = Database::new();
     let file = FileId(0);
@@ -337,6 +338,17 @@ PROGRAM Test
 END_PROGRAM
 "#
         .to_string(),
+    );
+
+    let errors = db
+        .diagnostics(file)
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
+        .map(|diagnostic| diagnostic.code)
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "enumerated constant-expression bounds must be accepted, got {errors:?}"
     );
 
     let symbols = db.file_symbols(file);
@@ -357,27 +369,35 @@ PROGRAM Test
     arr[4] := 1;
 END_PROGRAM
 "#,
-        DiagnosticCode::OutOfRange,
+        DiagnosticCode::InvalidArrayIndex,
     );
 }
 
 #[test]
 fn test_array_index_const_eval_error_reports_primary_diagnostic() {
-    check_has_error(
+    let errors = check_errors(
         r#"
 PROGRAM Test
     VAR arr : ARRAY[0..3] OF DINT; x : DINT; END_VAR
     x := arr[1 / 0];
 END_PROGRAM
 "#,
-        DiagnosticCode::InvalidOperation,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::InvalidOperation),
+        "expected primary InvalidOperation diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::OutOfRange),
+        "failed index constant evaluation must not emit a dependent bounds diagnostic, got {errors:?}"
     );
 }
 
 #[test]
-// IEC 61131-3 Ed.3 Tables 11, 15-16 (array bounds and indexing)
+// IEC 61131-3 Ed.3 §6.4.4.5.1: computed indexes are runtime-bounds-checked
 fn test_array_index_subrange_out_of_bounds() {
-    check_has_error(
+    check_no_errors(
         r#"
 TYPE Idx : INT(0..5);
 END_TYPE
@@ -387,13 +407,12 @@ PROGRAM Test
     arr[i] := 1;
 END_PROGRAM
 "#,
-        DiagnosticCode::OutOfRange,
     );
 }
 
 #[test]
 fn test_subrange_assignment_const_eval_error_reports_primary_diagnostic() {
-    check_has_error(
+    let errors = check_errors(
         r#"
 TYPE Small : INT (0..10);
 END_TYPE
@@ -402,10 +421,18 @@ PROGRAM Test
 VAR
     value : Small;
 END_VAR
-value := MissingConstant;
+value := INT#1 / INT#0;
 END_PROGRAM
 "#,
-        DiagnosticCode::UndefinedVariable,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::InvalidOperation),
+        "expected primary InvalidOperation diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::OutOfRange),
+        "failed subrange constant evaluation must not emit a dependent range diagnostic, got {errors:?}"
     );
 }
 

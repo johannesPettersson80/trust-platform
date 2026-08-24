@@ -73,7 +73,12 @@ END_PROGRAM
     harness
         .set_direct_input("%IX0.0", Value::Bool(true))
         .unwrap();
-    harness.cycle();
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "startup I/O cycle failed: {:?}",
+        cycle.errors
+    );
     let out = harness.get_direct_output("%QX0.0").unwrap();
     assert_eq!(out, Value::Bool(true));
 
@@ -101,9 +106,13 @@ END_PROGRAM
     harness.set_input("r", Value::Int(42));
     harness.runtime_mut().mark_retain_dirty();
     harness.runtime_mut().save_retain_store().unwrap();
+    harness.set_input("r", Value::Int(99));
 
     harness.restart_with_retain(RestartMode::Warm).unwrap();
     assert_eq!(harness.get_output("r"), Some(Value::Int(42)));
+
+    harness.restart_with_retain(RestartMode::Cold).unwrap();
+    assert_eq!(harness.get_output("r"), Some(Value::Int(1)));
 
     let _ = std::fs::remove_file(path);
 }
@@ -152,7 +161,7 @@ END_PROGRAM
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
     runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: true,
-        // Watchdog is wall-clock based, so use an effectively-zero timeout.
+        // Watchdog enforcement is wall-clock based, so use an effectively-zero timeout.
         timeout: Duration::from_nanos(1),
         action: WatchdogAction::Halt,
     });

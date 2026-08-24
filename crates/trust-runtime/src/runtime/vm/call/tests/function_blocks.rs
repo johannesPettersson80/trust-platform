@@ -151,6 +151,7 @@ fn bind_builtin_function_block_arguments_supports_inout_rebinding() {
     runtime.register_function_block(FunctionBlockDef {
         name: SmolStr::new("CTU"),
         base: None,
+        interfaces: Vec::new(),
         params: vec![Param {
             name: SmolStr::new("ACC"),
             type_id: TypeId::DINT,

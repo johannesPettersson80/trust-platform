@@ -186,7 +186,7 @@ END_PROGRAM
         );
         assert_error_with_message(
             &source,
-            DiagnosticCode::OutOfRange,
+            DiagnosticCode::InvalidArrayIndex,
             &format!("array index {expected_value} outside bounds {lower}..{upper}"),
         );
     }

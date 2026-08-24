@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 use serde_json::json;
 
@@ -13,6 +13,10 @@ use super::{
 };
 use crate::config::{IoConfig, IoDriverConfig, RuntimeConfig};
 use crate::settings::RuntimeSettings;
+
+#[cfg(test)]
+#[path = "offline/contract_tests.rs"]
+mod contract_tests;
 
 pub(super) fn build_project_fleet_topology(
     project_root: &Path,
@@ -51,6 +55,9 @@ pub(super) fn build_project_fleet_topology(
     let mut host = local_host(host_name().as_str(), &settings);
     host.source = Some("config".to_string());
     host.last_seen_ms = None;
+    host.temp_c = None;
+    host.uptime_s = None;
+    host.load = None;
     host.runtimes.push(FleetRuntime {
         runtime_id: runtime_id.clone(),
         name: runtime.resource_name.to_string(),
@@ -85,6 +92,7 @@ pub(super) fn build_project_fleet_topology(
         links,
         shared: topology_shared(&runtime_id, io_drivers.as_slice()),
         external: topology_external(
+            &runtime_id,
             &settings,
             io_drivers.as_slice(),
             ads_client_config.as_ref(),
@@ -112,11 +120,7 @@ fn load_project_ads_config(
     if !runtime.ads.enabled {
         return Ok(None);
     }
-    let path = if runtime.ads.config_path.is_relative() {
-        project_root.join(&runtime.ads.config_path)
-    } else {
-        runtime.ads.config_path.clone()
-    };
+    let path = project_sidecar_path(project_root, &runtime.ads.config_path, "ADS")?;
     if !path.is_file() {
         return Err(format!(
             "runtime.ads.enabled=true but ADS config is missing at {}",
@@ -137,11 +141,11 @@ fn load_project_opcua_client_config(
     if !runtime.opcua_client.enabled {
         return Ok(None);
     }
-    let path = if runtime.opcua_client.config_path.is_relative() {
-        project_root.join(&runtime.opcua_client.config_path)
-    } else {
-        runtime.opcua_client.config_path.clone()
-    };
+    let path = project_sidecar_path(
+        project_root,
+        &runtime.opcua_client.config_path,
+        "OPC UA client",
+    )?;
     if !path.is_file() {
         return Err(format!(
             "runtime.opcua_client.enabled=true but OPC UA client config is missing at {}",
@@ -153,6 +157,40 @@ fn load_project_opcua_client_config(
     crate::opcua::parse_opcua_client_toml(text.as_str())
         .map(Some)
         .map_err(|error| format!("failed to parse {}: {error}", path.display()))
+}
+
+fn project_sidecar_path(
+    project_root: &Path,
+    configured_path: &Path,
+    label: &str,
+) -> Result<PathBuf, String> {
+    if !configured_path.is_relative()
+        || configured_path.components().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+            )
+        })
+    {
+        return Err(format!(
+            "{label} config path must be relative to and confined within the project"
+        ));
+    }
+    let path = project_root.join(configured_path);
+    if path.exists() {
+        let project = project_root
+            .canonicalize()
+            .map_err(|error| format!("failed to resolve project root: {error}"))?;
+        let resolved = path
+            .canonicalize()
+            .map_err(|error| format!("failed to resolve {label} config path: {error}"))?;
+        if !resolved.starts_with(&project) {
+            return Err(format!(
+                "{label} config path must remain confined within the project"
+            ));
+        }
+    }
+    Ok(path)
 }
 
 fn offline_service_endpoints(

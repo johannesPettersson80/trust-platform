@@ -132,3 +132,122 @@ END_PROGRAM
 
     let _ = std::fs::remove_dir_all(project);
 }
+
+#[cfg(unix)]
+#[test]
+fn docs_alias_ignores_an_unusable_sibling_and_uses_path() {
+    let root = unique_temp_dir("docs-unusable-sibling");
+    let runner_dir = root.join("runner");
+    let project = root.join("project");
+    let out_dir = root.join("generated-docs");
+    std::fs::create_dir_all(&runner_dir).expect("create runner directory");
+    std::fs::create_dir_all(project.join("src")).expect("create project sources");
+    std::fs::write(project.join("src/main.st"), "PROGRAM Main\nEND_PROGRAM\n")
+        .expect("write project source");
+
+    let copied_runtime = runner_dir.join("trust-runtime");
+    std::fs::copy(env!("CARGO_BIN_EXE_trust-runtime"), &copied_runtime)
+        .expect("copy runtime binary");
+    std::fs::create_dir(runner_dir.join("trust-dev")).expect("create unusable sibling directory");
+
+    let trust_dev = trust_dev_bin();
+    let trust_dev_dir = trust_dev.parent().expect("trust-dev binary parent");
+    let mut path_entries = vec![trust_dev_dir.to_path_buf()];
+    if let Some(path) = std::env::var_os("PATH") {
+        path_entries.extend(std::env::split_paths(&path));
+    }
+    let path = std::env::join_paths(path_entries).expect("join PATH entries");
+
+    let output = Command::new(&copied_runtime)
+        .env_remove("TRUST_DEV_BIN")
+        .env("PATH", path)
+        .args(["docs", "--project"])
+        .arg(&project)
+        .args(["--out-dir"])
+        .arg(&out_dir)
+        .args(["--format", "markdown"])
+        .output()
+        .expect("run copied runtime alias");
+
+    assert!(
+        output.status.success(),
+        "an unusable sibling must not shadow PATH trust-dev:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(out_dir.join("api.md").is_file());
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[cfg(unix)]
+#[test]
+fn docs_alias_maps_a_signaled_child_to_shell_status() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = unique_temp_dir("docs-signaled-child");
+    std::fs::create_dir_all(&root).expect("create signal test directory");
+    let fake_trust_dev = root.join("trust-dev-signal");
+    std::fs::write(&fake_trust_dev, "#!/bin/sh\nkill -TERM $$\n")
+        .expect("write signaled trust-dev shim");
+    let mut permissions = std::fs::metadata(&fake_trust_dev)
+        .expect("read shim metadata")
+        .permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(&fake_trust_dev, permissions).expect("make shim executable");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .env("TRUST_DEV_BIN", &fake_trust_dev)
+        .arg("docs")
+        .output()
+        .expect("run alias with signaled child");
+
+    assert_eq!(
+        output.status.code(),
+        Some(128 + 15),
+        "SIGTERM must retain its conventional shell status; stderr:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[cfg(unix)]
+#[test]
+fn docs_alias_propagates_a_normal_child_exit_code() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = unique_temp_dir("docs-child-exit");
+    std::fs::create_dir_all(&root).expect("create child-exit test directory");
+    let fake_trust_dev = root.join("trust-dev-exit");
+    std::fs::write(&fake_trust_dev, "#!/bin/sh\nexit 37\n").expect("write exiting trust-dev shim");
+    let mut permissions = std::fs::metadata(&fake_trust_dev)
+        .expect("read shim metadata")
+        .permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(&fake_trust_dev, permissions).expect("make shim executable");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .env("TRUST_DEV_BIN", &fake_trust_dev)
+        .arg("docs")
+        .output()
+        .expect("run alias with non-zero child");
+
+    assert_eq!(output.status.code(), Some(37));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("trust-dev docs"));
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn docs_alias_reports_an_unlaunchable_explicit_trust_dev() {
+    let root = unique_temp_dir("docs-missing-child");
+    let missing_trust_dev = root.join("missing-trust-dev");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .env("TRUST_DEV_BIN", &missing_trust_dev)
+        .arg("docs")
+        .output()
+        .expect("run alias with missing explicit child");
+
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("trust-runtime docs"));
+    assert!(stderr.contains("Install `trust-dev` beside `trust-runtime` or put it on PATH"));
+}

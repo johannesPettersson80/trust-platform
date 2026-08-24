@@ -98,7 +98,11 @@ pub fn opcua_client_pki_dir() -> std::path::PathBuf {
 
 pub fn list_trusted_opcua_client_server_certificates(
 ) -> Result<Vec<OpcUaTrustedCertificate>, RuntimeError> {
-    let trusted_root = opcua_client_pki_dir().join("trusted");
+    let pki_dir = opcua_client_pki_dir();
+    if !certificate_directory_is_safe(pki_dir.as_path())? {
+        return Ok(Vec::new());
+    }
+    let trusted_root = pki_dir.join("trusted");
     let mut certs = Vec::new();
     collect_certificate_files(&trusted_root, &mut certs)?;
     certs.sort_by(|left, right| left.path.cmp(&right.path));
@@ -127,6 +131,9 @@ pub fn clear_trusted_opcua_client_server_certificates() -> Result<usize, Runtime
 
 fn promote_rejected_opcua_client_server_certificates() -> Result<usize, RuntimeError> {
     let pki_dir = opcua_client_pki_dir();
+    if !certificate_directory_is_safe(pki_dir.as_path())? {
+        return Ok(0);
+    }
     let rejected_root = pki_dir.join("rejected");
     let mut certs = Vec::new();
     collect_certificate_files(rejected_root.as_path(), &mut certs)?;
@@ -134,18 +141,21 @@ fn promote_rejected_opcua_client_server_certificates() -> Result<usize, RuntimeE
         return Ok(0);
     }
     let trusted_root = pki_dir.join("trusted");
-    std::fs::create_dir_all(trusted_root.as_path()).map_err(|err| {
-        RuntimeError::ControlError(
-            format!(
-                "failed to create OPC UA trusted certificate directory {}: {err}",
-                trusted_root.display()
-            )
-            .into(),
-        )
-    })?;
+    ensure_certificate_directory(trusted_root.as_path())?;
     let mut promoted = 0usize;
     for cert in certs {
         let target = trusted_root.join(cert.file_name.as_str());
+        if std::fs::symlink_metadata(target.as_path())
+            .is_ok_and(|metadata| metadata.file_type().is_symlink())
+        {
+            return Err(RuntimeError::ControlError(
+                format!(
+                    "refusing to promote OPC UA certificate through symbolic-link target {}",
+                    target.display()
+                )
+                .into(),
+            ));
+        }
         std::fs::copy(cert.path.as_path(), target.as_path()).map_err(|err| {
             RuntimeError::ControlError(
                 format!(
@@ -318,6 +328,7 @@ pub fn read_opcua_client_point_values(
             .map_err(opcua_status_error)?
     };
     session.read().disconnect();
+    validate_opcua_result_cardinality("read", points.len(), values.len())?;
 
     let mut mapped = Vec::with_capacity(points.len());
     for (point, data_value) in points.iter().zip(values) {
@@ -418,6 +429,7 @@ pub fn write_opcua_client_point_values(
             .map_err(opcua_status_error)?
     };
     session.read().disconnect();
+    validate_opcua_result_cardinality("write", values.len(), statuses.len())?;
     for (point, status) in values.iter().map(|(point, _)| point).zip(statuses) {
         if !status.is_good() {
             return Err(RuntimeError::ControlError(
@@ -434,6 +446,19 @@ pub fn write_opcua_client_point_values(
     _values: &[(OpcUaClientPointConfig, Value)],
 ) -> Result<(), RuntimeError> {
     Err(opcua_wire_feature_error())
+}
+
+fn validate_opcua_result_cardinality(
+    operation: &str,
+    expected: usize,
+    actual: usize,
+) -> Result<(), RuntimeError> {
+    if actual == expected {
+        return Ok(());
+    }
+    Err(RuntimeError::ControlError(
+        format!("OPC UA {operation} returned {actual} result(s) for {expected} request(s)").into(),
+    ))
 }
 
 #[cfg(feature = "opcua-wire")]
@@ -761,7 +786,7 @@ fn collect_certificate_files(
     root: &std::path::Path,
     certs: &mut Vec<OpcUaTrustedCertificate>,
 ) -> Result<(), RuntimeError> {
-    if !root.exists() {
+    if !certificate_directory_is_safe(root)? {
         return Ok(());
     }
     let entries = std::fs::read_dir(root).map_err(|err| {
@@ -779,9 +804,24 @@ fn collect_certificate_files(
                 format!("failed to read OPC UA trusted certificate entry: {err}").into(),
             )
         })?;
+        let file_type = entry.file_type().map_err(|err| {
+            RuntimeError::ControlError(
+                format!(
+                    "failed to inspect OPC UA certificate entry {}: {err}",
+                    entry.path().display()
+                )
+                .into(),
+            )
+        })?;
+        if file_type.is_symlink() {
+            continue;
+        }
         let path = entry.path();
-        if path.is_dir() {
+        if file_type.is_dir() {
             collect_certificate_files(path.as_path(), certs)?;
+            continue;
+        }
+        if !file_type.is_file() {
             continue;
         }
         let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
@@ -801,6 +841,50 @@ fn collect_certificate_files(
         certs.push(OpcUaTrustedCertificate { path, file_name });
     }
     Ok(())
+}
+
+fn certificate_directory_is_safe(root: &std::path::Path) -> Result<bool, RuntimeError> {
+    match std::fs::symlink_metadata(root) {
+        Ok(metadata) => Ok(metadata.is_dir() && !metadata.file_type().is_symlink()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(err) => Err(RuntimeError::ControlError(
+            format!(
+                "failed to inspect OPC UA certificate directory {}: {err}",
+                root.display()
+            )
+            .into(),
+        )),
+    }
+}
+
+fn ensure_certificate_directory(root: &std::path::Path) -> Result<(), RuntimeError> {
+    match std::fs::symlink_metadata(root) {
+        Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => Ok(()),
+        Ok(_) => Err(RuntimeError::ControlError(
+            format!(
+                "OPC UA certificate directory is not a regular directory: {}",
+                root.display()
+            )
+            .into(),
+        )),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => std::fs::create_dir(root)
+            .map_err(|err| {
+                RuntimeError::ControlError(
+                    format!(
+                        "failed to create OPC UA trusted certificate directory {}: {err}",
+                        root.display()
+                    )
+                    .into(),
+                )
+            }),
+        Err(err) => Err(RuntimeError::ControlError(
+            format!(
+                "failed to inspect OPC UA certificate directory {}: {err}",
+                root.display()
+            )
+            .into(),
+        )),
+    }
 }
 
 fn classify_opcua_client_error_message(message: &str) -> OpcUaClientErrorCode {

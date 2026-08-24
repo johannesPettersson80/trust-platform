@@ -1,4 +1,4 @@
-# PLCopen Motion Library for truST - Specification Draft v0.2
+# PLCopen Motion Library for truST - Specification v0.2
 
 ## 1. Purpose
 
@@ -227,7 +227,13 @@ END_STRUCT
 END_TYPE
 ```
 
-The content of `AXIS_REF` SHALL be treated as opaque outside the motion library.
+Because PLCopen makes the `AXIS_REF` content implementation dependent and
+requires suppliers to support access to any exposed elements, truST SHALL
+support direct read/write access to `AxisId` and `InternalIndex`. Applications
+and deterministic fixtures MAY construct an axis handle by assigning those two
+fields before FB use. Callers SHALL NOT mutate either field while a command for
+that handle is active or queued, SHALL NOT interpret either field as axis
+state, and SHALL treat every other axis-kernel detail as internal.
 
 ### 7.2 `AXES_GROUP_REF`
 
@@ -633,6 +639,27 @@ Notes:
 - `MC_HOME_DIRECTION` is distinct from the Phase A `MC_DIRECTION` enum and SHALL NOT be collapsed into it.
 - `MC_REF_SIGNAL_REF` is a vendor-specific public type required by the Part 5 step-homing FBs and SHALL resolve when the Phase D profile is enabled.
 
+### 8.8 Phase A parameter access contract
+
+For the selected Phase A profile, initialization means that the axis is
+`Disabled` and has neither an active nor a queued command. During that phase,
+`MC_WriteParameter` MAY initialize the standard read-only numeric parameter
+numbers `1`, `8`, `10`, `11`, `12`, `14`, and `16`, as permitted by Part 1.
+Outside that phase, it SHALL reject those writes with `mcERR_InvalidState` and
+SHALL leave the parameter plane unchanged. The deterministic test seeding
+helper is also an initialization surface and MAY initialize those values before
+a test starts.
+
+The writable standard numeric parameter numbers are `2`, `3`, `7`, `9`, `13`,
+`15`, and `17`. The Phase A dynamic-limit rule in section 10.5 additionally
+rejects nonpositive writes to `9`, `13`, `15`, and `17`.
+
+truST registers `PN_TRUST_VendorBool0 = 1000`, a per-axis application metadata
+bit with no motion-kernel side effect. Its default value is `FALSE`;
+`MC_WriteBoolParameter` accepts `mcImmediately` and `mcQueued` writes, and
+`MC_ReadBoolParameter` returns the stored value. This parameter is a truST
+extension and is not a standard Part 1 parameter.
+
 ## 9. Units and scaling
 
 The library SHALL follow the PLCopen technical-unit model:
@@ -713,6 +740,28 @@ The initial truST profile distinguishes between zero-valued FB motion inputs and
 
 For writes through `MC_WriteParameter` to the application dynamic-limit parameters `MaxVelocityAppl`, `MaxAccelerationAppl`, `MaxDecelerationAppl`, and `MaxJerkAppl`, the initial truST profile SHALL reject values less than or equal to `0` with `mcERR_InvalidParameter`.
 
+### 10.6 Deterministic Phase A ST kernel
+
+The current software-only Phase A ST kernel provides a deterministic
+two-invocation simulation for commands that would normally await physical
+backend completion:
+
+1. A rising `Execute` invocation accepts or queues the command, latches its
+   inputs, and exposes the applicable `Busy`, `Active`, state, and in-state
+   outputs.
+2. For an active command, the next invocation with `Execute = FALSE` is the
+   simulation completion signal. The kernel applies the final simulated values,
+   exposes `Done`, and performs the documented terminal state transition.
+
+This is a current deterministic-kernel limitation, not a claim that falling
+`Execute` completes a PLCopen command on hardware. A hardware or asynchronous
+adapter SHALL complete from backend progress independently of the `Execute`
+falling edge, as required by Part 1 section 2.4.1.
+
+Queued commands retain their accepted inputs. A queued command is promoted in
+FIFO order after the active slot is released, and its owning FB observes
+promotion on a subsequent invocation.
+
 ## 11. Output semantics
 
 ### 11.1 Execute-style FBs
@@ -721,7 +770,10 @@ For FBs with `Execute`, the implementation SHALL preserve PLCopen timing and exc
 
 - `Busy`, `Done`, `Error`, and `CommandAborted` are mutually exclusive.
 - `Active`, `Done`, `Error`, and `CommandAborted` are mutually exclusive on execute-style FBs that expose `Active`.
-- `Busy` is set on the rising edge of `Execute`.
+- `Busy` is set on the rising edge of `Execute` when the accepted command
+  remains incomplete after that invocation. A command that reaches its selected
+  terminal condition immediately may expose `Done = TRUE` and `Busy = FALSE`
+  on the accepting invocation.
 - `Busy` resets when one of `Done`, `Error`, or `CommandAborted` is set.
 - `Done` is not set when a motion is interrupted before reaching its final goal.
 - `Done`, `Error`, `ErrorID`, and `CommandAborted` SHALL remain observable for at least one scan of the calling task even if `Execute` has already gone low.
@@ -761,6 +813,27 @@ For one axis, only one FB can normally be `Active` at a time. The classic Part 1
 truST follows the Part 1 v2.0 `MC_Stop` FB tables and does not expose a public `Active` output on `MC_Stop`.
 
 The Part 1 section 2.4.1 wording about simultaneous `Active = TRUE` and `Done = TRUE` for `MC_Stop` is treated as a textual inconsistency in that source and SHALL NOT change the selected truST public signature.
+
+When the deterministic kernel has reached zero velocity while
+`MC_Stop.Execute = TRUE`, `Done` SHALL be `TRUE`, `Busy` SHALL be `FALSE`, and
+the axis SHALL remain in `Stopping`. The later invocation with
+`Execute = FALSE` moves the axis to `Standstill`. `Busy` and `Done` SHALL never
+be `TRUE` together.
+
+### 11.6 Phase A readback projection
+
+The Phase A readback FBs SHALL project the selected axis slot as follows:
+
+- `MC_ReadActualPosition`, `MC_ReadActualVelocity`, and
+  `MC_ReadActualTorque` return the current seeded or simulated actual value.
+- `MC_ReadAxisInfo` reports the configured power-stage, homed, and grouped
+  flags and does not substitute the per-axis error value.
+- `MC_ReadAxisError` reports the per-axis error value and remains distinct from
+  FB-instance `ErrorID`.
+- `MC_ReadMotionState.Source` selects commanded, set, or actual values for its
+  motion-direction flags. Positive and negative direction flags are derived
+  from the selected velocity; zero velocity sets neither flag.
+- Read, status, and parameter FBs do not change the axis motion state.
 
 ## 12. Error model
 
@@ -856,6 +929,10 @@ Required state rules:
   - `ErrorStop -> Standstill` if power is enabled and the axis is ready to stand still
 - Outside `ErrorStop`, the initial truST profile treats `MC_Reset` as a deterministic no-op command: it SHALL not change the axis state and SHALL complete without error if the backend accepts the request. Part 1 explicitly leaves `MC_Reset` outside `ErrorStop` vendor-specific.
 - `MC_Home`, when started in `Standstill`, SHALL complete in `Standstill`. The profile SHALL not imply that every allowed non-standstill entry state returns to `Standstill`; those entry-state-dependent cases SHALL be tested explicitly.
+- In the selected Phase A profile, an aborting `MC_Home` issued from
+  `DiscreteMotion` aborts the current owner, clears buffered work, takes
+  ownership, enters `Homing`, and completes in `Standstill`. This is an
+  explicit truST choice for that non-standstill entry state.
 - Administrative/read/status FBs SHALL NOT, by themselves, change the motion state.
 - `MC_MoveSuperimposed` only changes state from `Standstill` to `DiscreteMotion`; from other states it changes the commanded motion without changing the state name.
 - `MC_GearOut` and `MC_CamOut`, when implemented, SHALL transfer the axis from `SynchronizedMotion` to `ContinuousMotion`; using them outside the synchronized state is an FB/state error.
@@ -939,9 +1016,19 @@ Per axis or group, the kernel SHALL provide:
 - zero or more buffered commands
 - deterministic FIFO ordering among buffered commands
 
+The current Phase A single-axis kernel has exactly two buffered slots in
+addition to the one active slot. A third simultaneous buffered request SHALL
+fail with `mcERR_QueueFull` without changing the active command or either
+accepted queued command.
+
 ### 16.3 Buffered command cleanup
 
-If the controlled axis or group enters an error-stop state, all queued/buffered commands SHALL be cleared and SHALL report an error condition compatible with PLCopen behavior.
+If the controlled axis or group enters an error-stop state, all queued/buffered
+commands SHALL be cleared. Each affected buffered FB SHALL expose
+`Error = TRUE`, the axis fault code through `ErrorID`, `Busy = FALSE`, and
+`CommandAborted = FALSE` when that FB next observes the flush. The fault code
+SHALL remain bound to the affected buffered command until that FB observes the
+flush, even if `MC_Reset` clears the live axis fault first.
 
 ### 16.4 Targeted support rules for the selected profile
 
@@ -955,6 +1042,18 @@ The detailed per-FB support table SHALL live in the machine-readable compliance 
 | `MC_Halt` / `MC_GroupHalt` | Buffered execution supported |
 | `MC_MoveAbsolute`, `MC_MoveRelative`, `MC_MoveAdditive`, `MC_MoveVelocity`, `MC_MoveContinuousAbsolute`, `MC_MoveContinuousRelative` | Buffered operation supported per Part 1 |
 | Group linear/direct motion FBs | Use the Part 4 buffer/transition model described below |
+
+For the current Phase A single-axis implementation, the exact support matrix
+is:
+
+| FB family | `mcAborting` | `mcBuffered` | `mcBlending*` |
+| --- | --- | --- | --- |
+| `MC_Home`, `MC_Halt`, `MC_MoveAbsolute`, `MC_MoveRelative`, `MC_MoveAdditive`, `MC_MoveVelocity`, `MC_MoveContinuousAbsolute`, `MC_MoveContinuousRelative` | supported | supported | `mcERR_NotSupported` |
+
+The full `MC_BUFFER_MODE` enum remains published for source compatibility.
+Rejecting all four Part 1 blending modes is a documented limitation of the
+current deterministic Phase A kernel and does not claim Part 1 blending
+conformance.
 
 ## 17. Coordinated-motion blend model
 
@@ -1102,6 +1201,14 @@ Phase A signature notes:
   - `MC_MoveAdditive` adds to the currently commanded position.
 - `MC_MoveVelocity` SHALL expose `InVelocity`.
 - `MC_MoveContinuousAbsolute` and `MC_MoveContinuousRelative` SHALL expose `InEndVelocity`.
+- `AXIS_REF.AxisId` and `AXIS_REF.InternalIndex` are supported public handle
+  fields. Before an FB uses the handle, the application SHALL bind
+  `InternalIndex` to a configured slot in the current Phase A range `0..31`.
+  The kernel uses that slot directly and does not silently normalize an
+  out-of-range value.
+- `TRUST_MOTION_TestAxisSeed`, `TRUST_MOTION_TestAxisProbe`, and
+  `TRUST_MOTION_TestAxisQueueProbe` are deterministic verification helpers, not
+  PLCopen public FBs or compliance claims.
 
 ### 19.2 Phase B - Synchronization
 
@@ -1455,6 +1562,14 @@ The implementation SHALL ship with deterministic test cases using the truST runt
 - axis/group reset behavior
 - `MC_MoveRelative` vs `MC_MoveAdditive`
 - Part 1 parameter number table coverage
+- rejection of standard read-only parameter writes outside initialization
+- vendor BOOL parameter `1000` round-trip
+- two buffered slots plus fail-closed third-request behavior
+- the exact Phase A `mcAborting` / `mcBuffered` / rejected-`mcBlending*`
+  support matrix
+- `MC_Stop` `Busy` / `Done` exclusivity while retaining `Stopping`
+- deterministic ST-kernel completion clearly separated from hardware/backend
+  completion semantics
 
 ### 28.2 Group and coordinated-motion tests
 

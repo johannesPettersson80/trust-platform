@@ -31,3 +31,15 @@ fn docs_format_arg(format: DocsFormat) -> &'static str {
         DocsFormat::Both => "both",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn docs_format_args_match_trust_dev_cli() {
+        assert_eq!(docs_format_arg(DocsFormat::Markdown), "markdown");
+        assert_eq!(docs_format_arg(DocsFormat::Html), "html");
+        assert_eq!(docs_format_arg(DocsFormat::Both), "both");
+    }
+}

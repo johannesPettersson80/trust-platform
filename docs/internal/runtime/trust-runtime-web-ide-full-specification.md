@@ -124,6 +124,27 @@ Targets:
 - diagnostics refresh p95 <= 300ms
 - workspace search (<= 40 ST files) p95 <= 400ms
 
+### 4.11 Unified Product Shell and Runtime Integration
+
+- `/`, `/ui`, and supported tab deep links resolve to the unified `/ide`
+  product shell. The shell bootstraps only from the complete bundled module
+  set; an omitted required module is a packaging failure.
+- The shell retains explicit tab panels, a status bar, a compact toolbar with
+  overflow actions, the HTML hidden-attribute contract, and ARIA-selected tab
+  state. A hidden panel must remain hidden regardless of its layout class.
+- Online runtime control defaults to the same origin and attempts its explicit
+  connect flow without embedding a second host authority. Wrapped and direct
+  API response payloads normalize to the same client result.
+- I/O configuration reads and writes follow the active workspace. A successful
+  write updates that workspace's `io.toml`; changing the active workspace
+  changes the route target rather than mutating the former project.
+- The hardware module exposes the reviewed MQTT connectivity probe plus
+  Runtime Cloud topology and realtime-link transport projection. Settings
+  preserve the documented realtime-link fields when reading and writing the
+  runtime configuration.
+- Legacy fleet mutation routes removed from the product return not found and
+  are not silently aliased to a current Runtime Cloud operation.
+
 ## 5. Architecture Contract
 
 ### 5.1 Frontend

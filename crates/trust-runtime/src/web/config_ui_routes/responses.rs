@@ -27,3 +27,7 @@ pub(super) fn structured_error_response(
         }),
     )
 }
+
+#[cfg(test)]
+#[path = "responses/contract_tests.rs"]
+mod contract_tests;

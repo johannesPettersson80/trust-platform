@@ -243,6 +243,9 @@ impl RuntimeMetrics {
     }
 
     pub fn record_overrun(&mut self, name: &SmolStr, missed: u64) {
+        if missed == 0 {
+            return;
+        }
         self.overruns = self.overruns.saturating_add(missed);
         let entry = self.tasks.entry(name.clone()).or_default();
         entry.record_overrun(missed);
@@ -329,7 +332,7 @@ impl RuntimeMetrics {
                 },
             })
             .collect();
-        let tasks = self
+        let mut tasks = self
             .tasks
             .iter()
             .map(|(name, stats)| TaskStatsSnapshot {
@@ -340,7 +343,8 @@ impl RuntimeMetrics {
                 last_ms: stats.last_ms,
                 overruns: stats.overruns,
             })
-            .collect();
+            .collect::<Vec<_>>();
+        tasks.sort_by(|left, right| left.name.cmp(&right.name));
         RuntimeMetricsSnapshot {
             uptime_ms: self.uptime_ms(),
             execution_backend: self.execution_backend,
@@ -437,6 +441,10 @@ fn percentile(sorted_values: &[f64], quantile: f64) -> f64 {
         .copied()
         .unwrap_or_else(|| *sorted_values.last().unwrap_or(&0.0))
 }
+
+#[cfg(test)]
+#[path = "metrics_contract_tests.rs"]
+mod metrics_contract_tests;
 
 #[cfg(test)]
 mod tests {

@@ -173,13 +173,14 @@ button { padding: 10px 14px; border-radius: 8px; border: 1px solid #0f766e; back
 pub fn run_setup_web(options: SetupWebOptions) -> anyhow::Result<()> {
     let listen = format!("{}:{}", options.bind, options.port);
     let token = if options.token_required {
-        Some(generate_token())
+        Some(generate_token()?)
     } else {
         None
     };
     let expires_at = token
         .as_ref()
-        .map(|_| now_secs() + Duration::from_secs(options.token_ttl_minutes * 60).as_secs());
+        .map(|_| token_expiry(now_secs(), options.token_ttl_minutes))
+        .transpose()?;
     let state = Arc::new(Mutex::new(SetupState {
         options,
         token,
@@ -310,14 +311,16 @@ fn apply_setup(
         .driver
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| guard.options.defaults.driver.clone());
-    let write_system_io = payload.write_system_io.unwrap_or(true);
+    let write_system_io = payload.write_system_io.unwrap_or(false);
     let overwrite_system_io = payload.overwrite_system_io.unwrap_or(false);
     let use_system_io = payload.use_system_io.unwrap_or(true);
     drop(guard);
 
+    let resource_name = SmolStr::new(resource_name);
+    wizard::validate_runtime_generation_inputs(&resource_name, cycle_ms)?;
     wizard::create_bundle_auto(Some(bundle_root.clone()))?;
     let runtime_path = bundle_root.join("runtime.toml");
-    wizard::write_runtime_toml(&runtime_path, &SmolStr::new(resource_name), cycle_ms)?;
+    wizard::write_runtime_toml(&runtime_path, &resource_name, cycle_ms)?;
     let io_path = bundle_root.join("io.toml");
     if use_system_io {
         wizard::remove_io_toml(&io_path)?;
@@ -431,12 +434,29 @@ fn print_setup_urls(state: &Arc<Mutex<SetupState>>) {
     }
 }
 
-fn generate_token() -> String {
-    use rand::TryRng;
+fn generate_token() -> anyhow::Result<String> {
     let mut buf = [0u8; 16];
     let mut rng = rand::rngs::SysRng;
-    let _ = rng.try_fill_bytes(&mut buf);
-    buf.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    generate_token_with_rng(&mut rng, &mut buf)
+}
+
+fn generate_token_with_rng<R: rand::TryRng>(
+    rng: &mut R,
+    bytes: &mut [u8; 16],
+) -> anyhow::Result<String> {
+    rng.try_fill_bytes(bytes).map_err(|error| {
+        anyhow::anyhow!("operating-system secure random source failed: {error}")
+    })?;
+    Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
+}
+
+fn token_expiry(now_unix: u64, token_ttl_minutes: u64) -> anyhow::Result<u64> {
+    let ttl_seconds = token_ttl_minutes
+        .checked_mul(Duration::from_secs(60).as_secs())
+        .ok_or_else(|| anyhow::anyhow!("setup token TTL is too large"))?;
+    now_unix
+        .checked_add(ttl_seconds)
+        .ok_or_else(|| anyhow::anyhow!("setup token TTL is too large"))
 }
 
 fn now_secs() -> u64 {
@@ -517,6 +537,114 @@ mod tests {
     }
 
     #[test]
+    fn setup_query_parsing_preserves_token_parameter() {
+        assert_eq!(
+            split_query("/api/setup/defaults?other=1&token=secret"),
+            (
+                "/api/setup/defaults".to_string(),
+                Some("other=1&token=secret".to_string())
+            )
+        );
+        assert_eq!(
+            extract_query_param("other=1&token=secret", "token"),
+            Some("secret".to_string())
+        );
+        assert_eq!(extract_query_param("token", "token"), None);
+    }
+
+    #[test]
+    fn remote_setup_token_expiry_uses_checked_minutes() {
+        assert_eq!(token_expiry(1_000, 15).expect("normal TTL"), 1_900);
+        assert!(token_expiry(u64::MAX - 30, 1).is_err());
+    }
+
+    #[test]
+    fn remote_setup_ttl_overflow_returns_error_instead_of_panicking() {
+        let root = unique_temp_dir("setup-web-ttl-overflow");
+        let defaults = SetupDefaults::from_bundle(&root);
+        let outcome = std::panic::catch_unwind(|| {
+            run_setup_web(SetupWebOptions {
+                bundle_root: root,
+                bind: "127.0.0.1".to_string(),
+                port: 0,
+                token_required: true,
+                token_ttl_minutes: u64::MAX,
+                defaults,
+            })
+        });
+
+        let result = outcome.expect("TTL overflow must not panic");
+        let error = result.expect_err("TTL overflow must fail before server bind");
+        assert!(error.to_string().contains("token TTL is too large"));
+    }
+
+    #[test]
+    fn remote_setup_token_generation_fails_closed_when_secure_randomness_fails() {
+        #[derive(Debug)]
+        struct FailingRng;
+
+        impl rand::TryRng for FailingRng {
+            type Error = std::io::Error;
+
+            fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+                Err(std::io::Error::other("entropy unavailable"))
+            }
+
+            fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+                Err(std::io::Error::other("entropy unavailable"))
+            }
+
+            fn try_fill_bytes(&mut self, _dst: &mut [u8]) -> Result<(), Self::Error> {
+                Err(std::io::Error::other("entropy unavailable"))
+            }
+        }
+
+        let mut bytes = [0_u8; 16];
+        let error = generate_token_with_rng(&mut FailingRng, &mut bytes)
+            .expect_err("secure random failure must abort setup token generation");
+
+        assert!(
+            error
+                .to_string()
+                .contains("operating-system secure random source failed"),
+            "unexpected error: {error:#}"
+        );
+        assert_eq!(bytes, [0_u8; 16], "no fallback token may be synthesized");
+    }
+
+    #[test]
+    fn remote_setup_token_contains_exact_secure_random_bytes() {
+        #[derive(Debug)]
+        struct FixedRng;
+
+        impl rand::TryRng for FixedRng {
+            type Error = std::io::Error;
+
+            fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+                unreachable!("token generation uses try_fill_bytes")
+            }
+
+            fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+                unreachable!("token generation uses try_fill_bytes")
+            }
+
+            fn try_fill_bytes(&mut self, destination: &mut [u8]) -> Result<(), Self::Error> {
+                for (index, byte) in destination.iter_mut().enumerate() {
+                    *byte = index as u8;
+                }
+                Ok(())
+            }
+        }
+
+        let mut bytes = [0_u8; 16];
+        let token = generate_token_with_rng(&mut FixedRng, &mut bytes)
+            .expect("encode deterministic secure bytes");
+
+        assert_eq!(token, "000102030405060708090a0b0c0d0e0f");
+        assert_eq!(token.len(), 32, "16 random bytes require 32 hex digits");
+    }
+
+    #[test]
     fn apply_setup_persists_runtime_artifacts() {
         let root = unique_temp_dir("setup-web-artifacts");
         std::fs::create_dir_all(&root).expect("create root");
@@ -537,7 +665,7 @@ mod tests {
         let payload = SetupApplyRequest {
             project_path: Some(root.display().to_string()),
             resource_name: Some("setup_web_plc".to_string()),
-            cycle_ms: Some(100),
+            cycle_ms: Some(25),
             driver: Some("loopback".to_string()),
             write_system_io: Some(false),
             overwrite_system_io: Some(false),
@@ -550,6 +678,66 @@ mod tests {
         assert!(root.join("program.stbc").is_file());
         assert!(root.join("src").join("main.st").is_file());
         assert!(root.join("src").join("config.st").is_file());
+        let runtime = trust_runtime::config::RuntimeConfig::load(root.join("runtime.toml"))
+            .expect("load configured runtime.toml");
+        assert_eq!(runtime.resource_name, "setup_web_plc");
+        assert_eq!(runtime.cycle_interval.as_millis(), 25);
+        let config_source =
+            std::fs::read_to_string(root.join("src").join("config.st")).expect("read config.st");
+        assert!(config_source.contains("RESOURCE setup_web_plc ON PLC"));
+        assert!(config_source.contains("INTERVAL := T#25ms"));
+        let bundle = trust_runtime::config::RuntimeBundle::load(&root).expect("load setup bundle");
+        let module = trust_runtime::bytecode::BytecodeModule::decode(&bundle.bytecode)
+            .expect("decode setup bytecode");
+        module.validate().expect("validate setup bytecode");
+        let metadata = module.metadata().expect("load setup metadata");
+        let resource = metadata
+            .primary_resource()
+            .expect("setup bytecode resource metadata");
+        assert_eq!(resource.name, "setup_web_plc");
+        assert_eq!(resource.tasks.len(), 1);
+        assert_eq!(resource.tasks[0].interval.as_millis(), 25);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn apply_setup_omitted_flags_do_not_write_system_io() {
+        let root = unique_temp_dir("setup-web-safe-defaults");
+        std::fs::create_dir_all(&root).expect("create root");
+        let defaults = SetupDefaults::from_bundle(&root);
+        let state = Arc::new(Mutex::new(SetupState {
+            options: SetupWebOptions {
+                bundle_root: root.clone(),
+                bind: "127.0.0.1".to_string(),
+                port: 8080,
+                token_required: false,
+                token_ttl_minutes: 0,
+                defaults,
+            },
+            token: None,
+            expires_at: None,
+            done: false,
+        }));
+        let payload = SetupApplyRequest {
+            project_path: None,
+            resource_name: Some("SafeDefaults".to_string()),
+            cycle_ms: Some(20),
+            driver: Some("definitely-not-a-system-driver".to_string()),
+            write_system_io: None,
+            overwrite_system_io: None,
+            use_system_io: None,
+        };
+
+        let message = apply_setup(&state, payload)
+            .expect("omitted write flag must retain the advertised false default");
+
+        assert!(message.contains("Setup complete"));
+        assert!(root.join("runtime.toml").is_file());
+        assert!(root.join("program.stbc").is_file());
+        assert!(
+            !root.join("io.toml").exists(),
+            "default use_system_io must remove project io.toml"
+        );
         let _ = std::fs::remove_dir_all(root);
     }
 }

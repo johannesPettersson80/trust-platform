@@ -180,10 +180,43 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                         self.checker.unknown_type_outcome(node.text_range()),
                     );
                 };
+                if matches!(symbol.kind, SymbolKind::EnumValue { .. })
+                    && matches!(
+                        self.checker
+                            .symbols
+                            .resolve_enum_value_by_name(name.as_str()),
+                        EnumValueResolution::Ambiguous
+                    )
+                {
+                    return self.checker.legacy_diagnostic_type(
+                        DiagnosticCode::CannotResolve,
+                        node.text_range(),
+                        format!("ambiguous enum value '{}'; qualify it with its type", name),
+                    );
+                }
                 if self.checker.is_return_target(node) {
                     if let Some(return_type) = self.checker.current_function_return {
                         return return_type;
                     }
+                }
+                if symbol.edge_qualifier.is_some()
+                    && self
+                        .checker
+                        .current_pou_symbol
+                        .and_then(|current| self.checker.symbols.get(current))
+                        .is_some_and(|current| {
+                            matches!(current.kind, SymbolKind::Method { .. })
+                                && current.parent == symbol.parent
+                        })
+                {
+                    self.checker.diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        node.text_range(),
+                        format!(
+                            "edge-qualified input '{}' is not visible inside a function-block method",
+                            symbol.name
+                        ),
+                    );
                 }
                 if let Some(role) = non_value_role(&symbol.kind) {
                     return self.checker.legacy_diagnostic_type(
@@ -230,10 +263,15 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         let rhs_type = self.check_expression(rhs_node);
 
         let op = BinaryOp::from_node(node);
+        let (lhs_type, rhs_type) = if op.is_comparison() || op.is_arithmetic() {
+            self.contextual_numeric_operand_types(lhs_type, lhs_node, rhs_type, rhs_node)
+        } else {
+            (lhs_type, rhs_type)
+        };
 
         if op.is_comparison() {
             self.warn_float_equality(lhs_type, rhs_type, op, node.text_range());
-            self.check_comparable(lhs_type, rhs_type, node.text_range());
+            self.check_comparable(lhs_type, rhs_type, op, node.text_range());
             TypeId::BOOL
         } else if op.is_logical() {
             self.common_bit_string_type(
@@ -245,6 +283,37 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             )
         } else if op.is_arithmetic() {
             self.warn_literal_zero_divisor(op, rhs_node);
+            let lhs_base = self.checker.resolve_subrange_base(lhs_type);
+            let rhs_base = self.checker.resolve_subrange_base(rhs_type);
+            if Self::is_temporal_type(lhs_base) || Self::is_temporal_type(rhs_base) {
+                if let Some(result) = self.temporal_arithmetic_result(op, lhs_base, rhs_base) {
+                    return result;
+                }
+                return self.checker.legacy_diagnostic_type(
+                    DiagnosticCode::TypeMismatch,
+                    node.text_range(),
+                    "operand types are not a documented temporal arithmetic combination",
+                );
+            }
+            if op == BinaryOp::Mod {
+                let lhs = self.checker.resolve_subrange_base(lhs_type);
+                let rhs = self.checker.resolve_subrange_base(rhs_type);
+                let lhs_is_integer = self
+                    .checker
+                    .resolved_type(lhs)
+                    .is_some_and(Type::is_integer);
+                let rhs_is_integer = self
+                    .checker
+                    .resolved_type(rhs)
+                    .is_some_and(Type::is_integer);
+                if !lhs_is_integer || !rhs_is_integer {
+                    return self.checker.legacy_diagnostic_type(
+                        DiagnosticCode::TypeMismatch,
+                        node.text_range(),
+                        "MOD requires integer operands",
+                    );
+                }
+            }
             if let (Some(lhs_ty), Some(rhs_ty)) = (
                 self.checker
                     .symbols
@@ -265,6 +334,76 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             self.checker
                 .legacy_type_from_outcome(self.checker.unknown_type_outcome(node.text_range()))
         }
+    }
+
+    fn is_temporal_type(type_id: TypeId) -> bool {
+        matches!(
+            type_id,
+            TypeId::TIME
+                | TypeId::LTIME
+                | TypeId::DATE
+                | TypeId::LDATE
+                | TypeId::TOD
+                | TypeId::LTOD
+                | TypeId::DT
+                | TypeId::LDT
+        )
+    }
+
+    fn temporal_arithmetic_result(&self, op: BinaryOp, lhs: TypeId, rhs: TypeId) -> Option<TypeId> {
+        match (op, lhs, rhs) {
+            (BinaryOp::Add | BinaryOp::Sub, TypeId::TIME, TypeId::TIME) => Some(TypeId::TIME),
+            (BinaryOp::Add | BinaryOp::Sub, TypeId::LTIME, TypeId::LTIME) => Some(TypeId::LTIME),
+            (BinaryOp::Add | BinaryOp::Sub, TypeId::TOD, TypeId::TIME) => Some(TypeId::TOD),
+            (BinaryOp::Add | BinaryOp::Sub, TypeId::LTOD, TypeId::LTIME) => Some(TypeId::LTOD),
+            (BinaryOp::Add | BinaryOp::Sub, TypeId::DT, TypeId::TIME) => Some(TypeId::DT),
+            (BinaryOp::Add | BinaryOp::Sub, TypeId::LDT, TypeId::LTIME) => Some(TypeId::LDT),
+            (BinaryOp::Sub, TypeId::DATE, TypeId::DATE)
+            | (BinaryOp::Sub, TypeId::TOD, TypeId::TOD)
+            | (BinaryOp::Sub, TypeId::DT, TypeId::DT) => Some(TypeId::TIME),
+            (BinaryOp::Sub, TypeId::LDATE, TypeId::LDATE)
+            | (BinaryOp::Sub, TypeId::LTOD, TypeId::LTOD)
+            | (BinaryOp::Sub, TypeId::LDT, TypeId::LDT) => Some(TypeId::LTIME),
+            (BinaryOp::Mul | BinaryOp::Div, TypeId::TIME, numeric)
+                if self
+                    .checker
+                    .resolved_type(numeric)
+                    .is_some_and(Type::is_numeric) =>
+            {
+                Some(TypeId::TIME)
+            }
+            (BinaryOp::Mul | BinaryOp::Div, TypeId::LTIME, numeric)
+                if self
+                    .checker
+                    .resolved_type(numeric)
+                    .is_some_and(Type::is_numeric) =>
+            {
+                Some(TypeId::LTIME)
+            }
+            _ => None,
+        }
+    }
+
+    fn contextual_numeric_operand_types(
+        &mut self,
+        lhs_type: TypeId,
+        lhs_node: &SyntaxNode,
+        rhs_type: TypeId,
+        rhs_node: &SyntaxNode,
+    ) -> (TypeId, TypeId) {
+        if self.checker.is_contextual_int_literal(rhs_type, lhs_node)
+            || self.checker.is_contextual_real_literal(rhs_type, lhs_node)
+        {
+            self.checker.record_expression_type(lhs_node, rhs_type);
+            return (rhs_type, rhs_type);
+        }
+        if self.checker.is_contextual_int_literal(lhs_type, rhs_node)
+            || self.checker.is_contextual_real_literal(lhs_type, rhs_node)
+        {
+            self.checker.record_expression_type(rhs_node, lhs_type);
+            return (lhs_type, lhs_type);
+        }
+        (lhs_type, rhs_type)
     }
 
     fn infer_unary_expr(&mut self, node: &SyntaxNode) -> TypeId {
@@ -315,9 +454,28 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         }
     }
 
-    pub(super) fn check_comparable(&mut self, lhs: TypeId, rhs: TypeId, range: TextRange) {
+    pub(super) fn check_comparable(
+        &mut self,
+        lhs: TypeId,
+        rhs: TypeId,
+        op: BinaryOp,
+        range: TextRange,
+    ) {
         let lhs = self.checker.resolve_subrange_base(lhs);
         let rhs = self.checker.resolve_subrange_base(rhs);
+        if matches!(
+            op,
+            BinaryOp::Lt | BinaryOp::LtEq | BinaryOp::Gt | BinaryOp::GtEq
+        ) && (self.checker.is_reference_like_type(lhs)
+            || self.checker.is_reference_like_type(rhs))
+        {
+            self.checker.diagnostics.error(
+                DiagnosticCode::TypeMismatch,
+                range,
+                "reference and pointer values support equality comparisons only",
+            );
+            return;
+        }
         if (lhs == TypeId::NULL && self.checker.is_reference_like_type(rhs))
             || (rhs == TypeId::NULL && self.checker.is_reference_like_type(lhs))
         {
@@ -325,6 +483,24 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         }
         // Most types are comparable to themselves
         if lhs == rhs {
+            if matches!(
+                self.checker.symbols.type_by_id(lhs),
+                Some(
+                    Type::Array { .. }
+                        | Type::Struct { .. }
+                        | Type::Union { .. }
+                        | Type::FunctionBlock { .. }
+                        | Type::Class { .. }
+                        | Type::Interface { .. }
+                )
+            ) {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::TypeMismatch,
+                    range,
+                    "aggregate and instance values are not directly comparable",
+                );
+                return;
+            }
             return;
         }
 
@@ -334,6 +510,13 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             self.checker.symbols.type_by_id(rhs),
         ) {
             if l.is_numeric() && r.is_numeric() {
+                if self.checker.wider_numeric(lhs, rhs).is_none() {
+                    self.checker.diagnostics.error(
+                        DiagnosticCode::TypeMismatch,
+                        range,
+                        "numeric operands have no accuracy-preserving common type",
+                    );
+                }
                 return;
             }
             if matches!((l, r), (Type::String { .. }, Type::String { .. }))
@@ -375,6 +558,13 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
 
         match (lhs_ty, rhs_ty) {
             (Some(l), Some(r)) if l.is_bit_string() && r.is_bit_string() => {
+                if matches!(l, Type::Bool) != matches!(r, Type::Bool) {
+                    return self.checker.legacy_diagnostic_type(
+                        DiagnosticCode::TypeMismatch,
+                        range,
+                        "BOOL cannot be mixed with BYTE, WORD, DWORD, or LWORD",
+                    );
+                }
                 let lhs_size = l.bit_size().unwrap_or(0);
                 let rhs_size = r.bit_size().unwrap_or(0);
                 let common = if lhs_size >= rhs_size { lhs } else { rhs };
@@ -463,8 +653,8 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         rhs: TypeId,
         range: TextRange,
     ) -> TypeId {
-        let lhs = self.checker.resolve_alias_type(lhs);
-        let rhs = self.checker.resolve_alias_type(rhs);
+        let lhs = self.checker.resolve_subrange_base(lhs);
+        let rhs = self.checker.resolve_subrange_base(rhs);
         if lhs == TypeId::UNKNOWN || rhs == TypeId::UNKNOWN {
             return self
                 .checker
@@ -475,8 +665,13 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
 
         match (lhs_ty, rhs_ty) {
             (Some(l), Some(r)) if l.is_numeric() && r.is_numeric() => {
-                // Return the wider type
-                self.checker.wider_numeric(lhs, rhs)
+                self.checker.wider_numeric(lhs, rhs).unwrap_or_else(|| {
+                    self.checker.legacy_diagnostic_type(
+                        DiagnosticCode::TypeMismatch,
+                        range,
+                        "numeric operands have no accuracy-preserving common type",
+                    )
+                })
             }
             (None, _) | (_, None) => self
                 .checker

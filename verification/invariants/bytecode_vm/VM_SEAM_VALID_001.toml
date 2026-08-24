@@ -3,38 +3,17 @@ id = "VM_SEAM_VALID_001"
 title = "Bytecode validator rejects VM semantic contract violations"
 area = "bytecode_vm"
 risk = "silent_corruption"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-30"
 claim = "Malformed bytecode that violates VM assumptions must fail validation or load before arbitrary execution."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = [
   "crates/trust-runtime/src/bytecode/decode",
   "crates/trust-runtime/src/bytecode/validate",
 ]
-tests = [
-  "TEST_BYTECODE_ARITHMETIC_TYPE_REJECTION_001",
-  "TEST_BYTECODE_CALL_TARGET_REJECTION_001",
-  "TEST_BYTECODE_CHECKSUM_REJECTION_001",
-  "TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001",
-  "TEST_BYTECODE_CONTAINER_INVALID_MAGIC",
-  "TEST_BYTECODE_INOUT_LITERAL_REJECTION_001",
-  "TEST_BYTECODE_JUMP_BOUNDARY_REJECTION_001",
-  "TEST_BYTECODE_LEGACY_CALL_REJECTION_001",
-  "TEST_BYTECODE_MISSING_OWNER_FIELD_REJECTION_001",
-  "TEST_BYTECODE_MISSING_SECTION_REJECTION_001",
-  "TEST_BYTECODE_PARAMETER_DIRECTION_REJECTION_001",
-  "TEST_BYTECODE_SCHEMA_TAG_REJECTION_001",
-  "TEST_BYTECODE_STACK_EXIT_REJECTION_001",
-  "TEST_BYTECODE_STACK_UNDERFLOW_REJECTION_001",
-  "TEST_BYTECODE_STORE_TYPE_REJECTION_001",
-  "TEST_BYTECODE_TRANSFORM_SEED_001",
-  "TEST_BYTECODE_VALIDATOR_CASES_001",
-  "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001",
-  "TEST_BYTECODE_VERSION_REJECTION_001",
-  "TEST_BYTECODE_UNKNOWN_OPTIONAL_SECTION_001",
-]
+tests = ["TEST_AUTO_06C78E4FD9548CDFEC91", "TEST_AUTO_1ACB18866C2FC624B037", "TEST_AUTO_2017F195D5EEFC4FC922", "TEST_AUTO_3308821824B623536278", "TEST_AUTO_3A6CAB92BC8F60C11C2F", "TEST_AUTO_51482BB47DB5575280CE", "TEST_AUTO_547557A88A1751976E8D", "TEST_AUTO_57639696D571884A9785", "TEST_AUTO_644141E632E9E3CD1370", "TEST_AUTO_66836DF45D5768143A94", "TEST_AUTO_6B26ADB3DF20D72F0DB6", "TEST_AUTO_6D15F1D43CA3BDA8C505", "TEST_AUTO_70C232CD199EC1EEFB47", "TEST_AUTO_76C0ACD9DD9B4A02A05D", "TEST_AUTO_790E7CD2B51AC6800D26", "TEST_AUTO_8D25BBBA705FEE70C359", "TEST_AUTO_A6FCBE2677A8C090BECF", "TEST_AUTO_A7D063C4AAD7DB68FD24", "TEST_AUTO_ABC6710BB8234C3E95BB", "TEST_AUTO_B4A1DBB63C27E22B3380", "TEST_AUTO_B71ADAD1F3E8F1FF0373", "TEST_AUTO_E8BDC2A27F6EC334ADB8", "TEST_AUTO_EE4152F4361F181CB55B", "TEST_AUTO_F1F0C6C285477DAB1239", "TEST_AUTO_FB4371C17A9F9FB83CA9", "TEST_AUTO_FDE1B5B9C014CC5BF7BC", "TEST_BYTECODE_ARITHMETIC_TYPE_REJECTION_001", "TEST_BYTECODE_CALL_TARGET_REJECTION_001", "TEST_BYTECODE_CHECKSUM_REJECTION_001", "TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001", "TEST_BYTECODE_CONTAINER_INVALID_MAGIC", "TEST_BYTECODE_INOUT_LITERAL_REJECTION_001", "TEST_BYTECODE_JUMP_BOUNDARY_REJECTION_001", "TEST_BYTECODE_LEGACY_CALL_REJECTION_001", "TEST_BYTECODE_MISSING_OWNER_FIELD_REJECTION_001", "TEST_BYTECODE_MISSING_SECTION_REJECTION_001", "TEST_BYTECODE_PARAMETER_DIRECTION_REJECTION_001", "TEST_BYTECODE_SCHEMA_TAG_REJECTION_001", "TEST_BYTECODE_STACK_EXIT_REJECTION_001", "TEST_BYTECODE_STACK_UNDERFLOW_REJECTION_001", "TEST_BYTECODE_STORE_TYPE_REJECTION_001", "TEST_BYTECODE_TRANSFORM_SEED_001", "TEST_BYTECODE_UNKNOWN_OPTIONAL_SECTION_001", "TEST_BYTECODE_VALIDATOR_CASES_001", "TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001", "TEST_BYTECODE_VERSION_REJECTION_001"]
 gates = ["veryquick", "pr"]
 evidence_refs = [
   "EVID_P1B_BYTECODE_VALIDATOR_MUTATION_SHARD_20260709",
@@ -46,7 +25,7 @@ missing = ["broad_remote_gate"]
 
 [transform_seed]
 path = "verification/seeds/bytecode_vm/minimal-stbc-seed.toml"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-4-validator-before-apply"
 
 [input]
 name = "bytecode_container"
@@ -64,7 +43,7 @@ ref = "SPEC_BYTECODE_FORMAT_001"
 [[behavior]]
 partition = { equals = "TRUNCATED_REQUIRED_CONTAINER_DATA" }
 case_family = "missing_required"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-4-validator-before-apply"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
@@ -73,25 +52,25 @@ rationale = "A container truncated before its section table or before a declared
 [[behavior]]
 partition = { equals = "DUPLICATE_STANDARDIZED_SECTION_ID" }
 case_family = "extra_or_unknown"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#section-table-entry"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-2-section-table-entry"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "A second occurrence of any standardized section ID from 0x0001 through 0x000C invalidates the container before first-section selection can create order-dependent semantics."
 
 [[behavior]]
-partition = { equals = "UNIMPLEMENTED_RESERVED_OR_UNKNOWN_OPCODE" }
+partition = { equals = "UNIMPLEMENTED_RESERVED_LEGACY_OR_UNKNOWN_OPCODE" }
 case_family = "extra_or_unknown"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-4-validator-before-apply"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
-rationale = "Reserved and vendor opcode values remain invalid until the accepted bytecode version implements them explicitly."
+rationale = "Legacy, proposed, reserved, and vendor opcode values remain invalid until the accepted bytecode version implements them explicitly."
 
 [[behavior]]
 partition = { equals = "UNKNOWN_OPTIONAL_SECTION_FLAGS_ZERO" }
 case_family = "extra_or_unknown"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#section-table-entry"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-2-section-table-entry"
 outcome = "accept_value"
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "An unknown STBC 1.x section with flags zero is preserved as uninterpreted bytes and ignored by validation and runtime apply."
@@ -99,7 +78,7 @@ rationale = "An unknown STBC 1.x section with flags zero is preserved as uninter
 [[behavior]]
 partition = { equals = "JUMP_OUTSIDE_POU_OR_INSTRUCTION_BOUNDARY" }
 case_family = "wrong_type_or_shape"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-4-validator-before-apply"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
@@ -108,11 +87,43 @@ rationale = "A relative jump outside its POU or into an operand byte is rejected
 [[behavior]]
 partition = { equals = "INVALID_OPERAND_STACK_DATAFLOW" }
 case_family = "wrong_type_or_shape"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-4-validator-before-apply"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "Stack underflow, incompatible merge depth or shape, and non-empty normal exits are rejected during validation."
+
+[[behavior]]
+partition = { equals = "IMPLEMENTED_OPCODE_SET" }
+case_family = "happy_path"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-3-accepted-instruction-set"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every opcode implemented by the accepted bytecode version passes complete operand and runtime-support validation."
+
+[[behavior]]
+partition = { equals = "INVALID_SECTION_RANGE_OR_METADATA_REFERENCE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-4-validator-before-apply"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Out-of-bounds or overlapping sections and incompatible debug or variable metadata references reject the complete candidate before apply."
+
+[[behavior]]
+partition = { equals = "INVALID_VAR_META_UNIQUENESS_OR_LOCAL_STATE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#6-11-var-meta-0x000b-optional"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Duplicate reference or textual-name metadata and local entries carrying retain or initializer state are rejected instead of creating order-dependent or persistent local state."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Accepted-opcode assertions await catalog binding and focused execution."
 
 [[coverage.cells]]
 dimension = "missing_required"

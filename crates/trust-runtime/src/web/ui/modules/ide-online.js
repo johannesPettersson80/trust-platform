@@ -1147,6 +1147,6 @@ function onlineInit() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Defer init to after ide-01.js has set up el
+  // Defer init until the main IDE script has set up el.
   setTimeout(onlineInit, 0);
 });

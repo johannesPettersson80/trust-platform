@@ -137,6 +137,16 @@ impl ControlEndpoint {
         }
         #[cfg(unix)]
         if let Some(rest) = text.strip_prefix("unix://") {
+            if rest.is_empty() {
+                return Err(RuntimeError::ControlError(
+                    "unix endpoint path must not be empty".into(),
+                ));
+            }
+            if text.trim() != text {
+                return Err(RuntimeError::ControlError(
+                    "unix endpoint must not contain surrounding whitespace".into(),
+                ));
+            }
             return Ok(Self::Unix(PathBuf::from(rest)));
         }
         Err(RuntimeError::ControlError(
@@ -477,29 +487,94 @@ pub(crate) fn dispatch_web_control_request_port(
             payload["auth"] = serde_json::Value::String(token.to_string());
         }
     }
-    handle_request_value(payload, state, client)
+    prepare_request_value(payload, state, client)
 }
 
+pub(crate) fn complete_web_control_response_port(
+    response: &mut ControlResponse,
+    state: &ControlState,
+) {
+    let after_response = response.after_response.take();
+    apply_after_response(after_response, state);
+}
+
+pub(crate) fn write_then_complete_web_control_responses_port<R>(
+    responses: &mut [ControlResponse],
+    state: &ControlState,
+    write: impl FnOnce(&[ControlResponse]) -> R,
+) -> R {
+    let result = write(responses);
+    for response in responses {
+        complete_web_control_response_port(response, state);
+    }
+    result
+}
+
+#[cfg(test)]
 pub(crate) fn handle_request_line(
     line: &str,
     state: &ControlState,
     client: Option<&str>,
 ) -> Option<String> {
+    let prepared = prepare_request_line(line, state, client)?;
+    let response = prepared.response.clone();
+    prepared.complete(state);
+    Some(response)
+}
+
+pub(crate) struct PreparedControlLine {
+    response: String,
+    after_response: Option<ControlAfterResponse>,
+}
+
+impl PreparedControlLine {
+    pub(crate) fn response(&self) -> &str {
+        self.response.as_str()
+    }
+
+    pub(crate) fn complete(self, state: &ControlState) {
+        apply_after_response(self.after_response, state);
+    }
+}
+
+pub(crate) fn prepare_request_line(
+    line: &str,
+    state: &ControlState,
+    client: Option<&str>,
+) -> Option<PreparedControlLine> {
     let response = match serde_json::from_str::<serde_json::Value>(line) {
-        Ok(value) => handle_request_value(value, state, client),
+        Ok(value) => prepare_request_value(value, state, client),
         Err(err) => ControlResponse::error(0, format!("invalid request: {err}")),
     };
-    Some(serde_json::to_string(&response).unwrap_or_else(|err| {
+    let mut response = response;
+    let after_response = response.after_response.take();
+    let response = serde_json::to_string(&response).unwrap_or_else(|err| {
         json!({
             "id": 0_u64,
             "ok": false,
             "error": format!("response serialization failed: {err}"),
         })
         .to_string()
-    }))
+    });
+    Some(PreparedControlLine {
+        response,
+        after_response,
+    })
 }
 
+#[cfg(test)]
 pub(crate) fn handle_request_value(
+    value: serde_json::Value,
+    state: &ControlState,
+    client: Option<&str>,
+) -> ControlResponse {
+    let mut response = prepare_request_value(value, state, client);
+    let after_response = response.after_response.take();
+    apply_after_response(after_response, state);
+    response
+}
+
+fn prepare_request_value(
     value: serde_json::Value,
     state: &ControlState,
     client: Option<&str>,
@@ -624,6 +699,12 @@ pub(crate) fn handle_request_value(
     );
     response = response.with_audit_id(audit_id);
     response
+}
+
+fn apply_after_response(action: Option<ControlAfterResponse>, state: &ControlState) {
+    if matches!(action, Some(ControlAfterResponse::StopResource)) {
+        state.resource.stop();
+    }
 }
 
 fn attach_access_capabilities(response: &mut ControlResponse, role: AccessRole) {

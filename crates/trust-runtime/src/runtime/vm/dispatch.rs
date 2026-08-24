@@ -23,6 +23,7 @@ use super::dispatch_refs::{
 use super::dispatch_sizeof::{sizeof_error_to_runtime, sizeof_type_from_table};
 use super::errors::VmTrap;
 use super::frames::{ensure_global_call_depth, FrameStack};
+use super::reference_attempt::apply_reference_attempt;
 use super::register_ir::{try_execute_pou_with_register_ir, RegisterExecutionOutcome};
 use super::stack::OperandStack;
 use super::VmModule;
@@ -167,12 +168,20 @@ fn execute_pou(
     pou_id: u32,
     entry_instance: Option<InstanceId>,
 ) -> Result<(), RuntimeError> {
-    match try_execute_pou_with_register_ir(runtime, module, pou_id, entry_instance)? {
-        RegisterExecutionOutcome::Executed => Ok(()),
-        RegisterExecutionOutcome::FallbackToStack => {
-            execute_pou_stack(runtime, module, pou_id, entry_instance)
+    let edge_transaction =
+        super::edge::EdgeInputTransaction::begin(runtime, module, pou_id, entry_instance)?;
+    let result = (|| -> Result<(), RuntimeError> {
+        match try_execute_pou_with_register_ir(runtime, module, pou_id, entry_instance)? {
+            RegisterExecutionOutcome::Executed => Ok(()),
+            RegisterExecutionOutcome::FallbackToStack => {
+                execute_pou_stack(runtime, module, pou_id, entry_instance)
+            }
         }
+    })();
+    if let Some(edge_transaction) = edge_transaction {
+        edge_transaction.restore(runtime);
     }
+    result
 }
 
 fn execute_pou_stack(
@@ -604,6 +613,19 @@ pub(super) fn execute_pou_stack_with_locals(
                     .push(updated)
                     .map_err(VmTrap::into_runtime_error)?;
             }
+            0x64 => {
+                let target_type_idx =
+                    read_u32(&module.code, &mut pc).map_err(VmTrap::into_runtime_error)?;
+                let value = operand_stack.pop().map_err(VmTrap::into_runtime_error)?;
+                let frame = frames
+                    .current()
+                    .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
+                let value = apply_reference_attempt(runtime, module, frame, value, target_type_idx)
+                    .map_err(VmTrap::into_runtime_error)?;
+                operand_stack
+                    .push(value)
+                    .map_err(VmTrap::into_runtime_error)?;
+            }
             0x70 => {
                 let _debug_idx =
                     read_u32(&module.code, &mut pc).map_err(VmTrap::into_runtime_error)?;
@@ -678,15 +700,111 @@ fn partial_access_error_to_runtime(err: PartialAccessError) -> RuntimeError {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
+    use super::*;
+
     #[test]
     fn stack_deadline_stride_checks_first_and_stride_boundaries() {
-        assert!(super::should_check_stack_deadline(0));
-        assert!(!super::should_check_stack_deadline(1));
-        assert!(super::should_check_stack_deadline(
-            super::STACK_DEADLINE_CHECK_STRIDE
-        ));
-        assert!(super::should_check_stack_deadline(
-            super::STACK_DEADLINE_CHECK_STRIDE * 2
-        ));
+        assert!(should_check_stack_deadline(0));
+        assert!(!should_check_stack_deadline(1));
+        assert!(should_check_stack_deadline(STACK_DEADLINE_CHECK_STRIDE));
+        assert!(should_check_stack_deadline(STACK_DEADLINE_CHECK_STRIDE * 2));
+    }
+
+    #[test]
+    fn stack_deadline_distinguishes_missing_past_and_future_deadlines() {
+        assert!(!deadline_exceeded(None));
+        assert!(deadline_exceeded(Some(
+            Instant::now() - Duration::from_millis(1)
+        )));
+        assert!(!deadline_exceeded(Some(
+            Instant::now() + Duration::from_secs(30)
+        )));
+    }
+
+    #[test]
+    fn stack_partial_access_decoder_preserves_kind_and_rejects_reserved_bits() {
+        assert_eq!(decode_partial_access(0x000), Ok(PartialAccess::Bit(0)));
+        assert_eq!(decode_partial_access(0x0ff), Ok(PartialAccess::Bit(255)));
+        assert_eq!(decode_partial_access(0x101), Ok(PartialAccess::Byte(1)));
+        assert_eq!(decode_partial_access(0x202), Ok(PartialAccess::Word(2)));
+        assert_eq!(decode_partial_access(0x303), Ok(PartialAccess::DWord(3)));
+        assert_eq!(
+            decode_partial_access(0x400),
+            Err(RuntimeError::TypeMismatch)
+        );
+
+        assert_eq!(
+            partial_access_error_to_runtime(PartialAccessError::IndexOutOfBounds {
+                index: 32,
+                lower: 0,
+                upper: 31,
+            }),
+            RuntimeError::IndexOutOfBounds {
+                index: 32,
+                lower: 0,
+                upper: 31,
+            }
+        );
+        assert_eq!(
+            partial_access_error_to_runtime(PartialAccessError::TypeMismatch),
+            RuntimeError::TypeMismatch
+        );
+    }
+
+    #[test]
+    fn stack_execution_buffers_return_clean_and_respect_pool_limit() {
+        clear_execution_pools();
+        {
+            let mut buffers = VmExecutionBuffers::acquire();
+            let (operands, frames) = buffers.stacks_mut();
+            operands.push(Value::DInt(7)).unwrap();
+            frames.push(frame()).unwrap();
+        }
+        assert_eq!(execution_pool_lengths(), (1, 1));
+
+        {
+            let mut buffers = VmExecutionBuffers::acquire();
+            let (operands, frames) = buffers.stacks_mut();
+            assert!(matches!(operands.pop(), Err(VmTrap::StackUnderflow)));
+            assert!(frames.is_empty());
+        }
+
+        clear_execution_pools();
+        let buffers = (0..=VM_EXECUTION_POOL_LIMIT)
+            .map(|_| VmExecutionBuffers::acquire())
+            .collect::<Vec<_>>();
+        drop(buffers);
+        assert_eq!(
+            execution_pool_lengths(),
+            (VM_EXECUTION_POOL_LIMIT, VM_EXECUTION_POOL_LIMIT)
+        );
+        clear_execution_pools();
+    }
+
+    fn clear_execution_pools() {
+        VM_OPERAND_STACK_POOL.with(|pool| pool.borrow_mut().clear());
+        VM_FRAME_STACK_POOL.with(|pool| pool.borrow_mut().clear());
+    }
+
+    fn execution_pool_lengths() -> (usize, usize) {
+        let operands = VM_OPERAND_STACK_POOL.with(|pool| pool.borrow().len());
+        let frames = VM_FRAME_STACK_POOL.with(|pool| pool.borrow().len());
+        (operands, frames)
+    }
+
+    fn frame() -> super::super::frames::VmFrame {
+        super::super::frames::VmFrame {
+            pou_id: 1,
+            return_pc: 0,
+            code_start: 0,
+            code_end: 0,
+            local_ref_start: 0,
+            local_ref_count: 0,
+            locals: Vec::new(),
+            runtime_instance: None,
+            instance_owner: None,
+        }
     }
 }

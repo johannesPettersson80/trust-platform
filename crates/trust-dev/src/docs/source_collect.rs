@@ -1,12 +1,6 @@
 fn load_sources(project_root: &Path, root: &Path) -> anyhow::Result<Vec<LoadedSource>> {
     let mut paths = BTreeSet::new();
-    for pattern in ["**/*.st", "**/*.ST", "**/*.pou", "**/*.POU"] {
-        for entry in glob::glob(&format!("{}/{}", root.display(), pattern))
-            .with_context(|| format!("invalid glob pattern for '{}'", root.display()))?
-        {
-            paths.insert(entry?);
-        }
-    }
+    collect_source_paths(root, &mut paths)?;
 
     let mut sources = Vec::with_capacity(paths.len());
     for path in paths {
@@ -21,6 +15,46 @@ fn load_sources(project_root: &Path, root: &Path) -> anyhow::Result<Vec<LoadedSo
         });
     }
     Ok(sources)
+}
+
+fn collect_source_paths(root: &Path, paths: &mut BTreeSet<PathBuf>) -> anyhow::Result<()> {
+    for entry in std::fs::read_dir(root)
+        .with_context(|| format!("failed to read source root '{}'", root.display()))?
+    {
+        let entry = entry.with_context(|| format!("failed to inspect source root '{}'", root.display()))?;
+        let path = entry.path();
+        let file_type = entry
+            .file_type()
+            .with_context(|| format!("failed to inspect source '{}'", path.display()))?;
+        let is_source = is_source_extension(&path);
+        if file_type.is_symlink() {
+            if is_source {
+                anyhow::bail!("symbolic link is not allowed in source discovery: {}", path.display());
+            }
+            continue;
+        }
+        if file_type.is_dir() {
+            if is_source {
+                anyhow::bail!("source '{}' is not a regular file", path.display());
+            }
+            collect_source_paths(&path, paths)?;
+            continue;
+        }
+        if !is_source {
+            continue;
+        }
+        if !file_type.is_file() {
+            anyhow::bail!("source '{}' is not a regular file", path.display());
+        }
+        paths.insert(path);
+    }
+    Ok(())
+}
+
+fn is_source_extension(path: &Path) -> bool {
+    path.extension().is_some_and(|extension| {
+        extension.eq_ignore_ascii_case("st") || extension.eq_ignore_ascii_case("pou")
+    })
 }
 
 fn collect_api_items(sources: &[LoadedSource]) -> (Vec<ApiItem>, Vec<DocDiagnostic>) {

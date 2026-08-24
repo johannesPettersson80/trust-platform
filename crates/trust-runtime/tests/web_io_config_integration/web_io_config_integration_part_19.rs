@@ -85,6 +85,83 @@ fn runtime_cloud_ha_split_brain_preflight_denies_dual_active_candidates() {
 }
 
 #[test]
+fn runtime_cloud_ha_split_brain_preflight_checks_candidates_outside_action_subset() {
+    let project = make_project("runtime-cloud-ha-split-brain-subset");
+    let state = control_state_named(source_fixture(), "runtime-a");
+    let base = start_test_server(state, project.clone());
+
+    let payload = json!({
+        "api_version": "1.0",
+        "request_id": "req-ha-split-brain-subset-1",
+        "connected_via": "runtime-a",
+        "target_runtimes": ["runtime-a"],
+        "actor": "spiffe://trust/default-site/operator-1",
+        "action_type": "cmd_invoke",
+        "dry_run": true,
+        "payload": {
+            "command": "status",
+            "ha": {
+                "profile": "dual_host",
+                "group_id": "line-subset-ha",
+                "active_namespace": true,
+                "command_seq": 42,
+                "targets": {
+                    "runtime-a": {
+                        "role": "active",
+                        "lease_consistent_authority": true,
+                        "lease_available": true,
+                        "lease_owner_runtime_id": "runtime-a",
+                        "fencing_token": "fence-a",
+                        "fence_valid": true
+                    },
+                    "runtime-b": {
+                        "role": "active",
+                        "lease_consistent_authority": true,
+                        "lease_available": true,
+                        "lease_owner_runtime_id": "runtime-b",
+                        "fencing_token": "fence-b",
+                        "fence_valid": true
+                    }
+                }
+            }
+        }
+    });
+    let body = ureq::post(&format!("{base}/api/runtime-cloud/actions/preflight"))
+        .header("Content-Type", "application/json")
+        .send(&payload.to_string())
+        .expect("runtime cloud HA subset split-brain preflight response")
+        .body_mut()
+        .read_to_string()
+        .expect("read runtime cloud HA subset split-brain body");
+    let response: Value =
+        serde_json::from_str(&body).expect("parse runtime cloud HA subset split-brain preflight");
+
+    assert_eq!(
+        response.get("allowed").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        response.get("denial_code").and_then(Value::as_str),
+        Some("lease_unavailable")
+    );
+    let decisions = response
+        .get("decisions")
+        .and_then(Value::as_array)
+        .expect("preflight decisions");
+    assert_eq!(decisions.len(), 1);
+    assert_eq!(
+        decisions[0].get("runtime_id").and_then(Value::as_str),
+        Some("runtime-a")
+    );
+    assert_eq!(
+        decisions[0].get("denial_code").and_then(Value::as_str),
+        Some("lease_unavailable")
+    );
+
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
 fn runtime_cloud_ha_lease_expiry_demotes_active_runtime_preflight() {
     let project = make_project("runtime-cloud-ha-lease-expiry");
     let state = control_state_named(source_fixture(), "runtime-a");

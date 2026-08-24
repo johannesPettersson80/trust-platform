@@ -1,12 +1,13 @@
-use alloc::{boxed::Box, format, string::String, vec::Vec};
+use alloc::{boxed::Box, format, string::String, sync::Arc, vec::Vec};
 
+use indexmap::IndexMap;
 use smol_str::SmolStr;
 
 use crate::bytecode::{ConstEntry, ConstPool, StringTable, TypeData, TypeEntry, TypeTable};
 use crate::error::RuntimeError;
 use crate::value::{
-    DateTimeValue, DateValue, Duration, EnumValue, LDateTimeValue, LDateValue, LTimeOfDayValue,
-    TimeOfDayValue, Value,
+    ArrayValue, DateTimeValue, DateValue, Duration, EnumValue, LDateTimeValue, LDateValue,
+    LTimeOfDayValue, StructValue, TimeOfDayValue, Value,
 };
 
 /// Decode every bytecode constant-pool entry into runtime core values.
@@ -22,25 +23,106 @@ pub fn decode_const_pool_entries(
     Ok(out)
 }
 
-fn resolve_const_entry(
-    types: &TypeTable,
-    type_id: u32,
-    depth: u8,
-) -> Result<&TypeEntry, RuntimeError> {
-    if depth > 32 {
-        return Err(invalid_bytecode("const type recursion overflow"));
-    }
-    let entry = types
+fn const_type_entry(types: &TypeTable, type_id: u32) -> Result<&TypeEntry, RuntimeError> {
+    types
         .entries
         .get(type_id as usize)
-        .ok_or_else(|| invalid_bytecode(format!("invalid const type index {type_id}")))?;
+        .ok_or_else(|| invalid_bytecode(format!("invalid const type index {type_id}")))
+}
+
+fn decode_const_payload(
+    types: &TypeTable,
+    strings: &StringTable,
+    type_id: u32,
+    payload: &[u8],
+    depth: u8,
+) -> Result<Value, RuntimeError> {
+    if depth > crate::bytecode::BYTECODE_MAX_CONST_NESTING {
+        return Err(invalid_bytecode("const type recursion overflow"));
+    }
+    let entry = const_type_entry(types, type_id)?;
     match &entry.data {
-        TypeData::Primitive { .. } | TypeData::Enum { .. } => Ok(entry),
+        TypeData::Primitive { prim_id, .. } => decode_primitive_constant(*prim_id, payload),
+        TypeData::Enum { variants, .. } => {
+            let bytes = read_exact::<8>(payload, "enum const payload")?;
+            let numeric_value = i64::from_le_bytes(bytes);
+            let enum_name = string_at(strings, entry.name_idx, "enum const type name")?;
+            let variant = variants
+                .iter()
+                .find(|variant| variant.value == numeric_value)
+                .ok_or_else(|| invalid_bytecode("enum const variant value missing"))?;
+            let variant_name =
+                string_at(strings, Some(variant.name_idx), "enum const variant name")?;
+            Ok(Value::Enum(Box::new(EnumValue::from_canonical_parts(
+                enum_name,
+                variant_name,
+                numeric_value,
+            ))))
+        }
         TypeData::Alias { target_type_id } => {
-            resolve_const_entry(types, *target_type_id, depth + 1)
+            decode_const_payload(types, strings, *target_type_id, payload, depth + 1)
         }
         TypeData::Subrange { base_type_id, .. } => {
-            resolve_const_entry(types, *base_type_id, depth + 1)
+            decode_const_payload(types, strings, *base_type_id, payload, depth + 1)
+        }
+        TypeData::Array { elem_type_id, dims } => {
+            let mut reader = ConstPayloadReader::new(payload);
+            let count = reader.read_u32("ARRAY const element count")? as usize;
+            let expected = array_element_count(dims)?;
+            if count != expected {
+                return Err(invalid_bytecode(format!(
+                    "ARRAY const element count mismatch: expected {expected}, got {count}"
+                )));
+            }
+            let mut elements = Vec::with_capacity(count);
+            for _ in 0..count {
+                let child = reader.read_child("ARRAY const element")?;
+                elements.push(decode_const_payload(
+                    types,
+                    strings,
+                    *elem_type_id,
+                    child,
+                    depth + 1,
+                )?);
+            }
+            reader.finish("ARRAY const payload")?;
+            Ok(Value::Array(Box::new(ArrayValue::from_canonical_parts(
+                elements,
+                dims.clone(),
+            ))))
+        }
+        TypeData::Struct { fields } | TypeData::Union { fields } => {
+            let mut reader = ConstPayloadReader::new(payload);
+            let count = reader.read_u32("struct/union const field count")? as usize;
+            if count != fields.len() {
+                return Err(invalid_bytecode(format!(
+                    "struct/union const field count mismatch: expected {}, got {count}",
+                    fields.len()
+                )));
+            }
+            let mut values = IndexMap::with_capacity(fields.len());
+            for field in fields {
+                let name = string_at(strings, Some(field.name_idx), "const field name")?;
+                let child = reader.read_child("struct/union const field")?;
+                let value = decode_const_payload(types, strings, field.type_id, child, depth + 1)?;
+                values.insert(name, value);
+            }
+            reader.finish("struct/union const payload")?;
+            let type_name = string_at(strings, entry.name_idx, "struct/union const type name")?;
+            Ok(Value::Struct(Arc::new(StructValue::from_canonical_parts(
+                type_name, values,
+            ))))
+        }
+        TypeData::Reference { .. } => {
+            let reference =
+                u32::from_le_bytes(read_exact::<4>(payload, "REFERENCE const payload")?);
+            if reference == u32::MAX {
+                Ok(Value::Reference(None))
+            } else {
+                Err(invalid_bytecode(
+                    "non-NULL REFERENCE const cannot be materialized without REF_TABLE context",
+                ))
+            }
         }
         _ => Err(invalid_bytecode(format!(
             "unsupported const type kind at index {type_id}"
@@ -53,36 +135,81 @@ fn decode_const_value(
     types: &TypeTable,
     strings: &StringTable,
 ) -> Result<Value, RuntimeError> {
-    match &resolve_const_entry(types, entry.type_id, 0)?.data {
-        TypeData::Enum { variants, .. } => {
-            let bytes = read_exact::<8>(&entry.payload, "enum const payload")?;
-            let numeric_value = i64::from_le_bytes(bytes);
-            let type_entry = resolve_const_entry(types, entry.type_id, 0)?;
-            let enum_name_idx = type_entry
-                .name_idx
-                .ok_or_else(|| invalid_bytecode("enum const missing type name"))?;
-            let enum_name = strings
-                .entries
-                .get(enum_name_idx as usize)
-                .cloned()
-                .ok_or_else(|| invalid_bytecode("enum const type name index out of bounds"))?;
-            let variant = variants
-                .iter()
-                .find(|variant| variant.value == numeric_value)
-                .ok_or_else(|| invalid_bytecode("enum const variant value missing"))?;
-            let variant_name = strings
-                .entries
-                .get(variant.name_idx as usize)
-                .cloned()
-                .ok_or_else(|| invalid_bytecode("enum const variant name index out of bounds"))?;
-            Ok(Value::Enum(Box::new(EnumValue::from_canonical_parts(
-                enum_name,
-                variant_name,
-                numeric_value,
-            ))))
+    decode_const_payload(types, strings, entry.type_id, &entry.payload, 0)
+}
+
+fn string_at(
+    strings: &StringTable,
+    index: Option<u32>,
+    kind: &str,
+) -> Result<SmolStr, RuntimeError> {
+    let index = index.ok_or_else(|| invalid_bytecode(format!("{kind} missing")))?;
+    strings
+        .entries
+        .get(index as usize)
+        .cloned()
+        .ok_or_else(|| invalid_bytecode(format!("{kind} index out of bounds")))
+}
+
+fn array_element_count(dims: &[(i64, i64)]) -> Result<usize, RuntimeError> {
+    if dims
+        .iter()
+        .any(|(lower, upper)| *lower == 0 && *upper == i64::MAX)
+    {
+        return Ok(0);
+    }
+    let mut count = 1_i128;
+    for (lower, upper) in dims {
+        if lower > upper {
+            return Err(invalid_bytecode("invalid ARRAY const bounds"));
         }
-        TypeData::Primitive { prim_id, .. } => decode_primitive_constant(*prim_id, &entry.payload),
-        _ => Err(invalid_bytecode("unsupported const type kind")),
+        count = count
+            .checked_mul(i128::from(*upper) - i128::from(*lower) + 1)
+            .ok_or_else(|| invalid_bytecode("ARRAY const element count overflow"))?;
+    }
+    usize::try_from(count).map_err(|_| invalid_bytecode("ARRAY const element count overflow"))
+}
+
+struct ConstPayloadReader<'a> {
+    remaining: &'a [u8],
+}
+
+impl<'a> ConstPayloadReader<'a> {
+    fn new(payload: &'a [u8]) -> Self {
+        Self { remaining: payload }
+    }
+
+    fn read_u32(&mut self, kind: &str) -> Result<u32, RuntimeError> {
+        let bytes = self.take(4, kind)?;
+        Ok(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+    }
+
+    fn read_child(&mut self, kind: &str) -> Result<&'a [u8], RuntimeError> {
+        let len = self.read_u32(&format!("{kind} length"))? as usize;
+        self.take(len, kind)
+    }
+
+    fn take(&mut self, len: usize, kind: &str) -> Result<&'a [u8], RuntimeError> {
+        if self.remaining.len() < len {
+            return Err(invalid_bytecode(format!(
+                "truncated {kind}: need {len} bytes, have {}",
+                self.remaining.len()
+            )));
+        }
+        let (value, remaining) = self.remaining.split_at(len);
+        self.remaining = remaining;
+        Ok(value)
+    }
+
+    fn finish(self, kind: &str) -> Result<(), RuntimeError> {
+        if self.remaining.is_empty() {
+            Ok(())
+        } else {
+            Err(invalid_bytecode(format!(
+                "invalid {kind} length: {} trailing bytes",
+                self.remaining.len()
+            )))
+        }
     }
 }
 
@@ -179,9 +306,11 @@ fn decode_primitive_constant(prim_id: u16, payload: &[u8]) -> Result<Value, Runt
             if !payload.len().is_multiple_of(2) {
                 return Err(invalid_bytecode("invalid WSTRING const payload length"));
             }
-            let units = payload
-                .chunks_exact(2)
-                .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+            let (units, remainder) = payload.as_chunks::<2>();
+            debug_assert!(remainder.is_empty());
+            let units = units
+                .iter()
+                .map(|unit| u16::from_le_bytes(*unit))
                 .collect::<Vec<_>>();
             let text = String::from_utf16(&units)
                 .map_err(|err| invalid_bytecode(format!("invalid WSTRING const UTF-16: {err}")))?;

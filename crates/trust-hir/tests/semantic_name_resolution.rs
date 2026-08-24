@@ -70,11 +70,11 @@ END_PROGRAM
 }
 
 #[test]
-fn test_invalid_identifier() {
+fn test_reserved_identifier() {
     check_has_error(
         r#"
 PROGRAM Test
-    VAR __bad : INT; END_VAR
+    VAR GET : INT; END_VAR
 END_PROGRAM
 "#,
         DiagnosticCode::InvalidIdentifier,

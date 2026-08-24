@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 import tempfile
 import unittest
 from copy import deepcopy
@@ -184,16 +183,12 @@ class CaseGeneratorTests(unittest.TestCase):
         )
         self.assertNotEqual(behavior_record["source_digest"], record["source_digest"])
 
-    def test_metadata_gate_dispatches_all_committed_generated_case_versions(self) -> None:
-        result = subprocess.run(
-            ["scripts/verification_metadata_gate.sh"],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+    def test_case_generators_remain_standalone_tools(self) -> None:
+        metadata_gate = (ROOT / "scripts/verification_metadata_gate.sh").read_text()
+        self.assertNotIn("gen_cases.py", metadata_gate)
+        self.assertNotIn("gen_cases_v2.py", metadata_gate)
+        self.assertTrue((ROOT / "scripts/gen_cases.py").is_file())
+        self.assertTrue((ROOT / "scripts/gen_cases_v2.py").is_file())
 
 
 if __name__ == "__main__":

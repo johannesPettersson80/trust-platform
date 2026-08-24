@@ -30,7 +30,7 @@ legacy_report_path = "docs/internal/testing/evidence/plc-verification-program/20
 [[shards.mutations]]
 id = "MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS"
 source_file = "crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs"
-source_digest = "sha256:5f31346110fd936a1677a1a3a5ef8c88ad389877f782677227927e13acb520de"
+source_digest = "sha256:ccf850a28e78feb398c5e6af31dfc2f7b52a1841eb78fe7a09ca2c3fabfa86b0"
 function = "validate_instruction_stream"
 genre = "FnValue"
 replacement = "Ok(())"
@@ -47,7 +47,7 @@ association_ids = [
 [[shards.mutations]]
 id = "MUTANT_VALIDATE_STACK_SHAPE_BYPASS"
 source_file = "crates/trust-runtime/src/bytecode/validate/stack_shape.rs"
-source_digest = "sha256:f397f8ac7876602ba9d29423fa424b7ea36bed4b211476a11354b2cbc97646d8"
+source_digest = "sha256:04bbbf008c631f327b7762061204174b05c684b5e095445b77633d3872578e9f"
 function = "validate_stack_shape"
 genre = "FnValue"
 replacement = "Ok(())"
@@ -141,11 +141,11 @@ result_artifact_path = "docs/internal/testing/evidence/plc-verification-program/
 [[shards.mutations]]
 id = "MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP"
 source_file = "crates/trust-hir/src/type_check/stmt_impl_part_04.rs"
-source_digest = "sha256:e4baaa08b5483cb98da84f5737e0daa825cbb12ba7569382df7f9c69f8b45c9f"
+source_digest = "sha256:0313775d95f8453d465b488e1a02739d305a6175305902a99ec4d1cfa824d719"
 function = "StmtChecker<'a, 'b>::check_subrange_assignment"
 genre = "FnValue"
 replacement = "()"
-selector_name = "stmt_impl_part_04.rs:226:9: replace StmtChecker<'a, 'b>::check_subrange_assignment with ()"
+selector_name = "stmt_impl_part_04.rs:245:9: replace StmtChecker<'a, 'b>::check_subrange_assignment with ()"
 build_command = ["cargo", "test", "-p", "trust-hir", "--test", "semantic_type_checking", "--no-run"]
 test_command = ["cargo", "test", "-p", "trust-hir", "--test", "semantic_type_checking", "basics_and_warnings::test_subrange_assignment_out_of_range", "--", "--exact"]
 association_ids = ["DISC_44D2AECEE13EB41E3AA0"]
@@ -202,12 +202,12 @@ result_artifact_path = "docs/internal/testing/evidence/plc-verification-program/
 
 [[shards.mutations]]
 id = "MUTANT_RETAIN_ON_WARM_FALSE"
-source_file = "crates/trust-runtime/src/runtime/restart.rs"
-source_digest = "sha256:57c2c9eb5b30ee00aff10653037975a38a528afb84c6485366fce8cb140f5808"
+source_file = "crates/trust-runtime/src/runtime/retain_snapshot.rs"
+source_digest = "sha256:fd327b32938ff4309e5bca8efe7e663c488d5e23394978783ce6cfd5c3fad400"
 function = "retain_on_warm"
 genre = "FnValue"
 replacement = "false"
-selector_name = "restart.rs:686:5: replace retain_on_warm -> bool with false"
+selector_name = "retain_snapshot.rs:683:5: replace retain_on_warm -> bool with false"
 build_command = ["cargo", "test", "-p", "trust-runtime", "--test", "runtime_restart", "--no-run"]
 test_command = ["cargo", "test", "-p", "trust-runtime", "--test", "runtime_restart", "warm_restart_preserves_retain_and_initializes_nonretain", "--", "--exact"]
 association_ids = ["DISC_83FE96819CB25F21CA77"]

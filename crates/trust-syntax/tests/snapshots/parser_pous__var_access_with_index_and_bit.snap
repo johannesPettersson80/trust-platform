@@ -1,6 +1,6 @@
 ---
 source: crates/trust-syntax/tests/parser_pous.rs
-expression: "snapshot_parse(r#\"CONFIGURATION Conf\nVAR_ACCESS\n    Acc1 : Station_1.P1.arr[1] : INT READ_ONLY;\n    Acc2 : Station_1.P1.word.0 : BOOL READ_WRITE;\nEND_VAR\nEND_CONFIGURATION\"#)"
+expression: snapshot_parse(source)
 ---
 SourceFile@0..153
   Configuration@0..153
@@ -31,36 +31,25 @@ SourceFile@0..153
           KwInt@63..66 "INT"
         KwReadOnly@67..76 "READ_ONLY"
       Semicolon@76..77 ";"
-      AccessDecl@77..102
+      AccessDecl@77..126
         Name@77..87
           Ident@82..86 "Acc2"
         Colon@87..88 ":"
-        AccessPath@88..102
+        AccessPath@88..109
           Name@88..98
             Ident@89..98 "Station_1"
           Dot@98..99 "."
           Name@99..101
             Ident@99..101 "P1"
           Dot@101..102 "."
-      KwWord@102..106 "word"
-      Dot@106..107 "."
-      IntLiteral@107..108 "0"
-      Colon@109..110 ":"
-      KwBool@111..115 "BOOL"
-      KwReadWrite@116..126 "READ_WRITE"
+          Name@102..106
+            Ident@102..106 "bits"
+          Dot@106..107 "."
+          IntLiteral@107..108 "0"
+        Colon@109..110 ":"
+        TypeRef@110..116
+          KwBool@111..115 "BOOL"
+        KwReadWrite@116..126 "READ_WRITE"
       Semicolon@126..127 ";"
       KwEndVar@128..135 "END_VAR"
     KwEndConfiguration@136..153 "END_CONFIGURATION"
-
----
-Errors:
-  - expected name, integer, or direct address after '.' at 102..106
-  - expected ':' before access type at 102..106
-  - expected ';' after VAR_ACCESS entry at 102..106
-  - expected access declaration at 102..106
-  - expected access declaration at 106..107
-  - expected access declaration at 107..108
-  - expected access declaration at 109..110
-  - expected access declaration at 111..115
-  - expected access declaration at 116..126
-  - expected access declaration at 126..127

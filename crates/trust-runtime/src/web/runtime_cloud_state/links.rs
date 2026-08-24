@@ -111,21 +111,51 @@ pub(in crate::web) fn runtime_cloud_apply_link_transport_preferences(
     let Ok(guard) = state.lock() else {
         return;
     };
+    let local_runtime_id = ui_state.context.connected_via.clone();
     link_policy::runtime_cloud_apply_link_transport_preferences(
         ui_state,
         &guard,
         |source, target| {
             discovery
                 .map(|discovery_state| {
-                    runtime_cloud_link_is_same_host(discovery_state, source, target)
+                    runtime_cloud_link_is_same_host_from_local(
+                        discovery_state,
+                        local_runtime_id.as_str(),
+                        source,
+                        target,
+                    )
                 })
                 .unwrap_or(true)
         },
     );
 }
 
+#[cfg(test)]
 pub(in crate::web) fn runtime_cloud_link_is_same_host(
     discovery: &DiscoveryState,
+    source: &str,
+    target: &str,
+) -> bool {
+    runtime_cloud_link_is_same_host_with_local(discovery, None, source, target)
+}
+
+pub(in crate::web) fn runtime_cloud_link_is_same_host_from_local(
+    discovery: &DiscoveryState,
+    local_runtime_id: &str,
+    source: &str,
+    target: &str,
+) -> bool {
+    runtime_cloud_link_is_same_host_with_local(
+        discovery,
+        Some(local_runtime_id.trim()),
+        source,
+        target,
+    )
+}
+
+fn runtime_cloud_link_is_same_host_with_local(
+    discovery: &DiscoveryState,
+    local_runtime_id: Option<&str>,
     source: &str,
     target: &str,
 ) -> bool {
@@ -152,10 +182,19 @@ pub(in crate::web) fn runtime_cloud_link_is_same_host(
         .get(target)
         .cloned()
         .unwrap_or_default();
-    link_policy::runtime_cloud_addresses_share_host(
+    if link_policy::runtime_cloud_addresses_share_host(
         source_addresses.as_slice(),
         target_addresses.as_slice(),
-    )
+    ) {
+        return true;
+    }
+
+    let Some(local_runtime_id) = local_runtime_id.filter(|runtime_id| !runtime_id.is_empty())
+    else {
+        return false;
+    };
+    (source == local_runtime_id && target_addresses.iter().any(IpAddr::is_loopback))
+        || (target == local_runtime_id && source_addresses.iter().any(IpAddr::is_loopback))
 }
 
 pub(in crate::web) fn runtime_cloud_compute_host_groups(
@@ -174,8 +213,12 @@ pub(in crate::web) fn runtime_cloud_compute_host_groups(
         return groups;
     };
 
+    let local_runtime_id = nodes
+        .iter()
+        .find(|node| node.role == crate::runtime_cloud::projection::FleetRole::Active)
+        .map(|node| node.runtime_id.as_str());
     link_policy::runtime_cloud_compute_host_groups(nodes, |source, target| {
-        runtime_cloud_link_is_same_host(discovery, source, target)
+        runtime_cloud_link_is_same_host_with_local(discovery, local_runtime_id, source, target)
     })
 }
 
@@ -495,6 +538,46 @@ mod tests {
         assert!(!runtime_cloud_link_is_same_host(
             &discovery,
             "runtime-a",
+            "runtime-b"
+        ));
+    }
+
+    #[test]
+    fn same_host_check_does_not_use_peer_loopback_as_global_host_proof() {
+        let discovery = DiscoveryState::new();
+        discovery.replace_entries(vec![
+            DiscoveryEntry {
+                id: SmolStr::new("runtime-b-111"),
+                name: SmolStr::new("runtime-b"),
+                addresses: vec![IpAddr::V4(Ipv4Addr::new(10, 0, 0, 20))],
+                web_port: Some(8081),
+                web_tls: false,
+                mesh_port: Some(5201),
+                control: None,
+                host_group: None,
+                last_seen_ns: 1,
+            },
+            DiscoveryEntry {
+                id: SmolStr::new("runtime-c-222"),
+                name: SmolStr::new("runtime-c"),
+                addresses: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                web_port: Some(8082),
+                web_tls: false,
+                mesh_port: Some(5202),
+                control: None,
+                host_group: None,
+                last_seen_ns: 1,
+            },
+        ]);
+
+        assert!(!runtime_cloud_link_is_same_host(
+            &discovery,
+            "runtime-b",
+            "runtime-c"
+        ));
+        assert!(!runtime_cloud_link_is_same_host(
+            &discovery,
+            "runtime-c",
             "runtime-b"
         ));
     }

@@ -663,7 +663,7 @@ END_VAR
 Tn := T_PLC_MS();
 Tc := BIT_COUNT(IN := Tn);
 Tn := ROL(Tn OR DWORD#16#80000001, Tc MOD 32);
-Seed := LIMIT(0.0, LAST, 1.0);
+Seed := LIMIT(REAL#0.0, LAST, REAL#1.0);
 RDM := FRACT(X := ABS(SIN(DWORD_TO_REAL(Tn) * 0.0001 + Seed * MATH.PI2)) * 10000.0);
 END_FUNCTION
 
@@ -771,7 +771,7 @@ VAR
     Scale : REAL;
     Rounded : DINT;
 END_VAR
-Scale := EXPN(X := 10.0, N := LIMIT(0, N, 8));
+Scale := EXPN(X := REAL#10.0, N := LIMIT(INT#0, N, INT#8));
 IF IN >= 0.0 THEN
     Rounded := D_TRUNC(X := IN * Scale + 0.5);
 ELSE

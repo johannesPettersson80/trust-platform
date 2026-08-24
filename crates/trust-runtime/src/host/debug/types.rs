@@ -324,3 +324,7 @@ pub struct DebugStop {
     /// Breakpoint generation when the stop was emitted.
     pub breakpoint_generation: Option<u64>,
 }
+
+#[cfg(test)]
+#[path = "types/contract_tests.rs"]
+mod contract_tests;

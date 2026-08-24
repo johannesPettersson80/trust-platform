@@ -1,9 +1,20 @@
-use std::fs;
 use std::path::PathBuf;
 
+include!("../../../tests/support/repository_source_oracle.rs");
+
 fn read_source(path: &str) -> String {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    fs::read_to_string(root.join(path)).expect("read source")
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repository_root = manifest_dir
+        .parent()
+        .and_then(std::path::Path::parent)
+        .expect("workspace root")
+        .to_path_buf();
+    repository_source_tree_read_to_string!(
+        (manifest_dir.join(path), &repository_root),
+        roots = ["crates/trust-runtime/src"],
+        extension = "rs",
+    )
+    .expect("read source")
 }
 
 fn marker_index(source_path: &str, source_text: &str, marker: &str) -> usize {
@@ -92,7 +103,24 @@ fn runtime_cloud_proxy_routes_are_policy_first_adapters() {
         source_path,
         dispatch_section,
         "map_action_to_control_request(&action)",
-        "dispatch_control_request(",
+        "prepare_control_request(",
+    );
+    let completion_section = &dispatch_section[marker_index(
+        source_path,
+        dispatch_section,
+        "let mut deferred_control_responses",
+    )..];
+    assert_marker_before(
+        source_path,
+        completion_section,
+        "prepare_control_request(",
+        "write_then_complete_control_requests(",
+    );
+    assert_marker_before(
+        source_path,
+        completion_section,
+        "write_then_complete_control_requests(",
+        "request.respond(response)",
     );
 
     let source_path = "src/web/runtime_cloud_routes/control_proxy.rs";
@@ -109,7 +137,24 @@ fn runtime_cloud_proxy_routes_are_policy_first_adapters() {
         source_path,
         control_proxy_section,
         "runtime_cloud_preflight_for_action(",
-        "dispatch_control_request(",
+        "prepare_control_request(",
+    );
+    let completion_section = &control_proxy_section[marker_index(
+        source_path,
+        control_proxy_section,
+        "let mut deferred_control_response",
+    )..];
+    assert_marker_before(
+        source_path,
+        completion_section,
+        "prepare_control_request(",
+        "write_then_complete_control_requests(",
+    );
+    assert_marker_before(
+        source_path,
+        completion_section,
+        "write_then_complete_control_requests(",
+        "request.respond(response)",
     );
 
     let source_path = "src/web/runtime_cloud_routes/io_proxy.rs";

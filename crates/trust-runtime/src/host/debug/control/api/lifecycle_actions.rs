@@ -13,6 +13,7 @@ impl DebugControl {
                     target_thread: None,
                     breakpoints: Vec::new(),
                     breakpoint_generation: HashMap::new(),
+                    breakpoint_stops_this_cycle: HashSet::new(),
                     frame_locations: HashMap::new(),
                     logs: Vec::new(),
                     snapshot: None,
@@ -41,6 +42,12 @@ impl DebugControl {
 
     pub(crate) fn watchdog_pause_elapsed(&self) -> std::time::Duration {
         std::time::Duration::from_nanos(self.watchdog_pause_nanos.load(Ordering::Relaxed))
+    }
+
+    pub(crate) fn begin_cycle(&self) {
+        let (lock, _) = &*self.state;
+        let mut state = lock.lock().expect("debug state poisoned");
+        state.breakpoint_stops_this_cycle.clear();
     }
 
     pub(super) fn record_watchdog_pause(&self, elapsed: std::time::Duration) {
@@ -173,6 +180,7 @@ impl DebugControl {
             .breakpoints
             .extend(breakpoints.into_iter().map(|mut bp| {
                 bp.generation = generation;
+                bp.hits = 0;
                 bp
             }));
         trace_debug(&format!(
@@ -191,6 +199,7 @@ impl DebugControl {
         let prev_total = state.breakpoints.len();
         state.breakpoints.clear();
         state.breakpoint_generation.clear();
+        state.breakpoint_stops_this_cycle.clear();
         trace_debug(&format!("breakpoints.clear prev_total={prev_total}"));
     }
 

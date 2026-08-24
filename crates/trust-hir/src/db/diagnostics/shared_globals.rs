@@ -236,7 +236,7 @@ fn collect_program_accesses(
 ) -> FxHashMap<SymbolId, ProgramAccess> {
     let mut accesses: FxHashMap<SymbolId, ProgramAccess> = FxHashMap::default();
 
-    for (_file_id, root) in roots {
+    for (file_id, root) in roots {
         for program in root
             .descendants()
             .filter(|node| node.kind() == SyntaxKind::Program)
@@ -244,7 +244,11 @@ fn collect_program_accesses(
             let Some((name, range)) = name_from_node(&program) else {
                 continue;
             };
-            let Some(program_id) = find_symbol_by_name_range(symbols, name.as_str(), range) else {
+            let Some(program_id) = find_symbol_by_name_range(symbols, name.as_str(), range)
+                .or_else(|| {
+                    find_imported_symbol_by_name_range(symbols, *file_id, name.as_str(), range)
+                })
+            else {
                 continue;
             };
             let mut access = ProgramAccess {
@@ -259,6 +263,24 @@ fn collect_program_accesses(
     }
 
     accesses
+}
+
+fn find_imported_symbol_by_name_range(
+    symbols: &SymbolTable,
+    file_id: FileId,
+    name: &str,
+    range: TextRange,
+) -> Option<SymbolId> {
+    symbols
+        .iter()
+        .find(|symbol| {
+            symbol
+                .origin
+                .is_some_and(|origin| origin.file_id == file_id)
+                && symbol.name.eq_ignore_ascii_case(name)
+                && symbol.range == range
+        })
+        .map(|symbol| symbol.id)
 }
 
 fn collect_pou_accesses(
@@ -524,3 +546,7 @@ fn is_write_context(expr: &SyntaxNode) -> bool {
     }
     false
 }
+
+#[cfg(test)]
+#[path = "shared_globals/contract_tests.rs"]
+mod contract_tests;

@@ -92,7 +92,7 @@ fn runtime_settings() -> RuntimeSettings {
     )
 }
 
-fn hmi_test_state(source: &str) -> ControlState {
+pub(super) fn hmi_test_state(source: &str) -> ControlState {
     hmi_test_state_with_ads_status(source, disabled_ads_status())
 }
 

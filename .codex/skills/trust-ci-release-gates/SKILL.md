@@ -6,8 +6,11 @@ description: CI and release-gate hardening workflow for truST, including exact p
 # trust-ci-release-gates
 
 Use this skill when updating CI workflows, release-gate checks, cross-platform test stability, or local pre-push verification scripts.
-Use `trust-test-authoring` first for planner, catalog, invariant, and red-green/behavior-lock
-routing. This skill owns CI parity, gate wiring, artifact evidence, and release enforcement.
+Use `trust-test-authoring` first for the written-specification, native-test, and
+red-green/behavior-lock route. Planner, catalog, invariant, and evidence tools
+are nonblocking maintenance reports; they cannot create product work or reject
+an otherwise valid specification-and-test change. This skill owns CI parity,
+gate wiring, artifact evidence, and release enforcement.
 
 ## Test-first rule
 
@@ -30,10 +33,16 @@ push-and-repair attempts.
      prepare --remote-worktree '<clean exact-SHA trust-builder worktree>'
    ```
 
-   Preparation runs only cheap bootstrap and planning checks locally. Catalog staleness,
-   metadata/self-tests, the exact strict PR gate, and all broad gates run in the clean exact-SHA
-   `trust-builder` worktree with an absolute `CARGO_TARGET_DIR`. Any commit, base movement,
-   missing command, or dirty checkout invalidates the artifact.
+   Preparation records complete-diff planning and catalog staleness as advisory
+   maintenance. Its strict report command runs only the report-boundary smoke;
+   exhaustive recursive verification-tooling self-tests remain scheduled/manual
+   maintenance. Required acceptance remains bootstrap parity, a clean exact
+   candidate and base, diff integrity, the strict smoke, a successful
+   trust-builder `just test-all` on the frozen candidate, the applicable native
+   product gates, and final remote broad gates. The guard records this as
+   `remote_test_all`; it never runs a full suite on the invoking workstation.
+   Any commit, base
+   movement, missing required command, or dirty checkout invalidates the artifact.
 2. Push the frozen candidate once. The installed pre-push hook rejects a release-sensitive push
    without a passing artifact for the exact head and current base.
 3. Wait for every required GitHub check. Before editing after a red candidate, collect the whole
@@ -133,11 +142,23 @@ Prevent known Windows-only regressions in `trust-lsp` tests:
 - In trust-platform checkouts on a Raspberry Pi or other slow local host, do not run broad local Rust/runtime gates as the default proof path.
 - Use the remote builder for full validation first, especially `just test-all`.
 - Ask before starting expensive local commands such as workspace `cargo test`, `cargo test -p trust-runtime ...`, local `just test`, local `just clippy`, or local `just test-all`.
+- When the user explicitly requires local full-suite proof before a new release
+  candidate, run local `just test-all` after the strict smoke and before any
+  remote validation; the release-candidate guard enforces and records it.
 - Run required project gates with full Rust gates on the remote builder:
   - `just fmt`
   - `just clippy`
   - `just test-all`
   - `cd editors/vscode && npm run lint && npm run compile`
+- Keep exact-candidate disk use bounded: set `CARGO_INCREMENTAL=0` for the
+  candidate's Rust-producing VS Code, Clippy, and test commands, and reclaim
+  only the validated task-owned `CARGO_TARGET_DIR` between Clippy and
+  `just test-all`. Never apply that cleanup to a repository, home directory,
+  shared cache, unrelated target, or unresolved path.
+- Use `scripts/verification_report_gate.py --strict --smoke` for pull requests
+  and exact-candidate preparation. Run the exhaustive recursive verification
+  tooling and its historical self-tests only from the scheduled/manual
+  maintenance workflow; they are not native product proof.
 - Execute workflow-specific local checks where possible:
   - workflow lint/check
   - script smoke runs

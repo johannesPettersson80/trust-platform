@@ -7,6 +7,19 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+fn initialize_adapter_for_launch(adapter: &mut DebugAdapter, seq: u32) {
+    let outcome = adapter.dispatch_request(Request {
+        seq,
+        message_type: MessageType::Request,
+        command: "initialize".to_string(),
+        arguments: Some(serde_json::to_value(InitializeArguments::default()).unwrap()),
+    });
+    assert_eq!(outcome.responses.len(), 1);
+    let response: Response<InitializeResponseBody> =
+        serde_json::from_value(outcome.responses[0].clone()).unwrap();
+    assert!(response.success, "initialize must succeed before launch");
+}
+
 #[test]
 fn ads_globals_are_appended_as_ordinary_live_value_rows() {
     let mut state = IoStateEventBody {
@@ -627,6 +640,7 @@ params = { address = "127.0.0.1:1502", unit_id = 1, input_start = 0, output_star
     .unwrap();
 
     let mut adapter = DebugAdapter::new(DebugSession::new(Runtime::new()));
+    initialize_adapter_for_launch(&mut adapter, 9);
     let mut additional = BTreeMap::new();
     additional.insert(
         "program".to_string(),
@@ -689,7 +703,16 @@ params = { address = "127.0.0.1:1502", unit_id = 1, input_start = 0, output_star
 
 #[test]
 fn debug_control_server_uses_launch_project_root_for_comm_apply() {
-    let project_root = unique_project_root("debug-control-project-root");
+    let generated_root = std::env::temp_dir();
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let project_root = generated_root.join(format!(
+        "trust-debug-debug-control-project-root-{}-{nanos}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&project_root).unwrap();
     fs::write(project_root.join("main.st"), "PROGRAM Main\nEND_PROGRAM\n").unwrap();
     let addr = reserve_loopback_addr();
     let endpoint = format!("tcp://{addr}");
@@ -754,8 +777,8 @@ fn debug_control_server_uses_launch_project_root_for_comm_apply() {
         Some(true)
     );
 
-    let io_toml = project_root.join("io.toml");
-    let created_text = fs::read_to_string(&io_toml).expect("debug control should create io.toml");
+    let created_text = fs::read_to_string(project_root.join("io.toml"))
+        .expect("debug control should create io.toml");
     assert!(
         created_text.contains("127.0.0.1:1502"),
         "created io.toml should contain first Modbus driver: {created_text}"
@@ -789,7 +812,8 @@ fn debug_control_server_uses_launch_project_root_for_comm_apply() {
         Some("restart_required")
     );
 
-    let updated_text = fs::read_to_string(&io_toml).expect("debug control should update io.toml");
+    let updated_text = fs::read_to_string(project_root.join("io.toml"))
+        .expect("debug control should update io.toml");
     assert!(
         updated_text.contains("127.0.0.1:1502"),
         "update should preserve existing driver: {updated_text}"
@@ -815,6 +839,7 @@ fn launch_fails_when_control_server_endpoint_is_already_in_use() {
 
     let runtime = Runtime::new();
     let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    initialize_adapter_for_launch(&mut adapter, 19);
     let mut additional = BTreeMap::new();
     additional.insert(
         "program".to_string(),
@@ -1069,6 +1094,7 @@ fn launch_debug_control_session(
     endpoint: &str,
     auth: &str,
 ) {
+    initialize_adapter_for_launch(adapter, 9);
     let mut additional = BTreeMap::new();
     additional.insert(
         "program".to_string(),

@@ -84,9 +84,24 @@ pub(crate) fn runtime_cloud_control_proxy_plan(
         });
     }
 
-    let request_id = control_request_id
-        .map(str::to_string)
-        .unwrap_or_else(|| format!("proxy-{now_ns}"));
+    let connected_via = connected_via.trim();
+    if connected_via.is_empty() {
+        return Err(RuntimeCloudControlProxyPlanError {
+            code: ReasonCode::ContractViolation,
+            message: "connected_via must not be empty".to_string(),
+        });
+    }
+
+    let request_id = match control_request_id {
+        Some(request_id) if request_id.trim().is_empty() => {
+            return Err(RuntimeCloudControlProxyPlanError {
+                code: ReasonCode::ContractViolation,
+                message: "control_request.request_id must not be empty".to_string(),
+            });
+        }
+        Some(request_id) => request_id.to_string(),
+        None => format!("proxy-{now_ns}"),
+    };
     let action_type = runtime_cloud_control_proxy_action_type(kind, required_role);
     let action = RuntimeCloudActionRequest {
         api_version: api_version.to_string(),
@@ -264,6 +279,44 @@ mod tests {
 
         assert_eq!(error.code, ReasonCode::ContractViolation);
         assert!(error.message.contains("unsupported api_version '2.0'"));
+    }
+
+    #[test]
+    fn proxy_plan_rejects_blank_request_id_when_supplied() {
+        let error = runtime_cloud_control_proxy_plan(
+            "1.0",
+            "spiffe://trust/default-site/operator-1",
+            "runtime-b",
+            "status",
+            None,
+            Some(" "),
+            "runtime-a",
+            AccessRole::Viewer,
+            99,
+        )
+        .expect_err("an explicitly blank request ID must fail");
+
+        assert_eq!(error.code, ReasonCode::ContractViolation);
+        assert!(error.message.contains("request_id"));
+    }
+
+    #[test]
+    fn proxy_plan_rejects_blank_connected_via() {
+        let error = runtime_cloud_control_proxy_plan(
+            "1.0",
+            "spiffe://trust/default-site/operator-1",
+            "runtime-b",
+            "status",
+            None,
+            Some("proxy-1"),
+            " ",
+            AccessRole::Viewer,
+            99,
+        )
+        .expect_err("blank connected_via must fail");
+
+        assert_eq!(error.code, ReasonCode::ContractViolation);
+        assert!(error.message.contains("connected_via"));
     }
 
     #[test]

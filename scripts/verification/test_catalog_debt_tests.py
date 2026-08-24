@@ -314,14 +314,30 @@ class UnmappedTestDebtTests(unittest.TestCase):
             denominator_review=denominator_review,
         )
 
-        self.assertEqual(analysis["summary"]["scanner_facts"], 4102)
-        self.assertEqual(analysis["summary"]["mapped_scanner_facts"], 258)
-        self.assertEqual(analysis["summary"]["unmapped_scanner_facts"], 3844)
-        self.assertEqual(len(analysis["unmapped_tests"]), 3844)
+        mapped_count = sum(
+            record.get("subject_kind") == "generated_test"
+            for record in catalog["tests"]
+        )
+        self.assertEqual(
+            analysis["summary"]["scanner_facts"],
+            len(scan.inferred_facts),
+        )
+        self.assertEqual(
+            analysis["summary"]["mapped_scanner_facts"],
+            mapped_count,
+        )
+        self.assertEqual(
+            analysis["summary"]["unmapped_scanner_facts"],
+            len(scan.inferred_facts) - mapped_count,
+        )
+        self.assertEqual(
+            len(analysis["unmapped_tests"]),
+            len(scan.inferred_facts) - mapped_count,
+        )
         self.assertEqual(analysis["denominator_review"]["summary"]["unreviewed_facts"], 0)
         self.assertEqual(
             len({row["discovery_id"] for row in analysis["unmapped_tests"]}),
-            3844,
+            len(analysis["unmapped_tests"]),
         )
 
 

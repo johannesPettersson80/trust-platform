@@ -347,3 +347,105 @@ fn registry_private_access_control_requires_token() {
     let _ = std::fs::remove_dir_all(project);
     let _ = std::fs::remove_dir_all(registry);
 }
+
+#[test]
+fn registry_publish_without_project_preserves_detection_failure() {
+    let working = unique_temp_dir("registry-missing-project");
+    let registry = unique_temp_dir("registry-missing-project-root");
+    let init = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args(["registry", "init", "--root"])
+        .arg(&registry)
+        .args(["--visibility", "public"])
+        .output()
+        .expect("initialize registry");
+    assert!(init.status.success());
+
+    let publish = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .current_dir(&working)
+        .args(["registry", "publish", "--registry"])
+        .arg(&registry)
+        .args(["--version", "1.0.0"])
+        .output()
+        .expect("publish without a project");
+
+    assert!(!publish.status.success());
+    let error = String::from_utf8_lossy(&publish.stderr);
+    assert!(
+        error.contains("project folder not found"),
+        "standard project-detection error was discarded:\n{error}"
+    );
+    assert!(
+        !error.contains("invalid bundle"),
+        "current directory must not be substituted as an invented bundle:\n{error}"
+    );
+
+    let _ = std::fs::remove_dir_all(working);
+    let _ = std::fs::remove_dir_all(registry);
+}
+
+#[test]
+fn registry_publish_without_explicit_project_uses_detected_bundle() {
+    let working = unique_temp_dir("registry-detected-project");
+    let project = working.join("project");
+    let registry = unique_temp_dir("registry-detected-project-root");
+    write_project_fixture(&project, "pkg_detected");
+
+    let init = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args(["registry", "init", "--root"])
+        .arg(&registry)
+        .args(["--visibility", "public"])
+        .output()
+        .expect("initialize registry");
+    assert!(init.status.success());
+
+    let publish = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .current_dir(&working)
+        .args(["registry", "publish", "--registry"])
+        .arg(&registry)
+        .args(["--version", "3.0.0"])
+        .output()
+        .expect("publish detected project");
+    assert!(
+        publish.status.success(),
+        "expected detected-project publish success, stderr was:\n{}",
+        String::from_utf8_lossy(&publish.stderr)
+    );
+
+    let list = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args(["registry", "list", "--registry"])
+        .arg(&registry)
+        .arg("--json")
+        .output()
+        .expect("list detected package");
+    assert!(list.status.success());
+    let packages: serde_json::Value =
+        serde_json::from_slice(&list.stdout).expect("parse list payload");
+    assert!(packages.as_array().is_some_and(|entries| {
+        entries.iter().any(|entry| {
+            entry.get("name").and_then(serde_json::Value::as_str) == Some("pkg_detected")
+                && entry.get("version").and_then(serde_json::Value::as_str) == Some("3.0.0")
+                && entry
+                    .get("resource_name")
+                    .and_then(serde_json::Value::as_str)
+                    == Some("pkg_detected")
+        })
+    }));
+
+    let _ = std::fs::remove_dir_all(working);
+    let _ = std::fs::remove_dir_all(registry);
+}
+
+#[test]
+fn registry_publish_help_describes_standard_bundle_detection() {
+    let output = run_registry_command(&["registry", "publish", "--help"]);
+    assert!(output.status.success());
+    let help = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        help.contains("standard bundle detection"),
+        "publish help did not describe standard bundle detection:\n{help}"
+    );
+    assert!(
+        !help.contains("current directory"),
+        "publish help still claimed a current-directory fallback:\n{help}"
+    );
+}

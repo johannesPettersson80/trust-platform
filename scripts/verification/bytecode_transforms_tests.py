@@ -278,7 +278,7 @@ class transform_fixture:
 def specified_transform_behaviors() -> list[dict[str, object]]:
     partitions = [
         "TRUNCATED_REQUIRED_CONTAINER_DATA",
-        "UNIMPLEMENTED_RESERVED_OR_UNKNOWN_OPCODE",
+        "UNIMPLEMENTED_RESERVED_LEGACY_OR_UNKNOWN_OPCODE",
         "JUMP_OUTSIDE_POU_OR_INSTRUCTION_BOUNDARY",
         "INVALID_OPERAND_STACK_DATAFLOW",
     ]

@@ -78,6 +78,10 @@ fn quote_st_string(value: &str) -> String {
 }
 
 #[cfg(test)]
+#[path = "display/contract_tests.rs"]
+mod contract_tests;
+
+#[cfg(test)]
 mod tests {
     use crate::memory::InstanceId;
     use crate::value::{format_user_value, Duration, Value};

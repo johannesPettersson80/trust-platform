@@ -1,4 +1,4 @@
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::{Ipv6Addr, TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -10,6 +10,10 @@ use super::schema::normalize_protocol;
 use super::ControlResponse;
 
 const MAX_TEST_TIMEOUT_MS: u64 = 5_000;
+
+#[cfg(test)]
+#[path = "probe/contract_tests.rs"]
+mod contract_tests;
 
 #[derive(Debug, Deserialize)]
 struct CommTestRequest {
@@ -88,6 +92,25 @@ pub(super) fn probe_value(protocol: &str, params: serde_json::Value) -> serde_js
 
 fn test_request(request: CommTestRequest) -> CommTestResponse {
     let protocol = normalize_protocol(request.protocol.as_str());
+    if protocol.is_empty() {
+        return CommTestResponse {
+            schema_version: COMM_SCHEMA_VERSION,
+            protocol,
+            supported: false,
+            ok: false,
+            detail: "Connection test could not start.".to_string(),
+            error: None,
+            evidence: None,
+            field_errors: vec![field_error("protocol", "Select a communication protocol.")],
+        };
+    }
+    if !request.params.is_object() {
+        return blocked(
+            protocol,
+            "params",
+            "Communication test params must be an object.",
+        );
+    }
     if secret_values_present(&request.params)
         && request.credential_channel.as_deref() != Some("trusted_same_host")
     {
@@ -98,19 +121,25 @@ fn test_request(request: CommTestRequest) -> CommTestResponse {
         );
     }
     match protocol.as_str() {
-        "modbus_tcp" => tcp_probe(
-            protocol,
-            modbus_target(&request.params),
-            timeout_ms(&request.params, "timeout_ms"),
-            "address",
-        ),
+        "modbus_tcp" => match validated_timeout_ms(&request.params, "timeout_ms") {
+            Ok(timeout) => tcp_probe(
+                protocol,
+                modbus_target(&request.params),
+                timeout,
+                "address",
+            ),
+            Err(error) => invalid_probe(protocol, error),
+        },
         "opcua_client" => opcua_client_probe(protocol, &request.params),
-        "mqtt" => tcp_probe(
-            protocol,
-            mqtt_target(&request.params),
-            timeout_ms(&request.params, "timeout_ms"),
-            "broker",
-        ),
+        "mqtt" => match validated_timeout_ms(&request.params, "timeout_ms") {
+            Ok(timeout) => tcp_probe(
+                protocol,
+                mqtt_target(&request.params),
+                timeout,
+                "broker",
+            ),
+            Err(error) => invalid_probe(protocol, error),
+        },
         "simulated" | "loopback" => CommTestResponse {
             schema_version: COMM_SCHEMA_VERSION,
             protocol,
@@ -309,11 +338,7 @@ fn modbus_target(params: &serde_json::Value) -> Result<String, CommFieldError> {
     if address.is_empty() {
         return Err(field_error("address", "Enter the Modbus device address."));
     }
-    Ok(if address.contains(':') {
-        address.to_string()
-    } else {
-        format!("{address}:502")
-    })
+    authority_with_default_port(address, 502, "address")
 }
 
 fn mqtt_target(params: &serde_json::Value) -> Result<String, CommFieldError> {
@@ -326,16 +351,89 @@ fn mqtt_target(params: &serde_json::Value) -> Result<String, CommFieldError> {
     if broker.is_empty() {
         return Err(field_error("broker", "Enter the MQTT broker address."));
     }
-    let endpoint = broker
-        .strip_prefix("mqtt://")
-        .or_else(|| broker.strip_prefix("tcp://"))
-        .or_else(|| broker.strip_prefix("ssl://"))
-        .unwrap_or(broker);
-    Ok(if endpoint.contains(':') {
-        endpoint.to_string()
+    let (endpoint, default_port) = if let Some(endpoint) = broker.strip_prefix("mqtt://") {
+        (endpoint, 1883)
+    } else if let Some(endpoint) = broker.strip_prefix("tcp://") {
+        (endpoint, 1883)
+    } else if let Some(endpoint) = broker.strip_prefix("mqtts://") {
+        (endpoint, 8883)
+    } else if let Some(endpoint) = broker.strip_prefix("ssl://") {
+        (endpoint, 8883)
     } else {
-        format!("{endpoint}:1883")
-    })
+        if broker.contains("://") {
+            return Err(field_error(
+                "broker",
+                "Enter an MQTT host and optional port.",
+            ));
+        }
+        (broker, 1883)
+    };
+    authority_with_default_port(endpoint, default_port, "broker")
+}
+
+fn authority_with_default_port(
+    authority: &str,
+    default_port: u16,
+    field: &'static str,
+) -> Result<String, CommFieldError> {
+    if authority.is_empty() || authority.contains(['/', '?', '#', '@']) || authority.contains("://")
+    {
+        return Err(field_error(
+            field,
+            "Enter a host and optional non-zero port.",
+        ));
+    }
+    if let Some(bracketed) = authority.strip_prefix('[') {
+        let Some((host, suffix)) = bracketed.split_once(']') else {
+            return Err(field_error(
+                field,
+                "Enter a valid bracketed IPv6 authority.",
+            ));
+        };
+        if host.parse::<Ipv6Addr>().is_err() {
+            return Err(field_error(
+                field,
+                "Enter a valid bracketed IPv6 authority.",
+            ));
+        }
+        let port = if suffix.is_empty() {
+            default_port
+        } else {
+            parse_nonzero_port(
+                suffix
+                    .strip_prefix(':')
+                    .ok_or_else(|| field_error(field, "Enter a valid host:port authority."))?,
+                field,
+            )?
+        };
+        return Ok(format!("[{host}]:{port}"));
+    }
+    if authority.matches(':').count() > 1 {
+        return Err(field_error(
+            field,
+            "Bracket IPv6 addresses before adding a port.",
+        ));
+    }
+    let (host, port) = match authority.rsplit_once(':') {
+        Some((host, port)) => (host, parse_nonzero_port(port, field)?),
+        None => (authority, default_port),
+    };
+    if host.is_empty() {
+        return Err(field_error(
+            field,
+            "Enter a host and optional non-zero port.",
+        ));
+    }
+    Ok(format!("{host}:{port}"))
+}
+
+fn parse_nonzero_port(port: &str, field: &'static str) -> Result<u16, CommFieldError> {
+    let port = port
+        .parse::<u16>()
+        .ok()
+        .filter(|port| *port != 0)
+        .ok_or_else(|| field_error(field, "Port must be an integer from 1 through 65535."))?;
+    Ok(port)
 }
 
 struct OpcUaClientProbeTarget {
@@ -444,6 +542,31 @@ fn timeout_ms(params: &serde_json::Value, field: &str) -> u64 {
         .get(field)
         .and_then(serde_json::Value::as_u64)
         .unwrap_or(500)
+}
+
+fn validated_timeout_ms(
+    params: &serde_json::Value,
+    field: &'static str,
+) -> Result<u64, CommFieldError> {
+    match params.get(field) {
+        None => Ok(timeout_ms(params, field)),
+        Some(value) => value
+            .as_u64()
+            .ok_or_else(|| field_error(field, "Timeout must be a non-negative integer.")),
+    }
+}
+
+fn invalid_probe(protocol: String, error: CommFieldError) -> CommTestResponse {
+    CommTestResponse {
+        schema_version: COMM_SCHEMA_VERSION,
+        protocol,
+        supported: true,
+        ok: false,
+        detail: "Connection test could not start.".to_string(),
+        error: None,
+        evidence: None,
+        field_errors: vec![error],
+    }
 }
 
 fn blocked(protocol: String, field: &str, message: &str) -> CommTestResponse {

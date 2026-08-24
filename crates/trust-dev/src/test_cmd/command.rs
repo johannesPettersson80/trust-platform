@@ -35,7 +35,7 @@ pub fn run_test(
         return Ok(());
     }
 
-    if tests.is_empty() {
+    if tests.is_empty() && discovered_total > 0 {
         let rendered = render_output(
             output,
             &project_root,
@@ -49,19 +49,20 @@ pub fn run_test(
         return Ok(());
     }
 
-    let compile_sources = collect_project_source_files(&project_root, None)?;
-    let extra_program_instances = tests
-        .iter()
-        .filter(|case| matches!(case.kind, TestKind::Program))
-        .map(|case| case.name.clone())
-        .collect::<BTreeSet<_>>();
-    let session = CompileSession::from_sources(compile_sources)
-        .with_extra_program_instances(extra_program_instances);
-    let mut runtime = session.build_runtime()?;
-    let bytecode = session.build_bytecode_bytes()?;
-    runtime
-        .apply_bytecode_bytes(&bytecode, None)
-        .context("failed to preload bytecode for ST test execution")?;
+    let mut runtime = compile_test_runtime(&project_root, &tests)?;
+    if tests.is_empty() {
+        let rendered = render_output(
+            output,
+            &project_root,
+            &[],
+            TestSummary::default(),
+            discovered_total,
+            filter.as_deref(),
+            0,
+        )?;
+        print!("{rendered}");
+        return Ok(());
+    }
 
     let test_timeout = if timeout == 0 {
         None

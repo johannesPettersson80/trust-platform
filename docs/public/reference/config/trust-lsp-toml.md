@@ -10,6 +10,19 @@ The language server discovers these filenames:
 - `.trust-lsp.toml`
 - `trustlsp.toml`
 
+If a selected file cannot be read or parsed, the language server publishes a
+configuration warning and applies no partial values. Other invalid settings
+fall back atomically and publish stable codes so the editor explains what was
+ignored:
+
+| Code | Configuration problem | User action |
+| --- | --- | --- |
+| `C001` | The selected file cannot be read or parsed. | Fix file access or TOML syntax. |
+| `C002` | The standard-library profile is unknown. | Use `full`, `iec`, `none`, or an explicit allowlist. |
+| `C003` | A numeric bound is outside its documented domain, or the throttle tuple is incoherent. | Correct the bound or throttle ordering, or remove the keys to use safe defaults. |
+| `C004` | Workspace visibility is unknown. | Use `public`, `private`, or `hidden`. |
+| `C005` | A severity override has a blank code or unknown severity. | Use a real diagnostic code and a supported severity. |
+
 ## Minimal Example
 
 ```toml
@@ -118,7 +131,7 @@ docs = ["docs/vendor.md"]
 | `cache` | bool | `true` |
 | `cache_dir` | string | `.trust-lsp/index-cache` |
 | `memory_budget_mb` | integer | none |
-| `evict_to_percent` | integer | `80` |
+| `evict_to_percent` | integer | `80` | LRU eviction target, normalized to `1..=100`; every out-of-range TOML integer emits `C003` at this key. |
 | `throttle_idle_ms` | integer | `0` |
 | `throttle_active_ms` | integer | `8` |
 | `throttle_max_ms` | integer | `50` |
@@ -138,8 +151,13 @@ docs = ["docs/vendor.md"]
 | `warn_nondeterminism` | bool | profile default | Toggle nondeterminism warnings. |
 | `warn_numeric_hazards` | bool | profile default | Toggle numeric-hazard warnings. |
 | `rule_pack` | string | none | Named diagnostic bundle. |
-| `external_paths` | string array | `[]` | Extra paths to analyze. |
+| `external_paths` | string array | `[]` | JSON files containing diagnostics produced by external tools. |
 | `severity_overrides` | table | `{}` | Per-code overrides such as `W003 = "error"`. |
+
+Each external diagnostic may use a string severity or a numeric LSP severity.
+String values are trimmed before ASCII-case-insensitive matching and accept
+`error`, `warning`, `info`, `information`, or `hint`; numeric values accept
+`1..=4`. An absent or invalid severity defaults to `warning`.
 
 Supported rule packs include:
 

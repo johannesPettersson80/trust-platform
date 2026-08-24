@@ -13,8 +13,14 @@ pub(super) fn header_value(request: &tiny_http::Request, key: &str) -> Option<St
 }
 
 pub(super) fn format_web_url(listen: &str, tls: bool) -> String {
-    let host = listen.split(':').next().unwrap_or("localhost");
-    let port = listen.rsplit(':').next().unwrap_or("8080");
+    let (host, port) = if listen.starts_with('[') {
+        listen
+            .rfind("]:")
+            .map(|index| (&listen[..=index], &listen[index + 2..]))
+            .unwrap_or((listen, "8080"))
+    } else {
+        listen.rsplit_once(':').unwrap_or((listen, "8080"))
+    };
     let host = if host == "0.0.0.0" { "localhost" } else { host };
     let scheme = if tls { "https" } else { "http" };
     format!("{scheme}://{host}:{port}")
@@ -32,7 +38,11 @@ pub(super) fn parse_limit(url: &str) -> Option<u64> {
     for pair in query.split('&') {
         let mut parts = pair.splitn(2, '=');
         if parts.next()? == "limit" {
-            return parts.next().and_then(|value| value.parse().ok());
+            return parts.next().and_then(|value| {
+                (!value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()))
+                    .then(|| value.parse().ok())
+                    .flatten()
+            });
         }
     }
     None
@@ -78,22 +88,25 @@ pub(super) fn now_ns() -> u64 {
 
 pub(super) fn decode_url_component(input: &str) -> String {
     let mut bytes = Vec::with_capacity(input.len());
-    let mut chars = input.as_bytes().iter().copied();
-    while let Some(byte) = chars.next() {
+    let input = input.as_bytes();
+    let mut index = 0;
+    while index < input.len() {
+        let byte = input[index];
         match byte {
-            b'%' => {
-                let hi = chars.next().unwrap_or(b'0');
-                let lo = chars.next().unwrap_or(b'0');
-                let hex = [hi, lo];
-                if let Ok(text) = std::str::from_utf8(&hex) {
-                    if let Ok(value) = u8::from_str_radix(text, 16) {
-                        bytes.push(value);
-                    }
+            b'%' if index + 2 < input.len() => {
+                let hex = &input[index + 1..index + 3];
+                if hex.iter().all(|byte| byte.is_ascii_hexdigit()) {
+                    let text = std::str::from_utf8(hex).expect("ASCII hex is UTF-8");
+                    bytes.push(u8::from_str_radix(text, 16).expect("validated hex octet"));
+                    index += 3;
+                    continue;
                 }
+                bytes.push(byte);
             }
             b'+' => bytes.push(b' '),
             _ => bytes.push(byte),
         }
+        index += 1;
     }
     String::from_utf8_lossy(&bytes).into_owned()
 }
@@ -120,3 +133,7 @@ pub(super) fn parse_probe_response(text: &str) -> Value {
         .unwrap_or("online");
     json!({ "ok": true, "name": name, "state": state })
 }
+
+#[cfg(test)]
+#[path = "web_helpers/contract_tests.rs"]
+mod contract_tests;

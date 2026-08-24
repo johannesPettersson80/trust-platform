@@ -31,8 +31,8 @@ allowed_excludes = [
 ]
 
 [change_policy]
-product_change_requires = ["invariant_update", "catalog_update"]
-public_claim_change_requires = ["spec_source_update", "invariant_update"]
+product_change_requires = ["written_specification", "native_executable_test"]
+public_claim_change_requires = ["written_specification", "native_executable_test"]
 public_claim_paths = ["README.md", "docs/public/**"]
 safety_risks = ["safety_critical", "silent_corruption", "wrong_result", "false_status"]
 
@@ -114,7 +114,7 @@ area = "control_security"
 owners = ["trust-debug", "trust-runtime"]
 [[area_owner_rules]]
 area = "editor_safety"
-owners = ["trust-debug", "trust-ide", "trust-lsp"]
+owners = ["editors-vscode", "trust-debug", "trust-ide", "trust-lsp"]
 [[area_owner_rules]]
 area = "plcopen_devtools"
 owners = ["trust-dev", "trust-plcopen"]

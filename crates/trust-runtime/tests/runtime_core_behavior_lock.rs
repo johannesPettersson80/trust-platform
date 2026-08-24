@@ -7,9 +7,10 @@ use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::io::{IoAddress, IoDriver, IoSafeState};
 use trust_runtime::task::{ProgramDef, TaskConfig};
-use trust_runtime::value::Value;
+use trust_runtime::value::{Duration, Value};
 use trust_runtime::watchdog::{
-    FaultAction, FaultDecision, FaultPolicy, WatchdogAction, WatchdogPolicy,
+    FaultAction, FaultDecision, FaultPolicy, FaultSubsystem, WatchdogAction, WatchdogPolicy,
+    WatchdogSubsystem,
 };
 use trust_runtime::{RestartMode, Runtime};
 
@@ -273,8 +274,108 @@ fn watchdog_and_fault_policy_decisions_are_stable() {
         }
     );
 
+    for (policy, expected) in [
+        (
+            FaultPolicy::Halt,
+            FaultDecision {
+                action: FaultAction::Halt,
+                apply_safe_state: false,
+            },
+        ),
+        (
+            FaultPolicy::SafeHalt,
+            FaultDecision {
+                action: FaultAction::SafeHalt,
+                apply_safe_state: true,
+            },
+        ),
+        (
+            FaultPolicy::Restart,
+            FaultDecision {
+                action: FaultAction::Restart,
+                apply_safe_state: false,
+            },
+        ),
+    ] {
+        let mut faults = FaultSubsystem::new();
+        faults.set_policy(policy);
+        assert_eq!(faults.decision(), expected);
+        assert_eq!(faults.policy(), policy);
+        assert!(!faults.is_faulted());
+        assert_eq!(faults.last_fault(), None);
+
+        faults.record(RuntimeError::WatchdogTimeout);
+        assert_eq!(faults.decision(), expected);
+        assert_eq!(faults.policy(), policy);
+        assert!(faults.is_faulted());
+        assert_eq!(faults.last_fault(), Some(&RuntimeError::WatchdogTimeout));
+    }
+
     assert!(WatchdogAction::parse("warn").is_err());
     assert!(FaultPolicy::parse("degrade").is_err());
+}
+
+#[test]
+fn watchdog_and_fault_policy_state_updates_are_stable() {
+    for (input, expected) in [
+        (
+            WatchdogPolicy {
+                enabled: false,
+                timeout: Duration::from_nanos(-1),
+                action: WatchdogAction::Halt,
+            },
+            WatchdogPolicy {
+                enabled: false,
+                timeout: Duration::from_nanos(-1),
+                action: WatchdogAction::Halt,
+            },
+        ),
+        (
+            WatchdogPolicy {
+                enabled: true,
+                timeout: Duration::ZERO,
+                action: WatchdogAction::Restart,
+            },
+            WatchdogPolicy {
+                enabled: true,
+                timeout: Duration::from_millis(1),
+                action: WatchdogAction::Restart,
+            },
+        ),
+        (
+            WatchdogPolicy {
+                enabled: true,
+                timeout: Duration::from_millis(7),
+                action: WatchdogAction::SafeHalt,
+            },
+            WatchdogPolicy {
+                enabled: true,
+                timeout: Duration::from_millis(7),
+                action: WatchdogAction::SafeHalt,
+            },
+        ),
+    ] {
+        let mut watchdog = WatchdogSubsystem::new();
+        watchdog.set_policy(input);
+        assert_eq!(watchdog.policy(), expected);
+        assert_eq!(
+            watchdog.decision(),
+            FaultDecision::from_watchdog(expected.action)
+        );
+    }
+
+    let mut faults = FaultSubsystem::new();
+    faults.set_policy(FaultPolicy::SafeHalt);
+    faults.record(RuntimeError::WatchdogTimeout);
+    faults.set_policy(FaultPolicy::Restart);
+    assert_eq!(faults.policy(), FaultPolicy::Restart);
+    assert!(faults.is_faulted());
+    assert_eq!(faults.last_fault(), Some(&RuntimeError::WatchdogTimeout));
+
+    faults.record(RuntimeError::DivisionByZero);
+    assert_eq!(faults.policy(), FaultPolicy::Restart);
+    assert!(faults.is_faulted());
+    assert_eq!(faults.last_fault(), Some(&RuntimeError::DivisionByZero));
 }
 
 #[test]
@@ -339,7 +440,14 @@ fn vm_fixture_execution_image_status_and_values_are_stable() {
         "second run faulted: {:?}",
         second.last_fault()
     );
-    assert_eq!(first.last_fault(), second.last_fault());
+    assert!(
+        first.last_fault().is_none(),
+        "first run must not retain a hidden fault"
+    );
+    assert!(
+        second.last_fault().is_none(),
+        "second run must not retain a hidden fault"
+    );
 
     let phase = main_var(&first, "phase");
     let Value::Enum(phase) = phase else {

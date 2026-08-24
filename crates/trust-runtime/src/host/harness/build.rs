@@ -10,7 +10,7 @@ use trust_hir::db::SemanticDatabase;
 use trust_hir::{Project, SourceKey};
 use trust_syntax::parser;
 
-use super::compiler::{lower_root_global_var_blocks, CompileTimeConsts, LoweringInputs};
+use super::compiler::{lower_root_global_var_blocks, LoweringInputs};
 use super::config::{
     apply_config_inits, apply_globals, apply_program_retain_overrides,
     attach_fb_instances_to_tasks, attach_programs_to_tasks, ensure_wildcards_resolved,
@@ -40,6 +40,17 @@ pub(super) fn build_runtime_from_source_files(
     }
     if !parse_errors.is_empty() {
         return Err(CompileError::new(parse_errors.join("\n")));
+    }
+
+    for (idx, parse) in parses.iter().enumerate() {
+        if super::contains_textual_action(&parse.syntax()) {
+            let message = "textual ACTION/SFC execution is unsupported by the runtime compiler";
+            return Err(CompileError::new(if label_errors {
+                format!("{}: {message}", source_label(&sources[idx], idx))
+            } else {
+                message.to_string()
+            }));
+        }
     }
 
     let mut project = Project::new();
@@ -75,21 +86,11 @@ pub(super) fn build_runtime_from_source_files(
     let mut runtime = Runtime::new();
     let profile = runtime.profile();
     let mut statement_locations: Vec<Vec<SourceLocation>> = vec![Vec::new(); sources.len()];
-
-    for (idx, parse) in parses.iter().enumerate() {
-        let syntax = parse.syntax();
-        let (registry, initializer_catalog) = runtime.registry_and_initializer_catalog_mut();
-        super::lower_type_decls(
-            &syntax,
-            registry,
-            initializer_catalog,
-            profile,
-            project.database(),
-            file_ids[idx],
-            file_ids[idx].0,
-            &mut statement_locations[idx],
-        )?;
-    }
+    let syntaxes = parses
+        .iter()
+        .map(|parse| parse.syntax())
+        .collect::<Vec<_>>();
+    let type_ids = super::predeclare_project_types(&syntaxes, runtime.registry_mut())?;
 
     for idx in 0..parses.len() {
         let catalog = analyses[idx].declaration_catalog.as_ref();
@@ -98,10 +99,43 @@ pub(super) fn build_runtime_from_source_files(
         super::predeclare_interfaces(catalog, file_ids[idx], runtime.registry_mut())?;
     }
 
-    let mut compile_time_consts = CompileTimeConsts::default();
+    let preliminary_consts = super::resolve_project_global_constants(
+        &syntaxes,
+        runtime.registry_mut(),
+        profile,
+        project.database(),
+        &file_ids,
+        &mut statement_locations,
+        true,
+    )?;
+
+    for (idx, syntax) in syntaxes.iter().enumerate() {
+        let (registry, initializer_catalog) = runtime.registry_and_initializer_catalog_mut();
+        super::lower_type_decls(
+            syntax,
+            registry,
+            initializer_catalog,
+            profile,
+            project.database(),
+            file_ids[idx],
+            file_ids[idx].0,
+            &mut statement_locations[idx],
+            preliminary_consts.clone(),
+        )?;
+    }
+    super::validate_project_aliases(&type_ids, runtime.registry())?;
+
+    let mut compile_time_consts = super::resolve_project_global_constants(
+        &syntaxes,
+        runtime.registry_mut(),
+        profile,
+        project.database(),
+        &file_ids,
+        &mut statement_locations,
+        false,
+    )?;
     let mut root_globals_per_file = Vec::with_capacity(parses.len());
-    for (idx, parse) in parses.iter().enumerate() {
-        let syntax = parse.syntax();
+    for (idx, syntax) in syntaxes.iter().enumerate() {
         let mut inputs = LoweringInputs::new(
             profile,
             file_ids[idx].0,
@@ -110,7 +144,7 @@ pub(super) fn build_runtime_from_source_files(
             &mut statement_locations[idx],
             std::mem::take(&mut compile_time_consts),
         );
-        let globals = lower_root_global_var_blocks(&syntax, runtime.registry_mut(), &mut inputs)?;
+        let globals = lower_root_global_var_blocks(syntax, runtime.registry_mut(), &mut inputs)?;
         compile_time_consts = inputs.compile_time_consts;
         root_globals_per_file.push(globals);
     }
@@ -237,6 +271,7 @@ pub(super) fn build_runtime_from_source_files(
 
     let mut program_defs = IndexMap::<SmolStr, ProgramDef>::new();
     let mut globals = Vec::new();
+    let mut program_access = Vec::new();
     for (idx, parse) in parses.iter().enumerate() {
         let syntax = parse.syntax();
         globals.extend(root_globals_per_file[idx].clone());
@@ -265,6 +300,13 @@ pub(super) fn build_runtime_from_source_files(
             }
             program_defs.insert(key.into(), program.program);
             globals.extend(program.globals);
+            program_access.extend(program.access);
+        }
+    }
+
+    for syntax in &syntaxes {
+        for (owner, inputs) in super::collect_edge_declarations(syntax)? {
+            runtime.register_edge_inputs(owner, inputs);
         }
     }
 
@@ -292,6 +334,9 @@ pub(super) fn build_runtime_from_source_files(
     }
 
     if let Some(config) = config_model {
+        if let Some(resource_name) = config.resource_name.as_ref() {
+            runtime.set_resource_name(resource_name.clone());
+        }
         globals.extend(config.globals);
         apply_program_retain_overrides(&mut program_defs, &config.programs, &config.using)?;
         let mut wildcards = apply_globals(&mut runtime, &globals)?;
@@ -306,6 +351,12 @@ pub(super) fn build_runtime_from_source_files(
             &program_defs,
             &config.programs,
             extra_program_instances,
+        )?;
+        remap_program_access_instances(
+            &mut program_access,
+            &program_defs,
+            &config.programs,
+            &config.using,
         )?;
         ensure_all_program_declarations_bound(
             &program_defs,
@@ -324,6 +375,7 @@ pub(super) fn build_runtime_from_source_files(
         ensure_wildcards_resolved(&wildcards)?;
         register_access_bindings(&mut runtime, &config.access)?;
         let mut tasks = config.tasks;
+        validate_task_single_bindings(&runtime, &tasks)?;
         attach_programs_to_tasks(&mut tasks, &config.programs)?;
         attach_fb_instances_to_tasks(&runtime, &mut tasks, &config.programs)?;
         for task in tasks {
@@ -354,6 +406,8 @@ pub(super) fn build_runtime_from_source_files(
         ensure_wildcards_resolved(&wildcards)?;
     }
 
+    register_access_bindings(&mut runtime, &program_access)?;
+
     resize_process_image_from_bindings(&mut runtime)?;
     init_function_static_locals(&mut runtime)?;
     let _ = runtime.ensure_background_thread_id();
@@ -369,6 +423,58 @@ pub(super) fn build_runtime_from_source_files(
     }
 
     Ok(runtime)
+}
+
+fn remap_program_access_instances(
+    access: &mut [super::compiler::AccessDecl],
+    program_defs: &IndexMap<SmolStr, ProgramDef>,
+    programs: &[super::ProgramInstanceConfig],
+    using: &[SmolStr],
+) -> Result<(), CompileError> {
+    for declaration in access {
+        let super::compiler::AccessPath::Parts(parts) = &mut declaration.path else {
+            continue;
+        };
+        let Some(super::compiler::AccessPart::Name(owner)) = parts.first_mut() else {
+            continue;
+        };
+        for program in programs {
+            let type_name =
+                super::resolve_program_type_name(program_defs, &program.type_name, using)?;
+            if owner.eq_ignore_ascii_case(type_name.as_str()) {
+                *owner = program.name.clone();
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_task_single_bindings(
+    runtime: &Runtime,
+    tasks: &[crate::task::TaskConfig],
+) -> Result<(), CompileError> {
+    for task in tasks {
+        let Some(single) = task.single.as_deref() else {
+            continue;
+        };
+        match runtime.storage().get_global(single) {
+            Some(crate::value::Value::Bool(_)) => {}
+            Some(_) => {
+                return Err(CompileError::new(format!(
+                    "TASK '{}' SINGLE variable '{}' must have BOOL type",
+                    task.name, single
+                )));
+            }
+            None => {
+                return Err(CompileError::new(format!(
+                    "TASK '{}' SINGLE refers to unknown variable '{}'",
+                    task.name, single
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn resize_process_image_from_bindings(runtime: &mut Runtime) -> Result<(), CompileError> {
@@ -623,3 +729,11 @@ fn source_label(source: &SourceFile, idx: usize) -> String {
         .map(|path| path.to_string())
         .unwrap_or_else(|| format!("file {idx}"))
 }
+
+#[cfg(test)]
+#[path = "config_contract_tests.rs"]
+mod contract_tests;
+
+#[cfg(test)]
+#[path = "config_access_contract_tests.rs"]
+mod access_contract_tests;

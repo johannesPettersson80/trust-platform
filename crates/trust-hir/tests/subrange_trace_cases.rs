@@ -12,7 +12,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_IEC_SUBRANGE_TRACE_001";
 const CASE_FILE: &str = "verification/cases/compiler_iec/IEC_SUBRANGE_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:dd0eb893cf48b944114f28f9f9b63e9946ee25a7f18c388e648e62a721632acf";
+    "sha256:fb5022e07d1db17f6939f21703c593e5231d2a9fe90592c4eaec4292803b0b51";
 
 #[test]
 fn subrange_trace_cases() {

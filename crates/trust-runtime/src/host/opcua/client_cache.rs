@@ -12,13 +12,18 @@ pub struct OpcUaClientSample {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum OpcUaClientWorkerEvent {
-    Sample(OpcUaClientSample),
+    Sample {
+        generation: u64,
+        sample: OpcUaClientSample,
+    },
     ConnectionStatus {
+        generation: u64,
         connected: bool,
         at_ms: u64,
         detail: String,
     },
     SessionClosed {
+        generation: u64,
         at_ms: u64,
         detail: String,
     },
@@ -27,17 +32,21 @@ pub enum OpcUaClientWorkerEvent {
 #[derive(Clone)]
 pub struct OpcUaClientEventSink {
     sender: std::sync::mpsc::SyncSender<OpcUaClientWorkerEvent>,
+    generation: u64,
 }
 
 impl OpcUaClientEventSink {
-    fn new(sender: std::sync::mpsc::SyncSender<OpcUaClientWorkerEvent>) -> Self {
-        Self { sender }
+    fn new(sender: std::sync::mpsc::SyncSender<OpcUaClientWorkerEvent>, generation: u64) -> Self {
+        Self { sender, generation }
     }
 
     #[must_use]
     pub fn publish_sample(&self, sample: OpcUaClientSample) -> bool {
         self.sender
-            .try_send(OpcUaClientWorkerEvent::Sample(sample))
+            .try_send(OpcUaClientWorkerEvent::Sample {
+                generation: self.generation,
+                sample,
+            })
             .is_ok()
     }
 
@@ -50,6 +59,7 @@ impl OpcUaClientEventSink {
     ) -> bool {
         self.sender
             .try_send(OpcUaClientWorkerEvent::ConnectionStatus {
+                generation: self.generation,
                 connected,
                 at_ms,
                 detail: detail.into(),
@@ -61,6 +71,7 @@ impl OpcUaClientEventSink {
     pub fn publish_session_closed(&self, at_ms: u64, detail: impl Into<String>) -> bool {
         self.sender
             .try_send(OpcUaClientWorkerEvent::SessionClosed {
+                generation: self.generation,
                 at_ms,
                 detail: detail.into(),
             })
@@ -80,7 +91,14 @@ struct OpcUaClientCacheState {
     last_seen_ms: Option<u64>,
     values: std::collections::BTreeMap<SmolStr, Value>,
     point_statuses: std::collections::BTreeMap<(SmolStr, String), OpcUaClientPointStatus>,
-    pending_writes: std::collections::BTreeMap<SmolStr, Value>,
+    pending_writes: std::collections::BTreeMap<SmolStr, OpcUaPendingWrite>,
+    next_write_generation: u64,
+}
+
+#[derive(Debug, Clone)]
+struct OpcUaPendingWrite {
+    generation: u64,
+    value: Value,
 }
 
 #[derive(Debug, Clone)]
@@ -122,6 +140,7 @@ impl OpcUaSharedClientCache {
                 values: std::collections::BTreeMap::new(),
                 point_statuses,
                 pending_writes: std::collections::BTreeMap::new(),
+                next_write_generation: 0,
             })),
         }
     }
@@ -134,7 +153,11 @@ impl OpcUaSharedClientCache {
             last_seen_ms: guard.last_seen_ms,
             values: guard.values.clone(),
             point_statuses: guard.point_statuses.values().cloned().collect(),
-            pending_writes: guard.pending_writes.clone(),
+            pending_writes: guard
+                .pending_writes
+                .iter()
+                .map(|(var, pending)| (var.clone(), pending.value.clone()))
+                .collect(),
         }
     }
 
@@ -181,6 +204,19 @@ impl OpcUaSharedClientCache {
         self.mark_all_points(OpcUaClientConnectionState::Stale, None, None, detail);
     }
 
+    fn mark_shutdown(&self, detail: impl Into<String>) {
+        let mut guard = self.inner.lock().unwrap_or_else(|err| err.into_inner());
+        let detail = detail.into();
+        guard.state = OpcUaClientConnectionState::Stale;
+        guard.detail = detail.clone();
+        for status in guard.point_statuses.values_mut() {
+            if status.access.can_read() && status.state == OpcUaClientConnectionState::Connected {
+                status.state = OpcUaClientConnectionState::Stale;
+                status.detail = detail.clone();
+            }
+        }
+    }
+
     fn mark_faulted(&self, now_ms: u64, detail: impl Into<String>) {
         self.mark_all_points(
             OpcUaClientConnectionState::Faulted,
@@ -218,8 +254,24 @@ impl OpcUaSharedClientCache {
         }
     }
 
-    fn apply_sample(&self, sample: OpcUaClientSample) {
+    fn apply_sample(&self, sample: OpcUaClientSample) -> Result<(), String> {
         let mut guard = self.inner.lock().unwrap_or_else(|err| err.into_inner());
+        let key = (sample.var.clone(), sample.node_id.clone());
+        let Some(configured) = guard.point_statuses.get(&key) else {
+            return Err(format!(
+                "OPC UA subscription sample identity is not configured: var='{}', node='{}'",
+                sample.var, sample.node_id
+            ));
+        };
+        if configured.data_type != sample.data_type || configured.access != sample.access {
+            return Err(format!(
+                "OPC UA subscription sample identity disagrees with configured point '{}': node='{}', type='{}', access={:?}",
+                sample.var,
+                sample.node_id,
+                sample.data_type.as_config_value(),
+                sample.access
+            ));
+        }
         if sample.state == OpcUaClientConnectionState::Connected {
             guard.state = OpcUaClientConnectionState::Connected;
             guard.detail = "OPC UA client subscription update received.".to_string();
@@ -231,26 +283,17 @@ impl OpcUaSharedClientCache {
             guard.state = sample.state;
             guard.detail = sample.detail.clone();
         }
-        let key = (sample.var.clone(), sample.node_id.clone());
         let status = guard
             .point_statuses
-            .entry(key)
-            .or_insert_with(|| OpcUaClientPointStatus {
-                var: sample.var.clone(),
-                node_id: sample.node_id.clone(),
-                data_type: sample.data_type,
-                access: sample.access,
-                state: sample.state,
-                last_seen_ms: None,
-                value: None,
-                detail: String::new(),
-            });
+            .get_mut(&key)
+            .expect("configured OPC UA point status disappeared while cache was locked");
         status.state = sample.state;
         status.last_seen_ms = sample.last_seen_ms.or(status.last_seen_ms);
         if sample.value.is_some() {
             status.value = sample.value;
         }
         status.detail = sample.detail;
+        Ok(())
     }
 
     fn set_point_status(
@@ -263,19 +306,7 @@ impl OpcUaSharedClientCache {
     ) {
         let mut guard = self.inner.lock().unwrap_or_else(|err| err.into_inner());
         let detail = detail.into();
-        let status = guard
-            .point_statuses
-            .entry((point.var.clone(), point.node_id.clone()))
-            .or_insert_with(|| OpcUaClientPointStatus {
-                var: point.var.clone(),
-                node_id: point.node_id.clone(),
-                data_type: point.data_type,
-                access: point.access,
-                state,
-                last_seen_ms: None,
-                value: None,
-                detail: String::new(),
-            });
+        let status = point_status_mut(&mut guard, point, state);
         status.state = state;
         status.last_seen_ms = last_seen_ms.or(status.last_seen_ms);
         if value.is_some() {
@@ -284,19 +315,95 @@ impl OpcUaSharedClientCache {
         status.detail = detail;
     }
 
-    fn queue_write(&self, point: &OpcUaClientPointConfig, value: Value) {
+    fn pending_write_batch(&self) -> std::collections::BTreeMap<SmolStr, OpcUaPendingWrite> {
         self.inner
             .lock()
             .unwrap_or_else(|err| err.into_inner())
             .pending_writes
-            .insert(point.var.clone(), value);
+            .clone()
     }
 
-    fn ack_write(&self, point: &OpcUaClientPointConfig) {
-        self.inner
-            .lock()
-            .unwrap_or_else(|err| err.into_inner())
+    fn queue_write(
+        &self,
+        point: &OpcUaClientPointConfig,
+        value: Value,
+    ) -> Result<u64, OpcUaClientBridgeError> {
+        let mut guard = self.inner.lock().unwrap_or_else(|err| err.into_inner());
+        let generation = next_write_generation(&mut guard)?;
+        guard
             .pending_writes
-            .remove(point.var.as_str());
+            .insert(point.var.clone(), OpcUaPendingWrite { generation, value });
+        Ok(generation)
     }
+
+    fn reject_output(
+        &self,
+        point: &OpcUaClientPointConfig,
+        now_ms: u64,
+        detail: impl Into<String>,
+    ) -> Result<(), OpcUaClientBridgeError> {
+        let mut guard = self.inner.lock().unwrap_or_else(|err| err.into_inner());
+        let _ = next_write_generation(&mut guard)?;
+        guard.pending_writes.remove(point.var.as_str());
+        let status = point_status_mut(&mut guard, point, OpcUaClientConnectionState::Faulted);
+        status.state = OpcUaClientConnectionState::Faulted;
+        status.last_seen_ms = Some(now_ms).or(status.last_seen_ms);
+        status.detail = detail.into();
+        Ok(())
+    }
+
+    fn complete_write(
+        &self,
+        point: &OpcUaClientPointConfig,
+        generation: u64,
+        state: OpcUaClientConnectionState,
+        now_ms: u64,
+        value: Option<Value>,
+        detail: impl Into<String>,
+    ) -> bool {
+        let mut guard = self.inner.lock().unwrap_or_else(|err| err.into_inner());
+        if guard
+            .pending_writes
+            .get(point.var.as_str())
+            .is_none_or(|pending| pending.generation != generation)
+        {
+            return false;
+        }
+        guard.pending_writes.remove(point.var.as_str());
+        let status = point_status_mut(&mut guard, point, state);
+        status.state = state;
+        status.last_seen_ms = Some(now_ms).or(status.last_seen_ms);
+        if value.is_some() {
+            status.value = value;
+        }
+        status.detail = detail.into();
+        true
+    }
+}
+
+fn next_write_generation(state: &mut OpcUaClientCacheState) -> Result<u64, OpcUaClientBridgeError> {
+    state.next_write_generation = state.next_write_generation.checked_add(1).ok_or_else(|| {
+        OpcUaClientBridgeError::validation("OPC UA pending-write generation exhausted")
+    })?;
+    Ok(state.next_write_generation)
+}
+
+fn point_status_mut<'a>(
+    state: &'a mut OpcUaClientCacheState,
+    point: &OpcUaClientPointConfig,
+    default_state: OpcUaClientConnectionState,
+) -> &'a mut OpcUaClientPointStatus {
+    state
+        .point_statuses
+        .entry((point.var.clone(), point.node_id.clone()))
+        .or_insert_with(|| OpcUaClientPointStatus {
+            var: point.var.clone(),
+            node_id: point.node_id.clone(),
+            data_type: point.data_type,
+            access: point.access,
+            state: default_state,
+            last_seen_ms: None,
+            value: None,
+            detail: String::new(),
+        })
 }

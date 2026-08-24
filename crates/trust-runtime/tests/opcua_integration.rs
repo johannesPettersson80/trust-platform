@@ -29,11 +29,12 @@ fn temp_runtime_root(name: &str) -> PathBuf {
 }
 
 fn load_runtime_fixture(name: &str, port: u16) -> RuntimeConfig {
-    let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/opcua")
-        .join(name)
-        .join("runtime.toml");
-    let template = std::fs::read_to_string(&fixture).expect("read opcua fixture");
+    let template = match name {
+        "interop" => include_str!("fixtures/opcua/interop/runtime.toml"),
+        "perf" => include_str!("fixtures/opcua/perf/runtime.toml"),
+        "security" => include_str!("fixtures/opcua/security/runtime.toml"),
+        other => panic!("unknown OPC UA integration fixture: {other}"),
+    };
     let text = template.replace("__PORT__", &port.to_string());
     validate_runtime_toml_text(&text).expect("runtime fixture validates");
     let root = temp_runtime_root(name);

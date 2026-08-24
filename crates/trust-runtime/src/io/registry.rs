@@ -72,6 +72,9 @@ impl IoDriverRegistry {
         validate: IoDriverValidate,
     ) {
         let canonical = normalize_name(name.into());
+        if canonical.is_empty() || is_none_driver(canonical.as_str()) {
+            return;
+        }
         let entry = IoDriverRegistryEntry {
             canonical: canonical.clone(),
             create,
@@ -83,6 +86,9 @@ impl IoDriverRegistry {
     pub fn register_alias(&mut self, alias: impl Into<SmolStr>, target: &str) {
         let alias = normalize_name(alias.into());
         let target = normalize_name(SmolStr::new(target));
+        if alias.is_empty() || is_none_driver(alias.as_str()) || self.entries.contains_key(&alias) {
+            return;
+        }
         if let Some(entry) = self.entries.get(&target).cloned() {
             self.entries.insert(alias, entry);
         }
@@ -117,6 +123,7 @@ impl IoDriverRegistry {
             .ok_or_else(|| {
                 RuntimeError::InvalidConfig(format!("unsupported io.driver '{driver}'").into())
             })?;
+        (entry.validate)(params)?;
         let driver = (entry.create)(params)?;
         Ok(Some(IoDriverSpec {
             name: entry.canonical,
@@ -225,3 +232,7 @@ mod tests {
         assert_eq!(spec.name.as_str(), "simulated");
     }
 }
+
+#[cfg(test)]
+#[path = "registry_contract_tests.rs"]
+mod contract_tests;

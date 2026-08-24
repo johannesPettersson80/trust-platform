@@ -1,4 +1,3 @@
-use super::super::*;
 use super::*;
 use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 
@@ -42,6 +41,10 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             }
             "TP" | "TON" | "TOF" => {
                 self.check_timer_function_block_call(None, node);
+                true
+            }
+            "TP_TIME" | "TON_TIME" | "TOF_TIME" => {
+                self.check_timer_function_block_call(Some(TypeId::TIME), node);
                 true
             }
             "TP_LTIME" | "TON_LTIME" | "TOF_LTIME" => {

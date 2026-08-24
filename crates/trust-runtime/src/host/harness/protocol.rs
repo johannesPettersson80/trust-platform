@@ -17,6 +17,8 @@ use crate::RestartMode;
 
 use super::TestHarness;
 
+const MAX_DURATION_MILLIS: i64 = i64::MAX / 1_000_000;
+
 /// Business-logic surface for deterministic harness automation.
 #[derive(Default)]
 pub struct HarnessAutomation {
@@ -795,6 +797,11 @@ fn validate_non_negative(value: i64, field: &str) -> Result<i64, HarnessAutomati
             "{field} must be non-negative."
         )));
     }
+    if value > MAX_DURATION_MILLIS {
+        return Err(HarnessAutomationError::InvalidArgument(format!(
+            "{field} must be <= {MAX_DURATION_MILLIS}."
+        )));
+    }
     Ok(value)
 }
 
@@ -828,3 +835,7 @@ fn snapshot_for_watch(harness: &TestHarness, watch: &[String]) -> HarnessWatchSn
         values,
     }
 }
+
+#[cfg(test)]
+#[path = "protocol_contract_tests.rs"]
+mod contract_tests;

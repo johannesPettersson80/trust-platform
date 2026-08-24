@@ -20,6 +20,22 @@ mod validation;
 
 use validation::{field_from_error, validate_schema_fields};
 
+#[cfg(test)]
+pub(super) fn validate_schema_fields_for_contract(
+    protocol: &str,
+    params: &toml::Value,
+) -> Vec<CommFieldError> {
+    validation::validate_schema_fields(protocol, params)
+}
+
+#[cfg(test)]
+pub(super) fn validate_runtime_file_fields_for_contract(
+    protocol: &str,
+    params: &toml::map::Map<String, toml::Value>,
+) -> Vec<CommFieldError> {
+    validation::validate_runtime_file_fields(protocol, params)
+}
+
 #[derive(Debug, Deserialize)]
 pub(super) struct CommApplyRequest {
     protocol: String,
@@ -242,15 +258,6 @@ fn apply_request_with_project_root(
         );
     }
 
-    if loaded.drivers.is_empty()
-        && matches!(
-            request.action,
-            CommApplyAction::Remove | CommApplyAction::Disable
-        )
-    {
-        return remove_io_config_response(protocol, driver.to_string(), request, loaded);
-    }
-
     let io_text = match io_file::render_io_toml(&loaded.path, &loaded.drivers, &loaded.safe_state) {
         Ok(text) => text,
         Err(error) => {
@@ -377,65 +384,6 @@ fn params_match(requested: Option<&toml::Value>, existing: &toml::Value) -> bool
         .all(|(key, value)| existing.get(key).is_some_and(|existing| existing == value))
 }
 
-fn remove_io_config_response(
-    protocol: String,
-    driver: String,
-    request: CommApplyRequest,
-    loaded: LoadedIoConfig,
-) -> CommApplyResponse {
-    if request.dry_run || request.action == CommApplyAction::Validate {
-        return CommApplyResponse {
-            schema_version: COMM_SCHEMA_VERSION,
-            protocol,
-            driver,
-            action: request.action,
-            applied: false,
-            lifecycle_effect: "validate_only",
-            message: "I/O configuration removal validated. No files were changed.".to_string(),
-            config_path: Some(loaded.path.display().to_string()),
-            instance_id: request.instance_id,
-            field_errors: Vec::new(),
-            snippet: None,
-        };
-    }
-
-    if let Err(error) = remove_io_config_file(&loaded.path) {
-        return blocked_response(
-            protocol,
-            driver,
-            request.action,
-            vec![field_error(
-                "_",
-                format!("failed to remove {}: {error}", loaded.path.display()),
-            )],
-            Some(loaded.path.display().to_string()),
-            request.instance_id,
-        );
-    }
-
-    CommApplyResponse {
-        schema_version: COMM_SCHEMA_VERSION,
-        protocol,
-        driver,
-        action: request.action,
-        applied: true,
-        lifecycle_effect: "restart_required",
-        message: "I/O configuration removed. Restart the runtime to apply it.".to_string(),
-        config_path: Some(loaded.path.display().to_string()),
-        instance_id: request.instance_id,
-        field_errors: Vec::new(),
-        snippet: None,
-    }
-}
-
-fn remove_io_config_file(path: &Path) -> std::io::Result<()> {
-    match std::fs::remove_file(path) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(error),
-    }
-}
-
 fn load_io_config(project_root: &Path) -> Result<LoadedIoConfig, RuntimeError> {
     let path = project_root.join("io.toml");
     if path.is_file() {
@@ -491,11 +439,13 @@ fn io_drivers_from_toml(
                 "invalid io.toml: io.params must be a table",
             )));
         }
-        drivers.push(IoDriverConfig {
-            name: SmolStr::new(driver),
-            params,
-            enabled: true,
-        });
+        if !driver.eq_ignore_ascii_case("none") {
+            drivers.push(IoDriverConfig {
+                name: SmolStr::new(driver),
+                params,
+                enabled: true,
+            });
+        }
     }
     let Some(explicit_drivers) = io.get("drivers") else {
         return Ok(drivers);

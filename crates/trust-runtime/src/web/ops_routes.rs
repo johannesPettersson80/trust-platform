@@ -302,16 +302,24 @@ pub(super) fn handle_ops_route(
                 return OpsRouteOutcome::Handled;
             }
         };
-        let response = dispatch_control_request(
+        let control_response = prepare_control_request(
             payload,
             control_state,
             Some("web"),
             request_token.as_deref(),
         );
-        let body = serde_json::to_string(&response).unwrap_or_else(|_| "{}".into());
-        let response = Response::from_string(body)
-            .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
-        let _ = request.respond(response);
+        let mut control_responses = [control_response];
+        let _ = write_then_complete_control_requests(
+            &mut control_responses,
+            control_state,
+            |control_responses| {
+                let body =
+                    serde_json::to_string(&control_responses[0]).unwrap_or_else(|_| "{}".into());
+                let response = Response::from_string(body)
+                    .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
+                request.respond(response)
+            },
+        );
         return OpsRouteOutcome::Handled;
     }
     OpsRouteOutcome::NotHandled(request)

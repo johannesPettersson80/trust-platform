@@ -7,6 +7,9 @@
 
 extern crate self as trust_runtime;
 
+#[cfg(test)]
+include!("../../../tests/support/generated_output_oracle.rs");
+
 /// Portable runtime-core compatibility surface.
 pub use trust_runtime_core as runtime_core;
 

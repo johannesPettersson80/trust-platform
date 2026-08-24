@@ -107,8 +107,23 @@ function nextTask(window: any): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, 0));
 }
 
+function renderedBrowserExecutable(
+  env: NodeJS.ProcessEnv = process.env,
+  exists: (candidate: string) => boolean = fs.existsSync,
+): string {
+  if (env.TRUST_UI_TEST_BROWSER) {
+    return env.TRUST_UI_TEST_BROWSER;
+  }
+  return [
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+  ].find(exists) ?? "/usr/bin/chromium";
+}
+
 function renderedColumnPositions(): Record<string, number[]> {
-  const browser = process.env.TRUST_UI_TEST_BROWSER || "/usr/bin/chromium";
+  const browser = renderedBrowserExecutable();
   if (!fs.existsSync(browser)) {
     throw new Error(
       `Rendered layout test requires Chromium at ${browser}; set TRUST_UI_TEST_BROWSER to override.`,
@@ -185,6 +200,14 @@ function renderedColumnPositions(): Record<string, number[]> {
 
 suite("Live Values rendered interactions", function () {
   this.timeout(10_000);
+
+  test("rendered checks discover an installed Chrome-family browser", () => {
+    const available = new Set(["/usr/bin/google-chrome"]);
+    assert.strictEqual(
+      renderedBrowserExecutable({}, (candidate) => available.has(candidate)),
+      "/usr/bin/google-chrome",
+    );
+  });
 
   test("a live scan cannot interrupt a Boolean toggle gesture", async () => {
     const harness = createHarness();

@@ -184,3 +184,44 @@ fn literal_indices(
     }
     Ok(Some(resolved))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::literal_indices;
+    use crate::program_model::Expr;
+    use crate::value::Value;
+
+    #[test]
+    fn literal_indices_preserve_integer_widths_and_reject_nonliteral_or_overflow() {
+        let indices = [
+            Expr::Literal(Value::SInt(-1)),
+            Expr::Literal(Value::Int(-2)),
+            Expr::Literal(Value::DInt(-3)),
+            Expr::Literal(Value::LInt(-4)),
+            Expr::Literal(Value::USInt(1)),
+            Expr::Literal(Value::UInt(2)),
+            Expr::Literal(Value::UDInt(3)),
+            Expr::Literal(Value::ULInt(4)),
+            Expr::Literal(Value::Byte(5)),
+            Expr::Literal(Value::Word(6)),
+            Expr::Literal(Value::DWord(7)),
+            Expr::Literal(Value::LWord(8)),
+        ];
+        assert_eq!(
+            literal_indices(&indices).expect("integer indices"),
+            Some(vec![-1, -2, -3, -4, 1, 2, 3, 4, 5, 6, 7, 8])
+        );
+        assert_eq!(
+            literal_indices(&[Expr::Name("dynamic".into())]).expect("dynamic index"),
+            None
+        );
+        assert_eq!(
+            literal_indices(&[Expr::Literal(Value::Bool(true))]).expect("BOOL index"),
+            None
+        );
+
+        let overflow = literal_indices(&[Expr::Literal(Value::ULInt(u64::MAX))])
+            .expect_err("ULINT above i64 must fail");
+        assert!(overflow.to_string().contains("index literal overflow"));
+    }
+}

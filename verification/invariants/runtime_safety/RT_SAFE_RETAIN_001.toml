@@ -3,14 +3,14 @@ id = "RT_SAFE_RETAIN_001"
 title = "Retain persistence failures are visible and fail closed"
 area = "runtime_safety"
 risk = "data_loss"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime"
 last_reviewed = "2026-07-14"
 claim = "Retain load and save failures are visible, and a loaded snapshot with any incompatible entry changes no retained global."
-proof_level = "G2"
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/retain", "crates/trust-runtime/src/runtime"]
-tests = ["TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001"]
+tests = ["TEST_AUTO_181CD2176E3A15433E44", "TEST_AUTO_B25F48AA676D50A29BB2", "TEST_AUTO_CAF0750D558B8114BEC6", "TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001_RED",
@@ -37,6 +37,24 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
 rationale = "The runtime validates every retained entry before committing any value, so a later incompatible entry rejects the snapshot without exposing an earlier compatible entry."
+
+[[behavior]]
+partition = { equals = "DUE_RETAIN_SAVE_FAILURE_BLOCKS_OUTPUT_COMMIT" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A due retain-save failure ends the scan before any pending physical output is written."
+
+[[behavior]]
+partition = { equals = "REQUESTED_STOP_RETAIN_SAVE_FAILURE_VISIBLE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
+outcome = "fault_visible"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A requested-stop retain-save failure leaves the resource faulted with the retain error instead of reporting a successful stop."
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"

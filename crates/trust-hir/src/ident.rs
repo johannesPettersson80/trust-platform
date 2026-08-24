@@ -257,3 +257,7 @@ mod tests {
         assert!(is_reserved_keyword("F_EDGE"));
     }
 }
+
+#[cfg(test)]
+#[path = "ident/contract_tests.rs"]
+mod contract_tests;

@@ -2,6 +2,7 @@
 
 #![allow(missing_docs)]
 
+use std::collections::HashSet;
 use std::sync::mpsc::Sender;
 
 use crate::value::Value;
@@ -9,13 +10,16 @@ use crate::value::Value;
 use super::hook::DebugRuntimeContext;
 use super::{DebugBreakpoint, DebugLog, LogFragment, SourceLocation};
 
+pub(crate) type BreakpointCycleKey = (u32, u32, u32, u64);
+
 pub(crate) fn matches_breakpoint(
     breakpoints: &mut [DebugBreakpoint],
+    stopped_this_cycle: &HashSet<BreakpointCycleKey>,
     logs: &mut Vec<DebugLog>,
     log_tx: Option<&Sender<DebugLog>>,
     location: &SourceLocation,
     ctx: &mut Option<&mut DebugRuntimeContext<'_>>,
-) -> Option<u64> {
+) -> Option<(u64, BreakpointCycleKey)> {
     for breakpoint in breakpoints.iter_mut() {
         let bp_location = &breakpoint.location;
         if bp_location.file_id != location.file_id {
@@ -25,6 +29,15 @@ pub(crate) fn matches_breakpoint(
         // edits/reformatting; treat overlapping ranges as the same statement.
         let overlaps = location.start < bp_location.end && bp_location.start < location.end;
         if !overlaps {
+            continue;
+        }
+        let cycle_key = (
+            bp_location.file_id,
+            bp_location.start,
+            bp_location.end,
+            breakpoint.generation,
+        );
+        if breakpoint.log_message.is_none() && stopped_this_cycle.contains(&cycle_key) {
             continue;
         }
         breakpoint.hits = breakpoint.hits.saturating_add(1);
@@ -58,7 +71,7 @@ pub(crate) fn matches_breakpoint(
             }
             continue;
         }
-        return Some(breakpoint.generation);
+        return Some((breakpoint.generation, cycle_key));
     }
     None
 }
@@ -136,11 +149,28 @@ mod tests {
         let outer = SourceLocation::new(0, 0, 20);
         let inner = SourceLocation::new(0, 5, 10);
         let mut breakpoints = vec![DebugBreakpoint::new(inner)];
+        let stopped_this_cycle = HashSet::new();
         let mut logs = Vec::new();
         let mut ctx = None;
 
-        assert!(matches_breakpoint(&mut breakpoints, &mut logs, None, &outer, &mut ctx).is_some());
-        assert!(matches_breakpoint(&mut breakpoints, &mut logs, None, &inner, &mut ctx).is_some());
+        assert!(matches_breakpoint(
+            &mut breakpoints,
+            &stopped_this_cycle,
+            &mut logs,
+            None,
+            &outer,
+            &mut ctx
+        )
+        .is_some());
+        assert!(matches_breakpoint(
+            &mut breakpoints,
+            &stopped_this_cycle,
+            &mut logs,
+            None,
+            &inner,
+            &mut ctx
+        )
+        .is_some());
     }
 
     #[test]
@@ -148,9 +178,58 @@ mod tests {
         let left = SourceLocation::new(0, 0, 5);
         let right = SourceLocation::new(0, 6, 10);
         let mut breakpoints = vec![DebugBreakpoint::new(left)];
+        let stopped_this_cycle = HashSet::new();
         let mut logs = Vec::new();
         let mut ctx = None;
 
-        assert!(matches_breakpoint(&mut breakpoints, &mut logs, None, &right, &mut ctx).is_none());
+        assert!(matches_breakpoint(
+            &mut breakpoints,
+            &stopped_this_cycle,
+            &mut logs,
+            None,
+            &right,
+            &mut ctx
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn breakpoint_stop_suppression_is_identity_scoped() {
+        let first = SourceLocation::new(0, 0, 20);
+        let second = SourceLocation::new(0, 30, 40);
+        let mut first_breakpoint = DebugBreakpoint::new(first);
+        first_breakpoint.generation = 7;
+        let mut second_breakpoint = DebugBreakpoint::new(second);
+        second_breakpoint.generation = 7;
+        let mut breakpoints = vec![first_breakpoint, second_breakpoint];
+        let stopped_this_cycle = HashSet::from([(0, 0, 20, 7)]);
+        let mut logs = Vec::new();
+        let mut ctx = None;
+
+        assert!(matches_breakpoint(
+            &mut breakpoints,
+            &stopped_this_cycle,
+            &mut logs,
+            None,
+            &first,
+            &mut ctx
+        )
+        .is_none());
+        assert_eq!(breakpoints[0].hits, 0);
+
+        let matched = matches_breakpoint(
+            &mut breakpoints,
+            &stopped_this_cycle,
+            &mut logs,
+            None,
+            &second,
+            &mut ctx,
+        );
+        assert_eq!(matched, Some((7, (0, 30, 40, 7))));
+        assert_eq!(breakpoints[1].hits, 1);
     }
 }
+
+#[cfg(test)]
+#[path = "breakpoints/contract_tests.rs"]
+mod contract_tests;

@@ -3,18 +3,17 @@ id = "RT_SAFE_DEADLINE_001"
 title = "Execution deadline expiry is visible"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-07-28"
 claim = "The runtime execution deadline must be armed as documented, its expiry must be visible, and a pre-commit watchdog fault must not physically write the pending output image."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "state_machine"
-source_refs = ["crates/trust-runtime/src/runtime"]
-tests = [
-  "TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001",
-  "TEST_REVIEW_WATCHDOG_PARTIAL_SAFE_STATE_001",
-  "TEST_REVIEW_SIM_CLOCK_OVERFLOW_001",
+source_refs = [
+  "crates/trust-runtime/src/runtime",
+  "crates/trust-runtime/src/scheduler/runner_loop.rs",
 ]
+tests = ["TEST_AUTO_2D0B462DA31DE705F6EC", "TEST_AUTO_34CD5052A10F2588D30B", "TEST_AUTO_4F5DDFB0E5B6F9E7F4D4", "TEST_AUTO_8BAF8461F95A94A773A6", "TEST_AUTO_BF01EBAA4B0DFA45370D", "TEST_AUTO_C101BBAEC06311987C74", "TEST_AUTO_E72EFAA018DAB54FAAC0", "TEST_AUTO_FB2DC1C843F8F36273CB", "TEST_REVIEW_SIM_CLOCK_OVERFLOW_001", "TEST_REVIEW_WATCHDOG_PARTIAL_SAFE_STATE_001", "TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001_RED",
@@ -24,10 +23,7 @@ evidence_refs = [
   "EVID_SIM_CLOCK_OVERFLOW_GAP_CLOSEOUT_20260718",
 ]
 spec_gap_refs = []
-missing = [
-  "watchdog_configuration_and_recovery_boundaries",
-  "broad_remote_gate",
-]
+missing = ["watchdog_configuration_and_recovery_boundaries", "scheduler_output_deadline_arming_and_automatic_restore", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -47,7 +43,92 @@ no_partial_apply = true
 delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "fault_visible" }
 rationale = "When the watchdog deadline expires before physical output commit and no safe outputs are configured, the resource faults visibly and the pending process-image output is not written."
 
+[[behavior]]
+partition = { equals = "WATCHDOG_SAFE_STATE_WRITE_FAILURE_PRESERVES_ROOT" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#safe-state-handoff-confirmation"
+outcome = "fault_visible"
+fault_surface = "WatchdogTimeout"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "expected_delta", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A failed safe-state write remains visible while the original watchdog timeout stays the resource's root fault."
+
+[[behavior]]
+partition = { equals = "SCHEDULER_ARMS_EXECUTION_DEADLINE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An enabled watchdog is observed to arm the execution deadline before cycle execution. This behavior does not claim direct observation of output-deadline arming."
+
+[[behavior]]
+partition = { equals = "SPAWNED_RESOURCE_WATCHDOG_TIMEOUT_FAULTS" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "fault_visible"
+fault_surface = "WatchdogTimeout"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A spawned resource whose scan exceeds an enabled wall-clock watchdog timeout reaches Faulted, preserves WatchdogTimeout as its terminal error, and joins cleanly."
+
+[[behavior]]
+partition = { equals = "ZERO_TIMEOUT_IMMEDIATE_EXPIRY" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "If a zero timeout reaches defensive deadline construction, it becomes an immediately expired deadline rather than disabling or extending enforcement."
+
+[[behavior]]
+partition = { equals = "DEADLINE_HELPER_RESTORES_PREVIOUS_VALUES" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The explicit restore helper returns both execution and output-commit deadlines to a captured preceding value."
+
+[[behavior]]
+partition = { equals = "DEADLINE_HELPER_RESTORES_ABSENT_VALUES_AFTER_OUTCOME" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "After an ordinary error value or locally contained panic stimulus, explicit helper invocation restores absent execution and output-commit deadlines. Automatic scheduler invocation remains separate debt."
+
+[[behavior]]
+partition = { equals = "DISABLED_WATCHDOG_LEAVES_DEADLINES_UNARMED" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A disabled watchdog leaves absent execution and output-commit deadlines absent before and after restoration."
+
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
 state = "gap_open"
 rationale = "The partial-safe-state and simulation-clock regressions pass; watchdog configuration and recovery boundaries remain open and the expanded contract has no causal broad-remote proof."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every hardware_or_network_fault behavior in RT_SAFE_DEADLINE_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_low behavior in RT_SAFE_DEADLINE_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_SAFE_DEADLINE_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every persistence_or_recovery behavior in RT_SAFE_DEADLINE_001; dynamic proof and broad remote validation remain explicit debt."

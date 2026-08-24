@@ -65,8 +65,14 @@ pub struct SymbolTable {
     scope_by_owner: FxHashMap<SymbolId, ScopeId>,
     /// Type name lookup.
     type_names: FxHashMap<SmolStr, TypeId>,
+    /// Canonical case-preserving display name for each registered type.
+    type_display_names: FxHashMap<TypeId, SmolStr>,
     /// Type definitions by ID.
     types: FxHashMap<TypeId, Type>,
+    /// Enumerated declarations with an explicit integer base and open unnamed values.
+    named_value_types: FxHashSet<TypeId>,
+    /// IEC `STRUCT OVERLAP` types whose fields share backing storage.
+    overlapping_struct_types: FxHashSet<TypeId>,
     /// Extends relationships retained as semantic reference records.
     extends: FxHashMap<SymbolId, OopReference>,
     /// Implements relationships retained as semantic reference records.
@@ -101,7 +107,10 @@ impl SymbolTable {
             symbols_by_name_range: FxHashMap::default(),
             scope_by_owner: FxHashMap::default(),
             type_names: FxHashMap::default(),
+            type_display_names: FxHashMap::default(),
             types: FxHashMap::default(),
+            named_value_types: FxHashSet::default(),
+            overlapping_struct_types: FxHashSet::default(),
             extends: FxHashMap::default(),
             implements: FxHashMap::default(),
             const_values: FxHashMap::default(),
@@ -189,9 +198,8 @@ impl SymbolTable {
         if let Some(scope_id) = self.scope_for_owner(owner) {
             return Some(scope_id);
         }
-        let parent_scope = self
-            .get(owner)
-            .and_then(|symbol| symbol.parent)
+        let parent = self.get(owner)?.parent;
+        let parent_scope = parent
             .and_then(|parent| self.scope_for_owner(parent))
             .unwrap_or(ScopeId::GLOBAL);
         let id = ScopeId(self.scopes.len() as u32);
@@ -445,6 +453,7 @@ impl SymbolTable {
 
     pub(super) fn register_builtin(&mut self, id: TypeId, name: &str, ty: Type) {
         self.type_names.insert(normalize_name(name), id);
+        self.type_display_names.insert(id, SmolStr::new(name));
         self.types.insert(id, ty);
     }
 
@@ -462,6 +471,7 @@ impl SymbolTable {
         let id = TypeId(self.next_type_id);
         self.next_type_id += 1;
         self.type_names.insert(normalized, id);
+        self.type_display_names.insert(id, name);
         self.types.insert(id, ty);
         id
     }
@@ -537,6 +547,37 @@ impl SymbolTable {
         self.register_type(name.clone(), Type::Enum { name, base, values })
     }
 
+    /// Registers a named integer value type with an explicit base.
+    pub fn register_named_value_type(
+        &mut self,
+        name: impl Into<SmolStr>,
+        base: TypeId,
+        values: Vec<(SmolStr, i64)>,
+    ) -> TypeId {
+        let type_id = self.register_enum_type(name, base, values);
+        self.named_value_types.insert(type_id);
+        type_id
+    }
+
+    /// Returns whether the type is an explicit-base named integer value type.
+    #[must_use]
+    pub fn is_named_value_type(&self, type_id: TypeId) -> bool {
+        self.named_value_types
+            .contains(&self.resolve_alias_type(type_id))
+    }
+
+    /// Marks a structured type as an IEC `STRUCT OVERLAP` declaration.
+    pub fn register_overlapping_struct_type(&mut self, type_id: TypeId) {
+        self.overlapping_struct_types.insert(type_id);
+    }
+
+    /// Returns whether a type resolves to an IEC `STRUCT OVERLAP` declaration.
+    #[must_use]
+    pub fn is_overlapping_struct_type(&self, type_id: TypeId) -> bool {
+        self.overlapping_struct_types
+            .contains(&self.resolve_alias_type(type_id))
+    }
+
     /// Registers an array type.
     pub fn register_array_type(&mut self, element: TypeId, dimensions: Vec<(i64, i64)>) -> TypeId {
         // Generate a unique name for the array type
@@ -583,17 +624,19 @@ impl SymbolTable {
         if let Some(name) = id.builtin_name() {
             return Some(SmolStr::new(name));
         }
-        // Look up in registered names
-        self.type_names
-            .iter()
-            .find(|(_, &tid)| tid == id)
-            .map(|(name, _)| name.clone())
+        self.type_display_names.get(&id).cloned()
     }
 
     /// Looks up a type ID by name.
     #[must_use]
     pub fn lookup_registered_type_name(&self, name: &str) -> Option<TypeId> {
         self.type_names.get(&normalize_name(name)).copied()
+    }
+
+    /// Removes a type from public name lookup while retaining its internal
+    /// recovery record for diagnostics emitted during the current analysis.
+    pub(crate) fn unpublish_type(&mut self, id: TypeId) {
+        self.type_names.retain(|_, registered| *registered != id);
     }
 
     /// Gets a type by ID.
@@ -634,7 +677,10 @@ impl SymbolTable {
 
     /// Sets the table's constant values.
     pub fn set_const_values(&mut self, values: FxHashMap<(Option<SmolStr>, SmolStr), i64>) {
-        self.const_values = values;
+        self.const_values = values
+            .into_iter()
+            .map(|((scope, name), value)| (const_key(&scope, name.as_str()), value))
+            .collect();
     }
 
     /// Returns a constant value for a given scope/name.
@@ -1134,3 +1180,7 @@ mod tests {
         assert_eq!(table.resolve_alias_type(alias_a), alias_a);
     }
 }
+
+#[cfg(test)]
+#[path = "table_contract_tests.rs"]
+mod contract_tests;

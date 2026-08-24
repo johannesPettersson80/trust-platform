@@ -12,6 +12,16 @@ below are implemented in trust-hir. Runtime execution coverage is tracked in
 internal test checklists. trust-ide surfaces IEC-referenced standard function
 docs in hover/completion (`stdlib_docs`).
 
+Runtime behavior is asserted directly in
+`crates/trust-runtime/tests/stdlib_core_contract.rs`,
+`crates/trust-runtime/tests/stdlib_helper_contract.rs`, and the focused
+conversion, comparison, string, selection, and assertion suites. Checked HIR
+signature boxes below do not by themselves claim runtime execution. Bounded
+receiving-storage behavior remains a separate assignment-capacity contract.
+truST product clock sources `TIME()` and `CURRENT_DT()` are outside the IEC
+standard-function tables and are specified and tested as product runtime
+helpers.
+
 ## Table 22 - Data Type Conversion Function Forms
 - [x] `SRC_TO_DST` typed conversion
 - [x] `TO_DST` overloaded conversion (deprecated)
@@ -153,6 +163,12 @@ Implementer extensions tracked outside IEC Table 27:
 - [x] CHAR_TO_BYTE
 - [x] WCHAR_TO_WORD
 
+Runtime text-conversion behavior:
+- [x] Direct native tests cover `DINT_TO_STRING`, `REAL_TO_STRING`,
+  `DWORD_TO_STRING`, and `STRING_TO_DINT`.
+- [x] Non-finite `STRING_TO_REAL`/`STRING_TO_LREAL` text is rejected; the
+  runtime-error variant is intentionally not fixed.
+
 ## Table 28 - Numerical and Arithmetic Functions (Single Input)
 - [x] ABS
 - [x] SQRT
@@ -215,7 +231,8 @@ Implementer extensions tracked outside IEC Table 27:
 - [x] FIND
 
 Runtime note:
-- The shipped VM/runtime applies the `DEV-018` element model consistently across `LEN`, `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE`, and `FIND`.
+- The shipped VM/runtime applies the `DEV-017` element model consistently across `LEN`, `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE`, and `FIND`.
+- Native runtime string tests assert these operations directly.
 
 ## Table 35 - Time/Duration Arithmetic Functions
 - [x] ADD (overloaded)
@@ -275,6 +292,10 @@ Runtime note:
 - [x] ASSERT_LESS_OR_EQUAL
 - [x] ASSERT_NEAR
 
+Runtime assertion note:
+- [x] Native tests assert success-`Null`, `AssertionFailed`, mixed-numeric
+  comparison, and bounded user-facing message behavior.
+
 ## Table 43 - Bistable Function Blocks
 - [x] RS
 - [x] SR
@@ -307,13 +328,18 @@ Runtime note:
 - [x] TP
 - [x] TON
 - [x] TOF
+- [x] TP_TIME
+- [x] TON_TIME
+- [x] TOF_TIME
 - [x] TP_LTIME
 - [x] TON_LTIME
 - [x] TOF_LTIME
 
 Execution evidence: `TEST_IEC_TIMER_TRACE_001` runs committed scan-step traces,
-and `TEST_IEC_TIMER_RUNTIME_VARIANTS_001` executes all six TIME/LTIME variants
-through real Structured Text. The three `TEST_IEC_TIMER_*_DURATION_OVERFLOW_001`
+`TEST_IEC_TIMER_RUNTIME_VARIANTS_001` executes the overloaded TIME/LTIME
+variants, and `explicit_time_timer_variants_execute_with_time_values` executes
+all three explicit TIME variants through real Structured Text. The three
+`TEST_IEC_TIMER_*_DURATION_OVERFLOW_001`
 regressions assert overflow-safe elapsed accumulation for TON, TOF, and TP.
 Restart, PT-change, skipped-call, nonmonotonic-clock, and TP short-input/retrigger
 branches remain explicit test debt and are not implied by these checked rows.

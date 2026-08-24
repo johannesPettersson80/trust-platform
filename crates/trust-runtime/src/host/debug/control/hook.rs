@@ -44,12 +44,12 @@ impl DebugControl {
         if let Some(thread_id) = state.current_thread {
             state.last_call_depths.insert(thread_id, call_depth);
         }
-        if let (Some(location), Some(eval_ctx)) = (location, ctx.as_deref()) {
+        if let Some(eval_ctx) = ctx.as_deref() {
             let frames = eval_ctx.storage.frames();
             state
                 .frame_locations
                 .retain(|id, _| frames.iter().any(|frame| frame.id == *id));
-            if let Some(frame) = eval_ctx.storage.current_frame() {
+            if let (Some(location), Some(frame)) = (location, eval_ctx.storage.current_frame()) {
                 state.frame_locations.insert(frame.id, *location);
             }
         }
@@ -118,19 +118,28 @@ impl DebugControl {
                 let breakpoint_generation = {
                     let DebugState {
                         breakpoints,
+                        breakpoint_stops_this_cycle,
                         logs,
                         log_tx,
                         ..
                     } = &mut *state;
-                    matches_breakpoint(breakpoints, logs, log_tx.as_ref(), location, &mut ctx)
+                    matches_breakpoint(
+                        breakpoints,
+                        breakpoint_stops_this_cycle,
+                        logs,
+                        log_tx.as_ref(),
+                        location,
+                        &mut ctx,
+                    )
                 };
                 trace_debug(&format!(
                     "hook.breakpoint.check location={} matched_generation={:?}",
                     format_location_ref(Some(location)),
                     breakpoint_generation
                 ));
-                if let Some(generation) = breakpoint_generation {
+                if let Some((generation, cycle_key)) = breakpoint_generation {
                     should_pause = true;
+                    state.breakpoint_stops_this_cycle.insert(cycle_key);
                     state.steps.clear();
                     stop_reason = Some(DebugStopReason::Breakpoint);
                     stop_generation = Some(generation);
@@ -272,3 +281,7 @@ fn update_snapshot(state: &mut DebugState, ctx: &mut DebugRuntimeContext<'_>) {
         now: ctx.now,
     });
 }
+
+#[cfg(test)]
+#[path = "hook/contract_tests.rs"]
+mod contract_tests;

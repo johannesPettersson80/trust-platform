@@ -45,7 +45,12 @@ END_PROGRAM
 
     let mut harness = TestHarness::from_source(source).unwrap();
     harness.advance_time(Duration::from_millis(123));
-    harness.cycle();
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "TIME() cycle failed: {:?}",
+        cycle.errors
+    );
 
     harness.assert_eq("stamp", Value::Time(Duration::from_millis(123)));
 }
@@ -69,7 +74,6 @@ END_PROGRAM
     let clock = ManualClock::new();
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
 
-    std::thread::sleep(StdDuration::from_millis(2));
     runner.tick().unwrap();
     let program = match runner.runtime().storage().get_global("P") {
         Some(Value::Instance(id)) => *id,
@@ -81,7 +85,7 @@ END_PROGRAM
             .storage()
             .get_instance_var(program, "counter"),
         Some(&Value::Int(0)),
-        "civil wall time must not make a monotonic task ready"
+        "a fixed injected clock must not make a periodic task ready"
     );
 
     clock.advance(Duration::from_millis(1));

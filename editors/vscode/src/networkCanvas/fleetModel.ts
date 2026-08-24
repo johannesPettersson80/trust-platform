@@ -1,5 +1,10 @@
 import * as os from "os";
-import type { FleetTopologyResponse, FleetTopologySlave } from "./fleetTopology";
+import type {
+  FleetTopologyResponse,
+  FleetTopologyRuntime,
+  FleetTopologySlave,
+} from "./fleetTopology";
+import { rawRuntimeId } from "./fleetTopologyIdentity";
 
 export interface NetworkCanvasFleetEndpoint {
   readonly id: string;
@@ -60,6 +65,7 @@ export interface NetworkCanvasFleetLink {
   readonly protocol: string;
   readonly role: string;
   readonly status: string;
+  readonly detail?: string;
   readonly secure: boolean;
 }
 
@@ -250,6 +256,7 @@ export function fleetViewFromTopology(
     // the webview derives a per-protocol default from `protocol` when this is empty.
     role: link.role ?? "",
     status: link.status,
+    detail: link.detail,
     secure: link.secure,
   }));
   const runtimeCount = hosts.reduce((sum, host) => sum + host.runtimeCount, 0);
@@ -320,7 +327,7 @@ function fleetRuntime(
   });
   return {
     id: runtime.runtime_id,
-    name: runtimeDisplayName(runtime),
+    name: fleetRuntimeDisplayName(runtime),
     mode: runtime.mode,
     health: aggregateHealth([
       runtime.health,
@@ -333,12 +340,9 @@ function fleetRuntime(
   };
 }
 
-function runtimeDisplayName(
-  runtime: FleetTopologyResponse["hosts"][number]["runtimes"][number]
-): string {
-  const mode = runtime.mode.trim().toLowerCase();
+export function fleetRuntimeDisplayName(runtime: FleetTopologyRuntime): string {
   const rawName = runtime.name.trim();
-  const runtimeId = runtime.runtime_id.trim().toLowerCase();
+  const runtimeId = rawRuntimeId(runtime.runtime_id).trim().toLowerCase();
   if (
     runtimeId === "runtime:local" ||
     runtimeId === "runtime:project" ||

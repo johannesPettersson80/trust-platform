@@ -12,10 +12,7 @@ pub(super) fn parse_int_literal_from_node(node: &SyntaxNode) -> Option<i64> {
         }
     }
 
-    node.descendants_with_tokens()
-        .filter_map(|e| e.into_token())
-        .find(|token| token.kind() == SyntaxKind::IntLiteral)
-        .and_then(|token| parse_int_literal(token.text()).map(|info| info.value))
+    int_literal_info(node).map(|info| info.value)
 }
 
 #[derive(Clone, Copy)]
@@ -25,10 +22,19 @@ pub(super) struct IntLiteralInfo {
 }
 
 pub(super) fn int_literal_info(node: &SyntaxNode) -> Option<IntLiteralInfo> {
-    node.descendants_with_tokens()
+    let mut info = node
+        .descendants_with_tokens()
         .filter_map(|e| e.into_token())
         .find(|token| token.kind() == SyntaxKind::IntLiteral)
-        .and_then(|token| parse_int_literal(token.text()))
+        .and_then(|token| parse_int_literal(token.text()))?;
+    if node
+        .descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .any(|token| token.kind() == SyntaxKind::Minus)
+    {
+        info.value = info.value.checked_neg()?;
+    }
+    Some(info)
 }
 
 pub(super) fn smallest_int_type_for_literal(value: i64, prefer_unsigned: bool) -> TypeId {

@@ -153,7 +153,9 @@ fn parse_ads_server_listen(
     enabled: bool,
     unsafe_allow_public_bind: bool,
 ) -> Result<Option<String>, RuntimeError> {
-    let listen = listen.map(str::trim).filter(|value| !value.is_empty());
+    let listen = listen
+        .map(|value| parse_nonempty_entry(value.to_string(), "runtime.ads_server.listen"))
+        .transpose()?;
     if enabled && listen.is_none() {
         return Err(RuntimeError::InvalidConfig(
             "runtime.ads_server.enabled=true requires explicit listen IP".into(),
@@ -172,7 +174,7 @@ fn parse_ads_server_listen(
             "runtime.ads_server.listen must not be 0.0.0.0 or ::".into(),
         ));
     }
-    let classification = crate::ads::onboarding::classify_local_address(listen, None);
+    let classification = crate::ads::onboarding::classify_local_address(&listen, None);
     if matches!(
         classification,
         crate::ads::diagnostics::LocalNetworkClassification::Public
@@ -183,15 +185,18 @@ fn parse_ads_server_listen(
             "runtime.ads_server.listen is public/NAT-suspect; set unsafe_allow_public_bind=true to start anyway".into(),
         ));
     }
-    Ok(Some(listen.to_string()))
+    Ok(Some(listen))
 }
 
 fn parse_ads_server_ams_net_id(
     configured: Option<&str>,
     listen: Option<&str>,
 ) -> Result<Option<trust_ads_core::AmsNetId>, RuntimeError> {
-    let net_id = match configured.map(str::trim).filter(|value| !value.is_empty()) {
-        Some(value) => value.to_string(),
+    let configured = configured
+        .map(|value| parse_nonempty_entry(value.to_string(), "runtime.ads_server.ams_net_id"))
+        .transpose()?;
+    let net_id = match configured {
+        Some(value) => value,
         None => {
             let Some(listen) = listen else {
                 return Ok(None);
@@ -214,9 +219,8 @@ fn parse_glob_list(
     let values = values
         .unwrap_or_default()
         .into_iter()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .collect::<Vec<_>>();
+        .map(|value| parse_nonempty_entry(value, field))
+        .collect::<Result<Vec<_>, RuntimeError>>()?;
     for value in &values {
         Pattern::new(value).map_err(|err| {
             RuntimeError::InvalidConfig(format!("{field} invalid pattern '{value}': {err}").into())
@@ -287,15 +291,17 @@ fn parse_ads_server_client_source(
 ) -> Result<AdsServerSourcePin, RuntimeError> {
     let source_ip = client
         .source_ip
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty());
+        .map(|value| {
+            parse_nonempty_entry(value, "runtime.ads_server.clients[].source_ip")
+        })
+        .transpose()?;
     let source_cidr = client
         .source_cidr
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty());
-    match (source_ip, source_cidr) {
+        .map(|value| {
+            parse_nonempty_entry(value, "runtime.ads_server.clients[].source_cidr")
+        })
+        .transpose()?;
+    match (source_ip.as_deref(), source_cidr.as_deref()) {
         (Some(_), Some(_)) => Err(RuntimeError::InvalidConfig(
             "runtime.ads_server.clients[] must set only one of source_ip or source_cidr".into(),
         )),

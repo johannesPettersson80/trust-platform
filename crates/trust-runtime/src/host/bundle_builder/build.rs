@@ -157,38 +157,69 @@ fn preferred_dependency_sources_root(path: &Path) -> PathBuf {
 }
 
 fn collect_sources(source_roots: &[PathBuf]) -> anyhow::Result<(Vec<SourceFile>, Vec<PathBuf>)> {
-    let patterns = ["**/*.st", "**/*.ST", "**/*.pou", "**/*.POU"];
-    let mut seen = BTreeSet::new();
-    let mut source_map = BTreeMap::new();
+    let mut source_paths = BTreeSet::new();
 
     for root in source_roots {
-        if !root.is_dir() {
-            continue;
-        }
-        for pattern in patterns {
-            for entry in glob::glob(&format!("{}/{}", root.display(), pattern))? {
-                let path = entry?;
-                if !path.is_file() {
-                    continue;
-                }
-                let resolved = canonicalize_or_self(&path);
-                let path_text = resolved.to_string_lossy().to_string();
-                if !seen.insert(path_text.clone()) {
-                    continue;
-                }
-                let text = fs::read_to_string(&resolved)?;
-                source_map.insert(path_text, text);
+        match fs::metadata(root) {
+            Ok(metadata) if metadata.is_dir() => {
+                collect_source_paths(root, &mut source_paths)?;
+            }
+            Ok(_) => anyhow::bail!("source root is not a directory: {}", root.display()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => {
+                return Err(error)
+                    .with_context(|| format!("inspect source root {}", root.display()));
             }
         }
     }
 
-    let mut sources = Vec::with_capacity(source_map.len());
-    let mut paths = Vec::with_capacity(source_map.len());
-    for (path, text) in source_map {
-        paths.push(PathBuf::from(&path));
-        sources.push(SourceFile::with_path(path, text));
+    let mut sources = Vec::with_capacity(source_paths.len());
+    let mut paths = Vec::with_capacity(source_paths.len());
+    for path in source_paths {
+        let text = fs::read_to_string(&path)
+            .with_context(|| format!("read source file {}", path.display()))?;
+        sources.push(SourceFile::with_path(
+            path.to_string_lossy().to_string(),
+            text,
+        ));
+        paths.push(path);
     }
     Ok((sources, paths))
+}
+
+fn collect_source_paths(root: &Path, paths: &mut BTreeSet<PathBuf>) -> anyhow::Result<()> {
+    let mut entries = fs::read_dir(root)
+        .with_context(|| format!("read source directory {}", root.display()))?
+        .collect::<Result<Vec<_>, _>>()
+        .with_context(|| format!("enumerate source directory {}", root.display()))?;
+    entries.sort_by_key(std::fs::DirEntry::file_name);
+
+    for entry in entries {
+        let path = entry.path();
+        let file_type = entry
+            .file_type()
+            .with_context(|| format!("inspect source path {}", path.display()))?;
+        if file_type.is_dir() {
+            collect_source_paths(&path, paths)?;
+            continue;
+        }
+        if !file_type.is_file() {
+            continue;
+        }
+        let supported = path
+            .extension()
+            .and_then(std::ffi::OsStr::to_str)
+            .is_some_and(|extension| {
+                extension.eq_ignore_ascii_case("st") || extension.eq_ignore_ascii_case("pou")
+            });
+        if supported {
+            paths.insert(
+                path.canonicalize()
+                    .with_context(|| format!("resolve source file {}", path.display()))?,
+            );
+        }
+    }
+    Ok(())
 }
 
 fn canonicalize_or_self(path: &Path) -> PathBuf {

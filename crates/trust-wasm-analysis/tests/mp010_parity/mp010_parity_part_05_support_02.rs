@@ -187,21 +187,29 @@ pub(crate) fn position_to_offset_utf16(content: &str, position: Position) -> Opt
 }
 
 pub(crate) fn load_plant_demo_documents() -> Vec<DocumentInput> {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/plant_demo/src")
-        .canonicalize()
-        .expect("canonicalize plant_demo path");
-    let files = ["types.st", "fb_pump.st", "program.st", "config.st"];
+    let files = [
+        (
+            "types.st",
+            include_str!("../../../../examples/plant_demo/src/types.st"),
+        ),
+        (
+            "fb_pump.st",
+            include_str!("../../../../examples/plant_demo/src/fb_pump.st"),
+        ),
+        (
+            "program.st",
+            include_str!("../../../../examples/plant_demo/src/program.st"),
+        ),
+        (
+            "config.st",
+            include_str!("../../../../examples/plant_demo/src/config.st"),
+        ),
+    ];
     files
-        .iter()
-        .map(|name| {
-            let path = root.join(name);
-            let text = fs::read_to_string(&path)
-                .unwrap_or_else(|err| panic!("read {} failed: {err}", path.display()));
-            DocumentInput {
-                uri: format!("memory:///plant_demo/{name}"),
-                text,
-            }
+        .into_iter()
+        .map(|(name, text)| DocumentInput {
+            uri: format!("memory:///plant_demo/{name}"),
+            text: text.to_string(),
         })
         .collect()
 }

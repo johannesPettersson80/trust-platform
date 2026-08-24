@@ -13,11 +13,57 @@ use trust_hir::TypeId;
 
 use super::super::types::CompileError;
 
-pub(crate) type CompileTimeConsts = IndexMap<SmolStr, Value>;
+#[derive(Clone, Default)]
+pub(crate) struct CompileTimeConsts {
+    global_values: IndexMap<SmolStr, Value>,
+    global_reserved: indexmap::IndexSet<SmolStr>,
+    local_values: IndexMap<SmolStr, Value>,
+    local_reserved: indexmap::IndexSet<SmolStr>,
+}
+
+impl CompileTimeConsts {
+    fn key(name: &str) -> SmolStr {
+        SmolStr::new(name.to_ascii_uppercase())
+    }
+
+    pub(crate) fn reserve_global(&mut self, name: &str) {
+        self.global_reserved.insert(Self::key(name));
+    }
+
+    pub(crate) fn reserve_local(&mut self, name: &str) {
+        self.local_reserved.insert(Self::key(name));
+    }
+
+    pub(crate) fn insert_global(&mut self, name: &str, value: Value) {
+        self.global_values.insert(Self::key(name), value);
+    }
+
+    pub(crate) fn insert_local(&mut self, name: &str, value: Value) {
+        self.local_values.insert(Self::key(name), value);
+    }
+
+    fn lookup(&self, name: &str, using: &[SmolStr]) -> Option<Value> {
+        let key = Self::key(name);
+        if self.local_reserved.contains(&key) {
+            return self.local_values.get(&key).cloned();
+        }
+        if name.contains('.') {
+            return self.global_values.get(&key).cloned();
+        }
+        for namespace in using {
+            let qualified = Self::key(&format!("{namespace}.{name}"));
+            if self.global_reserved.contains(&qualified) {
+                return self.global_values.get(&qualified).cloned();
+            }
+        }
+        self.global_values.get(&key).cloned()
+    }
+}
 
 pub(crate) struct LoweredProgram {
     pub(crate) program: ProgramDef,
     pub(crate) globals: Vec<GlobalInit>,
+    pub(crate) access: Vec<AccessDecl>,
 }
 
 pub(crate) struct ProgramVars {
@@ -27,6 +73,7 @@ pub(crate) struct ProgramVars {
 }
 
 pub(crate) struct ConfigModel {
+    pub(crate) resource_name: Option<SmolStr>,
     pub(crate) globals: Vec<GlobalInit>,
     pub(crate) tasks: Vec<crate::task::TaskConfig>,
     pub(crate) programs: Vec<ProgramInstanceConfig>,
@@ -66,6 +113,7 @@ pub(crate) enum AccessPart {
 pub(crate) struct AccessDecl {
     pub(crate) name: SmolStr,
     pub(crate) path: AccessPath,
+    pub(crate) writable: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -159,19 +207,28 @@ impl<'a> LoweringInputs<'a> {
 }
 
 impl LoweringContext<'_> {
-    fn const_key(name: &str) -> SmolStr {
-        SmolStr::new(name.to_ascii_uppercase())
+    pub(crate) fn lookup_compile_time_const(&self, name: &str) -> Option<Value> {
+        self.compile_time_consts.lookup(name, &self.using)
     }
 
-    pub(crate) fn lookup_compile_time_const(&self, name: &str) -> Option<Value> {
-        self.compile_time_consts
-            .get(Self::const_key(name).as_str())
-            .cloned()
+    fn lookup_compile_time_value(&self, name: &str) -> Option<Value> {
+        self.lookup_compile_time_const(name).or_else(|| {
+            match self.registry.resolve_enum_value_by_name(name) {
+                trust_hir::symbols::EnumValueResolution::Resolved(value) => {
+                    Some(Value::LInt(value))
+                }
+                trust_hir::symbols::EnumValueResolution::NotFound
+                | trust_hir::symbols::EnumValueResolution::Ambiguous => None,
+            }
+        })
     }
 
     pub(crate) fn register_compile_time_const(&mut self, name: &str, value: Value) {
-        self.compile_time_consts
-            .insert(Self::const_key(name), value);
+        self.compile_time_consts.insert_local(name, value);
+    }
+
+    pub(crate) fn register_global_compile_time_const(&mut self, name: &str, value: Value) {
+        self.compile_time_consts.insert_global(name, value);
     }
 
     pub(crate) fn eval_compile_time_const_expr(&self, expr: &Expr) -> Result<Value, CompileError> {
@@ -179,7 +236,7 @@ impl LoweringContext<'_> {
             expr,
             &self.profile,
             self.registry,
-            &|name| self.lookup_compile_time_const(name),
+            &|name| self.lookup_compile_time_value(name),
         )
         .map_err(|err| CompileError::new(err.to_string()))
     }

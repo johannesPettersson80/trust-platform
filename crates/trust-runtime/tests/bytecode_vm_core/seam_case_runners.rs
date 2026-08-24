@@ -7,7 +7,7 @@ use verification_cases::{
 
 const ENCODER_CASE_FILE: &str = "verification/cases/bytecode_vm/VM_SEAM_ENC_001.toml";
 const ENCODER_CASE_DIGEST: &str =
-    "sha256:a57db88204f9b7815f0a548fad35eb20fb2bda6337efdeb1690191560e73e7cf";
+    "sha256:e8b6b6a66e785c6bf7ffdf64fb7980c8a62c143c9169dc873e878b7322156f51";
 const ENCODER_TEST_ID: &str = "TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001";
 
 #[test]
@@ -52,6 +52,7 @@ fn run_encoder_case(
         "SUPPORTED_LOOP_CONTROL" => run_supported_loop_control()?,
         "UNSUPPORTED_STATEMENT" => reject_unsupported_statement()?,
         "UNSUPPORTED_EXPRESSION_AFTER_VALID_PREFIX" => reject_array_initializer_after_prefix()?,
+        "EXPLICIT_VOID_FUNCTION_RETURN_TYPE" => reject_explicit_void_function_return_type()?,
         other => return Err(format!("unreviewed encoder scenario {other}")),
     };
     probe.observed = Some(serde_json::json!({"scenario": scenario, "outcome": status}));
@@ -142,6 +143,29 @@ END_PROGRAM
         Err(_) => Ok("rejected_before_partial_bytecode"),
         Ok(_) => Err("unsupported array initializer produced bytecode after a valid prefix".into()),
     }
+}
+
+fn reject_explicit_void_function_return_type() -> Result<&'static str, String> {
+    let source = r#"
+FUNCTION incer : VOID
+VAR_IN_OUT
+    i : USINT;
+END_VAR
+VAR_INPUT
+    inc : USINT;
+    dec : USINT;
+END_VAR
+i := i + inc - dec;
+END_FUNCTION
+
+PROGRAM Main
+VAR
+    i : USINT := USINT#100;
+END_VAR
+incer(i, USINT#4, USINT#0);
+END_PROGRAM
+"#;
+    expect_lowering_rejection(source, "unsupported generic type")
 }
 
 fn expect_lowering_rejection(

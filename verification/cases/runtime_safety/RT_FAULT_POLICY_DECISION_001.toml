@@ -1,0 +1,29 @@
+schema_version = 1
+id = "CASES_RT_FAULT_POLICY_DECISION_001"
+title = "Generated cases for Fault policy projection is deterministic and side-effect free"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "planned"
+invariant = "RT_FAULT_POLICY_DECISION_001"
+generator = "gen_cases_v2.py v1"
+generator_digest = "sha256:e557e3873c3813524fb791b2723d9c9a51a7f1d93b6d304bce60e5d36cc5c3ac"
+source_digest = "sha256:13514a9763d271f16bf5e0d59908c998f64f953ef4ea25d1710a5d1d37f60032"
+last_reviewed = "2026-07-22"
+
+[[case]]
+id = "RT_FAULT_POLICY_DECISION_001_HALT_POLICY_A51596E0"
+family = "happy_path"
+input = { source_partition = { equals = "HALT_POLICY" }, scenario = "HALT_POLICY" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-policy-decision-projection" }
+
+[[case]]
+id = "RT_FAULT_POLICY_DECISION_001_SAFE_HALT_POLICY_F4DC4507"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "SAFE_HALT_POLICY" }, scenario = "SAFE_HALT_POLICY" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-policy-decision-projection" }
+
+[[case]]
+id = "RT_FAULT_POLICY_DECISION_001_RESTART_POLICY_D1F4ED38"
+family = "persistence_or_recovery"
+input = { source_partition = { equals = "RESTART_POLICY" }, scenario = "RESTART_POLICY" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-policy-decision-projection" }

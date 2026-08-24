@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import datetime
 import json
 import unittest
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ from .mutation_program_contract import (
     REQUIRED_SHARD_IDS,
     load_mutation_program,
     validate_mutation_program_contract,
+    validate_mutation_program_for_shard_execution,
 )
 
 
@@ -39,8 +41,16 @@ class MutationProgramContractTests(unittest.TestCase):
             [len(row["mutations"]) for row in self.program["shards"]],
         )
 
-    def test_live_contract_is_valid_and_recursively_closed(self) -> None:
-        self.assertEqual([], validate_mutation_program_contract(ROOT, self.program))
+    def test_live_manifest_and_source_execution_preflights_are_valid(self) -> None:
+        for shard_id in REQUIRED_SHARD_IDS[1:5]:
+            self.assertEqual(
+                [],
+                validate_mutation_program_for_shard_execution(
+                    ROOT,
+                    self.program,
+                    shard_id,
+                ),
+            )
         schema = json.loads((ROOT / MUTATION_PROGRAM_SCHEMA_PATH).read_text())
         self.assertFalse(schema["additionalProperties"])
         for definition in schema["$defs"].values():
@@ -48,6 +58,10 @@ class MutationProgramContractTests(unittest.TestCase):
                 self.assertFalse(definition["additionalProperties"])
 
     def test_exact_source_mutant_and_test_bindings_are_required(self) -> None:
+        self.assertEqual(
+            "crates/trust-runtime/src/runtime/retain_snapshot.rs",
+            self.program["shards"][4]["mutations"][0]["source_file"],
+        )
         for mutation in (
             lambda value: value["shards"][1]["mutations"][0].__setitem__("source_digest", "sha256:" + "0" * 64),
             lambda value: value["shards"][2]["mutations"][0].__setitem__("function", "invented"),
@@ -84,8 +98,8 @@ class MutationProgramContractTests(unittest.TestCase):
 
     def test_measured_source_shard_requires_its_bound_artifact(self) -> None:
         shards = copy.deepcopy(self.program["shards"])
-        shards[1]["execution_status"] = "measured"
-        shards[1]["result_artifact_path"] = (
+        retain_shard_id = "MUTATION_SHARD_RETAIN_RESTART_001"
+        shards[4]["result_artifact_path"] = (
             "docs/internal/testing/evidence/plc-verification-program/2026-07-16/"
             "missing-focused-mutation.json"
         )
@@ -96,6 +110,109 @@ class MutationProgramContractTests(unittest.TestCase):
             any("focused mutation artifact cannot be loaded" in item for item in failures),
             failures,
         )
+
+        exempt_failures: list[str] = []
+        contract_module._validate_focused_shards(
+            ROOT,
+            shards,
+            exempt_failures,
+            artifact_exempt_shard_id=retain_shard_id,
+        )
+        self.assertFalse(
+            any(retain_shard_id in item for item in exempt_failures),
+            exempt_failures,
+        )
+
+        shards[1]["result_artifact_path"] = (
+            "docs/internal/testing/evidence/plc-verification-program/2026-07-16/"
+            "missing-unrelated-focused-mutation.json"
+        )
+        unrelated_failures: list[str] = []
+        contract_module._validate_focused_shards(
+            ROOT,
+            shards,
+            unrelated_failures,
+            artifact_exempt_shard_id=retain_shard_id,
+        )
+        self.assertTrue(
+            any("MUTATION_SHARD_RUNTIME_VALUE_CONVERSION_001" in item for item in unrelated_failures),
+            unrelated_failures,
+        )
+
+        preexecution = copy.deepcopy(self.program)
+        preexecution["survivor_resolutions"] = [
+            {
+                "shard_id": retain_shard_id,
+                "mutation_id": "MUTANT_RETAIN_ON_WARM_FALSE",
+                "owner": "trust-runtime",
+                "action": "add_test",
+                "resolution_status": "resolved",
+                "rationale": "A stale selected-shard resolution cannot survive re-execution.",
+                "resolution_ref": "crates/trust-runtime/tests/runtime_restart.rs",
+            }
+        ]
+        preexecution_failures = (
+            contract_module.validate_mutation_program_for_shard_execution(
+                ROOT,
+                preexecution,
+                retain_shard_id,
+            )
+        )
+        self.assertEqual([], preexecution_failures)
+
+        preexecution["survivor_resolutions"][0]["mutation_id"] = "MUTANT_INVENTED"
+        preexecution_failures = validate_mutation_program_for_shard_execution(
+            ROOT,
+            preexecution,
+            retain_shard_id,
+        )
+        self.assertTrue(
+            any("references an unknown mutation" in item for item in preexecution_failures),
+            preexecution_failures,
+        )
+
+    def test_shard_execution_preflight_does_not_require_old_execution_artifacts(self) -> None:
+        with (
+            mock.patch.object(
+                contract_module,
+                "_validate_legacy_shard",
+                side_effect=AssertionError("execution preflight read legacy results"),
+            ),
+            mock.patch.object(
+                contract_module,
+                "_validate_focused_shards",
+                side_effect=AssertionError("execution preflight read focused results"),
+            ),
+        ):
+            failures = validate_mutation_program_for_shard_execution(
+                ROOT,
+                self.program,
+                "MUTATION_SHARD_HIR_DIAGNOSTICS_001",
+            )
+        artifact_failures = [
+            failure
+            for failure in failures
+            if "artifact" in failure or "measured bytecode mutation report" in failure
+        ]
+        self.assertEqual([], artifact_failures)
+
+        corrupted = copy.deepcopy(self.program)
+        corrupted["shards"][2]["mutations"][0]["source_digest"] = "sha256:" + "0" * 64
+        failures = validate_mutation_program_for_shard_execution(
+            ROOT,
+            corrupted,
+            "MUTATION_SHARD_HIR_DIAGNOSTICS_001",
+        )
+        self.assertTrue(any("source_digest mismatch" in item for item in failures), failures)
+
+        corrupted = copy.deepcopy(self.program)
+        corrupted["proof_posture"] = "invented"
+        failures = validate_mutation_program_for_shard_execution(
+            ROOT,
+            corrupted,
+            "MUTATION_SHARD_HIR_DIAGNOSTICS_001",
+        )
+        self.assertTrue(any("proof posture" in item for item in failures), failures)
 
     def test_each_mutant_partitions_the_reviewed_associations_exactly(self) -> None:
         for shard in self.program["shards"]:
@@ -185,6 +302,24 @@ class MutationProgramContractTests(unittest.TestCase):
         except Exception as exc:  # pragma: no cover
             self.fail(f"hostile shard ID raised {type(exc).__name__}: {exc}")
         self.assertTrue(failures)
+        corrupted = copy.deepcopy(self.program)
+        corrupted["shards"][2]["mutations"] = None
+        try:
+            failures = validate_mutation_program_for_shard_execution(
+                ROOT,
+                corrupted,
+                "MUTATION_SHARD_HIR_DIAGNOSTICS_001",
+            )
+        except Exception as exc:  # pragma: no cover
+            self.fail(f"hostile mutations value raised {type(exc).__name__}: {exc}")
+        self.assertTrue(any("mutations must be an array" in item for item in failures), failures)
+        corrupted = copy.deepcopy(self.program)
+        corrupted["shards"][2]["mutations"][0]["replacement"] = datetime.date(2026, 8, 13)
+        try:
+            failures = validate_mutation_program_contract(ROOT, corrupted)
+        except Exception as exc:  # pragma: no cover
+            self.fail(f"hostile TOML-native value raised {type(exc).__name__}: {exc}")
+        self.assertTrue(any("non-JSON-compatible" in item for item in failures), failures)
 
     def test_partial_scanner_duplicate_ids_fail_closed(self) -> None:
         fact = SimpleNamespace(
@@ -218,18 +353,13 @@ class MutationProgramContractTests(unittest.TestCase):
                     self.fail(f"hostile legacy report raised {type(exc).__name__}: {exc}")
             self.assertTrue(failures)
 
-    def test_full_metadata_validator_owns_the_manifest_contract(self) -> None:
-        from .metadata_validator.core import Validator
+    def test_manifest_contract_remains_available_as_standalone_advisory_tooling(self) -> None:
+        corrupted = {**self.program, "proof_posture": "release_proof"}
 
-        validator = Validator()
-        validator.load_records()
-        with mock.patch.object(
-            validator,
-            "mutation_program",
-            {**validator.mutation_program, "proof_posture": "release_proof"},
-        ):
-            validator.validate()
-        self.assertTrue(any("proof posture" in item.message for item in validator.failures))
+        self.assertIn(
+            "proof posture",
+            "\n".join(validate_mutation_program_contract(ROOT, corrupted)),
+        )
 
     def test_manifest_paths_are_stable(self) -> None:
         self.assertEqual("verification/mutation-program.toml", MUTATION_PROGRAM_PATH)

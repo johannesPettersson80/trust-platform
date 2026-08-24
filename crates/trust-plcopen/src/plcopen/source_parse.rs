@@ -1,13 +1,39 @@
 fn load_sources(project_root: &Path, sources_root: &Path) -> anyhow::Result<Vec<LoadedSource>> {
-    let mut paths = BTreeSet::new();
-    for pattern in ["**/*.st", "**/*.ST", "**/*.pou", "**/*.POU"] {
-        let glob_pattern = format!("{}/{}", sources_root.display(), pattern);
-        for entry in glob::glob(&glob_pattern)
-            .with_context(|| format!("invalid source glob '{}'", glob_pattern))?
-        {
-            paths.insert(entry?);
+    fn collect_source_paths(current: &Path, paths: &mut BTreeSet<PathBuf>) -> anyhow::Result<()> {
+        let metadata = std::fs::symlink_metadata(current)
+            .with_context(|| format!("failed to inspect source path '{}'", current.display()))?;
+        if metadata.file_type().is_symlink() {
+            anyhow::bail!("symbolic link is not allowed in source tree: {}", current.display());
         }
+        if metadata.is_dir() {
+            let extension = current
+                .extension()
+                .and_then(|value| value.to_str())
+                .unwrap_or_default();
+            if extension.eq_ignore_ascii_case("st") || extension.eq_ignore_ascii_case("pou") {
+                anyhow::bail!("source entry is a directory, not a file: {}", current.display());
+            }
+            let mut children = std::fs::read_dir(current)
+                .with_context(|| format!("failed to read source directory '{}'", current.display()))?
+                .collect::<Result<Vec<_>, _>>()?;
+            children.sort_by_key(|entry| entry.file_name());
+            for child in children {
+                collect_source_paths(&child.path(), paths)?;
+            }
+            return Ok(());
+        }
+        let extension = current
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        if extension.eq_ignore_ascii_case("st") || extension.eq_ignore_ascii_case("pou") {
+            paths.insert(current.to_path_buf());
+        }
+        Ok(())
     }
+
+    let mut paths = BTreeSet::new();
+    collect_source_paths(sources_root, &mut paths)?;
 
     let mut sources = Vec::with_capacity(paths.len());
     for path in paths {
@@ -24,12 +50,22 @@ fn load_sources(project_root: &Path, sources_root: &Path) -> anyhow::Result<Vec<
     Ok(sources)
 }
 
+fn portable_source_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 fn extract_pou_declarations(source: &LoadedSource) -> (Vec<PouDecl>, Vec<String>) {
     let mut declarations = Vec::new();
     let mut warnings = Vec::new();
 
     let parsed = parser::parse(&source.text);
     let syntax = parsed.syntax();
+    if !parsed.ok() {
+        warnings.push(format!(
+            "{} contains parser errors and cannot be exported as PLCopen",
+            source.path.display()
+        ));
+    }
 
     for node in syntax.children() {
         let Some(pou_type) = node_to_pou_type(&node) else {
@@ -61,17 +97,18 @@ fn extract_pou_declarations(source: &LoadedSource) -> (Vec<PouDecl>, Vec<String>
         }
 
         let line = line_for_node(&source.text, &node);
+        let source_path = portable_source_path(&source.path);
         declarations.push(PouDecl {
             methods: extract_codesys_methods_from_pou(
                 &node,
                 &source.text,
-                &source.path.display().to_string(),
+                &source_path,
                 &name,
             ),
             name,
             pou_type,
             body: normalize_body_text(node.text().to_string()),
-            source: source.path.display().to_string(),
+            source: source_path,
             line,
         });
     }
@@ -125,6 +162,20 @@ fn extract_global_var_declarations(source: &LoadedSource) -> (Vec<GlobalVarDecl>
         };
 
         let body = normalize_body_text(lines[block_start..=end_index].join("\n"));
+        if !global_var_block_is_well_formed(&body) {
+            warnings.push(format!(
+                "{}:{} {} VAR_GLOBAL block skipped during PLCopen export",
+                source.path.display(),
+                block_start + 1,
+                if global_var_block_has_duplicate_identity(&body) {
+                    "duplicate identity in malformed"
+                } else {
+                    "malformed"
+                }
+            ));
+            index = end_index + 1;
+            continue;
+        }
         let mut variables = parse_global_var_entries_from_st_block(&body);
         let name = if block_index == 0 {
             base_name.clone()
@@ -153,6 +204,57 @@ fn extract_global_var_declarations(source: &LoadedSource) -> (Vec<GlobalVarDecl>
     }
 
     (declarations, warnings)
+}
+
+fn global_var_block_is_well_formed(body: &str) -> bool {
+    let mut identities = HashSet::new();
+    let mut saw_declaration = false;
+    for line in body.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty()
+            || trimmed.starts_with('{') && trimmed.ends_with('}')
+            || trimmed.to_ascii_uppercase().starts_with("VAR_GLOBAL")
+            || trimmed.eq_ignore_ascii_case("END_VAR")
+            || trimmed.starts_with("//")
+            || trimmed.starts_with("(*")
+        {
+            continue;
+        }
+        let Some((lhs, rhs)) = trimmed.trim_end_matches(';').split_once(':') else {
+            return false;
+        };
+        let type_expr = rhs.split_once(":=").map_or(rhs, |(value, _)| value).trim();
+        if type_expr.is_empty() {
+            return false;
+        }
+        let names = lhs.split(',').map(str::trim).collect::<Vec<_>>();
+        if names.is_empty()
+            || names.iter().any(|name| {
+                !is_valid_st_identifier(name)
+                    || !identities.insert(name.to_ascii_lowercase())
+            })
+        {
+            return false;
+        }
+        saw_declaration = true;
+    }
+    saw_declaration
+}
+
+fn global_var_block_has_duplicate_identity(body: &str) -> bool {
+    let mut identities = HashSet::new();
+    for line in body.lines() {
+        let trimmed = line.trim();
+        let Some((lhs, _)) = trimmed.trim_end_matches(';').split_once(':') else {
+            continue;
+        };
+        for name in lhs.split(',').map(str::trim) {
+            if !name.is_empty() && !identities.insert(name.to_ascii_lowercase()) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 fn parse_struct_type_declarations(source: &str) -> BTreeMap<String, Vec<GlobalVarVariableDecl>> {

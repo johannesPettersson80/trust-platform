@@ -279,6 +279,19 @@ impl AdsConnectionBridge {
                 );
                 continue;
             };
+            if contains_non_finite_float(&value) {
+                self.shared.reject_write(
+                    binding.point.point_name.as_str(),
+                    now_ms,
+                    format!(
+                        "ADS output '{}' contains a non-finite REAL/LREAL value",
+                        binding.point.point_name
+                    ),
+                );
+                self.last_queued_values
+                    .remove(binding.point.point_name.as_str());
+                continue;
+            }
             if self
                 .last_queued_values
                 .get(binding.point.point_name.as_str())
@@ -386,6 +399,15 @@ impl AdsConnectionBridge {
         self.last_queued_values
             .insert(point_name.to_string(), value);
         true
+    }
+}
+
+fn contains_non_finite_float(value: &Value) -> bool {
+    match value {
+        Value::Real(value) => !value.is_finite(),
+        Value::LReal(value) => !value.is_finite(),
+        Value::Array(array) => array.elements().iter().any(contains_non_finite_float),
+        _ => false,
     }
 }
 

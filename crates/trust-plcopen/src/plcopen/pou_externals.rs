@@ -59,7 +59,7 @@ fn source_uses_qualified_global_list(source: &str, list_name: &str) -> bool {
     if list_name.trim().is_empty() {
         return false;
     }
-    let lowered_source = source.to_ascii_lowercase();
+    let lowered_source = strip_comments_and_strings(source).to_ascii_lowercase();
     let needle = format!("{}.", list_name.trim().to_ascii_lowercase());
 
     for (index, _) in lowered_source.match_indices(&needle) {
@@ -76,6 +76,58 @@ fn source_uses_qualified_global_list(source: &str, list_name: &str) -> bool {
     }
 
     false
+}
+
+fn strip_comments_and_strings(source: &str) -> String {
+    let mut output = String::with_capacity(source.len());
+    let mut chars = source.chars().peekable();
+    let mut line_comment = false;
+    let mut block_comment = false;
+    let mut string_delimiter = None;
+    while let Some(ch) = chars.next() {
+        if line_comment {
+            if ch == '\n' {
+                line_comment = false;
+                output.push(ch);
+            }
+            continue;
+        }
+        if block_comment {
+            if ch == '*' && chars.peek() == Some(&')') {
+                chars.next();
+                block_comment = false;
+            } else if ch == '\n' {
+                output.push(ch);
+            }
+            continue;
+        }
+        if let Some(delimiter) = string_delimiter {
+            if ch == delimiter {
+                if chars.peek() == Some(&delimiter) {
+                    chars.next();
+                } else {
+                    string_delimiter = None;
+                }
+            }
+            continue;
+        }
+        if ch == '/' && chars.peek() == Some(&'/') {
+            chars.next();
+            line_comment = true;
+            continue;
+        }
+        if ch == '(' && chars.peek() == Some(&'*') {
+            chars.next();
+            block_comment = true;
+            continue;
+        }
+        if ch == '\'' || ch == '"' {
+            string_delimiter = Some(ch);
+            continue;
+        }
+        output.push(ch);
+    }
+    output
 }
 
 fn source_has_var_external_symbol(source: &str, symbol_name: &str) -> bool {
@@ -183,11 +235,36 @@ fn unique_source_path_with_segments(
 
     let mut candidate = directory.join(format!("{file_name}.st"));
     let mut duplicate_index = 2usize;
-    while !seen_files.insert(candidate.clone()) {
+    while source_path_is_taken(&candidate, seen_files) {
         candidate = directory.join(format!("{file_name}_{duplicate_index}.st"));
         duplicate_index += 1;
     }
+    seen_files.insert(candidate.clone());
     candidate
+}
+
+fn source_path_is_taken(candidate: &Path, seen_files: &HashSet<PathBuf>) -> bool {
+    let key = candidate.to_string_lossy().to_ascii_lowercase();
+    if seen_files
+        .iter()
+        .any(|path| path.to_string_lossy().to_ascii_lowercase() == key)
+    {
+        return true;
+    }
+    let Some(parent) = candidate.parent() else {
+        return false;
+    };
+    let Some(name) = candidate.file_name().and_then(|value| value.to_str()) else {
+        return false;
+    };
+    std::fs::read_dir(parent).is_ok_and(|entries| {
+        entries.flatten().any(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .eq_ignore_ascii_case(name)
+        })
+    })
 }
 
 fn write_text_file_with_parents(path: &Path, text: &str) -> anyhow::Result<()> {

@@ -303,6 +303,71 @@ word_order = "big"
 }
 
 #[test]
+fn modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation() {
+    let bits = f32::MAX.to_bits();
+    let state = Arc::new(Mutex::new(ModbusTestState {
+        holding_registers: vec![(bits >> 16) as u16, bits as u16],
+        ..ModbusTestState::default()
+    }));
+    let addr = start_modbus_server(Arc::clone(&state), 1);
+    let params: toml::Value = toml::from_str(&format!(
+        r#"
+address = "{addr}"
+
+[[input_points]]
+image_offset = 0
+address = 0
+function = "read_holding_registers"
+data_type = "f32"
+scale = 2.0
+"#
+    ))
+    .expect("params");
+    let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
+    let mut inputs = [0xA5; 4];
+
+    let error = driver
+        .read_inputs(&mut inputs)
+        .expect_err("scaled F32 overflow must fail");
+    assert!(error.to_string().contains("finite"));
+    assert_eq!(inputs, [0xA5; 4]);
+}
+
+#[test]
+fn modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send() {
+    let state = Arc::new(Mutex::new(ModbusTestState {
+        holding_registers: vec![0; 2],
+        ..ModbusTestState::default()
+    }));
+    let addr = start_modbus_server(Arc::clone(&state), 1);
+    let params: toml::Value = toml::from_str(&format!(
+        r#"
+address = "{addr}"
+
+[[output_points]]
+image_offset = 0
+address = 0
+function = "write_multiple_registers"
+data_type = "f32"
+scale = 0.5
+"#
+    ))
+    .expect("params");
+    let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
+
+    let error = driver
+        .write_outputs(&f32::MAX.to_le_bytes())
+        .expect_err("inverse-scaled F32 overflow must fail");
+    assert!(error.to_string().contains("finite"));
+    let guard = state.lock().expect("modbus state lock");
+    assert!(
+        guard.functions.is_empty(),
+        "failed preflight reached server"
+    );
+    assert_eq!(guard.holding_registers, vec![0; 2]);
+}
+
+#[test]
 fn modbus_point_map_writes_scaled_registers_and_coils() {
     let state = Arc::new(Mutex::new(ModbusTestState {
         coils: vec![false; 8],
@@ -349,9 +414,12 @@ byte_order = "little"
     outputs[1..5].copy_from_slice(&501u32.to_le_bytes());
     outputs[5..7].copy_from_slice(&60u16.to_le_bytes());
 
-    driver
-        .write_outputs(&outputs)
-        .expect("write mapped outputs");
+    match driver.write_outputs(&outputs) {
+        Ok(()) => {}
+        Err(RuntimeError::IoTransport(message))
+            if message.as_str() == "modbus output handoff pending" => {}
+        Err(error) => panic!("write mapped outputs: {error}"),
+    }
 
     let deadline = Instant::now() + StdDuration::from_millis(500);
     loop {
@@ -708,6 +776,16 @@ fn modbus_reconnect_backoff_is_bounded_and_non_spinning() {
     assert!(
         attempts <= 4,
         "worker reconnect backoff must avoid scan-thread driven reconnect spinning, attempts={attempts}"
+    );
+
+    thread::sleep(StdDuration::from_millis(120));
+    driver
+        .read_inputs(&mut inputs)
+        .expect("warn policy should retry without faulting");
+    let retry_attempts = connection_count.load(Ordering::SeqCst);
+    assert!(
+        retry_attempts >= 2,
+        "an unavailable endpoint must produce a reconnect attempt, attempts={retry_attempts}"
     );
 }
 

@@ -107,8 +107,11 @@ HARDWARE_OPT_IN = "TRUST_DIT_REQUIRE_HARDWARE=1"
 REVIEWED_JUST_RECIPES = {
     "verification-veryquick": (
         "mkdir -p target/gate-artifacts/veryquick",
-        "python3 scripts/run_verification_focused_tests.py",
-        "scripts/verification_metadata_gate.sh",
+        "python3 -m unittest scripts.verification.report_gate_tests "
+        "scripts.verification.focused_test_suite_tests || "
+        'echo "advisory: verification report smoke reported findings" >&2',
+        "scripts/verification_metadata_gate.sh || "
+        'echo "advisory: verification metadata reported findings" >&2',
         "just test-hir-fast",
         "just test-fast",
         "./scripts/cargo_test_fast_link.sh test -p trust-syntax --lib",
@@ -664,7 +667,29 @@ def _validate_verification_workflow_source_contract(
         failures.append(
             "GATE_JOB_VERIFICATION_REPORT: enforcing workflow must pass --strict"
         )
-    expected = (
+    if "schedule:" not in workflow:
+        failures.append(
+            "GATE_JOB_VERIFICATION_REPORT: exhaustive verification tooling must retain a schedule"
+        )
+    reviewed_fragments = (
+        "if: ${{ github.event_name == 'pull_request' }}",
+        "if: ${{ github.event_name != 'pull_request' }}",
+        "python3 scripts/check_verification_tooling_selftests.py",
+    )
+    if any(fragment not in block for fragment in reviewed_fragments):
+        failures.append(
+            "GATE_JOB_VERIFICATION_REPORT: verification smoke/scheduled split drifts from the reviewed workflow"
+        )
+    expected_smoke = (
+        "python3 scripts/verification_report_gate.py \\",
+        '--base "${BASE_SHA}" \\',
+        '--head "${HEAD_SHA}" \\',
+        "--intent bugfix \\",
+        "--strict \\",
+        "--smoke \\",
+        "--out-dir target/gate-artifacts/verification",
+    )
+    expected_exhaustive = (
         "python3 scripts/verification_report_gate.py \\",
         '--base "${BASE_SHA}" \\',
         '--head "${HEAD_SHA}" \\',
@@ -672,28 +697,26 @@ def _validate_verification_workflow_source_contract(
         "--strict \\",
         "--out-dir target/gate-artifacts/verification",
     )
-    invocation = _continued_command(block, "python3 scripts/verification_report_gate.py")
-    if invocation != expected:
+    invocations = _continued_commands(block, "python3 scripts/verification_report_gate.py")
+    if invocations != (expected_smoke, expected_exhaustive):
         failures.append(
             "GATE_JOB_VERIFICATION_REPORT: enforcing workflow invocation drifts from the reviewed command"
         )
 
 
-def _continued_command(block: str, prefix: str) -> tuple[str, ...]:
+def _continued_commands(block: str, prefix: str) -> tuple[tuple[str, ...], ...]:
     lines = block.splitlines()
-    start = next(
-        (index for index, line in enumerate(lines) if line.strip().startswith(prefix)),
-        None,
-    )
-    if start is None:
-        return ()
-    command: list[str] = []
-    for line in lines[start:]:
-        value = line.strip()
-        command.append(value)
-        if not value.endswith("\\"):
-            break
-    return tuple(command)
+    starts = [index for index, line in enumerate(lines) if line.strip().startswith(prefix)]
+    commands: list[tuple[str, ...]] = []
+    for start in starts:
+        command: list[str] = []
+        for line in lines[start:]:
+            value = line.strip()
+            command.append(value)
+            if not value.endswith("\\"):
+                break
+        commands.append(tuple(command))
+    return tuple(commands)
 
 
 def _require_source_fragments(

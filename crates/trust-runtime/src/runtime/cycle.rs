@@ -22,6 +22,7 @@ impl Runtime {
         let cycle_timer = self.metrics.start_timer();
         let debug = self.debug.clone();
         if let Some(debug) = debug.as_ref() {
+            debug.begin_cycle();
             if let Err(err) = self.apply_pending_debug_writes(debug) {
                 return Err(self.record_fault(err));
             }
@@ -235,14 +236,17 @@ impl Runtime {
 
     fn execute_program_by_name(&mut self, name: &SmolStr) -> Result<(), error::RuntimeError> {
         let timer = self.metrics.start_timer();
-        if !self.programs.contains_key(name) {
-            return Err(error::RuntimeError::UndefinedProgram(name.clone()));
-        }
+        let canonical_name = self
+            .programs
+            .keys()
+            .find(|candidate| candidate.eq_ignore_ascii_case(name.as_str()))
+            .cloned()
+            .ok_or_else(|| error::RuntimeError::UndefinedProgram(name.clone()))?;
         self.ensure_vm_module_loaded()?;
-        let result = super::vm::execute_program_by_name(self, name);
+        let result = super::vm::execute_program_by_name(self, &canonical_name);
         if let Some(start) = timer {
             self.metrics
-                .record_profile_call("program", name, start.elapsed());
+                .record_profile_call("program", &canonical_name, start.elapsed());
         }
         result
     }
@@ -300,9 +304,11 @@ impl Runtime {
     }
 
     fn is_program_scheduled(&self, name: &SmolStr) -> bool {
-        self.tasks
-            .iter()
-            .any(|task| task.programs.iter().any(|program| program == name))
+        self.tasks.iter().any(|task| {
+            task.programs
+                .iter()
+                .any(|program| program.eq_ignore_ascii_case(name.as_str()))
+        })
     }
 
     fn collect_ready_tasks_into(
@@ -475,6 +481,84 @@ impl Runtime {
                 .map(|(address, _)| address)
                 .collect();
             debug.push_io_snapshot(snapshot);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cycle_program_scheduling_is_case_insensitive() {
+        let mut runtime = Runtime::new();
+        runtime
+            .register_program(program("Main"))
+            .expect("register program");
+        runtime.register_task(TaskConfig {
+            name: "Fast".into(),
+            interval: crate::value::Duration::from_millis(10),
+            single: None,
+            priority: 1,
+            programs: vec!["mAiN".into()],
+            fb_instances: Vec::new(),
+        });
+
+        assert!(runtime.is_program_scheduled(&"Main".into()));
+        assert!(!runtime.has_background_programs());
+    }
+
+    #[test]
+    fn cycle_program_execution_resolves_case_insensitive_runtime_name() {
+        let mut runtime = Runtime::new();
+        runtime
+            .register_program(program("Main"))
+            .expect("register program");
+
+        runtime
+            .execute_program_by_name(&"mAiN".into())
+            .expect("case-only spelling must resolve the registered program");
+    }
+
+    #[test]
+    fn cycle_time_projection_clamps_negative_and_preserves_nonnegative_millis() {
+        let mut runtime = Runtime::new();
+        for (time, expected) in [
+            (crate::value::Duration::from_millis(-1), 0),
+            (crate::value::Duration::ZERO, 0),
+            (crate::value::Duration::from_millis(42), 42),
+        ] {
+            runtime.set_current_time(time);
+            assert_eq!(runtime.current_time_ms(), expected);
+        }
+    }
+
+    #[test]
+    fn cycle_output_deadline_distinguishes_missing_future_and_expired() {
+        let mut runtime = Runtime::new();
+        assert_eq!(runtime.check_output_commit_deadline(), Ok(()));
+
+        runtime.set_output_commit_deadline(Some(
+            std::time::Instant::now() + std::time::Duration::from_secs(30),
+        ));
+        assert_eq!(runtime.check_output_commit_deadline(), Ok(()));
+
+        runtime.set_output_commit_deadline(Some(
+            std::time::Instant::now() - std::time::Duration::from_millis(1),
+        ));
+        assert_eq!(
+            runtime.check_output_commit_deadline(),
+            Err(error::RuntimeError::WatchdogTimeout)
+        );
+    }
+
+    fn program(name: &str) -> ProgramDef {
+        ProgramDef {
+            name: name.into(),
+            vars: Vec::new(),
+            temps: Vec::new(),
+            using: Vec::new(),
+            body: Vec::new(),
         }
     }
 }

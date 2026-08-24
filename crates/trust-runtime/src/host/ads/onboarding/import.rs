@@ -249,32 +249,41 @@ fn symbol_selected(symbol: &str, symbols: &[String], patterns: &[String]) -> boo
 }
 
 fn wildcard_match(text: &str, pattern: &str) -> bool {
-    if pattern.is_empty() || pattern == "*" {
+    if pattern.is_empty() {
+        return false;
+    }
+    if pattern == "*" {
         return true;
     }
     if !pattern.contains('*') {
         return text.contains(pattern);
     }
-    let mut remaining = text;
-    let anchored_start = !pattern.starts_with('*');
-    let anchored_end = !pattern.ends_with('*');
-    let parts = pattern
-        .split('*')
-        .filter(|part| !part.is_empty())
-        .collect::<Vec<_>>();
-    if parts.is_empty() {
-        return true;
-    }
-    for (index, part) in parts.iter().enumerate() {
-        let Some(position) = remaining.find(part) else {
-            return false;
-        };
-        if index == 0 && anchored_start && position != 0 {
+
+    let text = text.chars().collect::<Vec<_>>();
+    let pattern = pattern.chars().collect::<Vec<_>>();
+    let (mut text_index, mut pattern_index) = (0usize, 0usize);
+    let mut star_index = None;
+    let mut star_match_index = 0usize;
+    while text_index < text.len() {
+        if pattern_index < pattern.len() && pattern[pattern_index] == text[text_index] {
+            text_index += 1;
+            pattern_index += 1;
+        } else if pattern_index < pattern.len() && pattern[pattern_index] == '*' {
+            star_index = Some(pattern_index);
+            pattern_index += 1;
+            star_match_index = text_index;
+        } else if let Some(star) = star_index {
+            star_match_index += 1;
+            text_index = star_match_index;
+            pattern_index = star + 1;
+        } else {
             return false;
         }
-        remaining = &remaining[position + part.len()..];
     }
-    !anchored_end || remaining.is_empty()
+    while pattern_index < pattern.len() && pattern[pattern_index] == '*' {
+        pattern_index += 1;
+    }
+    pattern_index == pattern.len()
 }
 
 fn parse_ads_document(text: &str) -> Result<AdsTomlDocument, SymbolImportApplyError> {
@@ -509,75 +518,11 @@ fn sanitize_var_name(text: &str) -> String {
 }
 
 fn is_reserved_identifier(identifier: &str) -> bool {
-    matches!(
-        identifier.to_ascii_uppercase().as_str(),
-        "ADS_QUALITY"
-            | "ACTION"
-            | "ARRAY"
-            | "BOOL"
-            | "BY"
-            | "BYTE"
-            | "CASE"
-            | "CONFIGURATION"
-            | "CONSTANT"
-            | "DINT"
-            | "DO"
-            | "DWORD"
-            | "ELSE"
-            | "ELSIF"
-            | "END_ACTION"
-            | "END_CASE"
-            | "END_CONFIGURATION"
-            | "END_FOR"
-            | "END_FUNCTION"
-            | "END_FUNCTION_BLOCK"
-            | "END_IF"
-            | "END_PROGRAM"
-            | "END_REPEAT"
-            | "END_RESOURCE"
-            | "END_STRUCT"
-            | "END_TYPE"
-            | "END_VAR"
-            | "END_WHILE"
-            | "FALSE"
-            | "FOR"
-            | "FUNCTION"
-            | "FUNCTION_BLOCK"
-            | "IF"
-            | "INT"
-            | "LINT"
-            | "LREAL"
-            | "LWORD"
-            | "OF"
-            | "PROGRAM"
-            | "REAL"
-            | "REPEAT"
-            | "RESOURCE"
-            | "RETURN"
-            | "SINT"
-            | "STRING"
-            | "STRUCT"
-            | "THEN"
-            | "TO"
-            | "TRUE"
-            | "TYPE"
-            | "UDINT"
-            | "UINT"
-            | "ULINT"
-            | "UNTIL"
-            | "USINT"
-            | "VAR"
-            | "VAR_ACCESS"
-            | "VAR_EXTERNAL"
-            | "VAR_GLOBAL"
-            | "VAR_INPUT"
-            | "VAR_IN_OUT"
-            | "VAR_OUTPUT"
-            | "VAR_TEMP"
-            | "WHILE"
-            | "WITH"
-            | "WORD"
-    )
+    if identifier.eq_ignore_ascii_case("ADS_QUALITY") {
+        return true;
+    }
+    let tokens = trust_syntax::lex(identifier);
+    tokens.len() != 1 || tokens[0].kind != trust_syntax::TokenKind::Ident
 }
 
 fn group_candidates(candidates: &[SymbolImportCandidate]) -> Vec<SymbolImportGroup> {
@@ -600,6 +545,10 @@ fn group_candidates(candidates: &[SymbolImportCandidate]) -> Vec<SymbolImportGro
         )
         .collect()
 }
+
+#[cfg(test)]
+#[path = "import/apply_tests.rs"]
+mod apply_tests;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 struct AdsTomlDocument {
@@ -814,6 +763,57 @@ mod tests {
             .map(|candidate| candidate.descriptor.name.as_str())
             .collect::<Vec<_>>();
         assert_eq!(selected, vec!["GVL.Setpoint"]);
+    }
+
+    #[test]
+    fn build_import_response_empty_pattern_selects_nothing() {
+        let response = build_symbol_import_response(
+            &SymbolImportRequest {
+                connection_name: "line1".to_string(),
+                symbols: Vec::new(),
+                include_patterns: vec![String::new()],
+                name_prefix: None,
+            },
+            vec![real_symbol("MAIN.Temperature")],
+        );
+
+        assert!(!response.candidates[0].selected);
+    }
+
+    #[test]
+    fn build_import_response_glob_backtracks_to_anchored_suffix() {
+        let response = build_symbol_import_response(
+            &SymbolImportRequest {
+                connection_name: "line1".to_string(),
+                symbols: Vec::new(),
+                include_patterns: vec!["MAIN.*Temp".to_string()],
+                name_prefix: None,
+            },
+            vec![real_symbol("MAIN.Temp.Temp")],
+        );
+
+        assert!(response.candidates[0].selected);
+    }
+
+    #[test]
+    fn build_import_response_prefixes_all_reserved_st_keywords() {
+        for keyword in ["AT", "RETAIN", "NON_RETAIN", "INITIAL_STEP"] {
+            let response = build_symbol_import_response(
+                &SymbolImportRequest {
+                    connection_name: "line1".to_string(),
+                    symbols: Vec::new(),
+                    include_patterns: Vec::new(),
+                    name_prefix: None,
+                },
+                vec![real_symbol(keyword)],
+            );
+
+            assert_eq!(
+                response.candidates[0].suggested_var,
+                format!("ads_{}", keyword.to_ascii_lowercase()),
+                "{keyword} must not be emitted as a variable identifier"
+            );
+        }
     }
 
     #[test]

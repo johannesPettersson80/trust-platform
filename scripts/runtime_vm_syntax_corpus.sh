@@ -16,7 +16,7 @@ mkdir -p "${OUT_DIR}"
 
 BUILD_MODE="$(trust_runtime_detect_host_codegen_mode)"
 
-if [[ ! -d "${CORPUS_DIR}" ]]; then
+if [[ ! -f "${CORPUS_DIR}/loop_arith/runtime.toml" ]]; then
   echo "[syntax-corpus] local corpus missing, bootstrapping ${CORPUS_DIR}"
   "${ROOT_DIR}/scripts/bootstrap_runtime_vm_syntax_corpus_local.sh" >/dev/null
 fi

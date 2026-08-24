@@ -10,7 +10,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_IEC_PRECEDENCE_TRACE_001";
 const CASE_FILE: &str = "verification/cases/compiler_iec/IEC_PREC_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:f49f80603c8187f31fb2929bcaddafe3671e3ad708ba4466484d2ae371514d38";
+    "sha256:019b4d3ab7f122061c1b6af27b568e5cb0b8b9d5c15db4ca180c72ee24905710";
 
 #[test]
 fn expression_precedence_trace_cases() {
@@ -60,6 +60,7 @@ fn run_precedence_case(
         "ADDITIVE_LEFT_ASSOCIATIVE" => ("20 - 5 - 3", Value::DInt(12)),
         "MULTIPLICATIVE_LEFT_ASSOCIATIVE" => ("100 / 10 / 2", Value::DInt(5)),
         "COMPARISON_BEFORE_BOOLEAN_AND" => ("1 < 2 AND 2 < 3", Value::Bool(true)),
+        "MULTIPLICATIVE_BEFORE_COMPARISON" => ("2 * 3 = 6", Value::Bool(true)),
         "AND_BEFORE_XOR_BEFORE_OR" => (
             "(TRUE XOR TRUE AND FALSE) AND (TRUE OR TRUE XOR TRUE)",
             Value::Bool(true),

@@ -535,7 +535,7 @@ emit_gpio_health_findings
 emit_absence_if_missing \
   "RUNTIMESAFE-RETAIN-ORPHAN-SILENT" \
   "runtime/retain" \
-  "crates/trust-runtime/src/runtime/restart.rs" \
+  "crates/trust-runtime/src/runtime/retain_snapshot.rs" \
   'orphan|RetainOrphan' \
   "retain orphan event/reporting"
 

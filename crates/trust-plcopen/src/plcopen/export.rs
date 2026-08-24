@@ -22,10 +22,30 @@ fn resolve_or_create_source_root(project_root: &Path) -> anyhow::Result<PathBuf>
     if src_root.is_dir() {
         return Ok(src_root);
     }
-
-    std::fs::create_dir_all(&src_root)
-        .with_context(|| format!("failed to create '{}'", src_root.display()))?;
     Ok(src_root)
+}
+
+fn ensure_publish_target_is_not_directory_or_symlink(
+    path: &Path,
+    label: &str,
+) -> anyhow::Result<()> {
+    let Ok(metadata) = std::fs::symlink_metadata(path) else {
+        return Ok(());
+    };
+    if metadata.file_type().is_symlink() {
+        anyhow::bail!("symbolic link is not allowed for {label}: {}", path.display());
+    }
+    if metadata.is_dir() {
+        anyhow::bail!("{label} is a directory, expected a file: {}", path.display());
+    }
+    Ok(())
+}
+
+fn ensure_publish_target_is_absent(path: &Path, label: &str) -> anyhow::Result<()> {
+    if std::fs::symlink_metadata(path).is_ok() {
+        anyhow::bail!("{label} already exists: {}", path.display());
+    }
+    Ok(())
 }
 
 pub fn export_project_to_xml_with_target(
@@ -65,13 +85,63 @@ pub fn export_project_to_xml_with_target(
         warnings.append(&mut global_warnings);
     }
 
+    if let Some(global_warning) = warnings
+        .iter()
+        .find(|warning| warning.contains("malformed VAR_GLOBAL"))
+    {
+        anyhow::bail!("{}", global_warning);
+    }
+    if let Some(parser_warning) = warnings
+        .iter()
+        .find(|warning| warning.contains("contains parser errors"))
+    {
+        anyhow::bail!("{}", parser_warning);
+    }
+
+    let mut pou_identities = BTreeSet::new();
+    let mut method_identities = BTreeSet::new();
+    for declaration in &declarations {
+        if !pou_identities.insert(declaration.name.to_ascii_lowercase()) {
+            anyhow::bail!(
+                "duplicate POU identity '{}' (case-insensitive)",
+                declaration.name
+            );
+        }
+        for method in &declaration.methods {
+            let key = format!(
+                "{}::{}",
+                declaration.name.to_ascii_lowercase(),
+                method.name.to_ascii_lowercase()
+            );
+            if !method_identities.insert(key) {
+                anyhow::bail!(
+                    "duplicate method identity '{}' on POU '{}'",
+                    method.name,
+                    declaration.name
+                );
+            }
+        }
+    }
+    if let Some(configuration) = configurations.iter().find(|configuration| configuration.invalid) {
+        let task_name = warnings
+            .iter()
+            .find(|warning| warning.contains("invalid TASK"))
+            .map(String::as_str)
+            .unwrap_or("<invalid task>");
+        anyhow::bail!(
+            "invalid configuration '{}' ({}) cannot be exported",
+            configuration.name,
+            task_name
+        );
+    }
+
     if declarations.is_empty()
         && data_type_decls.is_empty()
         && global_var_lists.is_empty()
         && configurations.is_empty()
     {
         anyhow::bail!(
-            "no PLCopen ST-complete declarations discovered (supported: POUs, TYPE blocks, VAR_GLOBAL blocks, CONFIGURATION/RESOURCE/TASK/PROGRAM)"
+            "no PLCopen ST-complete declarations discovered (supported: POUs, TYPE blocks, VAR_GLOBAL blocks, CONFIGURATION/RESOURCE/TASK/PROGRAM); malformed VAR_GLOBAL blocks are rejected"
         );
     }
 
@@ -106,10 +176,12 @@ pub fn export_project_to_xml_with_target(
         if seen_type_names.insert(key) {
             deduped_types.push(decl);
         } else {
-            warnings.push(format!(
-                "{}:{} duplicate TYPE declaration '{}' skipped for PLCopen export",
-                decl.source, decl.line, decl.name
-            ));
+            anyhow::bail!(
+                "duplicate TYPE declaration '{}' at {}:{}",
+                decl.name,
+                decl.source,
+                decl.line
+            );
         }
     }
 
@@ -358,6 +430,22 @@ pub fn export_project_to_xml_with_target(
         }
     }
 
+    let source_map_path = output_path.with_extension("source-map.json");
+    ensure_publish_target_is_not_directory_or_symlink(output_path, "PLCopen XML output")?;
+    ensure_publish_target_is_not_directory_or_symlink(&source_map_path, "source-map sidecar")?;
+    if target == PlcopenExportTarget::Siemens {
+        ensure_publish_target_is_absent(
+            &siemens_scl_bundle_dir_for_output(output_path),
+            "Siemens SCL bundle",
+        )?;
+    }
+    if adapter_contract.is_some() {
+        ensure_publish_target_is_not_directory_or_symlink(
+            &adapter_report_path_for_output(output_path),
+            "target adapter report",
+        )?;
+    }
+
     xml.push_str("  <addData>\n");
     xml.push_str(&format!(
         "    <data name=\"{}\" handleUnknown=\"implementation\"><text><![CDATA[{}]]></text></data>\n",
@@ -410,7 +498,6 @@ pub fn export_project_to_xml_with_target(
     std::fs::write(output_path, xml)
         .with_context(|| format!("failed to write '{}'", output_path.display()))?;
 
-    let source_map_path = output_path.with_extension("source-map.json");
     std::fs::write(&source_map_path, format!("{}\n", source_map_json)).with_context(|| {
         format!(
             "failed to write source-map sidecar '{}'",

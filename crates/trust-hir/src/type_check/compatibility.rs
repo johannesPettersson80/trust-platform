@@ -16,6 +16,11 @@ impl<'a> TypeChecker<'a> {
             SemanticOutcome::Resolved(type_id) => type_id,
             _ => type_id,
         };
+        if self.symbols.is_named_value_type(resolved) {
+            if let Some(Type::Enum { base, .. }) = self.symbols.type_by_id(resolved) {
+                return self.resolve_alias_type(*base);
+            }
+        }
         match self.symbols.type_by_id(resolved) {
             Some(Type::Subrange { base, .. }) => *base,
             _ => resolved,
@@ -69,15 +74,35 @@ impl<'a> TypeChecker<'a> {
         let resolved = self.resolve_alias_type(type_id);
         matches!(
             self.symbols.type_by_id(resolved),
-            Some(Type::Reference { .. } | Type::Pointer { .. })
+            Some(Type::Reference { .. } | Type::Pointer { .. } | Type::Interface { .. })
         )
     }
 
-    pub(super) fn is_assignable(&self, target: TypeId, source: TypeId) -> bool {
+    pub(crate) fn is_assignable(&self, target: TypeId, source: TypeId) -> bool {
         let target = self.resolve_alias_type(target);
         let source = self.resolve_alias_type(source);
         if target == source {
             return true;
+        }
+
+        if self.symbols.is_named_value_type(target) {
+            if self.symbols.is_named_value_type(source) {
+                return false;
+            }
+            if let Some(Type::Enum { base, .. }) = self.symbols.type_by_id(target) {
+                return self.is_assignable(*base, source);
+            }
+        }
+        if self.symbols.is_named_value_type(source) {
+            if self.is_generic_type(target) {
+                return matches!(
+                    self.symbols.type_by_id(target),
+                    Some(Type::Any | Type::AnyDerived)
+                );
+            }
+            if let Some(Type::Enum { base, .. }) = self.symbols.type_by_id(source) {
+                return self.is_assignable(target, *base);
+            }
         }
 
         if target == TypeId::UNKNOWN || source == TypeId::UNKNOWN {

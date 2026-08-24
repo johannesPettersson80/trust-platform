@@ -9,7 +9,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_IEC_PARSER_RECOVERY_TRACE_001";
 const CASE_FILE: &str = "verification/cases/compiler_iec/IEC_PARSE_RECOVER_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:249d695260024e2d85615721af523ff57d80be2673791680c3d1b4d41823e040";
+    "sha256:0d457588bb3bd67e14836dc3f055252bdc8bf157fa4be227c032d524f11b4092";
 
 #[test]
 fn parser_recovery_trace_cases() {
@@ -59,17 +59,14 @@ fn run_parser_case(case: &CaseRecord, probe: &mut ParserProbe) -> Result<CaseExe
     let expected_visible = diagnostics
         .iter()
         .any(|diagnostic| diagnostic.contains(expected_diagnostic));
-    let structure_preserved = if scenario == "MISSING_INNER_TERMINATOR_AT_OUTER_BOUNDARY" {
-        diagnostics.iter().all(|diagnostic| {
-            diagnostic != "expected END_IF" && diagnostic != "expected END_PROGRAM"
-        }) && parsed
-            .syntax()
-            .descendants()
-            .filter(|node| node.kind() == SyntaxKind::AssignStmt)
-            .count()
-            == 2
-    } else {
-        true
+    let structure_preserved = match scenario {
+        "MISSING_INNER_TERMINATOR_AT_OUTER_BOUNDARY" => {
+            outer_boundaries_preserved(&diagnostics) && assignment_count(&parsed) == 2
+        }
+        "MISSING_INNER_TERMINATOR_AT_OUTER_BOUNDARY_ONLY" => {
+            outer_boundaries_preserved(&diagnostics) && assignment_count(&parsed) == 1
+        }
+        _ => true,
     };
     let passed = !parsed.ok() && expected_visible && structure_preserved;
     Ok(CaseExecution {
@@ -100,6 +97,10 @@ fn parser_fixture(scenario: &str) -> Result<(String, &'static str), String> {
         "CASE_LABEL_MISSING_COLON" => (
             wrapped("CASE x OF\n1 x := 2;\nEND_CASE"),
             "expected ':' after CASE label",
+        ),
+        "IF_MISSING_THEN" => (
+            wrapped("IF x = 0\nx := 1;\nEND_IF"),
+            "expected THEN",
         ),
         "ELSIF_MISSING_THEN" => (
             wrapped("IF x = 0 THEN\nx := 1;\nELSIF x = 1\nx := 2;\nEND_IF"),
@@ -133,9 +134,29 @@ fn parser_fixture(scenario: &str) -> Result<(String, &'static str), String> {
             "PROGRAM Test\nVAR x : INT; END_VAR\nIF x = 0 THEN\n    WHILE x < 2 DO\n        x := x + 1;\nEND_IF\nx := 7;\nEND_PROGRAM".to_string(),
             "expected END_WHILE",
         ),
+        "MISSING_INNER_TERMINATOR_AT_OUTER_BOUNDARY_ONLY" => (
+            "PROGRAM Test\nVAR x : INT; END_VAR\nIF x = 0 THEN\n    WHILE x < 2 DO\n        x := x + 1;\nEND_IF\nEND_PROGRAM".to_string(),
+            "expected END_WHILE",
+        ),
         "MISSING_POU_TERMINATOR_AT_EOF" => (
             "PROGRAM Test\n    x := 1;\n".to_string(),
             "expected END_PROGRAM",
+        ),
+        "MISSING_TEST_PROGRAM_TERMINATOR_AT_EOF" => (
+            "TEST_PROGRAM TestSuite\n    x := 1;\n".to_string(),
+            "expected END_TEST_PROGRAM",
+        ),
+        "MISSING_STATEMENT_SEMICOLON" => (
+            "PROGRAM Test\n    x := 1\n    y := 2;\nEND_PROGRAM".to_string(),
+            "expected ';'",
+        ),
+        "INVALID_SIGNED_BASED_TYPED_LITERAL" => (
+            "PROGRAM Test\n    x := INT#-16#FF;\nEND_PROGRAM".to_string(),
+            "based numeric literals cannot use leading sign",
+        ),
+        "HASH_WITHOUT_IDENTIFIER" => (
+            "PROGRAM Test\n    # := 1;\nEND_PROGRAM".to_string(),
+            "expected identifier after '#'",
         ),
         "UNKNOWN_TOKEN" => (
             "PROGRAM Test\n    @@@ invalid @@@\nEND_PROGRAM".to_string(),
@@ -160,6 +181,20 @@ fn parser_fixture(scenario: &str) -> Result<(String, &'static str), String> {
         other => return Err(format!("unreviewed parser recovery scenario {other}")),
     };
     Ok(fixture)
+}
+
+fn outer_boundaries_preserved(diagnostics: &[String]) -> bool {
+    diagnostics
+        .iter()
+        .all(|diagnostic| diagnostic != "expected END_IF" && diagnostic != "expected END_PROGRAM")
+}
+
+fn assignment_count(parsed: &trust_syntax::parser::Parse) -> usize {
+    parsed
+        .syntax()
+        .descendants()
+        .filter(|node| node.kind() == SyntaxKind::AssignStmt)
+        .count()
 }
 
 #[derive(Default)]

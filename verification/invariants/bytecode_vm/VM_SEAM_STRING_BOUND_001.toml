@@ -3,14 +3,14 @@ id = "VM_SEAM_STRING_BOUND_001"
 title = "STRING[n] bounds are enforced on every runtime write path"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "implemented"
+status = "mapped"
 owner = "trust-runtime-core"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-27"
 claim = "Writes into bounded STRING and WSTRING storage apply the receiving scalar-value capacity, while cross-family runtime tags reject before storage."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/value/string_semantics.rs"]
-tests = ["TEST_VM_STRING_PRIMITIVE_POLICY_001", "TEST_VM_STRING_BOUND_TRACE_001"]
+tests = ["TEST_AUTO_86419F8A4B09368E6ABB", "TEST_VM_STRING_BOUND_TRACE_001", "TEST_VM_STRING_PRIMITIVE_POLICY_001"]
 gates = ["veryquick", "pr"]
 evidence_refs = [
   "EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715",
@@ -35,6 +35,7 @@ ref = "SPEC_VM_VALUE_SEMANTICS_001"
 
 [[behavior]]
 partition = { min = 0, max = 5 }
+coverage_dimension = "happy_path"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes"
 outcome = "accept_value"
 delta = { target = "set_to_input", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
@@ -42,10 +43,19 @@ rationale = "A STRING value within the receiving capacity is stored unchanged."
 
 [[behavior]]
 partition = { above = 5 }
+coverage_dimension = "above_max"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
 rationale = "A value longer than STRING[5] stores its first five Unicode scalar values and discards only the excess suffix."
+
+[[behavior]]
+partition = { equals = "STRING_3_CONCAT_ASSIGNMENT_TRUNCATION" }
+case_family = "above_max"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Assigning the reviewed CONCAT result 'ABCDE' into STRING[3] stores 'ABC' without faulting the execution cycle."
 
 [[behavior]]
 partition = { equals = "FB_INPUT_COPY_IN_LENGTH_6" }
@@ -57,6 +67,7 @@ rationale = "Function-block input copy-in applies the formal's declared capacity
 
 [[behavior]]
 partition = { wrong_type = "WSTRING" }
+coverage_dimension = "wrong_type_or_shape"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes"
 outcome = "reject"
 no_partial_apply = true

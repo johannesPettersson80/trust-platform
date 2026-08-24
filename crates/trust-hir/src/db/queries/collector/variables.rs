@@ -82,12 +82,35 @@ impl SymbolCollector<'_> {
             self.check_string_initializer(type_id, &expr);
             self.check_subrange_initializer(type_id, &expr);
             self.check_aggregate_initializer_fields(type_id, &expr);
+            if matches!(
+                self.table
+                    .type_by_id(self.table.resolve_alias_type(type_id)),
+                Some(Type::Array { .. })
+            ) {
+                self.check_required_default_expression(type_id, &expr);
+            }
         }
 
         let direct_address = var_decl_direct_address(node);
+        let edge_qualifier = var_decl_edge_qualifiers(node)
+            .first()
+            .map(|(qualifier, _)| *qualifier);
 
         for name_node in names {
             if let Some((name, range)) = name_from_node(&name_node) {
+                if qualifier == VarQualifier::InOut
+                    && matches!(
+                        self.table
+                            .type_by_id(self.table.resolve_alias_type(type_id)),
+                        Some(Type::Reference { .. })
+                    )
+                {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        range,
+                        "REF_TO is not valid in VAR_IN_OUT",
+                    );
+                }
                 if is_constant
                     && matches!(
                         self.table
@@ -118,7 +141,9 @@ impl SymbolCollector<'_> {
                 };
                 let mut symbol = Symbol::new(SymbolId::UNKNOWN, name, kind, type_id, range);
                 symbol.is_constant = is_constant;
+                symbol.declared_qualifier = Some(qualifier);
                 symbol.direct_address = direct_address.clone();
+                symbol.edge_qualifier = edge_qualifier;
                 symbol.parent = self.current_parent();
                 symbol.visibility = visibility;
                 self.declare_symbol(symbol);
@@ -298,15 +323,43 @@ impl SymbolCollector<'_> {
                 self.check_required_aggregate_default(resolved, expr);
             }
             SyntaxKind::ArrayInitializer => {
-                let Some(Type::Array { element, .. }) = self.table.type_by_id(resolved) else {
+                let Some(Type::Array {
+                    element,
+                    dimensions,
+                }) = self.table.type_by_id(resolved)
+                else {
                     return;
                 };
                 let element = *element;
+                let capacity = array_initializer_capacity(dimensions);
                 for child in expr
                     .children()
                     .filter(|child| is_expression_kind(child.kind()))
                 {
                     self.check_array_default_element(element, &child);
+                }
+                if let (Some(capacity), Some(initialized)) =
+                    (capacity, self.array_initializer_element_count(expr))
+                {
+                    if initialized < capacity {
+                        self.diagnostics.warning(
+                            DiagnosticCode::ArrayInitializerCardinality,
+                            expr.text_range(),
+                            format!(
+                                "array initializer supplies {initialized} of {capacity} elements; {missing} missing elements use their default values",
+                                missing = capacity - initialized
+                            ),
+                        );
+                    } else if initialized > capacity {
+                        self.diagnostics.warning(
+                            DiagnosticCode::ArrayInitializerCardinality,
+                            expr.text_range(),
+                            format!(
+                                "array initializer supplies {initialized} elements for capacity {capacity}; {excess} excess elements are ignored",
+                                excess = initialized - capacity
+                            ),
+                        );
+                    }
                 }
             }
             SyntaxKind::CallExpr if self.is_array_repeat_expr(expr) => {
@@ -364,15 +417,54 @@ impl SymbolCollector<'_> {
 
     fn check_array_default_element(&mut self, element_type: TypeId, expr: &SyntaxNode) {
         if self.is_array_repeat_expr(expr) {
-            for arg in expr
-                .descendants()
-                .filter(|node| node.kind() == SyntaxKind::Arg)
-            {
-                for value in arg
-                    .children()
-                    .filter(|node| is_expression_kind(node.kind()))
+            let Some(count_expr) = expr.children().next() else {
+                return;
+            };
+            let scopes = scope_chain_for_node(&count_expr);
+            match self.try_eval_optional_int_expr_in_scope(&count_expr, &scopes) {
+                Ok(Some(count)) if count < 0 => {
+                    self.diagnostics.error(
+                        DiagnosticCode::OutOfRange,
+                        count_expr.text_range(),
+                        "array repetition count must be non-negative",
+                    );
+                }
+                Ok(Some(_)) => {}
+                Ok(None) => {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        count_expr.text_range(),
+                        "array repetition count must be a constant integer expression",
+                    );
+                }
+                Err(ConstEvalError::UndefinedName(name))
+                    if self
+                        .table
+                        .resolve(name.as_str(), self.table.current_scope())
+                        .is_some() =>
                 {
-                    self.check_required_default_expression(element_type, &value);
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidOperation,
+                        count_expr.text_range(),
+                        "array repetition count must not depend on a mutable value",
+                    );
+                }
+                Err(err) => self.report_default_const_eval_error(err, count_expr.text_range()),
+            }
+            if let Some(args) = expr
+                .children()
+                .find(|node| node.kind() == SyntaxKind::ArgList)
+            {
+                for arg in args
+                    .children()
+                    .filter(|node| node.kind() == SyntaxKind::Arg)
+                {
+                    for value in arg
+                        .children()
+                        .filter(|node| is_expression_kind(node.kind()))
+                    {
+                        self.check_array_default_element(element_type, &value);
+                    }
                 }
             }
             return;
@@ -386,7 +478,60 @@ impl SymbolCollector<'_> {
         }
         expr.children()
             .next()
-            .is_some_and(|child| child.kind() == SyntaxKind::Literal)
+            .is_some_and(|child| match child.kind() {
+                SyntaxKind::Literal
+                | SyntaxKind::UnaryExpr
+                | SyntaxKind::BinaryExpr
+                | SyntaxKind::ParenExpr => true,
+                SyntaxKind::NameRef => first_ident_token(&child)
+                    .and_then(|token| self.table.resolve(token.text(), self.table.current_scope()))
+                    .and_then(|symbol_id| self.table.get(symbol_id))
+                    .is_none_or(|symbol| {
+                        !matches!(
+                            symbol.kind,
+                            SymbolKind::Function { .. }
+                                | SymbolKind::FunctionBlock
+                                | SymbolKind::Method { .. }
+                                | SymbolKind::Type
+                        )
+                    }),
+                _ => false,
+            })
+    }
+
+    fn array_initializer_element_count(&mut self, expr: &SyntaxNode) -> Option<u64> {
+        if self.is_array_repeat_expr(expr) {
+            let count_expr = expr.children().next()?;
+            let scopes = scope_chain_for_node(&count_expr);
+            let count = self
+                .try_eval_optional_int_expr_in_scope(&count_expr, &scopes)
+                .ok()
+                .flatten()?;
+            let count = u64::try_from(count).ok()?;
+            let repeated = expr
+                .children()
+                .find(|child| child.kind() == SyntaxKind::ArgList)?
+                .children()
+                .filter(|child| child.kind() == SyntaxKind::Arg)
+                .try_fold(0u64, |total, arg| {
+                    let value = arg
+                        .children()
+                        .find(|child| is_expression_kind(child.kind()))?;
+                    total.checked_add(self.array_initializer_element_count(&value)?)
+                })?;
+            return count.checked_mul(repeated);
+        }
+
+        if expr.kind() == SyntaxKind::ArrayInitializer {
+            return expr
+                .children()
+                .filter(|child| is_expression_kind(child.kind()))
+                .try_fold(0u64, |total, child| {
+                    total.checked_add(self.array_initializer_element_count(&child)?)
+                });
+        }
+
+        Some(1)
     }
 
     fn check_required_scalar_default(&mut self, type_id: TypeId, expr: &SyntaxNode) {
@@ -464,7 +609,11 @@ impl SymbolCollector<'_> {
         }
     }
 
-    fn report_default_const_eval_error(&mut self, err: ConstEvalError, range: TextRange) {
+    pub(super) fn report_default_const_eval_error(
+        &mut self,
+        err: ConstEvalError,
+        range: TextRange,
+    ) {
         match err {
             ConstEvalError::CyclicDependency(name) => self.diagnostics.error(
                 DiagnosticCode::CyclicDependency,
@@ -494,7 +643,7 @@ impl SymbolCollector<'_> {
             ConstEvalError::AmbiguousName(name) => self.diagnostics.error(
                 DiagnosticCode::CannotResolve,
                 range,
-                format!("ambiguous enum value '{name}'"),
+                format!("ambiguous constant or enum value '{name}'"),
             ),
             ConstEvalError::NotConstant => self.diagnostics.error(
                 DiagnosticCode::InvalidOperation,
@@ -653,4 +802,16 @@ impl SymbolCollector<'_> {
                 matches!(scope.kind, ScopeKind::Configuration | ScopeKind::Resource)
             })
     }
+}
+
+fn array_initializer_capacity(dimensions: &[(i64, i64)]) -> Option<u64> {
+    dimensions
+        .iter()
+        .try_fold(1u64, |capacity, (lower, upper)| {
+            let length = i128::from(*upper)
+                .checked_sub(i128::from(*lower))?
+                .checked_add(1)?;
+            let length = u64::try_from(length).ok()?;
+            capacity.checked_mul(length)
+        })
 }

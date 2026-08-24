@@ -83,8 +83,12 @@ impl DebugVariableHandles {
     }
 
     pub fn alloc(&mut self, handle: VariableHandle) -> u32 {
+        assert!(
+            self.next_id != 0 || self.handles.is_empty(),
+            "debug variable handle space exhausted"
+        );
         let id = self.next_id.max(1);
-        self.next_id = self.next_id.saturating_add(1);
+        self.next_id = id.checked_add(1).unwrap_or(0);
         self.handles.insert(id, handle);
         id
     }
@@ -313,3 +317,7 @@ fn format_address(address: &IoAddress) -> String {
         format!("%{area}{size}{}", address.byte)
     }
 }
+
+#[cfg(test)]
+#[path = "dap/contract_tests.rs"]
+mod contract_tests;

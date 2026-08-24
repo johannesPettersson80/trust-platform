@@ -5,6 +5,7 @@ pub struct AccessBinding {
     pub name: SmolStr,
     pub reference: ValueRef,
     pub partial: Option<PartialAccess>,
+    pub writable: bool,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -14,10 +15,21 @@ pub struct AccessMap {
 
 impl AccessMap {
     pub fn bind(&mut self, name: SmolStr, reference: ValueRef, partial: Option<PartialAccess>) {
+        self.bind_with_mode(name, reference, partial, true);
+    }
+
+    pub fn bind_with_mode(
+        &mut self,
+        name: SmolStr,
+        reference: ValueRef,
+        partial: Option<PartialAccess>,
+        writable: bool,
+    ) {
         let binding = AccessBinding {
             name: name.clone(),
             reference,
             partial,
+            writable,
         };
         self.bindings.insert(name, binding);
     }

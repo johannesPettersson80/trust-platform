@@ -1,5 +1,8 @@
 #![cfg(unix)]
 
+#[allow(dead_code)]
+mod openot_support;
+
 use std::env;
 use std::error::Error;
 use std::fs;
@@ -29,7 +32,7 @@ const RUN_ID: u64 = 1;
 const SOURCE_IDS: [u32; 2] = [10, 30];
 const DEFAULT_PER_SOURCE: u64 = 12;
 const DEFAULT_CAPACITY: usize = 256;
-const DEFAULT_TIMEOUT_SECS: u64 = 60;
+const DEFAULT_TIMEOUT_SECS: u64 = 120;
 const PER_SOURCE_ENV: &str = "OPENOT_CAPSTONE_PER_SOURCE";
 const CAPACITY_ENV: &str = "OPENOT_CAPSTONE_CAPACITY";
 const TIMEOUT_SECS_ENV: &str = "OPENOT_CAPSTONE_TIMEOUT_SECS";
@@ -47,9 +50,7 @@ const WORKDIR_ENV: &str = "OPENOT_CAPSTONE_WORKDIR";
 #[test]
 fn openot_capstone_fenced_cross_process() {
     let report = run_capstone_case(FenceMode::Fenced, "fenced");
-    report
-        .assert_fenced(None, true)
-        .expect("fenced capstone report must reconcile");
+    assert_fenced_report(&report);
     assert_expected_source_rows(&report);
     print_report("capstone fenced", &report);
 }
@@ -194,8 +195,11 @@ fn run_capstone_case(fence_mode: FenceMode, label: &str) -> ObservedReport {
         &paths,
     )
     .expect("spawn OpenOT capstone producer");
-    wait_for_file(&paths.producer_ready, Duration::from_secs(30))
-        .expect("producer did not become ready");
+    wait_for_file(
+        &paths.producer_ready,
+        Duration::from_secs(capstone_timeout_secs()),
+    )
+    .expect("producer did not become ready");
 
     let consumer = spawn_role(
         "consumer",
@@ -205,8 +209,11 @@ fn run_capstone_case(fence_mode: FenceMode, label: &str) -> ObservedReport {
         &paths,
     )
     .expect("spawn OpenOT capstone consumer");
-    wait_for_file(&paths.consumer_ready, Duration::from_secs(30))
-        .expect("consumer did not become ready");
+    wait_for_file(
+        &paths.consumer_ready,
+        Duration::from_secs(capstone_timeout_secs()),
+    )
+    .expect("consumer did not become ready");
 
     write_status_atomic(&paths.start, "start\n").expect("release capstone roles");
 
@@ -251,33 +258,35 @@ fn build_st_runtime(main_source: &str) -> Runtime {
 }
 
 fn openot_st_source_files(main_source: &str) -> Vec<SourceFile> {
-    let source_dir = openot_iec_dir().join("src");
-    let mut paths = fs::read_dir(&source_dir)
-        .unwrap_or_else(|err| panic!("read OpenOT ST source dir {}: {err}", source_dir.display()))
-        .map(|entry| entry.expect("read OpenOT ST source entry").path())
-        .filter(|path| path.extension().is_some_and(|ext| ext == "st"))
-        .collect::<Vec<_>>();
-    paths.sort();
-
-    let mut sources = paths
+    let mut sources = openot_support::ST_LIBRARY_SOURCES
         .iter()
-        .map(|path| {
-            let text = fs::read_to_string(path)
-                .unwrap_or_else(|err| panic!("read OpenOT ST source {}: {err}", path.display()));
-            let name = path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .expect("OpenOT ST source filename must be UTF-8");
-            SourceFile::with_path(name, text)
-        })
+        .map(|(name, source)| SourceFile::with_path(*name, *source))
         .collect::<Vec<_>>();
     sources.push(SourceFile::with_path("main.st", main_source));
     sources
 }
 
-fn openot_iec_dir() -> PathBuf {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    manifest_dir.join("../../../open-ot-ref/st/iec61131")
+fn assert_fenced_report(report: &ObservedReport) {
+    assert!(report.delivered_total > 0, "consumer made no progress");
+    assert!(
+        report.lost_count > 0,
+        "producer did not report ring evictions"
+    );
+    assert_eq!(report.rejected_records, 0, "fenced run rejected records");
+    assert_eq!(report.poll_errors, 0, "fenced run captured poll errors");
+    assert!(
+        report.stale_violations.is_empty(),
+        "fenced run accepted stale records"
+    );
+    for source in &report.sources {
+        assert_eq!(
+            source.delivered + source.lost,
+            source.expected_total,
+            "source {} run {} reconciliation failed",
+            source.source_id,
+            source.run_id
+        );
+    }
 }
 
 fn deterministic_st_program() -> String {

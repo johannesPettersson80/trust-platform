@@ -83,15 +83,13 @@ impl RuntimeMetadata {
     /// Determine whether any programs run outside configured tasks.
     #[must_use]
     pub fn has_background_programs(&self) -> bool {
-        let mut scheduled = IndexMap::new();
-        for task in &self.tasks {
-            for program in &task.programs {
-                scheduled.insert(program.clone(), ());
-            }
-        }
-        self.programs
-            .keys()
-            .any(|name| !scheduled.contains_key(name))
+        self.programs.keys().any(|name| {
+            !self.tasks.iter().any(|task| {
+                task.programs
+                    .iter()
+                    .any(|program| program.eq_ignore_ascii_case(name.as_str()))
+            })
+        })
     }
 
     /// Resolve USING directives for the given frame id.
@@ -220,8 +218,80 @@ pub(super) fn resolve_using_for_frame<'a>(
     if let Some(func) = functions.get(&key) {
         return Some(func.using.as_slice());
     }
-    if let Some(program) = programs.get(&key) {
+    if let Some(program) = programs
+        .values()
+        .find(|program| program.name.eq_ignore_ascii_case(frame.owner.as_ref()))
+    {
         return Some(program.using.as_slice());
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::runtime::Runtime;
+    use trust_hir::TypeId;
+
+    #[test]
+    fn metadata_using_resolution_is_case_insensitive_for_functions_and_programs() {
+        let mut runtime = Runtime::new();
+        runtime.register_function(FunctionDef {
+            name: "Compute".into(),
+            return_type: TypeId::DINT,
+            params: Vec::new(),
+            locals: Vec::new(),
+            static_locals: Vec::new(),
+            using: vec!["FunctionLib".into()],
+            body: Vec::new(),
+        });
+        runtime
+            .register_program(ProgramDef {
+                name: "Main".into(),
+                vars: Vec::new(),
+                temps: Vec::new(),
+                using: vec!["ProgramLib".into()],
+                body: Vec::new(),
+            })
+            .unwrap();
+
+        let function_frame = runtime.storage_mut().push_frame("cOmPuTe");
+        assert_eq!(
+            runtime.using_for_frame(function_frame),
+            Some(vec![SmolStr::new("FunctionLib")])
+        );
+        runtime.storage_mut().pop_frame();
+
+        let program_frame = runtime.storage_mut().push_frame("mAiN");
+        assert_eq!(
+            runtime.using_for_frame(program_frame),
+            Some(vec![SmolStr::new("ProgramLib")])
+        );
+    }
+
+    #[test]
+    fn metadata_background_classification_is_case_insensitive() {
+        let mut runtime = Runtime::new();
+        runtime
+            .register_program(ProgramDef {
+                name: "Main".into(),
+                vars: Vec::new(),
+                temps: Vec::new(),
+                using: Vec::new(),
+                body: Vec::new(),
+            })
+            .unwrap();
+        runtime.register_task(TaskConfig {
+            name: "Fast".into(),
+            interval: crate::value::Duration::from_millis(10),
+            single: None,
+            priority: 1,
+            programs: vec!["mAiN".into()],
+            fb_instances: Vec::new(),
+        });
+
+        let snapshot = runtime.metadata_snapshot();
+        assert!(!snapshot.has_background_programs());
+    }
 }

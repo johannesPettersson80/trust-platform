@@ -1,14 +1,20 @@
 # Verification Program Implementation Board
 
-Status: reviewed. External review returned `clear-with-edits` (Fable,
+> **Historical Phase 0-16 record.** This board is closed history and does not
+> sequence current product work. Its policy, invariant, planner, catalog, and
+> evidence requirements are retired. Current work is sequenced only by
+> `phase18-zero-debt-execution-board.md` using the direct
+> `written specification -> native executable test` contract.
+
+Historical status: reviewed. External review returned `clear-with-edits` (Fable,
 2026-07-08); required edits are folded and verified, and `VERIF-REVIEW-004` is
 cleared. The spec-first planner amendment follow-up review edits are also
 folded, and the spec-matrix final review cleared implementation start. Phase 1
 may start. The policy stop gates still govern implementation.
 
-This board sequences implementation. Policy lives in `policy.md`; schema and
-record details live in `metadata-model.md`; evidence and traceability details
-live in `metadata-evidence-traceability.md`.
+This board records the retired implementation sequence. Historical policy lives
+in `policy.md`; schema and record details live in `metadata-model.md`; evidence
+and traceability details live in `metadata-evidence-traceability.md`.
 
 ## Phase 0 - Review and Baseline Freeze
 
@@ -1727,6 +1733,16 @@ same commit, with the closure evidence linked.
   the clean trust-builder `fmt`/`clippy`/`test-all` milestone. The completed
   board is rebound in the final evidence follow-up from this reviewed source
   commit.
+
+## Post-Closure Correction
+
+The accepted implementation program ended with Phase 16. The later Phase 17
+per-function denominator and Phase 18 zero-debt expansion are retired because
+they reclassified implementation units, mappings, proof state, and reviewed
+native tests as new product debt. The corrective executable board is
+`phase18-zero-debt-execution-board.md`; it audits surviving post-closure
+observable behavior directly against its written specification and native
+executable test. Verification metadata cannot create a product-work row.
 
 ## Review Acceptance
 

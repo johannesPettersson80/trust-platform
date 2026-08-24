@@ -1,0 +1,57 @@
+@startuml plcopen-interchange-contracts
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle uml2
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 35
+
+title truST PLCopen Interchange: Public Contract Ownership
+
+package "Reviewed Product Authority" {
+  artifact "ST-complete profile" as profileInvariant
+  artifact "ST-complete interchange" as interchangeInvariant
+  artifact "Export adapters" as exportInvariant
+  artifact "Migration reports" as migrationInvariant
+  artifact "Vendor shims" as shimInvariant
+}
+
+package "Public contract includes\n(crates/trust-plcopen/src/plcopen)" {
+  component "contracts_profile.rs\nprofile + compatibility rows" as profileContracts
+  component "contracts_import.rs\nimport report + options" as importContracts
+  component "contracts_pou.rs\nPOU kind normalization" as pouContracts
+  component "contracts_export.rs\ntargets + export reports" as exportContracts
+  component "contracts_migration.rs\nmigration report + diagnostics" as migrationContracts
+  component "contracts_shims.rs\napplied shim record" as shimContracts
+}
+
+package "Interchange implementation" {
+  component "profile.rs" as profileImpl
+  component "import*.rs" as importImpl
+  component "export*.rs" as exportImpl
+  component "shims_metrics.rs" as migrationImpl
+}
+
+profileInvariant --> profileContracts
+interchangeInvariant --> importContracts
+interchangeInvariant --> pouContracts
+exportInvariant --> exportContracts
+migrationInvariant --> migrationContracts
+shimInvariant --> shimContracts
+
+profileContracts --> profileImpl
+importContracts --> importImpl
+pouContracts --> importImpl
+pouContracts --> exportImpl
+exportContracts --> exportImpl
+migrationContracts --> importImpl
+migrationContracts --> migrationImpl
+shimContracts --> migrationImpl
+
+note bottom
+The files are flattened into the trust-plcopen crate with include!.
+The split changes source ownership only; public Rust names and execution
+flow remain unchanged.
+end note
+
+@enduml

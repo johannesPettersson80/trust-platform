@@ -58,3 +58,74 @@ impl VmDebugMap {
         map
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::bytecode::{DebugEntry, VarMetaEntry};
+
+    #[test]
+    fn vm_debug_map_preserves_symbols_and_first_reverse_symbol() {
+        let strings = StringTable {
+            entries: vec!["PrimaryName".into(), "AliasName".into()],
+        };
+        let var_meta = VarMeta {
+            entries: vec![variable(0, 7), variable(1, 7), variable(99, 8)],
+        };
+
+        let map = VmDebugMap::from_sections(&strings, Some(&var_meta), None, None);
+
+        assert_eq!(map.symbol_to_ref.get("PrimaryName"), Some(&7));
+        assert_eq!(map.symbol_to_ref.get("AliasName"), Some(&7));
+        assert_eq!(
+            map.ref_to_symbol.get(&7).map(SmolStr::as_str),
+            Some("PrimaryName")
+        );
+        assert!(!map.ref_to_symbol.contains_key(&8));
+    }
+
+    #[test]
+    fn vm_debug_map_omits_invalid_source_entries_and_missing_sections() {
+        let strings = StringTable::default();
+        let debug_strings = StringTable {
+            entries: vec!["src/main.st".into()],
+        };
+        let debug_map = DebugMap {
+            entries: vec![source(3, 12, 0, 8, 4), source(3, 13, 99, 9, 2)],
+        };
+
+        let map = VmDebugMap::from_sections(&strings, None, Some(&debug_strings), Some(&debug_map));
+        let source = map.source_by_pc.get(&(3, 12)).expect("valid source entry");
+        assert_eq!(source.file, "src/main.st");
+        assert_eq!(source.line, 8);
+        assert_eq!(source.column, 4);
+        assert!(!map.source_by_pc.contains_key(&(3, 13)));
+
+        let empty = VmDebugMap::from_sections(&strings, None, None, None);
+        assert!(empty.symbol_to_ref.is_empty());
+        assert!(empty.ref_to_symbol.is_empty());
+        assert!(empty.source_by_pc.is_empty());
+    }
+
+    fn variable(name_idx: u32, ref_idx: u32) -> VarMetaEntry {
+        VarMetaEntry {
+            name_idx,
+            type_id: 5,
+            ref_idx,
+            retain: 0,
+            init_const_idx: None,
+        }
+    }
+
+    fn source(pou_id: u32, code_offset: u32, file_idx: u32, line: u32, column: u32) -> DebugEntry {
+        DebugEntry {
+            pou_id,
+            code_offset,
+            file_idx,
+            line,
+            column,
+            kind: 0,
+        }
+    }
+}

@@ -17770,6 +17770,15 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_9CD14C4E394B82FB3DC0"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/web/ui_routes.rs"
+name = "embedded_hmi_module_fallbacks_match_complete_source_modules"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-07-21"
+
+[[reviews]]
 discovery_id = "DISC_9CDCE19E230C7B923BF7"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime-core/src/value/types/tests.rs"

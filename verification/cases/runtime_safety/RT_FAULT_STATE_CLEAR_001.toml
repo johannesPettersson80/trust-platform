@@ -1,0 +1,23 @@
+schema_version = 1
+id = "CASES_RT_FAULT_STATE_CLEAR_001"
+title = "Generated cases for Fault-state clearing is atomic, policy-preserving, and recovery-neutral"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "planned"
+invariant = "RT_FAULT_STATE_CLEAR_001"
+generator = "gen_cases_v2.py v1"
+generator_digest = "sha256:e557e3873c3813524fb791b2723d9c9a51a7f1d93b6d304bce60e5d36cc5c3ac"
+source_digest = "sha256:3dfa187635221ffa4dd3544e732b27ee3f1cd19cbdcaa0a08ca9f50841904bf2"
+last_reviewed = "2026-07-22"
+
+[[case]]
+id = "RT_FAULT_STATE_CLEAR_001_RECORDED_FAULT_CLEAR_A796232C"
+family = "happy_path"
+input = { source_partition = { equals = "RECORDED_FAULT_CLEAR" }, scenario = "RECORDED_FAULT_CLEAR" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-state-clear-lifecycle" }
+
+[[case]]
+id = "RT_FAULT_STATE_CLEAR_001_HEALTHY_CLEAR_IDEMPOTENT_BCAA0C6C"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "HEALTHY_CLEAR_IDEMPOTENT" }, scenario = "HEALTHY_CLEAR_IDEMPOTENT" }
+expect = { outcome = "accept_value", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-state-clear-lifecycle" }

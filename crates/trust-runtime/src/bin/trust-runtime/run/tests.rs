@@ -105,6 +105,19 @@ fn simulation_warning_omitted_in_production_mode() {
 }
 
 #[test]
+fn runtime_logger_threshold_uses_canonical_severity_order() {
+    let logger = super::RuntimeLogger::new(super::LogLevel::Warn);
+
+    assert!(logger.enabled(super::LogLevel::Error));
+    assert!(logger.enabled(super::LogLevel::Warn));
+    assert!(!logger.enabled(super::LogLevel::Info));
+    assert!(!logger.enabled(super::LogLevel::Debug));
+    assert!(!logger.enabled(super::LogLevel::Trace));
+    assert_eq!(super::LogLevel::parse(" WARNING "), super::LogLevel::Warn);
+    assert_eq!(super::LogLevel::Warn.as_str(), "warn");
+}
+
+#[test]
 fn execution_backend_selection_defaults_to_vm() {
     let (backend, source) =
         super::resolve_execution_backend_selection(None, None).expect("resolve backend");
@@ -356,6 +369,151 @@ END_PROGRAM
 }
 
 #[test]
+fn bundle_version_is_rejected_before_runtime_policy_mutation() {
+    let mut runtime = trust_runtime::Runtime::new();
+    let original_watchdog = runtime.watchdog_policy();
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    bundle.runtime.bundle_version = 2;
+    bundle.runtime.watchdog = trust_runtime::watchdog::WatchdogPolicy {
+        enabled: true,
+        timeout: Duration::from_millis(25),
+        action: trust_runtime::watchdog::WatchdogAction::SafeHalt,
+    };
+
+    let error = super::apply_bundle_runtime_overrides(&mut runtime, &bundle)
+        .expect_err("unsupported bundle version must fail");
+    assert!(error.to_string().contains("unsupported bundle version 2"));
+    assert_eq!(runtime.watchdog_policy(), original_watchdog);
+}
+
+#[test]
+fn accepted_bundle_overrides_apply_runtime_policies_and_valid_bytecode() {
+    let session = CompileSession::from_sources(vec![SourceFile::with_path(
+        "src/main.st",
+        r#"
+VAR_GLOBAL
+    marker : INT := 7;
+END_VAR
+
+PROGRAM Main
+marker := marker + 1;
+END_PROGRAM
+"#,
+    )]);
+    let mut runtime = session.build_runtime().expect("build runtime");
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    bundle.bytecode = session.build_bytecode_bytes().expect("build bytecode");
+    bundle.runtime.watchdog = trust_runtime::watchdog::WatchdogPolicy {
+        enabled: true,
+        timeout: Duration::from_millis(250),
+        action: trust_runtime::watchdog::WatchdogAction::SafeHalt,
+    };
+    bundle.runtime.fault_policy = trust_runtime::watchdog::FaultPolicy::Restart;
+
+    super::apply_bundle_runtime_overrides(&mut runtime, &bundle)
+        .expect("accepted bundle must apply");
+
+    assert_eq!(runtime.watchdog_policy(), bundle.runtime.watchdog);
+    assert_eq!(runtime.fault_policy(), bundle.runtime.fault_policy);
+    runtime.execute_cycle().expect("execute applied bytecode");
+    assert_eq!(runtime.storage().get_global("marker"), Some(&Value::Int(8)));
+}
+
+#[test]
+fn ads_runtime_start_is_disabled_noop_and_missing_config_is_fail_closed() {
+    let mut runtime = trust_runtime::Runtime::new();
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let mut factory_calls = 0;
+
+    super::start_ads_runtime_with_factory(&mut runtime, &bundle, |_connection| {
+        factory_calls += 1;
+        Ok(trust_runtime::ads::MockAdsTransport::new(Vec::new()))
+    })
+    .expect("disabled ADS startup must be a no-op");
+    assert_eq!(factory_calls, 0);
+
+    bundle.runtime.ads.enabled = true;
+    let error = super::start_ads_runtime_with_factory(&mut runtime, &bundle, |_connection| {
+        factory_calls += 1;
+        Ok(trust_runtime::ads::MockAdsTransport::new(Vec::new()))
+    })
+    .expect_err("enabled ADS without configuration must reject");
+    assert!(error
+        .to_string()
+        .contains("runtime.ads.enabled=true but no ADS client config was loaded"));
+    assert_eq!(factory_calls, 0);
+}
+
+#[test]
+fn play_explicit_project_shape_classification_is_fail_closed() {
+    let root = unique_temp_dir("play-explicit-project-shapes");
+    let missing = root.join("missing");
+    let incomplete = root.join("incomplete");
+    let complete = root.join("complete");
+    let file = root.join("project-file");
+    std::fs::create_dir_all(&incomplete).expect("create incomplete project");
+    std::fs::create_dir_all(&complete).expect("create complete project");
+    std::fs::write(complete.join("runtime.toml"), "").expect("write runtime.toml");
+    std::fs::write(complete.join("program.stbc"), []).expect("write program.stbc");
+    std::fs::create_dir_all(&root).expect("create project-shape root");
+    std::fs::write(&file, "not a project directory").expect("write project file");
+
+    assert!(super::should_auto_create(&missing).expect("missing project"));
+    assert!(super::should_auto_create(&incomplete).expect("incomplete project"));
+    assert!(!super::should_auto_create(&complete).expect("complete project"));
+    assert!(super::should_auto_create(&file)
+        .expect_err("file-shaped project must reject")
+        .to_string()
+        .contains("not a directory"));
+
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn play_project_resolution_distinguishes_absence_from_detection_failure() {
+    let root = unique_temp_dir("play-detected-projects");
+    let incomplete = root.join("incomplete");
+    let complete = root.join("complete");
+    std::fs::create_dir_all(&incomplete).expect("create incomplete project");
+    std::fs::create_dir_all(&complete).expect("create complete project");
+    std::fs::write(complete.join("runtime.toml"), "").expect("write runtime.toml");
+    std::fs::write(complete.join("program.stbc"), []).expect("write program.stbc");
+
+    assert_eq!(
+        super::plan_play_project(None, || Ok(complete.clone())).expect("detected complete project"),
+        super::PlayProjectPlan::Use(complete.clone())
+    );
+    assert_eq!(
+        super::plan_play_project(None, || Ok(incomplete.clone()))
+            .expect("detected incomplete project"),
+        super::PlayProjectPlan::Create(Some(incomplete.clone()))
+    );
+    assert_eq!(
+        super::plan_play_project(None, || {
+            Err(trust_runtime::error::RuntimeError::InvalidBundle(
+                "project folder not found (run `trust-runtime` to launch setup, or pass --project <dir>)"
+                    .into(),
+            ))
+        })
+        .expect("ordinary project absence"),
+        super::PlayProjectPlan::Create(None)
+    );
+
+    let error = super::plan_play_project(None, || {
+        Err(trust_runtime::error::RuntimeError::InvalidConfig(
+            "system io config is malformed".into(),
+        ))
+    })
+    .expect_err("configuration failure must remain visible");
+    assert!(error.to_string().contains("system io config is malformed"));
+
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
 fn ads_runtime_start_spawns_worker_and_scan_applies_mock_data() {
     let source = r#"
 TYPE
@@ -456,6 +614,137 @@ type = "REAL"
         trust_runtime::ads::diagnostics::AdsConnectionStatusState::Connected
     );
     runtime.shutdown_ads().expect("shutdown ADS worker");
+}
+
+#[cfg(feature = "opcua-wire")]
+#[derive(Default)]
+struct NoopOpcUaTransport;
+
+#[cfg(feature = "opcua-wire")]
+impl trust_runtime::opcua::OpcUaClientTransport for NoopOpcUaTransport {
+    fn connect(
+        &mut self,
+        connection: &trust_runtime::opcua::OpcUaClientConnectionConfig,
+        _sink: trust_runtime::opcua::OpcUaClientEventSink,
+    ) -> Result<
+        trust_runtime::opcua::OpcUaClientSessionInfo,
+        trust_runtime::opcua::OpcUaClientBridgeError,
+    > {
+        Ok(trust_runtime::opcua::OpcUaClientSessionInfo {
+            requested_timeout_ms: connection.timeout_ms,
+            revised_timeout_ms: Some(connection.timeout_ms),
+            recovery_detail: None,
+        })
+    }
+
+    fn subscribe_read_points(
+        &mut self,
+        _points: &[trust_runtime::opcua::OpcUaClientPointConfig],
+        _sink: trust_runtime::opcua::OpcUaClientEventSink,
+    ) -> Result<(), trust_runtime::opcua::OpcUaClientBridgeError> {
+        Ok(())
+    }
+
+    fn write_values(
+        &mut self,
+        _values: &[(trust_runtime::opcua::OpcUaClientPointConfig, Value)],
+    ) -> Result<(), trust_runtime::opcua::OpcUaClientBridgeError> {
+        Ok(())
+    }
+
+    fn disconnect(&mut self) -> Result<(), trust_runtime::opcua::OpcUaClientBridgeError> {
+        Ok(())
+    }
+}
+
+#[cfg(feature = "opcua-wire")]
+#[test]
+fn opcua_runtime_start_spawns_configured_connection() {
+    let source = r#"
+VAR_GLOBAL
+    opc_value : INT;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+    let session = CompileSession::from_sources(vec![SourceFile::with_path("src/main.st", source)]);
+    let mut runtime = session.build_runtime().expect("build runtime");
+    let bytecode = session.build_bytecode_bytes().expect("build bytecode");
+    runtime
+        .apply_bytecode_bytes(&bytecode, Some(&smol_str::SmolStr::new("RESOURCE")))
+        .expect("apply bytecode");
+
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    bundle.runtime.opcua_client.enabled = true;
+    bundle.runtime.opcua_client.poll_interval = Duration::from_millis(10);
+    bundle.opcua_client_config_hash = Some("sha256:test-opcua-config".to_string());
+    bundle.opcua_client = Some(
+        trust_runtime::opcua::parse_opcua_client_toml(
+            r#"
+[[connections]]
+name = "line1"
+endpoint_url = "opc.tcp://127.0.0.1:4840/trust"
+security_policy = "none"
+security_mode = "none"
+auth = "anonymous"
+trust_server_certificate = true
+
+[[connections.points]]
+var = "opc_value"
+node_id = "ns=2;s=Value"
+type = "int"
+access = "read"
+"#,
+        )
+        .expect("parse OPC UA client config"),
+    );
+
+    super::start_opcua_client_runtime_with_factory(&mut runtime, &bundle, |_connection| {
+        Ok(NoopOpcUaTransport)
+    })
+    .expect("start OPC UA client runtime");
+
+    assert_eq!(runtime.opcua_client_connection_count(), 1);
+    assert_eq!(
+        runtime
+            .opcua_client_status_report()
+            .deployed_config_hash
+            .as_deref(),
+        Some("sha256:test-opcua-config")
+    );
+    runtime
+        .reset_opcua_client_connections()
+        .expect("shutdown OPC UA client worker");
+}
+
+#[cfg(feature = "opcua-wire")]
+#[test]
+fn opcua_runtime_start_is_disabled_noop_and_missing_config_is_fail_closed() {
+    let mut runtime = trust_runtime::Runtime::new();
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let mut factory_calls = 0;
+
+    super::start_opcua_client_runtime_with_factory(&mut runtime, &bundle, |_connection| {
+        factory_calls += 1;
+        Ok(NoopOpcUaTransport)
+    })
+    .expect("disabled OPC UA client startup must be a no-op");
+    assert_eq!(factory_calls, 0);
+
+    bundle.runtime.opcua_client.enabled = true;
+    let error =
+        super::start_opcua_client_runtime_with_factory(&mut runtime, &bundle, |_connection| {
+            factory_calls += 1;
+            Ok(NoopOpcUaTransport)
+        })
+        .expect_err("enabled OPC UA client without configuration must reject");
+    assert!(error
+        .to_string()
+        .contains("runtime.opcua_client.enabled=true but no OPC UA client config was loaded"));
+    assert_eq!(factory_calls, 0);
 }
 
 #[test]
@@ -565,6 +854,134 @@ policy = "halt"
         "dependency source must be included in project run source registry"
     );
     let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn runtime_load_modes_compile_legacy_sources_and_ide_bootstrap() {
+    let legacy_root = unique_temp_dir("run-legacy-mode");
+    std::fs::create_dir_all(&legacy_root).expect("create legacy runtime root");
+    std::fs::write(legacy_root.join("main.st"), "PROGRAM Main\nEND_PROGRAM\n")
+        .expect("write legacy source");
+
+    let legacy = super::load_runtime(
+        None,
+        Some(legacy_root.join("legacy-runtime.toml")),
+        Some(legacy_root.clone()),
+    )
+    .expect("legacy runtime mode must compile discovered sources");
+    assert!(!legacy.ide_shell_mode);
+    assert!(legacy.bundle.is_none());
+    assert_eq!(legacy.sources.files().len(), 1);
+    assert!(legacy.sources.files()[0].path.ends_with("main.st"));
+
+    let ide_root = unique_temp_dir("run-ide-bootstrap");
+    std::fs::create_dir_all(&ide_root).expect("create IDE runtime root");
+    let ide = super::load_runtime(None, None, Some(ide_root.clone()))
+        .expect("IDE shell mode must compile its bootstrap program");
+    assert!(ide.ide_shell_mode);
+    assert!(ide.bundle.is_none());
+    assert_eq!(ide.sources.files().len(), 1);
+    assert!(ide.sources.files()[0]
+        .path
+        .ends_with("__ide_bootstrap__.st"));
+    assert_eq!(ide.sources.files()[0].text, "PROGRAM Main\nEND_PROGRAM\n");
+
+    let _ = std::fs::remove_dir_all(legacy_root);
+    let _ = std::fs::remove_dir_all(ide_root);
+}
+
+#[test]
+fn legacy_runtime_root_source_loading_treats_paths_literally() {
+    let root = unique_temp_dir("run-source-[literal]");
+    let nested = root.join("nested");
+    std::fs::create_dir_all(&nested).expect("create nested source directory");
+    std::fs::write(root.join("main.st"), "PROGRAM Main\nEND_PROGRAM\n").expect("write root source");
+    std::fs::write(
+        nested.join("helper.POU"),
+        "FUNCTION Helper : BOOL\nHelper := TRUE;\nEND_FUNCTION\n",
+    )
+    .expect("write nested source");
+
+    let sources = super::load_sources(&root).expect("load literal runtime root");
+    let paths = sources
+        .files()
+        .iter()
+        .map(|source| source.path.clone())
+        .collect::<Vec<_>>();
+    assert_eq!(paths.len(), 2, "both recursive source files must load");
+    assert!(paths[0] < paths[1], "source order must be deterministic");
+    assert!(paths.iter().any(|path| path.ends_with("main.st")));
+    assert!(paths.iter().any(|path| path.ends_with("helper.POU")));
+
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn simulation_plan_rejects_zero_cli_scale() {
+    let error = super::build_simulation_plan(None, false, 0)
+        .err()
+        .expect("zero time scale must fail");
+    assert!(error.to_string().contains("--time-scale must be >= 1"));
+}
+
+#[test]
+fn simulation_plan_preserves_project_model_when_cli_enables_it() {
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let config = trust_runtime::simulation::SimulationConfig {
+        time_scale: 7,
+        enabled: false,
+        ..Default::default()
+    };
+    bundle.simulation = Some(config);
+
+    let plan = super::build_simulation_plan(Some(&bundle), true, 1)
+        .expect("CLI simulation flag should enable project model");
+    assert!(plan.enabled);
+    assert_eq!(plan.time_scale, 7);
+    assert!(plan.controller.is_some());
+}
+
+#[test]
+fn runtime_settings_project_effective_bundle_and_cli_selection() {
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    bundle.runtime.log_level = smol_str::SmolStr::new("trace");
+    bundle.runtime.web.enabled = true;
+    bundle.runtime.discovery.enabled = true;
+    bundle.runtime.discovery.service_name = smol_str::SmolStr::new("settings-proof");
+    bundle.runtime.opcua.enabled = true;
+    bundle.runtime.opcua.listen = smol_str::SmolStr::new("127.0.0.1:4841");
+    let simulation = super::SimulationPlan {
+        enabled: true,
+        time_scale: 9,
+        warning: "simulation warning".to_string(),
+        controller: None,
+    };
+
+    let settings = super::build_runtime_settings(
+        Some(&bundle),
+        false,
+        trust_runtime::watchdog::WatchdogPolicy::default(),
+        trust_runtime::watchdog::FaultPolicy::Halt,
+        &simulation,
+        trust_runtime::execution_backend::ExecutionBackend::BytecodeVm,
+        trust_runtime::execution_backend::ExecutionBackendSource::Flag,
+    );
+
+    assert_eq!(settings.log_level, "trace");
+    assert!(settings.web.enabled);
+    assert!(settings.discovery.enabled);
+    assert_eq!(settings.discovery.service_name, "settings-proof");
+    assert!(settings.opcua.enabled);
+    assert_eq!(settings.opcua.listen, "127.0.0.1:4841");
+    assert!(settings.simulation.enabled);
+    assert_eq!(settings.simulation.time_scale, 9);
+    assert_eq!(settings.simulation.warning, "simulation warning");
+    assert_eq!(
+        settings.execution_backend_source,
+        trust_runtime::execution_backend::ExecutionBackendSource::Flag
+    );
 }
 
 fn unique_temp_dir(name: &str) -> std::path::PathBuf {

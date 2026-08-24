@@ -1,0 +1,53 @@
+schema_version = 1
+id = "CASES_RT_TASK_READINESS_001"
+title = "Generated cases for Task readiness preserves IEC triggers and deterministic overrun accounting"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "planned"
+invariant = "RT_TASK_READINESS_001"
+generator = "gen_cases_v2.py v1"
+generator_digest = "sha256:e557e3873c3813524fb791b2723d9c9a51a7f1d93b6d304bce60e5d36cc5c3ac"
+source_digest = "sha256:46dab9647588c258c782a0814872638d61a8e25c34019061edf5208d7fd552aa"
+last_reviewed = "2026-07-22"
+
+[[case]]
+id = "RT_TASK_READINESS_001_NON_POSITIVE_INTERVAL_SINGLE_LOW_7C9284D9"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "NON_POSITIVE_INTERVAL_SINGLE_LOW" }, scenario = "NON_POSITIVE_INTERVAL_SINGLE_LOW" }
+expect = { outcome = "accept_value", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting" }
+
+[[case]]
+id = "RT_TASK_READINESS_001_SINGLE_RISING_EDGE_FCDE17E8"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "SINGLE_RISING_EDGE" }, scenario = "SINGLE_RISING_EDGE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting" }
+
+[[case]]
+id = "RT_TASK_READINESS_001_SINGLE_HELD_HIGH_2F30C448"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "SINGLE_HELD_HIGH" }, scenario = "SINGLE_HELD_HIGH" }
+expect = { outcome = "accept_value", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting" }
+
+[[case]]
+id = "RT_TASK_READINESS_001_SINGLE_FALLING_REARM_AF3F2F2E"
+family = "ordering_or_lifecycle"
+input = { source_partition = { equals = "SINGLE_FALLING_REARM" }, scenario = "SINGLE_FALLING_REARM" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting" }
+
+[[case]]
+id = "RT_TASK_READINESS_001_BACKWARD_OR_EARLY_PERIODIC_SAMPLE_BAF1DBC0"
+family = "time_or_clock_fault"
+input = { source_partition = { equals = "BACKWARD_OR_EARLY_PERIODIC_SAMPLE" }, scenario = "BACKWARD_OR_EARLY_PERIODIC_SAMPLE" }
+expect = { outcome = "accept_value", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting" }
+
+[[case]]
+id = "RT_TASK_READINESS_001_ONE_PERIOD_DUE_1C1940E2"
+family = "happy_path"
+input = { source_partition = { equals = "ONE_PERIOD_DUE" }, scenario = "ONE_PERIOD_DUE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting" }
+
+[[case]]
+id = "RT_TASK_READINESS_001_MULTIPLE_PERIODS_DUE_4AD47CBF"
+family = "time_or_clock_fault"
+input = { source_partition = { equals = "MULTIPLE_PERIODS_DUE" }, scenario = "MULTIPLE_PERIODS_DUE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting" }

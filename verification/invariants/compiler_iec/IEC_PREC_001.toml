@@ -3,14 +3,14 @@ id = "IEC_PREC_001"
 title = "Expression precedence follows the active product contract"
 area = "compiler_iec"
 risk = "wrong_result"
-status = "implemented"
+status = "gap_open"
 owner = "trust-hir"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-29"
 claim = "Expression parsing and evaluation must preserve the documented operator precedence and associativity."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src", "crates/trust-hir/src"]
-tests = ["TEST_IEC_PRECEDENCE_TRACE_001"]
+tests = ["TEST_AUTO_1C42DB389FAA2ED580BB", "TEST_AUTO_72A4635A2F50FA9B6F66", "TEST_AUTO_FC37E5CDDECDA03F76F4", "TEST_IEC_PRECEDENCE_TRACE_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_IEC_PRECEDENCE_TRACE_001_LOCK_BASELINE",
@@ -85,6 +85,14 @@ delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unc
 rationale = "Comparison expressions are formed before boolean AND is applied."
 
 [[behavior]]
+partition = { equals = "MULTIPLICATIVE_BEFORE_COMPARISON" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Multiplicative expressions are formed before comparison operators are applied."
+
+[[behavior]]
 partition = { equals = "AND_BEFORE_XOR_BEFORE_OR" }
 case_family = "ordering_or_lifecycle"
 oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence"
@@ -95,4 +103,4 @@ rationale = "Boolean AND binds more tightly than XOR, and XOR binds more tightly
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
 state = "covered"
-rationale = "The mapped case runner covers every reviewed precedence and associativity partition with a current producer-authentic CASE_V2 lock comparison; the prior pair remains historical source-revision evidence."
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in IEC_PREC_001; the existing G1 lock remains current and broad remote validation remains explicit debt."

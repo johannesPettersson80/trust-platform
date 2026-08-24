@@ -61,3 +61,73 @@ This file tracks implementation decisions made where PLCopen profiles or source 
   - OOP profile, probe, digital-cam, torque/superimposed, and synchronization methods that are not implemented by the current OOP facade remain present and return deterministic command objects with `mcERR_NotSupported`.
 - Reason:
   - This matches the PLCopen OOP guidance that a standardized interface defines the user-facing axis surface, while implementation remains vendor-specific and may coexist with procedural FBs.
+
+## 2026-07-26 - Phase A deterministic single-axis profile choices
+
+- Area: PLCopen Motion Part 1 Phase A single-axis behavior
+- PLCopen context: Part 1 v2.0 sections 2.4.1, 2.4.2, 2.4.3, 3.3, 3.18,
+  3.20, and Table 5
+- Decision:
+  - `AXIS_REF.AxisId` and `AXIS_REF.InternalIndex` are supported public handle
+    fields that may be initialized before FB use but not mutated while work is
+    active or queued. The Phase A kernel uses `InternalIndex` directly and
+    requires a configured slot in `0..31`; it does not silently normalize an
+    out-of-range value. PLCopen makes the fields' content implementation
+    dependent and requires support for any exposed elements.
+  - The current single-axis kernel provides one active slot and exactly two
+    buffered FIFO slots. A third buffered request fails with
+    `mcERR_QueueFull` without mutating accepted work.
+  - `PN_TRUST_VendorBool0 = 1000` is registered by truST as a per-axis
+    application metadata bit with default `FALSE`, no motion side effect, and
+    immediate or queued read/write behavior.
+  - Standard read-only parameter numbers may be initialized through
+    `MC_WriteParameter` only while the axis is `Disabled` with no active or
+    queued work, or through the internal test-seeding boundary. Public writes
+    outside that phase fail with `mcERR_InvalidState`.
+  - An aborting `MC_Home` accepted from `DiscreteMotion` enters `Homing` and
+    completes in `Standstill` after aborting the current owner and clearing
+    buffered work.
+  - The deterministic verification helpers are not PLCopen public FBs and do
+    not widen the compliance surface.
+- Reason:
+  - These implementation-dependent choices make the selected software-only
+    Phase A profile deterministic without presenting truST-only behavior as
+    normative PLCopen behavior.
+
+## 2026-07-27 - ST-complete interchange profile choices
+
+- Area: PLCopen TC6 ST interchange and vendor migration artifacts
+- PLCopen context: TC6 namespace `http://www.plcopen.org/xml/tc6_0200`;
+  graphical-network semantics and native vendor package formats are outside
+  the selected profile
+- Decision:
+  - The public profile identity is `trust-st-complete-v1`, limited to the
+    documented ST, data-type, project-model, and CODESYS metadata subset.
+  - Imported project sources are written under `src/`; a data-type-only import
+    writes `src/plcopen_data_types.st`.
+  - FBD, LD, SFC, and unknown executable bodies fail closed with the documented
+    `PLCO215` through `PLCO218` diagnostics rather than being scraped as ST.
+  - Opaque vendor `addData` is preserved for re-injection but is not
+    semantically interpreted.
+  - The reviewed Siemens, Rockwell, Schneider/CODESYS, Mitsubishi, and OpenPLC
+    symbol shims are migration transforms whose applications are reported;
+    they are not vendor-runtime equivalence claims.
+  - The public compatibility guide owns the exact shim catalogue, token
+    positions, ecosystem-detection precedence, deterministic migration-score
+    formulas, `PLCO101` through `PLCO103` structural diagnostics, embedded
+    source-map tolerance, opaque-extension wrapper, and migration-report JSON
+    serialization. These are truST migration-product choices, not normative
+    PLCopen scoring or vendor-runtime semantics.
+  - Allen-Bradley, Siemens, and Schneider export adapters emit the documented
+    XML, sidecar report, and optional Siemens SCL bundle. They do not emit
+    native vendor project packages. The public target ID, suffix, label, and
+    serialized-enum table is a stable truST adapter contract.
+  - PLCopen POU-kind aliases and their XML/declaration/terminator projection,
+    plus native-vendor-parity as the default global-variable import mode, are
+    explicit truST interchange choices; strict IEC adapter reshaping requires
+    an explicit option.
+- Reason:
+  - TC6 supplies the interchange container, but the supported subset, source
+    layout, vendor aliases, reports, and adapter artifacts are product/profile
+    choices that must remain explicit and testable without being presented as
+    IEC deviations or full vendor compatibility.

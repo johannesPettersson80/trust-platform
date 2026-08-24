@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use tracing::warn;
@@ -33,13 +34,18 @@ impl super::ProjectConfig {
             }
         };
 
-        config.vendor_profile = parsed.project.vendor_profile;
+        config.vendor_profile = super::normalize_optional_string(parsed.project.vendor_profile)
+            .map(|profile| profile.to_ascii_lowercase());
         config.stdlib = parsed.project.stdlib.into();
         config.build = parsed.build.into();
+        let mut target_names = HashSet::new();
         config.targets = parsed
             .targets
             .into_iter()
             .map(super::TargetProfile::from)
+            .filter(|target| {
+                !target.name.is_empty() && target_names.insert(target.name.to_ascii_lowercase())
+            })
             .collect();
         config.indexing = parsed.indexing.into();
         let diagnostics_section = parsed.diagnostics;
@@ -72,7 +78,9 @@ impl super::ProjectConfig {
             });
         }
         for lib in parsed.libraries {
-            let path = super::resolve_path(root, &lib.path);
+            let Some(path) = super::resolve_optional_path(root, &lib.path) else {
+                continue;
+            };
             let name = lib
                 .name
                 .clone()
@@ -81,17 +89,27 @@ impl super::ProjectConfig {
                         .and_then(|name| name.to_str())
                         .map(|name| name.to_string())
                 })
-                .unwrap_or_else(|| "library".to_string());
+                .unwrap_or_else(|| "library".to_string())
+                .trim()
+                .to_string();
+            if name.is_empty() {
+                continue;
+            }
+            let mut dependency_names = HashSet::new();
             let dependencies = lib
                 .dependencies
                 .into_iter()
                 .map(super::LibraryDependency::from)
+                .filter(|dependency| {
+                    !dependency.name.is_empty()
+                        && dependency_names.insert(dependency.name.to_ascii_lowercase())
+                })
                 .collect();
             let docs = super::resolve_paths(root, &lib.docs);
             libraries.push(super::LibrarySpec {
                 name,
                 path,
-                version: lib.version,
+                version: super::normalize_optional_string(lib.version),
                 dependencies,
                 docs,
             });

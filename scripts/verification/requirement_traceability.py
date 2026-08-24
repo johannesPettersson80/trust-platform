@@ -98,7 +98,7 @@ def analyze_requirement_traceability(
         linked_test_ids.update(test_ids)
         referenced_suite_ids.update(suite_ids)
         traced_evidence_ids.update(evidence_ids)
-        missing_links = [
+        missing_links = sorted(
             label
             for label, values in (
                 ("spec_source", source_ids),
@@ -107,7 +107,7 @@ def analyze_requirement_traceability(
                 ("evidence", evidence_ids),
             )
             if not values
-        ]
+        )
         forward.append(
             {
                 "invariant_id": invariant_id,

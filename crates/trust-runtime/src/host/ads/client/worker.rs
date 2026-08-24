@@ -1,6 +1,5 @@
-use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -18,6 +17,9 @@ use super::{validate_remote_symbols, AdsBinding, AdsBridgeError, AdsConnectionSt
 
 const DEFAULT_WORKER_TICK_INTERVAL: Duration = Duration::from_millis(20);
 
+#[cfg(test)]
+mod tests;
+
 pub struct AdsConnectionWorker<T> {
     transport: T,
     bindings: Vec<AdsBinding>,
@@ -29,6 +31,36 @@ pub struct AdsConnectionWorker<T> {
     next_reconnect_after_ms: Option<u64>,
     symbol_version_check_interval_ms: u64,
     next_symbol_version_check_ms: Option<u64>,
+}
+
+struct ConnectionCandidate {
+    handles: BTreeMap<String, AdsResolvedHandle>,
+    subscriptions: BTreeMap<String, AdsSubscription>,
+    symbol_version: u32,
+}
+
+struct WorkerPollError {
+    error: AdsBridgeError,
+    write_generation_baseline: Option<BTreeMap<String, u64>>,
+}
+
+impl WorkerPollError {
+    fn plain(error: AdsBridgeError) -> Self {
+        Self {
+            error,
+            write_generation_baseline: None,
+        }
+    }
+
+    fn after_write(
+        error: AdsBridgeError,
+        write_generation_baseline: BTreeMap<String, u64>,
+    ) -> Self {
+        Self {
+            error,
+            write_generation_baseline: Some(write_generation_baseline),
+        }
+    }
 }
 
 impl<T: AdsTransport> AdsConnectionWorker<T> {
@@ -72,9 +104,13 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
             AdsConnectionState::Connected => {}
         }
 
-        if let Err(error) = self.poll_connected(now_ms) {
-            self.handle_runtime_error(now_ms, &error);
-            return Err(error);
+        if let Err(failure) = self.poll_connected(now_ms) {
+            self.handle_runtime_error_preserving(
+                now_ms,
+                &failure.error,
+                failure.write_generation_baseline.as_ref(),
+            );
+            return Err(failure.error);
         }
         Ok(())
     }
@@ -85,13 +121,12 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
             .transport
             .connect()
             .map_err(AdsBridgeError::from)
-            .and_then(|()| self.validate_online_and_resolve_handles(now_ms));
+            .and_then(|()| self.build_connection_candidate());
         match result {
-            Ok(()) => {
+            Ok(candidate) => {
+                self.publish_candidate(candidate, now_ms);
                 self.shared.set_state(AdsConnectionState::Connected);
                 self.next_reconnect_after_ms = None;
-                self.next_symbol_version_check_ms =
-                    Some(now_ms.saturating_add(self.symbol_version_check_interval_ms));
                 Ok(())
             }
             Err(error) => {
@@ -102,8 +137,27 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
     }
 
     pub fn mark_reconnecting(&mut self, now_ms: u64, detail: impl Into<String>) {
+        let _ = self.transport.disconnect();
+        self.invalidate_local_correlation();
         self.shared
             .mark_reconnecting(now_ms, self.reconnect_backoff_ms, detail.into());
+        self.next_reconnect_after_ms = Some(now_ms.saturating_add(self.reconnect_backoff_ms));
+    }
+
+    fn mark_reconnecting_preserving(
+        &mut self,
+        now_ms: u64,
+        detail: String,
+        write_generation_baseline: &BTreeMap<String, u64>,
+    ) {
+        let _ = self.transport.disconnect();
+        self.invalidate_local_correlation();
+        self.shared.mark_reconnecting_preserving(
+            now_ms,
+            self.reconnect_backoff_ms,
+            detail,
+            write_generation_baseline,
+        );
         self.next_reconnect_after_ms = Some(now_ms.saturating_add(self.reconnect_backoff_ms));
     }
 
@@ -111,7 +165,7 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
     where
         T: Send + 'static,
     {
-        let stop = Arc::new(AtomicBool::new(false));
+        let stop = Arc::new((Mutex::new(false), Condvar::new()));
         let stop_ref = Arc::clone(&stop);
         let interval = if tick_interval.is_zero() {
             DEFAULT_WORKER_TICK_INTERVAL
@@ -122,11 +176,16 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
             .name("trust-ads-worker".to_string())
             .spawn(move || {
                 let mut worker = self;
-                while !stop_ref.load(Ordering::SeqCst) {
+                loop {
+                    if stop_requested(stop_ref.as_ref()) {
+                        break;
+                    }
                     let _ = worker.tick(now_ms());
-                    thread::sleep(interval);
+                    if wait_for_stop(stop_ref.as_ref(), interval) {
+                        break;
+                    }
                 }
-                let _ = worker.transport.disconnect();
+                worker.finish_shutdown();
             })
             .map_err(|err| {
                 AdsBridgeError::transport(format!("failed to spawn ADS worker thread: {err}"))
@@ -155,10 +214,12 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
             .map(|subscription| subscription.subscription_id)
     }
 
-    fn poll_connected(&mut self, now_ms: u64) -> Result<(), AdsBridgeError> {
-        self.refresh_handles_if_symbol_version_due(now_ms)?;
-        self.drain_notifications(now_ms)?;
-        self.poll_reads(now_ms)?;
+    fn poll_connected(&mut self, now_ms: u64) -> Result<(), WorkerPollError> {
+        self.refresh_handles_if_symbol_version_due(now_ms)
+            .map_err(WorkerPollError::plain)?;
+        self.drain_notifications(now_ms)
+            .map_err(WorkerPollError::plain)?;
+        self.poll_reads(now_ms).map_err(WorkerPollError::plain)?;
         self.publish_pending_writes(now_ms)?;
         Ok(())
     }
@@ -179,9 +240,12 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
         if self.symbol_version == Some(current) {
             return Ok(false);
         }
+        self.invalidate_local_correlation();
+        self.mark_input_authority_stale("ADS symbol version changed; refreshing correlation");
         self.transport.disconnect().map_err(AdsBridgeError::from)?;
         self.transport.connect().map_err(AdsBridgeError::from)?;
-        self.validate_online_and_resolve_handles(now_ms)?;
+        let candidate = self.build_connection_candidate()?;
+        self.publish_candidate(candidate, now_ms);
         Ok(true)
     }
 
@@ -197,7 +261,23 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
         if handles.is_empty() {
             return Ok(());
         }
-        for read in self.transport.sumup_read(&handles)? {
+        let reads = self.transport.sumup_read(&handles)?;
+        if reads.len() != handles.len() {
+            return Err(AdsBridgeError::validation(format!(
+                "ADS read returned {} results for {} handles",
+                reads.len(),
+                handles.len()
+            )));
+        }
+        for (handle, read) in handles.iter().zip(&reads) {
+            if read.point_name != handle.point_name {
+                return Err(AdsBridgeError::validation(format!(
+                    "ADS read result '{}' does not match requested point '{}'",
+                    read.point_name, handle.point_name
+                )));
+            }
+        }
+        for read in reads {
             let (value, quality) = validate_ingress_sample(
                 read.point_name.as_str(),
                 read.value,
@@ -217,6 +297,18 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
 
     fn drain_notifications(&mut self, now_ms: u64) -> Result<(), AdsBridgeError> {
         for sample in self.transport.drain_notifications()? {
+            let Some(subscription) = self.subscriptions.get(sample.point_name.as_str()) else {
+                return Err(AdsBridgeError::validation(format!(
+                    "ADS notification point '{}' has no active subscription",
+                    sample.point_name
+                )));
+            };
+            if subscription.subscription_id != sample.subscription_id {
+                return Err(AdsBridgeError::validation(format!(
+                    "ADS notification point '{}' returned subscription {} but active subscription is {}",
+                    sample.point_name, sample.subscription_id, subscription.subscription_id
+                )));
+            }
             let (value, quality) = validate_ingress_sample(
                 sample.point_name.as_str(),
                 sample.value,
@@ -234,61 +326,77 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
         Ok(())
     }
 
-    fn publish_pending_writes(&mut self, now_ms: u64) -> Result<(), AdsBridgeError> {
-        let pending = self.shared.pending_writes();
+    fn publish_pending_writes(&mut self, now_ms: u64) -> Result<(), WorkerPollError> {
+        let (pending, write_generation_baseline) = self.shared.pending_write_batch();
         if pending.is_empty() {
             return Ok(());
         }
         let binding_index = self.binding_index();
         let mut writes = Vec::new();
         let mut point_names = Vec::new();
-        for (point_name, value) in pending {
+        for (point_name, pending) in pending {
             let Some(binding) = binding_index.get(point_name.as_str()) else {
-                self.shared.set_quality(
+                self.shared.fail_write_if_current(
                     point_name.as_str(),
+                    pending.generation,
                     PointQuality::error(now_ms, format!("unknown ADS output '{point_name}'")),
                 );
                 continue;
             };
             if !point_writes(binding.point.access) {
-                self.shared.set_quality(
+                self.shared.fail_write_if_current(
                     point_name.as_str(),
+                    pending.generation,
                     PointQuality::error(
                         now_ms,
                         format!("ADS point '{point_name}' is not writable"),
                     ),
                 );
-                self.shared.ack_write(point_name.as_str());
                 continue;
             }
             writes.push(AdsWriteRequest {
-                handle: self.handle_for_binding(binding)?,
-                value,
+                handle: self
+                    .handle_for_binding(binding)
+                    .map_err(WorkerPollError::plain)?,
+                value: pending.value,
             });
-            point_names.push(point_name);
+            point_names.push((point_name, pending.generation));
         }
         if writes.is_empty() {
             return Ok(());
         }
-        let qualities = self.transport.sumup_write(&writes)?;
+        let qualities = self.transport.sumup_write(&writes).map_err(|error| {
+            WorkerPollError::after_write(
+                AdsBridgeError::from(error),
+                write_generation_baseline.clone(),
+            )
+        })?;
         if qualities.len() != point_names.len() {
-            return Err(AdsBridgeError::validation(format!(
-                "ADS write returned {} qualities for {} writes",
-                qualities.len(),
-                point_names.len()
-            )));
+            return Err(WorkerPollError::after_write(
+                AdsBridgeError::validation(format!(
+                    "ADS write returned {} qualities for {} writes",
+                    qualities.len(),
+                    point_names.len()
+                )),
+                write_generation_baseline,
+            ));
         }
-        for (point_name, quality) in point_names.into_iter().zip(qualities) {
+        for ((point_name, generation), quality) in point_names.into_iter().zip(qualities) {
             let quality = normalize_write_quality(quality, now_ms);
             if quality.state == QualityState::Good {
-                self.shared.ack_write(point_name.as_str());
+                let acknowledged_at = quality.last_update_ms.unwrap_or(now_ms);
+                self.shared
+                    .ack_write_if_current(point_name.as_str(), generation, acknowledged_at);
+            } else {
+                self.shared
+                    .fail_write_if_current(point_name.as_str(), generation, quality);
             }
-            self.shared.set_quality(point_name.as_str(), quality);
         }
         Ok(())
     }
 
-    fn validate_online_and_resolve_handles(&mut self, now_ms: u64) -> Result<(), AdsBridgeError> {
+    fn build_connection_candidate(&mut self) -> Result<ConnectionCandidate, AdsBridgeError> {
+        let symbol_version_before = self.transport.symbol_version()?;
         let symbols = self.transport.upload_symbol_table()?;
         validate_remote_symbols(&self.bindings, &symbols)?;
         let requests = self
@@ -300,29 +408,26 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
                 data_type: binding.point.data_type.clone(),
             })
             .collect::<Vec<_>>();
-        let handles = self.transport.resolve_handles(&requests)?;
-        let mut resolved = BTreeMap::new();
-        for handle in handles {
-            resolved.insert(handle.point_name.clone(), handle);
+        let responses = self.transport.resolve_handles(&requests)?;
+        let handles = validate_resolved_handles(&requests, responses)?;
+        let subscriptions = self.build_subscription_candidate(&handles)?;
+        let symbol_version_after = self.transport.symbol_version()?;
+        if symbol_version_before != symbol_version_after {
+            return Err(AdsBridgeError::validation(format!(
+                "ADS symbol version changed during candidate construction: {symbol_version_before} != {symbol_version_after}"
+            )));
         }
-        for binding in &self.bindings {
-            if !resolved.contains_key(binding.point.point_name.as_str()) {
-                return Err(AdsBridgeError::validation(format!(
-                    "ADS handle resolution did not return point '{}'",
-                    binding.point.point_name
-                )));
-            }
-        }
-        self.handles = resolved;
-        self.subscribe_notify_points()?;
-        self.symbol_version = Some(self.transport.symbol_version()?);
-        self.next_symbol_version_check_ms =
-            Some(now_ms.saturating_add(self.symbol_version_check_interval_ms));
-        Ok(())
+        Ok(ConnectionCandidate {
+            handles,
+            subscriptions,
+            symbol_version: symbol_version_after,
+        })
     }
 
-    fn subscribe_notify_points(&mut self) -> Result<(), AdsBridgeError> {
-        self.subscriptions.clear();
+    fn build_subscription_candidate(
+        &mut self,
+        handles: &BTreeMap<String, AdsResolvedHandle>,
+    ) -> Result<BTreeMap<String, AdsSubscription>, AdsBridgeError> {
         let requests = self
             .bindings
             .iter()
@@ -332,36 +437,75 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
             .map(|binding| {
                 Ok((
                     binding.point.point_name.clone(),
-                    self.handle_for_binding(binding)?,
+                    handle_for_binding_in(handles, binding)?,
                     binding.point.mode,
                     binding.point.notification_mode,
                 ))
             })
             .collect::<Result<Vec<_>, AdsBridgeError>>()?;
+        let mut subscriptions = BTreeMap::new();
+        let mut subscription_ids = BTreeSet::new();
         for (point_name, handle, mode, notification_mode) in requests {
             let subscription = self.transport.subscribe(AdsSubscribeRequest {
                 handle,
                 mode,
                 notification_mode,
             })?;
-            self.subscriptions.insert(point_name, subscription);
+            if subscription.point_name != point_name {
+                return Err(AdsBridgeError::validation(format!(
+                    "ADS subscription response '{}' does not match requested point '{point_name}'",
+                    subscription.point_name
+                )));
+            }
+            if !subscription_ids.insert(subscription.subscription_id) {
+                return Err(AdsBridgeError::validation(format!(
+                    "ADS subscription ID {} is active for more than one point",
+                    subscription.subscription_id
+                )));
+            }
+            subscriptions.insert(point_name, subscription);
         }
-        Ok(())
+        Ok(subscriptions)
+    }
+
+    fn publish_candidate(&mut self, candidate: ConnectionCandidate, now_ms: u64) {
+        self.handles = candidate.handles;
+        self.subscriptions = candidate.subscriptions;
+        self.symbol_version = Some(candidate.symbol_version);
+        self.next_symbol_version_check_ms =
+            Some(now_ms.saturating_add(self.symbol_version_check_interval_ms));
+    }
+
+    fn invalidate_local_correlation(&mut self) {
+        self.handles.clear();
+        self.subscriptions.clear();
+        self.symbol_version = None;
+        self.next_symbol_version_check_ms = None;
+    }
+
+    fn mark_input_authority_stale(&self, detail: &str) {
+        let point_names = self
+            .bindings
+            .iter()
+            .filter(|binding| point_reads(binding.point.access))
+            .map(|binding| binding.point.point_name.as_str())
+            .collect::<Vec<_>>();
+        self.shared.revoke_good_authority(&point_names, detail);
+    }
+
+    fn finish_shutdown(&mut self) {
+        self.invalidate_local_correlation();
+        self.next_reconnect_after_ms = None;
+        self.mark_input_authority_stale("ADS worker stopped; cached input is not authoritative");
+        self.shared.set_state(AdsConnectionState::Disconnected);
+        let _ = self.transport.disconnect();
     }
 
     fn handle_for_binding(
         &self,
         binding: &AdsBinding,
     ) -> Result<AdsResolvedHandle, AdsBridgeError> {
-        self.handles
-            .get(binding.point.point_name.as_str())
-            .cloned()
-            .ok_or_else(|| {
-                AdsBridgeError::validation(format!(
-                    "ADS point '{}' does not have a resolved handle",
-                    binding.point.point_name
-                ))
-            })
+        handle_for_binding_in(&self.handles, binding)
     }
 
     fn binding_index(&self) -> BTreeMap<&str, &AdsBinding> {
@@ -372,12 +516,100 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
     }
 
     fn handle_runtime_error(&mut self, now_ms: u64, error: &AdsBridgeError) {
+        self.handle_runtime_error_preserving(now_ms, error, None);
+    }
+
+    fn handle_runtime_error_preserving(
+        &mut self,
+        now_ms: u64,
+        error: &AdsBridgeError,
+        write_generation_baseline: Option<&BTreeMap<String, u64>>,
+    ) {
         if error.is_transport() {
-            self.mark_reconnecting(now_ms, error.to_string());
+            if let Some(write_generation_baseline) = write_generation_baseline {
+                self.mark_reconnecting_preserving(
+                    now_ms,
+                    error.to_string(),
+                    write_generation_baseline,
+                );
+            } else {
+                self.mark_reconnecting(now_ms, error.to_string());
+            }
         } else {
-            self.shared.mark_faulted(now_ms, error.to_string());
+            let _ = self.transport.disconnect();
+            self.invalidate_local_correlation();
+            self.next_reconnect_after_ms = None;
+            if let Some(write_generation_baseline) = write_generation_baseline {
+                self.shared.mark_faulted_preserving(
+                    now_ms,
+                    error.to_string(),
+                    write_generation_baseline,
+                );
+            } else {
+                self.shared.mark_faulted(now_ms, error.to_string());
+            }
         }
     }
+}
+
+fn validate_resolved_handles(
+    requests: &[AdsHandleRequest],
+    responses: Vec<AdsResolvedHandle>,
+) -> Result<BTreeMap<String, AdsResolvedHandle>, AdsBridgeError> {
+    if responses.len() != requests.len() {
+        return Err(AdsBridgeError::validation(format!(
+            "ADS handle resolution returned {} responses for {} requests",
+            responses.len(),
+            requests.len()
+        )));
+    }
+    let requested = requests
+        .iter()
+        .map(|request| (request.point_name.as_str(), request))
+        .collect::<BTreeMap<_, _>>();
+    let mut resolved = BTreeMap::new();
+    for response in responses {
+        let Some(request) = requested.get(response.point_name.as_str()) else {
+            return Err(AdsBridgeError::validation(format!(
+                "ADS handle resolution returned unexpected point '{}'",
+                response.point_name
+            )));
+        };
+        if response.address != request.address {
+            return Err(AdsBridgeError::validation(format!(
+                "ADS handle resolution returned the wrong address for point '{}'",
+                response.point_name
+            )));
+        }
+        if response.data_type != request.data_type {
+            return Err(AdsBridgeError::validation(format!(
+                "ADS handle resolution returned the wrong descriptor for point '{}'",
+                response.point_name
+            )));
+        }
+        let point_name = response.point_name.clone();
+        if resolved.insert(point_name.clone(), response).is_some() {
+            return Err(AdsBridgeError::validation(format!(
+                "ADS handle resolution returned point '{point_name}' more than once"
+            )));
+        }
+    }
+    Ok(resolved)
+}
+
+fn handle_for_binding_in(
+    handles: &BTreeMap<String, AdsResolvedHandle>,
+    binding: &AdsBinding,
+) -> Result<AdsResolvedHandle, AdsBridgeError> {
+    handles
+        .get(binding.point.point_name.as_str())
+        .cloned()
+        .ok_or_else(|| {
+            AdsBridgeError::validation(format!(
+                "ADS point '{}' does not have a resolved handle",
+                binding.point.point_name
+            ))
+        })
 }
 
 fn validate_ingress_sample(
@@ -399,7 +631,7 @@ fn validate_ingress_sample(
             ),
         );
     };
-    if contains_non_finite_float(&value) {
+    if super::contains_non_finite_float(&value) {
         return (
             None,
             PointQuality::error(
@@ -411,17 +643,8 @@ fn validate_ingress_sample(
     (Some(value), quality)
 }
 
-fn contains_non_finite_float(value: &Value) -> bool {
-    match value {
-        Value::Real(value) => !value.is_finite(),
-        Value::LReal(value) => !value.is_finite(),
-        Value::Array(array) => array.elements().iter().any(contains_non_finite_float),
-        _ => false,
-    }
-}
-
 pub struct AdsWorkerThread {
-    stop: Arc<AtomicBool>,
+    stop: Arc<(Mutex<bool>, Condvar)>,
     join: Option<thread::JoinHandle<()>>,
 }
 
@@ -432,7 +655,9 @@ impl AdsWorkerThread {
     }
 
     fn request_stop(&self) {
-        self.stop.store(true, Ordering::SeqCst);
+        let (stopped, wake) = self.stop.as_ref();
+        *stopped.lock().unwrap_or_else(|err| err.into_inner()) = true;
+        wake.notify_all();
     }
 
     fn join_worker(&mut self) -> Result<(), AdsBridgeError> {
@@ -452,18 +677,34 @@ impl Drop for AdsWorkerThread {
 }
 
 fn normalize_write_quality(quality: PointQuality, now_ms: u64) -> PointQuality {
-    if quality.last_update_ms.is_some() {
-        quality
-    } else if quality.state == QualityState::Good {
-        PointQuality::good(now_ms)
-    } else {
-        PointQuality::error(
-            now_ms,
-            quality
-                .detail
-                .unwrap_or_else(|| "ADS write failed without detail".to_string()),
-        )
+    if quality.state == QualityState::Good {
+        return PointQuality::good(quality.last_update_ms.unwrap_or(now_ms));
     }
+    let detail = quality
+        .detail
+        .unwrap_or_else(|| "failed without detail".to_string());
+    let detail = if detail.starts_with("ADS write failed: ") {
+        detail
+    } else {
+        format!("ADS write failed: {detail}")
+    };
+    PointQuality::error(quality.last_update_ms.unwrap_or(now_ms), detail)
+}
+
+fn stop_requested(stop: &(Mutex<bool>, Condvar)) -> bool {
+    *stop.0.lock().unwrap_or_else(|err| err.into_inner())
+}
+
+fn wait_for_stop(stop: &(Mutex<bool>, Condvar), interval: Duration) -> bool {
+    let stopped = stop.0.lock().unwrap_or_else(|err| err.into_inner());
+    if *stopped {
+        return true;
+    }
+    let (stopped, _) = stop
+        .1
+        .wait_timeout_while(stopped, interval, |stopped| !*stopped)
+        .unwrap_or_else(|err| err.into_inner());
+    *stopped
 }
 
 fn now_ms() -> u64 {

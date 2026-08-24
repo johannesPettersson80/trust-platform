@@ -100,9 +100,13 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
 
         let is_context_int = self.checker.is_contextual_int_literal(target_type, value);
         let is_context_real = self.checker.is_contextual_real_literal(target_type, value);
-        if self.checker.is_assignable(target_type, value_type) || is_context_int || is_context_real
+        let is_context_char = self.checker.is_contextual_char_literal(target_type, value);
+        if self.checker.is_assignable(target_type, value_type)
+            || is_context_int
+            || is_context_real
+            || is_context_char
         {
-            let checked_type = if is_context_int || is_context_real {
+            let checked_type = if is_context_int || is_context_real || is_context_char {
                 target_type
             } else {
                 value_type
@@ -110,7 +114,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             self.check_subrange_assignment(target_type, value, checked_type);
             self.checker
                 .check_string_literal_assignment(target_type, value, checked_type);
-            if !is_context_int && !is_context_real {
+            if !is_context_int && !is_context_real && !is_context_char {
                 self.checker
                     .warn_implicit_conversion(target_type, value_type, node.text_range());
             }

@@ -25,6 +25,6 @@ pub use trust_runtime_core::program_model::{
     method_static_storage_owner, property_setter_method_name, static_storage_name,
 };
 pub use types::{
-    ClassDef, FunctionBlockBase, FunctionBlockDef, FunctionDef, InterfaceDef, MethodDef, Param,
-    VarDef,
+    edge_phase_storage_name, ClassDef, EdgeInput, FunctionBlockBase, FunctionBlockDef, FunctionDef,
+    InterfaceDef, MethodDef, Param, VarDef,
 };

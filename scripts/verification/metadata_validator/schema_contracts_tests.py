@@ -17,6 +17,9 @@ from scripts.verification.area_routing import (
     ROUTE_FIELDS,
 )
 from scripts.verification.metadata_validator.constants import AREAS
+from scripts.verification.metadata_validator.integrity import (
+    SPEC_GAP_RESOLUTION_STATUSES,
+)
 from scripts.verification.metadata_validator.suites import (
     DURATION_CLASSES,
     ENVIRONMENTS,
@@ -61,6 +64,15 @@ class SchemaContractsTests(unittest.TestCase):
         schema = load_spec_source_schema()
 
         self.assertEqual(validate_schema_enums("spec-source.schema.json", schema), [])
+
+    def test_spec_gap_resolution_status_schema_matches_validator_vocabulary(self) -> None:
+        schema = load_spec_gap_schema()
+
+        self.assertEqual(
+            SPEC_GAP_RESOLUTION_STATUSES,
+            set(schema["properties"].get("resolution_status", {}).get("enum", [])),
+        )
+        self.assertEqual(validate_schema_enums("spec-gap.schema.json", schema), [])
 
     def test_spec_source_schema_vocabulary_version_and_closure_drift_are_rejected(
         self,
@@ -239,6 +251,10 @@ def load_case_artifact_schema() -> dict:
 
 def load_spec_source_schema() -> dict:
     return json.loads((ROOT / "verification/schemas/spec-source.schema.json").read_text())
+
+
+def load_spec_gap_schema() -> dict:
+    return json.loads((ROOT / "verification/schemas/spec-gap.schema.json").read_text())
 
 
 def load_matrix_schema() -> dict:

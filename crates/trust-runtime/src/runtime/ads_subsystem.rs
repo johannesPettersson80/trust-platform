@@ -265,9 +265,21 @@ fn route_matches_target(
     target: &crate::ads::diagnostics::TargetIdentity,
     local: Option<&crate::ads::diagnostics::LocalIdentity>,
 ) -> bool {
-    let target_matches = route.host == target.ip
-        || route.host == target.name.as_deref().unwrap_or_default()
-        || route.target_net_id.0 == target.ams_net_id;
+    let target_matches = match route.host.parse::<std::net::IpAddr>() {
+        Ok(route_host) => {
+            target
+                .ip
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|target_host| route_host == target_host)
+                && route.ams_port == target.ams_port
+                && (target.ams_net_id.is_empty() || route.target_net_id.0 == target.ams_net_id)
+        }
+        Err(_) => {
+            route.host == target.ip
+                || route.host == target.name.as_deref().unwrap_or_default()
+                || route.target_net_id.0 == target.ams_net_id
+        }
+    };
     let local_matches = match (route.local_net_id.as_ref(), local) {
         (Some(route_local), Some(local)) => route_local.0 == local.ams_net_id,
         (Some(_), None) => true,
@@ -349,21 +361,8 @@ mod tests {
         let mut subsystem = AdsSubsystem::new();
         let bridge = AdsConnectionBridge::new(Vec::new()).expect("empty bridge");
         subsystem.add_connection_for_test(route(), bridge);
-        let target = crate::ads::diagnostics::TargetIdentity {
-            name: None,
-            ip: "192.168.10.5".to_string(),
-            ams_net_id: "5.23.91.12.1.1".to_string(),
-            ams_port: 851,
-            tc_version: None,
-        };
-        let local = crate::ads::diagnostics::LocalIdentity {
-            host_name: Some("line-controller-1".to_string()),
-            chosen_ip: "192.168.10.20".to_string(),
-            ams_net_id: "192.168.10.20.1.1".to_string(),
-            nic: Some("eth0".to_string()),
-            candidates: Vec::new(),
-            classification: crate::ads::diagnostics::LocalNetworkClassification::Lan,
-        };
+        let target = target();
+        let local = local_identity();
 
         let snapshot = subsystem
             .active_device_snapshot(&target, Some(&local))
@@ -378,6 +377,92 @@ mod tests {
                 .map(|local| local.ams_net_id.as_str()),
             Some("192.168.10.20.1.1")
         );
+    }
+
+    #[test]
+    fn active_device_snapshot_rejects_partial_target_matches() {
+        let cases = [
+            (
+                "wrong host",
+                AdsRoute {
+                    host: "192.168.10.99".to_string(),
+                    ..route()
+                },
+            ),
+            (
+                "wrong target AMS Net ID",
+                AdsRoute {
+                    target_net_id: AmsNetId::new("5.23.91.12.9.9"),
+                    ..route()
+                },
+            ),
+            (
+                "wrong AMS port",
+                AdsRoute {
+                    ams_port: 852,
+                    ..route()
+                },
+            ),
+        ];
+        let target = target();
+        let local = local_identity();
+
+        for (case, route) in cases {
+            let mut subsystem = AdsSubsystem::new();
+            let bridge = AdsConnectionBridge::new(Vec::new()).expect("empty bridge");
+            subsystem.add_connection_for_test(route, bridge);
+
+            assert!(
+                subsystem
+                    .active_device_snapshot(&target, Some(&local))
+                    .is_none(),
+                "{case} must not identify the requested active ADS device"
+            );
+        }
+
+        let mut subsystem = AdsSubsystem::new();
+        let bridge = AdsConnectionBridge::new(Vec::new()).expect("empty bridge");
+        subsystem.add_connection_for_test(route(), bridge);
+        let mismatched_local = crate::ads::diagnostics::LocalIdentity {
+            ams_net_id: "192.168.10.20.9.9".to_string(),
+            ..local_identity()
+        };
+        assert!(
+            subsystem
+                .active_device_snapshot(&target, Some(&mismatched_local))
+                .is_none(),
+            "wrong both-present local AMS identity must reject active ADS device reuse"
+        );
+    }
+
+    #[test]
+    fn active_device_snapshot_skips_partial_match_and_selects_later_exact_route() {
+        let mut subsystem = AdsSubsystem::new();
+        let partial_route = AdsRoute {
+            name: "partial".to_string(),
+            host: "192.168.10.99".to_string(),
+            ..route()
+        };
+        let exact_route = AdsRoute {
+            name: "exact".to_string(),
+            ..route()
+        };
+        subsystem.add_connection_for_test(
+            partial_route,
+            AdsConnectionBridge::new(Vec::new()).expect("partial bridge"),
+        );
+        subsystem.add_connection_for_test(
+            exact_route,
+            AdsConnectionBridge::new(Vec::new()).expect("exact bridge"),
+        );
+        let target = target();
+        let local = local_identity();
+
+        let snapshot = subsystem
+            .active_device_snapshot(&target, Some(&local))
+            .expect("exact active device");
+
+        assert_eq!(snapshot.connection_name, "exact");
     }
 
     impl AdsSubsystem {
@@ -403,6 +488,27 @@ mod tests {
                 transport: TransportSecurity::Plain,
                 auto_add_route: false,
             },
+        }
+    }
+
+    fn target() -> crate::ads::diagnostics::TargetIdentity {
+        crate::ads::diagnostics::TargetIdentity {
+            name: None,
+            ip: "192.168.10.5".to_string(),
+            ams_net_id: "5.23.91.12.1.1".to_string(),
+            ams_port: 851,
+            tc_version: None,
+        }
+    }
+
+    fn local_identity() -> crate::ads::diagnostics::LocalIdentity {
+        crate::ads::diagnostics::LocalIdentity {
+            host_name: Some("line-controller-1".to_string()),
+            chosen_ip: "192.168.10.20".to_string(),
+            ams_net_id: "192.168.10.20.1.1".to_string(),
+            nic: Some("eth0".to_string()),
+            candidates: Vec::new(),
+            classification: crate::ads::diagnostics::LocalNetworkClassification::Lan,
         }
     }
 }

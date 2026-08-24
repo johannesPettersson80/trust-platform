@@ -13,7 +13,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_IEC_TIMER_TRACE_001";
 const CASE_FILE: &str = "verification/cases/compiler_iec/IEC_TIMER_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:68567779c24d44fc1ce1cda7696086aac6284b5788305511d2f416f66e12be50";
+    "sha256:fb1b0ebc4ef0b773ef6a62d15aaf2e13510e74ed637830dbb3e8494dd6a2fed8";
 
 const TOF_TIME_SOURCE: &str = r#"
 PROGRAM Test

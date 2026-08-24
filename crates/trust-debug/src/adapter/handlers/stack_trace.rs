@@ -23,6 +23,17 @@ impl DebugAdapter {
             };
         };
 
+        if !self
+            .projected_threads()
+            .iter()
+            .any(|thread| thread.id == args.thread_id)
+        {
+            return DispatchOutcome {
+                responses: vec![self.error_response(&request, "unknown thread id")],
+                ..DispatchOutcome::default()
+            };
+        }
+
         if let Some(remote) = self.remote_session.as_mut() {
             let mut stack_frames = remote.stack_trace().unwrap_or_default();
             for frame in &mut stack_frames {

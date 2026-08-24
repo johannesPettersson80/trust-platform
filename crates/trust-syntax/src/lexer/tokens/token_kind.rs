@@ -7,9 +7,9 @@ use logos::Logos;
 #[repr(u16)]
 #[derive(Default)]
 pub enum TokenKind {
-    #[regex(r"[ \t\r\n]+")]
+    #[regex(r"[ \t\r\n\x0C]+")]
     Whitespace,
-    #[regex(r"//[^\r\n]*", allow_greedy = true)]
+    #[regex(r"//[^\r\n\x0C]*", allow_greedy = true)]
     LineComment,
     #[token("(*", lex_block_comment_pascal)]
     #[token("/*", lex_block_comment_c)]
@@ -168,6 +168,8 @@ pub enum TokenKind {
     KwStruct,
     #[token("END_STRUCT", ignore(case))]
     KwEndStruct,
+    #[token("OVERLAP", ignore(case))]
+    KwOverlap,
     #[token("UNION", ignore(case))]
     KwUnion,
     #[token("END_UNION", ignore(case))]
@@ -437,6 +439,10 @@ pub enum TokenKind {
     )]
     DateAndTimeLiteral,
     #[regex(
+        r"'([^$'\r\n]|\$\$|\$[LlNnPpRrTt]|\$'|\$[0-9A-Fa-f]{2})*\$'''",
+        priority = 3
+    )]
+    #[regex(
         r"'([^$'\r\n]|\$\$|\$[LlNnPpRrTt]|\$'|\$[0-9A-Fa-f]{2})*'",
         priority = 2
     )]
@@ -450,7 +456,7 @@ pub enum TokenKind {
     TypedLiteralPrefix,
     #[regex(r"%[IQM]\*")]
     #[regex(r"%[IQM][XBWDL]?[0-9]+(\.[0-9]+)*")]
-    #[regex(r"%[XBWDL][0-9]+")]
+    #[regex(r"%[XBWDL][0-9]+(_?[0-9]+)*(\.[0-9]+(_?[0-9]+)*)*", ignore(case))]
     DirectAddress,
     #[regex(r"[A-Za-z_][A-Za-z0-9_]*")]
     Ident,

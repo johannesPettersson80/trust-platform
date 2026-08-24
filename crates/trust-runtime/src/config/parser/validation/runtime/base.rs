@@ -19,9 +19,18 @@ fn validate_base_sections(cfg: &RuntimeToml) -> Result<(), RuntimeError> {
             "runtime.control.endpoint must not be empty".into(),
         ));
     }
-    if cfg.runtime.log.level.trim().is_empty() {
+    let log_level = cfg.runtime.log.level.trim().to_ascii_lowercase();
+    if log_level.is_empty() {
         return Err(RuntimeError::InvalidConfig(
             "runtime.log.level must not be empty".into(),
+        ));
+    }
+    if !matches!(
+        log_level.as_str(),
+        "error" | "warn" | "warning" | "info" | "debug" | "trace"
+    ) {
+        return Err(RuntimeError::InvalidConfig(
+            "runtime.log.level must be error, warn, warning, info, debug, or trace".into(),
         ));
     }
     if cfg.runtime.retain.save_interval_ms == 0 {
@@ -73,25 +82,32 @@ fn parse_task(task: TaskSection) -> Result<TaskOverride, RuntimeError> {
             "resource.tasks[].programs entries must not be empty".into(),
         ));
     }
+    let single = task
+        .single
+        .map(|value| parse_nonempty_entry(value, "resource.tasks[].single"))
+        .transpose()?
+        .map(SmolStr::new);
 
     Ok(TaskOverride {
         name: SmolStr::new(task.name),
-        interval: Duration::from_millis(task.interval_ms as i64),
+        interval: parse_runtime_duration_millis(
+            task.interval_ms,
+            1,
+            "resource.tasks[].interval_ms",
+        )?,
         priority: task.priority,
         programs: task.programs.into_iter().map(SmolStr::new).collect(),
-        single: task.single.map(SmolStr::new),
+        single,
     })
 }
 
 fn parse_control(control: &ControlSection) -> Result<ParsedControl, RuntimeError> {
-    let auth_token = control.auth_token.as_ref().and_then(|token| {
-        let trimmed = token.trim();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(SmolStr::new(trimmed))
-        }
-    });
+    let auth_token = control
+        .auth_token
+        .clone()
+        .map(|value| parse_nonempty_entry(value, "runtime.control.auth_token"))
+        .transpose()?
+        .map(SmolStr::new);
     let mode = ControlMode::parse(control.mode.as_deref().unwrap_or("production"))?;
     let debug_enabled = match control.debug_enabled {
         Some(value) => value,

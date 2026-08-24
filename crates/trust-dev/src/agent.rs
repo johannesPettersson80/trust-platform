@@ -13,6 +13,9 @@ use trust_runtime::harness::{
 };
 use trust_runtime::RestartMode;
 
+#[cfg(test)]
+#[path = "agent/contract_tests.rs"]
+mod contract_tests;
 #[path = "agent/harness.rs"]
 mod harness;
 const JSON_RPC_VERSION: &str = "2.0";
@@ -69,13 +72,51 @@ impl AgentServer {
     }
 
     fn handle_line(&mut self, line: &str) -> JsonRpcResponse {
-        match serde_json::from_str::<JsonRpcRequest>(line) {
+        let value = match serde_json::from_str::<JsonValue>(line) {
+            Ok(value) => value,
+            Err(error) => {
+                return JsonRpcResponse::error(
+                    JsonValue::Null,
+                    JsonRpcError::new(-32700, format!("Parse error: {error}"), None),
+                )
+            }
+        };
+        let response_id = json_rpc_response_id(&value);
+        if let Err(message) = validate_json_rpc_envelope(&value) {
+            return JsonRpcResponse::error(response_id, JsonRpcError::new(-32600, message, None));
+        }
+
+        match serde_json::from_value::<JsonRpcRequest>(value) {
             Ok(request) => self.handle_request(request),
             Err(error) => JsonRpcResponse::error(
-                JsonValue::Null,
-                JsonRpcError::new(-32700, format!("Parse error: {error}"), None),
+                response_id,
+                JsonRpcError::new(-32600, format!("Invalid Request: {error}"), None),
             ),
         }
+    }
+
+    fn ensure_contained_path(
+        &self,
+        candidate: &Path,
+        relative: &Path,
+    ) -> Result<(), AgentCommandError> {
+        let mut existing = candidate.to_path_buf();
+        while fs::symlink_metadata(&existing).is_err() {
+            if !existing.pop() {
+                return Err(AgentCommandError::path_outside_workspace(
+                    &relative.display().to_string(),
+                ));
+            }
+        }
+        let resolved = existing.canonicalize().map_err(|_| {
+            AgentCommandError::path_outside_workspace(&relative.display().to_string())
+        })?;
+        if !resolved.starts_with(&self.workspace_root) {
+            return Err(AgentCommandError::path_outside_workspace(
+                &relative.display().to_string(),
+            ));
+        }
+        Ok(())
     }
 
     fn handle_request(&mut self, request: JsonRpcRequest) -> JsonRpcResponse {
@@ -167,16 +208,17 @@ impl AgentServer {
     fn workspace_read(&self, params: WorkspaceReadParams) -> Result<JsonValue, AgentCommandError> {
         let relative_path = normalize_workspace_path(params.path.as_str())?;
         let full_path = self.workspace_root.join(&relative_path);
+        self.ensure_contained_path(&full_path, &relative_path)?;
         let text = fs::read_to_string(&full_path).map_err(|error| {
             AgentCommandError::io(
                 format!("failed to read '{}': {error}", full_path.display()),
                 json!({
-                    "path": relative_path.display().to_string(),
+                    "path": workspace_path_display(&relative_path),
                 }),
             )
         })?;
         Ok(json!({
-            "path": relative_path.display().to_string(),
+            "path": workspace_path_display(&relative_path),
             "text": text,
         }))
     }
@@ -187,6 +229,7 @@ impl AgentServer {
     ) -> Result<JsonValue, AgentCommandError> {
         let relative_path = normalize_workspace_path(params.path.as_str())?;
         let full_path = self.workspace_root.join(&relative_path);
+        self.ensure_contained_path(&full_path, &relative_path)?;
         if params.create_parents {
             if let Some(parent) = full_path.parent() {
                 fs::create_dir_all(parent).map_err(|error| {
@@ -196,7 +239,7 @@ impl AgentServer {
                             full_path.display()
                         ),
                         json!({
-                            "path": relative_path.display().to_string(),
+                            "path": workspace_path_display(&relative_path),
                         }),
                     )
                 })?;
@@ -206,12 +249,12 @@ impl AgentServer {
             AgentCommandError::io(
                 format!("failed to write '{}': {error}", full_path.display()),
                 json!({
-                    "path": relative_path.display().to_string(),
+                    "path": workspace_path_display(&relative_path),
                 }),
             )
         })?;
         Ok(json!({
-            "path": relative_path.display().to_string(),
+            "path": workspace_path_display(&relative_path),
             "bytes_written": params.text.len(),
         }))
     }
@@ -423,6 +466,15 @@ fn normalize_workspace_path(path: &str) -> Result<PathBuf, AgentCommandError> {
         return Err(AgentCommandError::invalid_params("Path must not be empty."));
     }
 
+    if path.starts_with(['/', '\\'])
+        || path
+            .as_bytes()
+            .get(1..3)
+            .is_some_and(|prefix| prefix[0] == b':' && (prefix[1] == b'/' || prefix[1] == b'\\'))
+    {
+        return Err(AgentCommandError::path_outside_workspace(path));
+    }
+
     let candidate = Path::new(path);
     if candidate.is_absolute() {
         return Err(AgentCommandError::path_outside_workspace(path));
@@ -451,6 +503,51 @@ fn normalize_workspace_path(path: &str) -> Result<PathBuf, AgentCommandError> {
     }
 
     Ok(normalized)
+}
+
+pub(super) fn workspace_path_display(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+fn json_rpc_response_id(value: &JsonValue) -> JsonValue {
+    value
+        .as_object()
+        .and_then(|object| object.get("id"))
+        .filter(|id| id.is_string() || id.is_number())
+        .cloned()
+        .unwrap_or(JsonValue::Null)
+}
+
+fn validate_json_rpc_envelope(value: &JsonValue) -> Result<(), String> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| "Invalid Request: JSON-RPC envelope must be an object.".to_string())?;
+    if !object.get("jsonrpc").is_some_and(JsonValue::is_string) {
+        return Err("Invalid Request: jsonrpc must be a string.".to_string());
+    }
+    if !object.get("method").is_some_and(JsonValue::is_string) {
+        return Err("Invalid Request: method must be a string.".to_string());
+    }
+    if object
+        .get("method")
+        .and_then(JsonValue::as_str)
+        .is_some_and(|method| method.trim().is_empty())
+    {
+        return Err("Invalid Request: method must not be blank.".to_string());
+    }
+    if let Some(id) = object.get("id") {
+        if !(id.is_string() || id.is_number()) {
+            return Err("Invalid Request: id must be a string or number.".to_string());
+        }
+    } else {
+        return Err("Invalid Request: id is required.".to_string());
+    }
+    if let Some(params) = object.get("params") {
+        if !(params.is_object() || params.is_array()) {
+            return Err("Invalid Request: params must be structured.".to_string());
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Deserialize)]
@@ -792,6 +889,8 @@ struct HarnessExecuteFailure {
     assertion: Option<HarnessAssertion>,
     #[serde(skip_serializing_if = "Option::is_none")]
     message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     expected: Option<JsonValue>,
     #[serde(skip_serializing_if = "Option::is_none")]

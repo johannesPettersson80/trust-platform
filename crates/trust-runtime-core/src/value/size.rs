@@ -115,9 +115,14 @@ fn array_len_bits(dimensions: &[(i64, i64)]) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-    use super::size_of_value;
-    use crate::value::Value;
-    use trust_hir::types::TypeRegistry;
+    use super::{array_len_bits, size_of_type, size_of_value, SizeOfError};
+    use crate::value::{ArrayValue, StructValue, Value};
+    use alloc::{boxed::Box, sync::Arc, vec};
+    use smol_str::SmolStr;
+    use trust_hir::types::{
+        StructField, TypeRegistry, UnionVariant, POINTER_REFERENCE_HANDLE_SIZE_BYTES,
+    };
+    use trust_hir::{Type, TypeId};
 
     #[test]
     fn string_value_size_counts_character_elements() {
@@ -129,6 +134,152 @@ mod tests {
         assert_eq!(
             size_of_value(&registry, &Value::WString("ÄB".into())).unwrap(),
             4
+        );
+    }
+
+    #[test]
+    fn sizeof_contract_covers_declared_and_runtime_shapes_and_rejections() {
+        let mut registry = TypeRegistry::new();
+
+        for (type_id, expected) in [
+            (TypeId::BOOL, 1),
+            (TypeId::INT, 2),
+            (TypeId::DINT, 4),
+            (TypeId::LREAL, 8),
+            (TypeId::TIME, 4),
+            (TypeId::LDT, 8),
+        ] {
+            assert_eq!(size_of_type(type_id, &registry), Ok(expected));
+        }
+
+        let string = registry.register_string_with_length(13);
+        let wstring = registry.register_wstring_with_length(13);
+        let array = registry.register_array(TypeId::INT, vec![(1, 2), (-1, 0)]);
+        let structure = registry.register_struct(
+            "SizedStruct",
+            vec![
+                StructField {
+                    name: "a".into(),
+                    type_id: TypeId::INT,
+                    address: None,
+                    default_initializer: None,
+                },
+                StructField {
+                    name: "b".into(),
+                    type_id: TypeId::LREAL,
+                    address: None,
+                    default_initializer: None,
+                },
+            ],
+        );
+        let union = registry.register_union(
+            "SizedUnion",
+            vec![
+                UnionVariant {
+                    name: "small".into(),
+                    type_id: TypeId::INT,
+                    address: None,
+                    default_initializer: None,
+                },
+                UnionVariant {
+                    name: "large".into(),
+                    type_id: TypeId::LREAL,
+                    address: None,
+                    default_initializer: None,
+                },
+            ],
+        );
+        let enumeration =
+            registry.register_enum("SizedEnum", TypeId::INT, vec![("Zero".into(), 0)]);
+        let subrange = registry.register(
+            "SizedSubrange",
+            Type::Subrange {
+                base: TypeId::DINT,
+                lower: -10,
+                upper: 10,
+            },
+        );
+        let alias = registry.register(
+            "SizedAlias",
+            Type::Alias {
+                name: "SizedAlias".into(),
+                target: TypeId::LINT,
+            },
+        );
+        let reference = registry.register_reference(TypeId::INT);
+        let pointer = registry.register_pointer(TypeId::INT);
+
+        for (type_id, expected) in [
+            (string, 13),
+            (wstring, 26),
+            (array, 8),
+            (structure, 10),
+            (union, 8),
+            (enumeration, 2),
+            (subrange, 4),
+            (alias, 8),
+            (reference, POINTER_REFERENCE_HANDLE_SIZE_BYTES),
+            (pointer, POINTER_REFERENCE_HANDLE_SIZE_BYTES),
+        ] {
+            assert_eq!(size_of_type(type_id, &registry), Ok(expected));
+        }
+
+        let wildcard = registry.register_array(TypeId::INT, vec![(0, i64::MAX)]);
+        let reversed = registry.register_array(TypeId::INT, vec![(1, 0)]);
+        let overflowing = registry.register_array(TypeId::LREAL, vec![(i64::MIN, 0)]);
+        assert_eq!(
+            size_of_type(TypeId::STRING, &registry),
+            Err(SizeOfError::UnsupportedType)
+        );
+        assert_eq!(
+            size_of_type(wildcard, &registry),
+            Err(SizeOfError::UnsupportedType)
+        );
+        assert_eq!(
+            size_of_type(reversed, &registry),
+            Err(SizeOfError::UnsupportedType)
+        );
+        assert_eq!(
+            size_of_type(overflowing, &registry),
+            Err(SizeOfError::Overflow)
+        );
+        assert_eq!(
+            size_of_type(TypeId(900_001), &registry),
+            Err(SizeOfError::UnknownType)
+        );
+
+        assert_eq!(array_len_bits(&[(1, 2), (-1, 0)]), Some(4));
+        assert_eq!(array_len_bits(&[(1, 0)]), None);
+        assert_eq!(array_len_bits(&[(i64::MIN, i64::MAX)]), None);
+
+        let array_value = Value::Array(Box::new(ArrayValue::from_canonical_parts(
+            vec![Value::Int(1), Value::Int(2)],
+            vec![(0, 1)],
+        )));
+        let struct_value = Value::Struct(Arc::new(StructValue::from_canonical_parts(
+            SmolStr::new("RuntimeShape"),
+            [
+                (SmolStr::new("a"), Value::Int(1)),
+                (SmolStr::new("b"), Value::LReal(2.0)),
+            ]
+            .into_iter()
+            .collect(),
+        )));
+        for (value, expected) in [
+            (Value::Bool(false), 1),
+            (Value::DInt(1), 4),
+            (Value::LReal(1.0), 8),
+            (Value::String("ÄB".into()), 2),
+            (Value::WString("ÄB".into()), 4),
+            (array_value, 4),
+            (struct_value, 10),
+            (Value::Reference(None), POINTER_REFERENCE_HANDLE_SIZE_BYTES),
+        ] {
+            assert_eq!(size_of_value(&registry, &value), Ok(expected), "{value:?}");
+        }
+        assert_eq!(
+            size_of_value(&registry, &Value::Null),
+            Err(SizeOfError::UnsupportedType)
         );
     }
 }

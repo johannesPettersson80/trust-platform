@@ -11,7 +11,7 @@
         "--",
         "--exact"
       ],
-      "duration_seconds": 8.706,
+      "duration_seconds": 24.074,
       "exit_status": 0,
       "timed_out": false
     }
@@ -23,7 +23,7 @@
     "association_ids_are_execution_claims": false
   },
   "contract_digest": "sha256:6a89b4313257ba407bbf9cdb31edc7c8d690bbfa54069d8f575c985d73fc1f3b",
-  "finished_at": "2026-07-16T09:59:22Z",
+  "finished_at": "2026-08-13T18:59:30Z",
   "id": "MUTATION_EXECUTION_PARSER_RECOVERY_001",
   "mutations": [
     {
@@ -38,12 +38,12 @@
         "--lib",
         "--no-run"
       ],
-      "build_duration_seconds": 5.236,
+      "build_duration_seconds": 5.346,
       "build_exit_status": 0,
-      "build_stderr": "   Compiling trust-syntax v0.24.50 (/tmp/trust-focused-mutation-awlhi1ls/crates/trust-syntax)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.20s\n  Executable unittests src/lib.rs (/home/johannes/.cache/codex-targets/trust-platform-mutation/debug/deps/trust_syntax-d9de2ce4942ec7d9)\n",
+      "build_stderr": "   Compiling trust-syntax v0.24.61 (/tmp/trust-focused-mutation-p2qtotu0/crates/trust-syntax)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.31s\n  Executable unittests src/lib.rs (/home/johannes/.cache/codex-targets/trust-platform-parser-mutation/debug/deps/trust_syntax-ec6119d34a3a6595)\n",
       "build_stdout": "",
       "build_timed_out": false,
-      "duration_seconds": 5.393,
+      "duration_seconds": 5.489,
       "function": "Parser<'t, 'src>::recover_top_level_until",
       "generated_mutant_name": "parser.rs:238:21: replace == with != in Parser<'t, 'src>::recover_top_level_until",
       "genre": "BinaryOperator",
@@ -61,10 +61,10 @@
         "--",
         "--exact"
       ],
-      "test_duration_seconds": 0.157,
+      "test_duration_seconds": 0.143,
       "test_exit_status": 101,
-      "test_stderr": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s\n     Running unittests src/lib.rs (/home/johannes/.cache/codex-targets/trust-platform-mutation/debug/deps/trust_syntax-d9de2ce4942ec7d9)\nerror: test failed, to rerun pass `-p trust-syntax --lib`\n",
-      "test_stdout": "\nrunning 1 test\ntest parser::parser::tests::test_bounded_recovery_does_not_close_on_rparen_inside_unclosed_bracket ... FAILED\n\nfailures:\n\n---- parser::parser::tests::test_bounded_recovery_does_not_close_on_rparen_inside_unclosed_bracket stdout ----\n\nthread 'parser::parser::tests::test_bounded_recovery_does_not_close_on_rparen_inside_unclosed_bracket' (3078633) panicked at crates/trust-syntax/src/parser/parser.rs:561:9:\nassertion `left == right` failed\n  left: Boundary(LBracket)\n right: Boundary(Semicolon)\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    parser::parser::tests::test_bounded_recovery_does_not_close_on_rparen_inside_unclosed_bracket\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s\n\n",
+      "test_stderr": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s\n     Running unittests src/lib.rs (/home/johannes/.cache/codex-targets/trust-platform-parser-mutation/debug/deps/trust_syntax-ec6119d34a3a6595)\nerror: test failed, to rerun pass `-p trust-syntax --lib`\n",
+      "test_stdout": "\nrunning 1 test\ntest parser::parser::tests::test_bounded_recovery_does_not_close_on_rparen_inside_unclosed_bracket ... FAILED\n\nfailures:\n\n---- parser::parser::tests::test_bounded_recovery_does_not_close_on_rparen_inside_unclosed_bracket stdout ----\n\nthread 'parser::parser::tests::test_bounded_recovery_does_not_close_on_rparen_inside_unclosed_bracket' (4091448) panicked at crates/trust-syntax/src/parser/parser.rs:561:9:\nassertion `left == right` failed\n  left: Boundary(LBracket)\n right: Boundary(Semicolon)\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    parser::parser::tests::test_bounded_recovery_does_not_close_on_rparen_inside_unclosed_bracket\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s\n\n",
       "test_timed_out": false
     }
   ],
@@ -72,8 +72,8 @@
   "runner": "focused-mutation-shard.py v1",
   "schema_version": 1,
   "shard_id": "MUTATION_SHARD_PARSER_RECOVERY_001",
-  "source_commit": "56f68f2bbdb12c655f681668c5a5fddda4f4d659",
-  "started_at": "2026-07-16T09:59:08Z",
+  "source_commit": "c79303a117c72ef71c415c8b85ae0513b6df4082",
+  "started_at": "2026-08-13T18:58:59Z",
   "status": "complete",
   "summary": {
     "caught": 1,

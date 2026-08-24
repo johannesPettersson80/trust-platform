@@ -20,12 +20,21 @@ pub(super) fn load_dependency_lock(path: &Path) -> Result<super::DependencyLockF
             path.display()
         )
     })?;
-    toml::from_str(&content).map_err(|err| {
+    let lock: super::DependencyLockFile = toml::from_str(&content).map_err(|err| {
         format!(
             "failed to parse dependency lock file {}: {err}",
             path.display()
         )
-    })
+    })?;
+    if lock.version != dependency_lock_version() {
+        return Err(format!(
+            "unsupported dependency lock file version {} in {} (expected {})",
+            lock.version,
+            path.display(),
+            dependency_lock_version()
+        ));
+    }
+    Ok(lock)
 }
 
 pub(super) fn write_dependency_lock(

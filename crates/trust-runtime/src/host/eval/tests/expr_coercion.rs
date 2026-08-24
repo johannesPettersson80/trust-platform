@@ -1,7 +1,7 @@
 use super::common;
 
 use trust_hir::types::TypeRegistry;
-use trust_runtime::eval::{eval_expr, expr::Expr, ops::BinaryOp};
+use trust_runtime::eval::{eval_expr, expr::Expr, ops::BinaryOp, RuntimeError};
 use trust_runtime::memory::VariableStorage;
 use trust_runtime::value::Value;
 
@@ -23,7 +23,7 @@ fn mixed_numeric_ops() {
         left: Box::new(Expr::Literal(Value::UInt(2))),
         right: Box::new(Expr::Literal(Value::Int(3))),
     };
-    assert_eq!(eval_expr(&mut ctx, &expr).unwrap(), Value::UInt(5));
+    assert_eq!(eval_expr(&mut ctx, &expr), Err(RuntimeError::TypeMismatch));
 
     let expr = Expr::Binary {
         op: BinaryOp::Mul,

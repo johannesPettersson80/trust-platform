@@ -99,21 +99,27 @@ impl ModbusWorker {
             thread::sleep(WORKER_IDLE_POLL);
         }
 
-        {
-            let state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
+        let refresh_completed = {
+            let mut state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
             if state.completed_input_seq >= seq {
                 if let Some(error) = state.input_error.clone() {
                     return Err(error);
                 }
+                true
+            } else {
+                state.health = policy_health("modbus input refresh pending", self.policy);
+                state.last_error = Some(SmolStr::new("modbus input refresh pending"));
+                result_from_health(&state.health)?;
+                false
             }
-        }
+        };
 
         if let Some(result) = self.copy_latest_inputs(inputs) {
             return result;
         }
 
         let mut state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
-        if state.latest_inputs.is_none() {
+        if refresh_completed && state.latest_inputs.is_none() {
             state.health = policy_health("modbus input snapshot unavailable", self.policy);
             state.last_error = Some(SmolStr::new("modbus input snapshot unavailable"));
         }
@@ -148,11 +154,9 @@ impl ModbusWorker {
             }
             if Instant::now() >= deadline {
                 let mut state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
-                state.health = IoDriverHealth::Degraded {
-                    error: SmolStr::new("modbus output handoff pending"),
-                };
+                state.health = policy_health("modbus output handoff pending", self.policy);
                 state.last_error = Some(SmolStr::new("modbus output handoff pending"));
-                return Ok(());
+                return result_from_health(&state.health);
             }
             thread::sleep(WORKER_IDLE_POLL);
         }
@@ -285,5 +289,130 @@ fn policy_health(message: &'static str, policy: IoDriverErrorPolicy) -> IoDriver
         IoDriverErrorPolicy::Warn | IoDriverErrorPolicy::Ignore => IoDriverHealth::Degraded {
             error: SmolStr::new(message),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn input_deadline_follows_error_policy_without_fault_copy() {
+        for policy in [
+            IoDriverErrorPolicy::Fault,
+            IoDriverErrorPolicy::Warn,
+            IoDriverErrorPolicy::Ignore,
+        ] {
+            let worker = stalled_worker(policy, Some(vec![0x11, 0x22]));
+            let mut inputs = [0xAA, 0xBB];
+
+            let result = worker.read_inputs(&mut inputs);
+
+            match policy {
+                IoDriverErrorPolicy::Fault => {
+                    assert!(result.is_err(), "fault must reject a stale input deadline");
+                    assert_eq!(
+                        inputs,
+                        [0xAA, 0xBB],
+                        "fault must not copy the cached snapshot"
+                    );
+                    assert_health(worker.health(), true, "modbus input refresh pending");
+                }
+                IoDriverErrorPolicy::Warn | IoDriverErrorPolicy::Ignore => {
+                    result.expect("warn and ignore must return degraded success");
+                    assert_eq!(
+                        inputs,
+                        [0x11, 0x22],
+                        "warn and ignore may copy the last accepted snapshot"
+                    );
+                    assert_health(worker.health(), false, "modbus input refresh pending");
+                }
+            }
+            assert_last_error(&worker, "modbus input refresh pending");
+        }
+    }
+
+    #[test]
+    fn output_deadline_follows_error_policy_without_cancelling_handoff() {
+        for policy in [
+            IoDriverErrorPolicy::Fault,
+            IoDriverErrorPolicy::Warn,
+            IoDriverErrorPolicy::Ignore,
+        ] {
+            let worker = stalled_worker(policy, None);
+
+            let result = worker.write_outputs(&[0x33, 0x44]);
+
+            match policy {
+                IoDriverErrorPolicy::Fault => {
+                    assert!(
+                        result.is_err(),
+                        "fault must reject a pending output deadline"
+                    );
+                    assert_health(worker.health(), true, "modbus output handoff pending");
+                }
+                IoDriverErrorPolicy::Warn | IoDriverErrorPolicy::Ignore => {
+                    result.expect("warn and ignore must return degraded success");
+                    assert_health(worker.health(), false, "modbus output handoff pending");
+                }
+            }
+
+            let state = worker
+                .shared
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            assert_eq!(
+                state.pending_output,
+                Some((1, vec![0x33, 0x44])),
+                "deadline reporting must not cancel the accepted output handoff"
+            );
+            assert!(!state.output_inflight);
+            assert_eq!(
+                state.last_error.as_deref(),
+                Some("modbus output handoff pending")
+            );
+        }
+    }
+
+    fn stalled_worker(policy: IoDriverErrorPolicy, latest_inputs: Option<Vec<u8>>) -> ModbusWorker {
+        let shared = Arc::new(Mutex::new(ModbusWorkerState::new()));
+        {
+            let mut state = shared.lock().expect("worker state lock");
+            state.latest_inputs = latest_inputs;
+            state.health = IoDriverHealth::Ok;
+        }
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let thread_shutdown = Arc::clone(&shutdown);
+        let handle = thread::spawn(move || {
+            while !thread_shutdown.load(Ordering::SeqCst) {
+                thread::sleep(WORKER_IDLE_POLL);
+            }
+        });
+        ModbusWorker {
+            shared,
+            shutdown,
+            policy,
+            _handle: handle,
+        }
+    }
+
+    fn assert_health(health: IoDriverHealth, faulted: bool, expected_error: &str) {
+        match (faulted, health) {
+            (true, IoDriverHealth::Faulted { error })
+            | (false, IoDriverHealth::Degraded { error }) => {
+                assert_eq!(error.as_str(), expected_error)
+            }
+            (expected_faulted, other) => {
+                panic!("expected faulted={expected_faulted}, got {other:?}")
+            }
+        }
+    }
+
+    fn assert_last_error(worker: &ModbusWorker, expected_error: &str) {
+        let state = worker
+            .shared
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        assert_eq!(state.last_error.as_deref(), Some(expected_error));
     }
 }

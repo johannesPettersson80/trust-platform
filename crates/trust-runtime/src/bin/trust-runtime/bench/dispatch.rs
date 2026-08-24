@@ -19,7 +19,7 @@ fn run_dispatch_bench(workload: DispatchBenchWorkload) -> anyhow::Result<BenchRe
     let mut audit_correlation_ns = Vec::with_capacity(workload.base.samples);
 
     for idx in 0..workload.base.samples {
-        let mut payload = vec![0_u8; workload.base.payload_bytes.min(256)];
+        let mut payload = vec![0_u8; workload.base.payload_bytes];
         let stamp = (idx as u64).to_le_bytes();
         for (slot, byte) in payload.iter_mut().enumerate() {
             *byte = stamp[slot % stamp.len()];
@@ -91,6 +91,7 @@ fn run_dispatch_bench(workload: DispatchBenchWorkload) -> anyhow::Result<BenchRe
 
     let report = DispatchBenchReport {
         scenario: "dispatch",
+        payload_bytes: workload.base.payload_bytes,
         fanout: workload.fanout,
         preflight_latency: summarize_ns(preflight_ns.as_slice()),
         dispatch_latency: summarize_ns(dispatch_ns.as_slice()),

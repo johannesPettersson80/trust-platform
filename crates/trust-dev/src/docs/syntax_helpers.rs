@@ -41,7 +41,9 @@ fn first_non_trivia_token_start(node: &SyntaxNode) -> Option<usize> {
 
 fn declaration_name(node: &SyntaxNode) -> Option<SmolStr> {
     node.children()
-        .find(|child| child.kind() == SyntaxKind::Name)
+        .find(|child| {
+            matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName)
+        })
         .map(|name| {
             let text = name.text().to_string();
             SmolStr::new(text.trim())
@@ -162,13 +164,13 @@ fn leading_comment_block(
     let mut lines = Vec::new();
     for token in &collected {
         let raw = token_text(source, *token);
-        lines.extend(normalize_comment_lines(token.kind, raw));
+        lines.extend(normalize_comment_lines(source, *token, raw));
     }
 
-    while matches!(lines.first(), Some(line) if line.trim().is_empty()) {
+    while matches!(lines.first(), Some(line) if line.text.trim().is_empty()) {
         lines.remove(0);
     }
-    while matches!(lines.last(), Some(line) if line.trim().is_empty()) {
+    while matches!(lines.last(), Some(line) if line.text.trim().is_empty()) {
         lines.pop();
     }
     if lines.is_empty() {
@@ -179,14 +181,18 @@ fn leading_comment_block(
     Some(CommentBlock { lines, start_line })
 }
 
-fn normalize_comment_lines(kind: TokenKind, raw: &str) -> Vec<String> {
-    match kind {
-        TokenKind::LineComment => vec![raw
-            .strip_prefix("//")
-            .unwrap_or(raw)
-            .trim_start()
-            .trim_end()
-            .to_string()],
+fn normalize_comment_lines(source: &str, token: Token, raw: &str) -> Vec<CommentLine> {
+    let start_line = line_for_offset(source, usize::from(token.range.start()));
+    match token.kind {
+        TokenKind::LineComment => vec![CommentLine {
+            text: raw
+                .strip_prefix("//")
+                .unwrap_or(raw)
+                .trim_start()
+                .trim_end()
+                .to_string(),
+            line: start_line,
+        }],
         TokenKind::BlockComment => {
             let mut body = raw.trim_end();
             if let Some(stripped) = body
@@ -201,10 +207,14 @@ fn normalize_comment_lines(kind: TokenKind, raw: &str) -> Vec<String> {
                 body = stripped;
             }
             body.lines()
-                .map(|line| {
+                .enumerate()
+                .map(|(offset, line)| {
                     let trimmed = line.trim_start();
                     let without_star = trimmed.strip_prefix('*').map_or(trimmed, str::trim_start);
-                    without_star.trim_end().to_string()
+                    CommentLine {
+                        text: without_star.trim_end().to_string(),
+                        line: start_line + offset,
+                    }
                 })
                 .collect()
         }

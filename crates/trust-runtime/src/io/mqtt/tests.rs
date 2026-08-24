@@ -38,7 +38,9 @@ impl MqttSession for MockSession {
             guard.last_error = Some(SmolStr::new("publish failed"));
             return Err(RuntimeError::IoDriver("publish failed".into()));
         }
-        guard.published.push((SmolStr::new(topic), payload.to_vec()));
+        guard
+            .published
+            .push((SmolStr::new(topic), payload.to_vec()));
         Ok(())
     }
 
@@ -131,6 +133,40 @@ topic_out = "line/out"
         guard.published,
         vec![(SmolStr::new("line/out"), vec![9, 8, 7])]
     );
+}
+
+#[test]
+fn mqtt_raw_read_uses_newest_payload_from_drained_batch() {
+    let state = Arc::new(Mutex::new(MockState {
+        connected: true,
+        payloads: VecDeque::from([
+            packet("line/in", vec![1, 2, 3]),
+            packet("line/in", vec![7, 8, 9]),
+        ]),
+        ..MockState::default()
+    }));
+    let factory = Arc::new(MockFactory {
+        state: Arc::clone(&state),
+        attempts: Arc::new(AtomicUsize::new(0)),
+        fail_first: false,
+        always_fail: false,
+    });
+    let mut driver = MqttIoDriver::from_params_with_factory(
+        &params(
+            r#"
+broker = "127.0.0.1:1883"
+topic_in = "line/in"
+"#,
+        ),
+        factory,
+    )
+    .expect("construct mqtt driver");
+
+    let mut inputs = [0u8; 3];
+    driver
+        .read_inputs(&mut inputs)
+        .expect("read newest payload");
+    assert_eq!(inputs, [7, 8, 9]);
 }
 
 #[test]
@@ -249,7 +285,9 @@ payload_format = "binary_be"
     outputs[0] = 0b0000_0010;
     outputs[1..3].copy_from_slice(&60u16.to_le_bytes());
     outputs[3..7].copy_from_slice(&(-42i32).to_le_bytes());
-    driver.write_outputs(&outputs).expect("write mapped outputs");
+    driver
+        .write_outputs(&outputs)
+        .expect("write mapped outputs");
 
     let guard = state.lock().unwrap_or_else(|e| e.into_inner());
     assert_eq!(
@@ -403,7 +441,9 @@ payload_format = "json"
     assert_eq!(will.qos, QoS::AtMostOnce);
     assert!(!will.retain);
     assert!(
-        will.message.windows(b"bdSeq".len()).any(|window| window == b"bdSeq"),
+        will.message
+            .windows(b"bdSeq".len())
+            .any(|window| window == b"bdSeq"),
         "NDEATH payload should contain bdSeq metric name"
     );
 }
@@ -459,7 +499,9 @@ fn sparkplug_payload_encoding_matches_tahu_wire_shape_for_scalar_metrics() {
 
     let birth = encode_sparkplug_nbirth_at(&config, &[], 0, 123);
     assert!(
-        birth.windows(b"bdSeq".len()).any(|window| window == b"bdSeq"),
+        birth
+            .windows(b"bdSeq".len())
+            .any(|window| window == b"bdSeq"),
         "NBIRTH should include bdSeq"
     );
 }
@@ -983,6 +1025,41 @@ on_error = "warn"
 }
 
 #[test]
+fn mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out() {
+    let state = Arc::new(Mutex::new(MockState {
+        connected: true,
+        payloads: VecDeque::from([packet("line/in", vec![7, 8, 9])]),
+        ..MockState::default()
+    }));
+    let factory = Arc::new(MockFactory {
+        state,
+        attempts: Arc::new(AtomicUsize::new(0)),
+        fail_first: false,
+        always_fail: false,
+    });
+    let mut driver = MqttIoDriver::from_params_with_factory(
+        &params(
+            r#"
+broker = "127.0.0.1:1883"
+topic_in = "line/in"
+"#,
+        ),
+        factory,
+    )
+    .expect("construct mqtt driver");
+
+    driver.read_inputs(&mut [0u8; 4]).expect("initial payload");
+    let mut stale = [0xA5; 4];
+    let error = driver
+        .read_inputs(&mut stale)
+        .expect_err("default fault policy must reject a stale snapshot");
+    assert!(matches!(error, RuntimeError::IoFreshness(_)));
+    assert!(error.to_string().contains("mqtt input refresh pending"));
+    assert_eq!(stale, [0xA5; 4], "faulted read exposed stale input bytes");
+    assert!(matches!(driver.health(), IoDriverHealth::Faulted { .. }));
+}
+
+#[test]
 fn mqtt_no_fresh_payload_follows_on_error_policy() {
     for (policy, should_error) in [("fault", true), ("warn", false), ("ignore", false)] {
         let state = Arc::new(Mutex::new(MockState {
@@ -1101,6 +1178,155 @@ on_error = "warn"
         elapsed < MQTT_WORKER_SCAN_WAIT_BOUND + MQTT_CI_TIMING_SLACK,
         "output command handoff must stay bounded when the scan thread outpaces the MQTT worker, elapsed={elapsed:?}"
     );
+}
+
+#[test]
+fn mqtt_default_fault_rejects_output_handoff_timeout() {
+    let state = Arc::new(Mutex::new(MockState {
+        connected: false,
+        ..MockState::default()
+    }));
+    let factory = Arc::new(MockFactory {
+        state,
+        attempts: Arc::new(AtomicUsize::new(0)),
+        fail_first: false,
+        always_fail: false,
+    });
+    let mut driver = MqttIoDriver::from_params_with_factory(
+        &params(
+            r#"
+broker = "127.0.0.1:1883"
+"#,
+        ),
+        factory,
+    )
+    .expect("construct mqtt driver");
+
+    let error = driver
+        .write_outputs(&[1, 2, 3])
+        .expect_err("default fault policy must reject a pending output handoff");
+    assert!(error.to_string().contains("mqtt output handoff pending"));
+    assert!(matches!(driver.health(), IoDriverHealth::Faulted { .. }));
+}
+
+#[test]
+fn mqtt_policy_preserves_typed_output_preflight_failure() {
+    for (policy, should_error) in [("fault", true), ("warn", false), ("ignore", false)] {
+        let state = Arc::new(Mutex::new(MockState {
+            connected: true,
+            ..MockState::default()
+        }));
+        let factory = Arc::new(MockFactory {
+            state: Arc::clone(&state),
+            attempts: Arc::new(AtomicUsize::new(0)),
+            fail_first: false,
+            always_fail: false,
+        });
+        let mut driver = MqttIoDriver::from_params_with_factory(
+            &params(
+                format!(
+                    r#"
+broker = "127.0.0.1:1883"
+on_error = "{policy}"
+
+[[output_points]]
+topic = "line/out"
+image_offset = 4
+data_type = "u16"
+payload_format = "binary_le"
+"#
+                )
+                .as_str(),
+            ),
+            factory,
+        )
+        .expect("construct mqtt driver");
+
+        let result = driver.write_outputs(&[1]);
+        assert_eq!(result.is_err(), should_error, "{policy}");
+        let health = driver.health();
+        let detail = match (&health, policy) {
+            (IoDriverHealth::Faulted { error }, "fault")
+            | (IoDriverHealth::Degraded { error }, "warn" | "ignore") => error,
+            _ => panic!("unexpected {policy} health: {health:?}"),
+        };
+        assert!(
+            detail.contains("image range 4..6 exceeds process image size 1"),
+            "unexpected {policy} typed-output detail: {detail}"
+        );
+        assert!(
+            state
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .published
+                .is_empty(),
+            "failed {policy} preflight must not publish"
+        );
+    }
+}
+
+#[test]
+fn mqtt_policy_preserves_sparkplug_output_preflight_failure() {
+    for (policy, should_error) in [("fault", true), ("warn", false), ("ignore", false)] {
+        let state = Arc::new(Mutex::new(MockState {
+            connected: true,
+            ..MockState::default()
+        }));
+        let factory = Arc::new(MockFactory {
+            state: Arc::clone(&state),
+            attempts: Arc::new(AtomicUsize::new(0)),
+            fail_first: false,
+            always_fail: false,
+        });
+        let mut driver = MqttIoDriver::from_params_with_factory(
+            &params(
+                format!(
+                    r#"
+broker = "127.0.0.1:1883"
+client_id = "sparkplug-preflight-{policy}"
+on_error = "{policy}"
+
+[sparkplug]
+enabled = true
+group_id = "trust"
+edge_node_id = "runtime-a"
+
+[[output_points]]
+topic = "legacy/out/speed"
+metric_name = "drive/speed"
+image_offset = 4
+data_type = "u16"
+payload_format = "json"
+"#
+                )
+                .as_str(),
+            ),
+            factory,
+        )
+        .expect("construct Sparkplug MQTT driver");
+
+        let result = driver.write_outputs(&[1]);
+        assert_eq!(result.is_err(), should_error, "{policy}");
+        let health = driver.health();
+        let detail = match (&health, policy) {
+            (IoDriverHealth::Faulted { error }, "fault")
+            | (IoDriverHealth::Degraded { error }, "warn" | "ignore") => error,
+            _ => panic!("unexpected {policy} health: {health:?}"),
+        };
+        assert!(
+            detail.contains("image range 4..6 exceeds process image size 1"),
+            "unexpected {policy} Sparkplug preflight detail: {detail}"
+        );
+        assert!(
+            state
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .published
+                .iter()
+                .all(|(topic, _)| !topic.contains("/NDATA/")),
+            "failed {policy} Sparkplug preflight must not publish NDATA"
+        );
+    }
 }
 
 #[test]

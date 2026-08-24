@@ -80,7 +80,7 @@ fn apply_decoded_stack_effect(depth: &mut u32, instr: &DecodedInstr) -> Result<(
                 ));
             }
         }
-        0x16 | 0x30 | 0x32 | 0x45 | 0x49 | 0x61 | 0x62 => {
+        0x16 | 0x30 | 0x32 | 0x45 | 0x49 | 0x61 | 0x62 | 0x64 => {
             if *depth == 0 {
                 return Err(invalid_bytecode(format!(
                     "register-ir lowering stack underflow while decoding opcode 0x{:02X}",

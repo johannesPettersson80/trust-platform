@@ -51,4 +51,38 @@ mod tests {
         ));
         assert_eq!(catalog.type_default(TypeId::INT), Some(initializer));
     }
+
+    #[test]
+    fn initializer_catalog_preserves_sequence_missing_lookup_and_default_replacement() {
+        let mut catalog = InitializerCatalog::default();
+
+        assert!(catalog
+            .initializer(trust_hir::types::InitializerId(0))
+            .is_none());
+        assert_eq!(catalog.type_default(TypeId::INT), None);
+
+        let first = catalog.insert(Expr::Literal(Value::Int(7)));
+        let second = catalog.insert(Expr::Literal(Value::Int(11)));
+
+        assert_eq!(first, trust_hir::types::InitializerId(0));
+        assert_eq!(second, trust_hir::types::InitializerId(1));
+        assert!(matches!(
+            catalog.initializer(first),
+            Some(Expr::Literal(Value::Int(7)))
+        ));
+        assert!(matches!(
+            catalog.initializer(second),
+            Some(Expr::Literal(Value::Int(11)))
+        ));
+
+        catalog.set_type_default(TypeId::INT, first);
+        assert_eq!(catalog.type_default(TypeId::INT), Some(first));
+        catalog.set_type_default(TypeId::INT, second);
+        assert_eq!(catalog.type_default(TypeId::INT), Some(second));
+        assert_eq!(catalog.type_default(TypeId::BOOL), None);
+        assert!(matches!(
+            catalog.initializer(first),
+            Some(Expr::Literal(Value::Int(7)))
+        ));
+    }
 }

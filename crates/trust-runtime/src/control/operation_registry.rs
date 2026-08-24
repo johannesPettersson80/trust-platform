@@ -245,6 +245,9 @@ pub(super) fn operation_policy(kind: &str) -> Option<OperationPolicy> {
 }
 
 #[cfg(test)]
+mod contract_tests;
+
+#[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
 

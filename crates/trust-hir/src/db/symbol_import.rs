@@ -234,6 +234,29 @@ impl<'a> SymbolImporter<'a> {
                                 }
                             }
                         }
+                        Some(SymbolKind::Type)
+                            if self.target.get(*new_id).is_some_and(|symbol| {
+                                matches!(symbol.kind, SymbolKind::EnumValue { .. })
+                            }) =>
+                        {
+                            let name = self.target.get(*new_id).map(|symbol| symbol.name.clone());
+                            let enclosing_owner =
+                                self.target.get(parent_id).and_then(|symbol| symbol.parent);
+                            let scope_id = match enclosing_owner {
+                                None => Some(ScopeId::GLOBAL),
+                                Some(owner_id) => {
+                                    if self.target.get(owner_id).is_some_and(|owner| {
+                                        matches!(owner.kind, SymbolKind::Namespace)
+                                    }) {
+                                        self.ensure_namespace_scope(owner_id);
+                                    }
+                                    self.target.scope_for_owner(owner_id)
+                                }
+                            };
+                            if let (Some(scope_id), Some(name)) = (scope_id, name) {
+                                self.define_imported_symbol_in_scope(scope_id, name, *new_id);
+                            }
+                        }
                         Some(kind) if imported_owner_scope_kind(&kind).is_some() => {
                             let name = self.target.get(*new_id).map(|symbol| symbol.name.clone());
                             if let (Some(scope_id), Some(name)) =
@@ -271,13 +294,45 @@ impl<'a> SymbolImporter<'a> {
         new_id: SymbolId,
     ) {
         if let Some(existing_id) = self.target.lookup_in_scope(scope_id, name.as_str()) {
+            if self.imported_enum_values_have_distinct_type_parents(existing_id, new_id) {
+                return;
+            }
             self.record_import_scope_collision(&name, existing_id, new_id);
             return;
         }
 
         if let Some(existing_id) = self.target.define_in_scope(scope_id, name.clone(), new_id) {
+            if self.imported_enum_values_have_distinct_type_parents(existing_id, new_id) {
+                return;
+            }
             self.record_import_scope_collision(&name, existing_id, new_id);
         }
+    }
+
+    fn imported_enum_values_have_distinct_type_parents(
+        &self,
+        existing_id: SymbolId,
+        new_id: SymbolId,
+    ) -> bool {
+        let Some(existing) = self.target.get(existing_id) else {
+            return false;
+        };
+        let Some(new_symbol) = self.target.get(new_id) else {
+            return false;
+        };
+        matches!(existing.kind, SymbolKind::EnumValue { .. })
+            && matches!(new_symbol.kind, SymbolKind::EnumValue { .. })
+            && existing.parent != new_symbol.parent
+            && existing.parent.is_some_and(|parent| {
+                self.target
+                    .get(parent)
+                    .is_some_and(|symbol| matches!(symbol.kind, SymbolKind::Type))
+            })
+            && new_symbol.parent.is_some_and(|parent| {
+                self.target
+                    .get(parent)
+                    .is_some_and(|symbol| matches!(symbol.kind, SymbolKind::Type))
+            })
     }
 
     fn record_import_scope_collision(
@@ -471,7 +526,12 @@ impl<'a> SymbolImporter<'a> {
             }
             Type::Enum { name, base, values } => {
                 let base = self.import_type(source_file, base);
-                self.target.register_enum_type(name.clone(), base, values)
+                if source.is_named_value_type(type_id) {
+                    self.target
+                        .register_named_value_type(name.clone(), base, values)
+                } else {
+                    self.target.register_enum_type(name.clone(), base, values)
+                }
             }
             Type::Pointer { target } => {
                 let target = self.import_type(source_file, target);
@@ -524,6 +584,9 @@ impl<'a> SymbolImporter<'a> {
                 self.target
                     .set_type_default_initializer(mapped, target_initializer);
             }
+        }
+        if source.is_overlapping_struct_type(type_id) {
+            self.target.register_overlapping_struct_type(mapped);
         }
 
         self.type_map.insert((source_file, type_id), mapped);

@@ -6,6 +6,7 @@ use trust_ads_core::{
     IecDataType, PointQuality, SymbolDescriptor, SymbolFlag, TransportSecurity, UpdateMode,
 };
 
+use super::identity::parse_canonical_ams_net_id;
 use super::transport::{
     AdsDeviceState, AdsHandleRequest, AdsNotificationMode, AdsNotificationSample, AdsPointAddress,
     AdsReadResult, AdsResolvedHandle, AdsSubscribeRequest, AdsSubscription, AdsTransport,
@@ -16,6 +17,9 @@ mod connection;
 mod source_policy;
 
 use connection::connect_ads_client;
+use source_policy::ads_source_for_route;
+#[cfg(test)]
+use source_policy::DEFAULT_SOURCE_PORT;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
 const DEFAULT_NOTIFICATION_CYCLE: Duration = Duration::from_millis(100);
@@ -153,10 +157,55 @@ impl AdsRsTransport {
     }
 
     fn target_addr(&self) -> Result<ads::AmsAddr, AdsTransportError> {
+        if self.route.ams_port == 0 {
+            return Err(AdsTransportError::new(
+                "ADS target AMS port must be non-zero",
+            ));
+        }
+        let [a, b, c, d, e, f] = parse_canonical_ams_net_id(&self.route.target_net_id.0)
+            .ok_or_else(|| {
+                AdsTransportError::new(format!(
+                    "invalid target AMS Net ID '{}'; expected six decimal octets in canonical form",
+                    self.route.target_net_id.0
+                ))
+            })?;
         Ok(ads::AmsAddr::new(
-            parse_ams_net_id(&self.route.target_net_id)?,
+            ads::AmsNetId::new(a, b, c, d, e, f),
             self.route.ams_port,
         ))
+    }
+
+    fn connect_with<F>(&mut self, connector: F) -> Result<(), AdsTransportError>
+    where
+        F: FnOnce(
+            (&str, u16),
+            AdsRsTimeouts,
+            ads::Source,
+        ) -> Result<ads::Client, AdsTransportError>,
+    {
+        if !matches!(self.route.security.transport, TransportSecurity::Plain) {
+            return Err(AdsTransportError::new(
+                "Secure ADS is reserved but not implemented by the ads-rs backend",
+            ));
+        }
+        if self.route.security.auto_add_route {
+            return Err(AdsTransportError::new(
+                "auto_add_route=true is reserved for authoring tools; runtime will not write AMS routes",
+            ));
+        }
+
+        let _target = self.target_addr()?;
+        let source = ads_source_for_route(&self.route)?;
+
+        self.release_notifications();
+        self.release_symbol_handles();
+        self.notification_receiver = None;
+        self.client = None;
+
+        let client = connector((self.route.host.as_str(), ads::PORT), self.timeouts, source)?;
+        self.notification_receiver = Some(client.get_notification_channel());
+        self.client = Some(client);
+        Ok(())
     }
 
     fn release_symbol_handles(&mut self) {
@@ -203,30 +252,10 @@ impl Drop for AdsRsTransport {
 
 impl AdsTransport for AdsRsTransport {
     fn connect(&mut self) -> Result<(), AdsTransportError> {
-        if !matches!(self.route.security.transport, TransportSecurity::Plain) {
-            return Err(AdsTransportError::new(
-                "Secure ADS is reserved but not implemented by the ads-rs backend",
-            ));
-        }
-        if self.route.security.auto_add_route {
-            return Err(AdsTransportError::new(
-                "auto_add_route=true is reserved for authoring tools; runtime will not write AMS routes",
-            ));
-        }
-
-        self.release_notifications();
-        self.release_symbol_handles();
-        self.notification_receiver = None;
-        self.client = None;
-
-        let client = connect_ads_client(
-            (self.route.host.as_str(), ads::PORT),
-            self.timeouts,
-            &self.route,
-        )?;
-        self.notification_receiver = Some(client.get_notification_channel());
-        self.client = Some(client);
-        Ok(())
+        let route = self.route.clone();
+        self.connect_with(move |address, timeouts, _source| {
+            connect_ads_client(address, timeouts, &route)
+        })
     }
 
     fn disconnect(&mut self) -> Result<(), AdsTransportError> {
@@ -499,13 +528,6 @@ impl AdsTransport for AdsRsTransport {
     }
 }
 
-fn parse_ams_net_id(value: &trust_ads_core::AmsNetId) -> Result<ads::AmsNetId, AdsTransportError> {
-    value
-        .0
-        .parse::<ads::AmsNetId>()
-        .map_err(|err| AdsTransportError::new(format!("invalid AMS Net ID '{}': {err}", value.0)))
-}
-
 fn request_symbol_handle(
     device: ads::Device<'_>,
     symbol_name: &str,
@@ -724,146 +746,21 @@ fn map_ads_error(error: ads::Error) -> AdsTransportError {
     AdsTransportError::new(error.to_string())
 }
 
+fn parse_local_ams_net_id(
+    value: &trust_ads_core::AmsNetId,
+) -> Result<ads::AmsNetId, AdsTransportError> {
+    let [a, b, c, d, e, f] = parse_canonical_ams_net_id(&value.0).ok_or_else(|| {
+        AdsTransportError::new(format!(
+            "invalid local AMS Net ID '{}'; expected six decimal octets in canonical form",
+            value.0
+        ))
+    })?;
+    Ok(ads::AmsNetId::new(a, b, c, d, e, f))
+}
+
 pub(super) fn map_mapping_error(error: impl std::fmt::Display) -> AdsTransportError {
     AdsTransportError::new(error.to_string())
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use trust_ads_core::{AdsSecurityPolicy, AmsNetId};
-
-    #[test]
-    fn persistent_ads_symbol_sets_retain_guardrail_flag() {
-        let symbol = ads::symbol::Symbol {
-            name: "GVL.RetainedSetpoint".to_string(),
-            ix_group: 0x4020,
-            ix_offset: 0,
-            typ: "DINT".to_string(),
-            size: 4,
-            base_type: ADS_BASE_TYPE_DINT,
-            flags: ADS_SYMBOL_FLAG_PERSISTENT,
-        };
-        let descriptor = symbol_descriptor_from_ads(&symbol, &ads::symbol::TypeMap::default())
-            .expect("symbol descriptor")
-            .expect("supported scalar symbol");
-
-        assert!(descriptor.flags.contains(&SymbolFlag::Persistent));
-        assert!(descriptor.flags.contains(&SymbolFlag::Retain));
-        assert!(descriptor.flags.contains(&SymbolFlag::Write));
-    }
-
-    #[test]
-    fn readonly_ads_symbol_does_not_get_write_flag() {
-        let symbol = ads::symbol::Symbol {
-            name: "GVL.ReadOnlyStatus".to_string(),
-            ix_group: 0x4020,
-            ix_offset: 0,
-            typ: "DINT".to_string(),
-            size: 4,
-            base_type: ADS_BASE_TYPE_DINT,
-            flags: ADS_SYMBOL_FLAG_READ_ONLY,
-        };
-        let descriptor = symbol_descriptor_from_ads(&symbol, &ads::symbol::TypeMap::default())
-            .expect("symbol descriptor")
-            .expect("supported scalar symbol");
-
-        assert!(descriptor.flags.contains(&SymbolFlag::Read));
-        assert!(!descriptor.flags.contains(&SymbolFlag::Write));
-    }
-
-    #[test]
-    fn unsupported_compound_symbol_is_not_a_bindable_descriptor() {
-        let symbol = ads::symbol::Symbol {
-            name: "GVL.LibraryVersion".to_string(),
-            ix_group: 0x4020,
-            ix_offset: 0,
-            typ: "ST_LibVersion".to_string(),
-            size: 16,
-            base_type: ADS_BASE_TYPE_COMPOUND,
-            flags: 0,
-        };
-
-        let descriptor = symbol_descriptor_from_ads(&symbol, &ads::symbol::TypeMap::default())
-            .expect("unsupported complex symbols are skipped, not fatal");
-
-        assert!(descriptor.is_none());
-    }
-
-    #[test]
-    fn subscribe_rejects_poll_mode_before_connection() {
-        let mut transport = AdsRsTransport::new(AdsRoute {
-            name: "line1".to_string(),
-            target_net_id: AmsNetId::new("5.23.91.12.1.1"),
-            host: "192.168.10.5".to_string(),
-            ams_port: 851,
-            local_net_id: None,
-            security: AdsSecurityPolicy {
-                transport: TransportSecurity::Plain,
-                auto_add_route: false,
-            },
-        });
-        let request = AdsSubscribeRequest {
-            handle: AdsResolvedHandle {
-                point_name: "line1_temp".to_string(),
-                address: AdsPointAddress::Index {
-                    index_group: 0x4020,
-                    index_offset: 0,
-                    size: 4,
-                },
-                data_type: AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
-                handle: 0,
-            },
-            mode: UpdateMode::Poll,
-            notification_mode: AdsNotificationMode::OnChange,
-        };
-
-        let error = transport
-            .subscribe(request)
-            .expect_err("poll subscriptions must be rejected locally");
-
-        assert!(error.message().contains("poll points use sumup_read"));
-    }
-
-    #[test]
-    fn connect_rejects_secure_transport_before_network() {
-        let mut transport = AdsRsTransport::new(AdsRoute {
-            name: "line1".to_string(),
-            target_net_id: AmsNetId::new("5.23.91.12.1.1"),
-            host: "192.0.2.5".to_string(),
-            ams_port: 851,
-            local_net_id: None,
-            security: AdsSecurityPolicy {
-                transport: TransportSecurity::Secure,
-                auto_add_route: false,
-            },
-        });
-
-        let error = transport
-            .connect()
-            .expect_err("secure transport is reserved");
-
-        assert!(error.message().contains("Secure ADS is reserved"));
-    }
-
-    #[test]
-    fn connect_rejects_auto_add_route_before_network() {
-        let mut transport = AdsRsTransport::new(AdsRoute {
-            name: "line1".to_string(),
-            target_net_id: AmsNetId::new("5.23.91.12.1.1"),
-            host: "192.0.2.5".to_string(),
-            ams_port: 851,
-            local_net_id: None,
-            security: AdsSecurityPolicy {
-                transport: TransportSecurity::Plain,
-                auto_add_route: true,
-            },
-        });
-
-        let error = transport
-            .connect()
-            .expect_err("runtime must not write AMS routes");
-
-        assert!(error.message().contains("auto_add_route=true"));
-    }
-}
+mod tests;

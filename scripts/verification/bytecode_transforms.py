@@ -19,7 +19,7 @@ class BytecodeTransformError(RuntimeError):
 
 TRANSFORM_BEHAVIOR_PARTITIONS = {
     "container_truncate": "TRUNCATED_REQUIRED_CONTAINER_DATA",
-    "unknown_opcode": "UNIMPLEMENTED_RESERVED_OR_UNKNOWN_OPCODE",
+    "unknown_opcode": "UNIMPLEMENTED_RESERVED_LEGACY_OR_UNKNOWN_OPCODE",
     "jump_target": "JUMP_OUTSIDE_POU_OR_INSTRUCTION_BOUNDARY",
     "stack_underflow": "INVALID_OPERAND_STACK_DATAFLOW",
 }

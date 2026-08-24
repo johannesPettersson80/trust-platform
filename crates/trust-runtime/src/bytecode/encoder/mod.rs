@@ -494,3 +494,65 @@ impl<'a> BytecodeEncoder<'a> {
         Ok(module)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{BytecodeModule, SectionData, SectionId};
+
+    fn debug_path(module: &BytecodeModule) -> Option<&str> {
+        let debug_strings = match module.section(SectionId::DebugStringTable)? {
+            SectionData::DebugStringTable(table) => table,
+            _ => return None,
+        };
+        let debug_map = match module.section(SectionId::DebugMap)? {
+            SectionData::DebugMap(map) => map,
+            _ => return None,
+        };
+        let entry = debug_map.entries.first()?;
+        debug_strings
+            .entries
+            .get(entry.file_idx as usize)
+            .map(|path| path.as_str())
+    }
+
+    #[test]
+    fn public_module_constructors_preserve_source_and_path_projection() {
+        let source = r#"
+PROGRAM Main
+VAR
+    counter : INT;
+END_VAR
+counter := counter + 1;
+END_PROGRAM
+"#;
+        let runtime = crate::harness::CompileSession::from_source(source)
+            .build_runtime()
+            .expect("source must build a runtime");
+        let sources = [source];
+        let paths = ["Main.st"];
+
+        let plain = BytecodeModule::from_runtime(&runtime)
+            .expect("source-free constructor must build a module");
+        let with_sources = BytecodeModule::from_runtime_with_sources(&runtime, &sources)
+            .expect("source-aware constructor must build a module");
+        let with_paths =
+            BytecodeModule::from_runtime_with_sources_and_paths(&runtime, &sources, &paths)
+                .expect("path-aware constructor must build a module");
+
+        plain.validate().expect("source-free module must validate");
+        with_sources
+            .validate()
+            .expect("source-aware module must validate");
+        with_paths
+            .validate()
+            .expect("path-aware module must validate");
+        assert_eq!(plain.version, with_sources.version);
+        assert_eq!(with_sources.version, with_paths.version);
+        assert!(plain.section(SectionId::DebugStringTable).is_none());
+        assert!(plain.section(SectionId::DebugMap).is_none());
+        assert_eq!(debug_path(&with_sources), Some("file_0"));
+        assert_eq!(debug_path(&with_paths), Some("Main.st"));
+        assert_eq!(plain.sections.len() + 2, with_sources.sections.len());
+        assert_eq!(with_sources.sections.len(), with_paths.sections.len());
+    }
+}

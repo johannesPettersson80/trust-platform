@@ -6,87 +6,87 @@ owner = "trust-runtime-core"
 status = "mapped"
 invariant = "VM_SEAM_DETERMINISM_LIMITS_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
-trace_definition_digest = "sha256:9d16cd3150dc25a99560bd2e88da7a2ed8f05c35ba69db0eb76e364227c16b33"
-source_digest = "sha256:6b197073c549dda063ec2099cfb0d346c0ddd2ca40666adbfcab84db4ecdb10f"
+trace_definition_digest = "sha256:fbd7bc8a1734556e25144baac68dbf03e1022231c7b358fb61b49ecbc46ffaae"
+source_digest = "sha256:56d8fc2711b017f2de5cd2b6bfd55cf7941bfff2239d2b4d0a3a7627419ca40e"
 last_reviewed = "2026-07-15"
 
 [[case]]
 id = "VM_SEAM_DETERMINISM_LIMITS_001_CONTAINER_ABOVE_MAX"
 family = "resource_limit"
 input = { scenario = "ENCODED_CONTAINER_ABOVE_FIXED_LIMIT" }
-expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
+expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
 trace = [
-  { sequence = 0, stimulus = { action = "decode_container", encoded_bytes = 67108865, maximum_bytes = 67108864 }, expected = { observed_outcome = "rejected" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits" },
+  { sequence = 0, stimulus = { action = "decode_container", encoded_bytes = 67108865, maximum_bytes = 67108864 }, expected = { observed_outcome = "rejected" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits" },
 ]
 
 [[case]]
 id = "VM_SEAM_DETERMINISM_LIMITS_001_INSTRUCTIONS_ABOVE_MAX"
 family = "resource_limit"
 input = { scenario = "MODULE_INSTRUCTIONS_ABOVE_FIXED_LIMIT" }
-expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
+expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
 trace = [
-  { sequence = 0, stimulus = { action = "validate_module", decoded_instructions = 1000001, maximum_instructions = 1000000 }, expected = { observed_outcome = "rejected" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits" },
+  { sequence = 0, stimulus = { action = "validate_module", decoded_instructions = 1000001, maximum_instructions = 1000000 }, expected = { observed_outcome = "rejected" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits" },
 ]
 
 [[case]]
 id = "VM_SEAM_DETERMINISM_LIMITS_001_REFERENCES_ABOVE_MAX"
 family = "resource_limit"
 input = { scenario = "MODULE_REFERENCES_ABOVE_FIXED_LIMIT" }
-expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
+expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
 trace = [
-  { sequence = 0, stimulus = { action = "validate_module", maximum_references = 65536, references = 65537 }, expected = { observed_outcome = "rejected" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits" },
+  { sequence = 0, stimulus = { action = "validate_module", maximum_references = 65536, references = 65537 }, expected = { observed_outcome = "rejected" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits" },
 ]
 
 [[case]]
 id = "VM_SEAM_DETERMINISM_LIMITS_001_LOCALS_ABOVE_MAX"
 family = "resource_limit"
 input = { scenario = "POU_LOCALS_ABOVE_FIXED_LIMIT" }
-expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
+expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
 trace = [
-  { sequence = 0, stimulus = { action = "validate_pou", local_references = 65537, maximum_local_references = 65536 }, expected = { observed_outcome = "rejected" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits" },
+  { sequence = 0, stimulus = { action = "validate_pou", local_references = 65537, maximum_local_references = 65536 }, expected = { observed_outcome = "rejected" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits" },
 ]
 
 [[case]]
 id = "VM_SEAM_DETERMINISM_LIMITS_001_PARAMETERS_ABOVE_MAX"
 family = "resource_limit"
 input = { scenario = "POU_PARAMETERS_ABOVE_FIXED_LIMIT" }
-expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
+expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
 trace = [
-  { sequence = 0, stimulus = { action = "validate_pou", maximum_parameters = 1024, parameters = 1025 }, expected = { observed_outcome = "rejected" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits" },
+  { sequence = 0, stimulus = { action = "validate_pou", maximum_parameters = 1024, parameters = 1025 }, expected = { observed_outcome = "rejected" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits" },
 ]
 
 [[case]]
 id = "VM_SEAM_DETERMINISM_LIMITS_001_STACK_ABOVE_MAX"
 family = "resource_limit"
 input = { scenario = "OPERAND_STACK_ABOVE_FIXED_LIMIT" }
-expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
+expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" } }
 trace = [
-  { sequence = 0, stimulus = { action = "validate_pou", maximum_stack_values = 16384, stack_values = 16385 }, expected = { observed_outcome = "rejected" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits" },
+  { sequence = 0, stimulus = { action = "validate_pou", maximum_stack_values = 16384, stack_values = 16385 }, expected = { observed_outcome = "rejected" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits" },
 ]
 
 [[case]]
 id = "VM_SEAM_DETERMINISM_LIMITS_001_CALL_DEPTH_ABOVE_MAX"
 family = "resource_limit"
 input = { scenario = "CALL_DEPTH_ABOVE_FIXED_LIMIT" }
-expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "fault_visible" } }
+expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "fault_visible" } }
 trace = [
-  { sequence = 0, stimulus = { action = "enter_call_frame", active_call_frames = 1025, maximum_call_frames = 1024 }, expected = { observed_outcome = "rejected" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits" },
+  { sequence = 0, stimulus = { action = "enter_call_frame", active_call_frames = 1025, maximum_call_frames = 1024 }, expected = { observed_outcome = "rejected" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits" },
 ]
 
 [[case]]
 id = "VM_SEAM_DETERMINISM_LIMITS_001_EXECUTION_ABOVE_MAX"
 family = "resource_limit"
 input = { scenario = "EXECUTED_INSTRUCTIONS_ABOVE_FIXED_LIMIT" }
-expect = { outcome = "fault_visible", fault_surface = "ExecutionTimeout", oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits", delta = { target = "not_applicable", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "fault_visible" } }
+expect = { outcome = "fault_visible", fault_surface = "ExecutionTimeout", oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits", delta = { target = "not_applicable", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "fault_visible" } }
 trace = [
-  { sequence = 0, stimulus = { action = "execute_terminating_forward_workload", loop_iterations = 250001, maximum_executed_instructions = 1000000 }, expected = { observed_outcome = "execution_timeout" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits" },
+  { sequence = 0, stimulus = { action = "execute_terminating_forward_workload", loop_iterations = 250001, maximum_executed_instructions = 1000000 }, expected = { observed_outcome = "execution_timeout" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits" },
 ]
 
 [[case]]
 id = "VM_SEAM_DETERMINISM_LIMITS_001_OSCAT_WITHIN_LIMITS"
 family = "happy_path"
 input = { scenario = "OSCAT_CONTAINER_WITHIN_FIXED_LIMITS" }
-expect = { outcome = "accept_value", oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
 trace = [
-  { sequence = 0, stimulus = { action = "decode_and_validate_tracked_fixture", fixture = "crates/trust-runtime/tests/fixtures/oscat/core/program.stbc" }, expected = { observed_outcome = "accepted" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits" },
+  { sequence = 0, stimulus = { action = "decode_and_validate_tracked_fixture", fixture = "crates/trust-runtime/tests/fixtures/oscat/core/program.stbc" }, expected = { observed_outcome = "accepted" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits" },
 ]

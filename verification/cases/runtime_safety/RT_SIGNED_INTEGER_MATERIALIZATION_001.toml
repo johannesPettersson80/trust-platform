@@ -1,0 +1,35 @@
+schema_version = 1
+id = "CASES_RT_SIGNED_INTEGER_MATERIALIZATION_001"
+title = "Generated cases for Signed integer result materialization preserves value or fails before storage"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "planned"
+invariant = "RT_SIGNED_INTEGER_MATERIALIZATION_001"
+generator = "gen_cases_v2.py v1"
+generator_digest = "sha256:e557e3873c3813524fb791b2723d9c9a51a7f1d93b6d304bce60e5d36cc5c3ac"
+source_digest = "sha256:094959a6440a5da8c0cb494c4a459c3cd6644440bb1e2a2757c1d7c1de4b755c"
+last_reviewed = "2026-07-22"
+
+[[case]]
+id = "RT_SIGNED_INTEGER_MATERIALIZATION_001_SIGNED_DESTINATION_REPRESENTABLE_VALUE_EFAD863A"
+family = "happy_path"
+input = { source_partition = { equals = "SIGNED_DESTINATION_REPRESENTABLE_VALUE" }, scenario = "SIGNED_DESTINATION_REPRESENTABLE_VALUE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-8-signed-integer-result-materialization" }
+
+[[case]]
+id = "RT_SIGNED_INTEGER_MATERIALIZATION_001_SIGNED_DESTINATION_BELOW_MINIMUM_B41EB653"
+family = "below_min"
+input = { source_partition = { equals = "SIGNED_DESTINATION_BELOW_MINIMUM" }, scenario = "SIGNED_DESTINATION_BELOW_MINIMUM" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-8-signed-integer-result-materialization" }
+
+[[case]]
+id = "RT_SIGNED_INTEGER_MATERIALIZATION_001_SIGNED_DESTINATION_ABOVE_MAXIMUM_82D7DC5E"
+family = "above_max"
+input = { source_partition = { equals = "SIGNED_DESTINATION_ABOVE_MAXIMUM" }, scenario = "SIGNED_DESTINATION_ABOVE_MAXIMUM" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-8-signed-integer-result-materialization" }
+
+[[case]]
+id = "RT_SIGNED_INTEGER_MATERIALIZATION_001_NON_SIGNED_DESTINATION_CATEGORY_05689D20"
+family = "wrong_type_or_shape"
+input = { source_partition = { equals = "NON_SIGNED_DESTINATION_CATEGORY" }, scenario = "NON_SIGNED_DESTINATION_CATEGORY" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-8-signed-integer-result-materialization" }

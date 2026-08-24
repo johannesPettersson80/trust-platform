@@ -9,6 +9,7 @@ import {
 } from "./connectorPresentation";
 import { useEditMode, type AddSlotRequest } from "./editMode";
 import { protocolBadgeLabel, protocolColor, protocolName } from "./protocolMeta";
+import { healthStatusLabel } from "./statusPresentation";
 import { t, tint } from "./theme";
 import {
   LOCAL_RUNTIME_NODE_ID,
@@ -170,38 +171,6 @@ function cardStyle(
   };
 }
 
-// Honest status word — paired with the dot so status never relies on colour alone (accessibility) and
-// is one clear signal instead of a colour-dot plus a separate state badge.
-function statusLabel(health: string): string {
-  switch (health) {
-    case "connected":
-      return "Online";
-    case "degraded":
-      return "Degraded";
-    case "error":
-      return "Error";
-    case "runtime_unreachable":
-      return "Unreachable";
-    case "pending":
-      // Configured but not running / state not yet known — honest-neutral, never overclaim a live connect.
-      return "Pending";
-    case "configured_policy":
-      return "Configured only";
-    case "stopped":
-      return "Stopped";
-    case "disabled":
-      return "Disabled";
-    case "not_configured":
-      return "Not set up";
-    case "simulate":
-      return "Simulator";
-    case "unknown":
-      return "Unknown";
-    default:
-      return health ? health.charAt(0).toUpperCase() + health.slice(1) : "Unknown";
-  }
-}
-
 // One status signal for a host/runtime: a quiet pill with a status-coloured dot + the state word.
 // Replaces the old "mode badge that showed the state" + a separate dot (which said the same thing twice).
 function StatusPill({ health, label, tone }: { health: string; label?: string; tone?: string }) {
@@ -229,7 +198,7 @@ function StatusPill({ health, label, tone }: { health: string; label?: string; t
         className={live ? "trust-dot trust-dot--live" : "trust-dot"}
         style={{ width: 7, height: 7, borderRadius: "50%", background: c, boxShadow: `0 0 0 3px ${tint(c, 0.16)}` }}
       />
-      {label ?? statusLabel(health)}
+      {label ?? healthStatusLabel(health)}
     </span>
   );
 }
@@ -388,7 +357,10 @@ export const RuntimeNode = memo(({ id, data }: NodeProps) => {
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <StatusPill health={d.health} />
+          <StatusPill
+            health={d.health}
+            label={healthStatusLabel(String(d.lifecycleState ?? d.health))}
+          />
           {d.runTarget === true && (
             <span
               title="Selected run target"

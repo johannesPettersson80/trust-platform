@@ -1,4 +1,3 @@
-use super::super::*;
 use super::*;
 use crate::diagnostics::Diagnostic;
 use crate::Symbol;
@@ -303,6 +302,37 @@ impl<'a, 'b> ResolveChecker<'a, 'b> {
         let Some(member) = self.checker.symbols.get(member_id) else {
             return true;
         };
+        if self
+            .checker
+            .resolve_ref()
+            .method_rejects_body_only_member(member)
+        {
+            self.checker.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                range,
+                format!(
+                    "function-block method cannot access body-only member '{}'",
+                    member.name
+                ),
+            );
+            return false;
+        }
+        if self
+            .checker
+            .resolve_ref()
+            .inaccessible_internal_namespace(member_id)
+            .is_some()
+        {
+            self.checker.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                range,
+                format!(
+                    "cannot access '{}' through an INTERNAL containing namespace",
+                    member.name
+                ),
+            );
+            return false;
+        }
         let owner_id = self.checker.resolve_ref().member_owner(member_id);
         match self
             .checker
@@ -402,6 +432,45 @@ impl<'a, 'b> ResolveChecker<'a, 'b> {
 }
 
 impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
+    fn method_rejects_body_only_member(&self, member: &Symbol) -> bool {
+        let Some(current_id) = self.checker.current_pou_symbol else {
+            return false;
+        };
+        let Some(current) = self.checker.symbols.get(current_id) else {
+            return false;
+        };
+        if !matches!(current.kind, SymbolKind::Method { .. }) || current.parent != member.parent {
+            return false;
+        }
+        matches!(
+            member.kind,
+            SymbolKind::Parameter {
+                direction: ParamDirection::InOut
+            } | SymbolKind::Variable {
+                qualifier: VarQualifier::Temp
+            }
+        )
+    }
+
+    fn inaccessible_internal_namespace(&self, symbol_id: SymbolId) -> Option<SymbolId> {
+        let current_namespace = self.current_namespace_path();
+        let mut current = Some(symbol_id);
+        while let Some(current_id) = current {
+            let symbol = self.checker.symbols.get(current_id)?;
+            if matches!(symbol.kind, SymbolKind::Namespace)
+                && symbol.visibility == Visibility::Internal
+            {
+                let mut required = self.namespace_path_for_symbol(current_id);
+                required.push(symbol.name.clone());
+                if !current_namespace.starts_with(&required) {
+                    return Some(current_id);
+                }
+            }
+            current = symbol.parent;
+        }
+        None
+    }
+
     pub(in crate::type_check) fn member_owner(&self, member_id: SymbolId) -> Option<SymbolId> {
         let symbol = self.checker.symbols.get(member_id)?;
         let parent_id = symbol.parent?;

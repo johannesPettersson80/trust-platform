@@ -14,6 +14,7 @@ import {
 import { pickAuthToken } from "../../runtimeAuthModel";
 import { CHECK_PROGRAM_COMMAND } from "../../checkProgram";
 import { summarizeCheck } from "../../checkProgramModel";
+import { healthStatusLabel } from "../../networkCanvas/webview/statusPresentation";
 
 // v5 "complete PLC IDE shell" contract guards (vscode-ux-overhaul-plan.md §0.5/§0.6/§9). This file holds
 // the package.json + source invariants for the shell: palette cleanup, no user-facing Communication
@@ -2078,23 +2079,31 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
 
   test("node inspector maps raw health ids to user-facing labels", () => {
     const src = readSrc("networkCanvas/webview/NodeInspector.tsx");
+    const nodes = readSrc("networkCanvas/webview/nodes.tsx");
+    const presentation = readSrc("networkCanvas/webview/statusPresentation.ts");
     assert.ok(
-      src.includes("function healthLabel"),
-      "NodeInspector must map backend health ids before rendering inspector state rows"
+      src.includes('import { healthStatusLabel } from "./statusPresentation"'),
+      "NodeInspector must use the shared product status translator"
     );
     assert.ok(
-      /case "configured_policy":[\s\S]*return "Configured";/.test(src),
+      /case "configured_policy":[\s\S]*return "Configured";/.test(presentation),
       "configured_policy must render as Configured, never as the raw backend enum"
     );
     assert.ok(
-      src.includes("healthLabel(health)") &&
+      nodes.includes('import { healthStatusLabel } from "./statusPresentation"') &&
+        nodes.includes("label ?? healthStatusLabel(health)") &&
+        !nodes.includes("function statusLabel"),
+      "runtime status pills must use the same product status translator as inspectors and links"
+    );
+    assert.ok(
+      src.includes("healthStatusLabel(health)") &&
         !src.includes('`${health} · ${str(d.detail)}`'),
-      "endpoint state rows must use healthLabel(health), not raw health ids"
+      "endpoint state rows must use healthStatusLabel(health), not raw health ids"
     );
     assert.ok(
       src.includes("function stateSummary") &&
         src.includes("function runtimeModeLabel") &&
-        src.includes('rows.push(["State", stateSummary(health, str(d.detail))])') &&
+        src.includes('rows.push(["State", stateSummary(str(d.lifecycleState) || health, str(d.detail))])') &&
         src.includes('rows.push(["Mode", mode])') &&
         !src.includes('rows.push(["mode"') &&
         !src.includes('rows.push(["status"') &&
@@ -3252,9 +3261,13 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
     const nodes = readSrc("networkCanvas/webview/nodes.tsx");
     assert.ok(
-      nodes.includes('"unknown", "disabled"') && nodes.includes('d.health === "disabled"') && nodes.includes("<StatusPill health={d.health} />"),
+      nodes.includes('"unknown", "disabled"') &&
+        nodes.includes('(d.health === "disabled" || draftLike)') &&
+        nodes.includes("<StatusPill health={d.health}") &&
+        nodes.includes('label={draftLike ? "DRAFT" : undefined}'),
       "disabled endpoints must render a visible Disabled state in the graph, not only a color dot"
     );
+    assert.strictEqual(healthStatusLabel("disabled"), "Disabled");
 
     const panel = readSrcSet(
       "networkCanvas/networkCanvasPanel.ts",

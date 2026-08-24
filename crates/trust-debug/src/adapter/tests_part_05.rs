@@ -321,7 +321,7 @@ fn stack_trace_falls_back_to_main_frame_when_no_storage_frames_exist() {
 }
 
 #[test]
-fn stack_trace_falls_back_to_main_frame_when_thread_id_mismatches() {
+fn stack_trace_rejects_unknown_thread_id() {
     let runtime = Runtime::new();
     let control = DebugControl::new();
     let mut hook = control.clone();
@@ -346,11 +346,11 @@ fn stack_trace_falls_back_to_main_frame_when_thread_id_mismatches() {
     };
 
     let stack_outcome = adapter.dispatch_request(stack_req);
-    let stack_response: Response<StackTraceResponseBody> =
+    let stack_response: Response<serde_json::Value> =
         serde_json::from_value(stack_outcome.responses[0].clone()).unwrap();
-    let frames = stack_response.body.unwrap().stack_frames;
-    assert_eq!(frames.len(), 1);
-    assert_eq!(frames[0].name, "Main");
+    assert!(!stack_response.success);
+    assert_eq!(stack_response.message.as_deref(), Some("unknown thread id"));
+    assert!(stack_response.body.is_none());
 }
 
 #[test]

@@ -35,7 +35,6 @@ class AreaRoutingTests(unittest.TestCase):
     def test_live_matrix_represents_all_taxonomy_rows_in_reviewed_order(self) -> None:
         route_ids = taxonomy_route_ids(self.taxonomy)
 
-        self.assertEqual(len(route_ids), 29)
         self.assertEqual(
             route_ids,
             [route["id"] for route in self.matrix["code_areas"]],
@@ -106,6 +105,20 @@ class AreaRoutingTests(unittest.TestCase):
         self.assertEqual(result.suite_tiers, ("pr",))
         self.assertEqual(result.conditional_suite_tiers, ())
 
+    def test_direct_address_parser_uses_runtime_safety_route_without_protocol_loopback(self) -> None:
+        for path in (
+            "crates/trust-runtime/src/io/addressing.rs",
+            "crates/trust-runtime/tests/io_address.rs",
+            "crates/trust-runtime/tests/io_hierarchy.rs",
+        ):
+            with self.subTest(path=path):
+                result = classify_changed_path(self.matrix, path)
+
+                self.assertEqual(result.route_ids, ("direct_address_parser",))
+                self.assertEqual(result.area_ids, ("runtime_safety",))
+                self.assertIn("negative_malformed_input", result.required_test_classes)
+                self.assertNotIn("protocol_loopback", result.required_test_classes)
+
     def test_single_star_wildcard_does_not_cross_path_segments(self) -> None:
         direct = classify_changed_path(self.matrix, "scripts/perf_bench.py")
         nested = classify_changed_path(self.matrix, "scripts/nested/perf_bench.py")
@@ -127,6 +140,7 @@ class AreaRoutingTests(unittest.TestCase):
     def test_verification_program_control_and_evidence_paths_are_routed(self) -> None:
         paths = (
             "AGENTS.md",
+            ".claude/hooks/pre_tool_use_gate.py",
             ".codex/skills/trust-test-authoring/SKILL.md",
             "docs/internal/testing/checklists/plc-verification-program/implementation-board.md",
             "docs/internal/testing/evidence/plc-verification-program/2026-07-18/evidence.md",
@@ -180,6 +194,21 @@ class AreaRoutingTests(unittest.TestCase):
                 result = classify_changed_path(self.matrix, path)
                 self.assertFalse(result.unmapped)
                 self.assertIn(route_id, result.route_ids)
+
+    def test_normative_specification_sources_are_routed_through_verification(self) -> None:
+        paths = (
+            "docs/IEC_DEVIATIONS.md",
+            "docs/IEC_DECISIONS.md",
+            "docs/specs/07-standard-functions.md",
+            "docs/specs/10-runtime-semantics.md",
+        )
+
+        for path in paths:
+            with self.subTest(path=path):
+                result = classify_changed_path(self.matrix, path)
+                self.assertFalse(result.unmapped)
+                self.assertIn("verification_tooling", result.route_ids)
+                self.assertIn("verification", result.area_ids)
 
     def test_unmatched_path_is_default_denied(self) -> None:
         result = classify_changed_path(self.matrix, "unmodeled/new_surface.xyz")

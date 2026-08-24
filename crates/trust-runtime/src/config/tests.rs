@@ -1,6 +1,7 @@
 use super::{
-    parser::parse_runtime_toml_from_text, validate_io_toml_text, validate_opcua_client_toml_text,
-    validate_runtime_toml_text, RuntimeBundle, RuntimeConfig,
+    parser::{parse_io_toml_from_text, parse_runtime_toml_from_text},
+    validate_io_toml_text, validate_opcua_client_toml_text, validate_runtime_toml_text,
+    RuntimeBundle, RuntimeConfig,
 };
 
 fn runtime_toml() -> String {
@@ -86,6 +87,283 @@ fn runtime_schema_rejects_invalid_ranges() {
     assert!(err
         .to_string()
         .contains("resource.cycle_interval_ms must be >= 1"));
+}
+
+#[test]
+fn runtime_schema_preserves_signed_duration_bounds() {
+    let maximum_millis = (i64::MAX / 1_000_000) as u64;
+    let text = runtime_toml().replace(
+        "cycle_interval_ms = 100",
+        &format!("cycle_interval_ms = {maximum_millis}"),
+    );
+    let runtime = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("maximum signed runtime duration must remain representable");
+    assert_eq!(
+        runtime.cycle_interval,
+        crate::value::Duration::from_millis(maximum_millis as i64)
+    );
+
+    let above_maximum = maximum_millis + 1;
+    let cases = [
+        (
+            "resource.cycle_interval_ms",
+            runtime_toml().replace(
+                "cycle_interval_ms = 100",
+                &format!("cycle_interval_ms = {above_maximum}"),
+            ),
+        ),
+        (
+            "runtime.retain.save_interval_ms",
+            runtime_toml().replace(
+                "save_interval_ms = 1000",
+                &format!("save_interval_ms = {above_maximum}"),
+            ),
+        ),
+        (
+            "runtime.watchdog.timeout_ms",
+            runtime_toml().replace(
+                "timeout_ms = 5000",
+                &format!("timeout_ms = {above_maximum}"),
+            ),
+        ),
+        (
+            "resource.tasks[].interval_ms",
+            runtime_toml().replace(
+                "cycle_interval_ms = 100",
+                &format!(
+                    "cycle_interval_ms = 100\n\n[[resource.tasks]]\nname = \"Fast\"\ninterval_ms = {above_maximum}\npriority = 1\nprograms = [\"Main\"]"
+                ),
+            ),
+        ),
+        (
+            "runtime.ads.worker_tick_interval_ms",
+            format!(
+                "{}\n[runtime.ads]\nworker_tick_interval_ms = {above_maximum}\n",
+                runtime_toml()
+            ),
+        ),
+        (
+            "runtime.opcua_client.poll_interval_ms",
+            format!(
+                "{}\n[runtime.opcua_client]\npoll_interval_ms = {above_maximum}\n",
+                runtime_toml()
+            ),
+        ),
+    ];
+    for (field, text) in cases {
+        let error = validate_runtime_toml_text(&text)
+            .expect_err("a duration outside the signed runtime range must reject");
+        assert!(
+            error.to_string().contains(field),
+            "unexpected error for {field}: {error}"
+        );
+        assert!(error
+            .to_string()
+            .contains(&format!("must be <= {maximum_millis}")));
+    }
+}
+
+#[test]
+fn runtime_schema_rejects_blank_explicit_paths() {
+    let cases = [
+        (
+            "runtime.ads.config_path",
+            format!("{}\n[runtime.ads]\nconfig_path = \"   \"\n", runtime_toml()),
+        ),
+        (
+            "runtime.opcua_client.config_path",
+            format!(
+                "{}\n[runtime.opcua_client]\nconfig_path = \"   \"\n",
+                runtime_toml()
+            ),
+        ),
+        (
+            "runtime.hmi_persistence.history_path",
+            format!(
+                "{}\n[runtime.hmi_persistence]\nhistory_path = \"   \"\n",
+                runtime_toml()
+            ),
+        ),
+        (
+            "runtime.observability.history_path",
+            format!(
+                "{}\n[runtime.observability]\nhistory_path = \"   \"\n",
+                runtime_toml()
+            ),
+        ),
+        (
+            "runtime.retain.path",
+            runtime_toml().replace(
+                "save_interval_ms = 1000",
+                "path = \"   \"\nsave_interval_ms = 1000",
+            ),
+        ),
+        (
+            "runtime.openot.path",
+            format!("{}\n[runtime.openot]\npath = \"   \"\n", runtime_toml()),
+        ),
+        (
+            "runtime.openot.producer_instance",
+            format!(
+                "{}\n[runtime.openot]\nproducer_instance = \"   \"\n",
+                runtime_toml()
+            ),
+        ),
+        (
+            "runtime.observability.prometheus_path",
+            format!(
+                "{}\n[runtime.observability]\nprometheus_path = \"   \"\n",
+                runtime_toml()
+            ),
+        ),
+        (
+            "runtime.ads_server.listen",
+            format!(
+                "{}\n[runtime.ads_server]\nlisten = \"   \"\n",
+                runtime_toml()
+            ),
+        ),
+    ];
+    for (field, text) in cases {
+        let error = validate_runtime_toml_text(&text)
+            .expect_err("an explicit blank configuration path must reject");
+        assert!(
+            error.to_string().contains(field),
+            "unexpected error for {field}: {error}"
+        );
+    }
+}
+
+#[test]
+fn runtime_schema_rejects_blank_explicit_scalars() {
+    let cases = [
+        (
+            "resource.tasks[].single",
+            runtime_toml().replace(
+                "cycle_interval_ms = 100",
+                "cycle_interval_ms = 100\n\n[[resource.tasks]]\nname = \"Fast\"\ninterval_ms = 10\npriority = 1\nprograms = [\"Main\"]\nsingle = \"   \"",
+            ),
+        ),
+        (
+            "runtime.control.auth_token",
+            runtime_toml().replace(
+                "endpoint = \"unix:///tmp/trust-runtime.sock\"",
+                "endpoint = \"unix:///tmp/trust-runtime.sock\"\nauth_token = \"   \"",
+            ),
+        ),
+        (
+            "runtime.discovery.host_group",
+            runtime_toml().replace(
+                "interfaces = [\"eth0\"]",
+                "interfaces = [\"eth0\"]\nhost_group = \"   \"",
+            ),
+        ),
+        (
+            "runtime.mesh.auth_token",
+            runtime_toml().replace(
+                "listen = \"0.0.0.0:5200\"\ntls = false",
+                "listen = \"0.0.0.0:5200\"\ntls = false\nauth_token = \"   \"",
+            ),
+        ),
+        (
+            "runtime.ads_server.ams_net_id",
+            format!(
+                "{}\n[runtime.ads_server]\nenabled = true\nlisten = \"127.0.0.1\"\ninsecure_transport = true\nams_net_id = \"   \"\n",
+                runtime_toml()
+            ),
+        ),
+        (
+            "runtime.ads_server.clients[].source_ip",
+            format!(
+                "{}\n[runtime.ads_server]\nenabled = true\nlisten = \"127.0.0.1\"\ninsecure_transport = true\nallow_unpinned_clients = true\n[[runtime.ads_server.clients]]\nams_net_id = \"5.23.91.12.1.1\"\nsource_ip = \"   \"\n",
+                runtime_toml()
+            ),
+        ),
+        (
+            "runtime.observability.alerts[].hook",
+            format!(
+                "{}\n[runtime.observability]\n[[runtime.observability.alerts]]\nname = \"HighTemp\"\nvariable = \"Main.Temp\"\nabove = 80.0\nhook = \"   \"\n",
+                runtime_toml()
+            ),
+        ),
+        (
+            "runtime.opcua.username",
+            format!(
+                "{}\n[runtime.opcua]\nenabled = true\nallow_anonymous = true\nsecurity_policy = \"none\"\nsecurity_mode = \"none\"\nusername = \"   \"\npassword = \"   \"\n",
+                runtime_toml()
+            ),
+        ),
+    ];
+    for (field, text) in cases {
+        let error = validate_runtime_toml_text(&text)
+            .expect_err("an explicit blank scalar must reject instead of becoming omitted");
+        assert!(
+            error.to_string().contains(field),
+            "unexpected error for {field}: {error}"
+        );
+    }
+}
+
+#[test]
+fn runtime_schema_rejects_blank_explicit_collection_entries() {
+    let cases = [
+        (
+            "runtime.discovery.interfaces",
+            runtime_toml().replace("interfaces = [\"eth0\"]", "interfaces = [\"   \"]"),
+        ),
+        (
+            "runtime.mesh.connect",
+            runtime_toml().replace("publish = []", "connect = [\"   \"]\npublish = []"),
+        ),
+        (
+            "runtime.mesh.publish",
+            runtime_toml().replace("publish = []", "publish = [\"   \"]"),
+        ),
+        (
+            "runtime.mesh.subscribe",
+            runtime_toml().replace("subscribe = {}", "subscribe = { \"Source\" = \"   \" }"),
+        ),
+        (
+            "runtime.mesh.plugin_versions",
+            runtime_toml().replace(
+                "subscribe = {}",
+                "subscribe = {}\nplugin_versions = { \"plugin\" = \"   \" }",
+            ),
+        ),
+        (
+            "runtime.ads_server.expose",
+            format!(
+                "{}\n[runtime.ads_server]\nexpose = [\"   \"]\n",
+                runtime_toml()
+            ),
+        ),
+        (
+            "runtime.opcua.expose",
+            format!("{}\n[runtime.opcua]\nexpose = [\"   \"]\n", runtime_toml()),
+        ),
+        (
+            "runtime.openot.producer_instances",
+            format!(
+                "{}\n[runtime.openot]\nsource = \"st-fb\"\nproducer_instances = [\"Main.Producer\", \"   \"]\n",
+                runtime_toml()
+            ),
+        ),
+        (
+            "runtime.observability.include",
+            format!(
+                "{}\n[runtime.observability]\ninclude = [\"   \"]\n",
+                runtime_toml()
+            ),
+        ),
+    ];
+    for (field, text) in cases {
+        let error = validate_runtime_toml_text(&text)
+            .expect_err("an explicit blank collection entry must reject");
+        assert!(
+            error.to_string().contains(field),
+            "unexpected error for {field}: {error}"
+        );
+    }
 }
 
 #[test]
@@ -1024,6 +1302,50 @@ fn io_schema_requires_table_params() {
 }
 
 #[test]
+fn io_schema_preserves_safe_state_integer_widths() {
+    let maximums = r#"
+[io]
+driver = "loopback"
+params = {}
+safe_state = [
+  { address = "%QB0", value = "255" },
+  { address = "%QW0", value = "65535" },
+  { address = "%QD0", value = "4294967295" },
+  { address = "%QL0", value = "18446744073709551615" },
+]
+"#;
+    let config = parse_io_toml_from_text(maximums, "io.toml")
+        .expect("maximum safe-state integers must remain exact");
+    let values = config
+        .safe_state
+        .outputs
+        .iter()
+        .map(|(_, value)| value.clone())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        values,
+        vec![
+            crate::value::Value::Byte(u8::MAX),
+            crate::value::Value::Word(u16::MAX),
+            crate::value::Value::DWord(u32::MAX),
+            crate::value::Value::LWord(u64::MAX),
+        ]
+    );
+
+    for (address, value) in [("%QB0", "256"), ("%QW0", "65536"), ("%QD0", "4294967296")] {
+        let text = format!(
+            "[io]\ndriver = \"loopback\"\nparams = {{}}\nsafe_state = [{{ address = \"{address}\", value = \"{value}\" }}]\n"
+        );
+        let error = validate_io_toml_text(&text)
+            .expect_err("safe-state integers above the addressed width must reject");
+        assert!(
+            error.to_string().contains("out of range"),
+            "unexpected error for {address}={value}: {error}"
+        );
+    }
+}
+
+#[test]
 fn io_schema_accepts_multiple_drivers() {
     let text = r#"
 [io]
@@ -1073,7 +1395,7 @@ params = { adapter = "eth0" }
 
 #[test]
 fn io_schema_rejects_mixed_single_and_multi_driver_fields() {
-    let text = r#"
+    let driver_and_drivers = r#"
 [io]
 driver = "loopback"
 params = {}
@@ -1082,11 +1404,34 @@ params = {}
 name = "mqtt"
 params = { broker = "127.0.0.1:1883" }
 "#;
-    let err =
-        validate_io_toml_text(text).expect_err("mixed io.driver and io.drivers should be rejected");
-    assert!(err
-        .to_string()
-        .contains("use either io.driver/io.params or io.drivers"));
+    let params_and_drivers = r#"
+[io]
+params = { ignored = true }
+
+[[io.drivers]]
+name = "mqtt"
+params = { broker = "127.0.0.1:1883" }
+"#;
+    let empty_driver_and_drivers = r#"
+[io]
+driver = ""
+
+[[io.drivers]]
+name = "mqtt"
+params = { broker = "127.0.0.1:1883" }
+"#;
+
+    for text in [
+        driver_and_drivers,
+        params_and_drivers,
+        empty_driver_and_drivers,
+    ] {
+        let err = validate_io_toml_text(text)
+            .expect_err("any mixed single-driver and multi-driver fields must reject");
+        assert!(err
+            .to_string()
+            .contains("use either io.driver/io.params or io.drivers"));
+    }
 }
 
 #[test]

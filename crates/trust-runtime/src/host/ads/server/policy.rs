@@ -17,6 +17,7 @@ const MAX_REFUSED_CLIENTS: usize = 32;
 pub struct AdsServerClientPolicy {
     clients: Arc<RwLock<Vec<AdsServerClientConfig>>>,
     refused_clients: Arc<Mutex<Vec<AdsServerRefusedClient>>>,
+    allow_unpinned_clients: bool,
 }
 
 impl AdsServerClientPolicy {
@@ -26,6 +27,7 @@ impl AdsServerClientPolicy {
         Self {
             clients: Arc::new(RwLock::new(config.clients.clone())),
             refused_clients: Arc::new(Mutex::new(Vec::new())),
+            allow_unpinned_clients: config.allow_unpinned_clients,
         }
     }
 
@@ -58,7 +60,11 @@ impl AdsServerClientPolicy {
         };
         let permitted = clients.iter().any(|allowed| {
             allowed.ams_net_id == client.ams_net_id
-                && source_matches(&allowed.source, client.source_ip.as_deref())
+                && source_matches(
+                    &allowed.source,
+                    client.source_ip.as_deref(),
+                    self.allow_unpinned_clients,
+                )
         });
         if permitted {
             return true;
@@ -161,10 +167,24 @@ impl ClientPolicy for AdsServerClientPolicy {
     }
 }
 
-fn source_matches(pin: &AdsServerSourcePin, source_ip: Option<&str>) -> bool {
+fn source_matches(
+    pin: &AdsServerSourcePin,
+    source_ip: Option<&str>,
+    allow_unpinned_clients: bool,
+) -> bool {
     match pin {
-        AdsServerSourcePin::Unpinned => true,
-        AdsServerSourcePin::Ip(expected) => source_ip == Some(expected.as_str()),
+        AdsServerSourcePin::Unpinned => allow_unpinned_clients,
+        AdsServerSourcePin::Ip(expected) => {
+            let Some(source_ip) = source_ip else {
+                return false;
+            };
+            let (Ok(expected), Ok(source)) =
+                (expected.parse::<IpAddr>(), source_ip.parse::<IpAddr>())
+            else {
+                return false;
+            };
+            source == expected
+        }
         AdsServerSourcePin::Cidr(cidr) => {
             let Some(source_ip) = source_ip else {
                 return false;

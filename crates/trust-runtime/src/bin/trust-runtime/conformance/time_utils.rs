@@ -3,19 +3,23 @@ fn elapsed_ms(duration: std::time::Duration) -> u64 {
 }
 
 fn is_valid_case_id(id: &str, category: &str) -> bool {
-    if !id.starts_with(&format!("cfm_{category}_")) {
-        return false;
-    }
-    if !id
-        .chars()
-        .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
-    {
-        return false;
-    }
-    let Some(last) = id.rsplit('_').next() else {
+    let prefix = format!("cfm_{category}_");
+    let Some(body) = id.strip_prefix(&prefix) else {
         return false;
     };
-    last.len() == 3 && last.chars().all(|ch| ch.is_ascii_digit())
+    let mut tokens = body.split('_').collect::<Vec<_>>();
+    let Some(sequence) = tokens.pop() else {
+        return false;
+    };
+    !tokens.is_empty()
+        && tokens.iter().all(|token| {
+            !token.is_empty()
+                && token
+                    .chars()
+                    .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit())
+        })
+        && sequence.len() == 3
+        && sequence.chars().all(|ch| ch.is_ascii_digit())
 }
 
 struct UtcParts {

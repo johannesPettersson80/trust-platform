@@ -18,12 +18,13 @@ The ST language statements are:
 | Jump | `EXIT`, `CONTINUE`, `JMP` |
 | Empty | `;` |
 
-**Deviation**:
+**Implementation note**:
 - `JMP` statements are parsed and labels are resolved/validated. The current
   diagnostics pass already reports unreachable statements after terminators and
   constant-`IF` branches, but truST does not yet build a full control-flow
-  graph for whole-body reachability analysis. (IEC 61131-3 Ed.3, Table 72;
-  DEV-008)
+  graph for whole-body reachability analysis. IEC 61131-3 Ed.3 Table 72 defines
+  the statement forms but does not require a particular unreachable-code
+  diagnostic algorithm.
 
 ### Statement Termination
 
@@ -76,9 +77,18 @@ interface1 ?= interface2;
 Checks if assignment is valid (for interface references). If the instance implements the interface, assigns; otherwise, assigns NULL.
 
 **Rules**:
-- `?=` is only valid for `REF_TO` targets and sources; the source may be `NULL`. (IEC 61131-3 Ed.3, 6.6.6.7.2, Table 71)
-- Assignment attempt may yield `NULL`; callers must check before dereference. (IEC 61131-3 Ed.3, 6.6.6.7.2, Table 52)
-- trust-hir does not enforce inheritance/interface compatibility for `?=`. (DEV-006)
+- For IEC object-oriented references, `?=` accepts a writable `REF_TO` class or
+  interface target and a class/interface reference source (or `NULL`). Runtime
+  compatibility is checked against inheritance and implemented interfaces.
+  Success stores the compatible identity; failure stores `NULL`. (IEC
+  61131-3 Ed.3, 6.6.6.7.2, Table 52)
+- For elementary, aggregate, and truST `POINTER TO` values, `?=` is a
+  product-defined checked copy: the source must be `NULL` or have the exact
+  same reference family and referenced type. Cross-family `REF_TO` /
+  `POINTER TO` attempts are invalid.
+- Assignment attempt may store `NULL`; callers must test before dereference.
+  A null dereference reports a runtime error before the target statement makes
+  any write.
 
 ## 3. Call Statements (Section 7.3.3.2.4)
 
@@ -99,15 +109,63 @@ callable(arguments);
 Shared rules:
 
 - Formal calls assign inputs/in-outs with `:=` and outputs with `=>`; ordering
-  is not significant. (IEC 61131-3 Ed.3, 6.6.1.4.2, Table 71)
-- Formal calls may be incomplete; any unassigned parameters use their declared
-  initial value or the type default. (IEC 61131-3 Ed.3, 6.6.1.4.2)
-- Non-formal calls must provide all parameters in order, excluding execution
-  control parameters `EN` and `ENO`. (IEC 61131-3 Ed.3, 6.6.1.4.2; Table 50)
-- Do not mix formal and non-formal styles within the same call. (IEC 61131-3
-  Ed.3, 6.6.1.4.2)
+  is not significant for binding. (IEC 61131-3 Ed.3, 6.6.1.4.2)
+- Actuals are evaluated exactly once, left to right in source order. Formal
+  names do not reorder evaluation. A writable actual is resolved once at its
+  source position.
+- Formal calls may omit inputs and outputs. A function or method input then
+  uses its declaration initializer or type default for that call. An omitted
+  function-block input uses the instance's stored input, initialized from its
+  declaration initializer or type default when the instance is created. An
+  omitted output has no caller copy target. (IEC 61131-3 Ed.3, 6.6.1.4.2)
+- `VAR_IN_OUT` is never optional. Its actual must be a writable, non-constant
+  variable of the exact compatible type; no implicit conversion or temporary
+  is permitted. (IEC 61131-3 Ed.3, 6.6.1.4.1 and 6.6.1.6)
+- A complete non-formal call supplies every declared input, output, and in-out
+  in declaration order, excluding execution-control parameters `EN` and
+  `ENO`. Positional outputs and in-outs therefore require writable actuals.
+  (IEC 61131-3 Ed.3, 6.6.1.4.2)
+- IEC calls do not mix formal and non-formal styles. truST intentionally also
+  accepts a positional prefix followed by formal assignments, but rejects any
+  positional argument after the first formal assignment. This non-portable
+  extension is recorded as
+  [`DEV-018`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md#2026-07-26---mixed-positional-prefix-and-formal-suffix-calls).
+- In that extension, the positional prefix occupies consecutive eligible
+  parameters in declaration order, excluding `EN` and `ENO`. The formal suffix
+  may be written in any order but cannot bind a parameter already occupied by
+  the prefix.
 - `=>` is only valid for `VAR_OUTPUT` / `ENO` bindings and is invalid for
-  non-output parameters. (IEC 61131-3 Ed.3, 6.6.1.2.2, Table 71)
+  non-output parameters. `:=` is valid only for `VAR_INPUT`, `VAR_IN_OUT`, and
+  `EN`. (IEC 61131-3 Ed.3, 6.6.1.4.2)
+- A named parameter may appear at most once and must belong to the selected
+  callable.
+- The same caller storage, including overlapping aggregate projections, cannot
+  be connected to more than one writable `VAR_OUTPUT`, `VAR_IN_OUT`, or `ENO`
+  parameter in one call. Such a call is ambiguous and rejected. Reading a
+  storage location as an input while mapping it once as writable is valid.
+- On normal return, all output/in-out values are captured, all targets are
+  validated, and the transfer commits as a unit. A target failure cannot leave
+  an earlier target written.
+- `EN` is evaluated first even when written later. `EN := FALSE` skips every
+  other actual, target resolution, and the body, preserves caller targets and
+  function-block/receiver state, copies only `FALSE` to a connected `ENO`, and
+  returns the declared type default for a value-producing callable. See
+  [`IEC_DECISIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DECISIONS.md#2026-07-30---pou-call-evaluation-execution-control-and-output-transfer).
+
+At the parser boundary, an empty argument list and complete positional or
+formal argument lists are accepted without claiming callable resolution or
+type compatibility. A positional prefix followed by a formal suffix is
+retained for the documented truST extension. A positional actual after the
+first formal actual is also retained as a complete call node so semantic
+analysis can issue the binding diagnostic; parser acceptance does not make
+that ordering valid. Named `:=` and `=>` forms preserve their operator and
+target syntax, including selected, indexed, and dereferenced output targets.
+
+The parser rejects a leading comma, a doubled trailing comma, a missing comma
+between actuals, a named input without its expression, a named output without
+its target, an unclosed argument list, or a call statement without its required
+terminator. Recovery stops at the bounded call or statement boundary and must
+not reinterpret a malformed actual as a sibling statement.
 
 ### 3.2 Function Calls
 
@@ -172,14 +230,14 @@ Motor1.SetSpeed(NewSpeed := 1000);
 Status := Motor1.GetStatus();
 ```
 
-## 4. RETURN Statement (Section 7.3.3.2.4)
+## 4. RETURN Statement (Section 7.3.3.2.4; truST DEV-022)
 
 ### Syntax
 
 ```
 RETURN;
 // or
-RETURN expression;  // For functions/methods with return value
+RETURN expression;  // truST extension for functions/value-returning methods
 ```
 
 ### Examples
@@ -201,9 +259,15 @@ END_IF;
 
 ### Rules
 
-1. `RETURN expression;` is valid for functions and methods with a return value.
-2. `RETURN;` is also valid for functions and methods when the implicit return variable has already been assigned on that control-flow path.
-3. In programs, function blocks, and procedures, `RETURN;` performs an early exit.
+1. IEC 61131-3 Ed.3 section 7.3.3.2.4 defines bare `RETURN`. The
+   value-bearing `RETURN expression;` form is the truST extension recorded as
+   `DEV-022`.
+2. `RETURN expression;` is valid only for functions and methods with a return
+   value, and the expression must be compatible with that declared type.
+3. `RETURN;` is also valid for functions and methods when the implicit return
+   variable has already been assigned on that control-flow path.
+4. In programs, function blocks, and procedures, `RETURN;` performs an early
+   exit. A value-bearing return is rejected there.
 
 ## 5. IF Statement (Section 7.3.3.3.2)
 
@@ -315,10 +379,22 @@ END_CASE;
 ### Rules
 
 1. Selector must be an elementary data type. (IEC 61131-3 Ed.3, 7.3.3.3.3)
-2. Case labels are literals, enumerated values, or subranges; label types must match the selector. Unqualified enum members and typed enum literals (`Type#Value`) are both accepted. (IEC 61131-3 Ed.3, 7.3.3.3.3; Table 72)
+2. Case labels are literals, enumerated values, or subranges; label types must
+   match the selector. Unqualified enum members, typed enum literals
+   (`Type#Value`), and the reviewed truST qualified enum-member spelling
+   (`Type.Member`) are accepted. Parsing the qualified spelling does not bypass
+   semantic enum resolution or selector compatibility. (IEC 61131-3 Ed.3,
+   7.3.3.3.3; Table 72)
 3. Ranges use `..` syntax (e.g., `1..10`); multiple values are comma-separated.
+   Integer range bounds are inclusive constant expressions of the selector
+   type. The lower bound must not exceed the upper bound.
 4. ELSE executes when the selector matches no label; otherwise no statements execute (ELSE optional). (IEC 61131-3 Ed.3, 7.3.3.3.3)
 5. trust-hir warns when ELSE is omitted unless the selector is an enum and the labels cover all enum values.
+6. Duplicate scalar labels, scalar/range collisions, and overlapping ranges are
+   compile-time errors after constant evaluation. The closed truST policy is
+   recorded in `docs/IEC_DECISIONS.md`.
+7. The selector is evaluated exactly once. Accepted source has disjoint labels;
+   the selected branch is the first matching branch in source order.
 
 ## 7. FOR Statement (Section 7.3.3.4.2)
 
@@ -364,18 +440,31 @@ END_FOR;
 
 ### Rules
 
-1. Control variable, initial, and final must be expressions of the same integer type (ANY_INT)
-2. Increment must be an expression of the same integer type
-3. If BY is omitted, increment defaults to 1
-4. Control variable, initial, and final must NOT be modified in loop body
-5. Test is performed at start of each iteration
-6. Loop terminates when control variable exceeds final value
-7. Value of control variable after loop completion is Implementer specific
+1. Control variable, initial, and final must be expressions of the same integer
+   type (ANY_INT).
+2. Increment must be an expression of the same integer type.
+3. If BY is omitted, increment defaults to 1 in the control variable's type.
+4. Initial, final, and increment are evaluated exactly once, in that order,
+   before the first termination test. Their values are captured for the loop.
+5. The control variable and variables used by the initial and final
+   expressions must NOT be modified in the loop body. A variable used only by
+   the captured increment may be modified.
+6. Test is performed at the start of each iteration.
+7. A zero increment is `RuntimeError::ForStepZero` before any control-variable
+   or body mutation. Increment overflow is `RuntimeError::Overflow` before a
+   wrapped value can be stored.
+8. On normal completion the control variable holds the first value beyond the
+   bound. A zero-iteration loop leaves it at the initial value. `EXIT` leaves
+   the current iteration value, and `CONTINUE` performs the normal increment.
+   These closed implementer-specific choices are recorded in
+   `docs/IEC_DECISIONS.md`.
 
 ### Termination Test
 
 - Positive increment: terminates when `control_var > final`
 - Negative increment: terminates when `control_var < final`
+- A positive increment with `initial > final`, or a negative increment with
+  `initial < final`, executes zero iterations.
 
 ## 8. WHILE Statement (Section 7.3.3.4.3)
 
@@ -540,9 +629,12 @@ JMP Start;
 ### Rules
 
 1. Labels are identifiers and are case-insensitive
-2. Labels are scoped to the enclosing POU or ACTION body
+2. Labels are scoped to the enclosing POU or ACTION body; every ACTION has its
+   own label scope
 3. Labels must be unique within the same label scope
 4. JMP targets must resolve to a label in the same scope (Table 72)
+5. A jump cannot enter or leave an `ACTION...END_ACTION` construct (IEC
+   61131-3 Ed.3 §8.1.6)
 
 ## 13. JMP Statement
 
@@ -556,7 +648,9 @@ JMP label;
 
 1. `label` must resolve to a declared label in the same POU or ACTION body
 2. Forward and backward jumps are both allowed after label resolution
-3. Reachability diagnostics currently cover terminator-following statements and
+3. A target in an enclosing POU is not visible from an ACTION, and a target in
+   an ACTION is not visible from the enclosing POU or another ACTION
+4. Reachability diagnostics currently cover terminator-following statements and
    constant-branch dead code; full CFG-based jump analysis is still pending
 
 ### Example
@@ -613,7 +707,8 @@ Statement
 
 ### Parsing Considerations
 
-1. All statements end with `;` (except after END_xxx keywords)
+1. Simple statements end with `;`; block statements end with their matching
+   `END_xxx;` terminator.
 2. IF/CASE/FOR/WHILE/REPEAT are block statements
 3. Nested blocks must match correctly
 4. CASE labels can be values, ranges, or comma-separated lists
@@ -622,9 +717,12 @@ Statement
 #### Malformed-source recovery
 
 IEC 61131-3 Ed.3 section 7.3.3.3, sections 7.3.3.4.2 through
-7.3.3.4.4, and Table 72 define the required selection and iteration syntax.
-truST applies the following fail-closed recovery contract when that syntax is
-malformed:
+7.3.3.4.4, and Table 72 define the required selection and iteration syntax;
+section 6.3.2 and Table 5 define numeric and typed-literal syntax. The
+documented `#identifier` extension is governed by
+`docs/specs/01-lexical-elements.md`, and test-POU terminators are governed by
+`docs/specs/04-pou-declarations.md`. truST applies the following fail-closed
+product recovery contract whenever these accepted source forms are malformed:
 
 - missing `THEN` after `ELSIF`, `OF` after a `CASE` selector, or `:` after a
   CASE label produces a parse diagnostic;
@@ -632,10 +730,24 @@ malformed:
 - `WHILE` diagnoses a missing `DO`, and `REPEAT` diagnoses a missing `UNTIL`;
 - missing block or POU terminators diagnose before an outer terminator or
   end-of-file is consumed;
+- a missing statement semicolon diagnoses at the following statement boundary,
+  and a missing `THEN` after an `IF` condition diagnoses before its body;
+- a typed based numeric literal with a leading sign remains represented in the
+  partial tree but produces the stable invalid-leading-sign diagnostic;
+- the truST `#identifier` extension diagnoses a number sign without its
+  required following identifier;
 - unknown tokens are diagnosed and recovery advances or stops at a known
   statement/block synchronization boundary; and
 - unclosed expression delimiters and excessive nesting terminate through
   bounded recovery with a diagnostic.
+
+Within a bounded expression-recovery scan, a comma or closing delimiter is a
+top-level synchronization token only when no nested parenthesis or bracket is
+open. Balanced nested parentheses and brackets therefore leave the owning
+closing delimiter available to close the outer construct. If a nested bracket
+remains open, an encountered parenthesis cannot close the outer construct; the
+scan stops at the next configured statement boundary and leaves that boundary
+available to its owner.
 
 Recovery may retain an incomplete syntax node so editor features can continue,
 but any such diagnostic makes the parse unsuccessful. The partial tree is not
@@ -665,7 +777,11 @@ an accepted program and cannot be compiled as one.
 
 ### Runtime Errors
 
-1. CASE selector value not in any case (and no ELSE)
-2. Division by zero in expression
-3. Array index out of bounds
-4. Null reference dereference
+1. FOR increment evaluates to zero
+2. FOR increment overflows the control variable type
+3. Division by zero in expression
+4. Array index out of bounds
+5. Null reference dereference
+
+An unmatched `CASE` without `ELSE` completes without executing a branch; it is
+not a runtime error (IEC 61131-3 Ed.3 section 7.3.3.3.3).

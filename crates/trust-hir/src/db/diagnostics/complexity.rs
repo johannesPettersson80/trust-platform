@@ -66,3 +66,7 @@ fn cyclomatic_complexity(pou: &SyntaxNode) -> (usize, Vec<TextRange>) {
     }
     (1 + decision_points.len(), decision_points)
 }
+
+#[cfg(test)]
+#[path = "complexity/contract_tests.rs"]
+mod contract_tests;

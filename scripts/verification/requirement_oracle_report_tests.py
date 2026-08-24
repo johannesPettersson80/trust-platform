@@ -39,33 +39,33 @@ SCHEMA_PATH = ROOT / "verification/schemas/requirement-oracle-audit-report.schem
 GROUP_EXPECTATIONS = {
     "VERIF-P6-001": {
         "area_ids": ["compiler_iec"],
-        "invariant_count": 5,
-        "eligible_oracle_count": 5,
-        "spec_gap_blocked_count": 0,
+        "invariant_count": 7,
+        "eligible_oracle_count": 6,
+        "spec_gap_blocked_count": 1,
     },
     "VERIF-P6-002": {
         "area_ids": ["runtime_safety"],
-        "invariant_count": 11,
+        "invariant_count": 12,
         "eligible_oracle_count": 11,
-        "spec_gap_blocked_count": 0,
+        "spec_gap_blocked_count": 1,
     },
     "VERIF-P6-003": {
         "area_ids": ["protocols"],
-        "invariant_count": 7,
+        "invariant_count": 8,
         "eligible_oracle_count": 7,
-        "spec_gap_blocked_count": 0,
+        "spec_gap_blocked_count": 1,
     },
     "VERIF-P6-004": {
         "area_ids": ["editor_safety"],
-        "invariant_count": 8,
+        "invariant_count": 9,
         "eligible_oracle_count": 8,
-        "spec_gap_blocked_count": 0,
+        "spec_gap_blocked_count": 1,
     },
     "VERIF-P6-005": {
         "area_ids": ["control_security", "supply_chain_platform"],
-        "invariant_count": 6,
+        "invariant_count": 8,
         "eligible_oracle_count": 6,
-        "spec_gap_blocked_count": 0,
+        "spec_gap_blocked_count": 2,
     },
 }
 
@@ -135,16 +135,16 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
         self.assertEqual(
             self.analysis["summary"],
             {
-                "invariants_total": 55,
-                "mapped_phase6_invariants": 37,
-                "other_area_invariants": 18,
-                "eligible_oracles": 55,
-                "missing_oracles": 0,
-                "future_enforcement_candidates": 0,
+                "invariants_total": 69,
+                "mapped_phase6_invariants": 44,
+                "other_area_invariants": 25,
+                "eligible_oracles": 57,
+                "missing_oracles": 12,
+                "future_enforcement_candidates": 8,
             },
         )
-        self.assertEqual(55, len(self.analysis["invariants"]))
-        self.assertEqual(0, len(self.analysis["missing_oracles"]))
+        self.assertEqual(69, len(self.analysis["invariants"]))
+        self.assertEqual(12, len(self.analysis["missing_oracles"]))
         self.assertEqual(
             {record["id"] for record in self.validator.invariants.values()},
             {row["invariant_id"] for row in self.analysis["invariants"]},
@@ -209,7 +209,7 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     analysis_for(validator)
 
-    def test_gap_oracle_must_be_open_and_attached_to_the_invariant(self) -> None:
+    def test_gap_oracle_must_be_unresolved_and_attached_to_the_invariant(self) -> None:
         for label in ("closed", "unattached"):
             with self.subTest(label=label):
                 validator = loaded_validator()

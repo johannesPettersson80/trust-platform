@@ -153,9 +153,16 @@ export function runtimeNodeControlLayout(
 function primaryControl(input: RuntimeNodeControlsInput): RuntimeNodeControl {
   if (input.managed) {
     // A managed local runtime project — we own the process → Start / Stop (never Connect).
-    return input.health === "connected"
-      ? { action: "managedStop", label: "Stop", kind: "primary", enabled: true }
-      : { action: "managedStart", label: "Start", kind: "primary", enabled: true };
+    if (input.health === "connected") {
+      return { action: "managedStop", label: "Stop", kind: "primary", enabled: true };
+    }
+    if (input.health === "stopped") {
+      return { action: "managedStart", label: "Start", kind: "primary", enabled: true };
+    }
+    if (input.health === "pending") {
+      return { action: "none", label: "Updating…", kind: "primary", enabled: false };
+    }
+    return { action: "managedStart", label: "Start", kind: "primary", enabled: false };
   }
   if (input.isLocal) {
     // We own the local simulator process → Start / Stop.

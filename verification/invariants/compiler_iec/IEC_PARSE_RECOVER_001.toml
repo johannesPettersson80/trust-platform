@@ -3,23 +3,14 @@ id = "IEC_PARSE_RECOVER_001"
 title = "Parser recovery advances and reports malformed structure"
 area = "compiler_iec"
 risk = "silent_corruption"
-status = "implemented"
+status = "gap_open"
 owner = "trust-syntax"
 last_reviewed = "2026-07-14"
-claim = "Parser recovery must not silently accept malformed delimiter or nesting structure."
-proof_level = "G1"
+claim = "Parser recovery must visibly reject malformed statement, literal, product-extension, delimiter, terminator, and nesting structure while preserving only a bounded partial tree for tooling."
+proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src"]
-tests = [
-  "TEST_IEC_PARSER_RECOVERY_TRACE_001",
-  "TEST_IEC_PARSER_REQUIRED_DELIMITERS_001",
-  "TEST_IEC_PARSER_NESTED_TERMINATOR_RECOVERY_001",
-  "TEST_IEC_PARSER_MISSING_POU_TERMINATOR_001",
-  "TEST_IEC_PARSER_UNKNOWN_TOKEN_PROGRESS_001",
-  "TEST_IEC_PARSER_DEEP_UNARY_BOUND_001",
-  "TEST_IEC_PARSER_DEEP_PAREN_BOUND_001",
-  "TEST_IEC_PARSER_UNCLOSED_CALL_001",
-]
+tests = ["TEST_AUTO_5AFBA0A9B09308B307A8", "TEST_AUTO_BD20C08C66256CFB638D", "TEST_AUTO_C0ABE0A15530B5A2F5C0", "TEST_AUTO_CB4F519F73BE3B2118DE", "TEST_AUTO_D32DA38076E458C4708A", "TEST_AUTO_F1888E05720F069BDF08", "TEST_AUTO_F627D87564ECA0E3906F", "TEST_AUTO_F861248D3482A78B0E6F", "TEST_IEC_PARSER_DEEP_PAREN_BOUND_001", "TEST_IEC_PARSER_DEEP_UNARY_BOUND_001", "TEST_IEC_PARSER_MISSING_POU_TERMINATOR_001", "TEST_IEC_PARSER_NESTED_TERMINATOR_RECOVERY_001", "TEST_IEC_PARSER_RECOVERY_TRACE_001", "TEST_IEC_PARSER_REQUIRED_DELIMITERS_001", "TEST_IEC_PARSER_UNCLOSED_CALL_001", "TEST_IEC_PARSER_UNKNOWN_TOKEN_PROGRESS_001"]
 gates = ["veryquick", "pr"]
 evidence_refs = [
   "EVID_TEST_IEC_PARSER_RECOVERY_TRACE_001_LOCK_BASELINE",
@@ -31,15 +22,15 @@ missing = ["broad_remote_gate"]
 [input]
 name = "source"
 type = "Structured Text source"
-declared = "IEC selection, iteration, POU, or expression syntax"
+declared = "IEC or documented truST statement, literal, local-reference, POU, or expression syntax"
 
 [spec]
 status = "specified"
-source_refs = ["SPEC_IEC_DECISIONS_001"]
+source_refs = ["SPEC_IEC_DECISIONS_001", "SPEC_IEC_POU_DECLARATIONS_001", "SPEC_IEC_STATEMENTS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_DECISIONS_001"
+ref = "SPEC_IEC_STATEMENTS_001"
 
 [[behavior]]
 partition = { equals = "CASE_MISSING_OF" }
@@ -58,6 +49,15 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "A CASE label without its colon is rejected visibly."
+
+[[behavior]]
+partition = { equals = "IF_MISSING_THEN" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "IF without THEN produces the required-token diagnostic before its body."
 
 [[behavior]]
 partition = { equals = "ELSIF_MISSING_THEN" }
@@ -132,6 +132,15 @@ delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", pr
 rationale = "The inner construct diagnoses its missing terminator without consuming the outer terminator or following statement."
 
 [[behavior]]
+partition = { equals = "MISSING_INNER_TERMINATOR_AT_OUTER_BOUNDARY_ONLY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A missing inner terminator diagnoses before and does not consume the displayed outer terminator."
+
+[[behavior]]
 partition = { equals = "MISSING_POU_TERMINATOR_AT_EOF" }
 case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
@@ -139,6 +148,42 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "End-of-file before the owning POU terminator produces a visible parse failure."
+
+[[behavior]]
+partition = { equals = "MISSING_TEST_PROGRAM_TERMINATOR_AT_EOF" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#implementation-extension-test-pous"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "End-of-file before END_TEST_PROGRAM produces the documented test-POU terminator diagnostic."
+
+[[behavior]]
+partition = { equals = "MISSING_STATEMENT_SEMICOLON" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A missing statement semicolon diagnoses at the following statement boundary."
+
+[[behavior]]
+partition = { equals = "INVALID_SIGNED_BASED_TYPED_LITERAL" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A typed based numeric literal with a leading sign remains visible in the partial tree and produces the invalid-leading-sign diagnostic."
+
+[[behavior]]
+partition = { equals = "HASH_WITHOUT_IDENTIFIER" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A truST number-sign local reference without its required following identifier produces the expected-identifier diagnostic."
 
 [[behavior]]
 partition = { equals = "UNKNOWN_TOKEN" }

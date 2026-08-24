@@ -58,7 +58,7 @@ Humans usually take the same loop through:
 
 - VS Code diagnostics
 - formatting
-- Runtime Panel / debugger
+- truST sidebar, Live Values, and debugger
 
 The point is the same even when the transport differs:
 one consistent path from edit to validated running state.

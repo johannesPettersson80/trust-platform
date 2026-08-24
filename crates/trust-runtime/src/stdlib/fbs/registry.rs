@@ -36,9 +36,9 @@ pub fn builtin_kind_uppercase(name_upper: &str) -> Option<BuiltinFbKind> {
         "CTUD" | "CTUD_INT" | "CTUD_DINT" | "CTUD_LINT" | "CTUD_UDINT" | "CTUD_ULINT" => {
             Some(BuiltinFbKind::Ctud)
         }
-        "TP" | "TP_LTIME" => Some(BuiltinFbKind::Tp),
-        "TON" | "TON_LTIME" => Some(BuiltinFbKind::Ton),
-        "TOF" | "TOF_LTIME" => Some(BuiltinFbKind::Tof),
+        "TP" | "TP_TIME" | "TP_LTIME" => Some(BuiltinFbKind::Tp),
+        "TON" | "TON_TIME" | "TON_LTIME" => Some(BuiltinFbKind::Ton),
+        "TOF" | "TOF_TIME" | "TOF_LTIME" => Some(BuiltinFbKind::Tof),
         _ => None,
     }
 }
@@ -48,6 +48,7 @@ pub fn standard_function_blocks() -> Vec<FunctionBlockDef> {
         FunctionBlockDef {
             name: name.into(),
             base: None,
+            interfaces: Vec::new(),
             params: params
                 .iter()
                 .map(|(param_name, type_id, direction)| Param {
@@ -162,6 +163,9 @@ pub fn standard_function_blocks() -> Vec<FunctionBlockDef> {
         ("TP", TypeId::TIME),
         ("TON", TypeId::TIME),
         ("TOF", TypeId::TIME),
+        ("TP_TIME", TypeId::TIME),
+        ("TON_TIME", TypeId::TIME),
+        ("TOF_TIME", TypeId::TIME),
         ("TP_LTIME", TypeId::LTIME),
         ("TON_LTIME", TypeId::LTIME),
         ("TOF_LTIME", TypeId::LTIME),

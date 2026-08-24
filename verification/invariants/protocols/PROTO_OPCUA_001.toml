@@ -3,18 +3,14 @@ id = "PROTO_OPCUA_001"
 title = "OPC UA client session lifecycle is persistent and observable"
 area = "protocols"
 risk = "false_status"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime"
 last_reviewed = "2026-07-18"
 claim = "OPC UA client sessions and subscriptions must follow the reviewed persistent lifecycle and expose stale and reconnecting state."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src"]
-tests = [
-  "TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001",
-  "TEST_CONNECTOR_STATUS_TRUTH_TRACE_001",
-  "TEST_REVIEW_OPCUA_SNAPSHOT_READ_ONLY_001",
-]
+tests = ["TEST_AUTO_B6BA8F58B15F440648E7", "TEST_CONNECTOR_STATUS_TRUTH_TRACE_001", "TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001", "TEST_REVIEW_OPCUA_SNAPSHOT_READ_ONLY_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001_LOCK_BASELINE",

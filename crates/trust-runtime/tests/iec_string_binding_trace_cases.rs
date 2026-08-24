@@ -12,7 +12,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_IEC_STRING_BINDING_TRACE_001";
 const CASE_FILE: &str = "verification/cases/compiler_iec/IEC_STRING_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:63179ef133c5b8deeeee5cfa430bc7249e79be86b1334591829a990608aca97c";
+    "sha256:f88e46163f6a6367919bcdd5f74e16d5dd6990d2e7b698d4346f90aaf98aa289";
 
 #[test]
 fn iec_string_binding_trace_cases() {

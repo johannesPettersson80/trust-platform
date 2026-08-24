@@ -1,6 +1,8 @@
 mod common;
 use common::*;
 
+include!("../../../tests/support/repository_source_oracle.rs");
+
 // Example Project Parsing Tests
 /// Test that all example files parse without errors
 #[test]
@@ -8,7 +10,7 @@ fn test_examples_parse() {
     use std::fs;
     use std::path::Path;
 
-    fn test_dir(dir: &Path) {
+    fn test_dir(dir: &Path, repository_root: &Path) {
         if !dir.exists() {
             return;
         }
@@ -16,9 +18,14 @@ fn test_examples_parse() {
             let entry = entry.unwrap();
             let path = entry.path();
             if path.is_dir() {
-                test_dir(&path);
+                test_dir(&path, repository_root);
             } else if path.extension().map(|e| e == "st").unwrap_or(false) {
-                let content = fs::read_to_string(&path).unwrap();
+                let content = repository_source_tree_read_to_string!(
+                    (&path, repository_root),
+                    roots = ["examples"],
+                    extension = "st",
+                )
+                .unwrap();
                 let parsed = parse(&content);
 
                 if !parsed.ok() {
@@ -29,8 +36,17 @@ fn test_examples_parse() {
         }
     }
 
-    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/examples");
-    test_dir(&examples);
+    let repository_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .expect("workspace root");
+    let examples = repository_root.join("examples");
+    assert!(
+        examples.is_dir(),
+        "parser example corpus must exist at {}",
+        examples.display()
+    );
+    test_dir(&examples, repository_root);
 }
 
 #[test]

@@ -129,7 +129,7 @@ pub(in crate::web) fn runtime_cloud_config_reconcile_once(
         "id": 1_u64,
         "type": "config.set",
         "request_id": format!("cfg-agent-{}", apply_request.desired_revision),
-        "params": apply_request.desired,
+        "params": apply_request.desired.clone(),
     });
     let control_response = dispatch_control_request(
         control_payload,
@@ -150,12 +150,7 @@ pub(in crate::web) fn runtime_cloud_config_reconcile_once(
         Err(_) => return,
     };
     if ok {
-        config_policy::runtime_cloud_config_apply_success(
-            &mut guard,
-            apply_request.desired_revision,
-            apply_request.desired_etag,
-            now_ns(),
-        );
+        config_policy::runtime_cloud_config_apply_success(&mut guard, apply_request, now_ns());
         runtime_cloud_config_store_state(persist_path, &guard);
         return;
     }
@@ -165,7 +160,7 @@ pub(in crate::web) fn runtime_cloud_config_reconcile_once(
         .and_then(serde_json::Value::as_str)
         .unwrap_or("config apply failed")
         .to_string();
-    config_policy::runtime_cloud_config_apply_failure(&mut guard, error_text);
+    config_policy::runtime_cloud_config_apply_failure(&mut guard, &apply_request, error_text);
     runtime_cloud_config_store_state(persist_path, &guard);
 }
 

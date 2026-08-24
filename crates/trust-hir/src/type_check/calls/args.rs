@@ -1,8 +1,85 @@
 use super::super::standard::is_execution_param;
-use super::super::*;
 use super::*;
 
 impl<'a, 'b> CallChecker<'a, 'b> {
+    fn writable_target_path(&self, node: &SyntaxNode) -> Option<Vec<SmolStr>> {
+        match node.kind() {
+            SyntaxKind::ParenExpr => node
+                .children()
+                .next()
+                .and_then(|inner| self.writable_target_path(&inner)),
+            SyntaxKind::NameRef => self
+                .checker
+                .resolve_ref()
+                .get_name_from_ref(node)
+                .map(|name| vec![SmolStr::new(name.to_ascii_uppercase())]),
+            SyntaxKind::FieldExpr => {
+                let mut children = node.children();
+                let base = children.next()?;
+                let member = children.next()?;
+                let mut path = self.writable_target_path(&base)?;
+                let name = self.checker.resolve_ref().get_name_from_ref(&member)?;
+                path.push(SmolStr::new(format!(".{}", name.to_ascii_uppercase())));
+                Some(path)
+            }
+            SyntaxKind::IndexExpr => {
+                let mut children = node.children();
+                let base = children.next()?;
+                let mut path = self.writable_target_path(&base)?;
+                for index in children {
+                    let normalized = index
+                        .text()
+                        .to_string()
+                        .chars()
+                        .filter(|character| !character.is_whitespace())
+                        .collect::<String>()
+                        .to_ascii_uppercase();
+                    path.push(SmolStr::new(format!("[{normalized}]")));
+                }
+                Some(path)
+            }
+            SyntaxKind::DerefExpr => {
+                let mut path = node
+                    .children()
+                    .next()
+                    .and_then(|base| self.writable_target_path(&base))?;
+                path.push(SmolStr::new("^"));
+                Some(path)
+            }
+            _ => None,
+        }
+    }
+
+    pub(in crate::type_check) fn check_writable_argument_aliases(
+        &mut self,
+        params: &[ParamInfo],
+        bound: &BoundArgs,
+    ) {
+        let mut targets: Vec<(Vec<SmolStr>, TextRange)> = Vec::new();
+        for (param, argument) in params.iter().zip(bound.assigned.iter()) {
+            if !matches!(param.direction, ParamDirection::Out | ParamDirection::InOut) {
+                continue;
+            }
+            let Some(argument) = argument else {
+                continue;
+            };
+            let Some(path) = self.writable_target_path(&argument.expr) else {
+                continue;
+            };
+            if targets.iter().any(|(existing, _)| {
+                path.starts_with(existing.as_slice()) || existing.starts_with(path.as_slice())
+            }) {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::InvalidArgumentType,
+                    argument.range,
+                    "writable call connections cannot target the same or overlapping storage",
+                );
+            } else {
+                targets.push((path, argument.range));
+            }
+        }
+    }
+
     pub(in crate::type_check) fn bind_call_arguments(
         &mut self,
         params: &[ParamInfo],
@@ -228,7 +305,10 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         .is_contextual_int_literal(param.type_id, &arg.expr)
                         || self
                             .checker
-                            .is_contextual_real_literal(param.type_id, &arg.expr);
+                            .is_contextual_real_literal(param.type_id, &arg.expr)
+                        || self
+                            .checker
+                            .is_contextual_char_literal(param.type_id, &arg.expr);
                     if self.checker.is_assignable(param.type_id, arg_type) || context_literal {
                         self.checker.check_string_literal_assignment(
                             param.type_id,
@@ -347,7 +427,10 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         .is_contextual_int_literal(param.type_id, &arg.expr)
                         || self
                             .checker
-                            .is_contextual_real_literal(param.type_id, &arg.expr);
+                            .is_contextual_real_literal(param.type_id, &arg.expr)
+                        || self
+                            .checker
+                            .is_contextual_char_literal(param.type_id, &arg.expr);
                     if self.checker.is_assignable(param.type_id, arg_type) || context_literal {
                         self.checker.check_string_literal_assignment(
                             param.type_id,

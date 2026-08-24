@@ -3,6 +3,7 @@
 **/*.rs.bk
 **/Cargo.lock
 !/Cargo.lock
+/.mapping-transaction.lock
 /site/
 /.venv-docs/
 

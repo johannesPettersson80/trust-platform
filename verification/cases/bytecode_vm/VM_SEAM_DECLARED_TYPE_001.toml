@@ -6,90 +6,102 @@ owner = "trust-runtime-core"
 status = "planned"
 invariant = "VM_SEAM_DECLARED_TYPE_001"
 generator = "gen_cases.py v1"
-generator_digest = "sha256:6fd825a3bcf1ea477efd9aac400a845cac97577dd986499c58e57bea490ffc7a"
-source_digest = "sha256:17d8ae8ae2e9dccb8ad29561432b69b3d6fba1f88047a50f34d093b3c59f0e85"
-last_reviewed = "2026-07-17"
+generator_digest = "sha256:72778cbbe0dfdeb8945fab41987ce77a8d81ed8c1d18f2a2d77fa8ce5a2934a3"
+source_digest = "sha256:7b705b225619d6cfced1fb4a1cef5390e8bfe1e4193f7e307c42c43a7d34c0b4"
+last_reviewed = "2026-07-27"
 
 [[case]]
 id = "VM_SEAM_DECLARED_TYPE_001_INT_LITERAL_TO_REAL_SLOT_04979927"
 family = "happy_path"
 input = { source_partition = { equals = "INT_LITERAL_TO_REAL_SLOT" }, scenario = "INT_LITERAL_TO_REAL_SLOT" }
-expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization" }
 
 [[case]]
 id = "VM_SEAM_DECLARED_TYPE_001_INT_VARIABLE_TO_REAL_SLOT_C3821866"
 family = "happy_path"
 input = { source_partition = { equals = "INT_VARIABLE_TO_REAL_SLOT" }, scenario = "INT_VARIABLE_TO_REAL_SLOT" }
-expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization" }
 
 [[case]]
 id = "VM_SEAM_DECLARED_TYPE_001_INT_EXPRESSION_TO_DINT_SLOT_9BF228AA"
 family = "happy_path"
 input = { source_partition = { equals = "INT_EXPRESSION_TO_DINT_SLOT" }, scenario = "INT_EXPRESSION_TO_DINT_SLOT" }
-expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization" }
 
 [[case]]
 id = "VM_SEAM_DECLARED_TYPE_001_COMPATIBLE_LITERAL_INITIALIZER_WIDENING_D8DF321B"
 family = "happy_path"
 input = { source_partition = { equals = "COMPATIBLE_LITERAL_INITIALIZER_WIDENING" }, scenario = "COMPATIBLE_LITERAL_INITIALIZER_WIDENING" }
-expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization" }
 
 [[case]]
 id = "VM_SEAM_DECLARED_TYPE_001_COMPATIBLE_TYPED_ASSIGNMENT_WIDENING_A6856BB4"
 family = "happy_path"
 input = { source_partition = { equals = "COMPATIBLE_TYPED_ASSIGNMENT_WIDENING" }, scenario = "COMPATIBLE_TYPED_ASSIGNMENT_WIDENING" }
-expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization" }
 
 [[case]]
 id = "VM_SEAM_DECLARED_TYPE_001_POU_OUTPUT_WIDENING_8D957490"
 family = "happy_path"
 input = { source_partition = { equals = "POU_OUTPUT_WIDENING" }, scenario = "POU_OUTPUT_WIDENING" }
-expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization" }
 
 [[case]]
 id = "VM_SEAM_DECLARED_TYPE_001_FUNCTION_RESULT_WIDENING_E52C15B0"
 family = "happy_path"
 input = { source_partition = { equals = "FUNCTION_RESULT_WIDENING" }, scenario = "FUNCTION_RESULT_WIDENING" }
-expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization" }
 
 [[case]]
 id = "VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_77B93993"
 family = "wrong_type_or_shape"
 input = { source_partition = { wrong_type = "INT_ACTUAL_TO_DINT_INOUT" }, shape_descriptor = "INT_ACTUAL_TO_DINT_INOUT" }
-expect = { outcome = "reject", delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization" }
+expect = { outcome = "reject", delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization" }
 
 [[case]]
 id = "VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_1A1BA936"
 family = "wrong_type_or_shape"
 input = { source_partition = { wrong_type = "DINT_TO_INT_NARROWING_ASSIGNMENT" }, shape_descriptor = "DINT_TO_INT_NARROWING_ASSIGNMENT" }
-expect = { outcome = "reject", delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization" }
+expect = { outcome = "reject", delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization" }
 
 [[case]]
 id = "VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_D8E1DB83"
 family = "wrong_type_or_shape"
 input = { source_partition = { wrong_type = "BOOL_TO_REAL_SLOT" }, shape_descriptor = "BOOL_TO_REAL_SLOT" }
-expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization" }
 
 [[case]]
 id = "VM_SEAM_DECLARED_TYPE_001_ACCURACY_PRESERVING_INTEGER_TO_FLOAT_1089AD45"
 family = "happy_path"
 input = { source_partition = { equals = "ACCURACY_PRESERVING_INTEGER_TO_FLOAT" }, scenario = "ACCURACY_PRESERVING_INTEGER_TO_FLOAT" }
-expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization" }
 
 [[case]]
 id = "VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_3D6F1197"
 family = "wrong_type_or_shape"
 input = { source_partition = { wrong_type = "DINT_TO_REAL_IMPLICIT" }, shape_descriptor = "DINT_TO_REAL_IMPLICIT" }
-expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization" }
 
 [[case]]
 id = "VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_33057268"
 family = "wrong_type_or_shape"
 input = { source_partition = { wrong_type = "LINT_TO_LREAL_IMPLICIT" }, shape_descriptor = "LINT_TO_LREAL_IMPLICIT" }
-expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization" }
 
 [[case]]
 id = "VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_6346A636"
 family = "wrong_type_or_shape"
 input = { source_partition = { wrong_type = "NONREPRESENTABLE_CONTEXT_INTEGER_TO_REAL" }, shape_descriptor = "NONREPRESENTABLE_CONTEXT_INTEGER_TO_REAL" }
-expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization" }
+
+[[case]]
+id = "VM_SEAM_DECLARED_TYPE_001_CONTEXTUAL_UNTYPED_NUMERIC_LITERAL_COMMON_TYPE_D067562A"
+family = "happy_path"
+input = { source_partition = { equals = "CONTEXTUAL_UNTYPED_NUMERIC_LITERAL_COMMON_TYPE" }, scenario = "CONTEXTUAL_UNTYPED_NUMERIC_LITERAL_COMMON_TYPE" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }, oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-3-declared-type-materialization" }
+
+[[case]]
+id = "VM_SEAM_DECLARED_TYPE_001_WRONG_TYPE_D479F966"
+family = "wrong_type_or_shape"
+input = { source_partition = { wrong_type = "NO_ACCURACY_PRESERVING_COMMON_NUMERIC_TYPE" }, shape_descriptor = "NO_ACCURACY_PRESERVING_COMMON_NUMERIC_TYPE" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }, no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-3-declared-type-materialization" }

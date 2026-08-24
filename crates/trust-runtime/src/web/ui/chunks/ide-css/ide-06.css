@@ -231,10 +231,11 @@ body[data-theme="dark"] .ide-connection-pill[data-state="lost"] {
 .ide-hardware-empty {
   display: flex;
   flex-direction: column;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   gap: 16px;
-  height: 100%;
+  min-height: 180px;
   color: var(--muted);
   font-size: 14px;
   text-align: center;

@@ -2,6 +2,7 @@ use super::*;
 
 impl IoToml {
     pub(crate) fn into_config(self) -> Result<IoConfig, RuntimeError> {
+        let legacy_form_present = self.io.driver.is_some() || self.io.params.is_some();
         let legacy_driver = self
             .io
             .driver
@@ -15,7 +16,7 @@ impl IoToml {
             .unwrap_or_else(|| toml::Value::Table(toml::map::Map::new()));
         let explicit_drivers = self.io.drivers.unwrap_or_default();
 
-        if legacy_driver.is_some() && !explicit_drivers.is_empty() {
+        if legacy_form_present && !explicit_drivers.is_empty() {
             return Err(RuntimeError::InvalidConfig(
                 "use either io.driver/io.params or io.drivers, not both".into(),
             ));
@@ -90,9 +91,15 @@ fn parse_io_value(text: &str, size: IoSize) -> Result<Value, RuntimeError> {
                 format!("invalid BOOL safe_state value '{trimmed}'").into(),
             )),
         },
-        IoSize::Byte => Ok(Value::Byte(parse_u64(trimmed)? as u8)),
-        IoSize::Word => Ok(Value::Word(parse_u64(trimmed)? as u16)),
-        IoSize::DWord => Ok(Value::DWord(parse_u64(trimmed)? as u32)),
+        IoSize::Byte => Ok(Value::Byte(
+            parse_bounded_u64(trimmed, u8::MAX.into(), "BYTE")? as u8,
+        )),
+        IoSize::Word => Ok(Value::Word(
+            parse_bounded_u64(trimmed, u16::MAX.into(), "WORD")? as u16,
+        )),
+        IoSize::DWord => Ok(Value::DWord(
+            parse_bounded_u64(trimmed, u32::MAX.into(), "DWORD")? as u32,
+        )),
         IoSize::LWord => Ok(Value::LWord(parse_u64(trimmed)?)),
         IoSize::Bytes(len) => {
             let text = trimmed.trim_matches('\'');
@@ -104,6 +111,16 @@ fn parse_io_value(text: &str, size: IoSize) -> Result<Value, RuntimeError> {
             Ok(Value::String(text.into()))
         }
     }
+}
+
+fn parse_bounded_u64(text: &str, maximum: u64, type_name: &str) -> Result<u64, RuntimeError> {
+    let value = parse_u64(text)?;
+    if value > maximum {
+        return Err(RuntimeError::InvalidConfig(
+            format!("{type_name} safe_state value '{text}' out of range 0..={maximum}").into(),
+        ));
+    }
+    Ok(value)
 }
 
 fn parse_u64(text: &str) -> Result<u64, RuntimeError> {

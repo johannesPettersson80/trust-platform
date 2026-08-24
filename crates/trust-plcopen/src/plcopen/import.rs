@@ -58,6 +58,23 @@ pub fn import_xml_to_project_with_options(
     let mut imported_folder_paths = HashSet::new();
 
     let sources_root = resolve_or_create_source_root(project_root)?;
+    if sources_root.exists() {
+        reject_source_tree_symlinks(&sources_root)?;
+    } else if root
+        .descendants()
+        .any(|node| is_element_named_ci(node, "configuration"))
+    {
+        std::fs::create_dir_all(&sources_root)
+            .with_context(|| format!("failed to create '{}'", sources_root.display()))?;
+    }
+    ensure_publish_target_is_not_directory_or_symlink(
+        &project_root.join(MIGRATION_REPORT_FILE),
+        "migration report",
+    )?;
+    ensure_publish_target_is_not_directory_or_symlink(
+        &project_root.join(IMPORTED_VENDOR_EXTENSION_FILE),
+        "imported vendor extension file",
+    )?;
 
     if let Some((path, count)) = import_data_types_to_sources(
         root,
@@ -486,4 +503,29 @@ pub fn import_xml_to_project_with_options(
         unsupported_diagnostics,
         applied_library_shims,
     })
+}
+
+fn reject_source_tree_symlinks(root: &Path) -> anyhow::Result<()> {
+    let metadata = std::fs::symlink_metadata(root)
+        .with_context(|| format!("failed to inspect source root '{}'", root.display()))?;
+    if metadata.file_type().is_symlink() {
+        anyhow::bail!("symbolic link is not allowed in source tree: {}", root.display());
+    }
+    if !metadata.is_dir() {
+        anyhow::bail!("source root is not a directory: {}", root.display());
+    }
+    for entry in std::fs::read_dir(root)
+        .with_context(|| format!("failed to read source root '{}'", root.display()))?
+    {
+        let path = entry?.path();
+        let child_metadata = std::fs::symlink_metadata(&path)
+            .with_context(|| format!("failed to inspect source path '{}'", path.display()))?;
+        if child_metadata.file_type().is_symlink() {
+            anyhow::bail!("symbolic link is not allowed in source tree: {}", path.display());
+        }
+        if child_metadata.is_dir() {
+            reject_source_tree_symlinks(&path)?;
+        }
+    }
+    Ok(())
 }

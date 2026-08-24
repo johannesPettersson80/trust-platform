@@ -18,9 +18,12 @@ fn iec_6_2() {
         .count();
 
     assert_eq!(pragma_count, 1);
-    assert!(tokens
+    let string_texts: Vec<_> = tokens
         .iter()
-        .any(|(token, _)| token.kind == TokenKind::StringLiteral));
+        .filter(|(token, _)| token.kind == TokenKind::StringLiteral)
+        .map(|(_, text)| *text)
+        .collect();
+    assert_eq!(string_texts, vec!["'{not pragma}'"]);
 
     let non_trivia = non_trivia_kinds(source);
     assert_eq!(

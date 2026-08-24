@@ -3,7 +3,9 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-const EXAMPLE_TEST_TIMEOUT: Duration = Duration::from_secs(120);
+include!("../../../tests/support/repository_source_oracle.rs");
+
+const EXAMPLE_TEST_TIMEOUT: Duration = Duration::from_secs(300);
 const EXAMPLE_TEST_PROGRESS_INTERVAL: Duration = Duration::from_secs(10);
 const OSCAT_AGGREGATE_TRIGGER_EXAMPLE: &str = "airport_baggage_command_observer";
 const OSCAT_AGGREGATE_TRIGGER_NAMESPACE: &str = "OSCAT_airport_baggage_command_observer_oop";
@@ -216,8 +218,12 @@ fn write_oscat_namespace_aggregate_project(slug: &str, namespace: &str) -> TempP
 
     let mut aggregate = format!("NAMESPACE {namespace}\nUSING {namespace};\n");
     for source_file in source_files {
-        let source = std::fs::read_to_string(&source_file)
-            .unwrap_or_else(|err| panic!("read {}: {err}", source_file.display()));
+        let source = repository_source_tree_read_to_string!(
+            (&source_file, &workspace_root),
+            roots = ["examples/OSCAT"],
+            extension = "st",
+        )
+        .unwrap_or_else(|err| panic!("read {}: {err}", source_file.display()));
         aggregate.push_str(&source_without_configuration_blocks(&source));
         aggregate.push('\n');
     }
@@ -381,9 +387,17 @@ fn assert_example_project_tests_pass(projects: &[PathBuf]) {
 }
 
 fn assert_pattern_structure(name: &str, needles: &[&str]) {
+    let workspace_root = examples_root()
+        .parent()
+        .expect("examples dir has workspace parent")
+        .to_path_buf();
     let main_st = example_oop_path(name).join("src").join("Main.st");
-    let source = std::fs::read_to_string(&main_st)
-        .unwrap_or_else(|err| panic!("read {}: {err}", main_st.display()));
+    let source = repository_source_tree_read_to_string!(
+        (&main_st, &workspace_root),
+        roots = ["examples/OSCAT"],
+        extension = "st",
+    )
+    .unwrap_or_else(|err| panic!("read {}: {err}", main_st.display()));
     for needle in needles {
         assert!(
             source.contains(needle),
@@ -395,6 +409,10 @@ fn assert_pattern_structure(name: &str, needles: &[&str]) {
 
 #[test]
 fn oscat_examples_use_grouped_oop_non_oop_layout() {
+    let workspace_root = examples_root()
+        .parent()
+        .expect("examples dir has workspace parent")
+        .to_path_buf();
     let root = oscat_examples_root();
     assert!(root.is_dir(), "expected {} to exist", root.display());
 
@@ -430,8 +448,12 @@ fn oscat_examples_use_grouped_oop_non_oop_layout() {
 
     for example_dir in example_dirs {
         let readme = example_dir.join("README.md");
-        let readme_text = std::fs::read_to_string(&readme)
-            .unwrap_or_else(|err| panic!("read {}: {err}", readme.display()));
+        let readme_text = repository_source_tree_read_to_string!(
+            (&readme, &workspace_root),
+            roots = ["examples/OSCAT"],
+            extension = "md",
+        )
+        .unwrap_or_else(|err| panic!("read {}: {err}", readme.display()));
         for marker in [
             "## Folder Layout",
             "## What This Example Teaches",

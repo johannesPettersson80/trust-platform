@@ -12,7 +12,7 @@ The character set is based on ISO/IEC 10646:2012 (Unicode).
 |-----|-------------|-------|
 | 1 | ISO/IEC 10646 | Standard requires Unicode support; trust-lsp currently supports ASCII only (DEV-013) |
 | 2a | Lower case characters | a-z |
-| 2b | Number sign | `#` (used in typed literals; Siemens SCL also uses `#identifier` local references, DEV-034) |
+| 2b | Number sign | `#` (used in typed literals; truST also accepts Siemens SCL `#identifier` local references as a vendor extension) |
 | 2c | Dollar sign | `$` (used in string escapes) |
 
 **Case Sensitivity Rule**: When lower-case letters are supported, the case of letters shall NOT be significant in language elements, except:
@@ -85,7 +85,7 @@ AT
 
 #### Type Declarations
 ```
-TYPE, END_TYPE, STRUCT, END_STRUCT, ARRAY, OF
+TYPE, END_TYPE, STRUCT, END_STRUCT, OVERLAP, ARRAY, OF
 ```
 
 #### Program Organization Units
@@ -160,8 +160,8 @@ ACTION, END_ACTION
 > **SFC profile note**: truST reserves the IEC SFC keywords and ships a visual
 > SFC editor, but textual SFC body syntax is not specified in the Structured
 > Text parser. Use the visual-editor documentation for current authoring scope;
-> see `docs/public/develop/visual-editors/sfc.md` and `docs/IEC_DEVIATIONS.md`
-> (DEV-020).
+> see `docs/public/develop/visual-editors/sfc.md`. This is a truST authoring
+> profile boundary, not an IEC deviation in ST behavior.
 
 #### Special
 ```
@@ -172,7 +172,9 @@ READ_ONLY, READ_WRITE
 
 #### Implementation Extensions (Reserved Keywords)
 
-The following keywords are reserved by truST but are **not** part of the IEC 61131-3 keyword list. They are implemented as extensions and documented in `docs/IEC_DEVIATIONS.md`:
+The following keywords are reserved by truST but are **not** part of the IEC
+61131-3 keyword list. They are documented truST/vendor extensions, not IEC
+deviations:
 
 ```
 VAR_STAT
@@ -185,8 +187,8 @@ TEST_PROGRAM, END_TEST_PROGRAM
 TEST_FUNCTION_BLOCK, END_TEST_FUNCTION_BLOCK
 ```
 
-`VAR_STAT` is a shipped vendor-extension keyword. Runtime semantics are recorded in
-`docs/IEC_DEVIATIONS.md`: function statics persist across calls, method statics persist per
+`VAR_STAT` is a shipped vendor-extension keyword. Runtime semantics are defined
+here and in the runtime specification: function statics persist across calls, method statics persist per
 instance and per method, and `PROGRAM`/`FUNCTION_BLOCK`/`CLASS` `VAR_STAT` behaves as ordinary
 instance storage.
 
@@ -199,6 +201,11 @@ White space characters (space, tab, newline, etc.) may be inserted anywhere exce
 - Within identifiers
 - Within directly represented variables
 - Within delimiter combinations (e.g., `:=`, `(*`)
+
+For the lossless truST token stream, each maximal run of space, horizontal tab,
+carriage return, line feed, or form feed is emitted as `Whitespace`. These five
+characters are parser trivia but remain part of the exact source partition and
+therefore retain their original byte ranges.
 
 ## 5. Comments (Table 3, Section 6.1.5)
 
@@ -219,6 +226,14 @@ White space characters (space, tab, newline, etc.) may be inserted anywhere exce
 5. Comments have no syntactic or semantic significance - treated as white space
 6. Nested comments must use matching pairs
 
+The truST lexer closes `//` immediately before the first carriage return, line
+feed, or form feed; the terminator is emitted separately as `Whitespace`.
+Pascal-style `(* ... *)` comments nest only on another `(*` and close only on
+the matching `*)`. C-style `/* ... */` comments likewise nest only on `/*` and
+close only on `*/`. Delimiters from the other block-comment family are ordinary
+comment text and cannot change nesting depth. Comment markers inside a narrow
+or wide string remain string content and never begin a comment.
+
 ## 6. Pragmas (Table 4, Section 6.2)
 
 Pragmas are delimited by curly brackets `{` and `}`.
@@ -231,6 +246,132 @@ Pragmas are delimited by curly brackets `{` and `}`.
 
 1. Syntax and semantics of pragma contents are Implementer specific
 2. Pragmas are permitted anywhere spaces are allowed, except within string literals
+
+### truST lexer contract
+
+A balanced brace-delimited pragma is emitted as one `Pragma` token whose source
+text includes both delimiters and the complete pragma content. `Pragma` tokens
+are classified as parser trivia: removing trivia removes the pragma but
+preserves the exact tokenization of surrounding Structured Text. A brace
+sequence inside a character string literal remains string content and is not
+recognized as a pragma.
+
+IEC 61131-3 Ed.3 section 6.2 and Table 4 specify the delimiters and placement
+rules while leaving pragma content syntax and semantics implementer-specific.
+The single lossless token and parser-trivia representation above is therefore a
+truST product contract, not an IEC deviation.
+
+## 6A. truST Emitted-Token Contract
+
+The following table makes the lexer-facing product representation normative.
+It does not change the IEC source syntax defined above; it fixes the internal
+token boundary that parser and tooling consumers may rely on.
+
+| Source form | Required emitted token sequence |
+|-------------|---------------------------------|
+| A supported keyword in any case spelling | The keyword's exact `Kw*` token; a neighboring non-keyword name remains `Ident` |
+| `:= = <> < <= > >= + - * / ** & ;` | `Assign`, `Eq`, `Neq`, `Lt`, `LtEq`, `Gt`, `GtEq`, `Plus`, `Minus`, `Star`, `Slash`, `Power`, `Ampersand`, `Semicolon` |
+| Siemens SCL `#identifier` extension | `Hash` followed by `Ident`; surrounding operators and delimiters remain separate tokens |
+| Complete direct addresses such as `%IX0.0`, `%QW10`, `%MD100`, `%IB5` | One `DirectAddress` token |
+| Incomplete direct addresses `%I*`, `%Q*`, `%M*` | One `DirectAddress` token; lexical recognition does not make the form contextually valid outside the uses permitted by `docs/specs/03-variables.md` section 5 |
+| `//...` up to but excluding its line terminator, and `(* ... *)` through its matching terminator | One `LineComment` or `BlockComment` token, respectively; both are parser trivia |
+| `1..5`, `1.0`, and malformed `1.` | `IntLiteral`, `DotDot`, `IntLiteral`; `RealLiteral`; and one `Error`, respectively |
+| Integer, real, duration, narrow-string, and wide-string forms defined in sections 7 through 10 | The corresponding `IntLiteral`, `RealLiteral`, `TimeLiteral`, `StringLiteral`, or `WideStringLiteral` token |
+| Typed numeric or Boolean forms such as `INT#-123` and `BOOL#TRUE` | A `TypedLiteralPrefix` followed by the separately emitted payload tokens: `Minus`, `IntLiteral` or `KwTrue`, respectively |
+| Date, time-of-day, and combined date-and-time forms defined in section 11 | One `DateLiteral`, `TimeOfDayLiteral`, or `DateAndTimeLiteral` token, respectively |
+| A narrow or wide string containing a malformed escape | One or more `Error` tokens and no `StringLiteral` or `WideStringLiteral` token for the malformed lexeme |
+| A balanced pragma | One lossless `Pragma` token; it is parser trivia and does not change surrounding tokenization |
+
+The operator spellings are aligned with IEC 61131-3 Ed.3 section 7.3.2,
+Table 71; direct-address forms are aligned with section 6.5.5, Table 16. The
+comment source forms, typed-literal source forms, and date/time source forms are
+aligned with sections 6.1.5 and 6.3.2 through 6.3.5, Tables 3 and 5 through 9.
+The `TokenKind` names, the Siemens SCL split, incomplete-address lexical
+boundary, dot/range boundary, typed-literal token split, malformed-escape error
+representation, comment trivia representation, and pragma trivia
+representation are truST product contracts. They are not IEC deviations.
+
+### Source-boundary contract
+
+For every token emitted by `lex`, `Token::range` is the half-open UTF-8 byte
+range of that token's exact source lexeme. Ranges include trivia tokens and
+advance in source order without shifting the following token. For example,
+lexing `abc := 123` yields ranges `0..3`, `3..4`, and `4..6` for `abc`, the
+space, and `:=`.
+
+For every pair emitted by `lex_with_text`, the returned text is exactly
+`source[token.range]`. It is not normalized, case-folded, or reconstructed.
+For example, the non-trivia text slices for `x := 42` are exactly `x`, `:=`,
+and `42`.
+
+IEC 61131-3 defines the external source forms but does not define truST's
+internal byte-range or borrowed-source-slice API. These source-boundary rules
+are therefore truST product contracts, not IEC decisions or deviations.
+
+### Lexical rejection and value-validation boundary
+
+The lexer fails closed for a contiguous candidate that uses the spelling of an
+identifier or literal but violates the corresponding rules below:
+
+- an identifier containing multiple leading or embedded underscores, or a
+  trailing underscore, emits an `Error` spanning the complete candidate rather
+  than a valid `Ident` prefix plus residual tokens;
+- a numeric candidate with a leading, trailing, or repeated separator, a digit
+  outside its declared base, an exponent without digits, or a sign embedded in
+  a based number emits an `Error` and no valid numeric token for a fragment of
+  that candidate;
+- a duration candidate containing an exponent, or a fractional unit followed
+  by another less-significant unit, emits an `Error` rather than a valid
+  duration prefix;
+- a date, time-of-day, or date-and-time candidate whose external field widths
+  do not match section 11 emits an `Error`; a shape-valid candidate with an
+  invalid calendar or clock value retains its temporal token for later value
+  validation;
+- a narrow string accepts only the narrow quote escape and exactly two
+  hexadecimal digits, while a wide string accepts only the wide quote escape
+  and exactly four hexadecimal digits; a wrong-family, short, unknown, or
+  unterminated escape emits `Error` and no string token; and
+- an unterminated block comment or pragma emits `Error` through the available
+  candidate text.
+
+This fail-closed token boundary is a truST diagnostic and tooling contract.
+IEC 61131-3 Ed.3 sections 6.1.2 and 6.3.2 define the invalid spellings but do
+not prescribe recovery-token boundaries.
+
+Lexing recognizes the complete external *shape* of duration, date,
+time-of-day, and date-and-time literals. Compilation then validates their
+value:
+
+- a date uses the proleptic Gregorian calendar, including century leap-year
+  rules;
+- time of day is within `00:00:00` through the last representable fraction
+  before `24:00:00`;
+- each date-and-time component satisfies both rules; and
+- duration composition is accumulated in source order, allows overflow of the
+  most significant written unit, permits a fraction only on the least
+  significant written unit, and must fit the destination TIME/LTIME
+  representation.
+
+A shape-valid but value-invalid date/time token therefore remains a date/time
+token and produces a compile-time value diagnostic; it is not retokenized as
+identifiers and punctuation. A typed-literal prefix is likewise lexed
+separately from its payload, while parsing and semantic analysis require a
+supported elementary type and a compatible, in-range payload. These staged
+validation rules preserve one source identity across lexer, parser, semantic
+analysis, and runtime lowering.
+
+### Parser handoff boundary
+
+The parser consumes valid lexical tokens without reconstructing their source
+spelling. Comments, pragmas, and whitespace remain lossless trivia and may
+appear wherever the grammar permits whitespace. An `Error` token produced by
+the fail-closed candidate rules above cannot be reinterpreted as a valid
+identifier, literal, comment, pragma, or collection of valid token prefixes;
+it causes a visible parse failure at the bounded containing construct. A
+shape-valid temporal token remains syntactically accepted even when later
+value validation rejects its calendar or clock fields. This handoff keeps
+lexical shape, parser structure, and semantic value validation as distinct
+proof boundaries.
 
 ## 7. Numeric Literals (Table 5, Section 6.3.2)
 
@@ -398,9 +539,20 @@ Two-character combinations beginning with dollar sign `$`:
 3. **Literals**: Numbers, strings, durations, dates
 4. **Operators**: Symbols and operator keywords
 5. **Delimiters**: Punctuation (`;`, `,`, `.`, etc.)
-6. **Comments**: To be discarded or preserved for IDE features
+6. **Comments**: Preserved as `LineComment` or `BlockComment` trivia tokens
 7. **Pragmas**: For implementer-specific processing
 8. **Whitespace**: Separators (can be discarded)
+
+### SyntaxKind token and trivia representation
+
+Every lexer `TokenKind` converts to the same-named `SyntaxKind`. `Eof` is the
+final token-kind discriminant; kinds through `Eof` are tokens and later kinds
+are composite syntax nodes. `is_node()` is the inverse of `is_token()`.
+
+The parser-trivia classifier contains `Whitespace`, `LineComment`,
+`BlockComment`, and `Pragma`. Ordinary identifiers are not trivia. These are
+truST concrete-syntax representation rules, not IEC source-language
+additions.
 
 ### Lexer Error Conditions
 

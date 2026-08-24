@@ -117,11 +117,7 @@ use web_helpers::*;
 
 const CYTOSCAPE_JS: &str = include_str!("web/ui/modules/cytoscape.min.js");
 const HMI_HTML: &str = include_str!("web/ui/hmi.html");
-const HMI_JS: &str = concat!(
-    include_str!("web/ui/chunks/hmi-js/hmi-01.js"),
-    include_str!("web/ui/chunks/hmi-js/hmi-02.js"),
-    include_str!("web/ui/chunks/hmi-js/hmi-03.js"),
-);
+const HMI_JS: &str = include_str!("web/ui/hmi.js");
 const HMI_CSS: &str = concat!(
     include_str!("web/ui/chunks/hmi-css/hmi-01.css"),
     include_str!("web/ui/chunks/hmi-css/hmi-02.css"),
@@ -156,46 +152,18 @@ const IDE_CSS: &str = concat!(
     include_str!("web/ui/chunks/ide-css/ide-08.css"),
     include_str!("web/ui/chunks/ide-css/ide-09.css"),
 );
-const IDE_JS: &str = concat!(
-    include_str!("web/ui/chunks/ide-js/ide-01.js"),
-    include_str!("web/ui/chunks/ide-js/ide-02.js"),
-    include_str!("web/ui/chunks/ide-js/ide-03.js"),
-);
+const IDE_JS: &str = include_str!("web/ui/ide.js");
 const IDE_SHELL_JS: &str = include_str!("web/ui/modules/ide-shell.js");
 const IDE_EDITOR_JS: &str = include_str!("web/ui/modules/ide-editor.js");
-const IDE_EDITOR_LANGUAGE_JS: &str = concat!(
-    include_str!("web/ui/modules/ide-editor-language.js"),
-    include_str!("web/ui/modules/ide-editor-language-part-2.js"),
-    include_str!("web/ui/modules/ide-editor-language-part-3.js"),
-);
+const IDE_EDITOR_LANGUAGE_JS: &str = include_str!("web/ui/modules/ide-editor-language.js");
 const IDE_EDITOR_RUNTIME_JS: &str = include_str!("web/ui/modules/ide-editor-runtime.js");
-const IDE_EDITOR_PANE_JS: &str = concat!(
-    include_str!("web/ui/modules/ide-editor-pane.js"),
-    include_str!("web/ui/modules/ide-editor-pane-part-2.js"),
-    include_str!("web/ui/modules/ide-editor-pane-part-3.js"),
-);
+const IDE_EDITOR_PANE_JS: &str = include_str!("web/ui/modules/ide-editor-pane.js");
 const IDE_WORKSPACE_JS: &str = include_str!("web/ui/modules/ide-workspace.js");
-const IDE_WORKSPACE_TREE_JS: &str = concat!(
-    include_str!("web/ui/modules/ide-workspace-tree.js"),
-    include_str!("web/ui/modules/ide-workspace-tree-part-2.js"),
-    include_str!("web/ui/modules/ide-workspace-tree-part-3.js"),
-);
-const IDE_WORKSPACE_FILES_JS: &str = concat!(
-    include_str!("web/ui/modules/ide-workspace-files.js"),
-    include_str!("web/ui/modules/ide-workspace-files-part-2.js"),
-    include_str!("web/ui/modules/ide-workspace-files-part-3.js"),
-);
+const IDE_WORKSPACE_TREE_JS: &str = include_str!("web/ui/modules/ide-workspace-tree.js");
+const IDE_WORKSPACE_FILES_JS: &str = include_str!("web/ui/modules/ide-workspace-files.js");
 const IDE_WORKSPACE_BROWSE_JS: &str = include_str!("web/ui/modules/ide-workspace-browse.js");
-const IDE_OBSERVABILITY_JS: &str = concat!(
-    include_str!("web/ui/modules/ide-observability.js"),
-    include_str!("web/ui/modules/ide-observability-part-2.js"),
-    include_str!("web/ui/modules/ide-observability-part-3.js"),
-);
-const IDE_COMMANDS_JS: &str = concat!(
-    include_str!("web/ui/modules/ide-commands.js"),
-    include_str!("web/ui/modules/ide-commands-part-2.js"),
-    include_str!("web/ui/modules/ide-commands-part-3.js"),
-);
+const IDE_OBSERVABILITY_JS: &str = include_str!("web/ui/modules/ide-observability.js");
+const IDE_COMMANDS_JS: &str = include_str!("web/ui/modules/ide-commands.js");
 const IDE_HARDWARE_JS: &str = include_str!("web/ui/modules/ide-hardware.js");
 const IDE_ONLINE_JS: &str = include_str!("web/ui/modules/ide-online.js");
 const IDE_DEBUG_JS: &str = include_str!("web/ui/modules/ide-debug.js");

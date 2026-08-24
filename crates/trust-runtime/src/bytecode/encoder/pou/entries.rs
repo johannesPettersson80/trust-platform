@@ -1,4 +1,34 @@
+#[derive(Clone, Copy)]
+pub(super) enum ParamDefaultPolicy {
+    CallLocal,
+    InstanceBacked,
+}
+
 impl<'a> BytecodeEncoder<'a> {
+    fn call_local_implicit_default_is_portable(
+        &self,
+        type_id: TypeId,
+        depth: u8,
+    ) -> Result<bool, BytecodeError> {
+        if depth > crate::bytecode::BYTECODE_MAX_CONST_NESTING {
+            return Err(BytecodeError::InvalidSection(
+                "parameter default type recursion overflow".into(),
+            ));
+        }
+        let ty = self
+            .runtime
+            .registry()
+            .get(type_id)
+            .ok_or_else(|| BytecodeError::InvalidSection("unknown parameter type".into()))?;
+        match ty {
+            Type::Alias { target, .. } => {
+                self.call_local_implicit_default_is_portable(*target, depth + 1)
+            }
+            Type::Interface { .. } | Type::FunctionBlock { .. } | Type::Class { .. } => Ok(false),
+            _ => Ok(true),
+        }
+    }
+
     fn pou_entry_program(
         &mut self,
         program: &crate::task::ProgramDef,
@@ -27,7 +57,7 @@ impl<'a> BytecodeEncoder<'a> {
     ) -> Result<PouEntry, BytecodeError> {
         let name_idx = self.strings.intern(func.name.clone());
         let return_type_id = Some(self.type_index(func.return_type)?);
-        let params = self.encode_params(&func.params)?;
+        let params = self.encode_params(&func.params, ParamDefaultPolicy::CallLocal)?;
         Ok(PouEntry {
             id,
             name_idx,
@@ -51,7 +81,7 @@ impl<'a> BytecodeEncoder<'a> {
     ) -> Result<PouEntry, BytecodeError> {
         let name_idx = self.strings.intern(fb.name.clone());
         let params = if emit_params {
-            self.encode_params(&fb.params)?
+            self.encode_params(&fb.params, ParamDefaultPolicy::InstanceBacked)?
         } else {
             Vec::new()
         };
@@ -96,7 +126,7 @@ impl<'a> BytecodeEncoder<'a> {
         id: u32,
     ) -> Result<PouEntry, BytecodeError> {
         let name_idx = self.strings.intern(method.name.clone());
-        let params = self.encode_params(&method.params)?;
+        let params = self.encode_params(&method.params, ParamDefaultPolicy::CallLocal)?;
         let return_type_id = method
             .return_type
             .map(|type_id| self.type_index(type_id))
@@ -119,6 +149,7 @@ impl<'a> BytecodeEncoder<'a> {
     pub(super) fn encode_params(
         &mut self,
         params: &[Param],
+        default_policy: ParamDefaultPolicy,
     ) -> Result<Vec<ParamEntry>, BytecodeError> {
         let mut out = Vec::with_capacity(params.len());
         for param in params {
@@ -129,12 +160,54 @@ impl<'a> BytecodeEncoder<'a> {
                 ParamDirection::Out => 1,
                 ParamDirection::InOut => 2,
             };
-            let default_const_idx = match (&param.default, param.direction) {
-                (Some(expr), ParamDirection::In) => {
-                    let value = self.const_value_from_expr(expr)?;
-                    Some(self.const_index_for(&value)?)
+            let execution_control_default =
+                (param.direction == ParamDirection::In
+                    && param.name.eq_ignore_ascii_case("EN"))
+                    || (param.direction == ParamDirection::Out
+                        && param.name.eq_ignore_ascii_case("ENO"));
+            let default_const_idx = if execution_control_default {
+                Some(self.const_index_for(&crate::value::Value::Bool(true))?)
+            } else {
+                match (default_policy, &param.default, param.direction) {
+                    (
+                        ParamDefaultPolicy::CallLocal,
+                        Some(expr),
+                        ParamDirection::In | ParamDirection::Out,
+                    ) => {
+                        let value = crate::harness::initializer::evaluate_initializer(
+                            self.runtime.storage(),
+                            self.runtime.registry(),
+                            self.runtime.initializer_catalog(),
+                            &self.runtime.profile(),
+                            None,
+                            self.runtime.stdlib(),
+                            expr,
+                            param.type_id,
+                        )
+                        .map_err(|error| {
+                            BytecodeError::InvalidSection(error.to_string().into())
+                        })?;
+                        Some(self.const_index_for_type(&value, param.type_id)?)
+                    }
+                    (
+                        ParamDefaultPolicy::CallLocal,
+                        None,
+                        ParamDirection::In | ParamDirection::Out,
+                    ) if self.call_local_implicit_default_is_portable(param.type_id, 0)? => {
+                        let value = crate::harness::initializer::default_value_for_type_id(
+                            self.runtime.storage(),
+                            self.runtime.registry(),
+                            self.runtime.initializer_catalog(),
+                            &self.runtime.profile(),
+                            None,
+                            self.runtime.stdlib(),
+                            param.type_id,
+                        )
+                        .map_err(|error| BytecodeError::InvalidSection(error.to_string().into()))?;
+                        Some(self.const_index_for_type(&value, param.type_id)?)
+                    }
+                    _ => None,
                 }
-                _ => None,
             };
             out.push(ParamEntry {
                 name_idx,

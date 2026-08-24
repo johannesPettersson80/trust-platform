@@ -2,49 +2,54 @@ use super::literals::string_literal_info;
 use super::literals::{is_untyped_int_literal_expr, is_untyped_real_literal_expr};
 use super::*;
 use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
+use crate::types::is_accuracy_preserving_implicit_conversion;
 
 impl<'a> TypeChecker<'a> {
     // ========== Helper Methods ==========
 
-    pub(super) fn wider_numeric(&self, a: TypeId, b: TypeId) -> TypeId {
-        // Widening order for numeric types
-        const WIDENING_ORDER: &[TypeId] = &[
-            TypeId::SINT,
-            TypeId::INT,
-            TypeId::DINT,
-            TypeId::LINT,
-            TypeId::USINT,
-            TypeId::UINT,
-            TypeId::UDINT,
-            TypeId::ULINT,
-            TypeId::REAL,
-            TypeId::LREAL,
-        ];
-
+    pub(super) fn wider_numeric(&self, a: TypeId, b: TypeId) -> Option<TypeId> {
         let a = self.resolve_subrange_base(a);
         let b = self.resolve_subrange_base(b);
-
-        let pos_a = WIDENING_ORDER.iter().position(|&t| t == a);
-        let pos_b = WIDENING_ORDER.iter().position(|&t| t == b);
-
-        match (pos_a, pos_b) {
-            (Some(pa), Some(pb)) => WIDENING_ORDER[pa.max(pb)],
-            (Some(_), None) => a,
-            (None, Some(_)) => b,
-            (None, None) => LEGACY_UNKNOWN_TYPE_ID,
+        if a == b {
+            return Some(a);
         }
+        let a_ty = self.symbols.type_by_id(a)?;
+        let b_ty = self.symbols.type_by_id(b)?;
+        if is_accuracy_preserving_implicit_conversion(a_ty, b_ty) {
+            return Some(a);
+        }
+        if is_accuracy_preserving_implicit_conversion(b_ty, a_ty) {
+            return Some(b);
+        }
+        None
     }
 
     pub(super) fn is_contextual_int_literal(&self, expected: TypeId, expr: &SyntaxNode) -> bool {
-        let expected = self.resolve_alias_type(expected);
+        if !is_untyped_int_literal_expr(expr) {
+            return false;
+        }
+        let expected = self.resolve_subrange_base(expected);
         let Some(ty) = self.symbols.type_by_id(expected) else {
             return false;
         };
-        let normalized = self.normalize_subrange(ty);
-        if !normalized.is_integer() {
+        let Ok(value) = self.try_eval_const_int_expr(expr) else {
             return false;
+        };
+        if let Type::Subrange { lower, upper, .. } = ty {
+            return value >= *lower && value <= *upper;
         }
-        is_untyped_int_literal_expr(expr)
+        let normalized = self.normalize_subrange(ty);
+        match normalized {
+            Type::SInt => i8::try_from(value).is_ok(),
+            Type::Int => i16::try_from(value).is_ok(),
+            Type::DInt => i32::try_from(value).is_ok(),
+            Type::LInt => true,
+            Type::USInt => u8::try_from(value).is_ok(),
+            Type::UInt => u16::try_from(value).is_ok(),
+            Type::UDInt => u32::try_from(value).is_ok(),
+            Type::ULInt => value >= 0,
+            _ => false,
+        }
     }
 
     pub(super) fn is_contextual_real_literal(&self, expected: TypeId, expr: &SyntaxNode) -> bool {
@@ -67,6 +72,20 @@ impl<'a> TypeChecker<'a> {
             Type::LReal => integer_is_exact_in_binary_float(value, 53),
             _ => false,
         }
+    }
+
+    pub(super) fn is_contextual_char_literal(&self, expected: TypeId, expr: &SyntaxNode) -> bool {
+        let Some(literal) = string_literal_info(expr) else {
+            return false;
+        };
+        if literal.len != 1 {
+            return false;
+        }
+        let expected = self.resolve_alias_type(expected);
+        matches!(
+            (self.symbols.type_by_id(expected), literal.is_wide),
+            (Some(Type::Char), false) | (Some(Type::WChar), true)
+        )
     }
 
     pub(super) fn warn_implicit_conversion(

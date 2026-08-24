@@ -18,9 +18,11 @@ export type RuntimeStatus =
   | "stopped"
   | "starting"
   | "running"
+  | "stopping"
   | "connected"
   | "disconnected"
-  | "unreachable";
+  | "unreachable"
+  | "unavailable";
 
 // The single primary verb for the selected runtime's current state. `none` = no actionable button
 // (e.g. mid-transition while starting/connecting).
@@ -147,19 +149,42 @@ function managedRuntime(
   option: RuntimeOption,
   managed: ReadonlyArray<ManagedRuntime>
 ): SelectedRuntime {
-  const running =
-    managed.find((local) => local.name === option.id)?.state === "running";
-  return running
-    ? runtime(option, "running", "Running", {
+  const state =
+    managed.find((local) => local.name === option.id)?.state ?? "unavailable";
+  switch (state) {
+    case "running":
+      return runtime(option, "running", "Running", {
         action: "stop",
         label: "Stop",
         enabled: true,
-      })
-    : runtime(option, "stopped", "Stopped", {
+      });
+    case "stopped":
+      return runtime(option, "stopped", "Stopped", {
         action: "start",
         label: "Start",
         enabled: true,
       });
+    case "starting":
+      return runtime(option, "starting", "Starting…", {
+        action: "none",
+        label: "Starting…",
+        enabled: false,
+      });
+    case "stopping":
+      return runtime(option, "stopping", "Stopping…", {
+        action: "none",
+        label: "Stopping…",
+        enabled: false,
+      });
+    case "unavailable":
+    default:
+      return runtime(option, "unavailable", "Status unavailable", {
+        action: "start",
+        label: "Start",
+        enabled: false,
+        hint: "Status unavailable — refresh managed runtimes before starting.",
+      });
+  }
 }
 
 // The simulator: we own the (debug) process → Start/Stop, driven by the lifecycle snapshot.

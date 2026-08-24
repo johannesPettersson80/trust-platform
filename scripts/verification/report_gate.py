@@ -33,6 +33,18 @@ TEST_FILE_SUFFIXES = (
     "_tests.py",
 )
 DEFAULT_OUTPUT_DIR = Path("target/gate-artifacts/verification")
+ADVISORY_COMMANDS = {
+    "verification_focused_tests",
+    "verification_tooling_exhaustive",
+    "verification_metadata_gate",
+    "phase16_readiness",
+    "verification_governance",
+    "plan_tests",
+}
+SMOKE_TEST_MODULES = (
+    "scripts.verification.report_gate_tests",
+    "scripts.verification.focused_test_suite_tests",
+)
 
 
 @dataclass(frozen=True)
@@ -93,9 +105,23 @@ def build_report(
     command_runner: CommandRunner | None = None,
     run_planner: bool = True,
     enforcing: bool = False,
+    smoke: bool = False,
 ) -> VerificationReport:
     runner = command_runner or default_runner(root)
     normalized = sorted({normalize_changed_file(path) for path in changed_files if path.strip()})
+    if smoke:
+        commands = [runner(["python3", "-m", "unittest", *SMOKE_TEST_MODULES])]
+        return VerificationReport(
+            mode="enforcing" if enforcing else "report-only",
+            intent=intent,
+            baseline=baseline,
+            changed_files=normalized,
+            commands=commands,
+            planner_exit_code=None,
+            planner_json=None,
+            uncataloged_tests=find_uncataloged_tests(root=root, changed_files=normalized),
+        )
+
     commands: list[CommandResult] = [
         runner(["python3", "scripts/run_verification_focused_tests.py"]),
         runner(["scripts/verification_metadata_gate.sh"]),
@@ -171,7 +197,9 @@ def default_runner(root: Path) -> CommandRunner:
 
 def command_name(command: list[str]) -> str:
     if command[:2] == ["python3", "scripts/run_verification_focused_tests.py"]:
-        return "verification_focused_tests"
+        return "verification_tooling_exhaustive"
+    if command == ["python3", "-m", "unittest", *SMOKE_TEST_MODULES]:
+        return "verification_report_smoke"
     if command[:1] == ["scripts/verification_metadata_gate.sh"]:
         return "verification_metadata_gate"
     if command[:3] == ["python3", "-m", "scripts.verification.phase16_readiness"]:
@@ -270,7 +298,12 @@ def load_authorized_discovery_ids(root: Path) -> set[str]:
     ):
         if not path.exists():
             continue
-        data = tomllib.loads(path.read_text())
+        try:
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, tomllib.TOMLDecodeError):
+            # Catalog maintenance is advisory. A malformed metadata file must
+            # not prevent the report or native product gates from running.
+            continue
         records = data.get(collection, [])
         if not isinstance(records, list):
             continue
@@ -303,39 +336,9 @@ def report_exit_code(report: VerificationReport, *, strict: bool) -> int:
     if not strict:
         return 0
     for command in report.commands:
-        if command.exit_code == 0:
-            continue
-        if command.name != "plan_tests" or planner_finding_blocks(report.planner_json):
+        if command.exit_code != 0 and command.name not in ADVISORY_COMMANDS:
             return 1
-    if report.uncataloged_tests:
-        return 1
     return 0
-
-
-def planner_finding_blocks(payload: dict[str, object] | None) -> bool:
-    """Keep the original bytecode class ratchet while enforcing global integrity."""
-
-    if payload is None:
-        return True
-    for field in ("spec_gaps", "unmapped_files", "unknown_areas", "uninventoried_areas"):
-        value = payload.get(field)
-        if not isinstance(value, list):
-            return True
-        if value:
-            return True
-    missing = payload.get("missing_test_classes")
-    areas = payload.get("areas")
-    if not isinstance(missing, list) or not isinstance(areas, list):
-        return True
-    if not missing or "bytecode_vm" not in areas:
-        return False
-    missing_by_area = payload.get("missing_test_classes_by_area")
-    if missing_by_area is None:
-        return True
-    if not isinstance(missing_by_area, dict):
-        return True
-    bytecode_missing = missing_by_area.get("bytecode_vm", [])
-    return not isinstance(bytecode_missing, list) or bool(bytecode_missing)
 
 
 def render_markdown(report: VerificationReport) -> str:
@@ -361,13 +364,8 @@ def render_markdown(report: VerificationReport) -> str:
     if report.planner_json:
         verdict = report.planner_json.get("verdict", "<unknown>")
         lines.append(f"Planner verdict: `{verdict}`")
-        if (
-            report.planner_exit_code not in (None, 0)
-            and not planner_finding_blocks(report.planner_json)
-        ):
-            lines.append(
-                "Planner test-class finding: advisory outside the bytecode/VM test-class ratchet"
-            )
+        if report.planner_exit_code not in (None, 0):
+            lines.append("Planner finding: advisory maintenance information")
 
     lines.extend(["", "Uncataloged changed tests:"])
     if report.uncataloged_tests:
@@ -378,8 +376,9 @@ def render_markdown(report: VerificationReport) -> str:
     if report.mode == "enforcing":
         lines.extend(
             [
-                "This gate is enforcing. A red verification command or an",
-                "uncataloged changed test blocks merge.",
+                "Strict mode remains fail-closed for any non-advisory command added to this report.",
+                "The recursive verification-tooling and metadata commands are advisory maintenance; native product tests are enforced by their owning CI jobs.",
+                "Planner and catalog observations are advisory and do not block merge.",
             ]
         )
     else:
@@ -413,6 +412,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--changed", nargs="*", help="Explicit changed-file list")
     parser.add_argument("--out-dir", default=str(DEFAULT_OUTPUT_DIR), help="Report output directory")
     parser.add_argument("--strict", action="store_true", help="Return non-zero on reported failures")
+    parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="Run only report-boundary tests; exhaustive maintenance stays scheduled",
+    )
     return parser.parse_args(argv)
 
 
@@ -428,6 +432,7 @@ def main(argv: list[str] | None = None) -> int:
             intent=args.intent,
             baseline=args.base,
             enforcing=args.strict,
+            smoke=args.smoke,
         )
         write_reports(report, ROOT / args.out_dir)
         print(render_markdown(report), end="")

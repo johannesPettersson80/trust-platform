@@ -15,6 +15,7 @@ impl DebugAdapter {
             control_server: None,
             last_io_state: Arc::new(Mutex::new(None)),
             forced_io_addresses: Arc::new(Mutex::new(HashSet::new())),
+            initialized: false,
             launch_state: LaunchState::default(),
             pause_expected: Arc::new(AtomicBool::new(false)),
             stop_gate: StopGate::new(),

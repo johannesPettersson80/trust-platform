@@ -25,6 +25,7 @@ trust-dev test --project ./my-plc --output json
 ### `test`
 
 - discovers ST tests in the project
+- compiles an unfiltered project before reporting that it has no test POU
 - runs them with configurable timeout and output format
 - can list tests without executing them
 

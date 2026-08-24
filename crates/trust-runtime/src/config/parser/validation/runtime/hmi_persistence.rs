@@ -12,14 +12,14 @@ fn parse_hmi_persistence_section(
             "runtime.hmi_persistence.max_entries must be >= 1".into(),
         ));
     }
-    let history_path = section
-        .history_path
-        .map(|path| path.trim().to_string())
-        .filter(|path| !path.is_empty())
-        .unwrap_or_else(|| "history/hmi.jsonl".to_string());
+    let history_path = parse_optional_path(
+        "runtime.hmi_persistence.history_path",
+        section.history_path,
+    )?
+    .unwrap_or_else(|| PathBuf::from("history/hmi.jsonl"));
     Ok(HmiPersistenceConfig {
         enabled: section.enabled.unwrap_or(false),
-        history_path: PathBuf::from(history_path),
+        history_path,
         max_entries,
     })
 }

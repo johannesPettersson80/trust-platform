@@ -3,14 +3,14 @@ id = "RT_SAFE_STOP_001"
 title = "Deliberate stop applies or truthfully reports safe outputs"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime"
 last_reviewed = "2026-07-14"
 claim = "On deliberate stop, configured safe outputs must reach the device or the runtime must report that safe state was not achieved."
-proof_level = "G2"
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime", "crates/trust-runtime/src/io"]
-tests = ["TEST_RUNTIME_SAFE_STATE_HANDOFF_001"]
+tests = ["TEST_AUTO_6F92DA55FCF24372A33A", "TEST_AUTO_EFB8B3C332B85B1B4615", "TEST_RUNTIME_SAFE_STATE_HANDOFF_001", "TEST_RUNTIME_SAFE_STATE_STOP_DEGRADED_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_SAFE_STATE_HANDOFF_001_RED",
@@ -38,7 +38,21 @@ fault_surface = "SafeStateUnconfirmed"
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "not_safe_reported" }
 rationale = "The safe output image is applied and every configured driver is attempted, but any driver error or non-Ok post-write health makes the overall handoff unconfirmed and prevents a successful stopped state."
 
+[[behavior]]
+partition = { equals = "CONFIRMED_DELIBERATE_STOP_SAFE_STATE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#safe-state-handoff-confirmation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "expected_delta" }
+rationale = "A deliberate stop writes the configured safe output through the driver before the resource thread exits, then reports Stopped without a last error."
+
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
 state = "covered"
 rationale = "Producer-authentic red and green proof covers deliberate stop on degraded and faulted handoffs while later configured drivers are still attempted; broad remote and real output-module evidence remain explicit invariant debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_SAFE_STOP_001; dynamic proof and broad remote validation remain explicit debt."
