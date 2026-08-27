@@ -1150,6 +1150,10 @@ struct Diagnostic {
 - Full file parsing
 - Cross-file references
 - LSP protocol compliance + golden handler responses
+- Neovim and Zed editor smoke gates MUST verify that every exact Rust test
+  filter names a discovered `trust-lsp` test before executing it. A missing or
+  stale filter that selects zero tests MUST fail instead of being reported as
+  editor workflow coverage.
 - Performance harness (ignored by default): hover/completion/rename budgets + large workspace indexing (Section 10 targets)
 - VS Code extension integration tests for completion, formatting, and code actions (IEC 61131-3 Ed.3 §6.1-6.3; Tables 4-9; §6.5.2.2)
 - Stdlib coverage check: ensures all IEC standard function/FB names appear in `docs/specs/coverage/standard-functions-coverage.md` (IEC 61131-3 Ed.3, Tables 22–36, 43–46)

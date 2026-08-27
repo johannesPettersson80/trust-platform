@@ -58,6 +58,9 @@ Target release: `v0.24.63`
 
 ### Fixed
 
+- Make the Neovim and Zed editor smoke gate fail when an exact Rust filter
+  silently selects zero tests.
+
 - Make tutorial 09 a complete standalone simulation project so Compile and the
   Runtime Panel resolve its source and configuration instead of falling back to
   the repository root.
