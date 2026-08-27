@@ -5056,6 +5056,12 @@ reachability checks:
   such as `site-b/*`, a suffix such as `*/runtime-b`, and exact target IDs have
   their documented meanings; other embedded-wildcard shapes do not match.
 
+The runtime communications conformance gate must execute every named native
+case in its suite. A stale filter that selects zero tests is a gate failure and
+must not be reported as conformance success. Its development-profile gateway
+case verifies the permissive `dev` policy above; default-deny write coverage
+belongs to the `wan` profile and must not be attributed to `dev`.
+
 Preflight and dispatch responses retain the caller's `request_id` and
 `connected_via`. Each dispatched target produces one result for that target;
 successful target results carry the target audit correlation supplied by the

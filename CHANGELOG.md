@@ -58,6 +58,8 @@ Target release: `v0.24.63`
 
 ### Fixed
 
+- Make the runtime communications conformance gate reject zero-test filters
+  and align its development and WAN profile cases with the shipped policy.
 - Make the Neovim and Zed editor smoke gate fail when an exact Rust filter
   silently selects zero tests.
 
