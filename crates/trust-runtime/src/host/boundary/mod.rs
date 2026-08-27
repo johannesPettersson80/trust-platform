@@ -10,3 +10,4 @@ pub use error::BoundaryError;
 pub use protocol_envelope::{BoundaryEntry, BoundaryEntryStatus};
 
 pub(crate) use resolver::{resolve_bind, resolve_read, resolve_write};
+pub use resolver::{resolve_io_tag, ResolvedIoTag};

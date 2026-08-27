@@ -1,4 +1,5 @@
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct MqttPointToml {
     topic: String,
     image_offset: usize,

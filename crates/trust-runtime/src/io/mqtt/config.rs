@@ -15,6 +15,7 @@ struct MqttIoConfig {
     reconnect: StdDuration,
     keep_alive: StdDuration,
     on_error: IoDriverErrorPolicy,
+    input_enabled: bool,
     tls: Option<MqttTlsConfig>,
     input_points: Vec<MqttInputPoint>,
     output_points: Vec<MqttOutputPoint>,
@@ -29,6 +30,7 @@ struct MqttTlsConfig {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct MqttToml {
     broker: String,
     client_id: Option<String>,
@@ -47,6 +49,7 @@ struct MqttToml {
     allow_insecure_remote: Option<bool>,
     input_points: Option<Vec<MqttPointToml>>,
     output_points: Option<Vec<MqttPointToml>>,
+    mappings: Option<Vec<super::mqtt_tag_mapping::MqttTagMappingToml>>,
     sparkplug: Option<SparkplugToml>,
 }
 
@@ -107,6 +110,10 @@ impl MqttIoConfig {
                 "mqtt keep_alive_s must be <= 65535".into(),
             ));
         }
+        let has_tag_mappings = params
+            .mappings
+            .as_ref()
+            .is_some_and(|mappings| !mappings.is_empty());
         let input_points = params
             .input_points
             .unwrap_or_default()
@@ -133,6 +140,7 @@ impl MqttIoConfig {
             reconnect,
             keep_alive: StdDuration::from_secs(keep_alive_s),
             on_error,
+            input_enabled: !has_tag_mappings || !input_points.is_empty(),
             tls,
             input_points,
             output_points,
@@ -141,6 +149,9 @@ impl MqttIoConfig {
     }
 
     fn subscribe_topics(&self) -> Vec<SmolStr> {
+        if !self.input_enabled {
+            return Vec::new();
+        }
         if self.input_points.is_empty() {
             return vec![self.topic_in.clone()];
         }

@@ -14,17 +14,37 @@ fn apply_bundle_runtime_overrides(
     runtime.set_io_safe_state(bundle.io.safe_state.clone());
     runtime.configure_openot_telemetry(&bundle.runtime.openot, Some(&bundle.root))?;
 
+    if let Err(err) =
+        runtime.apply_bytecode_bytes(&bundle.bytecode, Some(&bundle.runtime.resource_name))
+    {
+        anyhow::bail!(
+            "failed to apply bytecode metadata: {err} (project folder may require sources)"
+        );
+    }
+
     let registry = IoDriverRegistry::default_registry();
+    let mut resolved_drivers = Vec::with_capacity(bundle.io.drivers.len());
     for driver in &bundle.io.drivers {
+        let mut resolved_driver = driver.clone();
         if !driver.enabled {
+            resolved_drivers.push(resolved_driver);
             continue;
         }
+        if driver.name.eq_ignore_ascii_case("mqtt")
+            || driver.name.eq_ignore_ascii_case("mqtt-tcp")
+        {
+            resolved_driver.params = trust_runtime::io::resolve_mqtt_tag_mappings(
+                runtime,
+                &resolved_driver.params,
+            )?;
+        }
         if let Some(spec) = registry
-            .build(driver.name.as_str(), &driver.params)
+            .build(resolved_driver.name.as_str(), &resolved_driver.params)
             .map_err(anyhow::Error::from)?
         {
             runtime.add_io_driver(spec.name, spec.driver);
         }
+        resolved_drivers.push(resolved_driver);
     }
 
     match bundle.runtime.retain_mode {
@@ -44,14 +64,7 @@ fn apply_bundle_runtime_overrides(
         }
     }
 
-    if let Err(err) =
-        runtime.apply_bytecode_bytes(&bundle.bytecode, Some(&bundle.runtime.resource_name))
-    {
-        anyhow::bail!(
-            "failed to apply bytecode metadata: {err} (project folder may require sources)"
-        );
-    }
-    trust_runtime::io::annotate_io_binding_sources(runtime.io_mut(), &bundle.io.drivers);
+    trust_runtime::io::annotate_io_binding_sources(runtime.io_mut(), &resolved_drivers);
     start_ads_runtime(runtime, bundle)?;
     start_opcua_client_runtime(runtime, bundle)?;
 

@@ -128,7 +128,10 @@ package, or end-to-end evidence.
 ### 3.4 VSIX and acceptance evidence
 
 - Every Unix and Windows release VSIX MUST bundle `trust-lsp`, `trust-debug`,
-  and `trust-runtime` under `editors/vscode/bin`; Windows artifacts use `.exe`.
+  `trust-runtime`, and `trust-dev` under `editors/vscode/bin`; Windows artifacts
+  use `.exe`. The bundled `trust-runtime` and `trust-dev` MUST come from the
+  same target and release build so native Testing cannot fall back to a stale
+  workbench binary from `PATH`.
 - The acceptance-journey batch MUST remove helper-produced PNG files,
   including diagnostic `runner-output` copies, before validating the retained
   evidence tree.

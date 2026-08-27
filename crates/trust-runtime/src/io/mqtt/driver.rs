@@ -227,6 +227,11 @@ impl MqttIoDriver {
 
 impl IoDriver for MqttIoDriver {
     fn read_inputs(&mut self, inputs: &mut [u8]) -> Result<(), RuntimeError> {
+        if !self.config.input_enabled {
+            inputs.fill(0);
+            self.health = IoDriverHealth::Ok;
+            return Ok(());
+        }
         if let Some(worker) = &self.worker {
             return worker.read_inputs(inputs);
         }

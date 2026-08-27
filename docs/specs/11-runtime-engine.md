@@ -765,6 +765,29 @@ errors before a worker or transport is started.
 
 For MQTT:
 
+- `mappings` is an optional ordered array of tag-oriented point definitions.
+  Each entry contains exactly `tag`, `topic`, and `direction`; `direction =
+  "write"` transfers the PLC value to the broker and `direction = "read"`
+  transfers the broker value to the PLC. Direction is defined relative to the
+  PLC, not the broker;
+- a mapping tag names one fully qualified scalar program-instance variable,
+  such as `MainInstance.Green`. Startup resolves every tag before starting the
+  MQTT worker and fails without a partial binding when a tag is missing,
+  ambiguous, non-scalar, or has a type outside the MQTT scalar set;
+- resolved mappings lower through the shared `%I`/`%Q` process-image boundary
+  and the existing typed MQTT point-map codec. Existing compatible direct
+  bindings are reused; otherwise deterministic non-overlapping image storage is
+  allocated after the declared process image. The MQTT worker does not access
+  program storage or resolve symbols;
+- a configuration containing only `direction = "write"` mappings has no
+  implicit raw-input subscription and does not require an inbound snapshot.
+  Raw `topic_in`/`topic_out` behavior remains the default when `mappings` is
+  absent;
+- mapping values use the inferred PLC scalar type and the text payload format.
+  Explicit `input_points` and `output_points` remain available for address,
+  binary-format, scaling, and Sparkplug control;
+- unknown MQTT parameter or mapping fields are configuration errors instead of
+  being ignored;
 - a point topic is trimmed, non-empty, contains no control character, and is
   an exact publish/delivery topic rather than a `+` or `#` subscription
   filter;
@@ -5032,6 +5055,12 @@ reachability checks:
   action-and-target `runtime.cloud.wan.allow_write` rule matches. `*`, a prefix
   such as `site-b/*`, a suffix such as `*/runtime-b`, and exact target IDs have
   their documented meanings; other embedded-wildcard shapes do not match.
+
+The runtime communications conformance gate must execute every named native
+case in its suite. A stale filter that selects zero tests is a gate failure and
+must not be reported as conformance success. Its development-profile gateway
+case verifies the permissive `dev` policy above; default-deny write coverage
+belongs to the `wan` profile and must not be attributed to `dev`.
 
 Preflight and dispatch responses retain the caller's `request_id` and
 `connected_via`. Each dispatched target produces one result for that target;

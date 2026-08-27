@@ -22,6 +22,16 @@ run_observed() {
     -- "$@"
 }
 
+assert_case_executed() {
+  local case_id="$1"
+  local log_path="$2"
+  if grep -Eq 'test result: ok\. [1-9][0-9]* passed;' "${log_path}"; then
+    return 0
+  fi
+  echo "[conformance-gate] ERROR: ${case_id} selected zero tests" >&2
+  return 1
+}
+
 run_lib_case() {
   local case_id="$1"
   local test_filter="$2"
@@ -29,6 +39,7 @@ run_lib_case() {
   echo "[conformance-gate] running lib case ${case_id}"
   run_observed "runtime-comms-conformance" "${case_id}" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${log_path}" \
     cargo test -p trust-runtime --lib "${test_filter}" -- --nocapture
+  assert_case_executed "${case_id}" "${log_path}"
 }
 
 run_it_case() {
@@ -39,6 +50,7 @@ run_it_case() {
   echo "[conformance-gate] running integration case ${case_id}"
   run_observed "runtime-comms-conformance" "${case_id}" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${log_path}" \
     cargo test -p trust-runtime --test "${test_target}" "${test_filter}" -- --nocapture
+  assert_case_executed "${case_id}" "${log_path}"
 }
 
 echo "[conformance-gate] suite: t0-shm"
@@ -54,8 +66,9 @@ run_it_case "mesh_query_budget_timeout" "web_io_config_integration" "runtime_clo
 run_it_case "mesh_secure_transport_advertisement" "web_io_config_integration" "runtime_cloud_discovery_endpoint_exposes_secure_transport_metadata"
 
 echo "[conformance-gate] suite: gateway-bridge"
-run_it_case "gateway_default_deny_cross_site" "web_io_config_integration" "runtime_cloud_preflight_denies_cross_site_cfg_apply_without_allowlist"
-run_it_case "gateway_allowlist_cross_site" "web_io_config_integration" "runtime_cloud_preflight_allows_cross_site_cfg_apply_with_allowlist"
+run_it_case "gateway_dev_allows_cross_site" "web_io_config_integration" "runtime_cloud_preflight_dev_allows_cross_site_cfg_apply_without_allowlist"
+run_lib_case "gateway_wan_default_deny_cross_site" "runtime_cloud::profile_policy::tests::wan_profile_denies_write_without_matching_rule"
+run_lib_case "gateway_wan_allowlist_cross_site" "runtime_cloud::profile_policy::tests::allowlist_supports_prefix_and_suffix_patterns"
 run_it_case "gateway_degraded_partial_partition" "web_io_config_integration" "runtime_cloud_preflight_marks_partial_partition_target_as_stale"
 run_it_case "gateway_witness_loss_demotion" "web_io_config_integration" "runtime_cloud_ha_lease_expiry_demotes_active_runtime_preflight"
 
@@ -112,8 +125,9 @@ jq -n '
     {
       id: "gateway-bridge",
       cases: [
-        "gateway_default_deny_cross_site",
-        "gateway_allowlist_cross_site",
+        "gateway_dev_allows_cross_site",
+        "gateway_wan_default_deny_cross_site",
+        "gateway_wan_allowlist_cross_site",
         "gateway_degraded_partial_partition",
         "gateway_witness_loss_demotion"
       ]
