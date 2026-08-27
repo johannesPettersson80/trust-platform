@@ -59,6 +59,7 @@ export interface CommConfiguredInstance {
   id: string;
   driver: string;
   display_name: string;
+  enabled?: boolean;
   params: Record<string, unknown>;
 }
 

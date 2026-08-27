@@ -40,6 +40,23 @@ export type RuntimeLifecycleSnapshot = {
   readonly failure?: RuntimeStartFailure;
 };
 
+export function runtimeSessionControlAuthToken(
+  session: Pick<vscode.DebugSession, "configuration"> | undefined,
+  endpoint: string
+): string | undefined {
+  const configuration = session?.configuration;
+  const sessionEndpoint = configuration?.request === "attach"
+    ? configuration.endpoint
+    : configuration?.controlEndpoint;
+  const token = configuration?.request === "attach"
+    ? configuration.authToken
+    : configuration?.controlAuthToken;
+  return typeof sessionEndpoint === "string" && sessionEndpoint.trim() === endpoint.trim() &&
+    typeof token === "string" && token.trim()
+    ? token.trim()
+    : undefined;
+}
+
 const EMPTY_IO_STATE: IoState = { inputs: [], outputs: [], memory: [] };
 
 class RuntimeLifecycleService {
@@ -168,6 +185,11 @@ class RuntimeLifecycleService {
       starting: this.starting,
       failure: this.failure,
     };
+  }
+
+  async controlAuthToken(endpoint: string): Promise<string | undefined> {
+    return runtimeSessionControlAuthToken(this.getStructuredTextSession(), endpoint) ??
+      await getControlAuthToken(endpoint);
   }
 
   async requestIoState(options: { readonly persistFailure?: boolean; readonly afterScan?: number } = {}): Promise<RuntimeLifecycleResult> {

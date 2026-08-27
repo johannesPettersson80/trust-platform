@@ -2473,6 +2473,7 @@ suite("Network Canvas — add picker taxonomy", function () {
 
   test("ADD_PICKER_GROUPS is the canonical S-09 group order", () => {
     assert.deepStrictEqual(ADD_PICKER_GROUPS.map((c) => c.key), [
+      "simulation",
       "devices_io",
       "read_tags",
       "share_values",

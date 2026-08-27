@@ -139,7 +139,11 @@ fn coerce_from_io(value: Value, target: TypeId) -> Result<Value, RuntimeError> {
     }
 }
 
-fn coerce_to_io(value: Value, target: TypeId, size: IoSize) -> Result<Value, RuntimeError> {
+pub(crate) fn coerce_to_io(
+    value: Value,
+    target: TypeId,
+    size: IoSize,
+) -> Result<Value, RuntimeError> {
     match target {
         TypeId::STRING => match (value, size) {
             (Value::String(text), IoSize::Bytes(len)) => {

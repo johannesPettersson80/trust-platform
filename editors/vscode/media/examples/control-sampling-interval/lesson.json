@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "control-sampling-interval",
+  "title": "Sampling interval sensitivity",
+  "level": "Foundation",
+  "specification": "docs/specs/36-control-pid-performance-evaluation.md#5",
+  "evidenceSource": "simulation",
+  "nativeTest": "paper_pi_meets_nominal_robustness_and_sampling_gates",
+  "nativeCommand": "cargo test -p trust-runtime --test control_pid_performance paper_pi_meets_nominal_robustness_and_sampling_gates -- --exact",
+  "expectedMetrics": "Every run remains stable, overshoot ≤ 20%, settling ≤ 8 s, final error ≤ 2%.",
+  "stages": [
+    "Predict",
+    "Configure",
+    "Monitor",
+    "Test",
+    "Identify",
+    "Tune",
+    "Validate",
+    "Explain",
+    "Export"
+  ]
+}

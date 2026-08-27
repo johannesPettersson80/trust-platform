@@ -66,6 +66,7 @@ struct DebugState {
     watch_changed: bool,
     log_tx: Option<Sender<DebugLog>>,
     io_tx: Option<Sender<IoSnapshot>>,
+    latest_io_snapshot: Option<IoSnapshot>,
     stop_tx: Option<Sender<DebugStop>>,
     runtime_tx: Option<Sender<RuntimeEvent>>,
     runtime_events: Vec<RuntimeEvent>,

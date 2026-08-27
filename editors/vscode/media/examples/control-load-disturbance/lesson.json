@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "control-load-disturbance",
+  "title": "Plant-side load disturbance",
+  "level": "Foundation",
+  "specification": "docs/specs/36-control-pid-performance-evaluation.md#6",
+  "evidenceSource": "simulation",
+  "nativeTest": "paper_pi_rejects_a_plant_side_load_disturbance",
+  "nativeCommand": "cargo test -p trust-runtime --test control_pid_performance paper_pi_rejects_a_plant_side_load_disturbance -- --exact",
+  "expectedMetrics": "Stable; within 2% by 20 s; post-event IAE ≤ 0.35.",
+  "stages": [
+    "Predict",
+    "Configure",
+    "Monitor",
+    "Test",
+    "Identify",
+    "Tune",
+    "Validate",
+    "Explain",
+    "Export"
+  ]
+}

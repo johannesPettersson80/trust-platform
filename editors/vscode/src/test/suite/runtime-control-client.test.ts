@@ -132,6 +132,40 @@ suite("Runtime control client", function () {
     );
   });
 
+  test("preserves structured rejection results for contract recovery", async () => {
+    const recovery = {
+      contract: "trust.plant",
+      schema_version: 1,
+      operation: "plant.save",
+      project_id: "project:sha256:abc",
+      configuration_revision: "sha256:current",
+      current_plant: null,
+    };
+    const socket = new FakeRuntimeControlSocket((request) => ({
+      id: request.id,
+      ok: false,
+      error_code: "revision_conflict",
+      error: "saved configuration changed",
+      result: recovery,
+    }));
+
+    await assert.rejects(
+      sendRuntimeControlRequest(
+        "tcp://127.0.0.1:9901",
+        "auth-token",
+        "plant.save",
+        {},
+        { socketFactory: () => socket, timeoutMs: 100 }
+      ),
+      (error) => {
+        assert.ok(error instanceof RuntimeControlError);
+        assert.strictEqual(error.code, "revision_conflict");
+        assert.deepStrictEqual((error as unknown as { result?: unknown }).result, recovery);
+        return true;
+      }
+    );
+  });
+
   test("probes endpoint reachability without sending a request", async () => {
     const socket = new FakeRuntimeControlSocket();
 

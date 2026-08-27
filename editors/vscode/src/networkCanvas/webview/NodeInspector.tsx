@@ -22,6 +22,7 @@ import type {
   CommSchemaResponse,
 } from "../../communication/schemaForm";
 import { visibleSchemaFields } from "../../communication/schemaForm";
+import { RemoveBrickActions } from "./RemoveBrickActions";
 
 // §4 D + settings UX (2026-06-17/18): single-click a node → ONE side panel. It opens on a
 // read-only SUMMARY (what it is + its current settings); an Edit button switches to the
@@ -810,32 +811,18 @@ function EditableEndpoint({
   const protocol = str(node.data.protocol);
   const health = str(node.data.health);
   const [values, setValues] = useState<Record<string, string>>(() => valuesFor(protoSchema, params));
-  const [confirmRemove, setConfirmRemove] = useState(false);
   const paramsKey = JSON.stringify(params ?? {});
   const schemaKey = `${protoSchema.id}:${protoSchema.fields.map((field) => field.id).join("|")}`;
   useEffect(() => {
     setValues(valuesFor(protoSchema, params));
   }, [node.id, schemaKey, paramsKey]);
-  useEffect(() => {
-    setConfirmRemove(false);
-  }, [node.id]);
 
   const fieldErrors = new Map((applyResult?.field_errors ?? []).map((e) => [e.field, e.message]));
   const visibleFields = visibleSchemaFields(protoSchema, values);
   const isDisabled = health === "disabled";
   const canDisable = protoSchema.actions.includes("disable") && !isDisabled;
   const send = (type: string, extra?: Record<string, unknown>) => {
-    if (type !== "commRemove") {
-      setConfirmRemove(false);
-    }
     post({ type, protocol, params: buildParams(protoSchema, values), target: node.id, ...extra });
-  };
-  const requestRemove = () => {
-    if (!confirmRemove) {
-      setConfirmRemove(true);
-      return;
-    }
-    send("commRemove");
   };
 
   const ok = applyResult && (applyResult.applied || applyResult.lifecycle_effect === "test_ok");
@@ -888,22 +875,11 @@ function EditableEndpoint({
       )}
 
       <footer className="trust-section" style={{ display: "flex", flexWrap: "wrap", gap: 8, borderBottom: "none" }}>
-        {confirmRemove ? (
-          <>
-            <div
-              className="trust-message trust-message--error endpoint-remove-confirmation"
-              style={{ flexBasis: "100%", margin: 0 }}
-            >
-              Remove this endpoint from the project? This writes the config file and takes effect after restart.
-            </div>
-            <button onClick={() => setConfirmRemove(false)} className="trust-button" style={{ flex: 1 }}>
-              Cancel
-            </button>
-            <button onClick={requestRemove} className="trust-button trust-button--danger" style={{ flex: 1 }}>
-              Confirm remove
-            </button>
-          </>
-        ) : (
+        <RemoveBrickActions
+          identity={node.id}
+          description="Remove this endpoint from the project? This writes the config file and takes effect after restart."
+          onRemove={() => send("commRemove")}
+        >
           <>
             <button onClick={() => send("commSave", { action: "upsert" })} className="trust-button trust-button--primary" style={{ flex: 1 }}>{isDisabled ? "Enable" : "Save"}</button>
             <button onClick={onClose} className="trust-button">Cancel</button>
@@ -915,16 +891,13 @@ function EditableEndpoint({
                 Disable
               </button>
             )}
-            <button onClick={requestRemove} className="trust-button trust-button--danger">
-              Remove
-            </button>
             {reachable && (
               <button onClick={() => send("commApplyLive", { action: "upsert" })} title="Push this config to the running runtime now" className="trust-button" style={{ flexBasis: "100%" }}>
                 Apply to running runtime
               </button>
             )}
           </>
-        )}
+        </RemoveBrickActions>
       </footer>
     </aside>
   );

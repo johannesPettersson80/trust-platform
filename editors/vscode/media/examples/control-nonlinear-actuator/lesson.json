@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "control-nonlinear-actuator",
+  "title": "Nonlinear actuator",
+  "level": "Practitioner",
+  "specification": "docs/specs/36-control-pid-performance-evaluation.md#11.4",
+  "evidenceSource": "simulation",
+  "nativeTest": "pid_benchmark_handles_nonlinear_actuator_dynamics",
+  "nativeCommand": "cargo test -p trust-runtime --test control_pid_performance pid_benchmark_handles_nonlinear_actuator_dynamics -- --exact",
+  "expectedMetrics": "Finite; MV in range; overshoot ≤ 10%; settling ≤ 15 s; final error ≤ 3%.",
+  "stages": [
+    "Predict",
+    "Configure",
+    "Monitor",
+    "Test",
+    "Identify",
+    "Tune",
+    "Validate",
+    "Explain",
+    "Export"
+  ]
+}

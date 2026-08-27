@@ -89,6 +89,44 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     operation("io.list", RolePolicy::Fixed(AccessRole::Viewer), false),
     operation("io.read", RolePolicy::Fixed(AccessRole::Viewer), false),
     operation(
+        "control.experiment.status",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
+        "control.pid.status",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation("plant.read", RolePolicy::Fixed(AccessRole::Viewer), false),
+    operation(
+        "plant.capabilities",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation("plant.status", RolePolicy::Fixed(AccessRole::Viewer), false),
+    operation(
+        "plant.trace.read",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
+        "plant.trace.clear",
+        RolePolicy::Fixed(AccessRole::Operator),
+        false,
+    ),
+    operation(
+        "plant.validate",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation("plant.save", RolePolicy::Fixed(AccessRole::Engineer), false),
+    operation(
+        "plant.remove",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
         "hmi.schema.get",
         RolePolicy::Fixed(AccessRole::Viewer),
         false,
@@ -180,6 +218,26 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     operation("var.force", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("var.unforce", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("io.write", RolePolicy::Fixed(AccessRole::Engineer), false),
+    operation(
+        "control.experiment.start",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
+        "control.experiment.abort",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
+        "control.pid.apply",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
+        "control.pid.rollback",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
     operation("io.force", RolePolicy::Fixed(AccessRole::Engineer), false),
     operation("io.unforce", RolePolicy::Fixed(AccessRole::Engineer), false),
     operation(

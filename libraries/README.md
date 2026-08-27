@@ -22,5 +22,6 @@ a user library location.
 
 Current shipped package roots include:
 
+- `libraries/control/`
 - `libraries/plcopen_motion/`
 - `libraries/oscat/`

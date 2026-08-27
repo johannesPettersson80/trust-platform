@@ -392,13 +392,24 @@ package "Type Checking" as typeCheckPkg #Wheat {
 
     package "Sub-Checkers" as subCheckers {
         component "ExprChecker" as exprCheck <<type_check/expr.rs>>
+        component "ResolveCheckerRef\n(scope + USING aware)" as resolveCheck <<type_check/symbol_resolve.rs>>
         component "StmtChecker" as stmtCheck <<type_check/stmt.rs>>
         component "CallChecker" as callCheck <<type_check/calls/>>
         component "StandardChecker" as stdCheck <<type_check/standard/>>
     }
 
     typeChecker --> subCheckers
+    exprCheck --> resolveCheck : typed literal type names
+    resolveCheck --> symTable : lexical, namespace, USING lookup
 }
+
+note right of resolveCheck
+    Qualified and imported enum type names
+    use the same scoped resolver as other
+    type references. A same-named value does
+    not hide registered type identity, while
+    ambiguous imported types remain fail closed.
+end note
 
 note bottom of stdCheck
     **Standard Functions:**

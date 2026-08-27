@@ -17,6 +17,7 @@ import {
 import {
   normalizeIoState,
 } from "../../runtimeLifecycle";
+import { connectedRuntimeStatusText } from "../../runtimeControls";
 import {
   compileGateReason,
   diagnosticsGateReason,
@@ -45,6 +46,17 @@ type Pkg = {
     views?: Record<string, Array<{ id?: string; type?: string }>>;
   };
 };
+
+suite("Runtime status bar endpoint truth", () => {
+  test("shows a reachable externally started runtime as connected", () => {
+    assert.strictEqual(connectedRuntimeStatusText({
+      runtimeState: "stopped",
+      runtimeMode: "online",
+      endpointReachable: true,
+      endpoint: "unix:///tmp/trust-runtime.sock",
+    }), "$(plug) truST: runtime connected");
+  });
+});
 
 function extensionRoot(): string {
   return path.resolve(__dirname, "..", "..", "..");
@@ -787,12 +799,12 @@ suite("truST sidebar — control surface contract", () => {
       "status bar must refresh when project marker files appear after first-run project creation"
     );
     assert.ok(
-      source.indexOf('snapshot.status.runtimeState === "connected"') <
+      source.indexOf("connectedRuntimeStatusText(snapshot.status)") <
         source.indexOf("selectedRuntime({"),
       "an active attached runtime must render as connected before selected-target fallback can say Simulator stopped"
     );
     assert.ok(
-      source.includes("connectedEndpointLabel(snapshot.status.endpoint)") &&
+      source.includes("connectedEndpointLabel(status.endpoint)") &&
         source.includes('return "runtime"'),
       "attached local runtime endpoints must render as a friendly runtime label, not a raw unix socket path"
     );

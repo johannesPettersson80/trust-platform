@@ -85,6 +85,23 @@ impl ControlResponse {
         }
     }
 
+    pub(super) fn error_with_code_and_result(
+        id: u64,
+        error: String,
+        error_code: &'static str,
+        result: serde_json::Value,
+    ) -> Self {
+        Self {
+            id,
+            ok: false,
+            result: Some(result),
+            error: Some(error),
+            error_code: Some(error_code.to_string()),
+            audit_id: None,
+            after_response: None,
+        }
+    }
+
     pub(super) fn with_audit_id(mut self, audit_id: Option<SmolStr>) -> Self {
         self.audit_id = audit_id.map(|value| value.to_string());
         self

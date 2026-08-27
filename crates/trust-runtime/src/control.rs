@@ -9,12 +9,16 @@ mod breakpoint_handlers;
 mod comm_handlers;
 mod config_handlers;
 mod connectors_handlers;
+mod controller_handlers;
 mod debug_handlers;
+mod experiment_handlers;
 mod fleet_handlers;
 mod handlers;
 mod hmi_handlers;
 mod io_handlers;
 mod operation_registry;
+mod plant_handlers;
+mod plant_service;
 mod policy;
 mod program_handlers;
 mod status_handlers;
@@ -52,6 +56,9 @@ use tracing::warn;
 pub use self::ads_handlers::AdsDoctorJobStore;
 use self::audit::{record_audit, ControlAuditRecord};
 use self::auth::resolve_request_role;
+pub use self::controller_handlers::ControllerParameterService;
+pub use self::experiment_handlers::ControlExperimentService;
+pub use self::plant_service::PlantControlService;
 use self::policy::{is_debug_request, required_role_for_control_request};
 pub(crate) use self::types::ControlResponse;
 use self::types::*;
@@ -73,6 +80,69 @@ fn control_event_time_now() -> crate::value::Duration {
         .as_millis()
         .min(i64::MAX as u128) as i64;
     crate::value::Duration::from_millis(timestamp_ms)
+}
+
+/// One stopped-project plant command producer with a session-scoped replay cache.
+#[derive(Debug)]
+pub struct OfflinePlantSession {
+    project_root: PathBuf,
+    plant_service: PlantControlService,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OfflinePlantRequest {
+    id: u64,
+    #[serde(rename = "type")]
+    operation: String,
+    params: Option<serde_json::Value>,
+}
+
+impl OfflinePlantSession {
+    pub fn new(project_root: PathBuf) -> Self {
+        Self {
+            project_root,
+            plant_service: PlantControlService::default(),
+        }
+    }
+
+    pub fn request_json(&self, request: serde_json::Value) -> serde_json::Value {
+        let request = match serde_json::from_value::<OfflinePlantRequest>(request) {
+            Ok(request) => request,
+            Err(error) => {
+                return serde_json::to_value(ControlResponse::error_with_code(
+                    0,
+                    format!("invalid offline plant request: {error}"),
+                    "malformed_request",
+                ))
+                .expect("control response is serializable");
+            }
+        };
+        let context = plant_handlers::PlantHandlerContext::offline(
+            self.project_root.as_path(),
+            &self.plant_service,
+        );
+        let mut response = plant_handlers::dispatch(
+            request.id,
+            request.operation.as_str(),
+            request.params,
+            &context,
+        )
+        .unwrap_or_else(|| {
+            ControlResponse::error_with_code(
+                request.id,
+                "unsupported plant operation".to_string(),
+                "unsupported_operation",
+            )
+        });
+        if !response.ok && response.result.is_none() {
+            response.result = plant_handlers::error_envelope(
+                request.operation.as_str(),
+                Some(self.project_root.as_path()),
+            );
+        }
+        serde_json::to_value(response).expect("control response is serializable")
+    }
 }
 
 /// Build the communication setup schema without connecting to a running runtime.
@@ -177,6 +247,9 @@ pub struct ControlState {
     pub web_listener_bound: Arc<AtomicBool>,
     pub opcua_server_bound: Arc<AtomicBool>,
     pub project_root: Option<PathBuf>,
+    pub plant_service: Arc<PlantControlService>,
+    pub experiments: ControlExperimentService,
+    pub controllers: ControllerParameterService,
     pub resource_name: SmolStr,
     pub io_health: Arc<Mutex<Vec<IoDriverStatus>>>,
     pub debug_enabled: Arc<AtomicBool>,
@@ -609,11 +682,12 @@ fn prepare_request_value(
     let request_role = match resolve_request_role(&request, state, client) {
         Ok(role) => role,
         Err(error) => {
-            let response = ControlResponse::error_with_code(
+            let mut response = ControlResponse::error_with_code(
                 request.id,
                 error.message().to_string(),
                 error.code(),
             );
+            attach_plant_error_contract(&mut response, &request, state);
             let audit_id = record_audit(
                 state,
                 ControlAuditRecord {
@@ -634,8 +708,9 @@ fn prepare_request_value(
         required_role_for_control_request(request.r#type.as_str(), request.params.as_ref());
     if !request_role.allows(required_role) {
         let error = format!("forbidden: requires role {}", required_role.as_str());
-        let response =
+        let mut response =
             ControlResponse::error_with_code(request.id, error.clone(), "insufficient_role");
+        attach_plant_error_contract(&mut response, &request, state);
         let audit_id = record_audit(
             state,
             ControlAuditRecord {
@@ -679,8 +754,18 @@ fn prepare_request_value(
         );
         return response.with_audit_id(audit_id);
     }
-    let mut response = handlers::dispatch(&request, state)
-        .unwrap_or_else(|| ControlResponse::error(request.id, "unsupported request".into()));
+    let mut response = handlers::dispatch(&request, state).unwrap_or_else(|| {
+        if request.r#type.starts_with("plant.") {
+            ControlResponse::error_with_code(
+                request.id,
+                "unsupported plant operation".into(),
+                "unsupported_operation",
+            )
+        } else {
+            ControlResponse::error(request.id, "unsupported request".into())
+        }
+    });
+    attach_plant_error_contract(&mut response, &request, state);
     if request.r#type == "status" && response.ok {
         attach_access_capabilities(&mut response, request_role);
     }
@@ -699,6 +784,18 @@ fn prepare_request_value(
     );
     response = response.with_audit_id(audit_id);
     response
+}
+
+fn attach_plant_error_contract(
+    response: &mut ControlResponse,
+    request: &ControlRequest,
+    state: &ControlState,
+) {
+    if response.ok || response.result.is_some() || !request.r#type.starts_with("plant.") {
+        return;
+    }
+    response.result =
+        plant_handlers::error_envelope(request.r#type.as_str(), state.project_root.as_deref());
 }
 
 fn apply_after_response(action: Option<ControlAfterResponse>, state: &ControlState) {

@@ -50,7 +50,13 @@ impl DebugAdapter {
             return;
         }
         let runtime = self.session.runtime_handle();
+        let simulation = self.session.simulation_handle();
         let control = self.session.debug_control();
+        let control_for_cycle = control.clone();
+        let control_snapshot_sink = self
+            .control_server
+            .as_ref()
+            .map(|server| server.io_snapshot_sink());
         let cycle_time = cycle_time_hint(self.session.metadata());
         let cycle_interval = wall_interval_for_cycle(cycle_time);
         let stop = Arc::new(AtomicBool::new(false));
@@ -64,12 +70,39 @@ impl DebugAdapter {
                 Ok(guard) => guard,
                 Err(poisoned) => poisoned.into_inner(),
             };
-            match runtime.execute_cycle() {
+            let now = runtime.current_time();
+            let mut simulation = match simulation.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            let cycle_result = if let Some(simulation) = simulation.as_mut() {
+                simulation
+                    .apply_pre_cycle(now, &mut runtime)
+                    .and_then(|()| runtime.execute_cycle())
+                    .and_then(|()| simulation.apply_post_cycle(now, &runtime))
+            } else {
+                runtime.execute_cycle()
+            };
+            match cycle_result {
                 Ok(()) => runtime.advance_time(cycle_time),
                 Err(err) => {
                     if !matches!(err, RuntimeError::InvalidControlFlow) {
                         eprintln!("runtime cycle error: {err}");
                     }
+                }
+            }
+            if let (Some((snapshot_sink, seen_ms)), Some(snapshot)) =
+                (&control_snapshot_sink, control_for_cycle.latest_io_snapshot())
+            {
+                if let Ok(mut current) = snapshot_sink.lock() {
+                    *current = Some(snapshot);
+                    seen_ms.store(
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|duration| duration.as_millis() as u64)
+                            .unwrap_or(0),
+                        Ordering::Relaxed,
+                    );
                 }
             }
             drop(runtime);

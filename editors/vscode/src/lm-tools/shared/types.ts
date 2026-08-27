@@ -282,6 +282,16 @@ export type HmiBindingCatalogEntry = {
 export type HmiBindingCatalog = {
   entries: HmiBindingCatalogEntry[];
   byPath: Map<string, HmiBindingCatalogEntry>;
+  processImage: {
+    commands: HmiProcessImageSignal[];
+    feedbacks: HmiProcessImageSignal[];
+  };
+};
+
+export type HmiProcessImageSignal = {
+  symbol: string;
+  address: string;
+  dataType: string;
 };
 
 export type HmiLockEntry = {

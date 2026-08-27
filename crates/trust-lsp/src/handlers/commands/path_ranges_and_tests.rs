@@ -546,4 +546,75 @@ END_PROGRAM
         let error = result.get("error").and_then(Value::as_str).unwrap_or("");
         assert!(error.contains("expects zero or one argument object"));
     }
+
+    #[test]
+    fn hmi_bindings_command_includes_only_numeric_plant_process_image_bindings() {
+        let root = temp_dir("trustlsp-plant-signals");
+        let src_dir = root.join("src");
+        std::fs::create_dir_all(&src_dir).expect("create src dir");
+        std::fs::write(
+            src_dir.join("main.st"),
+            r#"
+PROGRAM Main
+VAR
+    Command : LREAL;
+    Feedback : REAL;
+    Enabled : BOOL;
+    Scratch : DINT;
+END_VAR
+END_PROGRAM
+
+CONFIGURATION Config
+RESOURCE Res ON PLC
+    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM P1 WITH MainTask : Main;
+END_RESOURCE
+VAR_CONFIG
+    P1.Command AT %QL0 : LREAL;
+    P1.Feedback AT %ID8 : REAL;
+    P1.Enabled AT %QX16.0 : BOOL;
+    P1.Scratch AT %MD20 : DINT;
+END_VAR
+END_CONFIGURATION
+"#,
+        )
+        .expect("write source");
+
+        let root_uri = Url::from_directory_path(&root).expect("root uri");
+        let context = MockContext {
+            workspace_configs: vec![(
+                root_uri.clone(),
+                test_project_config(root.to_string_lossy().as_ref(), "x86_64"),
+            )],
+            workspace_folders: vec![root_uri],
+            ..MockContext::default()
+        };
+
+        let result = hmi_bindings_value_with_context(&context, Vec::new())
+            .expect("compiled bindings response");
+        assert_eq!(result.get("ok").and_then(Value::as_bool), Some(true));
+        assert_eq!(
+            result.get("command").and_then(Value::as_str),
+            Some(HMI_BINDINGS_COMMAND)
+        );
+        let process_image = result.get("processImage").expect("process image catalog");
+        assert_eq!(
+            process_image.get("commands").and_then(Value::as_array),
+            Some(&vec![json!({
+                "symbol": "P1.Command",
+                "address": "%QL0",
+                "type": "LREAL"
+            })])
+        );
+        assert_eq!(
+            process_image.get("feedbacks").and_then(Value::as_array),
+            Some(&vec![json!({
+                "symbol": "P1.Feedback",
+                "address": "%ID8",
+                "type": "REAL"
+            })])
+        );
+
+        std::fs::remove_dir_all(root).expect("remove temp dir");
+    }
 }

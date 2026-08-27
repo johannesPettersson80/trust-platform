@@ -35,7 +35,33 @@ interface PickerGroupSpec {
   ids: string[];
 }
 
+const SIMULATED_PLANT_PURPOSE = "Models a process behind normal PLC I/O.";
+
+export interface PlantPickerOption {
+  eligible: boolean;
+  disabledReason?: string;
+}
+
+export function plantPickerPresentation(option: PlantPickerOption): {
+  disabled: boolean;
+  purpose: string;
+} {
+  const reason = option.disabledReason?.trim();
+  return {
+    disabled: !option.eligible,
+    purpose:
+      !option.eligible && reason
+        ? `${SIMULATED_PLANT_PURPOSE} ${reason}`
+        : SIMULATED_PLANT_PURPOSE,
+  };
+}
+
 export const ADD_PICKER_GROUPS: ReadonlyArray<PickerGroupSpec> = [
+  {
+    key: "simulation",
+    label: "Simulation",
+    ids: ["simulated_plant"],
+  },
   {
     key: "devices_io",
     label: "Devices and I/O",
@@ -65,6 +91,11 @@ export const ADD_PICKER_GROUPS: ReadonlyArray<PickerGroupSpec> = [
 ];
 
 const ADD_PICKER_COPY: Record<string, PickerProtocolCopy> = {
+  simulated_plant: {
+    title: "Simulated plant",
+    purpose: SIMULATED_PLANT_PURPOSE,
+    badge: "PLANT",
+  },
   modbus_tcp: {
     title: "Modbus",
     purpose: "Connect PLCs, drives, meters, and remote I/O.",

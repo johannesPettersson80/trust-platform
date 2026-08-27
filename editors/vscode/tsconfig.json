@@ -20,6 +20,7 @@
     "src/ladder/webview/**",
     "src/sfc/webview/**",
     "src/networkCanvas/webview/**",
+    "src/controlStudio/webview/**",
     "src/visual/runtime/webview/**"
   ]
 }

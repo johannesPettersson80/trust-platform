@@ -454,13 +454,13 @@ suite("Phases 2–3 — naming + nav (v5 shell)", () => {
       "the canvas must select the adopted runtime after the extension refreshes the graph"
     );
 
-    const panel = readSrc("networkCanvas/networkCanvasPanel.ts");
+    const panel = ["networkCanvas/networkCanvasPanel.ts", "networkCanvas/canvasDataService.ts"].map(readSrc).join("\n");
     assert.ok(
       panel.includes("fleetEndpointLabels") && panel.includes("label: fleetEndpointLabels.get(endpoint)"),
       "fleet targets must keep the discovered runtime label when rendering the configured peer"
     );
     assert.ok(
-      panel.includes("pendingFocusNodeId = fleetRuntimeNodeId(endpoint)") &&
+      panel.includes("pendingFocusNodeId = result.focusNodeId") &&
         panel.includes('type: "focusNode"'),
       "adopting a runtime must return to the graph with the new runtime node selected"
     );
@@ -1700,7 +1700,13 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
 });
 
 suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
-  const panel = () => readSrc("networkCanvas/networkCanvasPanel.ts");
+  const panel = () => [
+    "networkCanvas/networkCanvasPanel.ts",
+    "networkCanvas/canvasDataService.ts",
+    "networkCanvas/fleetConfiguration.ts",
+    "networkCanvas/offlineCanvasActions.ts",
+    "networkCanvas/webviewHtml.ts",
+  ].map(readSrc).join("\n");
 
   test("the canvas panel is user-facing 'Devices & Connections', never 'Network Canvas'", () => {
     const src = panel();
@@ -1976,7 +1982,7 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
       "fleet peer resolution must read the saved SecretStorage token before probing"
     );
     assert.ok(
-      host.includes("workspaceConfigResource()") && host.includes("trustConfig()"),
+      host.includes("getTrustConfiguration(vscode.workspace.workspaceFolders?.[0]?.uri)") && host.includes("trustConfig()"),
       "fleet endpoint settings must be read with the active workspace resource"
     );
     assert.ok(host.includes("message.authToken"), "the host add path must receive the token field");
@@ -2111,7 +2117,7 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
       "opening a new Add flow must clear stale validation/fault banners"
     );
     assert.ok(
-      /onChoose=\{\(protocol\) => \{[\s\S]*clearApplyResult\(\);[\s\S]*setDraft/.test(app),
+      /onChoose: \(protocol\) => \{[\s\S]*clearApplyResult\(\);[\s\S]*setDraft/.test(app),
       "choosing a new protocol form must clear stale validation/fault banners"
     );
   });
@@ -2963,7 +2969,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
       "the canvas summary/count label must sit beside the React Flow controls, not cover zoom/fit buttons"
     );
 
-    const app = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
+    const app = ["networkCanvas/webview/NetworkCanvasApp.tsx", "networkCanvas/webview/CanvasGraphShell.tsx"].map(readSrc).join("\n");
     assert.ok(
       app.includes('className="trust-canvas-summary"'),
       "Devices & Connections must use the shared canvas summary style instead of private inline positioning"
@@ -3080,9 +3086,13 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
   });
 
   test("Devices & Connections refits when endpoint children appear after managed Start", () => {
-    const src = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
+    const src = [
+      "networkCanvas/webview/NetworkCanvasApp.tsx",
+      "networkCanvas/webview/useCanvasViewport.ts",
+      "networkCanvas/webview/CanvasToolbar.tsx",
+    ].map(readSrc).join("\n");
     assert.ok(
-      src.includes("child endpoints") && src.includes(".map((n) => n.id)"),
+      src.includes("Node identity") && src.includes("nodes.map((node) => node.id)"),
       "canvas fit signature must include child endpoint node IDs, not only host IDs"
     );
     assert.ok(
@@ -3113,7 +3123,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
     assert.ok(
       src.includes("const editSlotsVisible =") &&
-        src.includes("editMode && !draft && !selectedId && !browseTags && !discoverOpen && !addSlot && !filterOpen") &&
+        src.includes("editMode && !draft && !plantDraft && !selectedId && !browseTags && !discoverOpen && !addSlot && !filterOpen") &&
         src.includes("editSlotsVisible"),
       "edit-mode add/setup/host slots must hide while a right drawer is open so background affordances cannot overlap the active workflow"
     );
@@ -3122,7 +3132,8 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
         src.includes("LOCAL_RUNTIME_NODE_ID") &&
         src.includes("const openAddPicker = useCallback") &&
         src.includes('setAddSlot({ kind: "device", targetId: toolbarAddTarget.id })') &&
-        /<button[\s\S]*onClick=\{openAddPicker\}[\s\S]*\+ Add[\s\S]*<\/button>/.test(src),
+        src.includes("onAdd={openAddPicker}") &&
+        /<button[\s\S]*onClick=\{onAdd\}[\s\S]*\+ Add[\s\S]*<\/button>/.test(src),
       "Devices & Connections must expose a first-class + Add toolbar action that opens the picker for the selected/default runtime"
     );
     assert.ok(
@@ -3131,7 +3142,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
     assert.ok(
       /onDiscoverAdopt[\s\S]*setDiscoverOpen\(false\);[\s\S]*setEditMode\(false\)/.test(src) &&
-        /<AddHostPanel[\s\S]*onSaved=\{\(\) => setEditMode\(false\)\}/.test(src),
+        /drawerRoutes\.addHost[\s\S]*onSaved: \(\) => setEditMode\(false\)/.test(src),
       "successful Connect existing / Adopt runtime flows must return to a clean result graph instead of leaving edit-mode placeholders visible"
     );
     assert.ok(
@@ -3141,22 +3152,27 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
   });
 
   test("endpoint removal is a deliberate two-step action", () => {
-    const src = readSrc("networkCanvas/webview/NodeInspector.tsx");
+    const inspector = readSrc("networkCanvas/webview/NodeInspector.tsx");
+    const actions = readSrc("networkCanvas/webview/RemoveBrickActions.tsx");
     assert.ok(
-      src.includes("confirmRemove") && src.includes("Confirm remove"),
+      inspector.includes("<RemoveBrickActions") &&
+        actions.includes("setConfirming(true)") &&
+        actions.includes("Confirm remove"),
       "endpoint Remove must arm a confirmation state before writing config"
     );
     assert.ok(
-      src.includes("Remove this endpoint from the project?"),
+      inspector.includes("Remove this endpoint from the project?"),
       "the confirmation state must explain what is about to happen"
     );
     assert.ok(
-      src.includes("endpoint-remove-confirmation") && src.includes("Cancel"),
+      actions.includes("endpoint-remove-confirmation") && actions.includes("Cancel"),
       "the remove confirmation warning must be visible in the action footer with a cancellation path"
     );
     assert.ok(
-      src.includes('if (!confirmRemove)') && src.includes('send("commRemove")'),
-      "commRemove must only be sent from the confirmed branch"
+      inspector.includes('onRemove={() => send("commRemove")}') &&
+        actions.includes("onClick={onRemove}") &&
+        actions.includes("if (confirming)"),
+      "commRemove must only be sent by the confirmed action"
     );
   });
 
@@ -3599,7 +3615,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     const groupingSrc = readSrc("networkCanvas/webview/grouping.ts");
 
     for (const required of [
-      "Add device or connection",
+      "Add device, connection, or simulated plant",
       "Discover devices and runtimes",
       "Devices and I/O",
       "Read tags from another PLC or server",
@@ -3794,7 +3810,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
         app.includes("setBrowseTags(undefined)") &&
         app.includes("protocol: browseTags.protocol") &&
         app.includes("prefillParams: browseTags.target") &&
-        app.includes("onEditCredentials={onEditBrowseCredentials}"),
+        app.includes("onEditCredentials: onEditBrowseCredentials"),
       "Edit credentials must reopen the protocol form prefilled with the failed OPC UA target"
     );
   });
@@ -3873,7 +3889,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
   });
 
   test("network-canvas notifications do not expose backend protocol ids or awkward plurals", () => {
-    const panel = readSrc("networkCanvas/networkCanvasPanel.ts");
+    const panel = ["networkCanvas/networkCanvasPanel.ts", "networkCanvas/offlineCanvasActions.ts"].map(readSrc).join("\n");
     assert.ok(
       panel.includes("protocolDisplayName(protocol)") &&
         panel.includes('countLabel(names.length, "global")') &&
@@ -3935,14 +3951,14 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
       "AddDevicePanel must report the saved instance id after a successful Save"
     );
     assert.ok(
-      appSrc.includes("onSaved={(nodeId)") &&
+      appSrc.includes("onSaved: (nodeId)") &&
         appSrc.includes("setSelectedId(nodeId)") &&
         appSrc.includes("setFocusTargetId(nodeId)") &&
         appSrc.includes('post({ type: "selectNode", nodeId })'),
       "NetworkCanvasApp must select/focus the saved node after add-save"
     );
     assert.ok(
-      /<AddDevicePanel[\s\S]*onSaved=\{\(nodeId\) => \{[\s\S]*setDraft\(undefined\);[\s\S]*setSelectedId\(nodeId\)[\s\S]*onClose=\{\(\) => \{\s*clearApplyResult\(\);[\s\S]*setDraft\(undefined\);[\s\S]*\/>/.test(appSrc),
+      /drawerRoutes\.addDevice[\s\S]*onSaved: \(nodeId\) => \{[\s\S]*setDraft\(undefined\);[\s\S]*setSelectedId\(nodeId\)[\s\S]*onClose: \(\) => \{\s*clearApplyResult\(\);[\s\S]*setDraft\(undefined\);/.test(appSrc),
       "manual close clears the result, but add-save landing must preserve it for the selected-node message"
     );
     assert.ok(
@@ -3954,7 +3970,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
   });
 
   test("Devices & Connections header reports active form field errors", () => {
-    const appSrc = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
+    const appSrc = ["networkCanvas/webview/NetworkCanvasApp.tsx", "networkCanvas/webview/CanvasToolbar.tsx"].map(readSrc).join("\n");
 
     assert.ok(
       appSrc.includes("fieldIssueCount") &&
@@ -3973,7 +3989,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
     assert.ok(
       appSrc.includes("fieldIssueLabel ?") &&
-        appSrc.includes(": fault &&"),
+        appSrc.includes(": fault ?"),
       "field-validation issues must take precedence over graph-fault fallback while a form is active"
     );
   });
@@ -4260,7 +4276,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
 
   test("canvas grid backgrounds use the shared truST product grid role", () => {
     const files = [
-      "networkCanvas/webview/NetworkCanvasApp.tsx",
+      "networkCanvas/webview/CanvasGraphShell.tsx",
       "sfc/webview/SfcEditor.tsx",
       "statechart/webview/StateChartEditor.tsx",
     ];

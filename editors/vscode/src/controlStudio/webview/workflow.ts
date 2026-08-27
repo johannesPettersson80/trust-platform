@@ -1,0 +1,602 @@
+declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
+
+import { compactRevisionLabel, formatEngineeringNumber, pidEngineeringUnits } from "../chartContract";
+import {
+  validationRequirementRows,
+  formatValidationRequirementValue,
+  type ValidationRequirement,
+  type ValidationRequirementRow,
+} from "../validation";
+
+type Mode = "Monitor" | "Test" | "Identify" | "Tune" | "Validate";
+
+interface StudioIdentity {
+  schemaVersion: 1;
+  projectId: string;
+  editorSessionId: string;
+  plantId?: string;
+  expectedPlantRevision?: string;
+  loopId?: string;
+  expectedLoopRevision?: string;
+}
+
+const root = document.querySelector<HTMLElement>("[data-control-studio]");
+const buttons = [...document.querySelectorAll<HTMLButtonElement>("[data-control-studio-mode]")];
+const panes = [...document.querySelectorAll<HTMLElement>("[data-workflow-pane]")];
+const vscodeApi = root ? acquireVsCodeApi() : undefined;
+let importedPidSettings: Record<string, unknown> | undefined;
+
+function identity(): StudioIdentity | undefined {
+  if (!root?.dataset.projectId || !root.dataset.editorSessionId) return undefined;
+  const value: StudioIdentity = {
+    schemaVersion: 1,
+    projectId: root.dataset.projectId,
+    editorSessionId: root.dataset.editorSessionId,
+  };
+  if (root.dataset.plantId && root.dataset.plantRevision) {
+    value.plantId = root.dataset.plantId;
+    value.expectedPlantRevision = root.dataset.plantRevision;
+  }
+  if (root.dataset.loopId && root.dataset.loopRevision) {
+    value.loopId = root.dataset.loopId;
+    value.expectedLoopRevision = root.dataset.loopRevision;
+  }
+  return value.plantId || value.loopId ? value : undefined;
+}
+
+function envelope(kind: string, payload: Record<string, unknown> = {}) {
+  const current = identity();
+  return current ? { ...current, kind, messageId: crypto.randomUUID(), payload } : undefined;
+}
+
+function post(kind: string, payload: Record<string, unknown> = {}): void {
+  const message = envelope(kind, payload);
+  if (message) vscodeApi?.postMessage(message);
+}
+
+function activate(button: HTMLButtonElement, focus: boolean): void {
+  const mode = (button.textContent ?? "Monitor").trim() as Mode;
+  for (const candidate of buttons) {
+    const selected = candidate === button;
+    candidate.setAttribute("aria-selected", String(selected));
+    candidate.tabIndex = selected ? 0 : -1;
+  }
+  for (const pane of panes) pane.hidden = pane.dataset.workflowPane !== mode;
+  if (focus) button.focus();
+}
+
+for (const button of buttons) {
+  button.addEventListener("click", () => activate(button, false));
+  button.addEventListener("keydown", (event) => {
+    let index = buttons.indexOf(button);
+    if (event.key === "ArrowRight") index = (index + 1) % buttons.length;
+    else if (event.key === "ArrowLeft") index = (index - 1 + buttons.length) % buttons.length;
+    else if (event.key === "Home") index = 0;
+    else if (event.key === "End") index = buttons.length - 1;
+    else return;
+    event.preventDefault();
+    activate(buttons[index], true);
+  });
+}
+
+document.querySelector("[data-control-studio-configure-plant]")?.addEventListener("click", () => post("control-studio.navigate-plant"));
+const recordStart = document.querySelector<HTMLButtonElement>("[data-control-studio-record-start]");
+const recordStop = document.querySelector<HTMLButtonElement>("[data-control-studio-record-stop]");
+recordStart?.addEventListener("click", () => {
+  post("control-studio.recording.start");
+  recordStart.disabled = true;
+  if (recordStop) recordStop.disabled = false;
+});
+recordStop?.addEventListener("click", () => {
+  post("control-studio.recording.stop");
+  recordStop.disabled = true;
+  if (recordStart) recordStart.disabled = false;
+});
+document.querySelector("[data-control-studio-automatic-tune]")?.addEventListener("click", () => {
+  const plan = document.querySelector<HTMLElement>("[data-auto-tune-plan]");
+  if (plan) plan.hidden = false;
+});
+document.querySelector("[data-auto-tune-close]")?.addEventListener("click", () => {
+  const plan = document.querySelector<HTMLElement>("[data-auto-tune-plan]");
+  if (plan) plan.hidden = true;
+});
+document.querySelector("[data-auto-tune-approve]")?.addEventListener("click", (event) => {
+  const button = event.currentTarget as HTMLButtonElement;
+  const objective = (document.querySelector<HTMLSelectElement>("[data-auto-tune-objective]")?.value ?? "balanced");
+  button.disabled = true;
+  button.textContent = "Running…";
+  const previous = document.querySelector<HTMLElement>("[data-auto-tune-result]");
+  if (previous) previous.hidden = true;
+  showError();
+  post("control-studio.automatic.approve", { objective });
+});
+
+document.querySelector("[data-identify-run]")?.addEventListener("click", () => {
+  const start = Number(document.querySelector<HTMLInputElement>("#identify-exclude-start")?.value);
+  const end = Number(document.querySelector<HTMLInputElement>("#identify-exclude-end")?.value);
+  const excludedIntervals = Number.isFinite(start) && Number.isFinite(end) && end >= start && end > 0
+    ? [{ startSeconds: start, endSeconds: end }] : [];
+  post("control-studio.identify.run", {
+    model: document.querySelector<HTMLSelectElement>("#identify-model")?.value ?? "automatic",
+    ...(excludedIntervals.length > 0 ? { excludedIntervals } : {}),
+  });
+  setText("[data-identify-state]", "Qualifying the retained recording and fitting low-order models…");
+});
+const tuneMethod = document.querySelector<HTMLSelectElement>("#tune-method");
+tuneMethod?.addEventListener("change", updateTuneMethod);
+document.querySelector<HTMLInputElement>("#tune-import-file")?.addEventListener("change", async (event) => {
+  const file = (event.currentTarget as HTMLInputElement).files?.[0];
+  importedPidSettings = undefined;
+  if (!file) { setText("[data-tune-import-state]", "No file selected"); return; }
+  try {
+    const parsed = JSON.parse(await file.text()) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("JSON must contain an object");
+    const record = parsed as Record<string, unknown>;
+    importedPidSettings = record.parameters && typeof record.parameters === "object" && !Array.isArray(record.parameters)
+      ? record.parameters as Record<string, unknown> : record;
+    setText("[data-tune-import-state]", `${file.name} ready; settings will be validated without conversion.`);
+  } catch (error) {
+    setText("[data-tune-import-state]", `Invalid JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+});
+document.querySelector("[data-tune-generate]")?.addEventListener("click", () => {
+  const method = tuneMethod?.value ?? "SIMC";
+  if (method === "Manual") post("control-studio.tune.run", { method, settings: readManualPidSettings() });
+  else if (method === "Imported") {
+    if (!importedPidSettings) { setText("[data-tune-state]", "Select a Control.PID JSON file first."); return; }
+    post("control-studio.tune.run", { method, settings: importedPidSettings });
+  } else post("control-studio.tune.run", { method,
+    objective: document.querySelector<HTMLSelectElement>("#tune-objective")?.value ?? "balanced" });
+  setText("[data-tune-state]", "Generating and checking the controller candidate…");
+});
+document.querySelector("[data-validate-run]")?.addEventListener("click", () => {
+  post("control-studio.validate.run"); setText("[data-validate-state]", "Comparing current and candidate controllers…");
+});
+document.querySelector("[data-test-review]")?.addEventListener("click", () => {
+  const kind = document.querySelector<HTMLSelectElement>("#test-kind")?.value ?? "setpoint_step";
+  const amplitude = Number(document.querySelector<HTMLInputElement>("#test-amplitude")?.value);
+  const durationSeconds = Number(document.querySelector<HTMLInputElement>("#test-duration")?.value);
+  const physicalTopologyReviewed = document.querySelector<HTMLInputElement>(
+    "[data-physical-topology-reviewed]"
+  )?.checked === true;
+  post("control-studio.experiment.review", {
+    kind, amplitude, durationSeconds, physicalTopologyReviewed,
+  });
+  setText("[data-test-state]", "Checking current runtime evidence and safety limits…");
+});
+document.querySelector("[data-test-approve]")?.addEventListener("click", () => {
+  const planId = root?.dataset.experimentPlanId;
+  if (!planId) return;
+  post("control-studio.experiment.approve", {
+    planId,
+    physicalApproved: root?.dataset.experimentSource === "physical",
+  });
+  setText("[data-test-state]", "Starting the reviewed bounded test…");
+});
+document.querySelector("[data-test-abort]")?.addEventListener("click", () => {
+  const experimentId = root?.dataset.experimentId;
+  if (!experimentId) return;
+  post("control-studio.experiment.abort", { experimentId });
+  setText("[data-test-state]", "Abort requested; waiting for runtime restoration…");
+});
+for (const button of document.querySelectorAll("[data-auto-tune-apply], [data-candidate-review]")) {
+  button.addEventListener("click", () => {
+    const review = document.querySelector<HTMLElement>("[data-shared-application-review]");
+    if (review) review.hidden = false;
+  });
+}
+document.querySelector("[data-shared-application-confirm]")?.addEventListener("click", () => {
+  post("control-studio.candidate.apply", { physicalApproved: root?.dataset.controlSource === "physical" });
+  setText("[data-shared-application-state]", "Applying the reviewed candidate through the runtime…");
+});
+document.querySelector("[data-shared-application-rollback]")?.addEventListener("click", () => {
+  post("control-studio.candidate.rollback");
+  setText("[data-shared-application-state]", "Rollback requested…");
+});
+document.querySelector("[data-result-save]")?.addEventListener("click", () => post("control-studio.result.save"));
+document.querySelector("[data-result-export-csv]")?.addEventListener("click", () => post("control-studio.result.export-csv"));
+document.querySelector("[data-result-export-json]")?.addEventListener("click", () => post("control-studio.result.export-json"));
+const resultHistory = document.querySelector<HTMLSelectElement>("[data-result-history]");
+const resultComparison = document.querySelector<HTMLSelectElement>("[data-result-compare]");
+const resultOpen = document.querySelector<HTMLButtonElement>("[data-result-open]");
+const resultCompare = document.querySelector<HTMLButtonElement>("[data-result-compare-run]");
+function updateResultActions(): void {
+  if (resultOpen) resultOpen.disabled = !resultHistory?.value;
+  if (resultCompare) resultCompare.disabled = !resultHistory?.value || !resultComparison?.value ||
+    resultHistory.value === resultComparison.value;
+}
+resultHistory?.addEventListener("change", updateResultActions);
+resultComparison?.addEventListener("change", updateResultActions);
+resultOpen?.addEventListener("click", () => {
+  const resultRevision = Number(resultHistory?.value);
+  if (Number.isInteger(resultRevision) && resultRevision > 0) {
+    post("control-studio.result.open", { resultRevision });
+  }
+});
+resultCompare?.addEventListener("click", () => {
+  const leftRevision = Number(resultHistory?.value);
+  const rightRevision = Number(resultComparison?.value);
+  if (Number.isInteger(leftRevision) && leftRevision > 0 && Number.isInteger(rightRevision) &&
+      rightRevision > 0 && leftRevision !== rightRevision) {
+    post("control-studio.result.compare", { leftRevision, rightRevision });
+  }
+});
+document.querySelector("[data-auto-tune-export]")?.addEventListener("click", () => {
+  if (identity()?.loopId) { post("control-studio.result.export-json"); return; }
+  const content = {
+    structure: document.querySelector("[data-auto-tune-structure]")?.textContent,
+    method: document.querySelector("[data-auto-tune-method]")?.textContent,
+    kp: document.querySelector("[data-auto-tune-kp]")?.textContent,
+    ti: document.querySelector("[data-auto-tune-ti]")?.textContent,
+    evidence: document.querySelector("[data-auto-tune-validation]")?.textContent,
+  };
+  const anchor = document.createElement("a");
+  anchor.href = `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(content, null, 2))}`;
+  anchor.download = "trust-control-candidate.json";
+  anchor.click();
+});
+
+window.addEventListener("message", (event: MessageEvent) => {
+  const message = event.data as Record<string, unknown> | undefined;
+  const current = identity();
+  if (!message || !current || message.projectId !== current.projectId ||
+      message.editorSessionId !== current.editorSessionId) return;
+  if (message.kind === "control-studio.experiment.result" && current.loopId &&
+      message.loopId === current.loopId && message.expectedLoopRevision === current.expectedLoopRevision) {
+    renderExperimentResult(message);
+    return;
+  }
+  if (message.kind === "control-studio.application.result" && current.loopId &&
+      message.loopId === current.loopId && message.expectedLoopRevision === current.expectedLoopRevision) {
+    const payload = message.payload as Record<string, unknown> | undefined;
+    const phase = String(message.phase ?? "failed");
+    const activeRevision = compactRevisionLabel(String(payload?.activeRevision ??
+      (phase === "applied" ? "new revision" : "previous revision")));
+    const sharedRollback = document.querySelector<HTMLButtonElement>("[data-shared-application-rollback]");
+    if (sharedRollback) sharedRollback.hidden = phase !== "applied";
+    setText("[data-shared-application-state]", phase === "failed" ? String(payload?.reason ?? "Application failed") :
+      phase === "applied" ? `Applied ${activeRevision} · bounded observation active` :
+      `Rolled back to ${activeRevision}`);
+    setText("[data-control-studio-candidate-revision]", phase === "applied" ? "Applied" : "Unapplied");
+    return;
+  }
+  if (message.kind === "control-studio.workflow-result" && current.loopId &&
+      message.loopId === current.loopId && message.expectedLoopRevision === current.expectedLoopRevision) {
+    const payload = message.payload as Record<string, unknown> | undefined;
+    const phase = String(message.phase ?? "failed");
+    if (Array.isArray(payload?.history)) renderResultHistory(payload.history as Record<string, unknown>[]);
+    if ((phase === "restored" || phase === "opened") && payload?.result && typeof payload.result === "object") {
+      const result = payload.result as Record<string, unknown>;
+      const candidate = result.candidate as Record<string, unknown> | undefined;
+      if (candidate) renderApplicationCandidate(candidate);
+      const model = result.model as Record<string, unknown> | undefined;
+      if (model) setText("[data-identify-state]", `Restored ${String(model.kind)} · gain ${formatEngineeringNumber(model.gain, 5)} · normalized error ${formatEngineeringNumber(model.normalizedError, 4)}`);
+      const validation = result.validation as Record<string, unknown> | undefined;
+      if (validation && Array.isArray(validation.requirements)) {
+        const requirements = validationRequirementRows(validation.requirements as ValidationRequirement[]);
+        renderValidationRequirements(requirements);
+        setText("[data-validate-state]", `${String(result.conclusion ?? "Saved validation restored.")} ${requirements.map((item) => `${item.name}: ${item.status}`).join(" · ")}`);
+        setText("[data-application-validation]", requirements.some((item) => item.status === "Fail" || item.status === "Inconclusive") ? "Requirements not met" : "Required validation passed");
+      }
+      const tuningComparison = result.tuningComparison as Record<string, unknown> | undefined;
+      if (tuningComparison && Array.isArray(tuningComparison.attempts)) {
+        renderAutomaticTuneAttempts(tuningComparison.attempts, "[data-saved-tuning-attempts]");
+        const disclosure = document.querySelector<HTMLElement>("[data-saved-tuning-comparison]");
+        if (disclosure) disclosure.hidden = false;
+      }
+      setText("[data-result-state]", `${phase === "opened" ? "Opened" : "Restored"} revision ${String(result.resultRevision ?? "—")} · ${String(result.source ?? "Unknown source")} · ${String(result.createdAt ?? "unknown time")}.`);
+    } else if (phase === "saved") {
+      setText("[data-result-state]", `Saved revision ${String(payload?.resultRevision ?? "—")} at ${String(payload?.createdAt ?? "now")}.`);
+    } else if (phase === "compared" && payload?.comparison && typeof payload.comparison === "object") {
+      const comparison = payload.comparison as Record<string, unknown>;
+      const left = comparison.left as Record<string, unknown>;
+      const right = comparison.right as Record<string, unknown>;
+      renderResultComparison(left, right);
+    } else if (phase === "exported") {
+      renderExportResult(String(payload?.format ?? "Result"), String(payload?.path ?? ""));
+    } else {
+      setText("[data-result-state]", String(payload?.reason ?? "The workflow result operation failed."));
+    }
+    return;
+  }
+  if (message.kind === "control-studio.engineering.result" && current.loopId &&
+      message.loopId === current.loopId && message.expectedLoopRevision === current.expectedLoopRevision) {
+    const payload = message.payload as Record<string, unknown> | undefined;
+    const stage = String(message.stage ?? "");
+    const selector = stage === "identify" ? "[data-identify-state]" : stage === "tune" ? "[data-tune-state]" : "[data-validate-state]";
+    if (payload?.status !== "complete") setText(selector, String(payload?.reason ?? `${stage} failed`));
+    else if (stage === "identify") {
+      const model = payload.model as Record<string, unknown>;
+      setText(selector, `${String(payload.source)} · ${String(model.kind)} · gain ${formatEngineeringNumber(model.gain, 5)} · normalized error ${formatEngineeringNumber(model.normalizedError, 4)}`);
+      markModeComplete("Identify");
+    } else if (stage === "tune") {
+      const candidate = payload.candidate as Record<string, unknown>;
+      const settings = candidate.parameters as Record<string, unknown>;
+      const plots = payload.plots as Record<string, unknown>;
+      setText(selector, `Unapplied ${String(candidate.structure)} · Kp ${formatEngineeringNumber(settings.proportionalGain, 5)} · Ki ${formatEngineeringNumber(settings.integralGain, 5)} · Kd ${formatEngineeringNumber(settings.derivativeGain, 5)} · margins ${formatEngineeringNumber(plots.gainMarginDb, 2)} dB / ${formatEngineeringNumber(plots.phaseMarginDegrees, 1)}° · ${String(payload.recommendation)}`);
+      renderApplicationCandidate(candidate);
+      setText("[data-application-validation]", "Not validated");
+      markModeComplete("Tune");
+    } else {
+      const result = payload.result as Record<string, unknown>;
+      const requirements = validationRequirementRows(result.requirements as ValidationRequirement[]);
+      setText(selector, requirements.map((item) => `${item.name}: ${item.status}`).join(" · "));
+      renderValidationRequirements(requirements);
+      const acceptable = payload.acceptable === true;
+      const review = document.querySelector<HTMLButtonElement>("[data-candidate-review]");
+      if (review) review.hidden = !acceptable;
+      setText("[data-application-validation]", acceptable ? "Required validation passed" : "Requirements not met");
+      if (acceptable) markModeComplete("Validate");
+    }
+    return;
+  }
+  if (message.kind !== "control-studio.automatic.result") return;
+  const correctAutomaticScope = current.loopId
+    ? message.loopId === current.loopId && message.expectedLoopRevision === current.expectedLoopRevision
+    : message.plantId === current.plantId && message.expectedPlantRevision === current.expectedPlantRevision;
+  if (!correctAutomaticScope) return;
+  const payload = message.payload as Record<string, unknown> | undefined;
+  const approve = document.querySelector<HTMLButtonElement>("[data-auto-tune-approve]");
+  if (approve) { approve.disabled = false; approve.textContent = "Run again"; }
+  if (payload?.status !== "complete" || !payload.result || typeof payload.result !== "object") {
+    const candidate = document.querySelector<HTMLElement>("[data-auto-tune-result]");
+    if (candidate) candidate.hidden = true;
+    const completed = Array.isArray(payload?.completedStages) ? payload.completedStages.map(String) : [];
+    const failed = String(payload?.failedStage ?? "");
+    for (const stage of document.querySelectorAll<HTMLElement>("[data-auto-tune-stage]")) {
+      const name = String(stage.dataset.autoTuneStage ?? "");
+      stage.dataset.status = completed.includes(name) ? "complete" : name === failed ? "failed" : "waiting";
+      stage.textContent = `${name} · ${completed.includes(name) ? "Complete" : name === failed ? "Failed" : "Waiting"}`;
+    }
+    showError(`${String(payload?.error ?? "Automatic Tune failed.")} ${String(payload?.recovery ?? "")}`.trim());
+    return;
+  }
+  const result = payload.result as Record<string, unknown>;
+  for (const stage of document.querySelectorAll<HTMLElement>("[data-auto-tune-stage]")) {
+    stage.dataset.status = "complete";
+    stage.textContent = `${stage.dataset.autoTuneStage} · Complete`;
+  }
+  setText("[data-auto-tune-structure]", result.structure);
+  setText("[data-auto-tune-method]", result.method);
+  const units = controllerUnits();
+  setText("[data-auto-tune-kp]", `${formatEngineeringNumber(result.kp, 4)} ${units.proportional}`);
+  setText("[data-auto-tune-ti]", `${formatEngineeringNumber(result.tiSeconds, 3)} s`);
+  setText("[data-auto-tune-validation]", result.validation);
+  const frequency = result.frequency as Record<string, unknown> | undefined;
+  setText("[data-auto-tune-gain-margin]", `${formatEngineeringNumber(frequency?.gainMarginDb, 2)} dB`);
+  setText("[data-auto-tune-phase-margin]", `${formatEngineeringNumber(frequency?.phaseMarginDegrees, 1)}°`);
+  setText("[data-auto-tune-model]", result.modelEvidence);
+  setText("[data-auto-tune-rationale]", result.rationale);
+  renderAutomaticTuneAttempts(result.attempts);
+  if (result.parameters && typeof result.parameters === "object") {
+    renderApplicationCandidate({ source: result.method, structure: result.structure, parameters: result.parameters });
+  }
+  setText("[data-application-validation]", result.validation);
+  const candidate = document.querySelector<HTMLElement>("[data-auto-tune-result]");
+  if (candidate) candidate.hidden = false;
+  for (const button of buttons) {
+    if ((button.textContent ?? "").trim() !== "Monitor") {
+      button.dataset.status = "complete";
+      button.setAttribute("aria-label", `${button.textContent?.trim()}, complete`);
+    }
+  }
+  showError();
+});
+
+function renderAutomaticTuneAttempts(value: unknown, selector = "[data-auto-tune-attempts]"): void {
+  const host = document.querySelector<HTMLElement>(selector);
+  if (!host) return;
+  host.replaceChildren();
+  const attempts = Array.isArray(value) ? value.filter((item): item is Record<string, unknown> =>
+    item !== null && typeof item === "object" && !Array.isArray(item)) : [];
+  if (attempts.length === 0) {
+    host.textContent = "No comparison result is available.";
+    return;
+  }
+  const table = document.createElement("table");
+  table.innerHTML = "<caption>Qualified tuning candidates</caption><thead><tr><th>Method</th><th>Structure</th><th>Status</th><th>Score</th><th>Lambda</th><th>Reason</th></tr></thead>";
+  const body = document.createElement("tbody");
+  for (const attempt of attempts) {
+    const row = document.createElement("tr");
+    for (const value of [attempt.method, attempt.structure ?? "—", attempt.status,
+      attempt.score === undefined ? "—" : formatEngineeringNumber(attempt.score, 4),
+      attempt.closedLoopTimeSeconds === undefined ? "—" :
+        `${formatEngineeringNumber(attempt.closedLoopTimeSeconds, 4)} s`, attempt.reason ?? "—"]) {
+      const cell = document.createElement("td");
+      cell.textContent = String(value);
+      row.append(cell);
+    }
+    body.append(row);
+  }
+  table.append(body);
+  host.append(table);
+}
+
+function renderResultHistory(items: readonly Record<string, unknown>[]): void {
+  for (const select of [resultHistory, resultComparison]) {
+    if (!select) continue;
+    const selected = select.value;
+    select.replaceChildren();
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = items.length > 0 ? "Select revision" : "No saved results";
+    select.append(placeholder);
+    for (const item of items) {
+      const option = document.createElement("option");
+      option.value = String(item.resultRevision);
+      option.textContent = `Revision ${String(item.resultRevision)} · ${String(item.source)} · ${String(item.method)} · ${String(item.createdAt)}`;
+      select.append(option);
+    }
+    if ([...select.options].some((option) => option.value === selected)) select.value = selected;
+  }
+  updateResultActions();
+}
+
+function renderExperimentResult(message: Record<string, unknown>): void {
+  const phase = String(message.phase ?? "failed");
+  const payload = message.payload as Record<string, unknown> | undefined;
+  const approve = document.querySelector<HTMLButtonElement>("[data-test-approve]");
+  const abort = document.querySelector<HTMLButtonElement>("[data-test-abort]");
+  const review = document.querySelector<HTMLButtonElement>("[data-test-review]");
+  const preview = document.querySelector<HTMLElement>("[data-test-preview]");
+  if (phase === "review" && payload?.kind === "accepted" && payload.plan && typeof payload.plan === "object") {
+    const plan = payload.plan as Record<string, unknown>;
+    if (root) {
+      root.dataset.experimentPlanId = String(plan.id ?? "");
+      root.dataset.experimentSource = String(plan.source ?? "");
+    }
+    setText("[data-test-signal]", `${plan.affectedSignal} · ${formatEngineeringNumber(plan.from)} → ${formatEngineeringNumber(plan.to)} ${plan.unit}`);
+    setText("[data-test-bound]", `${formatEngineeringNumber(plan.minimum)}…${formatEngineeringNumber(plan.maximum)} ${plan.unit}`);
+    setText("[data-test-timeout]", `${formatEngineeringNumber(Number(plan.durationMs) / 1_000)} s maximum`);
+    setText("[data-test-restoration]", `${formatEngineeringNumber(plan.restorationValue)} ${plan.unit}`);
+    setText("[data-test-stops]", `Stops on: ${(plan.stopConditions as unknown[]).join(", ")}`);
+    setText("[data-test-state]", plan.source === "physical"
+      ? "Physical test ready. Confirming will authorize this exact plan once."
+      : "Simulation test ready. Confirm this exact bounded plan.");
+    if (preview) preview.hidden = false;
+    if (approve) approve.hidden = false;
+    if (review) review.disabled = false;
+    return;
+  }
+  if (phase === "review") {
+    setText("[data-test-state]", String(payload?.reason ?? "The test cannot start."));
+    if (approve) approve.hidden = true;
+    if (review) review.disabled = false;
+    return;
+  }
+  if (phase === "running") {
+    const experimentId = String(payload?.experiment_id ?? root?.dataset.experimentPlanId ?? "");
+    if (root) root.dataset.experimentId = experimentId;
+    setText("[data-test-state]", "Test running. Live values and limits remain visible above; Abort is available.");
+    if (approve) approve.hidden = true;
+    if (abort) abort.disabled = false;
+    if (review) review.disabled = true;
+    return;
+  }
+  if (phase === "terminal") {
+    setText("[data-test-state]",
+      `${String(payload?.status ?? "Stopped")} · ${String(payload?.stop_reason ?? "runtime stop")} · restoration ${String(payload?.restoration ?? "unknown")}`);
+    if (root) delete root.dataset.experimentId;
+    if (abort) abort.disabled = true;
+    if (review) review.disabled = false;
+    return;
+  }
+  setText("[data-test-state]", String(payload?.reason ?? "The runtime test failed."));
+  if (abort) abort.disabled = true;
+  if (review) review.disabled = false;
+}
+
+function openAutomaticTune(): void {
+  const plan = document.querySelector<HTMLElement>("[data-auto-tune-plan]");
+  if (plan) plan.hidden = false;
+}
+
+function setText(selector: string, value: unknown): void {
+  const element = document.querySelector<HTMLElement>(selector);
+  if (element) element.textContent = String(value ?? "—");
+}
+
+function renderResultComparison(left: Record<string, unknown>, right: Record<string, unknown>): void {
+  const element = document.querySelector<HTMLElement>("[data-result-compare-state]");
+  if (!element) return;
+  const identity = (side: Record<string, unknown>) =>
+    `Revision ${String(side.resultRevision)} · ${String(side.source)} · ${String(side.method)} · ` +
+    `controller ${compactRevisionLabel(String(side.controllerRevision))} · created ${String(side.createdAt)}`;
+  const leftConclusion = String(left.conclusion ?? "No conclusion recorded.");
+  const rightConclusion = String(right.conclusion ?? "No conclusion recorded.");
+  const conclusions = leftConclusion === rightConclusion
+    ? [`Conclusion (both): ${leftConclusion}`]
+    : [`Revision ${String(left.resultRevision)}: ${leftConclusion}`,
+      `Revision ${String(right.resultRevision)}: ${rightConclusion}`];
+  element.replaceChildren(...[identity(left), identity(right), ...conclusions].map((value) => {
+    const line = document.createElement("div");
+    line.textContent = value;
+    return line;
+  }));
+}
+
+function renderExportResult(format: string, fullPath: string): void {
+  const element = document.querySelector<HTMLElement>("[data-result-state]");
+  if (!element) return;
+  const filename = fullPath.split(/[\\/]/).pop() || "selected file";
+  element.textContent = `${format} exported: ${filename}.`;
+  element.title = fullPath;
+}
+
+function renderValidationRequirements(requirements: readonly ValidationRequirementRow[]): void {
+  const body = document.querySelector<HTMLTableSectionElement>("[data-validation-requirements]");
+  if (!body) return;
+  body.replaceChildren(...requirements.map((requirement) => {
+    const row = document.createElement("tr");
+    const cells = [
+      requirement.name,
+      requirement.status,
+      formatValidationRequirementValue(requirement.value, requirement.unit),
+      formatValidationRequirementValue(requirement.limit, requirement.unit, true),
+      requirement.source ?? "—",
+      requirement.reason,
+    ];
+    row.append(...cells.map((value) => {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      return cell;
+    }));
+    return row;
+  }));
+}
+
+function showError(message?: string): void {
+  const error = document.querySelector<HTMLElement>("[data-auto-tune-error]");
+  if (!error) return;
+  error.hidden = !message;
+  error.textContent = message ?? "";
+}
+
+function renderApplicationCandidate(candidate: Record<string, unknown>): void {
+  const settings = candidate.parameters as Record<string, unknown> | undefined;
+  setText("[data-application-source]", candidate.source);
+  setText("[data-application-structure]", candidate.structure);
+  setText("[data-control-studio-candidate-revision]", "Unapplied");
+  if (!settings) return;
+  const units = controllerUnits();
+  setText("[data-application-gains]",
+    `Kp ${formatEngineeringNumber(settings.proportionalGain, 5)} ${units.proportional} · ` +
+    `Ki ${formatEngineeringNumber(settings.integralGain, 5)} ${units.integral} · ` +
+    `Kd ${formatEngineeringNumber(settings.derivativeGain, 5)} ${units.derivative}`);
+  setText("[data-application-limits]", `${formatEngineeringNumber(settings.outputMinimum)}…${formatEngineeringNumber(settings.outputMaximum)} ${units.output}`);
+  setText("[data-application-settings]", JSON.stringify(settings, null, 2));
+}
+
+function controllerUnits() {
+  return pidEngineeringUnits(root?.dataset.processUnit ?? "", root?.dataset.outputUnit ?? "");
+}
+
+function markModeComplete(mode: Mode): void {
+  const button = buttons.find((candidate) => (candidate.textContent ?? "").trim() === mode);
+  if (!button) return;
+  button.dataset.status = "complete";
+  button.setAttribute("aria-label", `${mode}, complete`);
+}
+
+function updateTuneMethod(): void {
+  const method = tuneMethod?.value ?? "SIMC";
+  const objective = document.querySelector<HTMLElement>("[data-tune-objective-field]");
+  const settings = document.querySelector<HTMLDetailsElement>("[data-tune-settings]");
+  const imported = document.querySelector<HTMLElement>("[data-tune-import]");
+  if (objective) objective.hidden = method === "Manual" || method === "Imported";
+  if (settings) { settings.hidden = method !== "Manual"; settings.open = method === "Manual"; }
+  if (imported) imported.hidden = method !== "Imported";
+}
+
+function readManualPidSettings(): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const input of document.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-pid-setting]")) {
+    const name = input.dataset.pidSetting;
+    if (name) result[name] = name === "antiWindup" ? input.value : Number(input.value);
+  }
+  return result;
+}
+
+updateTuneMethod();
+
+post("control-studio.ready");

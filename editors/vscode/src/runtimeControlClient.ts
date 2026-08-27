@@ -28,7 +28,8 @@ export type RuntimeControlSocketFactory = (
 export class RuntimeControlError extends Error {
   constructor(
     message: string,
-    public readonly code?: string
+    public readonly code?: string,
+    public readonly result?: unknown
   ) {
     super(code ? `${code}: ${message}` : message);
     this.name = "RuntimeControlError";
@@ -251,7 +252,7 @@ function handleResponseLine<T>(
     typeof parsed.error === "string" && parsed.error.trim().length > 0
       ? parsed.error.trim()
       : "control request rejected";
-  reject(new RuntimeControlError(message, code));
+  reject(new RuntimeControlError(message, code, parsed.result));
   return true;
 }
 

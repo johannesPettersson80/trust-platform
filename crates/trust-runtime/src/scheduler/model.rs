@@ -23,6 +23,20 @@ pub enum ResourceCommand {
     Snapshot {
         respond_to: std::sync::mpsc::Sender<crate::debug::DebugSnapshot>,
     },
+    SimulationSnapshot {
+        respond_to:
+            std::sync::mpsc::Sender<Option<crate::simulation::SimulationRuntimeSnapshot>>,
+    },
+    SimulationTraceClear {
+        plant_id: String,
+        active_configuration_revision: String,
+        respond_to: std::sync::mpsc::Sender<
+            Result<
+                crate::simulation::PlantTraceClearResult,
+                crate::simulation::PlantTraceClearError,
+            >,
+        >,
+    },
     AdsStatus {
         respond_to: std::sync::mpsc::Sender<crate::ads::diagnostics::AdsStatusReport>,
     },

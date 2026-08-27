@@ -2,7 +2,7 @@
 
 This directory contains the IEC 61131-3 Structured Text language specs
 (`01-09`), the split runtime/tooling specs (`10-14`), the Ladder/profile/editor
-specs (`15-17`), the project/runtime and operational contract specs (`18-31`), and the current
+specs (`15-17`), the project/runtime and operational contract specs (`18-36`), and the current
 non-numbered SFC profile note (`sfc-profile`). Product and tooling contracts in
 this directory are explicitly identified and do not become IEC requirements.
 
@@ -36,6 +36,11 @@ this directory are explicitly identified and do not become IEC requirements.
 | [29-hir-sizeof-and-allocation.md](29-hir-sizeof-and-allocation.md) | Product contracts for `SIZEOF`, `NEW`, and `__DELETE` semantic validation | trust-hir |
 | [30-verification-inventory.md](30-verification-inventory.md) | Governance contract for complete IEC table inventory coverage and fail-closed review | verification tooling |
 | [31-oscat-library-profile.md](31-oscat-library-profile.md) | Normative truST product profile for the classic OSCAT package and its OOP facade | trust-runtime |
+| [32-control-pid.md](32-control-pid.md) | Paper-compatible combined-form PID controller and independent low-pass filter contract | libraries/control, trust-runtime |
+| [33-simulation-plant-models.md](33-simulation-plant-models.md) | Dynamic fake-plant models, controlled uncertainty, seeded replay, and process-image simulation contract | trust-runtime |
+| [34-vscode-plant-simulation-ui.md](34-vscode-plant-simulation-ui.md) | Devices & Connections behavior for creating, configuring, and observing simulated plants | editors/vscode, trust-runtime |
+| [35-vscode-control-studio.md](35-vscode-control-studio.md) | In-editor monitoring, testing, identification, tuning, and validation of PID control loops | editors/vscode, trust-runtime |
+| [36-control-pid-performance-evaluation.md](36-control-pid-performance-evaluation.md) | Executed Control.PID performance, robustness, disturbance, noise, and stability benchmark | trust-runtime, editors/vscode |
 | [16-ladder-profile-trust.md](16-ladder-profile-trust.md) | truST LD schema/runtime/editor profile and interoperability constraints | trust-runtime, trust-lsp, editors/vscode |
 | [17-visual-editors-runtime-unification.md](17-visual-editors-runtime-unification.md) | Shared ST-backed runtime/debug command path for Ladder/Statechart/Blockly | editors/vscode, trust-debug, trust-runtime |
 | [18-configurations-resources-tasks.md](18-configurations-resources-tasks.md) | CONFIGURATION/RESOURCE/TASK declarations and program-to-task binding rules | trust-hir, trust-lsp, trust-runtime |
@@ -83,6 +88,12 @@ These specifications are based on:
 - HIR warning policy (see `28-hir-warning-policy.md`)
 - `SIZEOF` and allocation semantic validation (see `29-hir-sizeof-and-allocation.md`)
 - IEC table inventory governance (see `30-verification-inventory.md`)
+- OSCAT library profile, Control PID library contract, fake-plant simulation
+  contract, plant-simulation UI contract, and Control Studio contract (see
+  `31-oscat-library-profile.md`, `32-control-pid.md`,
+  `33-simulation-plant-models.md`, and
+  `34-vscode-plant-simulation-ui.md` through
+  `36-control-pid-performance-evaluation.md`)
 
 ### Not Covered (Out of Scope)
 
@@ -108,6 +119,15 @@ For HIR query/invalidation behavior, OpenOT authoring, warning policy, and
 allocation-related semantic checks, use `docs/specs/26-hir-semantic-kernel.md`
 through `docs/specs/29-hir-sizeof-and-allocation.md`. For verification
 inventory governance, use `docs/specs/30-verification-inventory.md`.
+For reusable library contracts, use `docs/specs/31-oscat-library-profile.md`
+and `docs/specs/32-control-pid.md`. For dynamic process simulation and
+controlled plant uncertainty, use `docs/specs/33-simulation-plant-models.md`.
+For configuring and observing those plants in Devices & Connections, use
+`docs/specs/34-vscode-plant-simulation-ui.md`. For the complete loop workflow
+from monitoring and experiment design through identification, tuning, and
+validation, use `docs/specs/35-vscode-control-studio.md`.
+For the executed PID performance and stability benchmark, use
+`docs/specs/36-control-pid-performance-evaluation.md`.
 
 For IEC coverage tracking and spec-to-test mapping, see:
 - `docs/specs/coverage/standard-functions-coverage.md`

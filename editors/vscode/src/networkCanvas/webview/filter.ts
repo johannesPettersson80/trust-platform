@@ -1,4 +1,7 @@
-import type { NCGraph, NCEndpoint, NCRuntime } from "./types";
+import { primaryPlantState } from "../plant/nodeState";
+import { canvasGraphSummary, type NCGraph, type NCEndpoint, type NCRuntime } from "./types";
+
+export const SIMULATED_PLANTS_FILTER_ID = "simulated_plants";
 
 // Protocols present anywhere in the graph (for the filter checkboxes).
 export function protocolsInGraph(graph: NCGraph): string[] {
@@ -11,11 +14,13 @@ export function protocolsInGraph(graph: NCGraph): string[] {
       }
     }
   }
+  if (plantsInGraph(graph).length > 0) set.add(SIMULATED_PLANTS_FILTER_ID);
   return [...set].sort();
 }
 
 export interface FilterReport {
   readonly hiddenEndpointCount: number;
+  readonly hiddenPlantCount: number;
   readonly hiddenAttentionCount: number;
   readonly hiddenFaultCount: number;
   readonly hiddenWarningCount: number;
@@ -33,17 +38,16 @@ function endpointsInGraph(graph: NCGraph): NCEndpoint[] {
   return endpoints;
 }
 
-export function graphSummaryFromVisibleGraph(graph: NCGraph): string {
-  const hostCount = graph.hosts.length;
-  const runtimeCount = graph.hosts.reduce(
-    (sum, host) =>
-      sum +
-      host.runtimes.length +
-      host.containers.reduce((nested, container) => nested + container.runtimes.length, 0),
-    0
+function plantsInGraph(graph: NCGraph) {
+  return graph.hosts.flatMap((host) =>
+    [...host.runtimes, ...host.containers.flatMap((container) => container.runtimes)].flatMap(
+      (runtime) => runtime.plants ?? []
+    )
   );
-  const endpointCount = endpointsInGraph(graph).length;
-  return `${hostCount} host${hostCount === 1 ? "" : "s"} · ${runtimeCount} runtime${runtimeCount === 1 ? "" : "s"} · ${endpointCount} endpoint${endpointCount === 1 ? "" : "s"}`;
+}
+
+export function graphSummaryFromVisibleGraph(graph: NCGraph): string {
+  return canvasGraphSummary(graph);
 }
 
 export function withVisibleGraphSummary(graph: NCGraph): NCGraph {
@@ -66,10 +70,14 @@ function needsAttention(endpoint: NCEndpoint): boolean {
 
 export function filterReport(graph: NCGraph, hidden: ReadonlySet<string>): FilterReport {
   const hiddenEndpoints = endpointsInGraph(graph).filter((ep) => hidden.has(ep.protocol));
+  const hiddenPlants = hidden.has(SIMULATED_PLANTS_FILTER_ID)
+    ? plantsInGraph(graph).filter((plant) => primaryPlantState(plant) !== "Faulted")
+    : [];
   const hiddenEndpointIds = new Set(hiddenEndpoints.map((ep) => ep.id));
   const hiddenFaults = graph.faults.filter((fault) => hiddenEndpointIds.has(fault.targetNodeId));
   return {
     hiddenEndpointCount: hiddenEndpoints.length,
+    hiddenPlantCount: hiddenPlants.length,
     hiddenAttentionCount: hiddenEndpoints.filter(needsAttention).length,
     hiddenFaultCount: hiddenFaults.length,
     hiddenWarningCount: hiddenFaults.filter((fault) => fault.severity === "warning").length,
@@ -92,6 +100,9 @@ export function applyFilter(graph: NCGraph, hidden: ReadonlySet<string>): NCGrap
       }
       return true;
     }),
+    plants: hidden.has(SIMULATED_PLANTS_FILTER_ID)
+      ? (rt.plants ?? []).filter((plant) => primaryPlantState(plant) === "Faulted")
+      : rt.plants,
   });
   const hosts = graph.hosts.map((host) => ({
     ...host,

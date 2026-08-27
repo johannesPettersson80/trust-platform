@@ -82,12 +82,23 @@ impl DebugControl {
     /// Emit an I/O snapshot to listeners, if configured.
     pub fn push_io_snapshot(&self, snapshot: IoSnapshot) {
         let (lock, _) = &*self.state;
-        let state = lock.lock().expect("debug state poisoned");
+        let mut state = lock.lock().expect("debug state poisoned");
+        state.latest_io_snapshot = Some(snapshot.clone());
         if let Some(sender) = &state.io_tx {
             if sender.send(snapshot).is_err() {
                 tracing::debug!("debug I/O snapshot sender closed");
             }
         }
+    }
+
+    /// Return the latest process-image snapshot emitted by the runtime cycle.
+    #[must_use]
+    pub fn latest_io_snapshot(&self) -> Option<IoSnapshot> {
+        let (lock, _) = &*self.state;
+        lock.lock()
+            .expect("debug state poisoned")
+            .latest_io_snapshot
+            .clone()
     }
 
     /// Emit a runtime event to listeners, if configured.

@@ -14,6 +14,7 @@ use trust_runtime::harness::{
     parse_debug_expression, CompileError, CompileSession, SourceFile as HarnessSourceFile,
 };
 use trust_runtime::io::IoDriverRegistry;
+use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::{Runtime, RuntimeMetadata};
 
 use crate::protocol::{
@@ -77,6 +78,7 @@ impl SourceOptions {
 #[derive(Debug)]
 pub struct DebugSession {
     runtime: Arc<Mutex<Runtime>>,
+    simulation: Arc<Mutex<Option<SimulationController>>>,
     metadata: RuntimeMetadata,
     control: DebugControl,
     sources: HashMap<SourceKey, SourceFile>,
@@ -95,6 +97,7 @@ impl DebugSession {
         let metadata = runtime.metadata_snapshot();
         Self {
             runtime: Arc::new(Mutex::new(runtime)),
+            simulation: Arc::new(Mutex::new(None)),
             metadata,
             control,
             sources: HashMap::new(),
@@ -112,6 +115,7 @@ impl DebugSession {
         let metadata = runtime.metadata_snapshot();
         Self {
             runtime: Arc::new(Mutex::new(runtime)),
+            simulation: Arc::new(Mutex::new(None)),
             metadata,
             control,
             sources: HashMap::new(),
@@ -198,6 +202,7 @@ impl DebugSession {
         let mut runtime = compile.build_runtime()?;
         apply_project_io_config(&mut runtime, &path, &self.source_options)?;
         apply_project_ads_config(&mut runtime, &path, &self.source_options)?;
+        let simulation = load_project_simulation(&path, &self.source_options)?;
         runtime.set_debug_control(self.control.clone());
         runtime
             .apply_retain_snapshot(&retained)
@@ -213,6 +218,10 @@ impl DebugSession {
             *guard = runtime;
         }
         self.metadata = metadata;
+        *self
+            .simulation
+            .lock()
+            .map_err(|_| CompileError::new("simulation lock poisoned"))? = simulation;
         self.replace_sources(&sources);
 
         // Ensure no stale breakpoints linger across reloads.
@@ -237,6 +246,11 @@ impl DebugSession {
     #[must_use]
     pub fn runtime_handle(&self) -> Arc<Mutex<Runtime>> {
         Arc::clone(&self.runtime)
+    }
+
+    #[must_use]
+    pub fn simulation_handle(&self) -> Arc<Mutex<Option<SimulationController>>> {
+        Arc::clone(&self.simulation)
     }
 
     #[must_use]
@@ -324,6 +338,10 @@ impl DebugRuntime for DebugSession {
         DebugSession::runtime_handle(self)
     }
 
+    fn simulation_handle(&self) -> Arc<Mutex<Option<SimulationController>>> {
+        DebugSession::simulation_handle(self)
+    }
+
     fn metadata(&self) -> &RuntimeMetadata {
         DebugSession::metadata(self)
     }
@@ -350,6 +368,23 @@ impl DebugRuntime for DebugSession {
             })
             .collect()
     }
+}
+
+fn load_project_simulation(
+    program_path: &str,
+    options: &SourceOptions,
+) -> Result<Option<SimulationController>, CompileError> {
+    let root = options
+        .root
+        .as_deref()
+        .map(PathBuf::from)
+        .or_else(|| Path::new(program_path).parent().map(Path::to_path_buf))
+        .ok_or_else(|| CompileError::new("program path has no project root"))?;
+    let config = SimulationConfig::load_optional(root.join("simulation.toml"))
+        .map_err(|error| CompileError::new(error.to_string()))?;
+    Ok(config
+        .filter(|config| config.enabled)
+        .map(SimulationController::new))
 }
 
 fn display_path(path: &Path) -> String {

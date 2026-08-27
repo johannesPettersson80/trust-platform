@@ -46,5 +46,21 @@
     "path": "plcopen-motion-single-axis",
     "hardware": "none",
     "tags": ["motion", "library", "simulator"]
-  }
+  },
+  {"id":"control-nominal-fopdt","title":"Control · Nominal FOPDT","description":"Reproduce the paper PI loop and learn the SP, PV and MV signals.","path":"control-nominal-fopdt","hardware":"none","tags":["control","foundation","simulator"]},
+  {"id":"control-sampling-interval","title":"Control · Sampling interval","description":"Compare the same PI loop at 50, 100 and 200 ms actual cycle times.","path":"control-sampling-interval","hardware":"none","tags":["control","foundation","simulator"]},
+  {"id":"control-load-disturbance","title":"Control · Load disturbance","description":"Reject a plant-side bias event without changing the controller input.","path":"control-load-disturbance","hardware":"none","tags":["control","foundation","simulator"]},
+  {"id":"control-saturation-antiwindup","title":"Control · Saturation and anti-windup","description":"Compare BackCalculation and Combined recovery after output saturation.","path":"control-saturation-antiwindup","hardware":"none","tags":["control","foundation","simulator"]},
+  {"id":"control-measurement-noise","title":"Control · Measurement noise","description":"Compare raw and separately filtered PV using the same deterministic seed.","path":"control-measurement-noise","hardware":"none","tags":["control","foundation","simulator"]},
+  {"id":"control-rate-limit","title":"Control · Actuator rate limit","description":"See how a one-unit-per-second actuator limit bounds response speed.","path":"control-rate-limit","hardware":"none","tags":["control","foundation","simulator"]},
+  {"id":"control-integrating-plant","title":"Control · Integrating plant","description":"Use proportional control where the plant already provides integration.","path":"control-integrating-plant","hardware":"none","tags":["control","practitioner","simulator"]},
+  {"id":"control-underdamped-pid","title":"Control · Underdamped PID","description":"Damp an oscillatory second-order plant and examine noise sensitivity.","path":"control-underdamped-pid","hardware":"none","tags":["control","practitioner","simulator"]},
+  {"id":"control-delay-dominant","title":"Control · Delay-dominant process","description":"Explore why additional PI aggressiveness cannot remove process delay.","path":"control-delay-dominant","hardware":"none","tags":["control","practitioner","simulator"]},
+  {"id":"control-nonlinear-actuator","title":"Control · Nonlinear actuator","description":"Combine saturation, slew, lag and deadband on one bounded actuator.","path":"control-nonlinear-actuator","hardware":"none","tags":["control","practitioner","simulator"]},
+  {"id":"control-bounded-variation","title":"Control · Bounded plant variation","description":"Validate one fixed PI across four declared FOPDT variations.","path":"control-bounded-variation","hardware":"none","tags":["control","practitioner","simulator"]},
+  {"id":"control-open-loop-unstable","title":"Control · Open-loop unstable plant","description":"Stabilize a declared unstable state-space process and inspect constraints.","path":"control-open-loop-unstable","hardware":"none","tags":["control","advanced","simulator"]},
+  {"id":"control-scheduled-gain","title":"Control · Scheduled gain change","description":"Keep a fixed controller while plant gain changes from 0.6 to 1.4.","path":"control-scheduled-gain","hardware":"none","tags":["control","advanced","simulator"]},
+  {"id":"control-severe-jitter","title":"Control · Severe scan jitter","description":"Use each actual PLC interval under a deterministic jitter sequence.","path":"control-severe-jitter","hardware":"none","tags":["control","advanced","simulator"]},
+  {"id":"control-coupled-two-loop","title":"Control · Coupled two-loop plant","description":"Observe interaction between two independent PI-controlled loops.","path":"control-coupled-two-loop","hardware":"none","tags":["control","advanced","simulator"]},
+  {"id":"control-evidence-integrity","title":"Control · Evidence integrity","description":"Find an overlapping LREAL process-image address and correct it safely.","path":"control-evidence-integrity","hardware":"none","tags":["control","advanced","simulator"]}
 ]

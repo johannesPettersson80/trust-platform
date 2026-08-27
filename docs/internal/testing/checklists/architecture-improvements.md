@@ -39,6 +39,9 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
 - [x] `ARCH-PLCOPEN-01` Add a dedicated PLCopen motion architecture diagram describing the shipped ST public profiles, shared kernels, internal carriers, and deferred-feature guard coverage.
 - [x] `ARCH-PLCOPEN-02` Regenerate the PlantUML outputs and refresh `docs/diagrams/manifest.json` after adding the PLCopen motion architecture diagram.
 - [x] `ARCH-PLCOPEN-03` Extend the PLCopen motion architecture diagram for the shipped OOP facade package and document that it delegates to the classic motion kernels instead of owning duplicate motion state.
+- [x] `ARCH-CONTROL-PID-01` Keep the paper-compatible Control library behind two cohesive state owners: `Control.PID` owns the combined positional/incremental controller history and `Control.LowPass` owns independent filter history. SOLID/KISS/DRY acceptance: no duplicate P/PI/PD state machines, no hidden filter inside the controller, complete record-based configuration, and native tests use only the public surface. Evidence: `docs/diagrams/architecture/control-pid-library.puml`, `docs/specs/32-control-pid.md`, and the Section 7 native conformance fixture.
+- [x] `ARCH-CONTROL-PID-02` Route typed enum literal type names through the existing scope- and `USING`-aware HIR resolver instead of introducing a Control-specific lookup or a second type-resolution path, while preserving registered type identity when a value has the same name. Evidence: focused cross-file import and same-named-value enum regressions plus refreshed `docs/diagrams/hir/hir-semantics.puml`.
+- [x] `ARCH-CONTROL-PID-03` Regenerate PlantUML outputs, refresh `docs/diagrams/manifest.json`, and pass the remote diagram drift check for the Control PID and enum-resolution architecture updates. Evidence: remote `scripts/render_diagrams.sh` and `python scripts/check_diagram_drift.py` passed in the isolated validation checkout.
 - [x] `ARCH-VM-01` Add a dedicated bytecode VM execution architecture diagram that separates the production VM path from residual `EvalContext` / legacy-interpreter-only flows.
 - [x] `ARCH-VM-02` Regenerate the PlantUML outputs and refresh `docs/diagrams/manifest.json` after adding the detailed bytecode VM execution diagram.
 - [x] `ARCH-VM-03` Add a focused interpreter-removal map diagram that classifies VM runtime pieces as keep, extract, rewrite, or delete.
@@ -181,6 +184,50 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
 - [x] `ARCH-RTRETAIN-02` Keep restart construction, retained-snapshot migration, and retain-store policy in separate bounded owners: `restart.rs` prepares restart storage, `retain_snapshot.rs` captures qualified global/program identities and validates into a cloned candidate storage image, and `retain_store.rs` owns the atomic Warm load transaction plus Cold store bypass. Harness and resource-runner restart surfaces delegate to that transaction. Evidence: the focused reliability red/green regression, restart migration unit tests, runtime vertical tests, and the refreshed `runtime-execution.puml` flow.
 - [x] `ARCH-EDIT-01` Document the Phase 12 editor-intelligence request-flow changes: `ServerState` owns call-hierarchy incoming/outgoing caches keyed by document generation, document mutations invalidate those caches, document highlight stays current-file scoped, references and struct-field go-to-definition use text prefilters before semantic scans, and semantic-token classification precomputes declaration/member/type ranges instead of repeating ancestry probes per token. Evidence: `docs/diagrams/lsp/lsp-request-flow.puml`, `docs/diagrams/architecture/system-architecture.puml`, refreshed generated diagrams/manifest, and `docs/internal/testing/evidence/runtime-safety-hardening/2026-07-05/phase-12/edit-impl-008-workspace-cost-green-output.txt`.
 - [x] `ARCH-RELEASE-01` Make release evidence generation an explicit fail-closed flow: dependency exceptions and the VS Code lockfile audit gate the workflow, conformance status derives from a successful CI artifact plus current known gaps, provenance binds tag, commit, workflow, and artifact identity, and public claims remain blocked beyond targeted G1 proof until native, published, or device evidence exists. Diagram: `docs/diagrams/architecture/release-evidence-flow.puml`.
+- [x] `ARCH-SIMPLANT-01` Keep simulation plant ownership split between bounded
+  configuration validation, event, actuator, uncertainty, and orchestration
+  modules; preserve the process-image pre/post-cycle boundary and independent
+  seeded streams. Evidence: native model, replay, event, sensor, and real
+  `Control.PID` closed-loop tests plus `simulation-plant-system.puml`.
+- [x] `ARCH-SIMPLANT-02` Keep model equations separate from fixed-step
+  orchestration, typed numeric I/O, status/trace, and transactional rollback;
+  preallocate execution workspaces and reject physical I/O drivers before a
+  simulation runtime starts. Evidence: native plant, failed-substep, atomic
+  publication, bounded-history, and launcher safety tests plus the refreshed
+  `simulation-plant-system.puml`.
+- [ ] `ARCH-PSUI-01` Split the oversized Devices & Connections React and host
+  owners behind current behavior locks: graph shell, add workflow, drawer
+  routing, refresh state, message routing, runtime requests, offline project
+  access, and topology assembly each retain one reason to change. Evidence
+  requires the registered Extension Host locks and the rendered
+  Edit/add/cancel/focus/filter journey before and after every move.
+- [ ] `ARCH-PSUI-02` Keep the plant contract, seven-model descriptor catalog,
+  validation, project repository, runtime client, topology projection, forms,
+  and typed Control Studio handoff in the dependency direction documented by
+  `control-engineering-ownership.md` and `simulation-plant-system.puml`.
+- [x] `ARCH-PSUI-RUNTIME-01` Route live and stopped-project plant operations
+  through one shared handler and `PlantControlService`, while keeping scheduler
+  status/trace live-only and JSON-lines framing/correlation in adapters.
+  Evidence: 16 focused runtime contract tests, the stopped-project command
+  integration test, 9 registered Extension Development Host contract tests,
+  and the refreshed `simulation-plant-system.puml`.
+- [x] `ARCH-PSUI-RUNTIME-02` Reuse the existing canvas brick removal
+  interaction while routing saved simulated-plant removal through the same
+  stopped-project plant session and shared revision/idempotency service. The
+  plant-specific mutation atomically removes one `[[plants]]` table and only
+  its owned `[[plant_events]]` tables. Evidence: focused runtime and registered
+  Extension Host red-green tests plus the real VS Code Remove/Cancel/Confirm
+  journey and exact `simulation.toml` inspection under
+  `vscode-plant-simulation-ui/full-interaction-validation-2026-08-25/remove/`.
+- [ ] `ARCH-CSTUDIO-01` Keep Control Studio loop discovery, sample acquisition,
+  experiment safety, analysis, artifacts, controller apply, Automatic Tune,
+  runtime transport, editor host, webview state, plots, and export as focused
+  owners with transport-independent domain types and one qualified numerical
+  adapter. Evidence requires `control-studio.puml`, focused contract tests, and
+  diagram drift checks.
+- [ ] `ARCH-CSTUDIO-02` Keep experiment safety and controller apply as separate
+  authority/state-machine owners; Automatic Tune only orchestrates the same
+  Test, Identify, Tune, Validate, artifact, and apply services used manually.
  - [x] Extract the UTF-16 incremental document-change applicator into the
    reusable `trust-lsp::document_text` library module so the shipped handler,
    focused tests, and fuzz target share one implementation. The binary handler

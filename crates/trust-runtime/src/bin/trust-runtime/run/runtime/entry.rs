@@ -293,6 +293,9 @@ pub fn run_runtime(
         web_listener_bound: web_listener_bound.clone(),
         opcua_server_bound: opcua_server_bound.clone(),
         project_root: bundle.as_ref().map(|bundle| bundle.root.clone()),
+        plant_service: Arc::new(trust_runtime::control::PlantControlService::default()),
+        experiments: trust_runtime::control::ControlExperimentService::default(),
+        controllers: trust_runtime::control::ControllerParameterService::default(),
         resource_name: bundle
             .as_ref()
             .map(|bundle| bundle.runtime.resource_name.clone())

@@ -1,4 +1,6 @@
 {
+  "docs/diagrams/architecture/control-pid-library.puml": "027079351156299a72f41c973bc8ed4f2c549f5b645f67dba483fd03c23f08c3",
+  "docs/diagrams/architecture/control-studio.puml": "d5b44db9397806bfcb2ac3f8febf6c22dd3021155819df944e14c1a7ad87f679",
   "docs/diagrams/architecture/full-software-map-generated.puml": "d8da81d1e271f488fc7a494cd011c556ffdda27ee6e3ba5a6767f7830e21bd85",
   "docs/diagrams/architecture/plcopen-interchange-contracts.puml": "5dc205de19bacbb12172e121d594bb46e23b1d81b6cc72509a3fa3df8c869bb8",
   "docs/diagrams/architecture/plcopen-motion-library.puml": "a946e8cdde0f4316302cab0ac1c3e13003b634f098264dc0f539240955aa31d4",
@@ -9,6 +11,7 @@
   "docs/diagrams/architecture/runtime-cloud-planes.puml": "943b12abd97a3201616be6d17bed24195537f7d7ff86984dcf7e56f824434b8a",
   "docs/diagrams/architecture/runtime-execution.puml": "ee5860cd5857095c2a1b84fb7c17d1b8d37475c5d23b3cc9783361b9ef8c5285",
   "docs/diagrams/architecture/runtime-interpreter-removal-map.puml": "a988ae27d45fa3c2ff95698f491ff2f692d166c7d1dd566007a307bb18ba1663",
+  "docs/diagrams/architecture/simulation-plant-system.puml": "4024033aeab15a86ff56ca9de3efd8b34dd133b9feaa36346c6ed808979bf021",
   "docs/diagrams/architecture/system-architecture.puml": "5e544d8ae237d6d1f33fe373fbfb78abace9ab7fa6167e172d26506efb04b7a6",
   "docs/diagrams/architecture/verification-mutation-execution.puml": "3d8d835891f95dce7a36281a3ba1ed7b1c05860d7bb22be44bdad46a80e89d12",
   "docs/diagrams/debug/debug-architecture.puml": "84c062f2e66954df57d38ef3db3a6e185138d43c05c31e3518b728fffa35e9a5",
@@ -17,7 +20,7 @@
   "docs/diagrams/debug/debug-state-machine.puml": "c1a7201b2d0d475f66fcaf3302927e0f7d1677a459595aee4c8222347dcc666a",
   "docs/diagrams/debug/debug-step-sequence.puml": "425cfe934e8cf514d6ea12a951a1cddb8a141df14008ad04bc65e5b79b277e66",
   "docs/diagrams/debug/debug-threads.puml": "4fed9498216aba135cca3439ac2efd5e92dbe58f77fb56307a670447a4775859",
-  "docs/diagrams/hir/hir-semantics.puml": "9d4b51b2ecdb6ee674ef8087b57c06fcb96b3733804017261ec562ab6c84f284",
+  "docs/diagrams/hir/hir-semantics.puml": "7c86adddbe2cc175e74c4f8daa9955df4f19d684b7f74d7d05fb0d10227e940d",
   "docs/diagrams/lsp/lsp-request-flow.puml": "6e01ac808f17c89bcf23d6bfab99f53b4de892672ff307e25d002435497358cd",
   "docs/diagrams/syntax/syntax-pipeline.puml": "6cd48f7f6c7b61b6164589441f0bd11bef30a1a4fd5cb0f4103f5bdcc2086b48"
 }

@@ -28,6 +28,62 @@ mod tests {
     }
 
     #[test]
+    fn debug_runtime_accepts_a_typed_lreal_control_experiment_write() {
+        let project_root = temp_project_root("control-experiment-lreal");
+        let src = project_root.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        let main_path = src.join("main.st");
+        std::fs::write(
+            &main_path,
+            include_str!(
+                "../../../../editors/vscode/src/test/fixtures/control-engineering/live-simulation-project/src/main.st"
+            ),
+        )
+        .unwrap();
+        std::fs::write(
+            src.join("control.st"),
+            include_str!("../../../../libraries/control/src/control.st"),
+        )
+        .unwrap();
+        std::fs::write(
+            project_root.join("io.toml"),
+            include_str!(
+                "../../../../editors/vscode/src/test/fixtures/control-engineering/live-simulation-project/io.toml"
+            ),
+        )
+        .unwrap();
+
+        let mut session = DebugSession::new(Runtime::new());
+        session.update_source_options(SourceOptionsUpdate {
+            root: Some(project_root.to_string_lossy().into_owned()),
+            include_globs: Some(vec!["**/*.st".to_string()]),
+            exclude_globs: Some(Vec::new()),
+            ignore_pragmas: None,
+        });
+        session
+            .reload_program(Some(main_path.to_string_lossy().as_ref()))
+            .unwrap();
+
+        let runtime_handle = session.runtime_handle();
+        {
+            let mut runtime = runtime_handle.lock().unwrap();
+            runtime.execute_cycle().unwrap();
+            runtime.advance_time(trust_runtime::value::Duration::from_millis(100));
+        }
+        session.debug_control().enqueue_io_write(
+            IoAddress::parse("%ML0").unwrap(),
+            RuntimeValue::LWord(5.0_f64.to_bits()),
+        );
+        let result = runtime_handle.lock().unwrap().execute_cycle();
+        assert!(
+            result.is_ok(),
+            "the debug runtime faulted after a valid typed LREAL write: {result:?}"
+        );
+
+        std::fs::remove_dir_all(project_root).ok();
+    }
+
+    #[test]
     fn expands_brace_globs() {
         let patterns = expand_braces("**/*.{st,ST,pou,POU}");
         assert_eq!(patterns.len(), 4);

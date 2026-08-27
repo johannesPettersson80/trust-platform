@@ -68,6 +68,7 @@ struct CommConfiguredInstance {
     id: String,
     driver: String,
     display_name: String,
+    enabled: bool,
     params: serde_json::Value,
 }
 
@@ -180,6 +181,7 @@ fn configured_instances_from_root(root: &Path) -> Vec<CommConfiguredInstance> {
                 id: format!("{protocol}:{index}"),
                 driver: driver.name.to_string(),
                 display_name: instance_display_name(protocol, index, &driver.params),
+                enabled: driver.enabled,
                 params,
             })
         })

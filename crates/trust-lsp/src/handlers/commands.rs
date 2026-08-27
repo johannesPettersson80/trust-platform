@@ -381,6 +381,11 @@ fn hmi_bindings_value_with_context<C: ServerContext>(
         .collect::<Vec<_>>();
     let bindings =
         runtime_hmi::collect_hmi_bindings_catalog(&metadata, Some(&snapshot), &source_refs);
+    let io_snapshot = runtime.io().snapshot();
+    let mut commands = plant_signal_entries(&io_snapshot.outputs);
+    let mut feedbacks = plant_signal_entries(&io_snapshot.inputs);
+    commands.sort_by(plant_signal_order);
+    feedbacks.sort_by(plant_signal_order);
 
     Some(json!({
         "ok": true,
@@ -389,7 +394,89 @@ fn hmi_bindings_value_with_context<C: ServerContext>(
         "sourcesRoot": sources_root.display().to_string(),
         "programs": bindings.programs,
         "globals": bindings.globals,
+        "processImage": {
+            "commands": commands,
+            "feedbacks": feedbacks,
+        },
     }))
+}
+
+fn plant_signal_entries(entries: &[trust_runtime::io::IoSnapshotEntry]) -> Vec<Value> {
+    entries
+        .iter()
+        .filter(|entry| !entry.address.wildcard)
+        .filter_map(|entry| {
+            let value_type = entry
+                .value_type
+                .and_then(trust_runtime::io::io_value_type_name)?;
+            if !matches!(
+                value_type,
+                "SINT"
+                    | "INT"
+                    | "DINT"
+                    | "LINT"
+                    | "USINT"
+                    | "UINT"
+                    | "UDINT"
+                    | "ULINT"
+                    | "REAL"
+                    | "LREAL"
+            ) {
+                return None;
+            }
+            Some(json!({
+                "symbol": entry.name.as_ref()?.as_str(),
+                "address": canonical_io_address(&entry.address),
+                "type": value_type,
+            }))
+        })
+        .collect()
+}
+
+fn plant_signal_order(left: &Value, right: &Value) -> std::cmp::Ordering {
+    plant_signal_field(left, "address")
+        .cmp(plant_signal_field(right, "address"))
+        .then_with(|| plant_signal_field(left, "symbol").cmp(plant_signal_field(right, "symbol")))
+}
+
+fn plant_signal_field<'a>(value: &'a Value, key: &str) -> &'a str {
+    value.get(key).and_then(Value::as_str).unwrap_or_default()
+}
+
+fn canonical_io_address(address: &trust_runtime::io::IoAddress) -> String {
+    use trust_runtime::io::IoSize;
+    let area = match address.area {
+        trust_runtime::memory::IoArea::Input => "I",
+        trust_runtime::memory::IoArea::Output => "Q",
+        trust_runtime::memory::IoArea::Memory => "M",
+    };
+    let size = match address.size {
+        IoSize::Bit => "X",
+        IoSize::Byte | IoSize::Bytes(_) => "B",
+        IoSize::Word => "W",
+        IoSize::DWord => "D",
+        IoSize::LWord => "L",
+    };
+    if address.wildcard {
+        return format!("%{area}{size}*");
+    }
+    let mut path = address
+        .path
+        .iter()
+        .map(u32::to_string)
+        .collect::<Vec<_>>()
+        .join(".");
+    if address.size == IoSize::Bit {
+        if !path.is_empty() {
+            path.push('.');
+        }
+        path.push_str(&address.bit.to_string());
+    }
+    if path.is_empty() {
+        format!("%{area}{size}{}", address.byte)
+    } else {
+        format!("%{area}{size}{path}")
+    }
 }
 
 fn parse_hmi_init_args(args: Vec<Value>) -> Result<HmiInitCommandArgs, String> {

@@ -20,6 +20,8 @@ const VIEWER: &[&str] = &[
     "comm.discover",
     "comm.schema",
     "config.get",
+    "control.experiment.status",
+    "control.pid.status",
     "connectors.status",
     "debug.breakpoint_locations",
     "debug.scopes",
@@ -41,12 +43,23 @@ const VIEWER: &[&str] = &[
     "hmi.values.get",
     "io.list",
     "io.read",
+    "plant.capabilities",
+    "plant.read",
+    "plant.status",
+    "plant.trace.read",
     "status",
     "tasks.stats",
     "var.forced",
 ];
 
-const OPERATOR: &[&str] = &["hmi.alarm.ack", "pair.claim", "pause", "restart", "resume"];
+const OPERATOR: &[&str] = &[
+    "hmi.alarm.ack",
+    "pair.claim",
+    "pause",
+    "plant.trace.clear",
+    "restart",
+    "resume",
+];
 
 const ENGINEER: &[&str] = &[
     "ads.server.doctor",
@@ -57,6 +70,10 @@ const ENGINEER: &[&str] = &[
     "breakpoints.set",
     "comm.apply",
     "comm.test",
+    "control.experiment.abort",
+    "control.experiment.start",
+    "control.pid.apply",
+    "control.pid.rollback",
     "debug.evaluate",
     "eval",
     "hmi.descriptor.update",
@@ -65,6 +82,9 @@ const ENGINEER: &[&str] = &[
     "io.force",
     "io.unforce",
     "io.write",
+    "plant.remove",
+    "plant.save",
+    "plant.validate",
     "set",
     "step_in",
     "step_out",

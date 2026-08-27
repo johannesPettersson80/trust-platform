@@ -1,59 +1,119 @@
 import React, { useMemo, useState } from "react";
 import type { CommSchemaResponse } from "../../communication/schemaForm";
 import { protocolColor } from "./protocolMeta";
-import { groupForAddPicker, type AddPickerGroup } from "./grouping";
+import { encodePlantDragPayload, PLANT_DRAG_MIME } from "../plant/addFlow";
+import {
+  groupForAddPicker,
+  plantPickerPresentation,
+  type AddPickerGroup,
+  type PlantPickerOption,
+} from "./grouping";
 
 // S-09 projects the backend protocol catalog into user-intent groups. The schema still owns ids and
 // setup fields; the picker owns only first-time-user wording and the beginner/advanced split.
 export function AddPane({
   schema,
   target,
+  plantOption,
   onChoose,
+  onChoosePlant,
+  onBeginPlantDrag,
+  onEndPlantDrag,
   onDiscover,
   onClose,
 }: {
   schema?: CommSchemaResponse;
   target?: { id: string; name: string };
+  plantOption?: PlantPickerOption;
   onChoose: (protocolId: string) => void;
+  onChoosePlant?: () => void;
+  onBeginPlantDrag?: () => string;
+  onEndPlantDrag?: () => void;
   onDiscover: () => void;
   onClose: () => void;
 }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const protocols = useMemo(() => schema?.protocols ?? [], [schema]);
-  const groups = useMemo(() => groupForAddPicker(protocols), [protocols]);
+  // A plant is a product action, not a communication protocol. It shares the
+  // picker presentation shape only so all choices keep one visual taxonomy.
+  const pickerItems = useMemo(
+    () => [
+      ...(plantOption
+        ? [{ id: "simulated_plant", title: "Simulated plant", purpose: "" }]
+        : []),
+      ...protocols,
+    ],
+    [plantOption, protocols]
+  );
+  const groups = useMemo(() => groupForAddPicker(pickerItems), [pickerItems]);
   const visibleGroups = groups.filter((group) => !group.advanced || advancedOpen);
   const advancedCount = groups
     .filter((group) => group.advanced)
     .reduce((count, group) => count + group.items.length, 0);
+  const plantPresentation = plantOption
+    ? plantPickerPresentation(plantOption)
+    : undefined;
 
-  const renderItem = (item: AddPickerGroup<(typeof protocols)[number]>["items"][number]) => (
+  const renderItem = (item: AddPickerGroup<(typeof pickerItems)[number]>["items"][number]) => {
+    const isPlant = item.protocol.id === "simulated_plant";
+    const disabled = isPlant && plantPresentation?.disabled === true;
+    const purpose = isPlant && plantPresentation
+      ? plantPresentation.purpose
+      : item.purpose;
+    return (
     <button
       key={item.protocol.id}
-      onClick={() => onChoose(item.protocol.id)}
+      onClick={() => isPlant ? onChoosePlant?.() : onChoose(item.protocol.id)}
+      onKeyDown={(event) => {
+        if (isPlant && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onChoosePlant?.();
+        }
+      }}
+      draggable={isPlant && !disabled}
+      onDragStart={(event) => {
+        if (!isPlant || disabled || !onBeginPlantDrag) return;
+        const dragSessionId = onBeginPlantDrag();
+        event.dataTransfer.effectAllowed = "copy";
+        event.dataTransfer.setData(
+          PLANT_DRAG_MIME,
+          encodePlantDragPayload(dragSessionId)
+        );
+      }}
+      onDragEnd={() => {
+        if (isPlant) onEndPlantDrag?.();
+      }}
+      disabled={disabled}
       style={ITEM}
-      title={item.purpose}
+      title={purpose}
     >
-      <span style={{ ...BADGE, background: protocolColor(item.protocol.id) }}>{item.badge}</span>
+      <span style={{ ...BADGE, background: isPlant ? "var(--trust-accent)" : protocolColor(item.protocol.id) }}>{item.badge}</span>
       <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
         <span style={ITEM_TITLE}>{item.title}</span>
-        {item.purpose && (
+        {purpose && (
           <span style={ITEM_PURPOSE}>
-            {item.purpose}
+            {purpose}
           </span>
         )}
       </span>
     </button>
-  );
+    );
+  };
 
   return (
-    <aside className="trust-inspector" style={PANEL} aria-label="Add device or connection">
+    <aside
+      className="trust-inspector"
+      style={PANEL}
+      aria-label="Add device, connection, or simulated plant"
+      data-target-runtime-id={target?.id}
+    >
       <div className="trust-inspector__header">
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="trust-inspector__eyebrow" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {target?.name ?? "runtime"}
           </div>
           <div className="trust-inspector__title">
-            Add device or connection
+            Add device, connection, or simulated plant
           </div>
         </div>
         <button onClick={onClose} aria-label="Close" style={iconBtn}>✕</button>
@@ -67,7 +127,7 @@ export function AddPane({
         </p>
       </div>
       <div data-testid="add-picker-list" style={{ flex: 1, overflow: "auto", padding: "8px 10px" }}>
-        {schema === undefined ? (
+        {groups.length === 0 && schema === undefined ? (
           <p style={EMPTY}>Catalog unavailable (needs a runtime that serves the schema).</p>
         ) : groups.length === 0 ? (
           <p style={EMPTY}>No device or connection types are available.</p>
@@ -98,6 +158,9 @@ export function AddPane({
                 <span style={SECTION_COUNT}>{advancedCount}</span>
               </button>
             </section>
+          )}
+          {schema === undefined && (
+            <p style={EMPTY}>Device catalog unavailable. Project simulation remains configurable while the runtime is stopped.</p>
           )}
           </>
         )}

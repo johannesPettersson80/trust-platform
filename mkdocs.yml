@@ -113,6 +113,8 @@ nav:
           - Live Values: operate/live-values.md
           - Run & Check: operate/debugging-and-runtime-panel.md
           - Simulation: operate/simulation.md
+          - Control Studio: operate/control-studio.md
+          - Control System Engineering: develop/control-system-engineering.md
           - Test And Debug Examples: examples/test-and-debug.md
       - Visual Programming:
           - Overview: develop/visual-editors/index.md
@@ -182,6 +184,7 @@ nav:
   - Run:
       - Overview: operate/index.md
       - Runtime UI And Control: operate/runtime-ui-and-control.md
+      - Control Studio: operate/control-studio.md
       - Install On Target: operate/install-on-target.md
       - Supervision: operate/supervision.md
       - PREEMPT_RT: operate/preempt-rt.md

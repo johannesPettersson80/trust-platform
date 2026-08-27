@@ -1,0 +1,61 @@
+@startuml control-pid-library
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle uml2
+skinparam linetype ortho
+skinparam nodesep 45
+skinparam ranksep 35
+
+title truST Control PID Library: Public Surface And Conformance Flow
+
+package "Normative Inputs" {
+  artifact "Control PID Specification\ndocs/specs/32-control-pid.md" as spec
+  artifact "Paper Listings 3-5\nand released examples" as paper
+}
+
+package "Reusable Control Package\nlibraries/control" {
+  component "Control.PID\ncombined positional/incremental state" as pid
+  component "Control.LowPass\nindependent one/two-stage state" as filter
+  component "Parameter, input, and\ninitial-state records" as records
+  component "Mode, anti-windup, and\nfilter-order enums" as enums
+}
+
+package "Native ST Conformance Fixture" {
+  component "Equation oracles\nSections 7.1-7.12" as equations
+  component "Seven released scenarios\nSection 7.13" as scenarios
+  component "trust-dev ST test runner" as runner
+}
+
+spec --> pid
+spec --> filter
+paper --> spec : baseline source
+records --> pid : complete samples and state
+records --> filter : filter parameters
+enums --> pid : mode and anti-windup selection
+enums --> filter : order selection
+equations --> pid
+equations --> filter
+scenarios --> pid
+scenarios --> filter
+runner --> equations : compiles and executes
+runner --> scenarios : compiles and executes
+
+note right of pid
+One state owner implements the paper's
+exact IntegralGain = 0 form switch.
+There are no duplicate P, PI, PD,
+or PID state machines.
+end note
+
+note right of filter
+Filtering remains caller-owned and
+uses a separate instance per signal.
+The controller has no hidden filter.
+end note
+
+note bottom of scenarios
+Python and MATLAB are reference sources only.
+Native conformance executes Structured Text.
+end note
+
+@enduml

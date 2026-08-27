@@ -97,6 +97,97 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             "\n".join(candidate_prepare.bootstrap_failures(destination, canonical)),
         )
 
+    def test_vscode_remote_gate_runs_under_headless_display(self) -> None:
+        commands = dict(
+            candidate_prepare.remote_validation_commands(
+                vscode_changed=True, remote_target="/tmp/trust-target"
+            )
+        )
+        self.assertIn("npm ci &&", commands["remote_vscode"])
+        self.assertIn("xvfb-run -a npm test", commands["remote_vscode"])
+
+    def test_full_suite_is_builder_only_before_candidate_validation(self) -> None:
+        self.assertNotIn("local_test_all", guard.BASE_REQUIRED_COMMANDS)
+        self.assertEqual(candidate_prepare.local_candidate_validation_commands(), ())
+        commands = dict(
+            candidate_prepare.remote_validation_commands(
+                vscode_changed=False, remote_target="/tmp/trust-target"
+            )
+        )
+        self.assertIn("remote_test_all", commands)
+        self.assertIn("just test-all", commands["remote_test_all"])
+
+    def test_remote_validation_reclaims_exact_target_before_test_all(self) -> None:
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=True, remote_target="/tmp/trust target"
+        )
+        command_ids = [command_id for command_id, _command in commands]
+
+        self.assertLess(
+            command_ids.index("remote_clippy"),
+            command_ids.index("remote_reclaim_before_test_all"),
+        )
+        self.assertLess(
+            command_ids.index("remote_reclaim_before_test_all"),
+            command_ids.index("remote_test_all"),
+        )
+        by_id = dict(commands)
+        self.assertEqual(
+            by_id["remote_reclaim_before_test_all"],
+            "rm -rf -- '/tmp/trust target' && mkdir -p -- '/tmp/trust target'",
+        )
+        for command_id in ("remote_vscode", "remote_clippy", "remote_test_all"):
+            self.assertIn("CARGO_INCREMENTAL=0", by_id[command_id])
+
+    def test_default_remote_target_is_an_absolute_validated_generated_path(self) -> None:
+        args = guard.parser().parse_args(
+            [
+                "prepare",
+                "--remote-worktree",
+                "/home/johannes/projects/exact-validation",
+            ]
+        )
+
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=False,
+            remote_target=args.remote_target,
+        )
+
+        self.assertIn(
+            "CARGO_TARGET_DIR=/home/johannes/.cache/codex-targets/trust-platform-gate",
+            dict(commands)["remote_test_all"],
+        )
+
+    def test_remote_target_rejects_repository_and_broad_paths(self) -> None:
+        for unsafe in (
+            "/",
+            "/tmp",
+            "/home/johannes",
+            "/home/johannes/projects/trust-platform",
+            "relative/target",
+            "/home/johannes/.cache/codex-targets/../source",
+        ):
+            with self.subTest(unsafe=unsafe), self.assertRaises(ValueError):
+                candidate_prepare.remote_validation_commands(
+                    vscode_changed=False,
+                    remote_target=unsafe,
+                )
+
+    def test_exact_candidate_uses_report_smoke_not_exhaustive_tooling(self) -> None:
+        maintenance_ids = [
+            command_id
+            for command_id, _command in candidate_prepare.local_maintenance_commands()
+        ]
+        self.assertEqual(maintenance_ids, ["catalog_staleness"])
+
+        command = candidate_prepare.strict_report_command(
+            base_sha="1" * 40,
+            head="2" * 40,
+            intent="bugfix",
+        )
+        self.assertIn("--smoke", command)
+        self.assertNotIn("scripts/check_verification_tooling_selftests.py", command)
+
     def test_metadata_maintenance_is_advisory_but_candidate_integrity_blocks(self) -> None:
         records = [
             {"id": "bootstrap", "exit_status": 0},
@@ -213,6 +304,37 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         assets = [{"name": "trust.vsix"}, {"name": "SHA256SUMS"}]
         self.assertTrue(candidate_release.verify_downloaded_assets(asset_dir, assets))
         payload.write_bytes(b"tampered")
+        self.assertFalse(candidate_release.verify_downloaded_assets(asset_dir, assets))
+
+    def test_release_asset_check_resolves_flattened_github_asset_name(self) -> None:
+        asset_dir = self.repo / "flattened-assets"
+        asset_dir.mkdir()
+        payload = asset_dir / "trust.vsix"
+        payload.write_bytes(b"extension")
+        digest = guard.sha256_bytes(payload.read_bytes())
+        (asset_dir / "SHA256SUMS").write_text(
+            f"{digest}  vsix-artifacts/trust.vsix\n", encoding="utf-8"
+        )
+        assets = [{"name": "trust.vsix"}, {"name": "SHA256SUMS"}]
+        self.assertTrue(candidate_release.verify_downloaded_assets(asset_dir, assets))
+
+    def test_release_asset_check_rejects_ambiguous_flattened_names(self) -> None:
+        asset_dir = self.repo / "ambiguous-assets"
+        asset_dir.mkdir()
+        payload = asset_dir / "trust.vsix"
+        payload.write_bytes(b"extension")
+        digest = guard.sha256_bytes(payload.read_bytes())
+        (asset_dir / "SHA256SUMS").write_text(
+            "\n".join(
+                [
+                    f"{digest}  first/trust.vsix",
+                    f"{digest}  second/trust.vsix",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        assets = [{"name": "trust.vsix"}, {"name": "SHA256SUMS"}]
         self.assertFalse(candidate_release.verify_downloaded_assets(asset_dir, assets))
 
     @mock.patch.object(guard, "load_artifact", return_value=None)

@@ -1,0 +1,25 @@
+[simulation]
+enabled = true
+seed = 20260824
+time_scale = 1
+plant_step_ms = 100
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2000
+
+[[plants]]
+id = "fixture-fopdt"
+model = "first_order_dead_time"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [20.0]
+
+[plants.parameters]
+gain = 1.5
+time_constant_s = 4.0
+dead_time_s = 0.5
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+rate_up_per_s = 25.0
+rate_down_per_s = 25.0

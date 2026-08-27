@@ -4,10 +4,18 @@ Status: normative truST product specification for the shipped VS Code
 extension.
 
 This document owns the user-facing shell, Live Values, Devices & Connections,
-onboarding, libraries, HMI preview, and visual-editor presentation contracts.
+onboarding, libraries, HMI preview, Control Studio placement, and visual-editor
+presentation contracts.
 It is a truST product specification, not an IEC 61131-3 semantic rule.
 Reviewed choices that resolve earlier product-plan conflicts are recorded in
 `docs/PRODUCT_DECISIONS.md`.
+
+The behavior for creating, configuring, and observing simulated plants inside
+Devices & Connections is owned by
+[`34-vscode-plant-simulation-ui.md`](34-vscode-plant-simulation-ui.md).
+The loop-specific monitoring, experiment, identification, tuning, and
+validation behavior of Control Studio is owned by
+[`35-vscode-control-studio.md`](35-vscode-control-studio.md).
 
 The words MUST, MUST NOT, SHOULD, and MAY are normative. Static source-contract
 tests establish behavior-lock wiring only. They do not by themselves prove
@@ -25,6 +33,9 @@ package, or end-to-end evidence.
   internal name `Network Canvas`.
 - The value surface and both active and compatibility HTML titles MUST be
   `Live Values`, not `Structured Text Runtime` or `Runtime Panel`.
+- The loop engineering surface MUST be named `Control Studio`; its command
+  title is `Open Control Studio`. It is a full editor surface and MUST NOT be
+  embedded in Live Values or the Devices & Connections inspector.
 - Palette-visible commands MUST use the common truST category and MUST NOT
   embed a `Structured Text:` prefix in the title.
 - The namespace refactor MUST be named `Move Structured Text Namespace`. It
@@ -332,10 +343,10 @@ package, or end-to-end evidence.
 
 - Add, edit, node-summary, and protocol panes use shared inspector, section,
   field, input, button, and message chrome.
-- Picker taxonomy is: `Add device or connection`,
+- Picker taxonomy is: `Add device, connection, or simulated plant`,
   `Discover devices and runtimes`, `Devices and I/O`,
   `Read tags from another PLC or server`, `Share truST values`,
-  `Send and receive messages`, and `Advanced integrations`.
+  `Send and receive messages`, `Simulation`, and `Advanced integrations`.
 - Schema `json_array` fields use list editors and serialize to arrays. Boolean
   fields use On/Off checkboxes, acronyms retain capitalization, exposed
   globals use product language, and secret help states saved secrets are not
@@ -658,7 +669,7 @@ package, or end-to-end evidence.
   or compile-diagnostics panels.
 - They retain the shared Structured Text generation, launch, attach, and debug
   command route from `17-visual-editors-runtime-unification.md` sections 1-4.
-- Devices & Connections and all four editors consume
+- Devices & Connections, Control Studio, and all four visual editors consume
   `src/webview/theme.css`; React/inline styles consume shared
   `src/webview/theme.ts` roles. Parallel private theme layers are forbidden.
 - Shared protocol roles are `protocolBlue`, `protocolOrange`,

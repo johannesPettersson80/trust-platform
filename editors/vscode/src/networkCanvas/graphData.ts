@@ -15,10 +15,41 @@ import {
   fleetRuntimeDisplayName,
   type NetworkCanvasFleetRuntime,
 } from "./fleetModel";
-import { LOCAL_RUNTIME_NODE_ID } from "./webview/types";
+import { canvasGraphSummary, LOCAL_RUNTIME_NODE_ID } from "./webview/types";
 import type { ManagedRuntime } from "../localRuntimeModel";
 import { SIMULATOR_RUNTIME_ID } from "../trustHomeModel";
-import type { NCFault, NCGraph, NCHost, NCRuntime } from "./webview/types";
+import type { NCFault, NCGraph, NCHost, NCPlant, NCRuntime } from "./webview/types";
+
+export { canvasGraphSummary, runtimeEmptyMessage } from "./webview/types";
+
+export function attachPlantsToRuntime(
+  graph: NCGraph,
+  runtimeId: string,
+  plants: ReadonlyArray<NCPlant>
+): void {
+  for (const host of graph.hosts) {
+    const runtime = [
+      ...host.runtimes,
+      ...host.containers.flatMap((container) => container.runtimes),
+    ].find((candidate) => candidate.id === runtimeId);
+    if (!runtime) continue;
+    runtime.plants = plants.map((plant) => ({ ...plant }));
+    graph.summary = canvasGraphSummary(graph);
+    return;
+  }
+}
+
+export function projectPlantRuntimeId(graph: NCGraph): string | undefined {
+  const runtimes = graph.hosts.flatMap((host) => [
+    ...host.runtimes,
+    ...host.containers.flatMap((container) => container.runtimes),
+  ]);
+  const local = runtimes.find((runtime) => runtime.id === LOCAL_RUNTIME_NODE_ID);
+  if (local) return local.id;
+  const selected = runtimes.filter((runtime) => runtime.runTarget);
+  if (selected.length === 1) return selected[0].id;
+  return runtimes.length === 1 ? runtimes[0].id : undefined;
+}
 
 function deviceHealth(status: NetworkDeviceStatus): string {
   switch (status) {
@@ -423,7 +454,7 @@ function injectManagedRuntimes(
         });
       }
     }
-    graph.summary = graphSummary(graph);
+    graph.summary = canvasGraphSummary(graph);
   }
   // De-twin (F-12): a runtime must never ALSO appear as a separate "external system" node. The live
   // topology can advertise one of our own runtimes back as an external peer; drop any external whose
@@ -441,25 +472,6 @@ function injectManagedRuntimes(
   }
 }
 
-function graphSummary(graph: NCGraph): string {
-  const runtimeCount = graph.hosts.reduce(
-    (sum, host) =>
-      sum + host.runtimes.length + host.containers.reduce((nested, container) => nested + container.runtimes.length, 0),
-    0
-  );
-  const endpointCount = graph.hosts.reduce(
-    (sum, host) =>
-      sum +
-      host.runtimes.reduce((nested, runtime) => nested + runtime.endpoints.length, 0) +
-      host.containers.reduce(
-        (nested, container) =>
-          nested + container.runtimes.reduce((rtSum, runtime) => rtSum + runtime.endpoints.length, 0),
-        0
-      ),
-    0
-  );
-  return `${graph.hosts.length} host${graph.hosts.length === 1 ? "" : "s"} · ${runtimeCount} runtime${runtimeCount === 1 ? "" : "s"} · ${endpointCount} endpoint${endpointCount === 1 ? "" : "s"}`;
-}
 
 // Honest per-runtime "are we connected to it?" flag. Local simulator: attached === running (its own
 // health). Remote: attached ONLY if the extension's live connection points at THIS runtime's control

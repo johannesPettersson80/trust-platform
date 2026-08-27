@@ -21,6 +21,7 @@ impl DebugControl {
                     watch_changed: false,
                     log_tx: None,
                     io_tx: None,
+                    latest_io_snapshot: None,
                     stop_tx: None,
                     runtime_tx: None,
                     runtime_events: Vec::new(),

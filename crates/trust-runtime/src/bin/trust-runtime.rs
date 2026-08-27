@@ -38,6 +38,8 @@ mod fleet;
 mod git;
 #[path = "trust-runtime/hmi.rs"]
 mod hmi;
+#[path = "trust-runtime/plant.rs"]
+mod plant;
 #[path = "trust-runtime/plcopen.rs"]
 mod plcopen;
 #[path = "trust-runtime/prompt.rs"]
@@ -201,6 +203,7 @@ fn run() -> anyhow::Result<()> {
         Some(Command::Plcopen { action }) => plcopen::run_plcopen(action),
         Some(Command::Ads { action }) => ads::run_ads(action),
         Some(Command::Comm { action }) => comm::run_comm(action),
+        Some(Command::Plant { action }) => plant::run_plant(action),
         Some(Command::Fleet { action }) => fleet::run_fleet(action),
         Some(Command::Registry { action }) => registry::run_registry(action),
         Some(Command::Setup {

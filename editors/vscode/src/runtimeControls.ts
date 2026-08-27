@@ -19,6 +19,18 @@ import {
 } from "./trustHomeModel";
 import { workspaceHasReadableTrustProject } from "./workspaceProject";
 
+type StatusBarRuntime = Pick<
+  RuntimeLifecycleSnapshot["status"],
+  "runtimeState" | "runtimeMode" | "endpointReachable" | "endpoint"
+>;
+
+export function connectedRuntimeStatusText(status: StatusBarRuntime): string | undefined {
+  const connected = status.runtimeState === "connected" ||
+    (status.runtimeMode === "online" && status.endpointReachable);
+  if (!connected) return undefined;
+  return `$(plug) truST: ${connectedEndpointLabel(status.endpoint)} connected`;
+}
+
 // §UX (reset 2026-06-22) — the status bar is PASSIVE. It shows the ACTIVE runtime's honest state and,
 // on click, reveals the truST sidebar. It contributes NO Start/Stop command: there is exactly ONE
 // run surface (the sidebar action row / canvas runtime node). Never fabricate running/connected.
@@ -85,11 +97,10 @@ async function statusText(
   if (!(await workspaceHasReadableTrustProject())) {
     return "$(circle-outline) truST: No project";
   }
-  if (snapshot.status.runtimeState === "connected") {
-    const label =
-      snapshot.status.targetLabel?.trim() ||
-      connectedEndpointLabel(snapshot.status.endpoint);
-    return `$(plug) truST: ${label} connected`;
+  const connected = connectedRuntimeStatusText(snapshot.status);
+  if (connected) {
+    const label = snapshot.status.targetLabel?.trim();
+    return label ? `$(plug) truST: ${label} connected` : connected;
   }
   const remotes = readRemotes();
   const managed = await listManagedRuntimes(context);

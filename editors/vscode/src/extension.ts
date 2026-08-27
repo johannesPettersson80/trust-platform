@@ -11,6 +11,7 @@ import { getBinaryPath } from "./binary";
 import { registerIoPanel } from "./ioPanel";
 import { registerHmiPanel } from "./hmiPanel";
 import { registerNetworkCanvasPanel } from "./networkCanvas/networkCanvasPanel";
+import { registerControlStudioPanel } from "./controlStudio/panel";
 import { registerRuntimeLifecycle } from "./runtimeLifecycle";
 import { registerRuntimeControls } from "./runtimeControls";
 import { registerTrustHome } from "./trustHomeView";
@@ -184,7 +185,8 @@ export async function activate(context: vscode.ExtensionContext) {
   registerTrustHome(context);
   registerIoPanel(context);
   registerHmiPanel(context);
-  registerNetworkCanvasPanel(context);
+  registerNetworkCanvasPanel(context, { getClient: () => client });
+  registerControlStudioPanel(context);
   try {
     registerLanguageModelTools(context, { getClient: () => client });
   } catch (error) {

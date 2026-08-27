@@ -412,6 +412,14 @@ END_PROGRAM
                 ResourceCommand::Snapshot { respond_to } => {
                     let _ = respond_to.send(snapshot.clone());
                 }
+                ResourceCommand::SimulationSnapshot { respond_to } => {
+                    let _ = respond_to.send(None);
+                }
+                ResourceCommand::SimulationTraceClear { respond_to, .. } => {
+                    let _ = respond_to.send(Err(
+                        trust_runtime::simulation::PlantTraceClearError::StatusUnavailable,
+                    ));
+                }
                 ResourceCommand::AdsStatus { respond_to } => {
                     let _ = respond_to.send(trust_runtime::ads::diagnostics::AdsStatusReport {
                         schema_version:
@@ -479,6 +487,9 @@ END_PROGRAM
         web_listener_bound: Arc::new(AtomicBool::new(false)),
         opcua_server_bound: Arc::new(AtomicBool::new(false)),
         project_root: None,
+        plant_service: Arc::new(trust_runtime::control::PlantControlService::default()),
+        experiments: trust_runtime::control::ControlExperimentService::default(),
+        controllers: trust_runtime::control::ControllerParameterService::default(),
         resource_name: SmolStr::new("RESOURCE"),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),

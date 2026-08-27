@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "control-delay-dominant",
+  "title": "Delay-dominant process",
+  "level": "Practitioner",
+  "specification": "docs/specs/36-control-pid-performance-evaluation.md#11.3",
+  "evidenceSource": "simulation",
+  "nativeTest": "pid_benchmark_tracks_a_delay_dominant_process",
+  "nativeCommand": "cargo test -p trust-runtime --test control_pid_performance pid_benchmark_tracks_a_delay_dominant_process -- --exact",
+  "expectedMetrics": "Stable; overshoot ≤ 20%; settling ≤ 25 s; final error ≤ 2%.",
+  "stages": [
+    "Predict",
+    "Configure",
+    "Monitor",
+    "Test",
+    "Identify",
+    "Tune",
+    "Validate",
+    "Explain",
+    "Export"
+  ]
+}

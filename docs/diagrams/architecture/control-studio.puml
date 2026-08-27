@@ -1,0 +1,65 @@
+@startuml control-studio
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle uml2
+skinparam linetype ortho
+
+title truST Control Studio: Reused Runtime And Simulation Flow
+
+package "VS Code webview" {
+  component "Control Studio workflow\nMonitor / Test / Identify /\nTune / Validate" as workflow
+  component "Shared ECharts adapter\nformatted bounded display data" as charts
+}
+
+package "VS Code extension host" {
+  component "Control Studio panel\nstrict loop-scoped messages" as panel
+  component "Loop monitor" as monitor
+  component "Experiment client" as experiment
+  component "Identify / tune / validate\npure functions" as analysis
+  component "Runtime lifecycle" as lifecycle
+  component "Existing runtime\ncontrol client" as client
+  database "VS Code workspace state\nactive experiment identity +\nsaved workflow result" as workspace_state
+}
+
+package "Existing runtime" {
+  component "Debug/runtime control server" as control
+  component "One process-image\nsnapshot stream" as process_image
+  component "Existing SimulationController" as simulation
+  component "Control.PID instance" as pid
+}
+
+workflow --> panel : versioned commands
+panel --> workflow : loop-scoped results
+workflow --> charts
+panel --> monitor
+panel --> experiment
+panel --> analysis
+panel --> workspace_state : minimal reload recovery
+monitor --> lifecycle
+experiment --> lifecycle
+lifecycle --> client : active endpoint + token
+client --> control : existing request transport
+control --> process_image
+process_image --> monitor : SP / PV / MV snapshot
+process_image --> pid
+simulation --> process_image : pre/post scan I/O
+
+note right of workspace_state
+No artifact database.
+Raw recordings and the accepted result
+remain project-scoped and reproducible.
+end note
+
+note bottom of experiment
+The runtime owns start, abort, timeout and restore.
+Reload recovery polls the same experiment identity;
+it never starts a second excitation.
+end note
+
+note bottom of control
+Physical excitation and controller apply require
+their existing explicit approval boundaries.
+Simulation evidence is labelled separately.
+end note
+
+@enduml

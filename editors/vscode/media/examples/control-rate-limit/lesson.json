@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "control-rate-limit",
+  "title": "Actuator rate limit",
+  "level": "Foundation",
+  "specification": "docs/specs/36-control-pid-performance-evaluation.md#7",
+  "evidenceSource": "simulation",
+  "nativeTest": "paper_pid_recovers_from_saturation_and_respects_rate_limits",
+  "nativeCommand": "cargo test -p trust-runtime --test control_pid_performance paper_pid_recovers_from_saturation_and_respects_rate_limits -- --exact",
+  "expectedMetrics": "Every MV increment respects 1 unit/s within 1e-10; final error ≤ 2% by 30 s.",
+  "stages": [
+    "Predict",
+    "Configure",
+    "Monitor",
+    "Test",
+    "Identify",
+    "Tune",
+    "Validate",
+    "Explain",
+    "Export"
+  ]
+}

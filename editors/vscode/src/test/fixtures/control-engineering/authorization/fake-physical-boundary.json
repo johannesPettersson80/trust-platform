@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "source": "physical_fake_boundary",
+  "subject": "fixture-user",
+  "mayRunExperiment": false,
+  "mayApplyController": false,
+  "requiresImmediateApproval": true,
+  "permitsPhysicalAction": false,
+  "evidenceClass": "automated_fake_boundary_only"
+}

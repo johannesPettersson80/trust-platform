@@ -5,6 +5,7 @@ import * as vscode from "vscode";
 import {
   type HmiBindingCatalog,
   type HmiBindingCatalogEntry,
+  type HmiProcessImageSignal,
   type HmiLayoutFileEntry,
   type HmiLayoutSnapshot,
   type HmiLockEntry,
@@ -615,7 +616,27 @@ export function normalizeHmiBindingsCatalog(response: unknown): HmiBindingCatalo
       : left.path.localeCompare(right.path),
   );
 
-  return { entries, byPath };
+  const processImage = asRecord(payload.processImage);
+
+  return {
+    entries,
+    byPath,
+    processImage: {
+      commands: normalizeProcessImageSignals(processImage?.commands),
+      feedbacks: normalizeProcessImageSignals(processImage?.feedbacks),
+    },
+  };
+}
+
+function normalizeProcessImageSignals(value: unknown): HmiProcessImageSignal[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item): HmiProcessImageSignal[] => {
+    const record = asRecord(item);
+    const symbol = typeof record?.symbol === "string" ? record.symbol.trim() : "";
+    const address = typeof record?.address === "string" ? record.address.trim() : "";
+    const dataType = typeof record?.type === "string" ? record.type.trim().toUpperCase() : "";
+    return symbol && address && dataType ? [{ symbol, address, dataType }] : [];
+  });
 }
 
 export function stableSortDeep(value: unknown): unknown {

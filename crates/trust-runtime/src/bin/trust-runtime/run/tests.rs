@@ -105,6 +105,53 @@ fn simulation_warning_omitted_in_production_mode() {
 }
 
 #[test]
+fn simulation_rejects_an_enabled_physical_io_driver_before_runtime_start() {
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    bundle.simulation = Some(trust_runtime::simulation::SimulationConfig {
+        enabled: true,
+        ..Default::default()
+    });
+    bundle
+        .io
+        .drivers
+        .push(trust_runtime::config::IoDriverConfig {
+            name: smol_str::SmolStr::new("gpio"),
+            params: toml::Value::Table(toml::map::Map::new()),
+            enabled: true,
+        });
+
+    let error = match super::build_simulation_plan(Some(&bundle), false, 1) {
+        Ok(_) => panic!("simulation and a physical output driver must fail closed"),
+        Err(error) => error,
+    };
+    assert!(error.to_string().contains("gpio"));
+    assert!(error.to_string().contains("simulation"));
+}
+
+#[test]
+fn simulation_allows_only_nonphysical_and_disabled_io_drivers() {
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    bundle.simulation = Some(trust_runtime::simulation::SimulationConfig {
+        enabled: true,
+        ..Default::default()
+    });
+    for (name, enabled) in [("sim", true), ("loopback", true), ("ethercat", false)] {
+        bundle
+            .io
+            .drivers
+            .push(trust_runtime::config::IoDriverConfig {
+                name: smol_str::SmolStr::new(name),
+                params: toml::Value::Table(toml::map::Map::new()),
+                enabled,
+            });
+    }
+
+    assert!(super::build_simulation_plan(Some(&bundle), false, 1).is_ok());
+}
+
+#[test]
 fn runtime_logger_threshold_uses_canonical_severity_order() {
     let logger = super::RuntimeLogger::new(super::LogLevel::Warn);
 

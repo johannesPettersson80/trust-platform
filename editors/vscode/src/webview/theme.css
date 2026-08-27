@@ -314,6 +314,18 @@ body {
   z-index: 3;
 }
 
+.trust-inspector__footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--trust-border);
+  background: var(--trust-overlay);
+}
+
 .trust-inspector__eyebrow {
   color: var(--trust-text-muted);
   font-size: 11px;

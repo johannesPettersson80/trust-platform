@@ -6,6 +6,42 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+Target release: `v0.24.64`
+
+### Added
+
+- Add deterministic simulation plant models for controller verification,
+  including static, first-order, FOPDT, integrator, second-order, state-space,
+  and piecewise-linear processes; scalar and MIMO typed process-image bindings;
+  actuator nonidealities; seeded uncertainty and dropout faults; scheduled
+  plant events; bounded status/trace capture; atomic feedback publication;
+  failed-substep rollback; physical-I/O activation protection; and a native
+  closed-loop `Control.PID` performance oracle. Saved simulated-plant bricks
+  now use the canvas' standard confirmed Remove interaction and atomically
+  remove only the selected plant and its owned events from `simulation.toml`.
+  The VS Code workflow now has documentation-ready Plant Simulation and
+  Control Studio journeys covering configuration, monitoring, bounded tests,
+  identification, tuning, validation, Automatic Tune, recovery, and explicit
+  physical-plant approval boundaries.
+- Add the reusable `Control` Structured Text library with the paper-compatible
+  combined-form `PID` controller, independent first-/second-order `LowPass`
+  filter, normative specification, native equation and seven-scenario
+  conformance tests, and an executed closed-loop performance benchmark for
+  tracking, robustness, sampling, disturbances, limits, noise, and stability
+  margins across nominal, integrating, underdamped, delay-dominant, and
+  nonlinear-actuator processes, plus open-loop instability, scheduled gain
+  variation, severe deterministic scan jitter, and a coupled two-loop process;
+  add a control-system engineering report and staged training curriculum that
+  explains the design choices, results, tuning workflow, limitations, and
+  improvement program.
+- Extend the existing Control Studio workflow with reproducible saved-run
+  revisions, sixteen executable control-engineering lessons, independently
+  qualified SIMC and AMIGO PI formulas, bounded P/PI/PD/PID candidate
+  comparison, common performance and actuator metrics, deterministic
+  rejection reasons, and an explicit unapplied recommendation and review flow.
+
+### Changed
+
 - Specify runtime clock dispatch name/error identity and deterministic LSP
   diagnostic-override collision precedence, including canonical-key priority
   and alias-only lexical ordering.
@@ -48,9 +84,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.62`
-
 ### Fixed
+
+- Resolve typed enum literals through the active namespace and `USING` scope,
+  allowing imported declarations such as `PIDMode#Manual` to type-check across
+  files without allowing a same-named variable to hide the literal's type.
 
 - Write the correlated runtime control acknowledgement before applying an
   accepted shutdown stop signal, preventing managed fleet stop from losing its

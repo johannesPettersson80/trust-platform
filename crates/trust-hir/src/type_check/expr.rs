@@ -86,11 +86,30 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             }
 
             let type_name = token.text().strip_suffix('#').unwrap_or(token.text());
-            if let Some(type_id) = TypeId::from_builtin_name(type_name) {
-                return type_id;
-            }
-            if let Some(type_id) = self.checker.symbols.lookup_registered_type_name(type_name) {
-                return type_id;
+            match self
+                .checker
+                .resolve_ref()
+                .resolve_type_by_name_outcome(type_name, Some(node.text_range()))
+            {
+                SemanticOutcome::Resolved(type_id) => return type_id,
+                SemanticOutcome::WrongKind { .. } => {
+                    // IEC type names remain usable when a value with the same name is in scope.
+                    if let Some(type_id) =
+                        self.checker.symbols.lookup_registered_type_name(type_name)
+                    {
+                        return type_id;
+                    }
+                }
+                SemanticOutcome::Ambiguous { .. } => {
+                    return self.checker.legacy_diagnostic_type(
+                        DiagnosticCode::CannotResolve,
+                        node.text_range(),
+                        format!("ambiguous typed literal prefix '{}'", type_name),
+                    );
+                }
+                SemanticOutcome::Unknown { .. }
+                | SemanticOutcome::SuppressedCascade { .. }
+                | SemanticOutcome::InvariantViolation { .. } => {}
             }
             return self.checker.legacy_diagnostic_type(
                 DiagnosticCode::UndefinedType,

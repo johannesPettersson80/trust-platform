@@ -1,0 +1,93 @@
+@startuml simulation-plant-system
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle uml2
+skinparam linetype ortho
+
+title truST Simulation Plant System: Scan And Ownership Boundaries
+
+package "VS Code extension" {
+  component "Plant contract +\nmodel descriptors" as plant_contract
+  component "Devices & Connections\ngraph shell" as device_graph
+  component "Add workflow +\ndrawer router" as plant_drawer
+  component "Project plant repository\natomic save/remove + revision" as plant_repo
+  component "Runtime plant client\nstatus + trace" as plant_client
+  component "Stopped-project session\nJSON-lines correlation" as offline_client
+  component "Typed Control Studio\nhandoff" as plant_handoff
+}
+
+component "Live control transport" as live_transport
+component "trust-runtime plant serve\nstopped-project producer" as offline_transport
+component "Shared plant handler\nPlantHandlerContext" as plant_operations
+component "PlantControlService\nrevision + idempotency" as plant_service
+component "Scheduler command boundary\nstatus / trace / scoped clear" as scheduler_boundary
+
+component "PLC program\nControl.PID" as plc
+component "Process image\n%Q command / %I feedback" as io
+component "SimulationController\npre/post-cycle orchestration" as simulation
+component "Launch safety gate\nreject physical I/O drivers" as safety
+component "Status + bounded trace" as observability
+
+package "PlantSystem" {
+  component "Validated plant instance\nstate + fixed-step accumulator" as plant
+  component "Typed numeric I/O\nchecked conversion + atomic batch" as numeric
+  component "Scheduled events" as events
+  component "Command and actuator effects" as actuator
+  component "Nominal model" as model
+  component "Parameter, state, output,\nand measurement uncertainty" as uncertainty
+  component "Preallocated checkpoint\nfailed-substep rollback" as checkpoint
+}
+
+safety --> simulation : permits nonphysical drivers only
+plant_contract --> device_graph : typed topology state
+plant_contract --> plant_drawer : descriptors + validation
+plant_drawer --> plant_repo : validate / atomic save or remove
+device_graph --> plant_client : current status request
+plant_client --> live_transport : bounded typed request
+plant_repo --> offline_client : stopped-project read / validate / save / remove
+offline_client --> offline_transport : correlated JSON lines
+live_transport --> plant_operations : runtime context
+offline_transport --> plant_operations : project context
+plant_operations --> plant_service : serialize project mutation
+plant_operations --> scheduler_boundary : immutable query / explicit clear
+plant_service --> plant_operations : replay or apply once
+scheduler_boundary --> simulation : scheduler-owned access
+device_graph --> plant_handoff : project/runtime/plant/loop identity
+plc --> io : commits command during scan
+io --> simulation : post-cycle held command
+simulation --> plant : elapsed simulation time
+events --> plant : due actions before substep
+plant --> actuator : command uncertainty first
+actuator --> model : applied process input
+uncertainty --> model : effective parameters
+model --> uncertainty : state and ideal output
+uncertainty --> plant : completed measurement
+plant --> checkpoint : save before substep
+checkpoint --> plant : restore on fault
+plant --> numeric : queue complete feedback
+numeric --> simulation : checked encoded batch
+simulation --> io : next pre-cycle atomic publication
+io --> plc : next scan reads feedback
+plant --> observability : completed state and fault context
+observability --> plant_operations : honest status + bounded trace
+
+note right of plant_contract
+Transport-independent contract.
+No React, filesystem, endpoint,
+or executor types.
+end note
+
+note right of plant_handoff
+Identities and revisions only.
+Simulation source is explicit.
+No copied live samples.
+end note
+
+note right of plant
+Each substep commits atomically.
+Random streams derive from master seed,
+plant ID, and uncertainty ID.
+Execution buffers are allocated at activation.
+end note
+
+@enduml

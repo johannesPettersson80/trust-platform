@@ -9,6 +9,16 @@ static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 const MAX_DURATION_MILLIS: u64 = (i64::MAX / 1_000_000) as u64;
 
 #[test]
+fn simulation_process_image_ranges_detect_lreal_overlap() {
+    let first = IoAddress::parse("%IL0").unwrap();
+    let overlapping = IoAddress::parse("%IL1").unwrap();
+    let adjacent = IoAddress::parse("%IL8").unwrap();
+
+    assert!(addresses_overlap(&first, &overlapping));
+    assert!(!addresses_overlap(&first, &adjacent));
+}
+
+#[test]
 fn simulation_contract_defaults_and_programmatic_scale_floor_are_stable() {
     let config = SimulationConfig::default();
     assert!(!config.enabled);

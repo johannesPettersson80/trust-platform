@@ -51,6 +51,44 @@ END_PROGRAM
 }
 
 #[test]
+fn using_imports_namespaced_enum_type_for_typed_literals_across_files() {
+    check_no_errors_multi(&[
+        r#"
+USING Control;
+PROGRAM Main
+VAR
+    Mode : Control.PIDMode;
+END_VAR
+Mode := PIDMode#Manual;
+END_PROGRAM
+"#,
+        r#"
+NAMESPACE Control
+TYPE PIDMode : (Auto, Manual, Track);
+END_TYPE
+END_NAMESPACE
+"#,
+    ]);
+}
+
+#[test]
+fn typed_enum_literal_keeps_type_identity_when_a_variable_has_the_same_name() {
+    check_no_errors(
+        r#"
+TYPE Color : (Red, Green, Blue);
+END_TYPE
+
+PROGRAM Main
+VAR
+    Color : Color;
+END_VAR
+Color := Color#Green;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
 fn namespace_global_supports_qualified_reads_and_writes() {
     check_no_errors(
         r#"

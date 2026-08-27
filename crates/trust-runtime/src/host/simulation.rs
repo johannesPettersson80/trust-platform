@@ -9,6 +9,7 @@ use std::path::Path;
 use rapier3d::dynamics::{RevoluteJoint, RevoluteJointBuilder};
 use rapier3d::math::{rotation_from_angle, AngVector, Vector};
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
@@ -16,6 +17,12 @@ use crate::io::{IoAddress, IoSize};
 use crate::memory::IoArea;
 use crate::value::{Duration, Value};
 use crate::Runtime;
+
+#[path = "simulation/plant.rs"]
+mod plant;
+pub(crate) use plant::SUPPORTED_MODEL_KINDS;
+use plant::{build_config as build_plant_config, PlantEventSection, PlantSection, PlantSystem};
+pub use plant::{PlantConfig, PlantSystemConfig};
 
 const MAX_DURATION_MILLIS: u64 = (i64::MAX / 1_000_000) as u64;
 
@@ -27,6 +34,7 @@ pub struct SimulationConfig {
     pub couplings: Vec<SignalCouplingRule>,
     pub disturbances: Vec<SimulationDisturbance>,
     pub physics: Option<PhysicsConfig>,
+    pub plant_system: PlantSystemConfig,
 }
 
 impl Default for SimulationConfig {
@@ -38,11 +46,21 @@ impl Default for SimulationConfig {
             couplings: Vec::new(),
             disturbances: Vec::new(),
             physics: None,
+            plant_system: PlantSystemConfig::default(),
         }
     }
 }
 
 impl SimulationConfig {
+    pub(crate) fn from_toml_text(text: &str, source: &str) -> Result<Self, RuntimeError> {
+        let raw: SimulationToml = toml::from_str(text).map_err(|err| {
+            RuntimeError::InvalidConfig(
+                format!("{source}: invalid simulation config: {err}").into(),
+            )
+        })?;
+        raw.into_config()
+    }
+
     pub fn load(path: impl AsRef<Path>) -> Result<Self, RuntimeError> {
         let path = path.as_ref();
         let text = std::fs::read_to_string(path).map_err(|err| {
@@ -54,12 +72,7 @@ impl SimulationConfig {
                 .into(),
             )
         })?;
-        let raw: SimulationToml = toml::from_str(&text).map_err(|err| {
-            RuntimeError::InvalidConfig(
-                format!("{}: invalid simulation config: {err}", path.display()).into(),
-            )
-        })?;
-        raw.into_config()
+        Self::from_toml_text(&text, &path.display().to_string())
     }
 
     pub fn load_optional(path: impl AsRef<Path>) -> Result<Option<Self>, RuntimeError> {
@@ -141,16 +154,121 @@ pub struct SimulationController {
     next_sequence: u64,
     last_coupling_values: Vec<Option<Value>>,
     physics: Option<PhysicsController>,
+    plants: PlantSystem,
+    configuration_digest: String,
+    active_configuration_revision: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SimulationStatus {
+    pub active: bool,
+    pub time_scale: u32,
+    pub effective_seed: u64,
+    pub random_algorithm: &'static str,
+    pub random_algorithm_version: u32,
+    pub restart_policy: &'static str,
+    pub plants: Vec<PlantStatus>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlantStatus {
+    pub id: String,
+    pub model: String,
+    pub enabled: bool,
+    pub step: Duration,
+    pub simulated_time: Duration,
+    pub state: Vec<f64>,
+    pub transformed_command: Vec<f64>,
+    pub applied_input: Vec<f64>,
+    pub ideal_output: Vec<f64>,
+    pub measured_feedback: Vec<f64>,
+    pub published_feedback: Vec<f64>,
+    pub actuators: Vec<ActuatorStatus>,
+    pub active_uncertainties: Vec<String>,
+    pub active_dropouts: Vec<String>,
+    pub pending_events: usize,
+    pub delay_buffer_depth: usize,
+    pub accumulated_remainder: Duration,
+    pub last_substeps: usize,
+    pub last_fault: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ActuatorStatus {
+    pub applied: f64,
+    pub saturation_active: bool,
+    pub slew_limit_active: bool,
+    pub deadband_active: bool,
+    pub stuck: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SimulationTraceSnapshot {
+    pub effective_seed: u64,
+    pub random_algorithm: &'static str,
+    pub random_algorithm_version: u32,
+    pub runtime_version: &'static str,
+    pub restart_policy: &'static str,
+    pub configuration_digest: String,
+    pub capacity_per_plant: usize,
+    pub dropped_rows: u64,
+    pub plant_stats: Vec<PlantTraceStats>,
+    pub rows: Vec<SimulationTraceRow>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlantTraceStats {
+    pub plant_id: String,
+    pub retained_rows: usize,
+    pub dropped_rows: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlantTraceClearResult {
+    pub plant_id: String,
+    pub prior_row_count: usize,
+    pub prior_dropped_row_count: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlantTraceClearError {
+    StatusUnavailable,
+    RevisionConflict,
+    PlantNotFound,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SimulationRuntimeSnapshot {
+    pub active_configuration_revision: Option<String>,
+    pub status: SimulationStatus,
+    pub trace: SimulationTraceSnapshot,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SimulationTraceRow {
+    pub sequence: u64,
+    pub plant_id: String,
+    pub model: String,
+    pub simulation_time: Duration,
+    pub state: Vec<f64>,
+    pub transformed_command: Vec<f64>,
+    pub applied_input: Vec<f64>,
+    pub ideal_output: Vec<f64>,
+    pub measured_feedback: Vec<f64>,
+    pub queued_feedback: Vec<f64>,
+    pub fired_events: Vec<&'static str>,
 }
 
 impl SimulationController {
     pub fn new(config: SimulationConfig) -> Self {
+        let configuration_digest = simulation_config_digest(&config);
         let last_coupling_values = vec![None; config.couplings.len()];
         let physics = config
             .physics
             .as_ref()
             .filter(|physics| physics.enabled && !physics.joints.is_empty())
             .map(PhysicsController::new);
+        let plants = PlantSystem::new(&config.plant_system);
         Self {
             disturbances: config.disturbances.clone(),
             config,
@@ -159,7 +277,71 @@ impl SimulationController {
             next_sequence: 0,
             last_coupling_values,
             physics,
+            plants,
+            configuration_digest,
+            active_configuration_revision: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_active_configuration_revision(mut self, revision: String) -> Self {
+        self.active_configuration_revision = Some(revision);
+        self
+    }
+
+    #[must_use]
+    pub fn runtime_snapshot(&self) -> SimulationRuntimeSnapshot {
+        SimulationRuntimeSnapshot {
+            active_configuration_revision: self.active_configuration_revision.clone(),
+            status: self.status(),
+            trace: self.trace_snapshot(),
+        }
+    }
+
+    #[must_use]
+    pub fn status(&self) -> SimulationStatus {
+        SimulationStatus {
+            active: self.enabled(),
+            time_scale: self.time_scale(),
+            effective_seed: self.config.seed,
+            random_algorithm: "splitmix64",
+            random_algorithm_version: 1,
+            restart_policy: "reset_on_cold_and_warm_restart",
+            plants: self.plants.statuses(),
+        }
+    }
+
+    #[must_use]
+    pub fn trace_snapshot(&self) -> SimulationTraceSnapshot {
+        SimulationTraceSnapshot {
+            effective_seed: self.config.seed,
+            random_algorithm: "splitmix64",
+            random_algorithm_version: 1,
+            runtime_version: env!("CARGO_PKG_VERSION"),
+            restart_policy: "reset_on_cold_and_warm_restart",
+            configuration_digest: self.configuration_digest.clone(),
+            capacity_per_plant: self.config.plant_system.trace_capacity(),
+            dropped_rows: self.plants.dropped_trace_rows(),
+            plant_stats: self.plants.trace_stats(),
+            rows: self.plants.trace_rows(),
+        }
+    }
+
+    pub fn clear_trace(&mut self) {
+        self.plants.clear_trace();
+    }
+
+    pub fn clear_plant_trace(
+        &mut self,
+        plant_id: &str,
+        expected_active_revision: &str,
+    ) -> Result<PlantTraceClearResult, PlantTraceClearError> {
+        if self.active_configuration_revision.as_deref() != Some(expected_active_revision) {
+            return Err(PlantTraceClearError::RevisionConflict);
+        }
+        self.plants
+            .clear_plant_trace(plant_id)
+            .ok_or(PlantTraceClearError::PlantNotFound)
     }
 
     #[must_use]
@@ -220,6 +402,8 @@ impl SimulationController {
             }
         }
 
+        self.plants.publish(runtime)?;
+
         Ok(())
     }
 
@@ -262,6 +446,7 @@ impl SimulationController {
                 self.next_sequence = self.next_sequence.saturating_add(1);
             }
         }
+        self.plants.advance(now, runtime)?;
         Ok(())
     }
 
@@ -271,6 +456,19 @@ impl SimulationController {
         effects.sort_by_key(|item| (item.due.as_nanos(), item.sequence));
         self.pending_effects = effects.into_iter().collect();
     }
+}
+
+pub fn file_content_revision(path: impl AsRef<Path>) -> Result<String, RuntimeError> {
+    let bytes = match std::fs::read(path.as_ref()) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(error) => {
+            return Err(RuntimeError::InvalidConfig(
+                format!("{}: {error}", path.as_ref().display()).into(),
+            ));
+        }
+    };
+    Ok(format!("sha256:{:x}", Sha256::digest(bytes)))
 }
 
 #[derive(Debug, Clone)]
@@ -369,21 +567,57 @@ impl PhysicsJointState {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SimulationToml {
     simulation: Option<SimulationSection>,
     couplings: Option<Vec<CouplingSection>>,
     disturbances: Option<Vec<DisturbanceSection>>,
     physics: Option<PhysicsSection>,
+    plants: Option<Vec<PlantSection>>,
+    plant_events: Option<Vec<PlantEventSection>>,
 }
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SimulationSection {
     enabled: Option<bool>,
-    seed: Option<u64>,
+    seed: Option<SeedSelection>,
     time_scale: Option<u32>,
+    plant_step_ms: Option<u64>,
+    max_plant_substeps_per_cycle: Option<usize>,
+    plant_trace_capacity: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum SeedSelection {
+    Integer(u64),
+    Name(String),
+}
+
+impl SeedSelection {
+    fn resolve(self) -> Result<u64, RuntimeError> {
+        match self {
+            Self::Integer(value) => Ok(value),
+            Self::Name(name) if name == "random" => {
+                let mut bytes = [0_u8; 8];
+                getrandom::fill(&mut bytes).map_err(|error| {
+                    RuntimeError::InvalidConfig(
+                        format!("failed to obtain simulation seed from operating system: {error}")
+                            .into(),
+                    )
+                })?;
+                Ok(u64::from_le_bytes(bytes))
+            }
+            Self::Name(name) => Err(RuntimeError::InvalidConfig(
+                format!("simulation.seed must be an integer or 'random', got '{name}'").into(),
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct CouplingSection {
     source: String,
     target: String,
@@ -394,6 +628,7 @@ struct CouplingSection {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct DisturbanceSection {
     at_ms: u64,
     kind: Option<String>,
@@ -403,6 +638,7 @@ struct DisturbanceSection {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PhysicsSection {
     enabled: Option<bool>,
     backend: Option<String>,
@@ -412,6 +648,7 @@ struct PhysicsSection {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PhysicsJointSection {
     id: String,
     kind: String,
@@ -426,6 +663,11 @@ struct PhysicsJointSection {
 impl SimulationToml {
     fn into_config(self) -> Result<SimulationConfig, RuntimeError> {
         let section = self.simulation.unwrap_or_default();
+        let effective_seed = section
+            .seed
+            .map(SeedSelection::resolve)
+            .transpose()?
+            .unwrap_or(0);
         let couplings = self
             .couplings
             .unwrap_or_default()
@@ -441,11 +683,29 @@ impl SimulationToml {
         disturbances.sort_by_key(|entry| entry.at.as_nanos());
         let physics = self.physics.map(PhysicsSection::into_config).transpose()?;
         validate_physics_targets(&couplings, physics.as_ref())?;
+        let plant_trace_capacity = section.plant_trace_capacity.unwrap_or(0);
+        if plant_trace_capacity > 100_000 {
+            return Err(RuntimeError::InvalidConfig(
+                "simulation.plant_trace_capacity must not exceed 100000".into(),
+            ));
+        }
+        let plant_system = build_plant_config(
+            self.plants.unwrap_or_default(),
+            self.plant_events.unwrap_or_default(),
+            section.plant_step_ms,
+            section.max_plant_substeps_per_cycle,
+            effective_seed,
+            plant_trace_capacity,
+        )?;
+        validate_plant_targets(&plant_system, &couplings, physics.as_ref())?;
 
         let has_physics = physics
             .as_ref()
             .is_some_and(|physics| physics.enabled && !physics.joints.is_empty());
-        let has_rules = !couplings.is_empty() || !disturbances.is_empty() || has_physics;
+        let has_rules = !couplings.is_empty()
+            || !disturbances.is_empty()
+            || has_physics
+            || !plant_system.plants.is_empty();
         let enabled = section.enabled.unwrap_or(has_rules);
         let time_scale = section.time_scale.unwrap_or(1);
         if time_scale == 0 {
@@ -453,14 +713,14 @@ impl SimulationToml {
                 "simulation.time_scale must be >= 1".into(),
             ));
         }
-
         Ok(SimulationConfig {
             enabled,
-            seed: section.seed.unwrap_or(0),
+            seed: effective_seed,
             time_scale,
             couplings,
             disturbances,
             physics,
+            plant_system,
         })
     }
 }
@@ -681,7 +941,7 @@ fn validate_physics_targets(
         }
         if couplings
             .iter()
-            .any(|coupling| coupling.target == joint.feedback_target)
+            .any(|coupling| addresses_overlap(&coupling.target, &joint.feedback_target))
         {
             return Err(invalid_config(format!(
                 "physics feedback target {} conflicts with coupling target",
@@ -690,7 +950,7 @@ fn validate_physics_targets(
         }
         if physics.joints[..idx]
             .iter()
-            .any(|previous| previous.feedback_target == joint.feedback_target)
+            .any(|previous| addresses_overlap(&previous.feedback_target, &joint.feedback_target))
         {
             return Err(invalid_config(format!(
                 "physics feedback target {} conflicts with another physics joint target",
@@ -699,6 +959,66 @@ fn validate_physics_targets(
         }
     }
     Ok(())
+}
+
+fn validate_plant_targets(
+    plants: &PlantSystemConfig,
+    couplings: &[SignalCouplingRule],
+    physics: Option<&PhysicsConfig>,
+) -> Result<(), RuntimeError> {
+    for (plant_id, target) in plants.feedback_targets() {
+        if couplings
+            .iter()
+            .any(|coupling| addresses_overlap(target, &coupling.target))
+        {
+            return Err(invalid_config(format!(
+                "plant '{plant_id}' feedback target {} conflicts with coupling target",
+                format_io(target)
+            )));
+        }
+        if physics.is_some_and(|physics| {
+            physics.enabled
+                && physics
+                    .joints
+                    .iter()
+                    .any(|joint| addresses_overlap(target, &joint.feedback_target))
+        }) {
+            return Err(invalid_config(format!(
+                "plant '{plant_id}' feedback target {} conflicts with physics feedback target",
+                format_io(target)
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn addresses_overlap(left: &IoAddress, right: &IoAddress) -> bool {
+    if left.area != right.area {
+        return false;
+    }
+    if left.path.len() > 1 || right.path.len() > 1 {
+        return left == right;
+    }
+    let interval = |address: &IoAddress| {
+        let start = u64::from(address.byte) * 8
+            + if address.size == IoSize::Bit {
+                u64::from(address.bit)
+            } else {
+                0
+            };
+        let width = match address.size {
+            IoSize::Bit => 1,
+            IoSize::Byte => 8,
+            IoSize::Word => 16,
+            IoSize::DWord => 32,
+            IoSize::LWord => 64,
+            IoSize::Bytes(bytes) => u64::from(bytes) * 8,
+        };
+        (start, start.saturating_add(width))
+    };
+    let (left_start, left_end) = interval(left);
+    let (right_start, right_end) = interval(right);
+    left_start < right_end && right_start < left_end
 }
 
 fn validate_positive_finite(name: &str, value: f64) -> Result<(), RuntimeError> {
@@ -714,6 +1034,16 @@ fn validate_finite(name: &str, value: f64) -> Result<(), RuntimeError> {
         return Err(invalid_config(format!("{name} must be finite")));
     }
     Ok(())
+}
+
+fn simulation_config_digest(config: &SimulationConfig) -> String {
+    // FNV-1a is used only as a stable configuration identity, not as a security hash.
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in format!("{config:?}").bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("fnv1a64:{hash:016x}")
 }
 
 fn derive_coupling_value(rule: &SignalCouplingRule, source: &Value) -> Result<Value, RuntimeError> {

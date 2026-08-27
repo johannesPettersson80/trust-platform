@@ -35,6 +35,9 @@ export function FilterPanel({
           <>
             <p className="trust-help">
               {report.hiddenEndpointCount} connection{report.hiddenEndpointCount === 1 ? "" : "s"} hidden.
+              {report.hiddenPlantCount > 0
+                ? ` ${report.hiddenPlantCount} simulated plant${report.hiddenPlantCount === 1 ? "" : "s"} hidden.`
+                : ""}
             </p>
             <p className="trust-help" style={{ color: hiddenIssueCount > 0 ? "var(--trust-warn)" : "var(--trust-text-muted)", marginTop: 6 }}>
               {hiddenIssueCount > 0

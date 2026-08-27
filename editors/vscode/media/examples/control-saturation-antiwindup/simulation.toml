@@ -1,0 +1,23 @@
+[simulation]
+enabled = true
+seed = 20260824
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2000
+plant_step_ms = 100
+
+[[plants]]
+id = "saturation-fopdt"
+model = "first_order_dead_time"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [0.0]
+
+[plants.parameters]
+gain = 1.0
+time_constant_s = 3.0
+dead_time_s = 0.5
+
+[plants.actuator]
+minimum = -3.5
+maximum = 3.5

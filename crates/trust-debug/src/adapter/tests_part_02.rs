@@ -948,6 +948,117 @@ END_PROGRAM
     fs::remove_dir_all(&project_root).ok();
 }
 
+#[test]
+fn debug_control_server_experiment_keeps_the_typed_pid_loop_running() {
+    let project_root = unique_project_root("debug-control-pid-experiment");
+    let main_path = project_root.join("main.st");
+    fs::write(
+        &main_path,
+        include_str!(
+            "../../../../editors/vscode/src/test/fixtures/control-engineering/live-simulation-project/src/main.st"
+        ),
+    )
+    .unwrap();
+    fs::write(
+        project_root.join("control.st"),
+        include_str!("../../../../libraries/control/src/control.st"),
+    )
+    .unwrap();
+    fs::write(
+        project_root.join("io.toml"),
+        include_str!(
+            "../../../../editors/vscode/src/test/fixtures/control-engineering/live-simulation-project/io.toml"
+        ),
+    )
+    .unwrap();
+    fs::write(
+        project_root.join("simulation.toml"),
+        include_str!(
+            "../../../../editors/vscode/src/test/fixtures/control-engineering/live-simulation-project/simulation.toml"
+        ),
+    )
+    .unwrap();
+
+    let mut session = DebugSession::new(Runtime::new());
+    session.update_source_options(crate::session::SourceOptionsUpdate {
+        root: Some(project_root.to_string_lossy().into_owned()),
+        include_globs: Some(vec!["**/*.st".to_string()]),
+        exclude_globs: Some(Vec::new()),
+        ignore_pragmas: None,
+    });
+    session
+        .reload_program(Some(main_path.to_string_lossy().as_ref()))
+        .unwrap();
+
+    let mut adapter = DebugAdapter::new(session);
+    let (dap_io_tx, dap_io_rx) = std::sync::mpsc::channel();
+    adapter.session().debug_control().set_io_sender(dap_io_tx);
+    let addr = reserve_loopback_addr();
+    let auth = "debug-control-pid-token";
+    adapter.control_server = Some(
+        DebugControlServer::start(
+            adapter.session(),
+            trust_runtime::control::ControlEndpoint::Tcp(addr),
+            Some(auth.to_string()),
+            Some(project_root.clone()),
+        )
+        .unwrap(),
+    );
+    adapter.start_runner();
+    thread::sleep(Duration::from_millis(250));
+    let dap_snapshot = dap_io_rx
+        .recv_timeout(Duration::from_millis(250))
+        .expect("control server must not replace the Debug Adapter I/O stream");
+    assert!(dap_snapshot.scan.is_some());
+    let runtime_handle = adapter.session().runtime_handle();
+    let scan_before = runtime_handle.lock().unwrap().cycle_counter();
+
+    let started = send_control_request(
+        addr,
+        auth,
+        serde_json::json!({
+            "id": 31,
+            "type": "control.experiment.start",
+            "params": {
+                "experiment_id": "typed-lreal-step",
+                "source": "simulation",
+                "kind": "setpoint_step",
+                "address": "%ML0",
+                "value": 5,
+                "restoration_value": 0,
+                "value_type": "LREAL",
+                "minimum": 0,
+                "maximum": 100,
+                "duration_ms": 10_000,
+                "expected_scan": 1,
+                "stop_on_stale_ms": 500,
+                "controller_mode": "Auto"
+            }
+        }),
+    );
+    assert_control_ok(&started, "control.experiment.start");
+
+    thread::sleep(Duration::from_millis(350));
+    adapter.stop_runner();
+    let scan_after = runtime_handle.lock().unwrap().cycle_counter();
+    assert!(
+        scan_after > scan_before,
+        "debug control experiment stopped the PID loop at scan {scan_before}"
+    );
+    let feedback = runtime_handle
+        .lock()
+        .unwrap()
+        .io()
+        .read(&IoAddress::parse("%IL0").unwrap())
+        .unwrap();
+    assert!(
+        matches!(feedback, RuntimeValue::LWord(bits) if f64::from_bits(bits) > 0.0),
+        "debug runner must advance the configured simulated plant, got {feedback:?}"
+    );
+
+    fs::remove_dir_all(project_root).ok();
+}
+
 fn unique_project_root(label: &str) -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)

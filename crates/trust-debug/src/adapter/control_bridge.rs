@@ -37,6 +37,8 @@ const DEFAULT_TCP_ENDPOINT: &str = "127.0.0.1:9901";
 
 pub(super) struct DebugControlServer {
     server: ControlServer,
+    io_snapshot: Arc<Mutex<Option<trust_runtime::io::IoSnapshot>>>,
+    io_snapshot_seen_ms: Arc<AtomicU64>,
     _drain: thread::JoinHandle<()>,
 }
 
@@ -50,6 +52,8 @@ impl DebugControlServer {
         let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
         let debug = session.debug_control();
         let sources = SourceRegistry::new(session.control_sources());
+        let io_snapshot = Arc::new(Mutex::new(None));
+        let io_snapshot_seen_ms = Arc::new(AtomicU64::new(0));
         let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
             project_root.as_deref(),
             &sources,
@@ -59,9 +63,12 @@ impl DebugControlServer {
             resource,
             metadata: Arc::new(Mutex::new(session.metadata().clone())),
             project_root,
+            plant_service: Arc::new(trust_runtime::control::PlantControlService::default()),
+            experiments: trust_runtime::control::ControlExperimentService::default(),
+            controllers: trust_runtime::control::ControllerParameterService::default(),
             sources,
-            io_snapshot: Arc::new(Mutex::new(None)),
-            io_snapshot_seen_ms: Arc::new(AtomicU64::new(0)),
+            io_snapshot: io_snapshot.clone(),
+            io_snapshot_seen_ms: io_snapshot_seen_ms.clone(),
             pending_restart: Arc::new(Mutex::new(None)),
             auth_token: Arc::new(Mutex::new(auth_token.map(SmolStr::new))),
             control_requires_auth: matches!(endpoint, ControlEndpoint::Tcp(_)),
@@ -98,12 +105,23 @@ impl DebugControlServer {
         let drain = spawn_command_drain(cmd_rx, debug, session.runtime_handle());
         Ok(Self {
             server,
+            io_snapshot,
+            io_snapshot_seen_ms,
             _drain: drain,
         })
     }
 
     pub fn endpoint(&self) -> &ControlEndpoint {
         self.server.endpoint()
+    }
+
+    pub(super) fn io_snapshot_sink(
+        &self,
+    ) -> (
+        Arc<Mutex<Option<trust_runtime::io::IoSnapshot>>>,
+        Arc<AtomicU64>,
+    ) {
+        (self.io_snapshot.clone(), self.io_snapshot_seen_ms.clone())
     }
 }
 
@@ -186,6 +204,14 @@ fn spawn_command_drain(
                 ResourceCommand::MeshApply { .. } => {}
                 ResourceCommand::Snapshot { respond_to } => {
                     let _ = respond_to.send(debug.snapshot().unwrap_or_else(empty_debug_snapshot));
+                }
+                ResourceCommand::SimulationSnapshot { respond_to } => {
+                    let _ = respond_to.send(None);
+                }
+                ResourceCommand::SimulationTraceClear { respond_to, .. } => {
+                    let _ = respond_to.send(Err(
+                        trust_runtime::simulation::PlantTraceClearError::StatusUnavailable,
+                    ));
                 }
                 ResourceCommand::AdsStatus { respond_to } => {
                     let report = runtime

@@ -6,6 +6,10 @@
 // graph builder don't each hardcode the literal.
 export const LOCAL_RUNTIME_NODE_ID = "runtime:local";
 
+export function runtimeEmptyMessage(): string {
+  return "No devices or simulated plants yet";
+}
+
 // v4 (§10.2): one slave/module of a fieldbus segment (e.g. an EtherCAT terminal).
 export interface NCFieldSlave {
   id: string;
@@ -77,6 +81,63 @@ export interface NCRuntime {
   // remains the lifecycle/action owner.
   runTarget?: boolean;
   endpoints: NCEndpoint[];
+  plants?: NCPlant[];
+}
+
+export type NCPlantState =
+  | "Draft"
+  | "Configured"
+  | "Disabled"
+  | "Waiting for samples"
+  | "Running"
+  | "Restart required"
+  | "Faulted"
+  | "Status unavailable";
+
+export interface NCPlantLiveSample {
+  command: number[];
+  feedback: number[];
+}
+
+/** A simulation process owned by one runtime, distinct from communication and I/O endpoints. */
+export interface NCPlant {
+  id: string;
+  projectId?: string;
+  displayName: string;
+  model: string;
+  startingPointName?: string;
+  enabled: boolean;
+  commandSources: string[];
+  feedbackTargets: string[];
+  mappedSymbols?: string[];
+  draft?: boolean;
+  statusAvailability: "not_requested" | "available" | "unavailable";
+  activeOperatingState?: "running" | "faulted";
+  hasCompletedSample?: boolean;
+  liveSample?: NCPlantLiveSample;
+  savedConfigurationRevision?: string;
+  activeConfigurationRevision?: string;
+  configuration?: {
+    description: string;
+    parameters: Record<string, number | number[] | number[][]>;
+    initialState: number[];
+    stepMs?: number;
+    initialInput?: number[];
+    inputScale?: number[];
+    inputOffset?: number[];
+    outputScale?: number[];
+    outputOffset?: number[];
+    actuator?: Record<string, number>;
+    uncertainties?: Array<Record<string, unknown>>;
+    scenarioEvents?: Array<{
+      enabled: boolean;
+      atMs: number;
+      kind: string;
+      channel?: number;
+      parameter?: string;
+      value?: number;
+    }>;
+  };
 }
 
 export interface NCContainer {
@@ -140,6 +201,24 @@ export interface NCGraph {
   searchQuery?: string;
 }
 
+export function canvasGraphSummary(graph: NCGraph): string {
+  const runtimes = graph.hosts.flatMap((host) => [
+    ...host.runtimes,
+    ...host.containers.flatMap((container) => container.runtimes),
+  ]);
+  const runtimeCount = runtimes.length;
+  const endpointCount = runtimes.reduce((sum, runtime) => sum + runtime.endpoints.length, 0);
+  const plantCount = runtimes.reduce(
+    (sum, runtime) => sum + (runtime.plants?.length ?? 0),
+    0
+  );
+  const base = `${graph.hosts.length} host${graph.hosts.length === 1 ? "" : "s"} · ${runtimeCount} runtime${runtimeCount === 1 ? "" : "s"}`;
+  if (plantCount > 0) {
+    return `${base} · ${endpointCount} device${endpointCount === 1 ? "" : "s"} · ${plantCount} simulated plant${plantCount === 1 ? "" : "s"}`;
+  }
+  return `${base} · ${endpointCount} endpoint${endpointCount === 1 ? "" : "s"}`;
+}
+
 // Custom-node payloads --------------------------------------------------------
 export interface HostNodeData extends Record<string, unknown> {
   label: string;
@@ -159,6 +238,7 @@ export interface RuntimeNodeData extends Record<string, unknown> {
   health: string;
   detail: string;
   endpointCount: number;
+  plantCount: number;
   container?: string;
   // Per-runtime control inputs for the inspector (see NCRuntime).
   controlEndpoint?: string;
@@ -166,6 +246,9 @@ export interface RuntimeNodeData extends Record<string, unknown> {
   managed?: boolean;
   managedName?: string;
   runTarget?: boolean;
+  plantSimulationSupported: boolean;
+  plantDropState?: "eligible" | "current" | "ineligible";
+  plantDropLabel?: string;
 }
 export interface EndpointNodeData extends Record<string, unknown> {
   name: string;

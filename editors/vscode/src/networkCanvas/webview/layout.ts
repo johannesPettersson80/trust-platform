@@ -2,6 +2,10 @@
 // Computes sizes bottom-up and emits React Flow nodes (with parentId + relative
 // positions) and edges. No overlap by construction; the canvas pans/zooms.
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
+import { plantModelDescriptor } from "../plant/modelDescriptors";
+import { qualifiedPlantLiveSample } from "../plant/liveEvidence";
+import { plantMatchesSearch } from "../plant/search";
+import { plantStatePresentation } from "../plant/nodeState";
 import { protocolColor, protocolName } from "./protocolMeta";
 import { t } from "./theme";
 import type { NCEndpoint, NCExternal, NCGraph, NCHost, NCLink, NCRuntime } from "./types";
@@ -121,12 +125,20 @@ interface Sized {
 }
 
 function sizeRuntime(rt: NCRuntime, editMode: boolean): Sized {
-  const n = Math.max(rt.endpoints.length + (editMode ? 1 : 0), 1);
-  const innerW = n * EP_W + (n - 1) * EP_GAP;
+  const plants = rt.plants ?? [];
+  const childCount = rt.endpoints.length + plants.length + (editMode ? 1 : 0);
+  const innerW =
+    rt.endpoints.length * EP_W +
+    plants.length * EP_W +
+    (editMode ? EP_W : 0) +
+    Math.max(0, childCount - 1) * EP_GAP;
   // The strip is as tall as its tallest endpoint (EtherCAT segments grow with their slave rows).
-  const maxEpH = rt.endpoints.reduce((m, ep) => Math.max(m, endpointHeight(ep)), EP_H);
+  const maxEpH = Math.max(
+    rt.endpoints.reduce((m, ep) => Math.max(m, endpointHeight(ep)), EP_H),
+    plants.length > 0 ? EP_H : 0
+  );
   return {
-    w: Math.max(innerW + 2 * RT_PAD, MIN_RT_W),
+    w: Math.max((childCount > 0 ? innerW : EP_W) + 2 * RT_PAD, MIN_RT_W),
     h: RT_HEADER + maxEpH + 2 * RT_PAD,
   };
 }
@@ -211,12 +223,17 @@ export function buildGraph(
         lifecycleState: rt.lifecycleState,
         detail: rt.detail,
         endpointCount: rt.endpoints.length,
+        plantCount: rt.plants?.length ?? 0,
         container: containerTag,
         controlEndpoint: rt.controlEndpoint ?? controlEndpointFromSyntheticRuntimeId(rt.id),
         attached: rt.attached,
         managed: rt.managed,
         managedName: rt.managedName,
         runTarget: rt.runTarget,
+        // `plants` is populated only when the project simulation service has
+        // attached its typed configuration to this runtime. That is the
+        // capability boundary; runtime IDs and display names are not.
+        plantSimulationSupported: rt.plants !== undefined,
       },
       style: { width: size.w, height: size.h },
       draggable: false,
@@ -255,9 +272,65 @@ export function buildGraph(
         draggable: false,
       });
     });
+    const plantStartX = RT_PAD + rt.endpoints.length * (EP_W + EP_GAP);
+    (rt.plants ?? []).forEach((plant, index) => {
+      const nodeId = plant.draft ? plant.id : `plant:${rt.id}:${plant.id}`;
+      const descriptor = plantModelDescriptor(plant.model);
+      const state = plantStatePresentation(plant);
+      nodes.push({
+        id: nodeId,
+        type: "endpoint",
+        parentId: rt.id,
+        extent: "parent",
+        position: { x: plantStartX + index * (EP_W + EP_GAP), y: RT_HEADER + RT_PAD },
+        data: {
+          kind: "plant",
+          name: plant.displayName,
+          protocol: "simulated_plant",
+          detail: `${descriptor.productName} · ${plant.commandSources.join(", ")} command · ${plant.feedbackTargets.join(", ")} feedback`,
+          health:
+            state.primary === "Running"
+              ? "connected"
+              : state.primary === "Faulted"
+                ? "error"
+                : state.primary === "Restart required"
+                  ? "degraded"
+                  : state.primary === "Disabled"
+                    ? "disabled"
+                    : "pending",
+          plantId: plant.id,
+          projectId: plant.projectId,
+          displayName: plant.displayName,
+          modelKind: descriptor.kind,
+          modelName: descriptor.productName,
+          startingPointName: plant.startingPointName,
+          enabled: plant.enabled,
+          commandSources: plant.commandSources,
+          feedbackTargets: plant.feedbackTargets,
+          role: "SIMULATED PLANT",
+          state: state.primary,
+          secondaryStates: state.secondary,
+          liveSample: qualifiedPlantLiveSample(plant),
+          savedConfigurationRevision: plant.savedConfigurationRevision,
+          activeConfigurationRevision: plant.activeConfigurationRevision,
+          configuration: plant.configuration,
+          dimmed: !plantMatchesSearch(
+            plant,
+            descriptor,
+            state.primary,
+            graph.searchQuery ?? ""
+          ),
+        },
+        style: { width: EP_W, height: EP_H },
+        draggable: false,
+        selectable: true,
+      });
+    });
     // §0.4 empty slot: one dashed Add connection cell appended to the strip in Edit mode.
     if (editMode) {
-      const epX = RT_PAD + rt.endpoints.length * (EP_W + EP_GAP);
+      const epX =
+        plantStartX +
+        (rt.plants?.length ?? 0) * (EP_W + EP_GAP);
       nodes.push({
         id: `slot:add:${rt.id}`,
         type: "slot",

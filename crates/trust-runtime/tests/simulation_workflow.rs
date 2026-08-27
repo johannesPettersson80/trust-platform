@@ -228,6 +228,7 @@ fn physics_revolute_joint_queues_encoder_feedback_through_io_boundary() {
                 encoder_counts_per_radian: 1000.0,
             }],
         }),
+        plant_system: Default::default(),
     });
 
     runtime
@@ -301,6 +302,7 @@ fn coupling_applies_threshold_with_delay() {
         }],
         disturbances: Vec::new(),
         physics: None,
+        plant_system: Default::default(),
     });
 
     runtime
@@ -353,6 +355,7 @@ fn scripted_fault_disturbance_faults_runtime() {
             },
         }],
         physics: None,
+        plant_system: Default::default(),
     });
 
     simulation
@@ -409,6 +412,7 @@ fn run_simulation_trace() -> Vec<bool> {
             },
         }],
         physics: None,
+        plant_system: Default::default(),
     });
 
     let output_pattern = [1u16, 12u16, 4u16, 18u16, 0u16, 25u16];
@@ -456,6 +460,7 @@ fn run_physics_trace() -> Vec<u16> {
                 encoder_counts_per_radian: 1000.0,
             }],
         }),
+        plant_system: Default::default(),
     });
     runtime
         .io_mut()

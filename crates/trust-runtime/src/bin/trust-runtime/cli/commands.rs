@@ -200,6 +200,11 @@ pub enum Command {
         #[command(subcommand)]
         action: CommAction,
     },
+    /// Stopped-project plant configuration service for trusted local tools.
+    Plant {
+        #[command(subcommand)]
+        action: PlantAction,
+    },
     /// Offline fleet manifest and sibling-runtime workflows.
     Fleet {
         #[command(subcommand)]

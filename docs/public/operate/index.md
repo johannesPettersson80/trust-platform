@@ -3,6 +3,7 @@
 | Need | Open |
 | --- | --- |
 | operate the runtime outside the editor | [Runtime UI And Control](runtime-ui-and-control.md) |
+| monitor, test, identify, tune, and validate a control loop | [Control Studio](control-studio.md) |
 | install or supervise a target host | [Install On Target](install-on-target.md) / [Supervision](supervision.md) |
 | run on Linux PREEMPT_RT | [PREEMPT_RT](preempt-rt.md) |
 | ship or roll back a bundle | [Deploy And Rollback](deploy-rollback.md) |

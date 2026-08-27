@@ -9,6 +9,7 @@ include!("cli/output_formats.rs");
 include!("cli/agent.rs");
 include!("cli/bench.rs");
 include!("cli/comm.rs");
+include!("cli/plant.rs");
 include!("cli/fleet.rs");
 include!("cli/ads.rs");
 include!("cli/hmi.rs");

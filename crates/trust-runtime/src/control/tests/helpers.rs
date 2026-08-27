@@ -138,6 +138,14 @@ fn hmi_test_state_with_status_reports(
                 ResourceCommand::Snapshot { respond_to } => {
                     let _ = respond_to.send(snapshot.clone());
                 }
+                ResourceCommand::SimulationSnapshot { respond_to } => {
+                    let _ = respond_to.send(None);
+                }
+                ResourceCommand::SimulationTraceClear { respond_to, .. } => {
+                    let _ = respond_to.send(Err(
+                        crate::simulation::PlantTraceClearError::StatusUnavailable,
+                    ));
+                }
                 ResourceCommand::AdsStatus { respond_to } => {
                     let _ = respond_to.send(ads_status.clone());
                 }
@@ -188,6 +196,9 @@ fn hmi_test_state_with_status_reports(
         web_listener_bound: Arc::new(AtomicBool::new(false)),
         opcua_server_bound: Arc::new(AtomicBool::new(false)),
         project_root: None,
+        plant_service: Arc::new(PlantControlService::default()),
+        experiments: ControlExperimentService::default(),
+        controllers: ControllerParameterService::default(),
         resource_name: SmolStr::new("RESOURCE"),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),

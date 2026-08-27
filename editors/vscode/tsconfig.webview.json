@@ -11,7 +11,8 @@
     "src/sfc/webview/**/*.ts",
     "src/sfc/webview/**/*.tsx",
     "src/networkCanvas/webview/**/*.ts",
-    "src/networkCanvas/webview/**/*.tsx"
+    "src/networkCanvas/webview/**/*.tsx",
+    "src/controlStudio/webview/**/*.ts"
   ],
   "exclude": ["node_modules", ".vscode-test"]
 }

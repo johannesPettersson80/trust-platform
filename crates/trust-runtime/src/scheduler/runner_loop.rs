@@ -140,6 +140,30 @@ fn run_resource_loop_core<C, F>(
                         paused = false;
                         set_resource_state(&state, ResourceState::Running);
                     }
+                    ResourceCommand::SimulationSnapshot { respond_to } => {
+                        let snapshot = runner
+                            .simulation
+                            .as_ref()
+                            .map(crate::simulation::SimulationController::runtime_snapshot);
+                        let _ = respond_to.send(snapshot);
+                    }
+                    ResourceCommand::SimulationTraceClear {
+                        plant_id,
+                        active_configuration_revision,
+                        respond_to,
+                    } => {
+                        let result = runner
+                            .simulation
+                            .as_mut()
+                            .ok_or(crate::simulation::PlantTraceClearError::StatusUnavailable)
+                            .and_then(|simulation| {
+                                simulation.clear_plant_trace(
+                                    &plant_id,
+                                    &active_configuration_revision,
+                                )
+                            });
+                        let _ = respond_to.send(result);
+                    }
                     other => apply_resource_command(&mut runner.runtime, other),
                 }
             }
@@ -781,6 +805,14 @@ fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
                 now: runtime.current_time(),
             };
             let _ = respond_to.send(snapshot);
+        }
+        ResourceCommand::SimulationSnapshot { respond_to } => {
+            let _ = respond_to.send(None);
+        }
+        ResourceCommand::SimulationTraceClear { respond_to, .. } => {
+            let _ = respond_to.send(Err(
+                crate::simulation::PlantTraceClearError::StatusUnavailable,
+            ));
         }
         ResourceCommand::AdsStatus { respond_to } => {
             let _ = respond_to.send(runtime.ads_status_report());

@@ -50,6 +50,7 @@ if-addrs = "0.15"
 zenoh = { version = "=1.7.2", default-features = false, features = ["transport_tcp"] }
 base64 = "0.22"
 rand = "0.10"
+getrandom = "0.4"
 ureq = "3"
 sha2 = "0.10"
 signal-hook = "0.3.18"

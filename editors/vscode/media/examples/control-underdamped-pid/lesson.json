@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "control-underdamped-pid",
+  "title": "Underdamped second-order PID",
+  "level": "Practitioner",
+  "specification": "docs/specs/36-control-pid-performance-evaluation.md#11.2",
+  "evidenceSource": "simulation",
+  "nativeTest": "pid_benchmark_damps_an_underdamped_second_order_process",
+  "nativeCommand": "cargo test -p trust-runtime --test control_pid_performance pid_benchmark_damps_an_underdamped_second_order_process -- --exact",
+  "expectedMetrics": "Stable; overshoot ≤ 20%; settling ≤ 15 s; final error ≤ 2%.",
+  "stages": [
+    "Predict",
+    "Configure",
+    "Monitor",
+    "Test",
+    "Identify",
+    "Tune",
+    "Validate",
+    "Explain",
+    "Export"
+  ]
+}

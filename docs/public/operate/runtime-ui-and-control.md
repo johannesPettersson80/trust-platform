@@ -71,6 +71,8 @@ scripts can treat a successful process exit as an accepted runtime command.
 
 ## Related
 
+- [Control Studio](control-studio.md)
+- [Simulation](simulation.md)
 - [Operator Guide](operator-guide.md)
 - [Compile, Validate, Reload](compile-validate-reload.md)
 - [trust-runtime CLI](../reference/cli/trust-runtime.md)
