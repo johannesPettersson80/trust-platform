@@ -884,12 +884,16 @@ package "I/O Interface" as ioPkg #LightGray {
 
     component "io/modbus/worker.rs\n(latest input snapshot +\nlevel output handoff)" as modbusWorker
     component "io/mqtt/worker.rs\n(session worker + freshness +\nlevel output handoff)" as mqttWorker
+    component "io/mqtt_tag_mapping.rs\n(resolve ProgramInstance.Variable\n+ lower to typed process-image points)" as mqttTagMapping
     component "io/ethercat/driver.rs\n(hardware construction failure ->\nterminal until driver rebuild)" as ethercatDriver
 
     ioSubsystem --> ioIface
     ioSubsystem --> ioDriver : uses
     ioDriver ..> modbusWorker : Modbus scan calls\nbounded handoff only
     ioDriver ..> mqttWorker : MQTT scan calls\nbounded handoff only
+    runtime ..> mqttTagMapping : apply bytecode first, then\nresolve all mappings atomically
+    mqttTagMapping --> ioIface : reuse or allocate typed\n%I/%Q bindings before worker start
+    mqttTagMapping ..> mqttWorker : validated input/output\npoint topics
     ioDriver ..> ethercatDriver : EtherCAT scan calls\nfail closed on unavailable hardware
     modbusWorker ..> ioDriver : owns sync\nModbus protocol path
     mqttWorker ..> ioDriver : owns sync\nMQTT protocol path
@@ -900,6 +904,14 @@ package "I/O Interface" as ioPkg #LightGray {
         wire round trips stay off the scan
         thread. Driver health still projects
         through IoDriverHealth.
+    end note
+
+    note right of mqttTagMapping
+        MQTT mapping direction is PLC-relative:
+        read = broker to PLC input,
+        write = PLC output to broker.
+        Output-only mappings create no raw
+        trust/io/in subscription.
     end note
 
     note right of ethercatDriver

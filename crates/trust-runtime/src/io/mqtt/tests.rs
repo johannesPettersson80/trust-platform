@@ -4,6 +4,7 @@ use std::sync::atomic::AtomicUsize;
 
 include!("tests/nonfinite_case.rs");
 include!("tests/safe_state.rs");
+include!("tests/tag_mapping.rs");
 
 const MQTT_CI_TIMING_SLACK: StdDuration = StdDuration::from_millis(100);
 

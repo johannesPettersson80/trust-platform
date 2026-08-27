@@ -48,10 +48,19 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.62`
+Target release: `v0.24.63`
+
+### Added
+
+- Support MQTT tag mappings that bind fully qualified scalar program variables
+  directly to broker topics with explicit PLC-relative `read` and `write`
+  directions.
 
 ### Fixed
 
+- Reject unknown MQTT `io.params` fields instead of silently falling back to
+  default topics, and let write-only tag mappings run without requiring an
+  inbound `trust/io/in` snapshot.
 - ci/trust-runtime: The managed-fleet CLI lifecycle integration test now uses
   file-backed child output capture and bounded command execution, preventing a
   background Windows runtime from retaining a capture pipe and deadlocking

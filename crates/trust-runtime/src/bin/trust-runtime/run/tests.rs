@@ -7,6 +7,9 @@ use trust_ads_core::{
 use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
 use trust_runtime::value::{Duration, Value};
 
+#[path = "tests/mqtt_tag_mapping.rs"]
+mod mqtt_tag_mapping;
+
 fn bundle_with_backend(
     backend: trust_runtime::execution_backend::ExecutionBackend,
 ) -> trust_runtime::config::RuntimeBundle {

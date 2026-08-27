@@ -4,13 +4,70 @@ use crate::io::IoAddress;
 use crate::memory::InstanceId;
 use crate::program_model::{Expr, LValue};
 use crate::value::Value;
+use crate::value::ValueRef;
 use crate::Runtime;
+use trust_hir::TypeId;
 
 use super::BoundaryError;
 
 enum RootResolution {
     Global,
     ProgramVar { instance_id: InstanceId },
+}
+
+/// A scalar program-instance tag resolved to runtime storage and declared type.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedIoTag {
+    /// Canonical fully qualified program-instance variable name.
+    pub name: SmolStr,
+    /// Stable runtime storage reference for the variable.
+    pub reference: ValueRef,
+    /// Declared IEC type of the variable.
+    pub type_id: TypeId,
+}
+
+/// Resolve one fully qualified direct program variable for an external I/O map.
+pub fn resolve_io_tag(runtime: &Runtime, path: &str) -> Result<ResolvedIoTag, BoundaryError> {
+    let path = path.trim();
+    let Some((instance_name, variable_name)) = path.split_once('.') else {
+        return Err(BoundaryError::UnsupportedPathSyntax {
+            path: path.into(),
+            reason: "I/O tags require ProgramInstance.Variable".to_string(),
+        });
+    };
+    if instance_name.is_empty() || variable_name.is_empty() || variable_name.contains('.') {
+        return Err(BoundaryError::UnsupportedPathSyntax {
+            path: path.into(),
+            reason: "I/O tags require one direct scalar program variable".to_string(),
+        });
+    }
+
+    let program = runtime
+        .programs()
+        .values()
+        .find(|program| program.name.eq_ignore_ascii_case(instance_name))
+        .ok_or_else(|| BoundaryError::UnresolvedName { path: path.into() })?;
+    let variable = program
+        .vars
+        .iter()
+        .find(|variable| variable.name.eq_ignore_ascii_case(variable_name))
+        .ok_or_else(|| BoundaryError::UnresolvedName { path: path.into() })?;
+    let Some(Value::Instance(instance_id)) = runtime.storage().get_global(program.name.as_ref())
+    else {
+        return Err(BoundaryError::UnboundProgram {
+            program: program.name.clone(),
+        });
+    };
+    let reference = runtime
+        .storage()
+        .ref_for_instance_recursive(*instance_id, variable.name.as_ref())
+        .ok_or_else(|| BoundaryError::UnresolvedName { path: path.into() })?;
+
+    Ok(ResolvedIoTag {
+        name: SmolStr::new(format!("{}.{}", program.name, variable.name)),
+        reference,
+        type_id: variable.type_id,
+    })
 }
 
 pub(crate) fn resolve_read(runtime: &Runtime, path: &str) -> Result<Value, BoundaryError> {

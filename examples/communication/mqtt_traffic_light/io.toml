@@ -1,0 +1,23 @@
+[io]
+driver = "mqtt"
+
+[io.params]
+broker = "127.0.0.1:1883"
+reconnect_ms = 500
+keep_alive_s = 5
+allow_insecure_remote = false
+
+[[io.params.mappings]]
+tag = "MainInstance.Green"
+topic = "traffic/north/green"
+direction = "write"
+
+[[io.params.mappings]]
+tag = "MainInstance.Yellow"
+topic = "traffic/north/yellow"
+direction = "write"
+
+[[io.params.mappings]]
+tag = "MainInstance.Red"
+topic = "traffic/north/red"
+direction = "write"
