@@ -69,11 +69,15 @@ contracts, not IEC decisions or deviations.
 
 ## Executable tutorial examples
 
-The nine single-file programs under `examples/tutorials/` are shipped product
-artifacts. Every file must compile through both the in-process runtime harness
-and the current source-to-bytecode path. Success requires both paths to return
-without a compile, type-check, lowering, or validation error; this bounded
-fixture set does not certify arbitrary Structured Text programs.
+The first eight single-file programs under `examples/tutorials/` and the
+standalone `examples/tutorials/09_simulation_coupling/` project are shipped
+product artifacts. Every Structured Text source must compile through both the
+in-process runtime harness and the current source-to-bytecode path. Tutorial 09
+must also pass `trust-runtime check --project` from its checked-in project root,
+including its runtime and I/O configuration, so the documented Runtime Panel
+flow works without repository-root fallback. Success requires these paths to
+return without a compile, type-check, lowering, or validation error; this
+bounded fixture set does not certify arbitrary Structured Text programs.
 
 Three tutorials additionally define executable behavior locks:
 

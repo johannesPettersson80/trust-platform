@@ -16,7 +16,7 @@ const RECIPE_MANAGER: &str = include_str!("../../../examples/tutorials/06_recipe
 const PID_LOOP: &str = include_str!("../../../examples/tutorials/07_pid_loop.st");
 const CONVEYOR_SYSTEM: &str = include_str!("../../../examples/tutorials/08_conveyor_system.st");
 const SIMULATION_COUPLING: &str =
-    include_str!("../../../examples/tutorials/09_simulation_coupling.st");
+    include_str!("../../../examples/tutorials/09_simulation_coupling/src/main.st");
 const TUTORIALS: [(&str, &str); 9] = [
     ("01_hello_counter.st", HELLO_COUNTER),
     ("02_blinker.st", BLINKER),
@@ -26,7 +26,7 @@ const TUTORIALS: [(&str, &str); 9] = [
     ("06_recipe_manager.st", RECIPE_MANAGER),
     ("07_pid_loop.st", PID_LOOP),
     ("08_conveyor_system.st", CONVEYOR_SYSTEM),
-    ("09_simulation_coupling.st", SIMULATION_COUPLING),
+    ("09_simulation_coupling/src/main.st", SIMULATION_COUPLING),
 ];
 
 fn load_example_sources(example: &str) -> (Vec<String>, Vec<String>) {

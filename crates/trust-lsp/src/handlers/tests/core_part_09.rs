@@ -110,8 +110,8 @@ pub(super) fn lsp_tutorial_examples_no_unexpected_diagnostics_snapshot() {
             include_str!("../../../../../examples/tutorials/08_conveyor_system.st"),
         ),
         (
-            "09_simulation_coupling.st",
-            include_str!("../../../../../examples/tutorials/09_simulation_coupling.st"),
+            "09_simulation_coupling/src/main.st",
+            include_str!("../../../../../examples/tutorials/09_simulation_coupling/src/main.st"),
         ),
     ];
 

@@ -58,6 +58,9 @@ Target release: `v0.24.63`
 
 ### Fixed
 
+- Make tutorial 09 a complete standalone simulation project so Compile and the
+  Runtime Panel resolve its source and configuration instead of falling back to
+  the repository root.
 - Reject unknown MQTT `io.params` fields instead of silently falling back to
   default topics, and let write-only tag mappings run without requiring an
   inbound `trust/io/in` snapshot.

@@ -1,0 +1,4 @@
+[simulation]
+enabled = true
+seed = 42
+time_scale = 1

@@ -231,7 +231,7 @@ For each tutorial:
 
 ---
 
-## 09_simulation_coupling.st
+## 09_simulation_coupling/
 
 ### VS Code Feature Spotlight
 
@@ -239,7 +239,7 @@ For each tutorial:
 
 ### Guided Steps
 
-1. Open `09_simulation_coupling.st`.
+1. Open `09_simulation_coupling/src/main.st`.
 2. `Ctrl/Cmd+Shift+P` -> `Structured Text: Open Runtime Panel`.
 3. Start runtime (Local mode).
 4. In I/O panel, write `%IW0` below threshold (for example `Word(300)`) and observe alarm output.

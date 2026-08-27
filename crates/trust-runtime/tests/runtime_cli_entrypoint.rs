@@ -28,6 +28,30 @@ fn unique_missing_project(name: &str) -> std::path::PathBuf {
 }
 
 #[test]
+fn simulation_coupling_tutorial_is_a_checkable_standalone_project() {
+    let project = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("examples/tutorials/09_simulation_coupling");
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args(["check", "--project"])
+        .arg(&project)
+        .arg("--json")
+        .output()
+        .expect("check simulation-coupling tutorial");
+
+    assert!(
+        output.status.success(),
+        "tutorial 09 must compile as a complete project\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("check JSON report");
+    assert_eq!(report["ok"], true);
+    assert_eq!(report["source_count"], 1);
+}
+
+#[test]
 fn mistyped_check_command_suggests_the_real_subcommand() {
     let output = run_runtime(&["chek"]);
     assert!(!output.status.success());
