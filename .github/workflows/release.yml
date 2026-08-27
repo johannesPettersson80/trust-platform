@@ -170,6 +170,7 @@ jobs:
           cp target/${{ matrix.target }}/release/trust-lsp editors/vscode/bin/
           cp target/${{ matrix.target }}/release/trust-debug editors/vscode/bin/
           cp target/${{ matrix.target }}/release/trust-runtime editors/vscode/bin/
+          cp target/${{ matrix.target }}/release/trust-dev editors/vscode/bin/
           chmod +x editors/vscode/bin/*
 
       - name: Prepare extension binaries (Windows)
@@ -179,6 +180,7 @@ jobs:
           cp target/${{ matrix.target }}/release/trust-lsp.exe editors/vscode/bin/
           cp target/${{ matrix.target }}/release/trust-debug.exe editors/vscode/bin/
           cp target/${{ matrix.target }}/release/trust-runtime.exe editors/vscode/bin/
+          cp target/${{ matrix.target }}/release/trust-dev.exe editors/vscode/bin/
         shell: bash
 
       - name: Package runtime (Unix)
