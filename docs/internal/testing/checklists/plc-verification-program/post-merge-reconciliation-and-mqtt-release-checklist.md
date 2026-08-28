@@ -81,8 +81,15 @@ Created: 2026-08-28.
     post-merge command, explicit cleanup-target projection, dirty-worktree
     blocking, remote-ref refresh, CI registration, required release identity,
     and release-to-cleanup chaining each produced an assertion-level red before
-    its minimum implementation and passed afterward.
-  - Current focused green: 29 release-candidate guard tests and 31 workflow,
+    its minimum implementation and passed afterward. Cold, uncached Clippy then
+    exposed compile-time runtime-test binary discovery that cached builds had
+    hidden; the registered portability assertion rejected all 23 affected
+    integration tests before they moved to execution-time Cargo environment
+    discovery. A separate release-guard assertion proved that advisory planner
+    and catalog records were incorrectly printed as `FAILED` before the output
+    classified them as `ADVISORY`.
+  - Current focused green: 21 release-candidate guard tests, 10 post-merge
+    cleanup tests, 2 runtime binary-path contract tests, and 31 workflow,
     gate-inventory, report-input, and reviewed-source digest tests. Version
     alignment and diagram drift checks also pass. Exact-commit strict smoke is
     pending the checkpoint commit.
@@ -93,12 +100,16 @@ Created: 2026-08-28.
 - [ ] `RECON-009` Merge only the exact green SHA through the release-candidate
   guard. If the reconciliation has no retained change, close this lane without
   creating an empty PR or release.
-- [ ] `RECON-010` Add a test-first post-merge audit command to the release
+- [x] `RECON-010` Add a test-first post-merge audit command to the release
   guard. It must identify the candidate's merged local/remote branch and
   worktree, fail closed on dirty or unique content, and emit explicit safe
   cleanup targets. It must never delete an unrelated or unresolved worktree
   automatically. Make successful post-merge audit evidence part of release
   verification and handoff completion.
+  Evidence: the focused cleanup module contains 10 green native tests covering
+  clean, dirty, moved, missing, and unmerged candidate states, refreshed remote
+  refs, exact release identity, and release-to-audit chaining. The actual
+  post-merge audit remains a mandatory Lane A completion step after release.
 
 ## Lane B: Complete MQTT Issue #111 Separately
 
@@ -191,12 +202,12 @@ Created: 2026-08-28.
 
 ## SOLID, KISS, and DRY Acceptance
 
-- [ ] Verification reconciliation and MQTT behavior remain separate commits,
+- [x] Verification reconciliation and MQTT behavior remain separate commits,
   candidates, reviews, and release evidence.
 - [ ] MQTT transport, mapping resolution, value coercion, and scheduler
   ownership remain separate responsibilities with no duplicated mapping
   policy.
-- [ ] No new validator is appended to an already-large multipurpose tooling
+- [x] No new validator is appended to an already-large multipurpose tooling
   file; new gate behavior has a focused self-test.
-- [ ] Every retained product behavior has one owning specification and a native
+- [x] Every retained product behavior has one owning specification and a native
   executable test. Planning and proof metadata cannot substitute for either.

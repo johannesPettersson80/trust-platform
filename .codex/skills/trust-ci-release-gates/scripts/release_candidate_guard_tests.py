@@ -1,3 +1,4 @@
+import io
 import json
 import subprocess
 import tempfile
@@ -268,6 +269,43 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertFalse(
             candidate_prepare.stage_passed(records, ("bootstrap", "diff_check"))
         )
+
+    def test_failed_artifact_labels_advisory_maintenance_separately(self) -> None:
+        records = self.passing_artifact()["commands"]
+        for command_id in ("planner", "catalog_staleness"):
+            records.append(
+                {
+                    "id": command_id,
+                    "command": command_id,
+                    "exit_status": 1,
+                    "output_sha256": "0" * 64,
+                    "duration_ms": 1,
+                    "scope": "local",
+                }
+            )
+        next(row for row in records if row["id"] == "remote_clippy")[
+            "exit_status"
+        ] = 1
+
+        stderr = io.StringIO()
+        with mock.patch("sys.stderr", stderr), mock.patch("sys.stdout", io.StringIO()):
+            result = candidate_prepare.finish_artifact(
+                self.repo,
+                head=self.head,
+                base_ref="origin/main",
+                base_sha=self.base,
+                vscode_changed=False,
+                records=records,
+                log_dir=self.repo / "logs",
+            )
+
+        self.assertEqual(result, 1)
+        output = stderr.getvalue()
+        self.assertIn("FAILED remote_clippy:", output)
+        self.assertIn("ADVISORY planner:", output)
+        self.assertIn("ADVISORY catalog_staleness:", output)
+        self.assertNotIn("FAILED planner:", output)
+        self.assertNotIn("FAILED catalog_staleness:", output)
 
     def test_stale_head_and_base_are_rejected(self) -> None:
         artifact = self.passing_artifact()

@@ -202,7 +202,13 @@ def finish_artifact(
     if not passed:
         for row in records:
             if row["exit_status"] != 0:
-                print(f"FAILED {row['id']}: {log_dir / (row['id'] + '.log')}", file=sys.stderr)
+                label = (
+                    "ADVISORY" if row["id"] in ADVISORY_COMMAND_IDS else "FAILED"
+                )
+                print(
+                    f"{label} {row['id']}: {log_dir / (row['id'] + '.log')}",
+                    file=sys.stderr,
+                )
         return 1
     return 0
 

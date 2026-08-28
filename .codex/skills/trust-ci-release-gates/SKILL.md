@@ -35,6 +35,9 @@ push-and-repair attempts.
 
    Preparation records complete-diff planning and catalog staleness as advisory
    maintenance. Its strict report command runs only the report-boundary smoke;
+   failed artifact output labels those maintenance records `ADVISORY`, never
+   `FAILED`; only required candidate-integrity commands receive the `FAILED`
+   label.
    exhaustive recursive verification-tooling self-tests remain scheduled/manual
    maintenance. Required acceptance remains bootstrap parity, a clean exact
    candidate and base, diff integrity, the strict smoke, a successful
