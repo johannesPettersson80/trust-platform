@@ -95,8 +95,17 @@ Created: 2026-08-28.
     integration test moved to execution-time lookup. Focused all-target,
     all-feature Clippy passed for both `trust-dev` and `trust-runtime`, the
     three-test `trust-dev` CLI suite passed, and all 15 `trust-harness` command
-    tests passed.
-  - Current focused green: 21 release-candidate guard tests, 10 post-merge
+    tests passed. The replacement cold `test-all` was stopped before a quota
+    error when its isolated target exceeded 55 GiB and only 11 GiB remained;
+    no test assertion failed. The documented 60 GiB start target was therefore
+    insufficient. A focused release-guard assertion then failed because no
+    disk-preflight command existed and passed after exact preparation required
+    80 GiB before target creation and recorded that check in its SHA-bound
+    artifact.
+    The generated command was also executed directly on `trust-builder` with
+    60 GiB available: it returned status 1 before target creation and reported
+    the required 80 GiB floor.
+  - Current focused green: 22 release-candidate guard tests, 10 post-merge
     cleanup tests, 2 runtime binary-path contract tests, and 31 workflow,
     gate-inventory, report-input, and reviewed-source digest tests. Version
     alignment and diagram drift checks also pass. Exact-commit strict smoke is

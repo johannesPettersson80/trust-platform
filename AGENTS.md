@@ -235,7 +235,11 @@ applicable, and lexer/parser tests or snapshots.
   - Run `ssh trust-builder 'df -hT /home/johannes /tmp && du -xhd1 "$HOME/projects" 2>/dev/null | sort -h | tail -20 && du -xhd1 "$HOME/.cache" 2>/dev/null | sort -h | tail -20'`.
   - All paths in these commands are on the remote `trust-builder` machine, not on the local workstation.
   - The builder will usually not have 100G free. Do not use an impossible threshold.
-  - For `just test-all` or large native-dependency changes (ADS, OPC UA/OpenSSL, EtherCAT, WebGPU/Scena), aim for at least 60G free on `trust-builder:/home/johannes` and 3G on `trust-builder:/tmp` after cleanup.
+  - For a cold exact-candidate `just test-all` or large native-dependency change
+    (ADS, OPC UA/OpenSSL, EtherCAT, WebGPU/Scena), require at least 80G free on
+    `trust-builder:/home/johannes` before starting and aim for 3G on
+    `trust-builder:/tmp` after cleanup. The exact-candidate guard enforces the
+    home-space floor because an uncached all-target test build can exceed 55G.
   - For `just clippy`, `just test`, VS Code `npm test`, or broad `cargo test`, aim for at least 25G free on `trust-builder:/home/johannes`.
   - If below the practical threshold, delete only generated build/cache outputs such as the active isolated validation `target/`, `fuzz/target/`, `$HOME/.cache/sccache`, or `$HOME/.cache/codex-targets/*`; never delete source worktrees or non-generated files for cleanup.
   - For isolated validation copies, prefer one warmed target directory on the remote builder (`CARGO_TARGET_DIR=$HOME/.cache/codex-targets/trust-platform-gate`) instead of repeatedly creating huge cold `target/` trees.

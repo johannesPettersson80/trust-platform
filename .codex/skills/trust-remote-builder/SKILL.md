@@ -60,9 +60,11 @@ paths on the local workstation.
 
 Practical minimums:
 
-- For `just test-all` or large native-dependency changes (ADS, OPC UA/OpenSSL, EtherCAT,
-  WebGPU/Scena), aim for at least 60G free on `trust-builder:/home/johannes` and at least 3G free
-  on `trust-builder:/tmp` after cleanup.
+- For a cold exact-candidate `just test-all` or large native-dependency change
+  (ADS, OPC UA/OpenSSL, EtherCAT, WebGPU/Scena), require at least 80G free on
+  `trust-builder:/home/johannes` before starting and aim for at least 3G free on
+  `trust-builder:/tmp` after cleanup. The exact-candidate guard enforces the
+  home-space floor because an uncached all-target test build can exceed 55G.
 - For `just clippy`, `just test`, VS Code `npm test`, or focused runtime gates, aim for at least
   25G free on `trust-builder:/home/johannes`.
 - If the builder has less than that after safe cleanup, do not invent a higher threshold. Report the

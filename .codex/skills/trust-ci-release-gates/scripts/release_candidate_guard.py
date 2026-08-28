@@ -36,6 +36,7 @@ BASE_REQUIRED_COMMANDS = (
     "diff_check",
     "strict_gate",
     "remote_exact_head",
+    "remote_disk_preflight",
     "remote_fmt",
     "remote_clippy",
     "remote_reclaim_before_test_all",

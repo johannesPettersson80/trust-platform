@@ -66,6 +66,9 @@ Target release: `v0.24.64`
 - Keep exact-candidate remote validation aligned with CI by disabling inherited
   Rust compiler caches and serializing the cold all-tests build to bound disk
   use.
+- Fail exact-candidate preparation before creating build artifacts unless the
+  remote builder has at least 80 GiB free, reflecting the measured size of a
+  cold uncached all-tests target.
 - Keep workspace integration-test binary discovery compilable under cold
   all-target check and clippy runs, and enforce that portability contract in CI.
 - Make the runtime communications conformance gate reject zero-test filters

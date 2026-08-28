@@ -101,8 +101,17 @@ def remote_validation_commands(
         f"mkdir -p -- {shlex.quote(target_tmp)} {shlex.quote(target_bin)} && "
         f"install -m 755 {passthrough_source} {shlex.quote(sccache_shim)}"
     )
+    disk_preflight = (
+        'available_kib=$(df --output=avail -k "$HOME" | tail -n 1 | tr -d " "); '
+        "required_kib=83886080; "
+        'df -hT "$HOME" /tmp; '
+        'if [ "$available_kib" -lt "$required_kib" ]; then '
+        'printf "exact candidate requires at least 80 GiB free under $HOME; '
+        'found %s KiB\\n" "$available_kib" >&2; exit 1; fi'
+    )
     commands = [
         ("remote_exact_head", ""),
+        ("remote_disk_preflight", disk_preflight),
         ("remote_prepare_target", prepare_target),
     ]
     if vscode_changed:

@@ -178,6 +178,10 @@ Prevent known Windows-only regressions in `trust-lsp` tests:
   Reclaim only that validated `CARGO_TARGET_DIR` between Clippy and
   `just test-all`. Never apply that cleanup to a repository, home directory,
   shared cache, unrelated target, or unresolved path.
+- Before creating the exact-candidate target, fail closed unless the builder has
+  at least 80 GiB available under `$HOME`. Report both `$HOME` and `/tmp`
+  filesystem state in that preflight. The floor must be enforced by the
+  release-candidate guard, not left as a remembered manual step.
 - Use `scripts/verification_report_gate.py --strict --smoke` for pull requests
   and exact-candidate preparation. Run the exhaustive recursive verification
   tooling and its historical self-tests only from the scheduled/manual

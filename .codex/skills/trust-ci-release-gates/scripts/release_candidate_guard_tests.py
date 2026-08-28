@@ -162,6 +162,24 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             self.assertIn("PATH='/tmp/trust target/bin':$PATH", by_id[command_id])
         self.assertIn("CARGO_BUILD_JOBS=1", by_id["remote_test_all"])
 
+    def test_remote_validation_requires_eighty_gib_before_cold_gates(self) -> None:
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target="/tmp/trust-target"
+        )
+        command_ids = [command_id for command_id, _command in commands]
+        by_id = dict(commands)
+
+        self.assertIn("remote_disk_preflight", command_ids)
+        self.assertIn("remote_disk_preflight", guard.BASE_REQUIRED_COMMANDS)
+        self.assertLess(
+            command_ids.index("remote_disk_preflight"),
+            command_ids.index("remote_prepare_target"),
+        )
+        preflight = by_id["remote_disk_preflight"]
+        self.assertIn("required_kib=83886080", preflight)
+        self.assertIn('df --output=avail -k "$HOME"', preflight)
+        self.assertIn('df -hT "$HOME" /tmp', preflight)
+
     def test_compiler_passthrough_executes_argv_without_interpreting_its_name(self) -> None:
         passthrough = Path(__file__).with_name("compiler_passthrough.sh")
 
