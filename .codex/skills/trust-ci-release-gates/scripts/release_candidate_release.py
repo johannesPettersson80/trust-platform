@@ -8,7 +8,7 @@ import re
 import sys
 import tempfile
 import urllib.request
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import release_candidate_guard as guard
@@ -61,14 +61,29 @@ def verify_downloaded_assets(directory: Path, assets: list[dict[str, Any]]) -> b
     if not manifest_name:
         return False
     checked = 0
+    resolved_paths: set[Path] = set()
     for line in (directory / manifest_name).read_text(encoding="utf-8").splitlines():
         match = re.fullmatch(r"([0-9a-fA-F]{64})\s+\*?(.+)", line.strip())
         if not match:
             continue
         expected, name = match.groups()
-        path = directory / name
-        if not path.is_file() or guard.sha256_bytes(path.read_bytes()) != expected.lower():
+        staged_path = PurePosixPath(name)
+        if staged_path.is_absolute() or ".." in staged_path.parts:
             return False
+        path = directory.joinpath(*staged_path.parts)
+        if not path.is_file():
+            basename = staged_path.name
+            if basename not in names:
+                return False
+            path = directory / basename
+        resolved = path.resolve()
+        if (
+            not path.is_file()
+            or resolved in resolved_paths
+            or guard.sha256_bytes(path.read_bytes()) != expected.lower()
+        ):
+            return False
+        resolved_paths.add(resolved)
         checked += 1
     return checked > 0
 

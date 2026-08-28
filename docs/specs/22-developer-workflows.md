@@ -246,6 +246,15 @@ and fail-closed aggregation boundaries. They do not prove that an unexecuted
 GitHub workflow ran successfully, that uploaded artifacts are publicly
 available, or that the final release candidate is green.
 
+### Cargo integration-test binary-path portability
+
+Runtime integration tests that launch a workspace binary must remain
+compilable when Cargo checks or lints all targets without building that binary.
+They must resolve Cargo's `CARGO_BIN_EXE_*` value from the execution environment
+instead of using either compile-time `env!` form. This preserves ordinary
+`cargo test` executable discovery while allowing the reviewed host and
+cross-target warning and clippy gates to compile the integration-test targets.
+
 ### CI performance reference-environment contract
 
 The three native CI timing probes are reference-environment contracts, not

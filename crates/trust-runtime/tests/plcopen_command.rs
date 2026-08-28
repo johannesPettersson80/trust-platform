@@ -55,10 +55,13 @@ fn pou_signatures(xml_text: &str) -> Vec<(String, String, String)> {
 
 #[test]
 fn plcopen_profile_json_emits_contract() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["plcopen", "profile", "--json"])
-        .output()
-        .expect("run trust-runtime plcopen profile");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["plcopen", "profile", "--json"])
+    .output()
+    .expect("run trust-runtime plcopen profile");
 
     assert!(
         output.status.success(),
@@ -126,17 +129,20 @@ END_FUNCTION_BLOCK
     )
     .expect("write pump");
 
-    let export_a = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "plcopen",
-            "export",
-            "--project",
-            source_project.to_str().expect("source project utf-8"),
-            "--output",
-            xml_a.to_str().expect("xml output utf-8"),
-        ])
-        .output()
-        .expect("run trust-runtime plcopen export");
+    let export_a = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "plcopen",
+        "export",
+        "--project",
+        source_project.to_str().expect("source project utf-8"),
+        "--output",
+        xml_a.to_str().expect("xml output utf-8"),
+    ])
+    .output()
+    .expect("run trust-runtime plcopen export");
 
     assert!(
         export_a.status.success(),
@@ -151,17 +157,20 @@ END_FUNCTION_BLOCK
     );
 
     let imported_project = unique_temp_dir("plcopen-cli-import");
-    let import_result = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "plcopen",
-            "import",
-            "--input",
-            xml_a.to_str().expect("xml input utf-8"),
-            "--project",
-            imported_project.to_str().expect("import project utf-8"),
-        ])
-        .output()
-        .expect("run trust-runtime plcopen import");
+    let import_result = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "plcopen",
+        "import",
+        "--input",
+        xml_a.to_str().expect("xml input utf-8"),
+        "--project",
+        imported_project.to_str().expect("import project utf-8"),
+    ])
+    .output()
+    .expect("run trust-runtime plcopen import");
 
     assert!(
         import_result.status.success(),
@@ -196,17 +205,20 @@ END_FUNCTION_BLOCK
     );
 
     let xml_b = imported_project.join("out/plcopen-roundtrip.xml");
-    let export_b = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "plcopen",
-            "export",
-            "--project",
-            imported_project.to_str().expect("import project utf-8"),
-            "--output",
-            xml_b.to_str().expect("roundtrip xml output utf-8"),
-        ])
-        .output()
-        .expect("run trust-runtime plcopen export roundtrip");
+    let export_b = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "plcopen",
+        "export",
+        "--project",
+        imported_project.to_str().expect("import project utf-8"),
+        "--output",
+        xml_b.to_str().expect("roundtrip xml output utf-8"),
+    ])
+    .output()
+    .expect("run trust-runtime plcopen export roundtrip");
 
     assert!(
         export_b.status.success(),
@@ -240,18 +252,21 @@ END_PROGRAM
     .expect("write source");
 
     let output_xml = project.join("out/plcopen.json.xml");
-    let export = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "plcopen",
-            "export",
-            "--project",
-            project.to_str().expect("project utf-8"),
-            "--output",
-            output_xml.to_str().expect("output utf-8"),
-            "--json",
-        ])
-        .output()
-        .expect("run plcopen export json");
+    let export = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "plcopen",
+        "export",
+        "--project",
+        project.to_str().expect("project utf-8"),
+        "--output",
+        output_xml.to_str().expect("output utf-8"),
+        "--json",
+    ])
+    .output()
+    .expect("run plcopen export json");
     assert!(
         export.status.success(),
         "expected export json success, stderr was:\n{}",
@@ -266,18 +281,21 @@ END_PROGRAM
 
     let import_project = unique_temp_dir("plcopen-cli-json-import");
     let fixture = fixture_path("synthetic-codesys.xml");
-    let import = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "plcopen",
-            "import",
-            "--input",
-            fixture.to_str().expect("fixture utf-8"),
-            "--project",
-            import_project.to_str().expect("import project utf-8"),
-            "--json",
-        ])
-        .output()
-        .expect("run plcopen import json");
+    let import = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "plcopen",
+        "import",
+        "--input",
+        fixture.to_str().expect("fixture utf-8"),
+        "--project",
+        import_project.to_str().expect("import project utf-8"),
+        "--json",
+    ])
+    .output()
+    .expect("run plcopen import json");
     assert!(
         import.status.success(),
         "expected import json success, stderr was:\n{}",
@@ -319,18 +337,21 @@ END_CONFIGURATION
     )
     .expect("write source");
 
-    let export = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "plcopen",
-            "export",
-            "--project",
-            project.to_str().expect("project utf-8"),
-            "--target",
-            "ab",
-            "--json",
-        ])
-        .output()
-        .expect("run plcopen export target json");
+    let export = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "plcopen",
+        "export",
+        "--project",
+        project.to_str().expect("project utf-8"),
+        "--target",
+        "ab",
+        "--json",
+    ])
+    .output()
+    .expect("run plcopen export target json");
     assert!(
         export.status.success(),
         "expected target export success, stderr was:\n{}",
@@ -385,18 +406,21 @@ END_PROGRAM
     )
     .expect("write source");
 
-    let export = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "plcopen",
-            "export",
-            "--project",
-            project.to_str().expect("project utf-8"),
-            "--target",
-            "siemens",
-            "--json",
-        ])
-        .output()
-        .expect("run plcopen export siemens json");
+    let export = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "plcopen",
+        "export",
+        "--project",
+        project.to_str().expect("project utf-8"),
+        "--target",
+        "siemens",
+        "--json",
+    ])
+    .output()
+    .expect("run plcopen export siemens json");
     assert!(
         export.status.success(),
         "expected siemens target export success, stderr was:\n{}",
@@ -452,18 +476,21 @@ fn plcopen_import_json_detects_openplc_ecosystem_and_shims() {
     let import_project = unique_temp_dir("plcopen-cli-openplc-import");
     let _fixture_source = include_str!("fixtures/plcopen/synthetic-openplc.xml");
     let fixture = fixture_path("synthetic-openplc.xml");
-    let import = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "plcopen",
-            "import",
-            "--input",
-            fixture.to_str().expect("fixture utf-8"),
-            "--project",
-            import_project.to_str().expect("import project utf-8"),
-            "--json",
-        ])
-        .output()
-        .expect("run plcopen import json");
+    let import = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "plcopen",
+        "import",
+        "--input",
+        fixture.to_str().expect("fixture utf-8"),
+        "--project",
+        import_project.to_str().expect("import project utf-8"),
+        "--json",
+    ])
+    .output()
+    .expect("run plcopen import json");
     assert!(
         import.status.success(),
         "expected import json success, stderr was:\n{}",
@@ -505,18 +532,21 @@ fn plcopen_openplc_fixture_in_st_complete_bundle_import_export_smoke() {
     );
 
     let import_project = unique_temp_dir("plcopen-cli-openplc-example-import");
-    let import = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "plcopen",
-            "import",
-            "--input",
-            fixture.to_str().expect("fixture utf-8"),
-            "--project",
-            import_project.to_str().expect("project utf-8"),
-            "--json",
-        ])
-        .output()
-        .expect("run openplc example import");
+    let import = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "plcopen",
+        "import",
+        "--input",
+        fixture.to_str().expect("fixture utf-8"),
+        "--project",
+        import_project.to_str().expect("project utf-8"),
+        "--json",
+    ])
+    .output()
+    .expect("run openplc example import");
     assert!(
         import.status.success(),
         "expected example import success, stderr was:\n{}",
@@ -535,18 +565,21 @@ fn plcopen_openplc_fixture_in_st_complete_bundle_import_export_smoke() {
             && entry["replacement_symbol"] == "R_TRIG"));
 
     let output_xml = import_project.join("interop/example-roundtrip.xml");
-    let export = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "plcopen",
-            "export",
-            "--project",
-            import_project.to_str().expect("project utf-8"),
-            "--output",
-            output_xml.to_str().expect("output utf-8"),
-            "--json",
-        ])
-        .output()
-        .expect("run openplc example export");
+    let export = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "plcopen",
+        "export",
+        "--project",
+        import_project.to_str().expect("project utf-8"),
+        "--output",
+        output_xml.to_str().expect("output utf-8"),
+        "--json",
+    ])
+    .output()
+    .expect("run openplc example export");
     assert!(
         export.status.success(),
         "expected example export success, stderr was:\n{}",
@@ -596,18 +629,21 @@ END_PROGRAM
     .expect("write shim fixture");
 
     let import_project = unique_temp_dir("plcopen-cli-shim-import-out");
-    let import = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "plcopen",
-            "import",
-            "--input",
-            input_xml.to_str().expect("input xml utf-8"),
-            "--project",
-            import_project.to_str().expect("import project utf-8"),
-            "--json",
-        ])
-        .output()
-        .expect("run plcopen import json");
+    let import = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "plcopen",
+        "import",
+        "--input",
+        input_xml.to_str().expect("input xml utf-8"),
+        "--project",
+        import_project.to_str().expect("import project utf-8"),
+        "--json",
+    ])
+    .output()
+    .expect("run plcopen import json");
     assert!(
         import.status.success(),
         "expected import json success, stderr was:\n{}",
@@ -637,17 +673,20 @@ fn plcopen_import_fails_for_missing_input() {
     let project = unique_temp_dir("plcopen-cli-missing-input");
     let missing = project.join("does-not-exist.xml");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "plcopen",
-            "import",
-            "--input",
-            missing.to_str().expect("missing path utf-8"),
-            "--project",
-            project.to_str().expect("project path utf-8"),
-        ])
-        .output()
-        .expect("run trust-runtime plcopen import");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "plcopen",
+        "import",
+        "--input",
+        missing.to_str().expect("missing path utf-8"),
+        "--project",
+        project.to_str().expect("project path utf-8"),
+    ])
+    .output()
+    .expect("run trust-runtime plcopen import");
 
     assert!(
         !output.status.success(),

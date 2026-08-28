@@ -474,10 +474,9 @@ affected_invariants = [
 ]
 affected_tests = ["TEST_RUNTIME_BEHAVIOR_LOCK_TRACE_001", "TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001"]
 candidate_spec_sources = ["PUBLIC_CLAIM_BEHAVIOR_LOCKED_001", "SPEC_RELEASE_EVIDENCE_001"]
-resolution_status = "closed"
-resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
-closeout_evidence = ["EVID_BEHAVIOR_LOCK_PUBLIC_CLAIM_CLOSEOUT_20260718"]
-last_reviewed = "2026-07-18"
+resolution_status = "open"
+closeout_evidence = []
+last_reviewed = "2026-08-28"
 
 [[spec_gaps]]
 schema_version = 1

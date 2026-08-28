@@ -28,7 +28,10 @@ fn trust_dev_command() -> Command {
 }
 
 fn trust_runtime_command_with_dev_alias() -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+    let mut command = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    );
     command.env("TRUST_DEV_BIN", trust_dev_bin());
     command
 }
@@ -320,12 +323,15 @@ END_PROGRAM
     )
     .expect("write regression source");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["build", "--project"])
-        .arg(&project)
-        .args(["--sources", "src", "--ci"])
-        .output()
-        .expect("run trust-runtime build");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["build", "--project"])
+    .arg(&project)
+    .args(["--sources", "src", "--ci"])
+    .output()
+    .expect("run trust-runtime build");
 
     assert!(
         output.status.success(),

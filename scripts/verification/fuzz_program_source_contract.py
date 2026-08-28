@@ -27,7 +27,7 @@ REVIEWED_EXECUTION_FILE_DIGESTS = {
     "scripts/salsa_fuzz_gate.sh": "b9cabd8d43a8ae56182b6820c02126fbf6ac89f3d4270f014b8e2005dd321b29",
     "scripts/runtime_comms_fuzz_gate.sh": "1647add928d5c339c8557a68cd93639278cc246a59f4a9050508f23d3064b40d",
     "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh": "6c226b829e70d3dc32c4b91a44d8a930b963a50e76bab0515c0284e60deadc4f",
-    ".github/workflows/ci.yml": "0bc3b78a82cdfcf2ba93704f7f75aff730e0178b2e76d9a0ab3670e3e8a76459",
+    ".github/workflows/ci.yml": "3396344e754cff12ab41d0e3cfa4878ebc26f7a4703a7423816a2baba6a2a67d",
     ".github/workflows/salsa-hardening.yml": "d5851fe83317008d0b41a02d547f25062196b8d4e274d95aef507a65dca7675f",
 }
 REVIEWED_WORKFLOW_TRIGGER_DIGESTS = {

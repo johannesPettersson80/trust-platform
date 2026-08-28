@@ -70,6 +70,13 @@ oracle_ref = "SPEC_BYTECODE_FORMAT_001"
 rationale = "The bytecode format requires CRC32 validation when the checksum flag is set."
 
 [[classes]]
+id = "invalid_section_layout"
+title = "Invalid bytecode section layout"
+disposition = "required"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+rationale = "Every declared section range must remain inside the container and must not overlap another section."
+
+[[classes]]
 id = "jump_target_not_instruction_boundary"
 title = "Jump target not on instruction boundary"
 disposition = "required"

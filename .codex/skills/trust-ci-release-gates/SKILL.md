@@ -57,9 +57,17 @@ push-and-repair attempts.
    return to focused tests, refreeze, and prepare one new candidate.
 4. Merge only through `check-merge --pr <number> --execute`; it requires the validated exact head,
    a clean merge state, and every check green.
-5. After main CI and the annotated tag/Release workflow, run `verify-release`; completion requires
+5. After main CI and the annotated tag/Release workflow, run `verify-release --candidate-head
+   <reviewed-head> --branch <candidate-branch>`; completion requires
    the final main SHA, annotated tag, successful Release workflow, GitHub Latest, verified assets
    and checksums, and the expected VS Code Marketplace target versions.
+6. `verify-release` then runs `audit-post-merge` with that exact candidate head and branch. The
+   audit must fail closed when the candidate is not contained by current main, a candidate
+   worktree is dirty, or a named candidate branch no longer points at the exact reviewed head. It
+   must report clean candidate worktrees and exact local/remote branches as explicit cleanup
+   targets without deleting them. Remove only those reviewed targets, fetch/prune, and rerun the
+   audit until it reports no stale candidate state. A release handoff is incomplete without this
+   final clean result.
 
 Stop after a second red candidate or two elapsed hours without merge readiness. Report the full
 blocker ledger and obtain a new decision instead of continuing an unbounded push/wait/fix loop.
@@ -150,9 +158,21 @@ Prevent known Windows-only regressions in `trust-lsp` tests:
   - `just clippy`
   - `just test-all`
   - `cd editors/vscode && npm run lint && npm run compile`
-- Keep exact-candidate disk use bounded: set `CARGO_INCREMENTAL=0` for the
-  candidate's Rust-producing VS Code, Clippy, and test commands, and reclaim
-  only the validated task-owned `CARGO_TARGET_DIR` between Clippy and
+- Keep exact-candidate disk use bounded: set `CARGO_INCREMENTAL=0` and set both
+  `RUSTC_WRAPPER` and `CARGO_BUILD_RUSTC_WRAPPER` to the pass-through
+  `/usr/bin/env` wrapper for the candidate's Rust-producing VS Code, Clippy, and
+  test commands. An empty value does not override the repository Cargo config;
+  the explicit pass-through matches uncached CI behavior. Cargo can still
+  propagate the repository-configured `sccache` name into native build scripts,
+  so install the skill's reviewed `compiler_passthrough.sh` as a task-owned
+  executable named `sccache` and prepend it to `PATH`. That pass-through must
+  cover both Rust and native compiler invocations without writing cache
+  artifacts. Pin `CC=cc` and
+  `CXX=c++` as the native compiler identities. Set
+  `CARGO_BUILD_JOBS=1` for the cold `just test-all` run to bound concurrent
+  linker space, and set `TMPDIR` to a directory inside the validated task-owned
+  target so a constrained system `/tmp` cannot interrupt the proof.
+  Reclaim only that validated `CARGO_TARGET_DIR` between Clippy and
   `just test-all`. Never apply that cleanup to a repository, home directory,
   shared cache, unrelated target, or unresolved path.
 - Use `scripts/verification_report_gate.py --strict --smoke` for pull requests

@@ -24,7 +24,7 @@ END_PROGRAM
     patch_control_endpoint(&project, port);
     fs::write(project.join("src").join("main.st"), source_false).expect("write initial source");
 
-    let build_output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let build_output = Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect("Cargo must provide trust-runtime binary while executing integration tests"))
         .args(["build", "--project"])
         .arg(&project)
         .output()
@@ -250,7 +250,7 @@ END_PROGRAM
 
     fs::write(project.join("src").join("main.st"), source_false).expect("write initial source");
 
-    let build_output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let build_output = Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect("Cargo must provide trust-runtime binary while executing integration tests"))
         .args(["build", "--project"])
         .arg(&project)
         .output()

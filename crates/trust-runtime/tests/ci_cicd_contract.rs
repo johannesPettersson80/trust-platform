@@ -89,7 +89,10 @@ fn write_generated_tests(project: &Path, case_count: usize) {
 }
 
 fn run_trust_runtime(project: &Path, args: &[&str]) -> Output {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+    let mut command = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    );
     command.args(args);
     command.args(["--project", project.to_str().expect("project path utf-8")]);
     command.output().expect("run trust-runtime")

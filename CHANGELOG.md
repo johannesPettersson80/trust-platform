@@ -48,7 +48,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.63`
+Target release: `v0.24.64`
 
 ### Added
 
@@ -58,6 +58,16 @@ Target release: `v0.24.63`
 
 ### Fixed
 
+- Make post-merge release verification audit the exact candidate branch and
+  validation worktrees, block dirty or divergent state, and report explicit
+  cleanup targets before a release handoff can be completed.
+- Reconcile staged checksum paths with GitHub's flat release-asset namespace
+  while rejecting ambiguous basenames and unsafe manifest paths.
+- Keep exact-candidate remote validation aligned with CI by disabling inherited
+  Rust compiler caches and serializing the cold all-tests build to bound disk
+  use.
+- Keep runtime integration-test binary discovery compilable under cold
+  all-target check and clippy runs, and enforce that portability contract in CI.
 - Make the runtime communications conformance gate reject zero-test filters
   and align its development and WAN profile cases with the shipped policy.
 - Make the Neovim and Zed editor smoke gate fail when an exact Rust filter

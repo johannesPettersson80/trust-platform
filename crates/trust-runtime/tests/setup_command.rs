@@ -18,10 +18,13 @@ fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
 
 #[test]
 fn setup_cancel_mode_exits_successfully() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["setup", "--mode", "cancel"])
-        .output()
-        .expect("run trust-runtime setup cancel");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["setup", "--mode", "cancel"])
+    .output()
+    .expect("run trust-runtime setup cancel");
 
     assert!(
         output.status.success(),
@@ -35,19 +38,22 @@ fn setup_cancel_mode_exits_successfully() {
 #[test]
 fn setup_browser_local_rejects_non_loopback_bind() {
     let project = unique_temp_dir("setup-local-bind");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("setup")
-        .arg("--mode")
-        .arg("browser")
-        .arg("--access")
-        .arg("local")
-        .arg("--project")
-        .arg(&project)
-        .arg("--bind")
-        .arg("0.0.0.0")
-        .arg("--dry-run")
-        .output()
-        .expect("run setup browser local");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("setup")
+    .arg("--mode")
+    .arg("browser")
+    .arg("--access")
+    .arg("local")
+    .arg("--project")
+    .arg(&project)
+    .arg("--bind")
+    .arg("0.0.0.0")
+    .arg("--dry-run")
+    .output()
+    .expect("run setup browser local");
 
     assert!(
         !output.status.success(),
@@ -60,21 +66,24 @@ fn setup_browser_local_rejects_non_loopback_bind() {
 #[test]
 fn setup_browser_remote_rejects_loopback_bind() {
     let project = unique_temp_dir("setup-remote-bind");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("setup")
-        .arg("--mode")
-        .arg("browser")
-        .arg("--access")
-        .arg("remote")
-        .arg("--project")
-        .arg(&project)
-        .arg("--bind")
-        .arg("127.0.0.1")
-        .arg("--token-ttl-minutes")
-        .arg("15")
-        .arg("--dry-run")
-        .output()
-        .expect("run setup browser remote");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("setup")
+    .arg("--mode")
+    .arg("browser")
+    .arg("--access")
+    .arg("remote")
+    .arg("--project")
+    .arg(&project)
+    .arg("--bind")
+    .arg("127.0.0.1")
+    .arg("--token-ttl-minutes")
+    .arg("15")
+    .arg("--dry-run")
+    .output()
+    .expect("run setup browser remote");
 
     assert!(
         !output.status.success(),
@@ -90,19 +99,22 @@ fn setup_browser_remote_rejects_loopback_bind() {
 #[test]
 fn setup_browser_remote_dry_run_shows_token_requirements() {
     let project = unique_temp_dir("setup-remote-dry-run");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("setup")
-        .arg("--mode")
-        .arg("browser")
-        .arg("--access")
-        .arg("remote")
-        .arg("--project")
-        .arg(&project)
-        .arg("--token-ttl-minutes")
-        .arg("30")
-        .arg("--dry-run")
-        .output()
-        .expect("run setup browser remote dry-run");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("setup")
+    .arg("--mode")
+    .arg("browser")
+    .arg("--access")
+    .arg("remote")
+    .arg("--project")
+    .arg(&project)
+    .arg("--token-ttl-minutes")
+    .arg("30")
+    .arg("--dry-run")
+    .output()
+    .expect("run setup browser remote dry-run");
 
     assert!(
         output.status.success(),
@@ -117,14 +129,17 @@ fn setup_browser_remote_dry_run_shows_token_requirements() {
 #[test]
 fn setup_cli_mode_writes_artifacts_and_next_steps() {
     let project = unique_temp_dir("setup-cli-project");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("setup")
-        .arg("--mode")
-        .arg("cli")
-        .arg("--project")
-        .arg(&project)
-        .output()
-        .expect("run setup cli mode");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("setup")
+    .arg("--mode")
+    .arg("cli")
+    .arg("--project")
+    .arg(&project)
+    .output()
+    .expect("run setup cli mode");
 
     assert!(
         output.status.success(),
@@ -147,14 +162,17 @@ fn setup_cli_mode_writes_artifacts_and_next_steps() {
 #[test]
 fn setup_cli_treats_project_path_glob_characters_literally() {
     let project = unique_temp_dir("setup-cli-[literal]");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("setup")
-        .arg("--mode")
-        .arg("cli")
-        .arg("--project")
-        .arg(&project)
-        .output()
-        .expect("run setup CLI with literal path");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("setup")
+    .arg("--mode")
+    .arg("cli")
+    .arg("--project")
+    .arg(&project)
+    .output()
+    .expect("run setup CLI with literal path");
 
     assert!(
         output.status.success(),
@@ -171,14 +189,17 @@ fn setup_cli_prefixes_numeric_project_resource_name() {
     let parent = unique_temp_dir("setup-cli-numeric-parent");
     std::fs::create_dir(&parent).expect("create numeric project parent");
     let project = parent.join("123");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("setup")
-        .arg("--mode")
-        .arg("cli")
-        .arg("--project")
-        .arg(&project)
-        .output()
-        .expect("run setup CLI for numeric project");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("setup")
+    .arg("--mode")
+    .arg("cli")
+    .arg("--project")
+    .arg(&project)
+    .output()
+    .expect("run setup CLI for numeric project");
 
     assert!(
         output.status.success(),
@@ -195,23 +216,26 @@ fn setup_cli_prefixes_numeric_project_resource_name() {
 #[test]
 fn setup_cli_rejects_browser_only_options_without_mutation() {
     let project = unique_temp_dir("setup-cli-browser-options");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("setup")
-        .arg("--mode")
-        .arg("cli")
-        .arg("--project")
-        .arg(&project)
-        .arg("--access")
-        .arg("remote")
-        .arg("--bind")
-        .arg("0.0.0.0")
-        .arg("--port")
-        .arg("9000")
-        .arg("--token-ttl-minutes")
-        .arg("30")
-        .arg("--dry-run")
-        .output()
-        .expect("run CLI setup with browser-only options");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("setup")
+    .arg("--mode")
+    .arg("cli")
+    .arg("--project")
+    .arg(&project)
+    .arg("--access")
+    .arg("remote")
+    .arg("--bind")
+    .arg("0.0.0.0")
+    .arg("--port")
+    .arg("9000")
+    .arg("--token-ttl-minutes")
+    .arg("30")
+    .arg("--dry-run")
+    .output()
+    .expect("run CLI setup with browser-only options");
 
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr)
@@ -229,7 +253,10 @@ fn setup_cli_rejects_explicit_default_browser_options_without_mutation() {
         ("explicit-default-port", "--port", "8080"),
     ] {
         let project = unique_temp_dir(label);
-        let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        let output =
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ))
             .arg("setup")
             .arg("--mode")
             .arg("cli")
@@ -257,15 +284,18 @@ fn setup_cli_rejects_explicit_default_browser_options_without_mutation() {
 #[test]
 fn setup_cli_dry_run_reports_plan_without_creating_project() {
     let project = unique_temp_dir("setup-cli-dry-run");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("setup")
-        .arg("--mode")
-        .arg("cli")
-        .arg("--project")
-        .arg(&project)
-        .arg("--dry-run")
-        .output()
-        .expect("run CLI setup dry run");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("setup")
+    .arg("--mode")
+    .arg("cli")
+    .arg("--project")
+    .arg(&project)
+    .arg("--dry-run")
+    .output()
+    .expect("run CLI setup dry run");
 
     assert!(output.status.success());
     assert!(String::from_utf8_lossy(&output.stdout).contains("Setup dry run"));
@@ -274,10 +304,13 @@ fn setup_cli_dry_run_reports_plan_without_creating_project() {
 
 #[test]
 fn setup_without_mode_rejects_noninteractive_input() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("setup")
-        .output()
-        .expect("run setup without a terminal");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("setup")
+    .output()
+    .expect("run setup without a terminal");
 
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr)
@@ -287,16 +320,19 @@ fn setup_without_mode_rejects_noninteractive_input() {
 #[test]
 fn setup_rejects_system_and_guided_flag_mix_without_mutation() {
     let project = unique_temp_dir("setup-mixed-flags");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("setup")
-        .arg("--driver")
-        .arg("loopback")
-        .arg("--mode")
-        .arg("cli")
-        .arg("--project")
-        .arg(&project)
-        .output()
-        .expect("run mixed system and guided setup");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("setup")
+    .arg("--driver")
+    .arg("loopback")
+    .arg("--mode")
+    .arg("cli")
+    .arg("--project")
+    .arg(&project)
+    .output()
+    .expect("run mixed system and guided setup");
 
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("system setup flags"));
@@ -306,12 +342,15 @@ fn setup_rejects_system_and_guided_flag_mix_without_mutation() {
 #[test]
 fn wizard_rejects_noninteractive_input_without_mutation() {
     let project = unique_temp_dir("wizard-noninteractive");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("wizard")
-        .arg("--path")
-        .arg(&project)
-        .output()
-        .expect("run wizard without a terminal");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("wizard")
+    .arg("--path")
+    .arg(&project)
+    .output()
+    .expect("run wizard without a terminal");
 
     assert!(!output.status.success());
     assert!(

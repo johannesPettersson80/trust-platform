@@ -106,13 +106,16 @@ access = "read"
 }
 
 fn run_deploy(working_dir: &Path, project: &Path, root: &str, label: &str) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .current_dir(working_dir)
-        .args(["deploy", "--project"])
-        .arg(project)
-        .args(["--root", root, "--label", label])
-        .output()
-        .expect("run trust-runtime deploy")
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .current_dir(working_dir)
+    .args(["deploy", "--project"])
+    .arg(project)
+    .args(["--root", root, "--label", label])
+    .output()
+    .expect("run trust-runtime deploy")
 }
 
 fn assert_success(output: &Output, command: &str) {
@@ -151,11 +154,14 @@ fn deploy_with_relative_root_keeps_current_and_immediate_previous_for_rollback()
     );
     assert!(!deploy_root.join("bundles/version-1").exists());
 
-    let rollback = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .current_dir(&working_dir)
-        .args(["rollback", "--root", "deploy-root"])
-        .output()
-        .expect("run trust-runtime rollback");
+    let rollback = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .current_dir(&working_dir)
+    .args(["rollback", "--root", "deploy-root"])
+    .output()
+    .expect("run trust-runtime rollback");
     assert_success(&rollback, "rollback");
     assert_eq!(
         resolved_link(&deploy_root.join("current")),

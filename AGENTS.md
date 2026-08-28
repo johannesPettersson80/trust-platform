@@ -127,7 +127,12 @@ applicable, and lexer/parser tests or snapshots.
   bind the exact validated head and require every check green.
 - When a version changes, continue through main CI, annotated tag, Release workflow, GitHub Latest,
   asset/checksum verification, and VS Code Marketplace propagation; verify with
-  `release_candidate_guard.py verify-release` before reporting completion.
+  `release_candidate_guard.py verify-release --candidate-head <reviewed-head> --branch <candidate-branch>`
+  before reporting completion.
+- After every merge, run `release_candidate_guard.py audit-post-merge` with the exact reviewed
+  candidate head and branch. Remove only the clean exact targets it reports, fetch/prune, and rerun
+  until the audit reports `clean`. A merge or release handoff is incomplete while candidate
+  branches, validation worktrees, dirty work, or unique commits remain unresolved.
 - After a second red candidate or two elapsed hours without merge readiness, stop and report the
   complete blocker ledger. Do not continue an unbounded push/wait/fix loop.
 

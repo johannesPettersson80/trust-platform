@@ -196,7 +196,10 @@ fn communication_examples_build_and_validate() {
         copy_dir_recursive(&fixture, &project);
         normalize_runtime_endpoint_for_platform(&project);
 
-        let build = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        let build =
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ))
             .args(["build", "--project"])
             .arg(&project)
             .args(["--sources", "src"])
@@ -209,7 +212,10 @@ fn communication_examples_build_and_validate() {
             String::from_utf8_lossy(&build.stderr)
         );
 
-        let validate = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        let validate =
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ))
             .args(["validate", "--project"])
             .arg(&project)
             .output()
@@ -235,13 +241,16 @@ fn comm_cli_runs_schema_apply_topology_and_cached_browse_offline() {
     )
     .expect("write runtime.toml");
 
-    let schema = successful_json(
-        Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let schema =
+        successful_json(
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ))
             .args(["comm", "schema", "--protocol", "modbus-tcp", "--json"])
             .output()
             .expect("run comm schema"),
-        "comm schema",
-    );
+            "comm schema",
+        );
     assert_eq!(
         schema.get("schema_version").and_then(Value::as_u64),
         Some(4)
@@ -265,8 +274,11 @@ fn comm_cli_runs_schema_apply_topology_and_cached_browse_offline() {
         "on_error": "warn"
     })
     .to_string();
-    let apply = successful_json(
-        Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let apply =
+        successful_json(
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ))
             .args(["comm", "apply", "--project"])
             .arg(&temp_root)
             .args([
@@ -280,8 +292,8 @@ fn comm_cli_runs_schema_apply_topology_and_cached_browse_offline() {
             ])
             .output()
             .expect("run comm apply"),
-        "comm apply",
-    );
+            "comm apply",
+        );
     assert_eq!(apply.get("applied").and_then(Value::as_bool), Some(true));
     assert_eq!(
         apply.get("lifecycle_effect").and_then(Value::as_str),
@@ -289,15 +301,18 @@ fn comm_cli_runs_schema_apply_topology_and_cached_browse_offline() {
     );
     assert!(temp_root.join("io.toml").is_file());
 
-    let topology = successful_json(
-        Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let topology =
+        successful_json(
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ))
             .args(["comm", "topology", "--project"])
             .arg(&temp_root)
             .arg("--json")
             .output()
             .expect("run comm topology"),
-        "comm topology",
-    );
+            "comm topology",
+        );
     assert_eq!(
         topology.get("schema_version").and_then(Value::as_u64),
         Some(4)
@@ -312,16 +327,19 @@ fn comm_cli_runs_schema_apply_topology_and_cached_browse_offline() {
     }));
 
     let snapshot = communication_project_path("ads_line1").join("ads/snapshots/line1.symbols.json");
-    let browse = successful_json(
-        Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let browse =
+        successful_json(
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ))
             .args(["comm", "browse-symbols", "--protocol", "ads"])
             .arg("--snapshot-file")
             .arg(&snapshot)
             .args(["--connection-name", "line1", "--json"])
             .output()
             .expect("run comm browse-symbols"),
-        "comm browse-symbols",
-    );
+            "comm browse-symbols",
+        );
     assert_eq!(
         browse.get("schema_version").and_then(Value::as_u64),
         Some(1)
@@ -343,25 +361,31 @@ fn comm_cli_runs_schema_apply_topology_and_cached_browse_offline() {
 
 #[test]
 fn comm_cli_validates_payloads_and_manages_the_selected_opcua_trust_store() {
-    let invalid = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "comm",
-            "apply",
-            "--project",
-            ".",
-            "--protocol",
-            "modbus-tcp",
-            "--params",
-            "[]",
-            "--json",
-        ])
-        .output()
-        .expect("run comm apply with invalid params");
+    let invalid = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "comm",
+        "apply",
+        "--project",
+        ".",
+        "--protocol",
+        "modbus-tcp",
+        "--params",
+        "[]",
+        "--json",
+    ])
+    .output()
+    .expect("run comm apply with invalid params");
     assert!(!invalid.status.success());
     assert!(String::from_utf8_lossy(&invalid.stderr).contains("--params must be a JSON object"));
 
-    let discovery = successful_json(
-        Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let discovery =
+        successful_json(
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ))
             .args([
                 "comm",
                 "discover",
@@ -375,8 +399,8 @@ fn comm_cli_validates_payloads_and_manages_the_selected_opcua_trust_store() {
             ])
             .output()
             .expect("run comm discover"),
-        "comm discover",
-    );
+            "comm discover",
+        );
     assert_eq!(
         discovery.get("origin").and_then(Value::as_str),
         Some("runtime")
@@ -396,14 +420,17 @@ fn comm_cli_validates_payloads_and_manages_the_selected_opcua_trust_store() {
     std::fs::create_dir_all(&trusted).expect("create OPC UA trusted directory");
     std::fs::write(trusted.join("server.der"), b"certificate").expect("write trusted certificate");
 
-    let list = successful_json(
-        Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let list =
+        successful_json(
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ))
             .env("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR", &pki_root)
             .args(["comm", "opcua-trust", "list", "--json"])
             .output()
             .expect("run comm opcua-trust list"),
-        "comm opcua-trust list",
-    );
+            "comm opcua-trust list",
+        );
     assert_eq!(
         list.get("protocol").and_then(Value::as_str),
         Some("opcua_client")
@@ -413,14 +440,17 @@ fn comm_cli_validates_payloads_and_manages_the_selected_opcua_trust_store() {
         Some("server.der")
     );
 
-    let clear = successful_json(
-        Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let clear =
+        successful_json(
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ))
             .env("TRUST_RUNTIME_OPCUA_CLIENT_PKI_DIR", &pki_root)
             .args(["comm", "opcua-trust", "clear", "--json"])
             .output()
             .expect("run comm opcua-trust clear"),
-        "comm opcua-trust clear",
-    );
+            "comm opcua-trust clear",
+        );
     assert_eq!(clear.get("cleared").and_then(Value::as_u64), Some(1));
     assert!(!trusted.join("server.der").exists());
 
@@ -429,38 +459,44 @@ fn comm_cli_validates_payloads_and_manages_the_selected_opcua_trust_store() {
 
 #[test]
 fn comm_cli_rejects_malformed_local_authoring_inputs() {
-    let malformed_params = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "comm",
-            "apply",
-            "--project",
-            ".",
-            "--protocol",
-            "modbus-tcp",
-            "--params",
-            "{",
-            "--json",
-        ])
-        .output()
-        .expect("run comm apply with malformed params");
+    let malformed_params = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "comm",
+        "apply",
+        "--project",
+        ".",
+        "--protocol",
+        "modbus-tcp",
+        "--params",
+        "{",
+        "--json",
+    ])
+    .output()
+    .expect("run comm apply with malformed params");
     assert_cli_failure(
         malformed_params,
         "comm apply with malformed params",
         "failed to parse --params as a JSON object",
     );
 
-    let non_object_target = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "comm",
-            "browse-symbols",
-            "--protocol",
-            "ads",
-            "--target",
-            "[]",
-            "--json",
-        ])
-        .output()
-        .expect("run comm browse-symbols with non-object target");
+    let non_object_target = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "comm",
+        "browse-symbols",
+        "--protocol",
+        "ads",
+        "--target",
+        "[]",
+        "--json",
+    ])
+    .output()
+    .expect("run comm browse-symbols with non-object target");
     assert_cli_failure(
         non_object_target,
         "comm browse-symbols with non-object target",
@@ -470,13 +506,16 @@ fn comm_cli_rejects_malformed_local_authoring_inputs() {
     let temp_root = unique_temp_dir("comm-cli-malformed-input");
     std::fs::create_dir_all(&temp_root).expect("create malformed comm input directory");
     let missing_snapshot = temp_root.join("missing.json");
-    let unreadable = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["comm", "browse-symbols", "--protocol", "ads"])
-        .arg("--snapshot-file")
-        .arg(&missing_snapshot)
-        .arg("--json")
-        .output()
-        .expect("run comm browse-symbols with missing snapshot");
+    let unreadable = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["comm", "browse-symbols", "--protocol", "ads"])
+    .arg("--snapshot-file")
+    .arg(&missing_snapshot)
+    .arg("--json")
+    .output()
+    .expect("run comm browse-symbols with missing snapshot");
     assert_cli_failure(
         unreadable,
         "comm browse-symbols with missing snapshot",
@@ -485,13 +524,16 @@ fn comm_cli_rejects_malformed_local_authoring_inputs() {
 
     let malformed_snapshot = temp_root.join("malformed.json");
     std::fs::write(&malformed_snapshot, b"{").expect("write malformed snapshot");
-    let malformed = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["comm", "browse-symbols", "--protocol", "ads"])
-        .arg("--snapshot-file")
-        .arg(&malformed_snapshot)
-        .arg("--json")
-        .output()
-        .expect("run comm browse-symbols with malformed snapshot");
+    let malformed = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["comm", "browse-symbols", "--protocol", "ads"])
+    .arg("--snapshot-file")
+    .arg(&malformed_snapshot)
+    .arg("--json")
+    .output()
+    .expect("run comm browse-symbols with malformed snapshot");
     assert_cli_failure(
         malformed,
         "comm browse-symbols with malformed snapshot",

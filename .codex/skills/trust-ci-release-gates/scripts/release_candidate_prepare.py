@@ -84,8 +84,27 @@ def remote_validation_commands(
     *, vscode_changed: bool, remote_target: str
 ) -> list[tuple[str, str]]:
     target = validated_remote_target(remote_target)
-    target_env = f"CARGO_TARGET_DIR={shlex.quote(target)} CARGO_INCREMENTAL=0"
-    commands = [("remote_exact_head", "")]
+    target_tmp = str(PurePosixPath(target) / "tmp")
+    target_bin = str(PurePosixPath(target) / "bin")
+    sccache_shim = str(PurePosixPath(target_bin) / "sccache")
+    passthrough_source = (
+        ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh"
+    )
+    target_env = (
+        f"CARGO_TARGET_DIR={shlex.quote(target)} "
+        "CARGO_INCREMENTAL=0 RUSTC_WRAPPER=/usr/bin/env "
+        "CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env "
+        f"CC=cc CXX=c++ TMPDIR={shlex.quote(target_tmp)} "
+        f"PATH={shlex.quote(target_bin)}:$PATH"
+    )
+    prepare_target = (
+        f"mkdir -p -- {shlex.quote(target_tmp)} {shlex.quote(target_bin)} && "
+        f"install -m 755 {passthrough_source} {shlex.quote(sccache_shim)}"
+    )
+    commands = [
+        ("remote_exact_head", ""),
+        ("remote_prepare_target", prepare_target),
+    ]
     if vscode_changed:
         commands.append(
             (
@@ -100,9 +119,9 @@ def remote_validation_commands(
             ("remote_clippy", f"{target_env} just clippy"),
             (
                 "remote_reclaim_before_test_all",
-                f"rm -rf -- {shlex.quote(target)} && mkdir -p -- {shlex.quote(target)}",
+                f"rm -rf -- {shlex.quote(target)} && {prepare_target}",
             ),
-            ("remote_test_all", f"{target_env} just test-all"),
+            ("remote_test_all", f"{target_env} CARGO_BUILD_JOBS=1 just test-all"),
             ("remote_clean_after", 'test -z "$(git status --porcelain=v1 --untracked-files=all)"'),
         ]
     )

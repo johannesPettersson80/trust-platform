@@ -43,6 +43,8 @@ jobs:
         run: python3 ./scripts/test_check_version_release_evidence.py
       - name: Guard deterministic diagram workflow
         run: python3 -m unittest scripts.tests.test_diagram_workflow -v
+      - name: Guard runtime integration-test binary paths
+        run: python3 ./scripts/runtime_test_binary_path_contract_tests.py
       - run: cargo fmt --all -- --check
       - name: Mark gate success
         if: ${{ success() }}
@@ -684,6 +686,11 @@ jobs:
           cargo audit --version
       - name: Validate owned dependency exception lifetimes
         run: python3 scripts/check_dependency_exceptions.py
+      - name: Run release candidate guard self-tests
+        run: >-
+          python3 -m unittest discover -s
+          .codex/skills/trust-ci-release-gates/scripts
+          -p 'release_candidate_*_tests.py'
       - name: Run cargo-deny
         run: cargo deny check advisories licenses bans sources
       - name: Run cargo-audit with tracked advisory exceptions

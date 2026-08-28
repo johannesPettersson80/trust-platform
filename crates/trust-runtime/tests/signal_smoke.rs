@@ -85,14 +85,17 @@ END_PROGRAM
 }
 
 fn spawn_runtime(project: &Path) -> Child {
-    Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("run")
-        .arg("--project")
-        .arg(project)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn trust-runtime run")
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("run")
+    .arg("--project")
+    .arg(project)
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()
+    .expect("spawn trust-runtime run")
 }
 
 fn wait_for_control_port(mut child: Child, port: u16) -> Child {

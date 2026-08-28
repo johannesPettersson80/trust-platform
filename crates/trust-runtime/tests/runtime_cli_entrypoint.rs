@@ -5,10 +5,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 static TEMP_PATH_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 fn run_runtime(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(args)
-        .output()
-        .expect("run trust-runtime")
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(args)
+    .output()
+    .expect("run trust-runtime")
 }
 
 fn stderr(output: &Output) -> String {
@@ -32,12 +35,15 @@ fn simulation_coupling_tutorial_is_a_checkable_standalone_project() {
     let project = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join("examples/tutorials/09_simulation_coupling");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["check", "--project"])
-        .arg(&project)
-        .arg("--json")
-        .output()
-        .expect("check simulation-coupling tutorial");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["check", "--project"])
+    .arg(&project)
+    .arg("--json")
+    .output()
+    .expect("check simulation-coupling tutorial");
 
     assert!(
         output.status.success(),
@@ -87,12 +93,15 @@ fn distant_unknown_command_is_not_given_a_misleading_suggestion() {
 #[test]
 fn deprecated_bundle_alias_warns_and_missing_project_gets_creation_tip() {
     let project = unique_missing_project("deprecated-bundle");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("run")
-        .arg("--bundle")
-        .arg(&project)
-        .output()
-        .expect("run trust-runtime with deprecated bundle alias");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("run")
+    .arg("--bundle")
+    .arg(&project)
+    .output()
+    .expect("run trust-runtime with deprecated bundle alias");
 
     assert_eq!(output.status.code(), Some(1));
     let error = stderr(&output);
@@ -114,13 +123,16 @@ fn deprecated_bundle_alias_warns_and_missing_project_gets_creation_tip() {
 #[test]
 fn ci_mode_classifies_an_invalid_validate_project() {
     let project = unique_missing_project("ci-validate");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("validate")
-        .arg("--project")
-        .arg(&project)
-        .arg("--ci")
-        .output()
-        .expect("run trust-runtime validate --ci");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("validate")
+    .arg("--project")
+    .arg(&project)
+    .arg("--ci")
+    .output()
+    .expect("run trust-runtime validate --ci");
 
     assert_eq!(output.status.code(), Some(10));
     assert!(
@@ -148,7 +160,10 @@ fn play_rejects_invalid_options_before_project_creation() {
 
     for (name, options, expected_error) in cases {
         let project = unique_missing_project(name);
-        let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+        let mut command =
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ));
         command.arg("play").arg("--project").arg(&project);
         command.args(*options).arg("--no-console");
         let output = command.output().expect("run trust-runtime play");
@@ -181,12 +196,15 @@ fn ide_serve_reports_invalid_primary_runtime_before_server_start() {
     std::fs::write(project.join("runtime.toml"), "not valid TOML = [")
         .expect("write invalid runtime.toml");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["ide", "serve", "--project"])
-        .arg(&project)
-        .args(["--listen", "not-an-address"])
-        .output()
-        .expect("run trust-runtime ide serve");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["ide", "serve", "--project"])
+    .arg(&project)
+    .args(["--listen", "not-an-address"])
+    .output()
+    .expect("run trust-runtime ide serve");
 
     assert!(!output.status.success());
     let error = stderr(&output);
@@ -203,12 +221,15 @@ fn ide_serve_rejects_non_directory_project_before_server_start() {
     let project = unique_missing_project("ide-project-file");
     std::fs::write(&project, "not a project directory").expect("write project-shaped file");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["ide", "serve", "--project"])
-        .arg(&project)
-        .args(["--listen", "not-an-address"])
-        .output()
-        .expect("run trust-runtime ide serve with file project");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["ide", "serve", "--project"])
+    .arg(&project)
+    .args(["--listen", "not-an-address"])
+    .output()
+    .expect("run trust-runtime ide serve with file project");
 
     assert!(!output.status.success());
     let error = stderr(&output);
@@ -227,12 +248,15 @@ fn deprecated_config_ui_serve_warns_before_shared_project_validation() {
     let project = unique_missing_project("config-ui-project-file");
     std::fs::write(&project, "not a project directory").expect("write project-shaped file");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["config-ui", "serve", "--project"])
-        .arg(&project)
-        .args(["--listen", "not-an-address"])
-        .output()
-        .expect("run deprecated config-ui serve with file project");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["config-ui", "serve", "--project"])
+    .arg(&project)
+    .args(["--listen", "not-an-address"])
+    .output()
+    .expect("run deprecated config-ui serve with file project");
 
     assert!(!output.status.success());
     let error = stderr(&output);
