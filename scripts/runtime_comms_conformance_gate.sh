@@ -37,6 +37,7 @@ run_lib_case() {
   local test_filter="$2"
   local log_path="${OUT_DIR}/${case_id}.log"
   echo "[conformance-gate] running lib case ${case_id}"
+  : > "${log_path}"
   run_observed "runtime-comms-conformance" "${case_id}" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${log_path}" \
     cargo test -p trust-runtime --lib "${test_filter}" -- --nocapture
   assert_case_executed "${case_id}" "${log_path}"
@@ -48,6 +49,7 @@ run_it_case() {
   local test_filter="$3"
   local log_path="${OUT_DIR}/${case_id}.log"
   echo "[conformance-gate] running integration case ${case_id}"
+  : > "${log_path}"
   run_observed "runtime-comms-conformance" "${case_id}" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${log_path}" \
     cargo test -p trust-runtime --test "${test_target}" "${test_filter}" -- --nocapture
   assert_case_executed "${case_id}" "${log_path}"

@@ -96,6 +96,18 @@ pub enum IoTarget {
 }
 
 #[derive(Debug, Clone)]
+struct IoEnumBinding {
+    type_name: SmolStr,
+    variants: Vec<(SmolStr, i64)>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct IoBindingCodec {
+    wire_type: Option<TypeId>,
+    enum_type: Option<IoEnumBinding>,
+}
+
+#[derive(Debug, Clone)]
 pub struct IoBinding {
     pub target: IoTarget,
     pub address: IoAddress,

@@ -37,6 +37,87 @@ pub fn io_value_type_name(value_type: TypeId) -> Option<&'static str> {
     }
 }
 
+fn coerce_binding_from_io(
+    value: Value,
+    binding: &IoBinding,
+    codec: &IoBindingCodec,
+) -> Result<Value, RuntimeError> {
+    let Some(wire_type) = codec.wire_type.or(binding.value_type) else {
+        return Ok(value);
+    };
+    let value = coerce_from_io(value, wire_type)?;
+    let Some(enum_type) = &codec.enum_type else {
+        return Ok(value);
+    };
+    let numeric_value = crate::numeric::to_i64(&value)?;
+    let Some((variant_name, _)) = enum_type
+        .variants
+        .iter()
+        .find(|(_, declared)| *declared == numeric_value)
+    else {
+        return Err(RuntimeError::IoDriver(
+            format!(
+                "process-image value {numeric_value} is not declared by enum {}",
+                enum_type.type_name
+            )
+            .into(),
+        ));
+    };
+    Ok(Value::Enum(Box::new(crate::value::EnumValue::from_canonical_parts(
+        enum_type.type_name.clone(),
+        variant_name.clone(),
+        numeric_value,
+    ))))
+}
+
+fn coerce_binding_to_io(
+    value: Value,
+    binding: &IoBinding,
+    codec: &IoBindingCodec,
+) -> Result<Value, RuntimeError> {
+    let Some(wire_type) = codec.wire_type.or(binding.value_type) else {
+        return Ok(value);
+    };
+    let Some(enum_type) = &codec.enum_type else {
+        return coerce_to_io(value, wire_type, binding.address.size);
+    };
+    let numeric_value = match &value {
+        Value::Enum(value) => {
+            if !value
+                .type_name()
+                .eq_ignore_ascii_case(enum_type.type_name.as_str())
+            {
+                return Err(RuntimeError::TypeMismatch);
+            }
+            let valid = enum_type.variants.iter().any(|(variant, numeric)| {
+                variant.eq_ignore_ascii_case(value.variant_name().as_str())
+                    && *numeric == value.numeric_value()
+            });
+            if !valid {
+                return Err(RuntimeError::IoDriver(
+                    format!("invalid value for enum {}", enum_type.type_name).into(),
+                ));
+            }
+            value.numeric_value()
+        }
+        value => crate::numeric::to_i64(value)?,
+    };
+    if !enum_type
+        .variants
+        .iter()
+        .any(|(_, declared)| *declared == numeric_value)
+    {
+        return Err(RuntimeError::IoDriver(
+            format!(
+                "value {numeric_value} is not declared by enum {}",
+                enum_type.type_name
+            )
+            .into(),
+        ));
+    }
+    coerce_to_io(Value::LInt(numeric_value), wire_type, binding.address.size)
+}
+
 fn coerce_from_io(value: Value, target: TypeId) -> Result<Value, RuntimeError> {
     match target {
         TypeId::BOOL => match value {

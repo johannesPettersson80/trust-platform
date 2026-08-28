@@ -4,6 +4,7 @@ pub struct IoInterface {
     outputs: Vec<u8>,
     memory: Vec<u8>,
     bindings: Vec<IoBinding>,
+    binding_codecs: Vec<IoBindingCodec>,
     hierarchical: std::collections::HashMap<IoAddressKey, Value>,
 }
 
@@ -78,7 +79,7 @@ impl IoInterface {
     #[must_use]
     pub fn snapshot(&self) -> IoSnapshot {
         let mut snapshot = IoSnapshot::default();
-        for binding in &self.bindings {
+        for (binding, codec) in self.bindings.iter().zip(&self.binding_codecs) {
             let name = binding
                 .display_name
                 .clone()
@@ -91,11 +92,7 @@ impl IoInterface {
             } else {
                 match self.read(&binding.address) {
                     Ok(value) => {
-                        let value = if let Some(value_type) = binding.value_type {
-                            coerce_from_io(value, value_type)
-                        } else {
-                            Ok(value)
-                        };
+                        let value = coerce_binding_from_io(value, binding, codec);
                         match value {
                             Ok(value) => IoSnapshotValue::Value(value),
                             Err(err) => IoSnapshotValue::Error(err.to_string()),
@@ -122,44 +119,62 @@ impl IoInterface {
 
     pub fn bind(&mut self, name: impl Into<SmolStr>, address: IoAddress) {
         let name = name.into();
-        self.bindings.push(IoBinding {
-            target: IoTarget::Name(name.clone()),
-            address,
-            value_type: None,
-            display_name: Some(name),
-            source: None,
-        });
+        self.push_binding(
+            IoBinding {
+                target: IoTarget::Name(name.clone()),
+                address,
+                value_type: None,
+                display_name: Some(name),
+                source: None,
+            },
+            IoBindingCodec::default(),
+        );
     }
 
     pub fn bind_ref(&mut self, reference: ValueRef, address: IoAddress) {
-        self.bindings.push(IoBinding {
-            target: IoTarget::Reference(reference),
-            address,
-            value_type: None,
-            display_name: None,
-            source: None,
-        });
+        self.push_binding(
+            IoBinding {
+                target: IoTarget::Reference(reference),
+                address,
+                value_type: None,
+                display_name: None,
+                source: None,
+            },
+            IoBindingCodec::default(),
+        );
     }
 
     pub fn bind_typed(&mut self, name: impl Into<SmolStr>, address: IoAddress, value_type: TypeId) {
         let name = name.into();
-        self.bindings.push(IoBinding {
-            target: IoTarget::Name(name.clone()),
-            address,
-            value_type: Some(value_type),
-            display_name: Some(name),
-            source: None,
-        });
+        self.push_binding(
+            IoBinding {
+                target: IoTarget::Name(name.clone()),
+                address,
+                value_type: Some(value_type),
+                display_name: Some(name),
+                source: None,
+            },
+            IoBindingCodec {
+                wire_type: Some(value_type),
+                enum_type: None,
+            },
+        );
     }
 
     pub fn bind_ref_typed(&mut self, reference: ValueRef, address: IoAddress, value_type: TypeId) {
-        self.bindings.push(IoBinding {
-            target: IoTarget::Reference(reference),
-            address,
-            value_type: Some(value_type),
-            display_name: None,
-            source: None,
-        });
+        self.push_binding(
+            IoBinding {
+                target: IoTarget::Reference(reference),
+                address,
+                value_type: Some(value_type),
+                display_name: None,
+                source: None,
+            },
+            IoBindingCodec {
+                wire_type: Some(value_type),
+                enum_type: None,
+            },
+        );
     }
 
     pub fn bind_ref_named_typed(
@@ -169,13 +184,83 @@ impl IoInterface {
         value_type: TypeId,
         name: impl Into<SmolStr>,
     ) {
-        self.bindings.push(IoBinding {
-            target: IoTarget::Reference(reference),
-            address,
-            value_type: Some(value_type),
-            display_name: Some(name.into()),
-            source: None,
-        });
+        self.push_binding(
+            IoBinding {
+                target: IoTarget::Reference(reference),
+                address,
+                value_type: Some(value_type),
+                display_name: Some(name.into()),
+                source: None,
+            },
+            IoBindingCodec {
+                wire_type: Some(value_type),
+                enum_type: None,
+            },
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn bind_ref_named_enum(
+        &mut self,
+        reference: ValueRef,
+        address: IoAddress,
+        enum_type: TypeId,
+        wire_type: TypeId,
+        type_name: SmolStr,
+        variants: Vec<(SmolStr, i64)>,
+        name: impl Into<SmolStr>,
+    ) {
+        self.push_binding(
+            IoBinding {
+                target: IoTarget::Reference(reference),
+                address,
+                value_type: Some(enum_type),
+                display_name: Some(name.into()),
+                source: None,
+            },
+            IoBindingCodec {
+                wire_type: Some(wire_type),
+                enum_type: Some(IoEnumBinding {
+                    type_name,
+                    variants,
+                }),
+            },
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn configure_ref_named_enum(
+        &mut self,
+        reference: &ValueRef,
+        address: &IoAddress,
+        enum_type: TypeId,
+        wire_type: TypeId,
+        type_name: SmolStr,
+        variants: Vec<(SmolStr, i64)>,
+        name: impl Into<SmolStr>,
+    ) -> bool {
+        let Some(index) = self.bindings.iter().position(|binding| {
+            binding.address == *address
+                && matches!(&binding.target, IoTarget::Reference(candidate) if candidate == reference)
+        }) else {
+            return false;
+        };
+        let binding = &mut self.bindings[index];
+        binding.value_type = Some(enum_type);
+        self.binding_codecs[index] = IoBindingCodec {
+            wire_type: Some(wire_type),
+            enum_type: Some(IoEnumBinding {
+                type_name,
+                variants,
+            }),
+        };
+        binding.display_name = Some(name.into());
+        true
+    }
+
+    fn push_binding(&mut self, binding: IoBinding, codec: IoBindingCodec) {
+        self.bindings.push(binding);
+        self.binding_codecs.push(codec);
     }
 
     pub fn set_binding_sources<F>(&mut self, mut source_for: F)
@@ -189,16 +274,12 @@ impl IoInterface {
 
     pub fn read_inputs(&self, storage: &mut VariableStorage) -> Result<(), RuntimeError> {
         let mut staged = storage.clone();
-        for binding in &self.bindings {
+        for (binding, codec) in self.bindings.iter().zip(&self.binding_codecs) {
             if !matches!(binding.address.area, IoArea::Input | IoArea::Memory) {
                 continue;
             }
             let value = self.read(&binding.address)?;
-            let value = if let Some(value_type) = binding.value_type {
-                coerce_from_io(value, value_type)?
-            } else {
-                value
-            };
+            let value = coerce_binding_from_io(value, binding, codec)?;
             match &binding.target {
                 IoTarget::Name(name) => staged.set_global(name.clone(), value),
                 IoTarget::Reference(reference) => {
@@ -214,8 +295,9 @@ impl IoInterface {
 
     pub fn write_outputs(&mut self, storage: &VariableStorage) -> Result<(), RuntimeError> {
         let bindings = self.bindings.clone();
+        let codecs = self.binding_codecs.clone();
         let mut pending = Vec::new();
-        for binding in bindings {
+        for (binding, codec) in bindings.into_iter().zip(codecs) {
             if !matches!(binding.address.area, IoArea::Output | IoArea::Memory) {
                 continue;
             }
@@ -227,11 +309,7 @@ impl IoInterface {
                     .read_by_ref(reference.clone())
                     .ok_or(RuntimeError::NullReference)?,
             };
-            let value = if let Some(value_type) = binding.value_type {
-                coerce_to_io(value.clone(), value_type, binding.address.size)?
-            } else {
-                value.clone()
-            };
+            let value = coerce_binding_to_io(value.clone(), &binding, &codec)?;
             pending.push((binding.address, value));
         }
 
@@ -240,6 +318,7 @@ impl IoInterface {
             outputs: self.outputs.clone(),
             memory: self.memory.clone(),
             bindings: Vec::new(),
+            binding_codecs: Vec::new(),
             hierarchical: self.hierarchical.clone(),
         };
         for (address, value) in pending {

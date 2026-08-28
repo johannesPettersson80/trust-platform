@@ -42,12 +42,20 @@ impl MqttTagDirection {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct MqttScalarLayout {
     data_type: &'static str,
     io_size: IoSize,
     width: usize,
     value_type: TypeId,
+    enum_type: Option<MqttEnumLayout>,
+}
+
+#[derive(Debug, Clone)]
+struct MqttEnumLayout {
+    type_id: TypeId,
+    type_name: SmolStr,
+    variants: Vec<(SmolStr, i64)>,
 }
 
 #[derive(Debug, Clone)]
@@ -133,7 +141,30 @@ pub fn resolve_mqtt_tag_mappings(
         .io_mut()
         .try_resize(next_input, next_output, memory_len)?;
     for plan in planned {
-        if plan.needs_binding {
+        if let Some(enum_type) = plan.layout.enum_type {
+            if plan.needs_binding {
+                runtime.io_mut().bind_ref_named_enum(
+                    plan.reference,
+                    plan.address,
+                    enum_type.type_id,
+                    plan.layout.value_type,
+                    enum_type.type_name,
+                    enum_type.variants,
+                    plan.tag_name,
+                );
+            } else {
+                let configured = runtime.io_mut().configure_ref_named_enum(
+                    &plan.reference,
+                    &plan.address,
+                    enum_type.type_id,
+                    plan.layout.value_type,
+                    enum_type.type_name,
+                    enum_type.variants,
+                    plan.tag_name,
+                );
+                debug_assert!(configured, "planned MQTT binding must still exist");
+            }
+        } else if plan.needs_binding {
             runtime.io_mut().bind_ref_named_typed(
                 plan.reference,
                 plan.address,
@@ -233,54 +264,73 @@ fn mqtt_scalar_layout(runtime: &Runtime, type_id: TypeId) -> Option<MqttScalarLa
     let ty = runtime.registry().get(type_id)?;
     match ty {
         Type::Alias { target, .. } => mqtt_scalar_layout(runtime, *target),
-        Type::Subrange { base, .. } | Type::Enum { base, .. } => mqtt_scalar_layout(runtime, *base),
+        Type::Subrange { base, .. } => mqtt_scalar_layout(runtime, *base),
+        Type::Enum {
+            name, values, base, ..
+        } => {
+            let mut layout = mqtt_scalar_layout(runtime, *base)?;
+            layout.enum_type = Some(MqttEnumLayout {
+                type_id,
+                type_name: name.clone(),
+                variants: values.clone(),
+            });
+            Some(layout)
+        }
         Type::Bool => Some(MqttScalarLayout {
             data_type: "bool",
             io_size: IoSize::Bit,
             width: 1,
             value_type: TypeId::BOOL,
+            enum_type: None,
         }),
         Type::UInt => Some(MqttScalarLayout {
             data_type: "u16",
             io_size: IoSize::Word,
             width: 2,
             value_type: TypeId::UINT,
+            enum_type: None,
         }),
         Type::Word => Some(MqttScalarLayout {
             data_type: "u16",
             io_size: IoSize::Word,
             width: 2,
             value_type: TypeId::WORD,
+            enum_type: None,
         }),
         Type::Int => Some(MqttScalarLayout {
             data_type: "i16",
             io_size: IoSize::Word,
             width: 2,
             value_type: TypeId::INT,
+            enum_type: None,
         }),
         Type::UDInt => Some(MqttScalarLayout {
             data_type: "u32",
             io_size: IoSize::DWord,
             width: 4,
             value_type: TypeId::UDINT,
+            enum_type: None,
         }),
         Type::DWord => Some(MqttScalarLayout {
             data_type: "u32",
             io_size: IoSize::DWord,
             width: 4,
             value_type: TypeId::DWORD,
+            enum_type: None,
         }),
         Type::DInt => Some(MqttScalarLayout {
             data_type: "i32",
             io_size: IoSize::DWord,
             width: 4,
             value_type: TypeId::DINT,
+            enum_type: None,
         }),
         Type::Real => Some(MqttScalarLayout {
             data_type: "f32",
             io_size: IoSize::DWord,
             width: 4,
             value_type: TypeId::REAL,
+            enum_type: None,
         }),
         _ => None,
     }

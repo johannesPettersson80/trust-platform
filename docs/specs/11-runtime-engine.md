@@ -780,12 +780,22 @@ For MQTT:
   allocated after the declared process image. The MQTT worker does not access
   program storage or resolve symbols;
 - a configuration containing only `direction = "write"` mappings has no
-  implicit raw-input subscription and does not require an inbound snapshot.
-  Raw `topic_in`/`topic_out` behavior remains the default when `mappings` is
-  absent;
+  implicit raw-input subscription, does not require an inbound snapshot, and
+  leaves the shared input process image unchanged. A configuration containing
+  only `direction = "read"` mappings publishes neither mapped output nor the
+  raw shared output image. Raw `topic_in`/`topic_out` behavior remains the
+  default only when `mappings` is absent;
 - mapping values use the inferred PLC scalar type and the text payload format.
   Explicit `input_points` and `output_points` remain available for address,
   binary-format, scaling, and Sparkplug control;
+- an enumeration mapping uses the numeric value of its declared IEC member on
+  the MQTT wire while preserving the declared enumeration TypeId in program
+  storage. Inbound numeric values reconstruct the matching declared member;
+  an undeclared value is rejected before any input binding is committed.
+  Aliases preserve the declared enumeration identity rather than degrading the
+  value to its integer base type;
+- subrange mappings retain the existing process-image contract of using the
+  declared subrange's base scalar representation;
 - unknown MQTT parameter or mapping fields are configuration errors instead of
   being ignored;
 - a point topic is trimmed, non-empty, contains no control character, and is
@@ -5058,9 +5068,11 @@ reachability checks:
 
 The runtime communications conformance gate must execute every named native
 case in its suite. A stale filter that selects zero tests is a gate failure and
-must not be reported as conformance success. Its development-profile gateway
-case verifies the permissive `dev` policy above; default-deny write coverage
-belongs to the `wan` profile and must not be attributed to `dev`.
+must not be reported as conformance success. Case execution evidence is scoped
+to the current invocation; a passing result retained in a reused output
+directory cannot satisfy a later run. Its development-profile gateway case
+verifies the permissive `dev` policy above; default-deny write coverage belongs
+to the `wan` profile and must not be attributed to `dev`.
 
 Preflight and dispatch responses retain the caller's `request_id` and
 `connected_via`. Each dispatched target produces one result for that target;

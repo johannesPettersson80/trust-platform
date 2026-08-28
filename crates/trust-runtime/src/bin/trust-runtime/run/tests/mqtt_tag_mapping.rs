@@ -205,3 +205,168 @@ mappings = [
         Some(&trust_runtime::value::Value::Bool(true))
     );
 }
+
+fn enum_mapping_runtime(variable_type: &str) -> trust_runtime::Runtime {
+    let source = format!(
+        r#"
+TYPE
+    Signal : INT (Idle := -1, Active := 7);
+    SignalAlias : Signal;
+END_TYPE
+
+PROGRAM EnumProgram
+VAR
+    State : {variable_type} := Signal#Active;
+END_VAR
+END_PROGRAM
+
+CONFIGURATION EnumConfig
+RESOURCE EnumResource ON PLC
+    TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM MainInstance WITH MainTask : EnumProgram;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+    );
+    CompileSession::from_sources(vec![SourceFile::with_path("src/main.st", source)])
+        .build_runtime()
+        .expect("build enum mapping runtime")
+}
+
+fn enum_mapping_params(direction: &str) -> toml::Value {
+    toml::from_str(&format!(
+        r#"
+broker = "tcp://127.0.0.1:1883"
+mappings = [
+  {{ tag = "MainInstance.State", topic = "line/state", direction = "{direction}" }}
+]
+"#,
+    ))
+    .expect("parse enum mapping")
+}
+
+#[test]
+fn mqtt_enum_write_mapping_uses_numeric_iec_wire_value() {
+    let mut runtime = enum_mapping_runtime("Signal");
+    trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &enum_mapping_params("write"))
+        .expect("resolve enum write mapping");
+
+    let mut storage = runtime.storage().clone();
+    let reference = match &runtime.io().bindings()[0].target {
+        trust_runtime::io::IoTarget::Reference(reference) => reference.clone(),
+        other => panic!("expected reference binding, got {other:?}"),
+    };
+    let enum_type = runtime.registry().lookup("Signal").expect("Signal type id");
+    let enum_value = trust_runtime::value::EnumValue::new(runtime.registry(), enum_type, "Active")
+        .expect("declared enum value");
+    assert!(storage.write_by_ref(
+        reference.clone(),
+        trust_runtime::value::Value::Enum(Box::new(enum_value))
+    ));
+    assert!(
+        matches!(
+            storage.read_by_ref(reference),
+            Some(trust_runtime::value::Value::Enum(_))
+        ),
+        "fixture must exercise a typed enum runtime value"
+    );
+    runtime
+        .io_mut()
+        .write_outputs(&storage)
+        .expect("encode enum output into process image");
+
+    assert_eq!(runtime.io().outputs(), &7i16.to_le_bytes());
+}
+
+#[test]
+fn mqtt_enum_read_mapping_reconstructs_declared_enum_value() {
+    let mut runtime = enum_mapping_runtime("Signal");
+    trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &enum_mapping_params("read"))
+        .expect("resolve enum read mapping");
+    runtime
+        .io_mut()
+        .inputs_mut()
+        .copy_from_slice(&(-1i16).to_le_bytes());
+    let reference = match &runtime.io().bindings()[0].target {
+        trust_runtime::io::IoTarget::Reference(reference) => reference.clone(),
+        other => panic!("expected reference binding, got {other:?}"),
+    };
+    let mut storage = runtime.storage().clone();
+
+    runtime
+        .io()
+        .read_inputs(&mut storage)
+        .expect("decode enum input from process image");
+
+    let Some(trust_runtime::value::Value::Enum(value)) = storage.read_by_ref(reference) else {
+        panic!("enum input must retain its runtime type");
+    };
+    assert_eq!(value.type_name().as_str(), "Signal");
+    assert_eq!(value.variant_name().as_str(), "Idle");
+    assert_eq!(value.numeric_value(), -1);
+}
+
+#[test]
+fn mqtt_enum_read_mapping_rejects_undeclared_numeric_value_atomically() {
+    let mut runtime = enum_mapping_runtime("Signal");
+    trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &enum_mapping_params("read"))
+        .expect("resolve enum read mapping");
+    runtime
+        .io_mut()
+        .inputs_mut()
+        .copy_from_slice(&3i16.to_le_bytes());
+    let reference = match &runtime.io().bindings()[0].target {
+        trust_runtime::io::IoTarget::Reference(reference) => reference.clone(),
+        other => panic!("expected reference binding, got {other:?}"),
+    };
+    let mut storage = runtime.storage().clone();
+    let before = storage.read_by_ref(reference.clone()).cloned();
+
+    let error = runtime
+        .io()
+        .read_inputs(&mut storage)
+        .expect_err("undeclared enum numeric value must be rejected");
+
+    assert!(error.to_string().contains("enum"), "{error}");
+    assert_eq!(storage.read_by_ref(reference), before.as_ref());
+}
+
+#[test]
+fn mqtt_alias_to_enum_mapping_preserves_canonical_enum_identity() {
+    let mut runtime = enum_mapping_runtime("SignalAlias");
+    trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &enum_mapping_params("write"))
+        .expect("resolve alias-to-enum mapping");
+    let enum_type = runtime.registry().lookup("Signal").expect("Signal type id");
+
+    assert_eq!(runtime.io().bindings()[0].value_type, Some(enum_type));
+}
+
+#[test]
+fn mqtt_enum_mapping_upgrades_an_existing_direct_process_image_binding() {
+    let session = CompileSession::from_sources(vec![SourceFile::with_path(
+        "src/main.st",
+        r#"
+TYPE Signal : INT (Idle := -1, Active := 7); END_TYPE
+
+PROGRAM EnumProgram
+VAR
+    State AT %QW0 : Signal := Signal#Active;
+END_VAR
+END_PROGRAM
+
+CONFIGURATION EnumConfig
+RESOURCE EnumResource ON PLC
+    TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM MainInstance WITH MainTask : EnumProgram;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+    )]);
+    let mut runtime = session.build_runtime().expect("build direct enum runtime");
+    trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &enum_mapping_params("write"))
+        .expect("resolve mapping for direct enum binding");
+    let enum_type = runtime.registry().lookup("Signal").expect("Signal type id");
+
+    assert_eq!(runtime.io().bindings().len(), 1);
+    assert_eq!(runtime.io().bindings()[0].value_type, Some(enum_type));
+}

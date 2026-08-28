@@ -48,7 +48,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.63`
+Target release: `v0.24.64`
 
 ### Added
 
@@ -58,6 +58,14 @@ Target release: `v0.24.63`
 
 ### Fixed
 
+- Keep direction-specific MQTT mappings isolated: write-only drivers no longer
+  clear shared input bytes, and read-only mappings no longer publish the raw
+  output image to the default topic.
+- Preserve IEC enum identity across MQTT tag mappings while using declared
+  numeric member values on the wire, including alias and direct-binding cases,
+  and reject undeclared inbound values atomically.
+- Make reused runtime communications conformance output directories inspect
+  only the current case invocation instead of accepting stale passing lines.
 - Make the runtime communications conformance gate reject zero-test filters
   and align its development and WAN profile cases with the shipped policy.
 - Make the Neovim and Zed editor smoke gate fail when an exact Rust filter
