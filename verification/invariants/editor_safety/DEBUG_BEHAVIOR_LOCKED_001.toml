@@ -3,21 +3,23 @@ id = "DEBUG_BEHAVIOR_LOCKED_001"
 title = "Debugger behavior-locked claim names direct contract authority"
 area = "editor_safety"
 risk = "false_status"
-status = "mapped"
+status = "validated"
 owner = "trust-debug"
 last_reviewed = "2026-07-18"
 claim = "The public debugger behavior-lock claim names written product specifications and direct native executable tests as authority, with proof class stated separately."
-proof_level = "I1"
+proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["README.md", "docs/specs/13-debug-adapter.md", "crates/trust-debug"]
 tests = ["TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001"]
 gates = ["pr"]
 evidence_refs = [
+  "EVID_TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001_LOCK_BASELINE_REPAIR20260828",
+  "EVID_TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001_LOCK_COMPARE_REPAIR20260828",
   "EVID_BEHAVIOR_LOCK_PUBLIC_CLAIM_SPEC_REVIEW_20260717",
   "EVID_BEHAVIOR_LOCK_PUBLIC_CLAIM_CLOSEOUT_20260718",
 ]
-spec_gap_refs = ["SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001"]
-missing = ["Current-contract lock proof is pending regeneration after retiring invalid July evidence."]
+spec_gap_refs = []
+missing = []
 
 [spec]
 status = "specified"
