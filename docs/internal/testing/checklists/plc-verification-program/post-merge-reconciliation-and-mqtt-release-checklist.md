@@ -87,7 +87,15 @@ Created: 2026-08-28.
     integration tests before they moved to execution-time Cargo environment
     discovery. A separate release-guard assertion proved that advisory planner
     and catalog records were incorrectly printed as `FAILED` before the output
-    classified them as `ADVISORY`.
+    classified them as `ADVISORY`. Exact cold Clippy on checkpoint `2d3c5383`
+    then proved that the first portability scanner was too narrow: it matched
+    only `trust-runtime` binary names under the runtime crate and missed 10
+    `trust-dev` and `trust-harness` compile-time lookups. The broadened native
+    assertion failed with all 10 paths, then passed after every workspace
+    integration test moved to execution-time lookup. Focused all-target,
+    all-feature Clippy passed for both `trust-dev` and `trust-runtime`, the
+    three-test `trust-dev` CLI suite passed, and all 15 `trust-harness` command
+    tests passed.
   - Current focused green: 21 release-candidate guard tests, 10 post-merge
     cleanup tests, 2 runtime binary-path contract tests, and 31 workflow,
     gate-inventory, report-input, and reviewed-source digest tests. Version

@@ -100,14 +100,17 @@ fn run_harness_lines(
     envs: &[(&str, &str)],
     lines: &[String],
 ) -> (ExitStatus, Vec<JsonValue>, String) {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-harness"))
-        .args(args)
-        .envs(envs.iter().copied())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn trust-harness");
+    let mut child = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-harness")
+            .expect("Cargo must provide trust-harness binary while executing integration tests"),
+    )
+    .args(args)
+    .envs(envs.iter().copied())
+    .stdin(Stdio::piped())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()
+    .expect("spawn trust-harness");
 
     let mut stdin = child.stdin.take().expect("harness stdin");
     for line in lines {

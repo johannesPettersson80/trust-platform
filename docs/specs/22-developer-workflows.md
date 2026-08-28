@@ -248,12 +248,15 @@ available, or that the final release candidate is green.
 
 ### Cargo integration-test binary-path portability
 
-Runtime integration tests that launch a workspace binary must remain
+Workspace integration tests that launch a workspace binary must remain
 compilable when Cargo checks or lints all targets without building that binary.
 They must resolve Cargo's `CARGO_BIN_EXE_*` value from the execution environment
 instead of using either compile-time `env!` form. This preserves ordinary
 `cargo test` executable discovery while allowing the reviewed host and
-cross-target warning and clippy gates to compile the integration-test targets.
+cross-target warning and clippy gates to compile every crate's integration-test
+targets. The CI portability scanner must inspect every Rust source below each
+workspace crate's `tests` directory and reject compile-time lookup for every
+binary name, not only `trust-runtime`.
 
 ### CI performance reference-environment contract
 

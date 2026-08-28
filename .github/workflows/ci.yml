@@ -43,7 +43,7 @@ jobs:
         run: python3 ./scripts/test_check_version_release_evidence.py
       - name: Guard deterministic diagram workflow
         run: python3 -m unittest scripts.tests.test_diagram_workflow -v
-      - name: Guard runtime integration-test binary paths
+      - name: Guard workspace integration-test binary paths
         run: python3 ./scripts/runtime_test_binary_path_contract_tests.py
       - run: cargo fmt --all -- --check
       - name: Mark gate success

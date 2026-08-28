@@ -66,7 +66,7 @@ Target release: `v0.24.64`
 - Keep exact-candidate remote validation aligned with CI by disabling inherited
   Rust compiler caches and serializing the cold all-tests build to bound disk
   use.
-- Keep runtime integration-test binary discovery compilable under cold
+- Keep workspace integration-test binary discovery compilable under cold
   all-target check and clippy runs, and enforce that portability contract in CI.
 - Make the runtime communications conformance gate reject zero-test filters
   and align its development and WAN profile cases with the shipped policy.

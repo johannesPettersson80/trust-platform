@@ -37,7 +37,7 @@ fn trust_runtime_command_with_dev_alias() -> Command {
 }
 
 fn trust_dev_bin() -> PathBuf {
-    if let Some(path) = option_env!("CARGO_BIN_EXE_trust-dev") {
+    if let Some(path) = std::env::var_os("CARGO_BIN_EXE_trust-dev") {
         return path.into();
     }
     if let Ok(path) = std::env::var("TRUST_DEV_BIN") {

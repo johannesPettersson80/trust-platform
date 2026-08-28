@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Native regression tests for Cargo integration-test binary path portability."""
+"""Native regression tests for workspace Cargo test-binary path portability."""
 
 from __future__ import annotations
 
@@ -9,24 +9,24 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNTIME_TESTS = ROOT / "crates" / "trust-runtime" / "tests"
+CRATES = ROOT / "crates"
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 COMPILE_TIME_BINARY_PATH = re.compile(
-    r'(?:option_)?env!\("CARGO_BIN_EXE_trust-runtime"\)'
+    r'(?:option_)?env!\("CARGO_BIN_EXE_[^"]+"\)'
 )
 
 
 class RuntimeTestBinaryPathContractTests(unittest.TestCase):
-    def test_runtime_integration_tests_do_not_require_compile_time_binary_path(self) -> None:
+    def test_workspace_integration_tests_do_not_require_compile_time_binary_path(self) -> None:
         offenders: list[str] = []
-        for path in sorted(RUNTIME_TESTS.rglob("*.rs")):
+        for path in sorted(CRATES.glob("*/tests/**/*.rs")):
             if COMPILE_TIME_BINARY_PATH.search(path.read_text(encoding="utf-8")):
                 offenders.append(str(path.relative_to(ROOT)))
 
         self.assertEqual(
             offenders,
             [],
-            "runtime integration tests must resolve binary paths from the execution environment: "
+            "workspace integration tests must resolve binary paths from the execution environment: "
             + ", ".join(offenders),
         )
 
