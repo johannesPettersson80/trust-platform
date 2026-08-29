@@ -11,7 +11,7 @@ const OSCAT_AGGREGATE_TRIGGER_EXAMPLE: &str = "airport_baggage_command_observer"
 const OSCAT_AGGREGATE_TRIGGER_NAMESPACE: &str = "OSCAT_airport_baggage_command_observer_oop";
 
 fn trust_dev_bin() -> PathBuf {
-    if let Some(path) = option_env!("CARGO_BIN_EXE_trust-dev") {
+    if let Some(path) = std::env::var_os("CARGO_BIN_EXE_trust-dev") {
         return path.into();
     }
     if let Ok(path) = std::env::var("TRUST_DEV_BIN") {

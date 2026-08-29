@@ -20,10 +20,20 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
             "PR and main-push capture paths must stay aligned",
         )
         self.assertEqual(workflow["permissions"], {"contents": "read"})
+        self.assertIn(
+            "scripts/tests/test_capture_lifecycle.py",
+            triggers["pull_request"]["paths"],
+        )
+        self.assertIn(
+            "crates/trust-runtime/src/web/ui/**",
+            triggers["pull_request"]["paths"],
+            "runtime Web UI changes must execute the rendered capture suite",
+        )
 
         refresh = workflow["jobs"]["refresh"]
         self.assertEqual(refresh["permissions"], {"contents": "read"})
         refresh_steps = [step.get("name") for step in refresh["steps"]]
+        self.assertIn("Verify capture process lifecycle", refresh_steps)
         self.assertNotIn("Create capture refresh PR", refresh_steps)
 
         refresh_pr = workflow["jobs"]["create-refresh-pr"]

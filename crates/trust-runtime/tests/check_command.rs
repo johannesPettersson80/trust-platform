@@ -56,7 +56,10 @@ fn run_check(project: &std::path::Path) -> Output {
 }
 
 fn run_check_with_args(project: &std::path::Path, args: &[&str]) -> Output {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+    let mut command = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    );
     command
         .arg("check")
         .arg("--project")

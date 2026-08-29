@@ -4005,6 +4005,13 @@ runtime communication drivers appear as labeled cards. Expanding and
 collapsing the driver region updates both the visible region and the
 controlling button's `aria-expanded` value.
 
+Hardware-tab activation and route changes remain browser-responsive while the
+communication graph is laid out. Canvas relayout requests made before the next
+animation frame coalesce into one pending frame. Replacing or deactivating that
+request cancels both the pending frame and its delayed resize/fit timers. The
+latest request schedules one fit pass after 260 milliseconds, so project
+hydration cannot overlap or accumulate parallel resize/fit sequences.
+
 Every driver-card configuration action carries one exact settings key and
 category. Activating it selects Settings, updates the route, renders the owning
 category, and focuses or exposes the corresponding field. Loopback and

@@ -1,9 +1,9 @@
 # truST PLC Verification Program Checklist
 
-Status: corrective closeout. Phase 16 completed the reviewed program on
-2026-07-19. The later per-function Phase 17/18 expansion is being removed. The
-active board now audits only surviving post-closure product behavior against
-its written specification and native executable test.
+Status: merged verification-program closeout under post-merge reconciliation.
+Phase 16 completed the reviewed program on 2026-07-19, and the Phase 18
+correction was released as `v0.24.62`. The stale local verification checkout
+must now be reconciled and retired before the separate MQTT candidate proceeds.
 
 Created: 2026-07-07. Split into focused documents: 2026-07-08.
 
@@ -17,18 +17,21 @@ docs/internal/testing/checklists/plc-verification-program/
 
 Read in this order:
 
-1. [phase18-zero-debt-execution-board.md](plc-verification-program/phase18-zero-debt-execution-board.md)
-   (the only active post-closure specification-and-test sequence; current row
-   `VERIF-P18-SPEC-TEST-005`)
-2. [README.md](plc-verification-program/README.md)
+1. [post-merge-reconciliation-and-mqtt-release-checklist.md](plc-verification-program/post-merge-reconciliation-and-mqtt-release-checklist.md)
+   (active recovery sequence for retiring the stale local verification checkout,
+   completing MQTT separately, and enforcing post-merge cleanup)
+2. [phase18-zero-debt-execution-board.md](plc-verification-program/phase18-zero-debt-execution-board.md)
+   (the merged post-closure specification-and-test record; use as historical
+   contract evidence during reconciliation, not as the current branch state)
+3. [README.md](plc-verification-program/README.md)
    (current direct-contract orientation plus historical index)
-3. [policy.md](plc-verification-program/policy.md),
+4. [policy.md](plc-verification-program/policy.md),
    [metadata-model.md](plc-verification-program/metadata-model.md),
    [test-taxonomy.md](plc-verification-program/test-taxonomy.md),
    [verification-areas.md](plc-verification-program/verification-areas.md), and
    [implementation-board.md](plc-verification-program/implementation-board.md)
    (retired Phase 0-16 campaign records; none sequences current product work)
-4. [fable-review-brief.md](plc-verification-program/fable-review-brief.md) and
+5. [fable-review-brief.md](plc-verification-program/fable-review-brief.md) and
    [execution-slice-001.md](plc-verification-program/execution-slice-001.md)
    (historical review and execution records only)
 

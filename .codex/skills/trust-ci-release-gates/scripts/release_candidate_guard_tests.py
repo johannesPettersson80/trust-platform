@@ -1,3 +1,4 @@
+import io
 import json
 import subprocess
 import tempfile
@@ -124,6 +125,10 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         command_ids = [command_id for command_id, _command in commands]
 
         self.assertLess(
+            command_ids.index("remote_prepare_target"),
+            command_ids.index("remote_clippy"),
+        )
+        self.assertLess(
             command_ids.index("remote_clippy"),
             command_ids.index("remote_reclaim_before_test_all"),
         )
@@ -133,11 +138,59 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         )
         by_id = dict(commands)
         self.assertEqual(
+            by_id["remote_prepare_target"],
+            "mkdir -p -- '/tmp/trust target/tmp' '/tmp/trust target/bin' && "
+            "install -m 755 "
+            ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh "
+            "'/tmp/trust target/bin/sccache'",
+        )
+        self.assertEqual(
             by_id["remote_reclaim_before_test_all"],
-            "rm -rf -- '/tmp/trust target' && mkdir -p -- '/tmp/trust target'",
+            "rm -rf -- '/tmp/trust target' && "
+            "mkdir -p -- '/tmp/trust target/tmp' '/tmp/trust target/bin' && "
+            "install -m 755 "
+            ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh "
+            "'/tmp/trust target/bin/sccache'",
         )
         for command_id in ("remote_vscode", "remote_clippy", "remote_test_all"):
             self.assertIn("CARGO_INCREMENTAL=0", by_id[command_id])
+            self.assertIn("RUSTC_WRAPPER=/usr/bin/env", by_id[command_id])
+            self.assertIn("CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env", by_id[command_id])
+            self.assertIn("CC=cc", by_id[command_id])
+            self.assertIn("CXX=c++", by_id[command_id])
+            self.assertIn("TMPDIR='/tmp/trust target/tmp'", by_id[command_id])
+            self.assertIn("PATH='/tmp/trust target/bin':$PATH", by_id[command_id])
+        self.assertIn("CARGO_BUILD_JOBS=1", by_id["remote_test_all"])
+
+    def test_remote_validation_requires_eighty_gib_before_cold_gates(self) -> None:
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target="/tmp/trust-target"
+        )
+        command_ids = [command_id for command_id, _command in commands]
+        by_id = dict(commands)
+
+        self.assertIn("remote_disk_preflight", command_ids)
+        self.assertIn("remote_disk_preflight", guard.BASE_REQUIRED_COMMANDS)
+        self.assertLess(
+            command_ids.index("remote_disk_preflight"),
+            command_ids.index("remote_prepare_target"),
+        )
+        preflight = by_id["remote_disk_preflight"]
+        self.assertIn("required_kib=83886080", preflight)
+        self.assertIn('df --output=avail -k "$HOME"', preflight)
+        self.assertIn('df -hT "$HOME" /tmp', preflight)
+
+    def test_compiler_passthrough_executes_argv_without_interpreting_its_name(self) -> None:
+        passthrough = Path(__file__).with_name("compiler_passthrough.sh")
+
+        result = subprocess.run(
+            [passthrough, "sh", "-c", "printf passthrough-ok"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.stdout, "passthrough-ok")
 
     def test_default_remote_target_is_an_absolute_validated_generated_path(self) -> None:
         args = guard.parser().parse_args(
@@ -235,6 +288,43 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             candidate_prepare.stage_passed(records, ("bootstrap", "diff_check"))
         )
 
+    def test_failed_artifact_labels_advisory_maintenance_separately(self) -> None:
+        records = self.passing_artifact()["commands"]
+        for command_id in ("planner", "catalog_staleness"):
+            records.append(
+                {
+                    "id": command_id,
+                    "command": command_id,
+                    "exit_status": 1,
+                    "output_sha256": "0" * 64,
+                    "duration_ms": 1,
+                    "scope": "local",
+                }
+            )
+        next(row for row in records if row["id"] == "remote_clippy")[
+            "exit_status"
+        ] = 1
+
+        stderr = io.StringIO()
+        with mock.patch("sys.stderr", stderr), mock.patch("sys.stdout", io.StringIO()):
+            result = candidate_prepare.finish_artifact(
+                self.repo,
+                head=self.head,
+                base_ref="origin/main",
+                base_sha=self.base,
+                vscode_changed=False,
+                records=records,
+                log_dir=self.repo / "logs",
+            )
+
+        self.assertEqual(result, 1)
+        output = stderr.getvalue()
+        self.assertIn("FAILED remote_clippy:", output)
+        self.assertIn("ADVISORY planner:", output)
+        self.assertIn("ADVISORY catalog_staleness:", output)
+        self.assertNotIn("FAILED planner:", output)
+        self.assertNotIn("FAILED catalog_staleness:", output)
+
     def test_stale_head_and_base_are_rejected(self) -> None:
         artifact = self.passing_artifact()
         artifact["head"] = "1" * 40
@@ -304,6 +394,37 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         assets = [{"name": "trust.vsix"}, {"name": "SHA256SUMS"}]
         self.assertTrue(candidate_release.verify_downloaded_assets(asset_dir, assets))
         payload.write_bytes(b"tampered")
+        self.assertFalse(candidate_release.verify_downloaded_assets(asset_dir, assets))
+
+    def test_release_asset_check_resolves_flattened_github_asset_name(self) -> None:
+        asset_dir = self.repo / "flattened-assets"
+        asset_dir.mkdir()
+        payload = asset_dir / "trust.vsix"
+        payload.write_bytes(b"extension")
+        digest = guard.sha256_bytes(payload.read_bytes())
+        (asset_dir / "SHA256SUMS").write_text(
+            f"{digest}  vsix-artifacts/trust.vsix\n", encoding="utf-8"
+        )
+        assets = [{"name": "trust.vsix"}, {"name": "SHA256SUMS"}]
+        self.assertTrue(candidate_release.verify_downloaded_assets(asset_dir, assets))
+
+    def test_release_asset_check_rejects_ambiguous_flattened_names(self) -> None:
+        asset_dir = self.repo / "ambiguous-assets"
+        asset_dir.mkdir()
+        payload = asset_dir / "trust.vsix"
+        payload.write_bytes(b"extension")
+        digest = guard.sha256_bytes(payload.read_bytes())
+        (asset_dir / "SHA256SUMS").write_text(
+            "\n".join(
+                [
+                    f"{digest}  first/trust.vsix",
+                    f"{digest}  second/trust.vsix",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        assets = [{"name": "trust.vsix"}, {"name": "SHA256SUMS"}]
         self.assertFalse(candidate_release.verify_downloaded_assets(asset_dir, assets))
 
     @mock.patch.object(guard, "load_artifact", return_value=None)

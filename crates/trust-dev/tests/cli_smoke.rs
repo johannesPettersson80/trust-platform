@@ -1,7 +1,10 @@
 use std::process::Command;
 
 fn trust_dev() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_trust-dev"))
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-dev")
+            .expect("Cargo must provide trust-dev binary while executing integration tests"),
+    )
 }
 
 #[test]

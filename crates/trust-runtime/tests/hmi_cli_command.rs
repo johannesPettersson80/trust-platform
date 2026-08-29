@@ -69,12 +69,15 @@ END_PROGRAM
     )
     .expect("write HMI source");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["hmi", "--project"])
-        .arg(&project)
-        .arg("init")
-        .output()
-        .expect("run HMI init");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["hmi", "--project"])
+    .arg(&project)
+    .arg("init")
+    .output()
+    .expect("run HMI init");
 
     assert!(
         output.status.success(),
@@ -121,12 +124,15 @@ END_PROGRAM
     )
     .expect("write project source");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["hmi", "--project"])
-        .arg(&project)
-        .arg("init")
-        .output()
-        .expect("run HMI init with dependency");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["hmi", "--project"])
+    .arg(&project)
+    .arg("init")
+    .output()
+    .expect("run HMI init with dependency");
 
     assert!(
         output.status.success(),
@@ -153,11 +159,14 @@ END_PROGRAM
     )
     .expect("write HMI source");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["hmi", "init"])
-        .current_dir(&project)
-        .output()
-        .expect("run HMI init without project selection");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["hmi", "init"])
+    .current_dir(&project)
+    .output()
+    .expect("run HMI init without project selection");
 
     assert!(
         !output.status.success(),
@@ -213,7 +222,10 @@ END_PROGRAM
         .expect("write nested operator state");
         let descriptor_before = snapshot_tree(&project.join("hmi"));
 
-        let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        let output =
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ))
             .args(["hmi", "--project"])
             .arg(&project)
             .arg("reset")
@@ -272,12 +284,15 @@ END_PROGRAM
     )
     .expect("write HMI source");
 
-    let init = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["hmi", "--project"])
-        .arg(&project)
-        .arg("init")
-        .output()
-        .expect("run HMI init");
+    let init = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["hmi", "--project"])
+    .arg(&project)
+    .arg("init")
+    .output()
+    .expect("run HMI init");
     assert!(
         init.status.success(),
         "HMI init failed\nstdout:\n{}\nstderr:\n{}",
@@ -299,12 +314,15 @@ END_PROGRAM
         "control page removal must establish a real update delta"
     );
 
-    let update = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["hmi", "--project"])
-        .arg(&project)
-        .arg("update")
-        .output()
-        .expect("run HMI update");
+    let update = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["hmi", "--project"])
+    .arg(&project)
+    .arg("update")
+    .output()
+    .expect("run HMI update");
     assert!(
         update.status.success(),
         "HMI update failed\nstdout:\n{}\nstderr:\n{}",
@@ -327,12 +345,15 @@ END_PROGRAM
         "update must restore a missing generated control page"
     );
 
-    let reset = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["hmi", "--project"])
-        .arg(&project)
-        .arg("reset")
-        .output()
-        .expect("run HMI reset");
+    let reset = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["hmi", "--project"])
+    .arg(&project)
+    .arg("reset")
+    .output()
+    .expect("run HMI reset");
     assert!(
         reset.status.success(),
         "HMI reset failed\nstdout:\n{}\nstderr:\n{}",
@@ -384,12 +405,15 @@ END_PROGRAM
     )
     .expect("write HMI source");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["hmi", "--project"])
-        .arg(&project)
-        .args(["init", "--style", "classic"])
-        .output()
-        .expect("run HMI init with selected style");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["hmi", "--project"])
+    .arg(&project)
+    .args(["init", "--style", "classic"])
+    .output()
+    .expect("run HMI init with selected style");
 
     assert!(
         output.status.success(),

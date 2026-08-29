@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/docs-captures.yml"
+      - "crates/trust-runtime/src/web/ui/**"
       - "docs/public/assets/capture-inventory.json"
       - "docs/public/assets/images/**"
       - "editors/vscode/**"
@@ -11,6 +12,7 @@ on:
       - "manual-tests/trust-lsp-smoke/**"
       - "scripts/build_browser_analysis_wasm_spike.sh"
       - "scripts/captures/**"
+      - "scripts/tests/test_capture_lifecycle.py"
       - "scripts/check_public_docs_assets.py"
       - "scripts/generate_public_docs_media.py"
   push:
@@ -18,6 +20,7 @@ on:
       - main
     paths:
       - ".github/workflows/docs-captures.yml"
+      - "crates/trust-runtime/src/web/ui/**"
       - "docs/public/assets/capture-inventory.json"
       - "docs/public/assets/images/**"
       - "editors/vscode/**"
@@ -25,6 +28,7 @@ on:
       - "manual-tests/trust-lsp-smoke/**"
       - "scripts/build_browser_analysis_wasm_spike.sh"
       - "scripts/captures/**"
+      - "scripts/tests/test_capture_lifecycle.py"
       - "scripts/check_public_docs_assets.py"
       - "scripts/generate_public_docs_media.py"
   workflow_dispatch:
@@ -67,6 +71,9 @@ jobs:
           cache-dependency-path: |
             editors/vscode/package-lock.json
             scripts/captures/package-lock.json
+
+      - name: Verify capture process lifecycle
+        run: python3 -m unittest scripts.tests.test_capture_lifecycle -v
 
       - name: Install capture dependencies
         run: |
