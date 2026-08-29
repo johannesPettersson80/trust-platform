@@ -4,6 +4,8 @@ title Release Evidence and Public-Claim Boundary
 actor "Release maintainer" as maintainer
 component "GitHub Release workflow" as release
 component "Release candidate guard" as releaseGuard
+component "Docs capture launcher" as captureLauncher
+artifact "Owned capture session\nand code-server container" as captureProcesses
 database "Local candidate state\nbranches and worktrees" as candidateState
 component "Dependency exception check" as dependencyPolicy
 component "VS Code npm audit" as npmAudit
@@ -16,6 +18,9 @@ database "Verification metadata\nspecs, gaps, invariants, proof" as verification
 
 maintainer --> release : annotated tag
 maintainer --> releaseGuard : verify release, then audit exact candidate
+releaseGuard --> captureLauncher : require exact-SHA capture result
+captureLauncher --> captureProcesses : start and own
+captureProcesses --> captureLauncher : reap on success, failure, or signal
 releaseGuard --> release : query workflow, release, assets
 releaseGuard --> candidateState : inspect ancestry, refs, and dirtiness
 candidateState --> releaseGuard : blockers or explicit cleanup targets
@@ -41,6 +46,11 @@ end note
 note bottom of candidateState
   The audit never deletes automatically.
   Release handoff closes only after a clean rerun.
+end note
+
+note bottom of captureProcesses
+  Reused external servers are not owned or terminated.
+  Owned sessions and containers cannot survive the launcher.
 end note
 
 @enduml

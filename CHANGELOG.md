@@ -58,6 +58,12 @@ Target release: `v0.24.64`
 
 ### Fixed
 
+- Keep native Unix control-endpoint tests portable under long temporary paths,
+  and make automated docs captures reap their owned process sessions and
+  code-server container after success, failure, or interruption.
+- Keep the Web IDE Hardware tab responsive for ordinary communication graphs
+  by coalescing repeated hydration relayout requests into one bounded
+  animation frame and one post-hydration resize/fit pass.
 - Make post-merge release verification audit the exact candidate branch and
   validation worktrees, block dirty or divergent state, and report explicit
   cleanup targets before a release handoff can be completed.
