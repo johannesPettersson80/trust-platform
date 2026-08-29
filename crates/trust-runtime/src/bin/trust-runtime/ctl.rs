@@ -172,6 +172,7 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                 .and_then(JsonValue::as_str)
                 .context("status result missing string 'state'")?;
             let fault = match result.get("fault") {
+                Some(value) if value.is_null() => "none",
                 Some(value) => value
                     .as_str()
                     .context("status result 'fault' must be a string")?,

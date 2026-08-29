@@ -83,7 +83,7 @@ fn ctl_status_sends_authenticated_request_and_prints_summary() {
     let (endpoint, request_rx, server) = spawn_control_server(json!({
         "id": 1,
         "ok": true,
-        "result": { "state": "running" }
+        "result": { "state": "running", "fault": null }
     }));
 
     let output = run_ctl(&["--endpoint", &endpoint, "--token", "cli-token", "status"]);

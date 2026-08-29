@@ -876,9 +876,12 @@ package "I/O Interface" as ioPkg #LightGray {
         inputs: Vec<u8>
         outputs: Vec<u8>
         memory: Vec<u8>
+        bindings: Vec<IoBinding>
+        binding_codecs: Vec<IoBindingCodec>
         --
         +read(address) → Value
         +write(address, value)
+        +snapshot() → declared type metadata + value state
     }
 
     interface "IoDriver" as ioDriver {
@@ -896,7 +899,7 @@ package "I/O Interface" as ioPkg #LightGray {
     ioDriver ..> modbusWorker : Modbus scan calls\nbounded handoff only
     ioDriver ..> mqttWorker : MQTT scan calls\nbounded handoff only
     runtime ..> mqttTagMapping : apply bytecode first, then\nresolve all mappings atomically
-    mqttTagMapping --> ioIface : reuse or allocate typed\n%I/%Q bindings before worker start
+    mqttTagMapping --> ioIface : reuse or allocate typed\n%I/%Q bindings + enum codecs\nbefore worker start
     mqttTagMapping ..> mqttWorker : validated input/output\npoint topics
     ioDriver ..> ethercatDriver : EtherCAT scan calls\nfail closed on unavailable hardware
     modbusWorker ..> ioDriver : owns sync\nModbus protocol path
@@ -914,8 +917,16 @@ package "I/O Interface" as ioPkg #LightGray {
         MQTT mapping direction is PLC-relative:
         read = broker to PLC input,
         write = PLC output to broker.
-        Output-only mappings create no raw
-        trust/io/in subscription.
+        Output-only mappings neither subscribe
+        nor clear shared input bytes. Read-only
+        mappings publish no raw output fallback.
+        Present-but-empty mappings disable both
+        raw directions; only absent mappings use
+        the default raw topics.
+        Enum identity stays at the process-image
+        binding; MQTT carries the numeric member,
+        while snapshots carry the declared enum
+        name for value, error, and unresolved states.
     end note
 
     note right of ethercatDriver

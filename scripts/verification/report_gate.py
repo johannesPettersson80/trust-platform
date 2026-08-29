@@ -44,6 +44,7 @@ ADVISORY_COMMANDS = {
 SMOKE_TEST_MODULES = (
     "scripts.verification.report_gate_tests",
     "scripts.verification.focused_test_suite_tests",
+    "scripts.verification.governance_tests",
 )
 
 
@@ -110,7 +111,18 @@ def build_report(
     runner = command_runner or default_runner(root)
     normalized = sorted({normalize_changed_file(path) for path in changed_files if path.strip()})
     if smoke:
-        commands = [runner(["python3", "-m", "unittest", *SMOKE_TEST_MODULES])]
+        commands = [
+            runner(["python3", "-m", "unittest", *SMOKE_TEST_MODULES]),
+            runner(
+                [
+                    "python3",
+                    "-m",
+                    "scripts.verification.governance",
+                    "--direct-change-contract-only",
+                    *(f"--changed-file={path}" for path in normalized),
+                ]
+            ),
+        ]
         return VerificationReport(
             mode="enforcing" if enforcing else "report-only",
             intent=intent,
@@ -196,6 +208,11 @@ def default_runner(root: Path) -> CommandRunner:
 
 
 def command_name(command: list[str]) -> str:
+    if (
+        command[:3] == ["python3", "-m", "scripts.verification.governance"]
+        and "--direct-change-contract-only" in command
+    ):
+        return "direct_change_contract"
     if command[:2] == ["python3", "scripts/run_verification_focused_tests.py"]:
         return "verification_tooling_exhaustive"
     if command == ["python3", "-m", "unittest", *SMOKE_TEST_MODULES]:

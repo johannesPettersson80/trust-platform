@@ -107,6 +107,29 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn("npm ci &&", commands["remote_vscode"])
         self.assertIn("xvfb-run -a npm test", commands["remote_vscode"])
 
+    def test_vscode_remote_gate_uses_unique_short_lived_temp_directory(self) -> None:
+        commands = dict(
+            candidate_prepare.remote_validation_commands(
+                vscode_changed=True,
+                remote_target=(
+                    "/home/johannes/.cache/codex-targets/"
+                    "trust-platform-release-candidate-with-a-long-name"
+                ),
+            )
+        )
+
+        vscode = commands["remote_vscode"]
+        self.assertIn(
+            "vscode_tmp=$(mktemp -d /tmp/trust-vscode-candidate.XXXXXX)", vscode
+        )
+        self.assertIn("trap 'rm -rf -- \"$vscode_tmp\"' EXIT", vscode)
+        self.assertIn('TMPDIR="$vscode_tmp"', vscode)
+        self.assertNotIn(
+            "TMPDIR=/home/johannes/.cache/codex-targets/"
+            "trust-platform-release-candidate-with-a-long-name/tmp",
+            vscode,
+        )
+
     def test_full_suite_is_builder_only_before_candidate_validation(self) -> None:
         self.assertNotIn("local_test_all", guard.BASE_REQUIRED_COMMANDS)
         self.assertEqual(candidate_prepare.local_candidate_validation_commands(), ())
@@ -152,7 +175,7 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh "
             "'/tmp/trust target/bin/sccache'",
         )
-        for command_id in ("remote_vscode", "remote_clippy", "remote_test_all"):
+        for command_id in ("remote_clippy", "remote_test_all"):
             self.assertIn("CARGO_INCREMENTAL=0", by_id[command_id])
             self.assertIn("RUSTC_WRAPPER=/usr/bin/env", by_id[command_id])
             self.assertIn("CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env", by_id[command_id])
@@ -160,6 +183,9 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             self.assertIn("CXX=c++", by_id[command_id])
             self.assertIn("TMPDIR='/tmp/trust target/tmp'", by_id[command_id])
             self.assertIn("PATH='/tmp/trust target/bin':$PATH", by_id[command_id])
+        self.assertIn("CARGO_INCREMENTAL=0", by_id["remote_vscode"])
+        self.assertIn('TMPDIR="$vscode_tmp"', by_id["remote_vscode"])
+        self.assertNotIn("TMPDIR='/tmp/trust target/tmp'", by_id["remote_vscode"])
         self.assertIn("CARGO_BUILD_JOBS=1", by_id["remote_test_all"])
 
     def test_remote_validation_requires_eighty_gib_before_cold_gates(self) -> None:

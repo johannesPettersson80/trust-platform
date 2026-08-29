@@ -24,6 +24,7 @@ instead of sending readers to GitHub.
 | “How do source discovery and project-scoped commits behave?” | [22 Developer Workflows](22-developer-workflows.md) |
 | “Which connector status values are canonical?” | [23 Connector Status](23-connector-status.md) |
 | “What evidence is required for release claims?” | [24 Release Evidence](24-release-evidence.md) |
+| “How are MQTT tag mappings configured and published?” | [32 MQTT I/O](32-mqtt-io.md) |
 
 Use specification pages for exact behavior and contracts. Use [Program](../../develop/index.md)
 for task-oriented programming docs.
@@ -69,6 +70,7 @@ for task-oriented programming docs.
 - [22 Developer Workflows](22-developer-workflows.md)
 - [23 Connector Status](23-connector-status.md)
 - [24 Release Evidence](24-release-evidence.md)
+- [32 MQTT I/O](32-mqtt-io.md)
 
 ## Published Source Index
 

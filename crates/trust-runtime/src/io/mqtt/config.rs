@@ -16,6 +16,7 @@ struct MqttIoConfig {
     keep_alive: StdDuration,
     on_error: IoDriverErrorPolicy,
     input_enabled: bool,
+    output_enabled: bool,
     tls: Option<MqttTlsConfig>,
     input_points: Vec<MqttInputPoint>,
     output_points: Vec<MqttOutputPoint>,
@@ -110,10 +111,7 @@ impl MqttIoConfig {
                 "mqtt keep_alive_s must be <= 65535".into(),
             ));
         }
-        let has_tag_mappings = params
-            .mappings
-            .as_ref()
-            .is_some_and(|mappings| !mappings.is_empty());
+        let has_tag_mappings = params.mappings.is_some();
         let input_points = params
             .input_points
             .unwrap_or_default()
@@ -141,6 +139,7 @@ impl MqttIoConfig {
             keep_alive: StdDuration::from_secs(keep_alive_s),
             on_error,
             input_enabled: !has_tag_mappings || !input_points.is_empty(),
+            output_enabled: !has_tag_mappings || !output_points.is_empty(),
             tls,
             input_points,
             output_points,

@@ -104,8 +104,14 @@ Created: 2026-08-28.
     artifact.
     The generated command was also executed directly on `trust-builder` with
     60 GiB available: it returned status 1 before target creation and reported
-    the required 80 GiB floor.
-  - Current focused green: 22 release-candidate guard tests, 10 post-merge
+    the required 80 GiB floor. Exact candidate preparation later reproduced a
+    second path-length boundary: all four rendered VS Code canvas fixtures
+    failed when the guard exported its long Cargo target `tmp` directory, while
+    the identical fixtures passed with a short `/tmp` directory. The
+    release-evidence contract and focused guard assertion then failed before
+    the guard created a unique short-lived VS Code temp directory with cleanup
+    on shell exit.
+  - Current focused green: 23 release-candidate guard tests, 10 post-merge
     cleanup tests, 2 runtime binary-path contract tests, and 31 workflow,
     gate-inventory, report-input, and reviewed-source digest tests. Version
     alignment and diagram drift checks also pass. Exact-commit strict smoke is

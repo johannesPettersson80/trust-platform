@@ -43,6 +43,14 @@ The goal is not more metadata. The substantive product contract is:
 written specification -> native executable test
 ```
 
+For behavior-changing pull requests, the strict changed-file gate enforces the
+minimum observable form of that chain: a production-source diff must include a
+written specification companion and a native executable test companion. The
+gate checks direct files and executable test declarations, not planner,
+catalog, denominator, or proof metadata. Companion presence is necessary but
+does not by itself prove semantic agreement; the owning native assertion and
+reviewed behavior matrix remain authoritative.
+
 Metadata may index that relationship for existing tooling, but a missing or
 stale metadata link cannot create product work or override direct specification
 and test evidence.

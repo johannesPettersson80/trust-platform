@@ -67,10 +67,10 @@ push-and-repair attempts.
 6. `verify-release` then runs `audit-post-merge` with that exact candidate head and branch. The
    audit must fail closed when the candidate is not contained by current main, a candidate
    worktree is dirty, or a named candidate branch no longer points at the exact reviewed head. It
-   must report clean candidate worktrees and exact local/remote branches as explicit cleanup
-   targets without deleting them. Remove only those reviewed targets, fetch/prune, and rerun the
-   audit until it reports no stale candidate state. A release handoff is incomplete without this
-   final clean result.
+   must report clean candidate worktrees, prunable candidate worktree registrations, and exact
+   local/remote branches as explicit cleanup targets without deleting them. Remove only those
+   reviewed targets, fetch/prune, and rerun the audit until it reports no stale candidate state. A
+   release handoff is incomplete without this final clean result.
 
 Stop after a second red candidate or two elapsed hours without merge readiness. Report the full
 blocker ledger and obtain a new decision instead of continuing an unbounded push/wait/fix loop.

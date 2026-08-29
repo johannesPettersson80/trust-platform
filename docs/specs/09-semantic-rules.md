@@ -296,7 +296,7 @@ constant evaluation. A range whose lower bound exceeds its upper bound is
 invalid and is not normalized. The closed ordering and overlap policy is
 recorded in `docs/IEC_DECISIONS.md`.
 
-### 3.5 Standard Function Call Errors
+### 3.6 Standard Function Call Errors
 
 Standard functions and conversions (Tables 22–36) have fixed or extensible signatures with defined type categories. The type checker resolves overloads by argument types and reports errors when no valid overload matches. (IEC 61131-3 Ed.3, Tables 22–36)
 
@@ -316,7 +316,7 @@ result-type rules.
 | Overloaded conversions (`TO_DST`, `TRUNC_DST`) | Source type not convertible to requested destination |
 | Type-category mismatch | Arguments not in the required IEC generic category (ANY_INT/ANY_REAL/ANY_BIT/ANY_STRING/ANY_DATE) |
 
-### 3.6 Standard Function Block Call Errors
+### 3.7 Standard Function Block Call Errors
 
 Standard function blocks (Tables 43–46) have fixed or overloaded signatures. The type checker validates parameter names, directions, and types for standard FB calls, including counter/timer overloads. (IEC 61131-3 Ed.3, Tables 43–46)
 
@@ -329,7 +329,7 @@ Standard function blocks (Tables 43–46) have fixed or overloaded signatures. T
 | Explicit LTIME timer FBs (TP_LTIME/TON_LTIME/TOF_LTIME) | PT/ET not LTIME |
 | Output parameters | Non-assignable target or missing `=>` in formal call |
 
-### 3.7 Array Index Rules
+### 3.8 Array Index Rules
 
 IEC 61131-3 Ed.3 §6.4.4.5.1 requires array subscripts to be ANY_INT expressions and within declared bounds; the number of subscripts matches the declared dimensions.
 

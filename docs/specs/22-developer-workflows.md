@@ -259,12 +259,25 @@ it must terminate the complete owned process session and remove the named
 code-server container before returning. It must not terminate a reused or
 externally managed server. The executable lifecycle tests use fake commands and
 processes to prove cleanup ownership; rendered Playwright journeys separately
-prove the captured product surfaces.
+prove the captured product surfaces. Lifecycle assertion deadlines must exceed
+the launcher's bounded graceful-termination window so the KILL fallback and
+process reaping can complete before the test runner times out.
 
 The Docs Captures workflow must run for pull-request and main-push changes to
 the runtime Web UI source tree so browser-visible runtime changes cannot bypass
 their registered Playwright journeys. Its pull-request and push path filters
 must remain identical.
+
+### Post-merge release-candidate cleanup audit
+
+The post-merge audit is read-only. It binds the reviewed candidate SHA, branch,
+and main ref, then reports exact local branch, remote branch, clean worktree,
+and prunable worktree-registration cleanup targets without deleting them. A
+prunable candidate row whose directory is already absent is a
+`prunable_worktree` target and must not be passed to `git status` or classified
+as dirty. Unmerged candidates, divergent candidate refs, and existing dirty
+candidate worktrees fail closed and suppress all cleanup targets until the
+operator resolves the blocker.
 
 ### Cargo integration-test binary-path portability
 

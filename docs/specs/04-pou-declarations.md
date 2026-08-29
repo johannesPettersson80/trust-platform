@@ -839,7 +839,7 @@ END_VAR
 5. Name conflicts resolved by qualification
 6. INTERNAL access specifier limits scope to namespace
 
-### Implementation Notes for trust-hir
+### Namespace implementation notes
 
 - USING directives are parsed and resolved for global, namespace, and POU scopes; only direct members of the imported namespace are made available. (IEC 61131-3 Ed.3, Section 6.9.4, Table 66)
 - INTERNAL access specifier is enforced at namespace boundaries. (IEC 61131-3 Ed.3, Tables 64-66)

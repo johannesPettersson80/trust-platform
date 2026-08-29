@@ -292,15 +292,15 @@ fn block_comment_separated_test() {}
         structured_text = scan_structured_text_tests(root)
         vscode = scan_vscode_tests(root)
 
-        self.assertEqual(len(rust.facts), 3256)
-        self.assertEqual(len(structured_text.facts), 257)
-        self.assertEqual(len(vscode.facts), 500)
+        self.assertEqual(len(rust.facts), 7989)
+        self.assertEqual(len(structured_text.facts), 247)
+        self.assertEqual(len(vscode.facts), 517)
         runtime_core = [
             fact
             for fact in rust.facts
             if fact.source_kind == "rust_unit_test" and fact.package == "trust-runtime-core"
         ]
-        self.assertEqual(len(runtime_core), 74)
+        self.assertEqual(len(runtime_core), 115)
 
     def test_report_writes_default_artifact_shape_and_concise_summary(self) -> None:
         with fixture_repo() as root, tempfile.TemporaryDirectory() as temp:

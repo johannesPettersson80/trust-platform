@@ -97,6 +97,9 @@ def remote_validation_commands(
         f"CC=cc CXX=c++ TMPDIR={shlex.quote(target_tmp)} "
         f"PATH={shlex.quote(target_bin)}:$PATH"
     )
+    vscode_target_env = target_env.replace(
+        f"TMPDIR={shlex.quote(target_tmp)}", 'TMPDIR="$vscode_tmp"'
+    )
     prepare_target = (
         f"mkdir -p -- {shlex.quote(target_tmp)} {shlex.quote(target_bin)} && "
         f"install -m 755 {passthrough_source} {shlex.quote(sccache_shim)}"
@@ -118,8 +121,10 @@ def remote_validation_commands(
         commands.append(
             (
                 "remote_vscode",
+                "vscode_tmp=$(mktemp -d /tmp/trust-vscode-candidate.XXXXXX) && "
+                "trap 'rm -rf -- \"$vscode_tmp\"' EXIT && "
                 "cd editors/vscode && npm ci && npm run lint && npm run compile && "
-                f"{target_env} xvfb-run -a npm test",
+                f"{vscode_target_env} xvfb-run -a npm test",
             )
         )
     commands.extend(

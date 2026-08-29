@@ -1,4 +1,5 @@
 import json
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -157,6 +158,38 @@ class PostMergeCleanupCommandTests(unittest.TestCase):
                 ("remote_branch", "refs/remotes/origin/fix/example"),
                 ("worktree", str(candidate_worktree.resolve())),
             },
+        )
+
+    def test_prunable_candidate_worktree_is_reported_as_cleanup_target(self) -> None:
+        candidate_worktree = self.restore_candidate_state()
+        shutil.rmtree(candidate_worktree)
+
+        result = subprocess.run(
+            [
+                "python3",
+                str(SCRIPT),
+                "--repo",
+                str(self.repo),
+                "audit-post-merge",
+                "--candidate-head",
+                self.candidate,
+                "--branch",
+                "fix/example",
+            ],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        payload = json.loads(result.stdout)
+
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertEqual(payload["status"], "cleanup_required")
+        self.assertIn(
+            {
+                "kind": "prunable_worktree",
+                "target": str(candidate_worktree.resolve()),
+            },
+            payload["cleanup_targets"],
         )
 
     def test_dirty_candidate_worktree_blocks_all_cleanup_targets(self) -> None:

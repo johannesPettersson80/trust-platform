@@ -9,6 +9,7 @@ purpose = "Scheduled reliability, soak, extended fuzz/Miri, and explicitly plann
 duration_class = "long"
 environment = "github_nightly"
 commands = [
+  "workflow job .github/workflows/verification-gate.yml#verification-report",
   "workflow job .github/workflows/hmi-long-soak.yml#hmi-soak",
   "workflow job .github/workflows/nightly-reliability.yml#reliability",
   "workflow job .github/workflows/salsa-hardening.yml#fuzz-extended-nightly",
@@ -22,6 +23,7 @@ commands = [
   "scripts/unsafe_concurrency_valgrind_gate.sh",
 ]
 command_bindings = [
+  "GATE_JOB_VERIFICATION_REPORT",
   "GATE_JOB_HMI_LONG_SOAK",
   "GATE_JOB_NIGHTLY_RELIABILITY",
   "GATE_JOB_SALSA_FUZZ_EXTENDED_NIGHTLY",

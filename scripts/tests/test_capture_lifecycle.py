@@ -113,8 +113,9 @@ class CaptureLifecycleTests(unittest.TestCase):
 
     def test_termination_reaps_owned_capture_process_session(self) -> None:
         self.install_npm(
-            "python3 -c 'import os, time; "
+            "python3 -c 'import os, signal, time; "
             "os.setpgid(0, 0); "
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
             "open(os.environ[\"CAPTURE_TEST_CHILD_PID\"], \"w\").write(str(os.getpid())); "
             "time.sleep(300)' &\n"
             "child_pid=$!\n"
@@ -139,7 +140,7 @@ class CaptureLifecycleTests(unittest.TestCase):
 
             process.terminate()
             try:
-                process.communicate(timeout=5)
+                process.communicate(timeout=10)
             except subprocess.TimeoutExpired:
                 self.fail("capture launcher did not terminate after SIGTERM")
 

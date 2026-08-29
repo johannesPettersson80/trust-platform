@@ -37,6 +37,7 @@ run_lib_case() {
   local test_filter="$2"
   local log_path="${OUT_DIR}/${case_id}.log"
   echo "[conformance-gate] running lib case ${case_id}"
+  : > "${log_path}"
   run_observed "runtime-comms-conformance" "${case_id}" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${log_path}" \
     cargo test -p trust-runtime --lib "${test_filter}" -- --nocapture
   assert_case_executed "${case_id}" "${log_path}"
@@ -48,9 +49,25 @@ run_it_case() {
   local test_filter="$3"
   local log_path="${OUT_DIR}/${case_id}.log"
   echo "[conformance-gate] running integration case ${case_id}"
+  : > "${log_path}"
   run_observed "runtime-comms-conformance" "${case_id}" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${log_path}" \
     cargo test -p trust-runtime --test "${test_target}" "${test_filter}" -- --nocapture
   assert_case_executed "${case_id}" "${log_path}"
+}
+
+run_external_case() {
+  local case_id="$1"
+  local log_path="${OUT_DIR}/${case_id}.log"
+  local script_path="${TRUST_TEST_MQTT_E2E_SCRIPT:-./scripts/mqtt_mosquitto_e2e.sh}"
+  echo "[conformance-gate] running external case ${case_id}"
+  : > "${log_path}"
+  run_observed "runtime-comms-conformance" "${case_id}" \
+    "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${log_path}" \
+    env OUT_DIR="${OUT_DIR}/${case_id}" bash "${script_path}"
+  if ! grep -q '^RESULT=PASS$' "${log_path}"; then
+    echo "[conformance-gate] ERROR: ${case_id} did not produce PASS evidence" >&2
+    return 1
+  fi
 }
 
 echo "[conformance-gate] suite: t0-shm"
@@ -87,12 +104,16 @@ run_it_case "audit_dispatch_correlation" "web_io_config_integration" "runtime_cl
 run_it_case "audit_success_failure_emission" "web_io_config_integration" "runtime_cloud_remote_dispatch_emits_audit_for_success_and_failure_paths"
 run_it_case "audit_dedup_event_id" "web_io_config_integration" "runtime_cloud_ha_replay_guard_deduplicates_and_rejects_stale_seq"
 
+echo "[conformance-gate] suite: mqtt-mosquitto"
+run_external_case "mqtt-mosquitto-traffic-light"
+
 cat > "${OUT_DIR}/summary.md" <<'MD'
 # Runtime Comms Conformance Gate
 
 Suites:
 
 - t0-shm
+- mqtt-mosquitto
 - zenoh-mesh
 - gateway-bridge
 - config-rollout
@@ -104,6 +125,10 @@ MD
 jq -n '
 {
   suites: [
+    {
+      id: "mqtt-mosquitto",
+      cases: ["mqtt-mosquitto-traffic-light"]
+    },
     {
       id: "t0-shm",
       cases: [

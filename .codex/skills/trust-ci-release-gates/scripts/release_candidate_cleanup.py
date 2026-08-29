@@ -75,6 +75,8 @@ def audit_post_merge(args: Any) -> int:
             path = Path(row["worktree"]).resolve()
             if head != candidate:
                 failures.append(f"candidate worktree {path} is at {head}, not {candidate}")
+            elif "prunable" in row:
+                targets.append({"kind": "prunable_worktree", "target": str(path)})
             elif guard.git(path, "status", "--porcelain", check=False).strip():
                 failures.append(f"candidate worktree {path} is dirty")
             else:
