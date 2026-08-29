@@ -4,7 +4,7 @@ Scope: resolve all valid automated review findings on MQTT PR #115 and release
 PR #116 without regressing raw MQTT mode, the traffic-light workflow, capture
 lifecycle cleanup, or post-merge candidate cleanup.
 
-Branch: `fix/mqtt-review-integrated`
+Branch: `fix/mqtt-review-final`
 
 Base: `f41e71183598491a1c0491321e1b3df157850056`
 
@@ -34,6 +34,9 @@ Base: `f41e71183598491a1c0491321e1b3df157850056`
   session's graceful-termination window.
 - [x] Specify that stale prunable candidate worktree registrations are exact
   cleanup targets rather than dirty-worktree blockers.
+- [x] Specify that optional broker-version reporting cannot override passing
+  real-Mosquitto protocol assertions when a help command prints its version
+  and returns a nonzero help status.
 
 ## Test-first behavior slices
 
@@ -62,6 +65,8 @@ Base: `f41e71183598491a1c0491321e1b3df157850056`
   without exhausting the lifecycle assertion deadline.
 - [x] Red/green: a missing candidate worktree directory with a prunable Git
   registration is reported as `prunable_worktree` cleanup work.
+- [x] Red/green: Mosquitto 2.0.18-style help output with exit status 3 remains
+  usable version evidence after all traffic-light assertions pass.
 
 ## Implementation
 
@@ -76,6 +81,8 @@ Base: `f41e71183598491a1c0491321e1b3df157850056`
 - [x] Audit subranges sharing the scalar-layout path and document or test their
   existing representation contract.
 - [x] Truncate only the active per-case conformance log before execution.
+- [x] Neutralize only the informational Mosquitto help status while preserving
+  the emitted version line and all authoritative protocol failures.
 
 ## SOLID, KISS, and DRY acceptance
 

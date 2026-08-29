@@ -58,6 +58,9 @@ Target release: `v0.24.65`
 
 ### Fixed
 
+- Keep real-Mosquitto conformance compatible with broker versions whose help
+  command prints a usable version and then exits nonzero, so optional version
+  reporting cannot override passing protocol assertions.
 - Run exact-candidate VS Code browser and Extension Host checks with a unique,
   short-lived `/tmp` directory so long validated Cargo target paths cannot
   break Unix-domain process sockets.

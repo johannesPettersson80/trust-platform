@@ -139,7 +139,7 @@ if grep -q "trust/io/in" "${broker_log}"; then
   exit 1
 fi
 
-mosquitto_version="$(mosquitto -h 2>&1 | sed -n '1p')"
+mosquitto_version="$({ mosquitto -h 2>&1 || true; } | sed -n '1p')"
 echo "broker=${mosquitto_version}"
 echo "messages=$(wc -l < "${capture_log}")"
 sort -u "${capture_log}"

@@ -255,6 +255,12 @@ between Boolean true and false. Broker evidence must show that the runtime did
 not subscribe to `trust/io/in`. An in-process transport double cannot satisfy
 this interoperability requirement.
 
+The interoperability harness may report the broker version after those
+assertions. A Mosquitto help command that emits a usable version line and then
+returns a nonzero help-status code must not turn otherwise passing protocol
+evidence into a conformance failure. Missing version output remains reportable,
+but version-reporting status is not an MQTT behavior assertion.
+
 ## 11. Native executable proof map
 
 The closest native owners include:

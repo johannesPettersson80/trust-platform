@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import re
 import stat
 import subprocess
 import tempfile
@@ -11,6 +12,43 @@ CONFORMANCE_SCRIPT = ROOT / "scripts" / "runtime_comms_conformance_gate.sh"
 
 
 class RuntimeCommsConformanceGateContractTests(unittest.TestCase):
+    def test_mosquitto_version_capture_accepts_help_exit_after_output(self) -> None:
+        script = (ROOT / "scripts" / "mqtt_mosquitto_e2e.sh").read_text(
+            encoding="utf-8"
+        )
+        assignment = re.search(r"^mosquitto_version=.*$", script, re.MULTILINE)
+        self.assertIsNotNone(assignment, "MQTT harness must capture the broker version")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            mosquitto = Path(temp_dir) / "mosquitto"
+            mosquitto.write_text(
+                "#!/usr/bin/env bash\n"
+                "echo 'mosquitto version 2.0.18' >&2\n"
+                "exit 3\n",
+                encoding="utf-8",
+            )
+            mosquitto.chmod(mosquitto.stat().st_mode | stat.S_IXUSR)
+            env = os.environ.copy()
+            env["PATH"] = f"{temp_dir}:{env['PATH']}"
+            result = subprocess.run(
+                [
+                    "bash",
+                    "-c",
+                    "set -euo pipefail\n"
+                    f"{assignment.group(0)}\n"
+                    "printf '%s\\n' \"${mosquitto_version}\"\n",
+                ],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(result.stdout.strip(), "mosquitto version 2.0.18")
+
     def test_gate_and_ci_require_real_mosquitto_traffic_light_execution(self) -> None:
         gate = CONFORMANCE_SCRIPT.read_text(encoding="utf-8")
         workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
