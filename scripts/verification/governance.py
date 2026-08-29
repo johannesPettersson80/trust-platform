@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .metadata_validator.constants import AREAS, CASE_FAMILIES, ROOT
+from .direct_change_contract import validate_direct_change_contract
 
 
 GOVERNANCE_PATH = "verification/governance.toml"
@@ -198,11 +199,8 @@ def validate_current_governance(
 
 
 def validate_changed_files(document: Mapping[str, Any], changed_files: Sequence[str]) -> list[str]:
-    # A changed-path list cannot prove specification/test agreement. Direct
-    # review and native executable gates own that product contract; metadata
-    # companion files are never required merely because a product path changed.
-    del document, changed_files
-    return []
+    del document
+    return validate_direct_change_contract(changed_files)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -210,7 +208,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--today", type=date.fromisoformat, default=date.today())
     parser.add_argument("--changed-file", action="append", default=[])
+    parser.add_argument("--direct-change-contract-only", action="store_true")
     args = parser.parse_args(argv)
+    if args.direct_change_contract_only:
+        failures = validate_direct_change_contract(args.changed_file)
+        if failures:
+            for failure in failures:
+                print(f"direct change contract: FAIL: {failure}", file=sys.stderr)
+            return 1
+        print(f"direct change contract: PASS ({len(args.changed_file)} changed paths)")
+        return 0
     try:
         from .metadata_validator.core import Validator
         validator = Validator()

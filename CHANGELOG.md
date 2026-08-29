@@ -48,7 +48,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.64`
+Target release: `v0.24.65`
 
 ### Added
 
@@ -58,14 +58,50 @@ Target release: `v0.24.64`
 
 ### Fixed
 
+- Run exact-candidate VS Code browser and Extension Host checks with a unique,
+  short-lived `/tmp` directory so long validated Cargo target paths cannot
+  break Unix-domain process sockets.
+- Keep native Unix control-endpoint tests portable under long temporary paths,
+  and make automated docs captures reap their owned process sessions and
+  code-server container after success, failure, or interruption.
+- Keep the Web IDE Hardware tab responsive for ordinary communication graphs
+  by coalescing repeated hydration relayout requests into one bounded
+  animation frame and one post-hydration resize/fit pass.
+- Make post-merge release verification audit the exact candidate branch and
+  validation worktrees, block dirty or divergent state, and report explicit
+  cleanup targets before a release handoff can be completed.
+- Report prunable candidate worktree registrations as cleanup targets instead
+  of misclassifying their missing directories as dirty worktrees.
+- Give capture lifecycle assertions enough time to observe the launcher's
+  bounded TERM-to-KILL cleanup and process reaping path.
+- Reconcile staged checksum paths with GitHub's flat release-asset namespace
+  while rejecting ambiguous basenames and unsafe manifest paths.
+- Keep exact-candidate remote validation aligned with CI by disabling inherited
+  Rust compiler caches and serializing the cold all-tests build to bound disk
+  use.
+- Fail exact-candidate preparation before creating build artifacts unless the
+  remote builder has at least 80 GiB free, reflecting the measured size of a
+  cold uncached all-tests target.
+- Keep workspace integration-test binary discovery compilable under cold
+  all-target check and clippy runs, and enforce that portability contract in CI.
 - Keep direction-specific MQTT mappings isolated: write-only drivers no longer
   clear shared input bytes, and read-only mappings no longer publish the raw
-  output image to the default topic.
+  output image to the default topic. An explicitly empty `mappings` list also
+  disables both raw directions instead of restoring the default topics.
+- Give MQTT one authoritative communication specification instead of mixing
+  broker and wire behavior into the runtime-engine contract, and make the
+  changed-file verifier reject MQTT production changes without that owning
+  specification and a native executable test.
 - Preserve IEC enum identity across MQTT tag mappings while using declared
   numeric member values on the wire, including alias and direct-binding cases,
-  and reject undeclared inbound values atomically.
+  reject undeclared inbound values atomically, and retain the declared enum
+  name in control snapshots for resolved, error, and unresolved points.
+- Let `trust-runtime ctl status` render a healthy runtime's JSON-null fault as
+  `none`, matching the live control response contract.
 - Make reused runtime communications conformance output directories inspect
   only the current case invocation instead of accepting stale passing lines.
+- Require the runtime communications conformance gate to execute the shipped
+  MQTT traffic-light mapping against a real Mosquitto broker and client.
 - Make the runtime communications conformance gate reject zero-test filters
   and align its development and WAN profile cases with the shipped policy.
 - Make the Neovim and Zed editor smoke gate fail when an exact Rust filter

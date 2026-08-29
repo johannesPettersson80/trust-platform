@@ -262,6 +262,7 @@ nav:
           - 22 Developer Workflows: reference/specifications/22-developer-workflows.md
           - 23 Connector Status: reference/specifications/23-connector-status.md
           - 24 Release Evidence: reference/specifications/24-release-evidence.md
+          - 32 MQTT I/O: reference/specifications/32-mqtt-io.md
           - SFC Profile: reference/specifications/sfc-profile.md
       - Hardware Compatibility: reference/hardware-compatibility.md
       - API Lifecycle And Deprecation: reference/api-lifecycle-and-deprecation.md

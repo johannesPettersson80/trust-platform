@@ -11,6 +11,14 @@ CONFORMANCE_SCRIPT = ROOT / "scripts" / "runtime_comms_conformance_gate.sh"
 
 
 class RuntimeCommsConformanceGateContractTests(unittest.TestCase):
+    def test_gate_and_ci_require_real_mosquitto_traffic_light_execution(self) -> None:
+        gate = CONFORMANCE_SCRIPT.read_text(encoding="utf-8")
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn("scripts/mqtt_mosquitto_e2e.sh", gate)
+        self.assertIn("mqtt-mosquitto-traffic-light", gate)
+        self.assertIn("apt-get install -y mosquitto mosquitto-clients", workflow)
+
     def test_gate_fails_when_a_case_filter_selects_zero_tests(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             cargo = Path(temp_dir) / "cargo"
@@ -58,6 +66,13 @@ class RuntimeCommsConformanceGateContractTests(unittest.TestCase):
             env = os.environ.copy()
             env["PATH"] = f"{temp_dir}:{env['PATH']}"
             env["OUT_DIR"] = str(Path(temp_dir) / "evidence")
+            passing_external = Path(temp_dir) / "mqtt-e2e"
+            passing_external.write_text(
+                "#!/usr/bin/env bash\nset -euo pipefail\necho RESULT=PASS\n",
+                encoding="utf-8",
+            )
+            passing_external.chmod(passing_external.stat().st_mode | stat.S_IXUSR)
+            env["TRUST_TEST_MQTT_E2E_SCRIPT"] = str(passing_external)
             env["FAKE_CARGO_RESULT"] = "pass"
 
             first = subprocess.run(

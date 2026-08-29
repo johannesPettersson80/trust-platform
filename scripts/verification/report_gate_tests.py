@@ -15,6 +15,7 @@ from scripts.verification.report_gate import (
     VerificationReport,
     build_report,
     changed_files_from_git,
+    command_name,
     find_uncataloged_tests,
     parse_name_status_z,
     report_exit_code,
@@ -25,6 +26,19 @@ from scripts.verification.report_gate import (
 class VerificationReportGateTests(unittest.TestCase):
     def test_default_output_dir_lives_under_target(self) -> None:
         self.assertEqual(DEFAULT_OUTPUT_DIR, Path("target/gate-artifacts/verification"))
+
+    def test_direct_change_contract_command_has_stable_gate_identity(self) -> None:
+        self.assertEqual(
+            command_name(
+                [
+                    "python3",
+                    "-m",
+                    "scripts.verification.governance",
+                    "--direct-change-contract-only",
+                ]
+            ),
+            "direct_change_contract",
+        )
 
     def test_smoke_report_runs_only_report_boundary_tests(self) -> None:
         commands: list[list[str]] = []
@@ -55,10 +69,20 @@ class VerificationReportGateTests(unittest.TestCase):
                     "unittest",
                     "scripts.verification.report_gate_tests",
                     "scripts.verification.focused_test_suite_tests",
-                ]
+                    "scripts.verification.governance_tests",
+                ],
+                [
+                    "python3",
+                    "-m",
+                    "scripts.verification.governance",
+                    "--direct-change-contract-only",
+                ],
             ],
         )
-        self.assertEqual([command.name for command in report.commands], ["verification_report_smoke"])
+        self.assertEqual(
+            [command.name for command in report.commands],
+            ["verification_report_smoke", "verification_report_smoke"],
+        )
         self.assertEqual(report_exit_code(report, strict=True), 0)
 
     def test_changed_files_from_git_uses_merge_base(self) -> None:

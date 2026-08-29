@@ -1,14 +1,18 @@
 # MQTT Tag Mapping Review Follow-up Checklist
 
-Scope: resolve the four valid automated review findings from PR #114 without
-regressing raw MQTT mode or the traffic-light mapping workflow.
+Scope: resolve all valid automated review findings on MQTT PR #115 and release
+PR #116 without regressing raw MQTT mode, the traffic-light workflow, capture
+lifecycle cleanup, or post-merge candidate cleanup.
 
-Branch: `fix/mqtt-review-followups`
+Branch: `fix/mqtt-review-integrated`
 
-Base: `5bca03b85cf5228c1027f52bab1cb5d39739f498`
+Base: `f41e71183598491a1c0491321e1b3df157850056`
 
 ## Product contract
 
+- [x] Make `docs/specs/32-mqtt-io.md` the authoritative MQTT communication
+  specification and retain only runtime integration requirements in
+  `docs/specs/11-runtime-engine.md`.
 - [x] Specify that an MQTT driver with no input direction leaves the shared
   input process image unchanged.
 - [x] Specify that a mapping configuration with no output direction publishes
@@ -17,6 +21,19 @@ Base: `5bca03b85cf5228c1027f52bab1cb5d39739f498`
   identity preservation, and fail-closed invalid-member handling.
 - [x] Specify that conformance case execution checks inspect only the current
   invocation's log.
+- [x] Specify and test the complete MQTT mapping-presence/direction matrix:
+  absent, explicitly empty, explicitly empty plus explicit points, read-only,
+  write-only, and mixed.
+- [x] Specify and test enum snapshot type metadata for value, error, and
+  unresolved states.
+- [x] Make the PR verification gate reject behavior-changing production diffs
+  that have no written-specification or native-test companion.
+- [x] Make the PR verification gate reject an MQTT production change paired
+  only with an unrelated or generic runtime specification.
+- [x] Specify that capture lifecycle assertion deadlines exceed the owned
+  session's graceful-termination window.
+- [x] Specify that stale prunable candidate worktree registrations are exact
+  cleanup targets rather than dirty-worktree blockers.
 
 ## Test-first behavior slices
 
@@ -33,6 +50,18 @@ Base: `5bca03b85cf5228c1027f52bab1cb5d39739f498`
 - [x] Red: a second conformance-gate run with the same `OUT_DIR` cannot reuse a
   previous passing line when its current filter selects zero tests.
 - [x] Green: each conformance case log is fresh for its invocation.
+- [x] Red/green: `mappings = []` disables both raw MQTT directions.
+- [x] Red/green: enum-backed I/O snapshot JSON retains the declared enum name
+  for value, error, and unresolved states.
+- [x] Red/green: the strict changed-file verification path rejects production
+  changes missing either direct contract companion.
+- [x] Red/green: `ctl status` renders the runtime's JSON-null fault as `none`.
+- [x] Behavior-lock: the runtime communications conformance gate runs the
+  traffic-light mapping against real Mosquitto and observes every light phase.
+- [x] Red/green: a TERM-resistant owned child exercises the KILL fallback
+  without exhausting the lifecycle assertion deadline.
+- [x] Red/green: a missing candidate worktree directory with a prunable Git
+  registration is reported as `prunable_worktree` cleanup work.
 
 ## Implementation
 
@@ -61,6 +90,12 @@ Base: `5bca03b85cf5228c1027f52bab1cb5d39739f498`
   second log parser.
 - [x] No touched source file crosses the repository's approximately 1,000-line
   split threshold because of this change.
+- [x] Changed-file conformance enforcement stays in a dedicated validator
+  boundary and does not make planner or catalog metadata authoritative.
+- [x] Real Mosquitto process orchestration stays in a dedicated executable
+  conformance script instead of entering the MQTT worker or scheduler.
+- [x] Release cleanup classification remains in the dedicated cleanup module;
+  it does not mutate or prune worktrees during an audit.
 
 ## Focused and broad validation
 

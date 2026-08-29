@@ -246,6 +246,51 @@ and fail-closed aggregation boundaries. They do not prove that an unexecuted
 GitHub workflow ran successfully, that uploaded artifacts are publicly
 available, or that the final release candidate is green.
 
+### Native test and docs-capture lifecycle portability
+
+Native Unix control-endpoint fixtures must derive a collision-resistant socket
+path that stays within the portable 100-byte pathname budget even when the
+configured temporary directory is longer. A long `TMPDIR` must not turn an
+otherwise valid runtime test into a socket-bind setup failure.
+
+The automated docs-capture launcher owns every browser, runtime, and Docker
+process that it starts. On success, command failure, interruption, or timeout,
+it must terminate the complete owned process session and remove the named
+code-server container before returning. It must not terminate a reused or
+externally managed server. The executable lifecycle tests use fake commands and
+processes to prove cleanup ownership; rendered Playwright journeys separately
+prove the captured product surfaces. Lifecycle assertion deadlines must exceed
+the launcher's bounded graceful-termination window so the KILL fallback and
+process reaping can complete before the test runner times out.
+
+The Docs Captures workflow must run for pull-request and main-push changes to
+the runtime Web UI source tree so browser-visible runtime changes cannot bypass
+their registered Playwright journeys. Its pull-request and push path filters
+must remain identical.
+
+### Post-merge release-candidate cleanup audit
+
+The post-merge audit is read-only. It binds the reviewed candidate SHA, branch,
+and main ref, then reports exact local branch, remote branch, clean worktree,
+and prunable worktree-registration cleanup targets without deleting them. A
+prunable candidate row whose directory is already absent is a
+`prunable_worktree` target and must not be passed to `git status` or classified
+as dirty. Unmerged candidates, divergent candidate refs, and existing dirty
+candidate worktrees fail closed and suppress all cleanup targets until the
+operator resolves the blocker.
+
+### Cargo integration-test binary-path portability
+
+Workspace integration tests that launch a workspace binary must remain
+compilable when Cargo checks or lints all targets without building that binary.
+They must resolve Cargo's `CARGO_BIN_EXE_*` value from the execution environment
+instead of using either compile-time `env!` form. This preserves ordinary
+`cargo test` executable discovery while allowing the reviewed host and
+cross-target warning and clippy gates to compile every crate's integration-test
+targets. The CI portability scanner must inspect every Rust source below each
+workspace crate's `tests` directory and reject compile-time lookup for every
+binary name, not only `trust-runtime`.
+
 ### CI performance reference-environment contract
 
 The three native CI timing probes are reference-environment contracts, not

@@ -276,7 +276,11 @@ fn entry_to_json(entry: &crate::io::IoSnapshotEntry, forced: &[IoAddress]) -> se
         "value": format_snapshot_value(&entry.value),
         "forced": forced.iter().any(|address| address == &entry.address),
     });
-    if let Some(value_type) = entry.value_type.and_then(crate::io::io_value_type_name) {
+    if let Some(value_type) = entry
+        .value_type_name
+        .as_deref()
+        .or_else(|| entry.value_type.and_then(crate::io::io_value_type_name))
+    {
         payload["valueType"] = json!(value_type);
     }
     if let Some(source) = &entry.source {
@@ -417,8 +421,9 @@ pub(super) fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::io::{IoAddress, IoSnapshot, IoSnapshotEntry, IoSnapshotValue};
-    use crate::value::Value;
+    use crate::io::{IoAddress, IoInterface, IoSnapshot, IoSnapshotEntry, IoSnapshotValue};
+    use crate::memory::MemoryLocation;
+    use crate::value::{Value, ValueRef};
 
     #[test]
     fn io_snapshot_json_includes_optional_source() {
@@ -429,6 +434,7 @@ mod tests {
                 name: Some(SmolStr::new("In0")),
                 address: IoAddress::parse("%IX0.0").expect("address"),
                 value_type: None,
+                value_type_name: None,
                 value: IoSnapshotValue::Value(Value::Bool(true)),
                 source: Some(SmolStr::new("MQTT topic plant/line1")),
             }],
@@ -454,6 +460,7 @@ mod tests {
                 name: Some(SmolStr::new("Speed")),
                 address: IoAddress::parse("%MD0").expect("address"),
                 value_type: Some(trust_hir::TypeId::REAL),
+                value_type_name: None,
                 value: IoSnapshotValue::Value(Value::Real(1.5)),
                 source: None,
             }],
@@ -461,5 +468,60 @@ mod tests {
 
         let payload = snapshot.into_json();
         assert_eq!(payload["memory"][0]["valueType"].as_str(), Some("REAL"));
+    }
+
+    #[test]
+    fn enum_io_snapshot_json_preserves_declared_type_for_every_value_state() {
+        fn bind_enum(interface: &mut IoInterface, address: IoAddress) {
+            interface.bind_ref_named_enum(
+                ValueRef {
+                    location: MemoryLocation::Global,
+                    offset: 0,
+                    path: Vec::new(),
+                },
+                address,
+                trust_hir::TypeId(10_000),
+                trust_hir::TypeId::DINT,
+                SmolStr::new("TrafficState"),
+                vec![(SmolStr::new("Stopped"), 0), (SmolStr::new("Running"), 1)],
+                "MainInstance.State",
+            );
+        }
+
+        let address = IoAddress::parse("%QD0").expect("enum output address");
+        let mut interface = IoInterface::new();
+        interface.resize(0, 4, 0);
+        bind_enum(&mut interface, address.clone());
+        interface
+            .write(&address, Value::DWord(1))
+            .expect("write declared enum value");
+        let value_payload = interface.snapshot().into_json();
+        assert_eq!(
+            value_payload["outputs"][0]["valueType"].as_str(),
+            Some("TrafficState"),
+            "resolved enum snapshots must expose the declared enum type"
+        );
+
+        interface
+            .write(&address, Value::DWord(9))
+            .expect("write undeclared enum wire value");
+        let error_payload = interface.snapshot().into_json();
+        assert_eq!(
+            error_payload["outputs"][0]["valueType"].as_str(),
+            Some("TrafficState"),
+            "enum conversion errors must retain the declared enum type"
+        );
+
+        let mut unresolved = IoInterface::new();
+        bind_enum(
+            &mut unresolved,
+            IoAddress::parse("%Q*").expect("wildcard enum output address"),
+        );
+        let unresolved_payload = unresolved.snapshot().into_json();
+        assert_eq!(
+            unresolved_payload["outputs"][0]["valueType"].as_str(),
+            Some("TrafficState"),
+            "unresolved enum snapshots must retain the declared enum type"
+        );
     }
 }

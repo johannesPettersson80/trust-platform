@@ -54,12 +54,15 @@ fn spawn_control_server(response: Value) -> (String, Receiver<Value>, JoinHandle
 }
 
 fn run_ctl(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("ctl")
-        .args(args)
-        .env_remove("TRUST_CTL_TOKEN")
-        .output()
-        .expect("run trust-runtime ctl")
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("ctl")
+    .args(args)
+    .env_remove("TRUST_CTL_TOKEN")
+    .output()
+    .expect("run trust-runtime ctl")
 }
 
 fn write_project_with_control_token(root: &Path, token: &str) {
@@ -80,7 +83,7 @@ fn ctl_status_sends_authenticated_request_and_prints_summary() {
     let (endpoint, request_rx, server) = spawn_control_server(json!({
         "id": 1,
         "ok": true,
-        "result": { "state": "running" }
+        "result": { "state": "running", "fault": null }
     }));
 
     let output = run_ctl(&["--endpoint", &endpoint, "--token", "cli-token", "status"]);
@@ -112,14 +115,17 @@ fn ctl_endpoint_override_preserves_project_token() {
         "result": { "ok": true }
     }));
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("ctl")
-        .arg("--project")
-        .arg(&project)
-        .args(["--endpoint", &endpoint, "health"])
-        .env_remove("TRUST_CTL_TOKEN")
-        .output()
-        .expect("run trust-runtime ctl with project token");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("ctl")
+    .arg("--project")
+    .arg(&project)
+    .args(["--endpoint", &endpoint, "health"])
+    .env_remove("TRUST_CTL_TOKEN")
+    .output()
+    .expect("run trust-runtime ctl with project token");
     let request = request_rx.recv().expect("captured control request");
     server.join().expect("control test server");
 
@@ -231,14 +237,17 @@ fn ctl_target_resolution_enforces_endpoint_and_token_precedence() {
         spawn_control_server(json!({"id": 1, "ok": true, "result": {"ok": true}}));
     write_project_with_control_target(&project, &project_endpoint, "project-token");
 
-    let project_output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("ctl")
-        .arg("--project")
-        .arg(&project)
-        .arg("health")
-        .env("TRUST_CTL_TOKEN", "environment-token")
-        .output()
-        .expect("run ctl with project endpoint and environment token");
+    let project_output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("ctl")
+    .arg("--project")
+    .arg(&project)
+    .arg("health")
+    .env("TRUST_CTL_TOKEN", "environment-token")
+    .output()
+    .expect("run ctl with project endpoint and environment token");
     let project_request = project_request_rx.recv().expect("captured project request");
     project_server.join().expect("project control server");
     assert!(
@@ -254,20 +263,23 @@ fn ctl_target_resolution_enforces_endpoint_and_token_precedence() {
 
     let (explicit_endpoint, explicit_request_rx, explicit_server) =
         spawn_control_server(json!({"id": 1, "ok": true, "result": {"ok": true}}));
-    let explicit_output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("ctl")
-        .arg("--project")
-        .arg(&project)
-        .args([
-            "--endpoint",
-            &explicit_endpoint,
-            "--token",
-            "explicit-token",
-            "health",
-        ])
-        .env("TRUST_CTL_TOKEN", "environment-token")
-        .output()
-        .expect("run ctl with explicit target");
+    let explicit_output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("ctl")
+    .arg("--project")
+    .arg(&project)
+    .args([
+        "--endpoint",
+        &explicit_endpoint,
+        "--token",
+        "explicit-token",
+        "health",
+    ])
+    .env("TRUST_CTL_TOKEN", "environment-token")
+    .output()
+    .expect("run ctl with explicit target");
     let explicit_request = explicit_request_rx
         .recv()
         .expect("captured explicit request");
@@ -284,20 +296,23 @@ fn ctl_target_resolution_enforces_endpoint_and_token_precedence() {
         .expect("write malformed unused project");
     let (bypass_endpoint, bypass_request_rx, bypass_server) =
         spawn_control_server(json!({"id": 1, "ok": true, "result": {"ok": true}}));
-    let bypass_output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("ctl")
-        .arg("--project")
-        .arg(&malformed_project)
-        .args([
-            "--endpoint",
-            &bypass_endpoint,
-            "--token",
-            "resolved-token",
-            "health",
-        ])
-        .env_remove("TRUST_CTL_TOKEN")
-        .output()
-        .expect("run ctl without loading resolved project");
+    let bypass_output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("ctl")
+    .arg("--project")
+    .arg(&malformed_project)
+    .args([
+        "--endpoint",
+        &bypass_endpoint,
+        "--token",
+        "resolved-token",
+        "health",
+    ])
+    .env_remove("TRUST_CTL_TOKEN")
+    .output()
+    .expect("run ctl without loading resolved project");
     let bypass_request = bypass_request_rx.recv().expect("captured bypass request");
     bypass_server.join().expect("bypass control server");
     assert!(
@@ -309,14 +324,17 @@ fn ctl_target_resolution_enforces_endpoint_and_token_precedence() {
 
     let (environment_endpoint, environment_request_rx, environment_server) =
         spawn_control_server(json!({"id": 1, "ok": true, "result": {"ok": true}}));
-    let environment_output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("ctl")
-        .arg("--project")
-        .arg(&malformed_project)
-        .args(["--endpoint", &environment_endpoint, "health"])
-        .env("TRUST_CTL_TOKEN", "environment-token")
-        .output()
-        .expect("run ctl without loading project after environment token resolution");
+    let environment_output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("ctl")
+    .arg("--project")
+    .arg(&malformed_project)
+    .args(["--endpoint", &environment_endpoint, "health"])
+    .env("TRUST_CTL_TOKEN", "environment-token")
+    .output()
+    .expect("run ctl without loading project after environment token resolution");
     let environment_request = environment_request_rx
         .recv()
         .expect("captured environment-token request");

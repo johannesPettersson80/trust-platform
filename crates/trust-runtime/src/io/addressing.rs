@@ -128,6 +128,7 @@ pub struct IoSnapshotEntry {
     pub name: Option<SmolStr>,
     pub address: IoAddress,
     pub value_type: Option<TypeId>,
+    pub value_type_name: Option<SmolStr>,
     pub value: IoSnapshotValue,
     pub source: Option<SmolStr>,
 }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import re
 import unittest
 from datetime import date
 from pathlib import Path
@@ -52,7 +53,7 @@ class GovernanceTests(unittest.TestCase):
         bytecode["required_dimensions"].remove("resource_limit")
         self.assertIn("does not match matrix", "\n".join(self.validate(tampered)))
 
-    def test_product_and_public_claim_changes_do_not_require_metadata_churn(self) -> None:
+    def test_product_changes_require_direct_specification_and_native_test_companions(self) -> None:
         direct_policy = copy.deepcopy(self.document)
         direct_policy["change_policy"]["product_change_requires"] = [
             "written_specification",
@@ -63,7 +64,39 @@ class GovernanceTests(unittest.TestCase):
             "native_executable_test",
         ]
         product = ["crates/trust-runtime/src/runtime/cycle.rs"]
-        self.assertEqual(validate_changed_files(direct_policy, product), [])
+        self.assertEqual(
+            validate_changed_files(direct_policy, product),
+            [
+                "behavior-changing production paths require a changed native executable test",
+                "behavior-changing production paths require a changed written specification",
+            ],
+        )
+
+        self.assertEqual(
+            validate_changed_files(
+                direct_policy,
+                [*product, "docs/specs/11-runtime-engine.md"],
+            ),
+            ["behavior-changing production paths require a changed native executable test"],
+        )
+        self.assertEqual(
+            validate_changed_files(
+                direct_policy,
+                [*product, "crates/trust-runtime/tests/runtime_cycle.rs"],
+            ),
+            ["behavior-changing production paths require a changed written specification"],
+        )
+        self.assertEqual(
+            validate_changed_files(
+                direct_policy,
+                [
+                    *product,
+                    "docs/specs/11-runtime-engine.md",
+                    "crates/trust-runtime/tests/runtime_cycle.rs",
+                ],
+            ),
+            [],
+        )
 
         public = ["docs/public/reference/conformance.md"]
         self.assertEqual(validate_changed_files(direct_policy, public), [])
@@ -76,6 +109,60 @@ class GovernanceTests(unittest.TestCase):
             direct_policy["change_policy"]["public_claim_change_requires"],
             ["written_specification", "native_executable_test"],
         )
+
+    def test_direct_change_contract_covers_every_executable_code_area(self) -> None:
+        production_paths = [
+            ".github/workflows/ci.yml",
+            "Cargo.toml",
+            "crates/trust-dev/src/main.rs",
+            "editors/vscode/src/extension.tsx",
+            "justfile",
+            "scripts/release.ps1",
+            "xtask/src/main.rs",
+        ]
+
+        for product_path in production_paths:
+            with self.subTest(product_path=product_path):
+                self.assertEqual(
+                    validate_changed_files(self.document, [product_path]),
+                    [
+                        "behavior-changing production paths require a changed native executable test",
+                        "behavior-changing production paths require a changed written specification",
+                    ],
+                )
+
+    def test_mqtt_change_requires_the_mqtt_owning_specification(self) -> None:
+        changed = [
+            "crates/trust-runtime/src/io/mqtt/config.rs",
+            "crates/trust-runtime/src/io/mqtt/tests/tag_mapping.rs",
+            "docs/specs/11-runtime-engine.md",
+        ]
+
+        self.assertEqual(
+            validate_changed_files(self.document, changed),
+            [
+                "MQTT production paths require the owning specification "
+                "docs/specs/32-mqtt-io.md"
+            ],
+        )
+
+        changed.append("docs/specs/32-mqtt-io.md")
+        self.assertEqual(validate_changed_files(self.document, changed), [])
+
+    def test_specification_index_is_complete_unique_and_ordered(self) -> None:
+        specs = Path("docs/specs")
+        expected = sorted(
+            (
+                path.name
+                for path in specs.glob("[0-9][0-9]-*.md")
+            ),
+            key=lambda name: int(name.split("-", 1)[0]),
+        ) + ["sfc-profile.md"]
+        readme = (specs / "README.md").read_text(encoding="utf-8")
+        indexed = re.findall(r"^\| \[([^]]+\.md)\]\([^)]*\) \|", readme, re.MULTILINE)
+
+        self.assertEqual(indexed, expected)
+        self.assertEqual(len(indexed), len(set(indexed)))
 
     def test_stale_metadata_unknown_grace_and_cadence_fail_closed(self) -> None:
         records = {"OLD": {"last_reviewed": "2026-01-01"}}

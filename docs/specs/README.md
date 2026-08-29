@@ -2,7 +2,7 @@
 
 This directory contains the IEC 61131-3 Structured Text language specs
 (`01-09`), the split runtime/tooling specs (`10-14`), the Ladder/profile/editor
-specs (`15-17`), the project/runtime and operational contract specs (`18-31`), and the current
+specs (`15-17`), the project/runtime and operational contract specs (`18-32`), and the current
 non-numbered SFC profile note (`sfc-profile`). Product and tooling contracts in
 this directory are explicitly identified and do not become IEC requirements.
 
@@ -20,12 +20,17 @@ this directory are explicitly identified and do not become IEC requirements.
 | [08-standard-function-blocks.md](08-standard-function-blocks.md) | Bistable, edge detection, counter, timer FBs | trust-hir |
 | [09-semantic-rules.md](09-semantic-rules.md) | Cross-cutting semantic validity rules shared by the language specs | trust-hir |
 | [10-runtime-semantics.md](10-runtime-semantics.md) | Runtime value, memory, execution, stdlib, I/O, errors, testing API | trust-runtime |
-| [11-runtime-engine.md](11-runtime-engine.md) | Runtime architecture, clocks, scheduler, drivers, retain, launcher, browser/discovery/mesh | trust-runtime |
+| [11-runtime-engine.md](11-runtime-engine.md) | Runtime architecture, clocks, scheduler, process-image and driver integration, retain, launcher, and host composition | trust-runtime |
 | [12-bytecode.md](12-bytecode.md) | STBC container, sections, instruction set, versioning | trust-runtime |
 | [13-debug-adapter.md](13-debug-adapter.md) | Debug adapter semantics, breakpoints, variables, reload behavior | trust-debug, trust-runtime |
 | [14-lsp.md](14-lsp.md) | LSP architecture, IDE behavior, protocol, diagnostics, performance | trust-lsp, trust-ide, trust-hir |
-| [sfc-profile.md](sfc-profile.md) | Reserved SFC keywords, visual-editor scope, textual SFC boundary | editors/vscode, trust-syntax |
 | [15-ladder-diagram.md](15-ladder-diagram.md) | Normative IEC-aligned LD language semantics and conformance rules | trust-runtime, trust-lsp, editors/vscode |
+| [16-ladder-profile-trust.md](16-ladder-profile-trust.md) | truST LD schema/runtime/editor profile and interoperability constraints | trust-runtime, trust-lsp, editors/vscode |
+| [17-visual-editors-runtime-unification.md](17-visual-editors-runtime-unification.md) | Shared ST-backed runtime/debug command path for Ladder/Statechart/Blockly | editors/vscode, trust-debug, trust-runtime |
+| [18-configurations-resources-tasks.md](18-configurations-resources-tasks.md) | CONFIGURATION/RESOURCE/TASK declarations and program-to-task binding rules | trust-hir, trust-lsp, trust-runtime |
+| [19-project-model.md](19-project-model.md) | Project tree, config-file roles, build/run lifecycle ownership | trust-runtime, trust-lsp |
+| [20-agent-api-v1.md](20-agent-api-v1.md) | JSON-RPC contract for `trust-dev agent serve` | trust-dev |
+| [21-harness-protocol.md](21-harness-protocol.md) | Deterministic harness wire protocol | trust-harness, trust-runtime |
 | [22-developer-workflows.md](22-developer-workflows.md) | Developer source-discovery and project-scoped commit behavior | trust-dev |
 | [23-connector-status.md](23-connector-status.md) | Canonical connector state, health, confidence, and point-quality vocabulary | trust-runtime, editors/vscode |
 | [24-release-evidence.md](24-release-evidence.md) | Platform, source-build, dependency, artifact, version, hardware, and conformance evidence | release tooling, CI, docs |
@@ -36,12 +41,8 @@ this directory are explicitly identified and do not become IEC requirements.
 | [29-hir-sizeof-and-allocation.md](29-hir-sizeof-and-allocation.md) | Product contracts for `SIZEOF`, `NEW`, and `__DELETE` semantic validation | trust-hir |
 | [30-verification-inventory.md](30-verification-inventory.md) | Governance contract for complete IEC table inventory coverage and fail-closed review | verification tooling |
 | [31-oscat-library-profile.md](31-oscat-library-profile.md) | Normative truST product profile for the classic OSCAT package and its OOP facade | trust-runtime |
-| [16-ladder-profile-trust.md](16-ladder-profile-trust.md) | truST LD schema/runtime/editor profile and interoperability constraints | trust-runtime, trust-lsp, editors/vscode |
-| [17-visual-editors-runtime-unification.md](17-visual-editors-runtime-unification.md) | Shared ST-backed runtime/debug command path for Ladder/Statechart/Blockly | editors/vscode, trust-debug, trust-runtime |
-| [18-configurations-resources-tasks.md](18-configurations-resources-tasks.md) | CONFIGURATION/RESOURCE/TASK declarations and program-to-task binding rules | trust-hir, trust-lsp, trust-runtime |
-| [19-project-model.md](19-project-model.md) | Project tree, config-file roles, build/run lifecycle ownership | trust-runtime, trust-lsp |
-| [20-agent-api-v1.md](20-agent-api-v1.md) | JSON-RPC contract for `trust-dev agent serve` | trust-dev |
-| [21-harness-protocol.md](21-harness-protocol.md) | Deterministic harness wire protocol | trust-harness, trust-runtime |
+| [32-mqtt-io.md](32-mqtt-io.md) | MQTT communication, configuration, mapping, payload, security, worker, and broker-interoperability contracts | trust-runtime |
+| [sfc-profile.md](sfc-profile.md) | Reserved SFC keywords, visual-editor scope, textual SFC boundary | editors/vscode, trust-syntax |
 
 ## Standard Reference
 
@@ -83,6 +84,8 @@ These specifications are based on:
 - HIR warning policy (see `28-hir-warning-policy.md`)
 - `SIZEOF` and allocation semantic validation (see `29-hir-sizeof-and-allocation.md`)
 - IEC table inventory governance (see `30-verification-inventory.md`)
+- OSCAT classic-package and OOP-facade profile (see `31-oscat-library-profile.md`)
+- MQTT communication and PLC I/O mapping (see `32-mqtt-io.md`)
 
 ### Not Covered (Out of Scope)
 
@@ -108,6 +111,8 @@ For HIR query/invalidation behavior, OpenOT authoring, warning policy, and
 allocation-related semantic checks, use `docs/specs/26-hir-semantic-kernel.md`
 through `docs/specs/29-hir-sizeof-and-allocation.md`. For verification
 inventory governance, use `docs/specs/30-verification-inventory.md`.
+For MQTT broker communication, configuration, symbolic tag mapping, payloads,
+and interoperability, use `docs/specs/32-mqtt-io.md`.
 
 For IEC coverage tracking and spec-to-test mapping, see:
 - `docs/specs/coverage/standard-functions-coverage.md`

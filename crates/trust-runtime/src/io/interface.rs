@@ -105,6 +105,10 @@ impl IoInterface {
                 name,
                 address: binding.address.clone(),
                 value_type: binding.value_type,
+                value_type_name: codec
+                    .enum_type
+                    .as_ref()
+                    .map(|enum_type| enum_type.type_name.clone()),
                 value,
                 source: binding.source.clone(),
             };

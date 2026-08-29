@@ -127,7 +127,12 @@ applicable, and lexer/parser tests or snapshots.
   bind the exact validated head and require every check green.
 - When a version changes, continue through main CI, annotated tag, Release workflow, GitHub Latest,
   asset/checksum verification, and VS Code Marketplace propagation; verify with
-  `release_candidate_guard.py verify-release` before reporting completion.
+  `release_candidate_guard.py verify-release --candidate-head <reviewed-head> --branch <candidate-branch>`
+  before reporting completion.
+- After every merge, run `release_candidate_guard.py audit-post-merge` with the exact reviewed
+  candidate head and branch. Remove only the clean exact targets it reports, fetch/prune, and rerun
+  until the audit reports `clean`. A merge or release handoff is incomplete while candidate
+  branches, validation worktrees, dirty work, or unique commits remain unresolved.
 - After a second red candidate or two elapsed hours without merge readiness, stop and report the
   complete blocker ledger. Do not continue an unbounded push/wait/fix loop.
 
@@ -230,7 +235,11 @@ applicable, and lexer/parser tests or snapshots.
   - Run `ssh trust-builder 'df -hT /home/johannes /tmp && du -xhd1 "$HOME/projects" 2>/dev/null | sort -h | tail -20 && du -xhd1 "$HOME/.cache" 2>/dev/null | sort -h | tail -20'`.
   - All paths in these commands are on the remote `trust-builder` machine, not on the local workstation.
   - The builder will usually not have 100G free. Do not use an impossible threshold.
-  - For `just test-all` or large native-dependency changes (ADS, OPC UA/OpenSSL, EtherCAT, WebGPU/Scena), aim for at least 60G free on `trust-builder:/home/johannes` and 3G on `trust-builder:/tmp` after cleanup.
+  - For a cold exact-candidate `just test-all` or large native-dependency change
+    (ADS, OPC UA/OpenSSL, EtherCAT, WebGPU/Scena), require at least 80G free on
+    `trust-builder:/home/johannes` before starting and aim for 3G on
+    `trust-builder:/tmp` after cleanup. The exact-candidate guard enforces the
+    home-space floor because an uncached all-target test build can exceed 55G.
   - For `just clippy`, `just test`, VS Code `npm test`, or broad `cargo test`, aim for at least 25G free on `trust-builder:/home/johannes`.
   - If below the practical threshold, delete only generated build/cache outputs such as the active isolated validation `target/`, `fuzz/target/`, `$HOME/.cache/sccache`, or `$HOME/.cache/codex-targets/*`; never delete source worktrees or non-generated files for cleanup.
   - For isolated validation copies, prefer one warmed target directory on the remote builder (`CARGO_TARGET_DIR=$HOME/.cache/codex-targets/trust-platform-gate`) instead of repeatedly creating huge cold `target/` trees.

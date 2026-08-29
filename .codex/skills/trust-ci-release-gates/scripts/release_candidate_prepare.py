@@ -84,14 +84,47 @@ def remote_validation_commands(
     *, vscode_changed: bool, remote_target: str
 ) -> list[tuple[str, str]]:
     target = validated_remote_target(remote_target)
-    target_env = f"CARGO_TARGET_DIR={shlex.quote(target)} CARGO_INCREMENTAL=0"
-    commands = [("remote_exact_head", "")]
+    target_tmp = str(PurePosixPath(target) / "tmp")
+    target_bin = str(PurePosixPath(target) / "bin")
+    sccache_shim = str(PurePosixPath(target_bin) / "sccache")
+    passthrough_source = (
+        ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh"
+    )
+    target_env = (
+        f"CARGO_TARGET_DIR={shlex.quote(target)} "
+        "CARGO_INCREMENTAL=0 RUSTC_WRAPPER=/usr/bin/env "
+        "CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env "
+        f"CC=cc CXX=c++ TMPDIR={shlex.quote(target_tmp)} "
+        f"PATH={shlex.quote(target_bin)}:$PATH"
+    )
+    vscode_target_env = target_env.replace(
+        f"TMPDIR={shlex.quote(target_tmp)}", 'TMPDIR="$vscode_tmp"'
+    )
+    prepare_target = (
+        f"mkdir -p -- {shlex.quote(target_tmp)} {shlex.quote(target_bin)} && "
+        f"install -m 755 {passthrough_source} {shlex.quote(sccache_shim)}"
+    )
+    disk_preflight = (
+        'available_kib=$(df --output=avail -k "$HOME" | tail -n 1 | tr -d " "); '
+        "required_kib=83886080; "
+        'df -hT "$HOME" /tmp; '
+        'if [ "$available_kib" -lt "$required_kib" ]; then '
+        'printf "exact candidate requires at least 80 GiB free under $HOME; '
+        'found %s KiB\\n" "$available_kib" >&2; exit 1; fi'
+    )
+    commands = [
+        ("remote_exact_head", ""),
+        ("remote_disk_preflight", disk_preflight),
+        ("remote_prepare_target", prepare_target),
+    ]
     if vscode_changed:
         commands.append(
             (
                 "remote_vscode",
+                "vscode_tmp=$(mktemp -d /tmp/trust-vscode-candidate.XXXXXX) && "
+                "trap 'rm -rf -- \"$vscode_tmp\"' EXIT && "
                 "cd editors/vscode && npm ci && npm run lint && npm run compile && "
-                f"{target_env} xvfb-run -a npm test",
+                f"{vscode_target_env} xvfb-run -a npm test",
             )
         )
     commands.extend(
@@ -100,9 +133,9 @@ def remote_validation_commands(
             ("remote_clippy", f"{target_env} just clippy"),
             (
                 "remote_reclaim_before_test_all",
-                f"rm -rf -- {shlex.quote(target)} && mkdir -p -- {shlex.quote(target)}",
+                f"rm -rf -- {shlex.quote(target)} && {prepare_target}",
             ),
-            ("remote_test_all", f"{target_env} just test-all"),
+            ("remote_test_all", f"{target_env} CARGO_BUILD_JOBS=1 just test-all"),
             ("remote_clean_after", 'test -z "$(git status --porcelain=v1 --untracked-files=all)"'),
         ]
     )
@@ -183,7 +216,13 @@ def finish_artifact(
     if not passed:
         for row in records:
             if row["exit_status"] != 0:
-                print(f"FAILED {row['id']}: {log_dir / (row['id'] + '.log')}", file=sys.stderr)
+                label = (
+                    "ADVISORY" if row["id"] in ADVISORY_COMMAND_IDS else "FAILED"
+                )
+                print(
+                    f"{label} {row['id']}: {log_dir / (row['id'] + '.log')}",
+                    file=sys.stderr,
+                )
         return 1
     return 0
 

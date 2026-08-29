@@ -2,7 +2,19 @@
 title Release Evidence and Public-Claim Boundary
 
 actor "Release maintainer" as maintainer
+actor "Pull request author" as author
+artifact "Changed production source" as productionDiff
+artifact "Changed written specification" as specificationDiff
+artifact "Changed native executable test" as nativeTestDiff
+component "Strict PR verification report" as prVerification
+component "Direct change contract\n(path-level minimum)" as directChangeContract
+component "Runtime communications\nconformance gate" as runtimeCommsGate
+node "Real Mosquitto broker\n+ mosquitto_sub client" as mosquitto
 component "GitHub Release workflow" as release
+component "Release candidate guard" as releaseGuard
+component "Docs capture launcher" as captureLauncher
+artifact "Owned capture session\nand code-server container" as captureProcesses
+database "Local candidate state\nbranches and worktrees" as candidateState
 component "Dependency exception check" as dependencyPolicy
 component "VS Code npm audit" as npmAudit
 artifact "Successful CI conformance artifact" as conformanceInput
@@ -12,7 +24,26 @@ component "Release claim contract" as claimContract
 artifact "Release assets\nprovenance.json\nconformance.json/.md\nSHA256SUMS" as assets
 database "Verification metadata\nspecs, gaps, invariants, proof" as verification
 
+author --> productionDiff
+author --> specificationDiff
+author --> nativeTestDiff
+productionDiff --> prVerification
+specificationDiff --> prVerification
+nativeTestDiff --> prVerification
+prVerification --> directChangeContract : enforce direct companions
+directChangeContract --> release : candidate eligibility only after pass
+runtimeCommsGate --> mosquitto : traffic-light symbolic mappings
+mosquitto --> runtimeCommsGate : three topics change true and false\nno trust/io/in subscription
+runtimeCommsGate --> conformanceInput : executable broker evidence
 maintainer --> release : annotated tag
+maintainer --> releaseGuard : verify release, then audit exact candidate
+releaseGuard --> captureLauncher : require exact-SHA capture result
+captureLauncher --> captureProcesses : start and own
+captureProcesses --> captureLauncher : reap on success, failure, or signal
+releaseGuard --> release : query workflow, release, assets
+releaseGuard --> candidateState : inspect ancestry, refs, dirtiness, and prunable registrations
+candidateState --> releaseGuard : blockers or explicit cleanup targets
+releaseGuard --> maintainer : blocked / cleanup required / clean
 release --> dependencyPolicy : validate reviewed exceptions
 release --> npmAudit : require zero lockfile advisories
 release --> conformanceInput : download successful CI evidence
@@ -29,6 +60,24 @@ note bottom of verification
   Targeted G1 proof supports implementation claims.
   Native, published, and device evidence remains required
   before public release claims close.
+end note
+
+note bottom of candidateState
+  The audit never deletes automatically.
+  Release handoff closes only after a clean rerun.
+end note
+
+note bottom of captureProcesses
+  Reused external servers are not owned or terminated.
+  Owned sessions and containers cannot survive the launcher.
+end note
+
+note bottom of directChangeContract
+  Companion presence is necessary, not semantic proof.
+  Executable workflows, crates, VS Code sources,
+  scripts, xtask, and root build controls are covered.
+  Owning specifications, native assertions, and reviewed
+  behavior matrices remain the product authority.
 end note
 
 @enduml

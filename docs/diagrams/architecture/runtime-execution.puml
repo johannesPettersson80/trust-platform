@@ -333,6 +333,8 @@ package "Control + HMI Contract" as hmiPkg #Lavender {
 
     rectangle "Web IDE Preview (/ide)" as ideWeb #Wheat {
         card "GET /ide + /ide/modules/ide-*.js\n(preview shell + modular UI bundles)" as ideRoute
+        card "Hardware tab\nasync config hydration + ARIA route state" as ideHardware
+        card "communication graph relayout\nlatest frame wins\none post-hydration resize/fit" as ideHardwareLayout
         card "GET /api/ide/capabilities\n(scope + limits + mode)" as ideCaps
         card "POST /api/ide/session\n(auth -> session token)" as ideSession
         card "GET /api/ide/files\n(list sources/**/*.st)" as ideFiles
@@ -373,6 +375,8 @@ package "Control + HMI Contract" as hmiPkg #Lavender {
     hmiPoll ..> hmiAlarms : request alarms
     hmiRoute --> hmiExport
     ideRoute --> ideCaps
+    ideRoute --> ideHardware
+    ideHardware --> ideHardwareLayout
     ideCaps --> ideSession
     ideSession --> ideFiles
     ideFiles --> ideOpen
@@ -872,9 +876,12 @@ package "I/O Interface" as ioPkg #LightGray {
         inputs: Vec<u8>
         outputs: Vec<u8>
         memory: Vec<u8>
+        bindings: Vec<IoBinding>
+        binding_codecs: Vec<IoBindingCodec>
         --
         +read(address) → Value
         +write(address, value)
+        +snapshot() → declared type metadata + value state
     }
 
     interface "IoDriver" as ioDriver {
@@ -913,8 +920,13 @@ package "I/O Interface" as ioPkg #LightGray {
         Output-only mappings neither subscribe
         nor clear shared input bytes. Read-only
         mappings publish no raw output fallback.
+        Present-but-empty mappings disable both
+        raw directions; only absent mappings use
+        the default raw topics.
         Enum identity stays at the process-image
-        binding; MQTT carries the numeric member.
+        binding; MQTT carries the numeric member,
+        while snapshots carry the declared enum
+        name for value, error, and unresolved states.
     end note
 
     note right of ethercatDriver

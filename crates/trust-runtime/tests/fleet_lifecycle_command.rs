@@ -34,7 +34,10 @@ fn run_fleet(root: &Path, args: &[&str]) -> Output {
     let stderr_path = capture_dir.join(format!("{sequence}.stderr"));
     let stdout = std::fs::File::create(&stdout_path).expect("create fleet command stdout capture");
     let stderr = std::fs::File::create(&stderr_path).expect("create fleet command stderr capture");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+    let mut command = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    );
     command
         .arg("fleet")
         .args(args)

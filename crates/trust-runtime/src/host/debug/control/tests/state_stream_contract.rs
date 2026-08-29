@@ -21,6 +21,7 @@ fn io_snapshot(scan: u64, value: i64) -> IoSnapshot {
             name: Some("output".into()),
             address: IoAddress::parse("%QW0").expect("address"),
             value_type: None,
+            value_type_name: None,
             value: IoSnapshotValue::Value(Value::LInt(value)),
             source: None,
         }],

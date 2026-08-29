@@ -731,7 +731,7 @@ become an infinite `REAL` value or register payload. This is a truST Modbus
 product and safety contract outside IEC 61131-3, not an IEC decision or
 deviation.
 
-###### Modbus and MQTT typed point-map contract
+###### Typed protocol point-map integration contract
 
 Typed point maps bind one protocol scalar to one bounded process-image scalar.
 They do not reinterpret arbitrary trailing bytes, merge overlapping
@@ -758,60 +758,19 @@ Within one input or output map, two point definitions must not claim the same
 protocol identity or overlapping process-image storage. Boolean bits in the
 same byte are distinct storage only when their bit indices differ. Modbus
 register ranges account for the type's complete one- or two-register width and
-the selected function/table. MQTT identities use the exact normalized topic.
+the selected function/table. MQTT protocol identity is specified by
+[`32-mqtt-io.md`](32-mqtt-io.md).
 An input and output may use the same process-image offset because `%I` and
 `%Q` are separate images. Ambiguous duplicates or overlaps are configuration
 errors before a worker or transport is started.
 
-For MQTT:
-
-- `mappings` is an optional ordered array of tag-oriented point definitions.
-  Each entry contains exactly `tag`, `topic`, and `direction`; `direction =
-  "write"` transfers the PLC value to the broker and `direction = "read"`
-  transfers the broker value to the PLC. Direction is defined relative to the
-  PLC, not the broker;
-- a mapping tag names one fully qualified scalar program-instance variable,
-  such as `MainInstance.Green`. Startup resolves every tag before starting the
-  MQTT worker and fails without a partial binding when a tag is missing,
-  ambiguous, non-scalar, or has a type outside the MQTT scalar set;
-- resolved mappings lower through the shared `%I`/`%Q` process-image boundary
-  and the existing typed MQTT point-map codec. Existing compatible direct
-  bindings are reused; otherwise deterministic non-overlapping image storage is
-  allocated after the declared process image. The MQTT worker does not access
-  program storage or resolve symbols;
-- a configuration containing only `direction = "write"` mappings has no
-  implicit raw-input subscription, does not require an inbound snapshot, and
-  leaves the shared input process image unchanged. A configuration containing
-  only `direction = "read"` mappings publishes neither mapped output nor the
-  raw shared output image. Raw `topic_in`/`topic_out` behavior remains the
-  default only when `mappings` is absent;
-- mapping values use the inferred PLC scalar type and the text payload format.
-  Explicit `input_points` and `output_points` remain available for address,
-  binary-format, scaling, and Sparkplug control;
-- an enumeration mapping uses the numeric value of its declared IEC member on
-  the MQTT wire while preserving the declared enumeration TypeId in program
-  storage. Inbound numeric values reconstruct the matching declared member;
-  an undeclared value is rejected before any input binding is committed.
-  Aliases preserve the declared enumeration identity rather than degrading the
-  value to its integer base type;
-- subrange mappings retain the existing process-image contract of using the
-  declared subrange's base scalar representation;
-- unknown MQTT parameter or mapping fields are configuration errors instead of
-  being ignored;
-- a point topic is trimmed, non-empty, contains no control character, and is
-  an exact publish/delivery topic rather than a `+` or `#` subscription
-  filter;
-- Boolean maps require `image_bit`; numeric maps reject it;
-- payload formats are text, JSON, binary little-endian, and binary big-endian,
-  including their documented aliases; omitted format means text;
-- text and JSON numeric strings permit surrounding whitespace but must contain
-  one complete finite scalar;
-- JSON Boolean input accepts a Boolean, number, or recognized Boolean string;
-  JSON numeric input accepts a number or numeric string;
-- binary Boolean payloads contain exactly one byte and numeric binary payloads
-  contain exactly the declared width; extra and truncated bytes are rejected;
-  and
-- output metric names are trimmed, non-empty, and free of control characters.
+MQTT is a communication protocol owned by
+[`32-mqtt-io.md`](32-mqtt-io.md). This runtime-engine document owns only its
+integration boundary: startup resolves symbolic tags and installs all
+process-image bindings atomically before the protocol worker starts; the worker
+cannot access program storage or resolve symbols; scan-cycle calls exchange
+bounded snapshots and handoffs; and runtime I/O snapshots retain the declared
+PLC type metadata required by control and debug surfaces.
 
 For Modbus:
 
@@ -831,78 +790,24 @@ These point-map rules are truST protocol/product behavior outside IEC
 an invalid configuration, malformed scalar, out-of-range value, or partial
 batch into accepted PLC data.
 
-2. **MQTT (baseline profile)**
-- Topic bridge between broker payloads and process image bytes.
-- `topic_in` payload bytes are copied into `%I` at cycle start.
-- `%Q` output bytes are published to `topic_out` at cycle end.
-- Optional `input_points` and `output_points` map typed scalar MQTT topics to
-  process-image offsets with `bool`, `u16`, `i16`, `u32`, `i32`, or `f32`
-  values, `text`/`json`/`binary_le`/`binary_be` payloads, and linear
-  `scale`/`offset`.
-- Numeric typed point values are stored in the runtime process image as
-  little-endian bytes; binary MQTT payload endianness applies only to the MQTT
-  payload.
-- Optional Sparkplug B outbound node profile for typed `output_points`:
-  `namespace = "spBv1.0"`, `spec_version = "3.0.0"`, required `group_id`, and
-  required `edge_node_id`.
-- Sparkplug mode publishes NBIRTH on MQTT session establishment, configures
-  NDEATH as the MQTT last will, and publishes NDATA scalar metric payloads for
-  typed output points.
-- Sparkplug topics are
-  `<namespace>/<group_id>/NBIRTH/<edge_node_id>`,
-  `<namespace>/<group_id>/NDEATH/<edge_node_id>`, and
-  `<namespace>/<group_id>/NDATA/<edge_node_id>`. Birth precedes data for each
-  accepted session. Payloads use the Eclipse Tahu Sparkplug B protobuf metric
-  representation for the supported scalar types. The configured profile
-  requires `group_id`, `edge_node_id`, at least one output point, and no input
-  points. Device topics, templates, aliases, and command subscriptions are
-  non-goals rather than claimed supported behavior. Structural field-byte or
-  substring assertions do not establish reference Tahu interoperability; a
-  reference decoder remains required for that proof.
-- A plain `mqtt://` endpoint is permitted only for loopback/local authority
-  unless the explicit insecure-remote override is set. `mqtts://` implies TLS.
-  TLS configuration requires a CA path; client certificate and key are an
-  all-or-nothing pair; TLS-only fields are rejected when TLS is disabled.
-  An empty ALPN list has no effect when TLS is disabled. Enabling TLS constructs
-  the configured CA and optional mTLS transport, but construction alone is not
-  evidence of a successful broker handshake.
-- Runtime exchange is worker-backed: broker connect/poll/publish and
-  reconnection happen on the MQTT worker, while scan-cycle reads/writes use
-  bounded snapshot/handoff state.
-- When a raw `topic_in` read drains multiple payloads in one worker operation,
-  the newest drained payload is the authoritative process-image snapshot.
-- Under the default `fault` policy, disconnected or stale MQTT input reads and
-  bounded reads with no available snapshot return `IoFreshness`. Completed
-  connection failures retain their connection context at the worker boundary;
-  they are not replaced by a generic unavailable-snapshot message.
-- The same default `fault` policy remains authoritative when a prior input
-  snapshot exists but the requested refresh misses its scan deadline, when an
-  output handoff misses its scan deadline, and when completed typed-output
-  preflight fails, including Sparkplug NDATA preparation. Those failures set
-  faulted health and return an error rather than collapsing to degraded
-  success. A faulted stale-input read leaves the caller's input buffer
-  unchanged. `warn` and `ignore` retain their documented degraded-success
-  behavior. The focused stale-snapshot copy lock covers `warn`; an explicit
-  `ignore` stale-copy matrix remains open.
-  An output deadline does not itself cancel the already queued asynchronous
-  output; later publication does not retroactively make the timed-out call
-  successful.
-- Reconnection is non-blocking; runtime cycle remains deterministic.
-- Reconnection uses a non-zero bounded backoff and cannot busy-loop after a
-  connection failure. Dropping the driver requests shutdown and returns within
-  the bounded driver-drop deadline, including while a session connection is
-  pending. This return-time contract does not claim that the detached worker
-  thread has already joined; joined worker shutdown remains open proof debt.
-- Security baseline rejects insecure remote brokers unless explicitly overridden.
-- Sparkplug B non-goals in this profile: command subscriptions, device-level
-  DBIRTH/DDATA topics, metric aliases, templates, and store-and-forward.
+2. **MQTT I/O integration**
+- MQTT configuration, topics, mapping, payload, security, session, discovery,
+  and interoperability behavior is specified by
+  [`32-mqtt-io.md`](32-mqtt-io.md).
+- The host runtime lowers MQTT points through the shared process image and
+  starts the protocol-owned worker only after configuration and binding
+  succeed.
+- Broker connect, poll, publish, and reconnect work never runs on the PLC scan
+  thread. Scan reads and writes use bounded snapshot and handoff state.
+- Driver failures enter the common runtime I/O health and fault-policy path.
+- MQTT is not part of the PLC executor, scheduler, or IEC language semantics.
 
-###### MQTT default-fault and latest-value integrity
+###### MQTT runtime integration integrity
 
-The newest raw-payload and default-fault rules above are a truST runtime product
-contract outside IEC 61131-3. Broker delivery, worker deadlines, cached
-snapshots, and output preflight are not IEC language semantics and do not
-belong in `IEC_DECISIONS.md` or `IEC_DEVIATIONS.md`.
+MQTT worker deadlines and fault projection are runtime integration contracts.
+Broker delivery, MQTT sessions, topics, payloads, and reconnect semantics are
+owned by [`32-mqtt-io.md`](32-mqtt-io.md). Neither document turns these truST
+product contracts into IEC language decisions or deviations.
 
 3. **EtherCAT (backend v1)**
 - Driver name: `ethercat`.
@@ -1091,10 +996,6 @@ must not expose credentials.
 - The runtime does not clamp, normalize, or substitute a default value.
   Subnormal values and signed zero are outside this rule.
 
-Protocol roadmap priority after OPC UA baseline:
-- First: MQTT
-- Next: EtherNet/IP
-
 ##### Connector status and discovery truth contract
 
 Connector reporting is an additive supervisory contract over protocol-owned
@@ -1127,12 +1028,11 @@ readiness:
 
 - `confirmed` requires a valid protocol-level exchange. Modbus uses FC43/14
   device identification or an explicitly configured FC03 safe read. A normal
-  or protocol-valid Modbus exception response confirms the protocol. MQTT uses
-  an accepted CONNACK.
+  or protocol-valid Modbus exception response confirms the protocol. MQTT
+  classification is defined by [`32-mqtt-io.md`](32-mqtt-io.md).
 - `likely` requires a protocol-shaped response that does not establish an
-  accepted session. An MQTT authentication or authorization rejection is
-  `likely` with `auth_required = true`; other valid rejected CONNACK responses
-  are also `likely`.
+  accepted session. MQTT rejection classification and authentication evidence
+  are defined by [`32-mqtt-io.md`](32-mqtt-io.md).
 - `port_reachable` proves only that the TCP connection succeeded. It must not
   be rendered or consumed as a confirmed Modbus device or MQTT broker.
 - `unavailable` means that no useful discovery evidence was obtained.
@@ -1143,10 +1043,8 @@ fleet peer supplies an invalid connector report, the peer's raw topology
 remains visible and the validation failure is shown to the operator; the bad
 report must not make that peer or the other configured peers silently vanish.
 
-MQTT discovery sets `clean_session = true` and sends DISCONNECT immediately
-after every received CONNACK, including rejected CONNACK responses. It does not
-leave a discovery session active. MQTTS port reachability without a TLS MQTT
-exchange remains `port_reachable`.
+MQTT discovery evidence and session-cleanup behavior are specified by
+[`32-mqtt-io.md`](32-mqtt-io.md).
 
 The Modbus discovery wire probe emits a valid MBAP header with protocol ID
 zero, exact transaction ID, unit ID, and PDU length. FC43/14 uses transaction
@@ -1159,19 +1057,9 @@ a normal function response is accepted, and an exception function requires an
 explicit exception code. A mismatched unit, truncated exception, malformed
 length, unexpected function, or partial body is not Modbus evidence.
 
-The MQTT discovery CONNECT packet uses MQTT 3.1.1, clean-session true,
-keepalive zero, no credential or will flags, and a bounded UTF-8 client ID.
-Remaining Length uses the canonical shortest MQTT base-128 encoding and is
-limited to four bytes and 268,435,455; overlong, non-minimal, truncated, or
-overflow encodings reject. CONNACK is exactly packet type `0x20`, remaining
-length 2, a session-present flag of zero or one, and return code 0 through 5.
-Reserved acknowledgement flags, extra bytes, unknown return codes, and
-session-present set on a rejected connection are malformed protocol input, not
-`likely` evidence. Valid return code zero is `confirmed`; codes 4 and 5 are
-`likely` with authentication required; other valid rejection codes are
-`likely` without that flag. A valid CONNACK is followed by DISCONNECT even
-when rejected. Malformed input and TCP-only behavior never become protocol
-confirmation.
+MQTT packet validation and CONNACK classification are owned by
+[`32-mqtt-io.md`](32-mqtt-io.md); this shared discovery surface consumes only
+the resulting evidence class.
 
 ##### Communication discovery scope and symbol browsing
 
@@ -1211,15 +1099,8 @@ ascending and canonicalized to the containing network: `/24` through `/30`
 exclude network and broadcast, `/31` includes both point-to-point addresses,
 and `/32` includes its sole address.
 
-MQTT discovery never performs an undirected network scan. Missing host returns
-no candidates plus the stable directed-host warning. A directed host accepts a
-host, IPv4 address, or bracketed IPv6 address. An omitted port probes the
-distinct resolved addresses at both 1883 and 8883 in deterministic
-address/port order; an explicit nonzero port probes only that endpoint.
-Schemes, userinfo, paths, queries, fragments, invalid ports, ambiguous
-unbracketed IPv6, duplicate socket addresses, and unresolved targets reject
-before probing. Port 8883 yields only MQTTS TCP-reachability evidence unless a
-TLS MQTT exchange is actually completed.
+MQTT target validation, directed-only scope, deterministic endpoint order, and
+TLS evidence limits are owned by [`32-mqtt-io.md`](32-mqtt-io.md).
 
 OPC UA client discovery requires a directed host or endpoint. A bare host
 defaults to `opc.tcp://<host>:4840`; an explicit valid port, bracketed IPv6
@@ -2034,7 +1915,8 @@ after a TCP or Unix connection is established, reads and writes are bounded to
 integer; every other value remains the trimmed string. Human-oriented rendering
 happens only after `ok = true`. Status renders
 `state=<state> fault=<fault> rt_profile=<profile> rt_active=<bool>`, defaulting
-absent fault/realtime fields to `none`, `disabled`, and `false`. Health renders
+an absent or JSON-null fault to `none`, and absent realtime fields to
+`disabled` and `false`. A non-null fault must be a string. Health renders
 `ok=<bool>`. An empty task list renders `tasks=0`; otherwise each task renders
 one line containing its name, min/average/max/last milliseconds to three
 decimal places, and overrun count.
@@ -2654,8 +2536,8 @@ Modbus and MQTT Test are bounded TCP-reachability probes, not protocol
 handshakes. Their positive detail and evidence therefore claim only that the
 resolved port accepted a TCP connection. Modbus accepts a host, IPv4 address,
 or bracketed IPv6 address with an optional port and defaults an omitted port
-to 502. MQTT accepts the `mqtt://` and `tcp://` cleartext schemes with default
-port 1883 and the `mqtts://` and `ssl://` TLS schemes with default port 8883.
+to 502. MQTT target syntax and default ports are specified by
+[`32-mqtt-io.md`](32-mqtt-io.md).
 An explicit valid port is retained. Empty hosts, zero or invalid ports,
 userinfo, paths, queries, fragments, unsupported schemes, and ambiguous
 unbracketed IPv6 are field errors before DNS or connection activity. A
@@ -4014,6 +3896,13 @@ expandable buttons with accurate `aria-expanded` state. Hydrated I/O and
 runtime communication drivers appear as labeled cards. Expanding and
 collapsing the driver region updates both the visible region and the
 controlling button's `aria-expanded` value.
+
+Hardware-tab activation and route changes remain browser-responsive while the
+communication graph is laid out. Canvas relayout requests made before the next
+animation frame coalesce into one pending frame. Replacing or deactivating that
+request cancels both the pending frame and its delayed resize/fit timers. The
+latest request schedules one fit pass after 260 milliseconds, so project
+hydration cannot overlap or accumulate parallel resize/fit sequences.
 
 Every driver-card configuration action carries one exact settings key and
 category. Activating it selects Settings, updates the route, renders the owning

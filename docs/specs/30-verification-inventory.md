@@ -226,6 +226,30 @@ must fail with the complete missing-name set. Presence proves synchronized
 documentation, not implementation reachability, protocol execution, IEC
 conformance, or adequate standard-library behavior.
 
+### Owning-spec companion contract
+
+A changed written specification satisfies the direct-change companion rule only
+for production paths that it owns. Path-level ownership is a minimum routing
+guard, not proof that the prose and assertion are semantically adequate.
+
+Protocol-specific production changes must name their protocol specification.
+In particular, changes below `crates/trust-runtime/src/io/mqtt/` or to the MQTT
+tag-lowering adapter require the MQTT protocol specification; the generic
+runtime-engine specification cannot satisfy that companion by itself. The same
+rule applies to the other registered communication owners as their dedicated
+specifications are established.
+
+The validator reports every missing owning specification in one run and still
+requires a native executable test companion. An unrelated specification, a
+planner/catalog mapping, or a generic runtime summary cannot make the result
+pass. This routing contract prevents one large catch-all document from becoming
+the nominal authority for unrelated behavior.
+
+The specification index lists every direct Markdown specification exactly once.
+Numbered documents appear in numeric order and the intentionally non-numbered
+SFC profile follows them. Missing, duplicated, or disorderly index entries are
+repository contract failures rather than presentation-only drift.
+
 ## Integration-harness resource-bound contract
 
 A live integration harness may catalog an assertion over its own resource

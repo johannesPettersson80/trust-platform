@@ -105,7 +105,7 @@ class PlannerAreaRoutingTests(unittest.TestCase):
             next(
                 row
                 for row in catalog
-                if row["id"] == "TEST_VERIFICATION_METADATA_GATE_001"
+                if row["id"] == "TEST_CASE_TABLE_VM_SEAM_VALID_001"
             )
         ]
 

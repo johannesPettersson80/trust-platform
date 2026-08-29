@@ -111,10 +111,7 @@ impl MqttIoConfig {
                 "mqtt keep_alive_s must be <= 65535".into(),
             ));
         }
-        let has_tag_mappings = params
-            .mappings
-            .as_ref()
-            .is_some_and(|mappings| !mappings.is_empty());
+        let has_tag_mappings = params.mappings.is_some();
         let input_points = params
             .input_points
             .unwrap_or_default()
