@@ -712,7 +712,7 @@ fn openot_example_has_parseable_toml_for_every_supported_database_product() {
 #[test]
 fn runtime_schema_accepts_openot_remote_database_ca_certificate_path() {
     let text = format!(
-        "{}\n[runtime.openot]\n[runtime.openot.persistence]\nenabled = true\nbackend = \"postgresql\"\n\
+        "{}\n[runtime.openot]\nenabled = true\npath = \"history/openot.jsonl\"\n[runtime.openot.persistence]\nenabled = true\nbackend = \"postgresql\"\n\
          \n[runtime.openot.persistence.postgresql]\nconnection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"openot\"\ntls = \"require\"\nca_cert_path = \"certs/openot-database-ca.pem\"\n",
         runtime_toml()
     );
@@ -724,7 +724,7 @@ fn runtime_schema_accepts_openot_remote_database_ca_certificate_path() {
 #[test]
 fn runtime_schema_accepts_openot_influxdb3_ca_certificate_path() {
     let text = format!(
-        "{}\n[runtime.openot]\n[runtime.openot.persistence]\nenabled = true\nbackend = \"influxdb3\"\n\
+        "{}\n[runtime.openot]\nenabled = true\npath = \"history/openot.jsonl\"\n[runtime.openot.persistence]\nenabled = true\nbackend = \"influxdb3\"\n\
          \n[runtime.openot.persistence.influxdb3]\nhost_env = \"TRUST_OPENOT_INFLUX_HOST\"\ntoken_env = \"TRUST_OPENOT_INFLUX_TOKEN\"\ndatabase = \"openot\"\nspool_path = \"history/openot-influx-spool.sqlite3\"\nmax_bytes = 1073741824\nca_cert_path = \"certs/openot-influx-ca.pem\"\n",
         runtime_toml()
     );
