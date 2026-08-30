@@ -32,6 +32,14 @@ pub struct OpenOtPersistenceWorkerStatus {
     pub documents_duplicated: u64,
     /// Documents durable in a required local spool but not acknowledged remotely.
     pub remote_pending: u64,
+    /// Descriptive public read-model rows newly committed by this worker.
+    pub projection_rows_committed: u64,
+    /// Future events committed with fields retained as unclassified.
+    pub unclassified_event_count: u64,
+    /// Delivery parts confirmed remotely during this worker lifetime.
+    pub reconciled_part_count: u64,
+    /// Delivery parts still awaiting remote confirmation.
+    pub pending_part_count: u64,
     /// Malformed carriage records rejected by the source reader.
     pub rejected: u64,
     /// Placeholder documents emitted because resolution correctly failed closed.
@@ -113,7 +121,13 @@ where
 
         if prepared.documents.is_empty() && prepared.checkpoint.cursor_abs <= durable_cursor {
             self.status.cursor_abs = durable_cursor;
-            self.status.remote_pending = self.sink.maintenance()? as u64;
+            let maintenance = self.sink.maintenance_status()?;
+            self.status.remote_pending = maintenance.remote_pending as u64;
+            self.status.reconciled_part_count = self
+                .status
+                .reconciled_part_count
+                .saturating_add(maintenance.reconciled_parts as u64);
+            self.status.pending_part_count = maintenance.pending_parts as u64;
             return Ok(None);
         }
         self.pending = Some(prepared);
@@ -134,6 +148,15 @@ where
             .documents_duplicated
             .saturating_add(outcome.duplicated as u64);
         self.status.remote_pending = outcome.remote_pending as u64;
+        self.status.projection_rows_committed = self
+            .status
+            .projection_rows_committed
+            .saturating_add(outcome.projection_rows_committed as u64);
+        self.status.unclassified_event_count = self
+            .status
+            .unclassified_event_count
+            .saturating_add(outcome.unclassified_events as u64);
+        self.status.pending_part_count = outcome.pending_parts as u64;
         self.status.cursor_abs = outcome.checkpoint.cursor_abs;
         Ok(outcome)
     }
@@ -215,6 +238,10 @@ mod tests {
                 documents_committed: 1,
                 documents_duplicated: 0,
                 remote_pending: 0,
+                projection_rows_committed: 0,
+                unclassified_event_count: 0,
+                reconciled_part_count: 0,
+                pending_part_count: 0,
                 rejected: 0,
                 unresolved: 0,
                 loss_range_count: 0,

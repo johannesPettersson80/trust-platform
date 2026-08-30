@@ -35,8 +35,25 @@ pub struct CommitOutcome {
     pub duplicated: usize,
     /// Documents durably accepted locally but not yet acknowledged by the remote backend.
     pub remote_pending: usize,
+    /// Descriptive public read-model rows newly committed with the documents.
+    pub projection_rows_committed: usize,
+    /// Newly committed future events retaining unclassified fields.
+    pub unclassified_events: usize,
+    /// Durable delivery parts still awaiting remote reconciliation.
+    pub pending_parts: usize,
     /// Durable checkpoint after the commit.
     pub checkpoint: PersistenceCheckpoint,
+}
+
+/// Result of one backend maintenance pass.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MaintenanceOutcome {
+    /// Documents still awaiting required remote delivery.
+    pub remote_pending: usize,
+    /// Delivery parts confirmed remotely by this pass.
+    pub reconciled_parts: usize,
+    /// Delivery parts still awaiting remote confirmation.
+    pub pending_parts: usize,
 }
 
 /// Backend-neutral persistence failure.
@@ -108,6 +125,7 @@ pub(super) fn ensure_private_parent(
     else {
         return Ok(());
     };
+    #[cfg(unix)]
     let existed = parent.exists();
     std::fs::create_dir_all(parent).map_err(|error| {
         PersistenceError::Commit(format!("{backend} create database directory: {error}"))
@@ -145,6 +163,14 @@ pub trait DocumentSink {
     /// Performs backend maintenance and returns required remote deliveries still pending.
     fn maintenance(&mut self) -> Result<usize, PersistenceError> {
         Ok(0)
+    }
+
+    /// Performs maintenance and reports document- and part-level reconciliation.
+    fn maintenance_status(&mut self) -> Result<MaintenanceOutcome, PersistenceError> {
+        Ok(MaintenanceOutcome {
+            remote_pending: self.maintenance()?,
+            ..MaintenanceOutcome::default()
+        })
     }
 
     /// Loads the last durable cursor for one carriage buffer.
@@ -246,6 +272,9 @@ impl DocumentSink for InMemoryDocumentSink {
             inserted,
             duplicated,
             remote_pending: self.remote_pending,
+            projection_rows_committed: 0,
+            unclassified_events: 0,
+            pending_parts: 0,
             checkpoint: batch.checkpoint,
         })
     }

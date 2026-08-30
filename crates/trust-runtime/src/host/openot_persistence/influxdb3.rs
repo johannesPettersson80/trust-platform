@@ -448,6 +448,16 @@ impl InfluxDb3DocumentSink {
             .map_err(spool_error("count pending entries"))
     }
 
+    fn query_pending_part_count(&self) -> Result<i64, PersistenceError> {
+        self.spool
+            .query_row(
+                "SELECT COUNT(*) FROM logging_delivery_spool WHERE delivered=0",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(spool_error("count pending delivery parts"))
+    }
+
     #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn pending_count(&self) -> Result<i64, PersistenceError> {
         self.query_pending_count()
@@ -466,13 +476,7 @@ impl InfluxDb3DocumentSink {
         if exists == 0 {
             return Ok(0);
         }
-        self.spool
-            .query_row(
-                "SELECT COUNT(*) FROM logging_delivery_spool WHERE delivered=0",
-                [],
-                |row| row.get(0),
-            )
-            .map_err(spool_error("count pending delivery parts"))
+        self.query_pending_part_count()
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
@@ -549,6 +553,17 @@ impl DocumentSink for InfluxDb3DocumentSink {
         Ok(usize::try_from(self.query_pending_count()?).unwrap_or(usize::MAX))
     }
 
+    fn maintenance_status(&mut self) -> Result<super::MaintenanceOutcome, PersistenceError> {
+        let before = usize::try_from(self.query_pending_part_count()?).unwrap_or(usize::MAX);
+        self.flush_pending()?;
+        let pending_parts = usize::try_from(self.query_pending_part_count()?).unwrap_or(usize::MAX);
+        Ok(super::MaintenanceOutcome {
+            remote_pending: usize::try_from(self.query_pending_count()?).unwrap_or(usize::MAX),
+            reconciled_parts: before.saturating_sub(pending_parts),
+            pending_parts,
+        })
+    }
+
     fn load_checkpoint(
         &mut self,
         buffer_id: u32,
@@ -618,8 +633,12 @@ impl DocumentSink for InfluxDb3DocumentSink {
         }
         let mut inserted = 0;
         let mut duplicated = 0;
+        let mut projection_rows_committed = 0;
+        let mut unclassified_events = 0;
         for document in &batch.documents {
             let projected = self.projector.project(document)?;
+            let projected_row_count = projected.public_row_count();
+            let has_unclassified_event = projected.has_unclassified_event();
             let row = &projected.canonical;
             let existing: Option<String> = transaction
                 .query_row(
@@ -649,6 +668,8 @@ impl DocumentSink for InfluxDb3DocumentSink {
                 ).map_err(spool_error("insert durable delivery part"))?;
             }
             inserted += 1;
+            projection_rows_committed += projected_row_count;
+            unclassified_events += usize::from(has_unclassified_event);
         }
         transaction.execute(
             "INSERT INTO logging_checkpoint(singleton,buffer_id,run_id,cursor_abs) VALUES(1,?1,?2,?3)
@@ -665,10 +686,14 @@ impl DocumentSink for InfluxDb3DocumentSink {
             .commit()
             .map_err(spool_error("commit spool acceptance"))?;
         let remote_pending = usize::try_from(self.query_pending_count()?).unwrap_or(usize::MAX);
+        let pending_parts = usize::try_from(self.query_pending_part_count()?).unwrap_or(usize::MAX);
         Ok(CommitOutcome {
             inserted,
             duplicated,
             remote_pending,
+            projection_rows_committed,
+            unclassified_events,
+            pending_parts,
             checkpoint: batch.checkpoint,
         })
     }

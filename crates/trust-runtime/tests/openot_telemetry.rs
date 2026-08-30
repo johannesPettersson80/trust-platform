@@ -1306,7 +1306,7 @@ fn openot_persistence_forced_ring_overflow_persists_both_loss_bases() {
     let mut statement = connection
         .prepare(
             "SELECT source_id,loss_basis,first_seq,last_seq,canonical_json \
-             FROM openot_documents WHERE document_kind='loss' ORDER BY loss_basis,first_seq",
+             FROM logging_records WHERE document_kind='loss' ORDER BY loss_basis,first_seq",
         )
         .expect("prepare loss query");
     let rows = statement
@@ -1347,7 +1347,7 @@ fn openot_persistence_forced_ring_overflow_persists_both_loss_bases() {
     assert_eq!(decode(&authoritative_source_12.3), 7);
     let delivered_source_11 = connection
         .query_row(
-            "SELECT COUNT(*) FROM openot_documents \
+            "SELECT COUNT(*) FROM logging_records \
              WHERE document_kind='event' AND source_id=11",
             [],
             |row| row.get::<_, i64>(0),

@@ -24,6 +24,8 @@ mod postgresql;
 mod projection;
 mod projection_domains;
 mod service;
+#[cfg(unix)]
+mod service_error;
 mod source;
 #[cfg(feature = "openot-database-sqlite")]
 mod sqlite;
@@ -39,7 +41,8 @@ mod worker;
 
 pub use consumer::OpenOtPersistenceConsumer;
 pub use contracts::{
-    CommitOutcome, DocumentSink, PersistenceBatch, PersistenceCheckpoint, PersistenceError,
+    CommitOutcome, DocumentSink, MaintenanceOutcome, PersistenceBatch, PersistenceCheckpoint,
+    PersistenceError,
 };
 pub use factory::OpenOtDocumentSink;
 #[cfg(feature = "openot-database-influxdb3")]

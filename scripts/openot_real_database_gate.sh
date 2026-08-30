@@ -107,7 +107,7 @@ run_gate adapter-contracts cargo test -p trust-runtime \
   openot_persistence::contract_tests -- --test-threads=1
 run_gate release-qualification cargo test --release -p trust-runtime \
   --features openot-real-database-tests --lib \
-  openot_persistence::contract_tests::every_real_backend_meets_openot_ingest_and_catch_up_qualification_floors \
+  openot_persistence::contract_tests::performance::every_real_backend_meets_openot_ingest_and_catch_up_qualification_floors \
   -- --exact --nocapture
 run_gate service-lifecycle cargo test -p trust-runtime \
   --features openot-real-database-tests --lib \

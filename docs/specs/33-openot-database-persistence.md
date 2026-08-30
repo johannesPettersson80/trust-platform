@@ -110,7 +110,10 @@ ca_cert_path = "certs/openot-influx-ca.pem"
 ```
 
 SQLite `path`, InfluxDB `spool_path`, and remote `ca_cert_path` values are
-resolved relative to the bundle root unless absolute. They MUST not be empty and their parent directories MUST
+resolved with native platform path semantics relative to the bundle root unless
+absolute. Shipped examples MUST use a Windows- and Linux-compatible TCP runtime
+control endpoint rather than a Unix-domain socket. Persistence paths MUST not
+be empty and their parent directories MUST
 not be group/world writable unless an explicit future security policy allows
 it. Remote credentials MUST be obtained through the named environment
 variables. Inline connection URLs, passwords, and tokens are not accepted.

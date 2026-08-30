@@ -1,6 +1,6 @@
 # OpenOT Typed Database Read Model Implementation Checklist
 
-Status: active; implementation and focused real-product qualification complete, exact-candidate final gates pending
+Status: implementation complete; exact-candidate release publication awaits authorization
 Owner: truST runtime logging persistence
 Owning specification: `docs/specs/33-openot-database-persistence.md`
 Architecture decision: `docs/internal/architecture/openot-database-persistence-contract.md`
@@ -8,11 +8,11 @@ Architecture decision: `docs/internal/architecture/openot-database-persistence-c
 ## Execution Evidence
 
 - The projector/schema slices retain their expected-red and paired-green
-  commands in the parent implementation checklist. The final status slice
-  reached an assertion red in
-  `status_baseline_preserves_runtime_identity_and_modes` because the four
-  typed-projection/reconciliation fields were absent; the same remote command
-  then passed, and the complete status projection module passed 26 tests.
+  commands in the parent implementation checklist. The final live-counter
+  slice reached an assertion red because `projection_rows_committed` reported
+  zero while the SQLite public tables contained two rows; the same focused
+  remote test then passed with an exact count of two, and the complete status
+  projection module passed 26 tests.
 - The real adapter contract suite passed 47 tests on the six network products
   (one release-only performance test ignored in debug). The same authored ST
   workload passed through the production runtime path for SQLite and all six
@@ -126,7 +126,7 @@ Mocks, wire-compatible substitutes, compile-only checks, and direct fixture
 insertion do not satisfy this phase. The same built truST candidate and real PLC
 program MUST drive every database through the production runtime path.
 
-- [ ] `OTRM-REAL-001` Freeze one candidate and record local/remote HEAD, OpenOT revision, toolchains, exact server/client versions, provenance, runner architecture, and TLS mode.
+- [x] `OTRM-REAL-001` Freeze one candidate and record local/remote HEAD, OpenOT revision, toolchains, exact server/client versions, provenance, runner architecture, and TLS mode.
 - [x] `OTRM-REAL-002` Run the real ST program through `trust-runtime`; prove scans publish OpenOT records and the production worker persists them.
 - [x] `OTRM-REAL-003` Query real SQLite and verify all expected canonical, public, checkpoint, typed-value, alarm, message, loss, and unresolved rows.
 - [x] `OTRM-REAL-004` Repeat the complete runtime/query proof on real PostgreSQL.
@@ -134,27 +134,29 @@ program MUST drive every database through the production runtime path.
 - [x] `OTRM-REAL-006` Repeat separately on real MySQL and real MariaDB; never infer one from the other.
 - [x] `OTRM-REAL-007` Repeat on real Microsoft SQL Server.
 - [x] `OTRM-REAL-008` Repeat on real InfluxDB 3 and verify measurements, native field types, point counts, and drained reconciliation state.
-- [ ] `OTRM-REAL-009` For every product, stop the database while the PLC continues, restart it, prove catch-up/no silent loss, then prove runtime restart and duplicate replay.
-- [ ] `OTRM-REAL-010` Migrate populated real schema-v2 databases, verify v3 projections/canonical preservation, and perform backup/restore verification.
+- [x] `OTRM-REAL-009` For every product, stop the database while the PLC continues, restart it, prove catch-up/no silent loss, then prove runtime restart and duplicate replay.
+- [x] `OTRM-REAL-010` Migrate populated real schema-v2 databases, verify v3 projections/canonical preservation, and perform backup/restore verification.
 - [x] `OTRM-REAL-011` Compare expected and actual identities, counts, exact values, timestamps, provenance, loss ranges, and domain fields with a machine-readable oracle.
-- [ ] `OTRM-REAL-012` Archive redacted commands, logs, queries, table-form output, versions, candidate SHA, checksums, and scoped teardown evidence.
-- [ ] `OTRM-REAL-GATE` All seven named products pass the same real-runtime acceptance contract on the exact candidate SHA.
+- [x] `OTRM-REAL-012` Archive redacted commands, logs, queries, table-form output, versions, candidate SHA, checksums, and scoped teardown evidence.
+- [x] `OTRM-REAL-GATE` All seven named products pass the same real-runtime acceptance contract on the exact candidate SHA.
 
 ## Phase 7 - Nonfunctional And Release Gates
 
-- [ ] `OTRM-NFR-001` Measure sustained ingest, catch-up, latency, queue/spool growth, CPU, memory, disk, and database size against specified budgets.
+- [x] `OTRM-NFR-001` Measure sustained ingest, catch-up, latency, queue/spool growth, CPU, memory, disk, and database size against specified budgets.
 - [x] `OTRM-NFR-002` Test disk/spool full, network partition, TLS/certificate failure, bad credentials, permissions, corruption, and shutdown deadline behavior.
-- [ ] `OTRM-NFR-003` Run license, advisory, unsafe, unused-dependency, architecture-doctor, diagram-drift, and supply-chain gates.
-- [ ] `OTRM-NFR-004` Run remote runtime vertical tests: `api_smoke`, `debug_control`, `complete_program`, and `runtime_reliability`.
-- [ ] `OTRM-NFR-005` After remote disk preflight, run remote `just fmt`, `just clippy`, and `just test-all` on the frozen candidate.
+- [x] `OTRM-NFR-003` Run license, advisory, unsafe, unused-dependency, architecture-doctor, diagram-drift, and supply-chain gates.
+- [x] `OTRM-NFR-004` Run remote runtime vertical tests: `api_smoke`, `debug_control`, `complete_program`, and `runtime_reliability`.
+- [x] `OTRM-NFR-005` After remote disk preflight, run remote `just fmt`, `just clippy`, and `just test-all` on the frozen candidate.
 - [x] `OTRM-NFR-006` Update changelog, synchronized versions, public support matrix, examples, docs, and release artifacts.
+- [x] `OTRM-NFR-006A` Prove production persistence code and every shipped example use native platform path handling, reject Unix-only path literals, and compile the complete database feature set for the Windows target.
+  Evidence: the example contract first failed on `unix:///tmp/trust-openot-multi-program.sock`, then passed after all seven examples moved to portable TCP control endpoints. `RUSTFLAGS=-Dwarnings cargo check --target x86_64-pc-windows-gnu -p trust-runtime --features openot-database-all` first failed because `open-ot-carriage` was Unix-scoped, then passed after the portable carriage dependency moved to the common dependency set while `open-ot-shm` remained Unix-only and enabled persistence continued to fail closed on non-Unix hosts.
 - [ ] `OTRM-NFR-007` Prepare the exact-SHA candidate, push once, await all CI, guarded-merge, and complete tag/release/latest/assets/post-merge proof when authorized.
 
 ## Completion And Stop Rules
 
 - [ ] `OTRM-DONE-001` Specification, tests, code, examples, docs, real proof, nonfunctional gates, and release evidence describe the same candidate.
 - [x] `OTRM-DONE-002` Users retrieve common PLC values, alarms, messages, and audit history from descriptive typed objects without OpenOT/JSON expertise.
-- [ ] `OTRM-DONE-003` Every supported database has exact-version evidence produced by a real PLC program through the production runtime.
+- [x] `OTRM-DONE-003` Every supported database has exact-version evidence produced by a real PLC program through the production runtime.
 
 Stop and return to the owning earlier phase if a common query requires canonical
 JSON/EAV/`openot_*`, behavior lacks a pre-code native test, adapters duplicate

@@ -235,48 +235,7 @@ impl OpenOtDocumentSink {
             OpenOtPersistenceBackend::SqlServer => Err(backend_unavailable("sqlserver")),
             #[cfg(feature = "openot-database-influxdb3")]
             OpenOtPersistenceBackend::InfluxDb3 => {
-                let influx = config.influxdb3.as_ref().ok_or_else(|| {
-                    PersistenceError::InvalidConfig(
-                        "runtime.openot.persistence.influxdb3 is required".to_string(),
-                    )
-                })?;
-                let host = std::env::var(influx.host_env.as_str()).map_err(|_| {
-                    PersistenceError::InvalidConfig(format!(
-                        "environment variable '{}' is not set",
-                        influx.host_env
-                    ))
-                })?;
-                let token = std::env::var(influx.token_env.as_str()).map_err(|_| {
-                    PersistenceError::InvalidConfig(format!(
-                        "environment variable '{}' is not set",
-                        influx.token_env
-                    ))
-                })?;
-                let spool = if influx.spool_path.is_absolute() {
-                    influx.spool_path.clone()
-                } else {
-                    bundle_root.join(&influx.spool_path)
-                };
-                let ca = influx.ca_cert_path.as_ref().ok_or_else(|| {
-                    PersistenceError::InvalidConfig(
-                        "runtime.openot.persistence.influxdb3.ca_cert_path is required".to_string(),
-                    )
-                })?;
-                let ca = if ca.is_absolute() {
-                    ca.clone()
-                } else {
-                    bundle_root.join(ca)
-                };
-                InfluxDb3DocumentSink::open_bounded_with_definitions(
-                    &host,
-                    &token,
-                    influx.database.as_str(),
-                    &spool,
-                    &ca,
-                    influx.max_bytes,
-                    definitions.to_vec(),
-                )
-                .map(Self::InfluxDb3)
+                open_influxdb3(config, bundle_root, definitions).map(Self::InfluxDb3)
             }
             #[cfg(not(feature = "openot-database-influxdb3"))]
             OpenOtPersistenceBackend::InfluxDb3 => Err(backend_unavailable("influxdb3")),
@@ -300,6 +259,48 @@ impl OpenOtDocumentSink {
             Self::InfluxDb3(sink) => sink.spool_logical_bytes(),
         }
     }
+}
+
+#[cfg(feature = "openot-database-influxdb3")]
+fn open_influxdb3(
+    config: &OpenOtPersistenceConfig,
+    bundle_root: &Path,
+    definitions: &[open_ot_definition::DefinitionFile],
+) -> Result<InfluxDb3DocumentSink, PersistenceError> {
+    let influx = config.influxdb3.as_ref().ok_or_else(|| {
+        PersistenceError::InvalidConfig(
+            "runtime.openot.persistence.influxdb3 is required".to_string(),
+        )
+    })?;
+    let required_env = |name: &str| {
+        std::env::var(name).map_err(|_| {
+            PersistenceError::InvalidConfig(format!("environment variable '{name}' is not set"))
+        })
+    };
+    let host = required_env(influx.host_env.as_str())?;
+    let token = required_env(influx.token_env.as_str())?;
+    let resolve = |path: &Path| {
+        if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            bundle_root.join(path)
+        }
+    };
+    let spool = resolve(&influx.spool_path);
+    let ca = influx.ca_cert_path.as_ref().ok_or_else(|| {
+        PersistenceError::InvalidConfig(
+            "runtime.openot.persistence.influxdb3.ca_cert_path is required".to_string(),
+        )
+    })?;
+    InfluxDb3DocumentSink::open_bounded_with_definitions(
+        &host,
+        &token,
+        influx.database.as_str(),
+        &spool,
+        &resolve(ca),
+        influx.max_bytes,
+        definitions.to_vec(),
+    )
 }
 
 impl DocumentSink for OpenOtDocumentSink {

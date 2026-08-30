@@ -34,6 +34,16 @@ def fail(message: str) -> None:
 
 
 def main() -> int:
+    persistence_sources = ROOT / "crates" / "trust-runtime" / "src" / "host" / "openot_persistence"
+    for source_path in persistence_sources.rglob("*.rs"):
+        source_text = source_path.read_text()
+        for unix_only in ('"/tmp/', '"unix://'):
+            if unix_only in source_text:
+                fail(
+                    f"{source_path.relative_to(ROOT)}: production persistence code contains "
+                    f"Unix-only path text {unix_only!r}"
+                )
+
     workload = (EXAMPLES / "workload" / "Main.st").read_text()
     if "SQL" in workload.upper():
         fail("canonical ST workload must not contain database calls")
@@ -46,6 +56,11 @@ def main() -> int:
         readme_path = directory / "README.md"
         config_text = config_path.read_text()
         config = tomllib.loads(config_text)
+        control_endpoint = config["runtime"]["control"]["endpoint"]
+        if not control_endpoint.startswith("tcp://"):
+            fail(
+                f"{product}: control endpoint must be portable TCP, got {control_endpoint!r}"
+            )
         persistence = config["runtime"]["openot"]["persistence"]
         if persistence["backend"] != expected_backend:
             fail(f"{product}: unexpected TOML backend {persistence['backend']!r}")

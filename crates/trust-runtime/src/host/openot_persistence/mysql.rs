@@ -370,6 +370,14 @@ impl DocumentSink for MySqlDocumentSink {
             pending.push(projected);
         }
         let inserted = pending.len();
+        let projection_rows_committed = pending
+            .iter()
+            .map(super::projection::ProjectedDocument::public_row_count)
+            .sum();
+        let unclassified_events = pending
+            .iter()
+            .filter(|document| document.has_unclassified_event())
+            .count();
         if !pending.is_empty() {
             let placeholders =
                 std::iter::repeat_n("(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", pending.len())
@@ -439,6 +447,9 @@ impl DocumentSink for MySqlDocumentSink {
             inserted,
             duplicated,
             remote_pending: 0,
+            projection_rows_committed,
+            unclassified_events,
+            pending_parts: 0,
             checkpoint: batch.checkpoint,
         })
     }

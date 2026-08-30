@@ -5686,7 +5686,6 @@ dependencies = [
  "base64 0.22.1",
  "clap",
  "dialoguer",
- "glob",
  "owo-colors",
  "serde",
  "serde_json",
@@ -5766,7 +5765,6 @@ version = "0.24.67"
 dependencies = [
  "anyhow",
  "crc32fast",
- "glob",
  "roxmltree",
  "serde",
  "serde_json",

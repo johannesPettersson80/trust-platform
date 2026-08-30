@@ -10,6 +10,18 @@ pub(super) struct ProjectedDocument {
     pub(super) domains: Vec<super::projection_domains::DomainRow>,
 }
 
+impl ProjectedDocument {
+    pub(super) fn public_row_count(&self) -> usize {
+        usize::from(self.event.is_some()) + self.logged_values.len() + self.domains.len()
+    }
+
+    pub(super) fn has_unclassified_event(&self) -> bool {
+        self.event
+            .as_ref()
+            .is_some_and(|event| event.has_unclassified_fields)
+    }
+}
+
 #[derive(Debug)]
 pub(super) struct LoggingProjector {
     definitions: HashMap<String, open_ot_definition::DefinitionFile>,

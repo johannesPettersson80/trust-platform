@@ -509,6 +509,14 @@ impl SqlServerDocumentSink {
             pending.push(projected);
         }
         let inserted = pending.len();
+        let projection_rows_committed = pending
+            .iter()
+            .map(super::projection::ProjectedDocument::public_row_count)
+            .sum();
+        let unclassified_events = pending
+            .iter()
+            .filter(|document| document.has_unclassified_event())
+            .count();
         if !pending.is_empty() {
             let mut parameter = 1;
             let tuples = pending
@@ -622,6 +630,9 @@ impl SqlServerDocumentSink {
             inserted,
             duplicated,
             remote_pending: 0,
+            projection_rows_committed,
+            unclassified_events,
+            pending_parts: 0,
             checkpoint: batch.checkpoint,
         })
     }

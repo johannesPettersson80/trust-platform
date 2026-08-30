@@ -9,7 +9,7 @@ cycle_interval_ms = 100
 execution_backend = "vm"
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-openot-mariadb.sock"
+endpoint = "tcp://127.0.0.1:0"
 mode = "production"
 debug_enabled = false
 

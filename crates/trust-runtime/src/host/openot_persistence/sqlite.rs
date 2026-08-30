@@ -164,8 +164,12 @@ impl DocumentSink for SqliteDocumentSink {
 
         let mut inserted = 0;
         let mut duplicated = 0;
+        let mut projection_rows_committed = 0;
+        let mut unclassified_events = 0;
         for document in &batch.documents {
             let projected = self.projector.project(document)?;
+            let projected_row_count = projected.public_row_count();
+            let has_unclassified_event = projected.has_unclassified_event();
             let row = projected.canonical;
             let existing = transaction
                 .query_row(
@@ -212,6 +216,8 @@ impl DocumentSink for SqliteDocumentSink {
                 )
                 .map_err(sqlite_error("insert document"))?;
             inserted += 1;
+            projection_rows_committed += projected_row_count;
+            unclassified_events += usize::from(has_unclassified_event);
             if let Some(event) = projected.event {
                 transaction
                     .execute(
@@ -287,6 +293,9 @@ impl DocumentSink for SqliteDocumentSink {
             inserted,
             duplicated,
             remote_pending: 0,
+            projection_rows_committed,
+            unclassified_events,
+            pending_parts: 0,
             checkpoint: batch.checkpoint,
         })
     }

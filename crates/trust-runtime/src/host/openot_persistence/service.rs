@@ -6,12 +6,16 @@ use std::sync::{
     Arc, Mutex,
 };
 use std::thread::JoinHandle;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
+#[cfg(unix)]
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(unix)]
 use crate::config::OpenOtPersistenceConfig;
 use crate::config::OpenOtTelemetryConfig;
 
+#[cfg(unix)]
+use super::service_error::redacted_error;
 use super::PersistenceError;
 #[cfg(unix)]
 use super::{
@@ -44,6 +48,7 @@ fn open_runtime_worker(
     Ok(OpenOtPersistenceWorker::new(source, consumer, sink))
 }
 
+#[cfg(unix)]
 fn apply_worker_error(
     status: &Arc<Mutex<OpenOtPersistenceStatus>>,
     error: &PersistenceError,
@@ -244,6 +249,9 @@ impl OpenOtPersistenceService {
                 let mut consecutive_retries = 0u32;
                 let mut committed_before_reconnect = 0u64;
                 let mut duplicated_before_reconnect = 0u64;
+                let mut projection_rows_before_reconnect = 0u64;
+                let mut unclassified_before_reconnect = 0u64;
+                let mut reconciled_parts_before_reconnect = 0u64;
                 while !worker_stop.load(Ordering::Acquire) {
                     if worker.is_none() {
                         match open_runtime_worker(
@@ -288,31 +296,15 @@ impl OpenOtPersistenceService {
                             let snapshot =
                                 worker.as_ref().expect("successful worker pass").status();
                             if let Ok(mut status) = worker_status.lock() {
-                                status.state = OpenOtPersistenceState::Ready;
-                                status.documents_read = snapshot.documents_read;
-                                status.documents_committed = committed_before_reconnect
-                                    .saturating_add(snapshot.documents_committed);
-                                status.documents_duplicated = duplicated_before_reconnect
-                                    .saturating_add(snapshot.documents_duplicated);
-                                status.remote_pending = snapshot.remote_pending;
-                                status.rejected = snapshot.rejected;
-                                status.unresolved = snapshot.unresolved;
-                                status.loss_range_count = snapshot.loss_range_count;
-                                status.lost_record_count = snapshot.lost_record_count;
-                                status.cursor_abs = snapshot.cursor_abs;
-                                status.head_abs = snapshot.head_abs;
-                                status.pending =
-                                    snapshot.head_abs.saturating_sub(snapshot.cursor_abs);
-                                status.state =
-                                    if status.unresolved > 0 || status.loss_range_count > 0 {
-                                        OpenOtPersistenceState::Degraded
-                                    } else if status.pending > 0 || status.remote_pending > 0 {
-                                        OpenOtPersistenceState::CatchingUp
-                                    } else {
-                                        OpenOtPersistenceState::Ready
-                                    };
-                                status.last_success_time_ns = Some(unix_time_ns());
-                                status.last_error = None;
+                                apply_worker_snapshot(
+                                    &mut status,
+                                    snapshot,
+                                    committed_before_reconnect,
+                                    duplicated_before_reconnect,
+                                    projection_rows_before_reconnect,
+                                    unclassified_before_reconnect,
+                                    reconciled_parts_before_reconnect,
+                                );
                             }
                         }
                         Err(error) => {
@@ -331,6 +323,18 @@ impl OpenOtPersistenceService {
                                     .saturating_add(failed_worker.status().documents_committed);
                                 duplicated_before_reconnect = duplicated_before_reconnect
                                     .saturating_add(failed_worker.status().documents_duplicated);
+                                projection_rows_before_reconnect = projection_rows_before_reconnect
+                                    .saturating_add(
+                                        failed_worker.status().projection_rows_committed,
+                                    );
+                                unclassified_before_reconnect = unclassified_before_reconnect
+                                    .saturating_add(
+                                        failed_worker.status().unclassified_event_count,
+                                    );
+                                reconciled_parts_before_reconnect =
+                                    reconciled_parts_before_reconnect.saturating_add(
+                                        failed_worker.status().reconciled_part_count,
+                                    );
                             }
                             worker = None;
                             std::thread::park_timeout(retry_delay);
@@ -437,41 +441,59 @@ impl OpenOtPersistenceService {
     }
 }
 
+#[cfg(unix)]
+fn apply_worker_snapshot(
+    status: &mut OpenOtPersistenceStatus,
+    snapshot: &super::worker::OpenOtPersistenceWorkerStatus,
+    committed_before_reconnect: u64,
+    duplicated_before_reconnect: u64,
+    projection_rows_before_reconnect: u64,
+    unclassified_before_reconnect: u64,
+    reconciled_parts_before_reconnect: u64,
+) {
+    status.documents_read = snapshot.documents_read;
+    status.documents_committed =
+        committed_before_reconnect.saturating_add(snapshot.documents_committed);
+    status.documents_duplicated =
+        duplicated_before_reconnect.saturating_add(snapshot.documents_duplicated);
+    status.remote_pending = snapshot.remote_pending;
+    status.projection_rows_committed =
+        projection_rows_before_reconnect.saturating_add(snapshot.projection_rows_committed);
+    status.unclassified_event_count =
+        unclassified_before_reconnect.saturating_add(snapshot.unclassified_event_count);
+    status.reconciled_part_count =
+        reconciled_parts_before_reconnect.saturating_add(snapshot.reconciled_part_count);
+    status.pending_part_count = snapshot.pending_part_count;
+    status.rejected = snapshot.rejected;
+    status.unresolved = snapshot.unresolved;
+    status.loss_range_count = snapshot.loss_range_count;
+    status.lost_record_count = snapshot.lost_record_count;
+    status.cursor_abs = snapshot.cursor_abs;
+    status.head_abs = snapshot.head_abs;
+    status.pending = snapshot.head_abs.saturating_sub(snapshot.cursor_abs);
+    status.state = if status.unresolved > 0 || status.loss_range_count > 0 {
+        OpenOtPersistenceState::Degraded
+    } else if status.pending > 0 || status.remote_pending > 0 {
+        OpenOtPersistenceState::CatchingUp
+    } else {
+        OpenOtPersistenceState::Ready
+    };
+    status.last_success_time_ns = Some(unix_time_ns());
+    status.last_error = None;
+}
+
 impl Drop for OpenOtPersistenceService {
     fn drop(&mut self) {
         self.shutdown();
     }
 }
 
+#[cfg(unix)]
 fn unix_time_ns() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| u64::try_from(duration.as_nanos()).unwrap_or(u64::MAX))
         .unwrap_or(0)
-}
-
-fn redacted_error(error: &PersistenceError) -> String {
-    match error {
-        PersistenceError::NotImplemented => "persistence behavior is unavailable".to_string(),
-        PersistenceError::IdentityConflict(identity) => {
-            format!("OpenOT document identity conflict at {identity}")
-        }
-        PersistenceError::CheckpointRegression { current, requested } => {
-            format!("OpenOT checkpoint regression: current={current}, requested={requested}")
-        }
-        PersistenceError::InvalidConfig(_) => {
-            "OpenOT persistence configuration is invalid; inspect the local runtime log".to_string()
-        }
-        PersistenceError::BackendUnavailable(message) => message.clone(),
-        PersistenceError::Commit(_) => {
-            "selected OpenOT persistence backend operation failed; inspect the local runtime log"
-                .to_string()
-        }
-        PersistenceError::CapacityExhausted(_) => {
-            "OpenOT persistence durable capacity is exhausted; free space or increase the configured bound"
-                .to_string()
-        }
-    }
 }
 
 #[cfg(all(test, unix))]
@@ -632,6 +654,18 @@ mod tests {
             )
             .expect("query service-projected value");
         assert_eq!(stored, ("Enabled".to_string(), true));
+        let projection_rows: i64 = database
+            .query_row(
+                "SELECT (SELECT COUNT(*) FROM event_log) + (SELECT COUNT(*) FROM logged_values)",
+                [],
+                |row| row.get(0),
+            )
+            .expect("count event and value projections");
+        assert_eq!(status.projection_rows_committed, projection_rows as u64);
+        assert_eq!(status.projection_rows_committed, 2);
+        assert_eq!(status.unclassified_event_count, 0);
+        assert_eq!(status.reconciled_part_count, 0);
+        assert_eq!(status.pending_part_count, 0);
         drop(database);
         std::fs::remove_dir_all(root).ok();
     }
