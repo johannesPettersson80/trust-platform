@@ -48,15 +48,28 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.65`
+Target release: `v0.24.67`
 
 ### Added
 
+- Persist canonical OpenOT event, loss, and placeholder documents outside the
+  PLC scan to a TOML-selected SQLite, PostgreSQL, TimescaleDB, MySQL/MariaDB,
+  SQL Server, or InfluxDB 3 backend, with atomic durable checkpoints,
+  idempotent replay, TLS/secret boundaries, InfluxDB outage spooling, runtime
+  status, complete examples, and real-vendor conformance coverage.
+- Expose schema-v3 typed logging objects with descriptive names such as
+  `logged_values`, `alarm_history`, `message_log`, `state_history`, and
+  `audit_log`; normal reports no longer require OpenOT field arrays or JSON
+  paths, while canonical JSON remains internal recovery authority.
 - Support MQTT tag mappings that bind fully qualified scalar program variables
   directly to broker topics with explicit PLC-relative `read` and `write`
   directions.
 
 ### Fixed
+
+- Make every OpenOT database example portable to Windows and Linux by using a
+  TCP runtime control endpoint with an explicit local-only example token instead
+  of a Unix-only `/tmp` socket.
 
 - Keep real-Mosquitto conformance compatible with broker versions whose help
   command prints a usable version and then exits nonzero, so optional version

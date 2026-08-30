@@ -7,9 +7,21 @@ pub fn build_program_stbc(
     fs::create_dir_all(bundle_root)?;
     let program_path = bundle_root.join("program.stbc");
     fs::write(&program_path, compiled.bytes)?;
+    let openot_definition_path = if let Some(definition) = compiled.openot_definition {
+        let path = bundle_root.join("openot-definition.json");
+        let mut definition_bytes = serde_json::to_vec_pretty(&definition)
+            .context("serialize compiled OpenOT definition")?;
+        definition_bytes.push(b'\n');
+        fs::write(&path, definition_bytes)
+            .with_context(|| format!("write {}", path.display()))?;
+        Some(path)
+    } else {
+        None
+    };
 
     Ok(BundleBuildReport {
         program_path,
+        openot_definition_path,
         sources: compiled.sources,
         dependency_roots: compiled.dependency_roots,
         resolved_dependencies: compiled.resolved_dependencies,
@@ -111,6 +123,7 @@ pub fn resolve_sources_root(
 
 struct CompiledBundleSources {
     bytes: Vec<u8>,
+    openot_definition: Option<serde_json::Value>,
     sources: Vec<PathBuf>,
     dependency_roots: Vec<PathBuf>,
     resolved_dependencies: Vec<String>,
@@ -136,10 +149,19 @@ fn compile_bundle_sources(
         );
     }
 
+    let openot_definition = match crate::openot_authoring::definition_json_from_sources(&sources) {
+        Ok(definition) => Some(definition),
+        Err(error) if error == "no OpenOT declaration attributes found" => None,
+        Err(error) => {
+            return Err(anyhow::Error::msg(error))
+                .context("generate OpenOT definition from compiled source set");
+        }
+    };
     let session = CompileSession::from_sources(sources);
     let bytes = session.build_bytecode_bytes()?;
     Ok(CompiledBundleSources {
         bytes,
+        openot_definition,
         sources: source_paths,
         dependency_roots: dependencies
             .iter()

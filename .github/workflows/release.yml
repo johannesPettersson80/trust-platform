@@ -103,6 +103,12 @@ jobs:
             artifacts/release/runtime-vm-bench/**
             artifacts/release/runtime-vm-determinism/**
 
+  openot-real-databases:
+    name: OpenOT Real Database Matrix
+    needs: release-preflight
+    uses: ./.github/workflows/openot-real-databases.yml
+    secrets: inherit
+
   build:
     name: Build (${{ matrix.target }})
     needs: release-preflight
@@ -313,7 +319,7 @@ jobs:
 
   publish:
     name: Publish
-    needs: [release-preflight, build, runtime-vm-validation]
+    needs: [release-preflight, build, runtime-vm-validation, openot-real-databases]
     runs-on: ubuntu-latest
     env:
       VSCE_PAT: ${{ secrets.VSCE_PAT }}

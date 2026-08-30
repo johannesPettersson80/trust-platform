@@ -1,0 +1,54 @@
+[bundle]
+version = 1
+
+[resource]
+name = "OpenOtMultiProgram"
+cycle_interval_ms = 100
+
+[runtime]
+execution_backend = "vm"
+
+[runtime.control]
+endpoint = "tcp://127.0.0.1:0"
+auth_token = "openot-example-local-token"
+mode = "production"
+debug_enabled = false
+
+[runtime.web]
+enabled = false
+listen = "127.0.0.1:8080"
+auth = "local"
+tls = false
+
+[runtime.openot]
+enabled = true
+path = "openot-mysql.shm"
+capacity = 65536
+fence_mode = "fenced"
+source = "st-fb"
+producer_instances = ["Filler.OotProducer", "BatchControl.OotProducer", "OperatorAudit.OotProducer", "SignatureAudit.OotProducer", "TypedValues.OotProducer", "ConditionLifecycle.OotProducer"]
+
+[runtime.openot.persistence]
+enabled = true
+backend = "mysql"
+
+[runtime.openot.persistence.mysql]
+connection_url_env = "TRUST_OPENOT_DATABASE_URL"
+database = "openot"
+tls = "require"
+ca_cert_path = "certs/openot-database-ca.pem"
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"

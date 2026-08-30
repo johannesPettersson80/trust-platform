@@ -252,6 +252,63 @@ struct OpenOtSection {
     source: Option<String>,
     producer_instance: Option<String>,
     producer_instances: Option<Vec<String>>,
+    persistence: Option<OpenOtPersistenceSection>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OpenOtPersistenceSection {
+    enabled: Option<bool>,
+    backend: Option<String>,
+    batch_size: Option<usize>,
+    flush_interval_ms: Option<u64>,
+    queue_capacity: Option<usize>,
+    shutdown_timeout_ms: Option<u64>,
+    retry_initial_ms: Option<u64>,
+    retry_max_ms: Option<u64>,
+    retry_multiplier: Option<u8>,
+    retry_max_attempts: Option<u32>,
+    sqlite: Option<OpenOtSqlitePersistenceSection>,
+    postgresql: Option<OpenOtRemoteSqlPersistenceSection>,
+    timescaledb: Option<OpenOtRemoteSqlPersistenceSection>,
+    mysql: Option<OpenOtMySqlPersistenceSection>,
+    sqlserver: Option<OpenOtRemoteSqlPersistenceSection>,
+    influxdb3: Option<OpenOtInfluxDb3PersistenceSection>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OpenOtSqlitePersistenceSection {
+    path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OpenOtRemoteSqlPersistenceSection {
+    connection_url_env: Option<String>,
+    schema: Option<String>,
+    tls: Option<String>,
+    ca_cert_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OpenOtMySqlPersistenceSection {
+    connection_url_env: Option<String>,
+    database: Option<String>,
+    tls: Option<String>,
+    ca_cert_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OpenOtInfluxDb3PersistenceSection {
+    host_env: Option<String>,
+    token_env: Option<String>,
+    database: Option<String>,
+    spool_path: Option<String>,
+    max_bytes: Option<u64>,
+    ca_cert_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

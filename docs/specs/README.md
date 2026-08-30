@@ -2,7 +2,7 @@
 
 This directory contains the IEC 61131-3 Structured Text language specs
 (`01-09`), the split runtime/tooling specs (`10-14`), the Ladder/profile/editor
-specs (`15-17`), the project/runtime and operational contract specs (`18-32`), and the current
+specs (`15-17`), the project/runtime and operational contract specs (`18-33`), and the current
 non-numbered SFC profile note (`sfc-profile`). Product and tooling contracts in
 this directory are explicitly identified and do not become IEC requirements.
 
@@ -42,6 +42,7 @@ this directory are explicitly identified and do not become IEC requirements.
 | [30-verification-inventory.md](30-verification-inventory.md) | Governance contract for complete IEC table inventory coverage and fail-closed review | verification tooling |
 | [31-oscat-library-profile.md](31-oscat-library-profile.md) | Normative truST product profile for the classic OSCAT package and its OOP facade | trust-runtime |
 | [32-mqtt-io.md](32-mqtt-io.md) | MQTT communication, configuration, mapping, payload, security, worker, and broker-interoperability contracts | trust-runtime |
+| [33-openot-database-persistence.md](33-openot-database-persistence.md) | TOML-selected durable persistence of resolved OpenOT documents | trust-runtime |
 | [sfc-profile.md](sfc-profile.md) | Reserved SFC keywords, visual-editor scope, textual SFC boundary | editors/vscode, trust-syntax |
 
 ## Standard Reference
@@ -86,6 +87,7 @@ These specifications are based on:
 - IEC table inventory governance (see `30-verification-inventory.md`)
 - OSCAT classic-package and OOP-facade profile (see `31-oscat-library-profile.md`)
 - MQTT communication and PLC I/O mapping (see `32-mqtt-io.md`)
+- OpenOT database persistence (see `33-openot-database-persistence.md`)
 
 ### Not Covered (Out of Scope)
 
@@ -113,6 +115,8 @@ through `docs/specs/29-hir-sizeof-and-allocation.md`. For verification
 inventory governance, use `docs/specs/30-verification-inventory.md`.
 For MQTT broker communication, configuration, symbolic tag mapping, payloads,
 and interoperability, use `docs/specs/32-mqtt-io.md`.
+For TOML-selected OpenOT database persistence, delivery, outage, and backend
+contracts, use `docs/specs/33-openot-database-persistence.md`.
 
 For IEC coverage tracking and spec-to-test mapping, see:
 - `docs/specs/coverage/standard-functions-coverage.md`

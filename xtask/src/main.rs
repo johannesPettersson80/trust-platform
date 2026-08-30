@@ -348,6 +348,7 @@ fn check_runtime_initializer_no_cst(root: &Path) -> Result<CheckResult> {
 fn check_initializer_funnel(root: &Path) -> Result<CheckResult> {
     let allowed = [
         "crates/trust-runtime/src/host/harness/coerce.rs",
+        "crates/trust-runtime/src/host/harness/coerce_contract_tests.rs",
         "crates/trust-runtime/src/host/harness/initializer.rs",
     ];
     let runtime_src = root.join("crates/trust-runtime/src");

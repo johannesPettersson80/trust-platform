@@ -185,6 +185,7 @@ fn control_state(
         hmi_persistence: None,
         hmi_descriptor,
         historian,
+        openot_persistence_status: None,
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),

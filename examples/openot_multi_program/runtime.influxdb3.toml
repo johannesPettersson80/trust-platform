@@ -1,0 +1,56 @@
+[bundle]
+version = 1
+
+[resource]
+name = "OpenOtMultiProgram"
+cycle_interval_ms = 100
+
+[runtime]
+execution_backend = "vm"
+
+[runtime.control]
+endpoint = "tcp://127.0.0.1:0"
+auth_token = "openot-example-local-token"
+mode = "production"
+debug_enabled = false
+
+[runtime.web]
+enabled = false
+listen = "127.0.0.1:8080"
+auth = "local"
+tls = false
+
+[runtime.openot]
+enabled = true
+path = "openot-influxdb3.shm"
+capacity = 65536
+fence_mode = "fenced"
+source = "st-fb"
+producer_instances = ["Filler.OotProducer", "BatchControl.OotProducer", "OperatorAudit.OotProducer", "SignatureAudit.OotProducer", "TypedValues.OotProducer", "ConditionLifecycle.OotProducer"]
+
+[runtime.openot.persistence]
+enabled = true
+backend = "influxdb3"
+
+[runtime.openot.persistence.influxdb3]
+host_env = "TRUST_OPENOT_INFLUX_HOST"
+token_env = "TRUST_OPENOT_INFLUX_TOKEN"
+database = "openot"
+spool_path = "history/openot-influx-spool.sqlite3"
+max_bytes = 1073741824
+ca_cert_path = "certs/openot-influx-ca.pem"
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"

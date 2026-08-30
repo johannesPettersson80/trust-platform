@@ -1,0 +1,67 @@
+name: OpenOT real databases
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 0"
+
+permissions:
+  contents: read
+
+jobs:
+  exact-product-matrix:
+    runs-on: [self-hosted, Linux, X64, openot-databases]
+    timeout-minutes: 120
+    env:
+      TRUST_OPENOT_EVIDENCE_DIR: ${{ github.workspace }}/openot-real-database-evidence
+      TRUST_TEST_OPENOT_POSTGRES_URL: ${{ secrets.TRUST_TEST_OPENOT_POSTGRES_URL }}
+      TRUST_TEST_OPENOT_POSTGRES_CA_PEM: ${{ secrets.TRUST_TEST_OPENOT_POSTGRES_CA_PEM }}
+      TRUST_TEST_OPENOT_POSTGRES_CONTAINER: ${{ vars.TRUST_TEST_OPENOT_POSTGRES_CONTAINER }}
+      TRUST_TEST_OPENOT_TIMESCALE_URL: ${{ secrets.TRUST_TEST_OPENOT_TIMESCALE_URL }}
+      TRUST_TEST_OPENOT_TIMESCALE_CA_PEM: ${{ secrets.TRUST_TEST_OPENOT_TIMESCALE_CA_PEM }}
+      TRUST_TEST_OPENOT_TIMESCALE_CONTAINER: ${{ vars.TRUST_TEST_OPENOT_TIMESCALE_CONTAINER }}
+      TRUST_TEST_OPENOT_MYSQL_URL: ${{ secrets.TRUST_TEST_OPENOT_MYSQL_URL }}
+      TRUST_TEST_OPENOT_MYSQL_CA_PEM: ${{ secrets.TRUST_TEST_OPENOT_MYSQL_CA_PEM }}
+      TRUST_TEST_OPENOT_MYSQL_CONTAINER: ${{ vars.TRUST_TEST_OPENOT_MYSQL_CONTAINER }}
+      TRUST_TEST_OPENOT_MARIADB_URL: ${{ secrets.TRUST_TEST_OPENOT_MARIADB_URL }}
+      TRUST_TEST_OPENOT_MARIADB_CA_PEM: ${{ secrets.TRUST_TEST_OPENOT_MARIADB_CA_PEM }}
+      TRUST_TEST_OPENOT_MARIADB_CONTAINER: ${{ vars.TRUST_TEST_OPENOT_MARIADB_CONTAINER }}
+      TRUST_TEST_OPENOT_SQLSERVER_URL: ${{ secrets.TRUST_TEST_OPENOT_SQLSERVER_URL }}
+      TRUST_TEST_OPENOT_SQLSERVER_CA_PEM: ${{ secrets.TRUST_TEST_OPENOT_SQLSERVER_CA_PEM }}
+      TRUST_TEST_OPENOT_SQLSERVER_CONTAINER: ${{ vars.TRUST_TEST_OPENOT_SQLSERVER_CONTAINER }}
+      TRUST_TEST_OPENOT_INFLUX_HOST: ${{ secrets.TRUST_TEST_OPENOT_INFLUX_HOST }}
+      TRUST_TEST_OPENOT_INFLUX_TOKEN: ${{ secrets.TRUST_TEST_OPENOT_INFLUX_TOKEN }}
+      TRUST_TEST_OPENOT_INFLUX_CA_PEM: ${{ secrets.TRUST_TEST_OPENOT_INFLUX_CA_PEM }}
+      TRUST_TEST_OPENOT_INFLUX_CONTAINER: ${{ vars.TRUST_TEST_OPENOT_INFLUX_CONTAINER }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify runner provisioner contract
+        run: test -x /opt/trust/openot-databases/prepare && test -x /opt/trust/openot-databases/teardown
+      - name: Provision pinned real products and CA files
+        run: /opt/trust/openot-databases/prepare
+      - name: Materialize ephemeral CA certificates
+        shell: bash
+        run: |
+          ca_dir=$(mktemp -d "$RUNNER_TEMP/openot-ca.XXXXXX")
+          chmod 700 "$ca_dir"
+          for product in POSTGRES TIMESCALE MYSQL MARIADB SQLSERVER INFLUX; do
+            pem_variable="TRUST_TEST_OPENOT_${product}_CA_PEM"
+            path="$ca_dir/${product,,}.pem"
+            printf '%s\n' "${!pem_variable}" >"$path"
+            chmod 600 "$path"
+            echo "TRUST_TEST_OPENOT_${product}_CA=$path" >>"$GITHUB_ENV"
+          done
+      - name: Run exact product matrix
+        run: scripts/openot_real_database_gate.sh
+      - name: Tear down disposable products
+        if: always()
+        run: /opt/trust/openot-databases/teardown
+      - name: Retain redacted evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: openot-real-databases-${{ github.sha }}
+          path: openot-real-database-evidence/
+          if-no-files-found: error
+          retention-days: 30

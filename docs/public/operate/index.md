@@ -17,5 +17,6 @@
 | back up, restore, or upgrade | [Backup And Restore](backup-and-restore.md) / [Upgrade](upgrade.md) |
 | manage secrets or audit evidence | [Secrets](secrets.md) / [Audit Log](audit-log.md) |
 | collect operational evidence | [Observability](observability.md) |
+| persist OpenOT alarms, messages, values, and audit events | [OpenOT Database Persistence](openot-database-persistence.md) / [Choose A Database](openot-database-selection.md) |
 | tune runtime performance | [Performance Tuning](performance-tuning.md) |
 | deliver through CI/CD, runtime-cloud, or fleet templates | [CI/CD](ci-cd.md) / [Runtime Cloud](runtime-cloud.md) |

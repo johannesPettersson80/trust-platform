@@ -89,6 +89,9 @@ mod numeric {
 pub mod opcua;
 /// OpenOT declaration-attribute authoring support.
 pub mod openot_authoring;
+/// Host-side durable persistence contracts for resolved OpenOT documents.
+#[path = "host/openot_persistence/mod.rs"]
+pub mod openot_persistence;
 /// PLCopen XML import/export helpers (strict subset profile).
 #[path = "host/plcopen.rs"]
 pub mod plcopen;

@@ -9,6 +9,8 @@ const DEPENDENCY_MANIFEST_FILES: &[&str] = &[
 pub struct BundleBuildReport {
     /// Written bytecode path (program.stbc).
     pub program_path: PathBuf,
+    /// Hash-bound OpenOT definition generated when the source set declares OpenOT data.
+    pub openot_definition_path: Option<PathBuf>,
     /// Source files included in the build.
     pub sources: Vec<PathBuf>,
     /// Resolved dependency roots included in this build.

@@ -70,6 +70,11 @@ pub fn run_runtime(
 
     runtime.restart(restart_mode)?;
     load_startup_retain(&mut runtime, restart_mode)?;
+    let mut openot_persistence = bundle
+        .as_ref()
+        .map(start_openot_persistence_service)
+        .transpose()?
+        .flatten();
 
     let startup_hmi_scaffold = bundle
         .as_ref()
@@ -315,6 +320,9 @@ pub fn run_runtime(
         hmi_persistence: hmi_persistence.clone(),
         hmi_descriptor,
         historian: historian.clone(),
+        openot_persistence_status: openot_persistence
+            .as_ref()
+            .map(OpenOtPersistenceService::status_handle),
         pairing: pairing.clone(),
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),
@@ -550,6 +558,9 @@ pub fn run_runtime(
     let join_result = handle
         .join()
         .map_err(|_| anyhow::anyhow!("runtime thread panicked"));
+    if let Some(service) = openot_persistence.as_mut() {
+        service.shutdown();
+    }
     if let Some(server) = opcua_server.as_mut() {
         server.stop();
     }

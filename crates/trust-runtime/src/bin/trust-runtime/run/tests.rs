@@ -103,6 +103,15 @@ fn simulation_warning_includes_mode_and_safety_note() {
 }
 
 #[test]
+fn disabled_openot_persistence_creates_no_runtime_service() {
+    let bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let service = super::start_openot_persistence_service(&bundle)
+        .expect("disabled persistence must not fail startup");
+    assert!(service.is_none());
+}
+
+#[test]
 fn simulation_warning_omitted_in_production_mode() {
     assert!(simulation_warning_message(false, 1).is_none());
 }

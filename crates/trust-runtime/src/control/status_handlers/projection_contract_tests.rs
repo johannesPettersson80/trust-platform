@@ -108,6 +108,82 @@ fn status_baseline_preserves_runtime_identity_and_modes() {
         Some(&json!("default"))
     );
     assert_eq!(value.get("hmi_read_only"), Some(&json!(true)));
+    assert_eq!(
+        value.get("openot_persistence"),
+        Some(&json!({
+            "state": "disabled",
+            "backend": null,
+            "schema_version": null,
+            "documents_read": 0,
+            "documents_committed": 0,
+            "documents_duplicated": 0,
+            "remote_pending": 0,
+            "projection_rows_committed": 0,
+            "unclassified_event_count": 0,
+            "reconciled_part_count": 0,
+            "pending_part_count": 0,
+            "documents_retried": 0,
+            "pending": 0,
+            "rejected": 0,
+            "unresolved": 0,
+            "loss_range_count": 0,
+            "lost_record_count": 0,
+            "cursor_abs": 0,
+            "head_abs": 0,
+            "cursor_lag": 0,
+            "last_success_time_ns": null,
+            "last_error": null,
+            "warnings": [],
+        }))
+    );
+}
+
+#[test]
+fn openot_status_projects_every_applicable_operator_warning() {
+    let mut state = state();
+    state.openot_persistence_status = Some(std::sync::Arc::new(std::sync::Mutex::new(
+        crate::openot_persistence::OpenOtPersistenceStatus {
+            state: crate::openot_persistence::OpenOtPersistenceState::Faulted,
+            backend: Some("influxdb3".to_string()),
+            schema_version: Some(2),
+            documents_read: 10,
+            documents_committed: 4,
+            documents_duplicated: 0,
+            remote_pending: 3,
+            projection_rows_committed: 17,
+            unclassified_event_count: 2,
+            reconciled_part_count: 11,
+            pending_part_count: 7,
+            documents_retried: 2,
+            pending: 64,
+            rejected: 0,
+            unresolved: 1,
+            loss_range_count: 1,
+            lost_record_count: 5,
+            cursor_abs: 32,
+            head_abs: 96,
+            last_success_time_ns: Some(1),
+            last_error: Some("redacted migration or disk failure".to_string()),
+        },
+    )));
+
+    let value = result(handle_status(1, &state));
+    assert_eq!(value["openot_persistence"]["projection_rows_committed"], 17);
+    assert_eq!(value["openot_persistence"]["unclassified_event_count"], 2);
+    assert_eq!(value["openot_persistence"]["reconciled_part_count"], 11);
+    assert_eq!(value["openot_persistence"]["pending_part_count"], 7);
+    assert_eq!(
+        value["openot_persistence"]["warnings"],
+        json!([
+            "lag",
+            "retrying",
+            "placeholder",
+            "loss",
+            "spool_pressure",
+            "migration_or_storage_fault",
+            "shutdown_pending"
+        ])
+    );
 }
 
 #[test]

@@ -307,6 +307,151 @@ pub struct OpenOtTelemetryConfig {
     pub producer_instance: Option<SmolStr>,
     /// Normalized ST-FB producer paths drained in stable order.
     pub producer_instances: Vec<SmolStr>,
+    pub persistence: OpenOtPersistenceConfig,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpenOtPersistenceConfig {
+    pub enabled: bool,
+    pub backend: Option<OpenOtPersistenceBackend>,
+    pub batch_size: usize,
+    pub flush_interval_ms: u64,
+    pub queue_capacity: usize,
+    pub shutdown_timeout_ms: u64,
+    pub retry_initial_ms: u64,
+    pub retry_max_ms: u64,
+    pub retry_multiplier: u8,
+    pub retry_max_attempts: u32,
+    pub sqlite: Option<OpenOtSqlitePersistenceConfig>,
+    pub postgresql: Option<OpenOtPostgreSqlPersistenceConfig>,
+    pub timescaledb: Option<OpenOtTimescaleDbPersistenceConfig>,
+    pub mysql: Option<OpenOtMySqlPersistenceConfig>,
+    pub sqlserver: Option<OpenOtSqlServerPersistenceConfig>,
+    pub influxdb3: Option<OpenOtInfluxDb3PersistenceConfig>,
+}
+
+impl Default for OpenOtPersistenceConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            backend: None,
+            batch_size: 256,
+            flush_interval_ms: 250,
+            queue_capacity: 4096,
+            shutdown_timeout_ms: 5000,
+            retry_initial_ms: 250,
+            retry_max_ms: 30000,
+            retry_multiplier: 2,
+            retry_max_attempts: 20,
+            sqlite: None,
+            postgresql: None,
+            timescaledb: None,
+            mysql: None,
+            sqlserver: None,
+            influxdb3: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenOtPersistenceBackend {
+    Sqlite,
+    PostgreSql,
+    TimescaleDb,
+    MySql,
+    SqlServer,
+    InfluxDb3,
+}
+
+impl OpenOtPersistenceBackend {
+    pub fn parse(text: &str) -> Result<Self, RuntimeError> {
+        match text.trim().to_ascii_lowercase().as_str() {
+            "sqlite" => Ok(Self::Sqlite),
+            "postgresql" => Ok(Self::PostgreSql),
+            "timescaledb" => Ok(Self::TimescaleDb),
+            "mysql" => Ok(Self::MySql),
+            "sqlserver" => Ok(Self::SqlServer),
+            "influxdb3" => Ok(Self::InfluxDb3),
+            _ => Err(RuntimeError::InvalidConfig(
+                format!("invalid runtime.openot.persistence.backend '{text}'").into(),
+            )),
+        }
+    }
+
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Sqlite => "sqlite",
+            Self::PostgreSql => "postgresql",
+            Self::TimescaleDb => "timescaledb",
+            Self::MySql => "mysql",
+            Self::SqlServer => "sqlserver",
+            Self::InfluxDb3 => "influxdb3",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpenOtSqlitePersistenceConfig {
+    pub path: PathBuf,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenOtPersistenceTlsMode {
+    Require,
+}
+
+impl OpenOtPersistenceTlsMode {
+    pub fn parse(text: &str) -> Result<Self, RuntimeError> {
+        match text.trim().to_ascii_lowercase().as_str() {
+            "require" => Ok(Self::Require),
+            _ => Err(RuntimeError::InvalidConfig(
+                format!("invalid OpenOT persistence TLS mode '{text}'").into(),
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpenOtPostgreSqlPersistenceConfig {
+    pub connection_url_env: SmolStr,
+    pub schema: SmolStr,
+    pub tls: OpenOtPersistenceTlsMode,
+    pub ca_cert_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpenOtTimescaleDbPersistenceConfig {
+    pub connection_url_env: SmolStr,
+    pub schema: SmolStr,
+    pub tls: OpenOtPersistenceTlsMode,
+    pub ca_cert_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpenOtMySqlPersistenceConfig {
+    pub connection_url_env: SmolStr,
+    pub database: SmolStr,
+    pub tls: OpenOtPersistenceTlsMode,
+    pub ca_cert_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpenOtSqlServerPersistenceConfig {
+    pub connection_url_env: SmolStr,
+    pub schema: SmolStr,
+    pub tls: OpenOtPersistenceTlsMode,
+    pub ca_cert_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpenOtInfluxDb3PersistenceConfig {
+    pub host_env: SmolStr,
+    pub token_env: SmolStr,
+    pub database: SmolStr,
+    pub spool_path: PathBuf,
+    pub max_bytes: u64,
+    pub ca_cert_path: Option<PathBuf>,
 }
 
 impl Default for OpenOtTelemetryConfig {
@@ -320,6 +465,7 @@ impl Default for OpenOtTelemetryConfig {
             source: OpenOtTelemetrySource::Heartbeat,
             producer_instance: None,
             producer_instances: Vec::new(),
+            persistence: OpenOtPersistenceConfig::default(),
         }
     }
 }

@@ -1,0 +1,65 @@
+@startuml
+title truST OpenOT database persistence
+skinparam componentStyle rectangle
+
+package "PLC scan thread" {
+  component "Attributed ST programs" as st
+  component "Generated OotProducer instances" as producers
+  component "Serialized OpenOT publisher" as publisher
+  database "Bounded shared-memory ring" as ring
+  st --> producers : declaration-driven events
+  producers --> publisher : encoded records per source
+  publisher --> ring : single fenced writer
+}
+
+package "Host persistence thread" {
+  component "SharedMemoryOpenOtSource" as source
+  component "LossAccountingConsumer" as loss
+  component "Definition resolver\n(current + prior epoch)" as resolver
+  component "OpenOtPersistenceWorker" as worker
+  component "LoggingProjector\n(definition-bound semantics)" as projector
+  component "OpenOtDocumentSink factory" as factory
+  component "Supervision + redacted status" as status
+  ring --> source : concurrent poll
+  source --> loss : raw batches + control snapshot
+  loss --> resolver : records + explicit loss ranges
+  resolver --> worker : event / loss / placeholder documents
+  worker --> factory : typed documents + atomic cursor
+  factory --> projector : exact definition catalog
+  projector --> factory : canonical + envelope + typed domain rows
+  worker --> status : lag, loss, projection, reconciliation, retry
+}
+
+artifact "openot-definition.json" as definition
+component "runtime.toml\nbackend discriminator" as toml
+definition --> resolver : exact compiled definition
+toml --> factory : selects exactly one adapter
+
+database "SQLite" as sqlite
+database "PostgreSQL" as postgres
+database "TimescaleDB" as timescale
+database "MySQL / MariaDB" as mysql
+database "SQL Server" as sqlserver
+database "InfluxDB 3" as influx
+database "Durable SQLite spool" as spool
+
+factory --> sqlite
+factory --> postgres
+factory --> timescale
+factory --> mysql
+factory --> sqlserver
+factory --> spool : Influx acceptance authority
+spool --> influx : ordered HTTPS delivery
+
+note bottom of ring
+Database work is outside the PLC scan.
+Ring overflow remains explicit as loss documents.
+end note
+
+note bottom of factory
+Relational adapters commit internal canonical rows,
+descriptive public read-model rows, and the absolute
+ring cursor in one transaction. Influx uses durable
+per-part reconciliation before remote acknowledgement.
+end note
+@enduml

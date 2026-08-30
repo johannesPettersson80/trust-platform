@@ -71,6 +71,13 @@ fn apply_bundle_runtime_overrides(
     Ok(())
 }
 
+fn start_openot_persistence_service(
+    bundle: &RuntimeBundle,
+) -> anyhow::Result<Option<OpenOtPersistenceService>> {
+    OpenOtPersistenceService::start(&bundle.runtime.openot, &bundle.root)
+        .map_err(|error| anyhow::anyhow!("start OpenOT persistence: {error:?}"))
+}
+
 #[cfg(feature = "ads-wire")]
 fn start_ads_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
     start_ads_runtime_with_factory(runtime, bundle, |connection| {
