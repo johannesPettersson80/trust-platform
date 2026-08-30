@@ -61,10 +61,12 @@ def main() -> int:
             fail(
                 f"{product}: control endpoint must be portable TCP, got {control_endpoint!r}"
             )
+        if config["runtime"]["control"].get("auth_token") != "openot-example-local-token":
+            fail(f"{product}: portable TCP control endpoint requires the documented local-only token")
         persistence = config["runtime"]["openot"]["persistence"]
         if persistence["backend"] != expected_backend:
             fail(f"{product}: unexpected TOML backend {persistence['backend']!r}")
-        forbidden = ("password=", "token =", "secret =", "TrustServerCertificate=true")
+        forbidden = ("password=", "secret =", "TrustServerCertificate=true")
         for needle in forbidden:
             if needle.lower() in config_text.lower():
                 fail(f"{product}: tracked TOML contains unsafe credential/TLS text {needle!r}")

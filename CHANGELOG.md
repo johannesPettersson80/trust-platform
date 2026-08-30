@@ -68,7 +68,8 @@ Target release: `v0.24.67`
 ### Fixed
 
 - Make every OpenOT database example portable to Windows and Linux by using a
-  TCP runtime control endpoint instead of a Unix-only `/tmp` socket.
+  TCP runtime control endpoint with an explicit local-only example token instead
+  of a Unix-only `/tmp` socket.
 
 - Keep real-Mosquitto conformance compatible with broker versions whose help
   command prints a usable version and then exits nonzero, so optional version

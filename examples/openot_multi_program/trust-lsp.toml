@@ -7,4 +7,5 @@ stdlib = "iec"
 OpenOT = { path = "../../../open-ot-ref/st/iec61131" }
 
 [runtime]
-control_endpoint = "unix:///tmp/trust-openot-multi-program.sock"
+control_endpoint = "tcp://127.0.0.1:0"
+control_auth_token = "openot-example-local-token"
