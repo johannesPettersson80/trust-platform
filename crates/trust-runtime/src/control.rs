@@ -185,6 +185,8 @@ pub struct ControlState {
     pub hmi_persistence: Option<Arc<crate::hmi::HmiPersistenceService>>,
     pub hmi_descriptor: Arc<Mutex<HmiRuntimeDescriptor>>,
     pub historian: Option<Arc<crate::historian::HistorianService>>,
+    pub openot_persistence_status:
+        Option<Arc<Mutex<crate::openot_persistence::OpenOtPersistenceStatus>>>,
     pub pairing: Option<Arc<PairingStore>>,
     pub ads_doctor_jobs: Arc<Mutex<AdsDoctorJobStore>>,
     pub ads_client_config: Arc<Mutex<Option<crate::ads::AdsClientConfig>>>,

@@ -242,6 +242,8 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "ADS Onboarding Engine\n(host/ads/onboarding/*)" as adsOnboarding
     component "ADS Diagnostics Schema\n(host/ads/diagnostics.rs + diagnostics/*)" as adsDiagnostics
     component "OpenOT Authoring\n(openot_authoring/*)" as openotAuthoring
+    component "OpenOT Persistence Service\n(source + resolver + worker + status)" as openotPersistence
+    component "OpenOT Sink Factory\n(SQLite / PostgreSQL / TimescaleDB /\nMySQL-MariaDB / SQL Server / InfluxDB 3)" as openotSinks
     component "ADS Generated Globals\n(src/generated/ads_generated.st)" as adsGenerated
     component "MQTT Driver\n(TCP/TLS/mTLS)" as mqttDriver
 
@@ -295,6 +297,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     runtimeConfig --> runtime
     runtimeConfig --> tlsMaterials : runtime.tls
     runtimeConfig --> historianSvc : runtime.observability
+    runtimeConfig --> openotPersistence : runtime.openot.persistence
     runtimeConfig --> hmiPersistence : runtime.hmi_persistence
     runtimeConfig --> opcuaGateway : runtime.opcua
     runtimeConfig --> adsServerIntegration : runtime.ads_server
@@ -317,6 +320,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     launcher --> discovery : advertises (if enabled)
     launcher --> meshSync : starts (if enabled)
     launcher --> historianSvc : starts sampler\n(if enabled)
+    launcher --> openotPersistence : starts off-scan consumer\n(if enabled)
     launcher --> hmiPersistence : loads restart window\n(if enabled)
     launcher --> opcuaGateway : starts (if enabled)
     controlServer --> runtime : pause/step/io
@@ -329,6 +333,8 @@ package "trust-runtime crate" as struntime #LightYellow {
     adsControlHandlers --> adsClient : live ads.status
     adsControlHandlers --> adsServerIntegration : server status/symbols/doctor
     controlServer --> historianSvc : historian.query/alerts
+    openotPersistence --> controlServer : redacted durability status
+    openotPersistence --> openotSinks : atomic documents + cursor
     controlServer --> hmiPersistence : persist HMI\ntrends/alarms
     runtime --> retainMgr : retain lifecycle
     webServer --> webDispatcher : bounded admission

@@ -48,6 +48,84 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
     // Runtime settings are the single source of truth for selected backend mode/source.
     let execution_backend = settings.execution_backend.as_str();
     let execution_backend_source = settings.execution_backend_source.as_str();
+    let openot_persistence = match state.openot_persistence_status.as_ref() {
+        Some(status) => {
+            let Ok(status) = status.lock() else {
+                return unavailable(id, "OpenOT persistence status");
+            };
+            let mut warnings = Vec::new();
+            if status.head_abs > status.cursor_abs {
+                warnings.push("lag");
+            }
+            if status.documents_retried > 0 {
+                warnings.push("retrying");
+            }
+            if status.unresolved > 0 {
+                warnings.push("placeholder");
+            }
+            if status.loss_range_count > 0 {
+                warnings.push("loss");
+            }
+            if status.remote_pending > 0 {
+                warnings.push("spool_pressure");
+            }
+            if status.state == crate::openot_persistence::OpenOtPersistenceState::Faulted
+                && status.last_error.is_some()
+            {
+                warnings.push("migration_or_storage_fault");
+            }
+            if matches!(
+                status.state,
+                crate::openot_persistence::OpenOtPersistenceState::Stopped
+                    | crate::openot_persistence::OpenOtPersistenceState::Faulted
+            ) && (status.pending > 0 || status.remote_pending > 0)
+            {
+                warnings.push("shutdown_pending");
+            }
+            json!({
+                "state": status.state.as_str(),
+                "backend": status.backend,
+                "schema_version": status.schema_version,
+                "documents_read": status.documents_read,
+                "documents_committed": status.documents_committed,
+                "documents_duplicated": status.documents_duplicated,
+                "remote_pending": status.remote_pending,
+                "documents_retried": status.documents_retried,
+                "pending": status.pending,
+                "rejected": status.rejected,
+                "unresolved": status.unresolved,
+                "loss_range_count": status.loss_range_count,
+                "lost_record_count": status.lost_record_count,
+                "cursor_abs": status.cursor_abs,
+                "head_abs": status.head_abs,
+                "cursor_lag": status.head_abs.saturating_sub(status.cursor_abs),
+                "last_success_time_ns": status.last_success_time_ns,
+                "last_error": status.last_error,
+                "warnings": warnings,
+            })
+        }
+        None => json!({
+            "state": "disabled",
+            "backend": null,
+            "schema_version": null,
+            "documents_read": 0,
+            "documents_committed": 0,
+            "documents_duplicated": 0,
+            "remote_pending": 0,
+            "documents_retried": 0,
+            "pending": 0,
+            "rejected": 0,
+            "unresolved": 0,
+            "loss_range_count": 0,
+            "lost_record_count": 0,
+            "cursor_abs": 0,
+            "head_abs": 0,
+            "cursor_lag": 0,
+            "last_success_time_ns": null,
+            "last_error": null,
+            "warnings": [],
+        }),
+    };
     ControlResponse::ok(
         id,
         json!({
@@ -65,6 +143,7 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
             "simulation_time_scale": simulation.time_scale,
             "simulation_warning": simulation.warning.as_str(),
             "hmi_read_only": true,
+            "openot_persistence": openot_persistence,
             "metrics": {
                 "cycle_ms": {
                     "min": metrics.cycle.min_ms,

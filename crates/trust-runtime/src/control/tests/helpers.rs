@@ -196,6 +196,7 @@ fn hmi_test_state_with_status_reports(
         hmi_persistence: None,
         hmi_descriptor,
         historian: None,
+        openot_persistence_status: None,
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
         ads_client_config: Arc::new(Mutex::new(None)),

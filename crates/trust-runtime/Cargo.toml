@@ -57,11 +57,18 @@ signal-hook = "0.3.18"
 rustls = "0.23"
 tiverse-mmap = "1.0"
 region = "3.0"
+rusqlite = { version = "0.40.2", features = ["bundled"], optional = true }
+postgres = { version = "0.19.14", optional = true }
+postgres-native-tls = { version = "0.5.3", optional = true }
+mysql = { version = "28.0.0", default-features = false, features = ["minimal-rust", "rustls-tls"], optional = true }
 open-ot-definition = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
+open-ot-document = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 opcua = { version = "0.12", default-features = false, features = ["server", "client", "vendored-openssl"], optional = true }
 ads = { version = "=0.4.4", optional = true }
 crossbeam-channel.workspace = true
 tokio = { workspace = true, optional = true }
+tokio-util = { version = "0.7", features = ["compat"], optional = true }
+tiberius = { version = "0.12.3", default-features = false, features = ["tds73", "native-tls"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
 ethercrab = { version = "0.6", optional = true }
@@ -76,16 +83,37 @@ verification-cases.workspace = true
 
 [target.'cfg(unix)'.dev-dependencies]
 open-ot-conformance = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
-open-ot-document = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gpio-cdev = "0.6"
 rustix = { version = "1.1.4", features = ["mm", "thread"] }
 
 [features]
-default = ["debug", "ethercat-wire", "ads-wire", "ads-server", "opcua-wire"]
+default = [
+    "debug",
+    "ethercat-wire",
+    "ads-wire",
+    "ads-server",
+    "opcua-wire",
+    "openot-database-all",
+]
 debug = []
 opcua-wire = ["dep:opcua"]
 ethercat-wire = ["dep:ethercrab", "dep:tokio"]
 ads-wire = ["dep:ads"]
 ads-server = ["dep:trust-ads-server"]
+openot-real-database-tests = []
+openot-database-all = [
+    "openot-database-sqlite",
+    "openot-database-postgresql",
+    "openot-database-timescaledb",
+    "openot-database-mysql",
+    "openot-database-sqlserver",
+    "openot-database-influxdb3",
+]
+openot-database-sqlite = ["dep:rusqlite"]
+openot-database-postgresql = ["dep:postgres", "dep:postgres-native-tls"]
+openot-database-timescaledb = ["dep:postgres", "dep:postgres-native-tls"]
+openot-database-mysql = ["dep:mysql"]
+openot-database-sqlserver = ["dep:tiberius", "dep:tokio", "dep:tokio-util"]
+openot-database-influxdb3 = ["dep:rusqlite"]

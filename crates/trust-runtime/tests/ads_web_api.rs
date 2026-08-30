@@ -487,6 +487,7 @@ END_PROGRAM
         hmi_persistence: None,
         hmi_descriptor,
         historian: None,
+        openot_persistence_status: None,
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),

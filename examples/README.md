@@ -54,6 +54,7 @@ code /path/to/trust-platform
 | Libraries and motion | `examples/plcopen_motion_single_axis_demo/README.md`, `examples/plcopen_motion_single_axis_benchmarks/README.md`, `examples/oscat_smoke/README.md` | shipped libraries and performance baselines | 10-40 min |
 | Capstones | `examples/plant_demo/README.md`, `examples/filling_line/README.md`, `examples/hardware_8do/README.md` | larger multi-file or hardware-leaning projects | 25-55 min |
 | OpenOT telemetry | `examples/openot_multi_program/README.md` | attribute-driven OpenOT logging, generated producers, one shared-memory ring | 20-30 min |
+| OpenOT database persistence | `examples/openot_database/README.md` | one canonical alarms/messages/values/audit workload with TOML overlays for seven real database products | 20-30 min per product |
 | Runbooks | `examples/runbooks/site-runbook-template/README.md` | site-specific operator and technician handoff templates | 10-20 min |
 
 ## Archive Policy

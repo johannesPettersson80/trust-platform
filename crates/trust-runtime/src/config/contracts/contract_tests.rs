@@ -228,6 +228,7 @@ fn openot_default_is_inert_fenced_heartbeat_configuration() {
     assert_eq!(config.source, OpenOtTelemetrySource::Heartbeat);
     assert_eq!(config.producer_instance, None);
     assert!(config.producer_instances.is_empty());
+    assert!(!config.persistence.enabled);
 }
 
 #[test]
@@ -283,6 +284,7 @@ fn openot_config_clone_owns_path_and_producer_lists() {
         source: OpenOtTelemetrySource::StFb,
         producer_instance: Some("Plant.Telemetry".into()),
         producer_instances: vec!["Plant.Telemetry".into(), "Line.Telemetry".into()],
+        persistence: OpenOtPersistenceConfig::default(),
     };
     let copy = original.clone();
 

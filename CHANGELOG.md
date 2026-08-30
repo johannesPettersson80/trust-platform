@@ -48,10 +48,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.65`
+Target release: `v0.24.66`
 
 ### Added
 
+- Persist canonical OpenOT event, loss, and placeholder documents outside the
+  PLC scan to a TOML-selected SQLite, PostgreSQL, TimescaleDB, MySQL/MariaDB,
+  SQL Server, or InfluxDB 3 backend, with atomic durable checkpoints,
+  idempotent replay, TLS/secret boundaries, InfluxDB outage spooling, runtime
+  status, complete examples, and real-vendor conformance coverage.
 - Support MQTT tag mappings that bind fully qualified scalar program variables
   directly to broker topics with explicit PLC-relative `read` and `write`
   directions.

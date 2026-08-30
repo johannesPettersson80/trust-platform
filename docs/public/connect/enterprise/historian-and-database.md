@@ -2,6 +2,10 @@
 
 ## What truST Gives You Today
 
+- canonical event and audit persistence to SQLite, PostgreSQL, TimescaleDB,
+  MySQL/MariaDB, SQL Server, or InfluxDB 3:
+  [OpenOT Database Persistence](../../operate/openot-database-persistence.md)
+
 - observability outputs and historian-friendly runtime data:
   [Observability](../../operate/observability.md)
 - protocol surfaces such as MQTT or OPC UA when your historian stack already
@@ -21,5 +25,6 @@
 ## Related
 
 - [Observability](../../operate/observability.md)
+- [OpenOT Database Persistence](../../operate/openot-database-persistence.md)
 - [MQTT](../external-systems/mqtt.md)
 - [OPC UA](../external-systems/opc-ua.md)

@@ -137,6 +137,8 @@ docs/internal/testing/checklists/*
 !docs/internal/testing/checklists/runtime-host-module-collapse-execution-checklist.md
 !docs/internal/testing/checklists/architecture-external-safety-dependency-follow-up-checklist.md
 !docs/internal/testing/checklists/runtime-safety-fail-closed-checklist.md
+!docs/internal/testing/checklists/openot-database-persistence-implementation-checklist.md
+!docs/internal/architecture/openot-database-persistence-contract.md
 !docs/internal/testing/checklists/docs-ia-visual-polish-checklist.md
 !docs/internal/testing/checklists/docs-ia-strategy.md
 !docs/internal/testing/evidence/

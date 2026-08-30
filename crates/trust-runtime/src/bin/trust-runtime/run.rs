@@ -23,6 +23,7 @@ use trust_runtime::linux_rt::{make_thread_init_hook, LinuxRtRuntimeStatus};
 use trust_runtime::mesh::start_mesh;
 use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::opcua::{start_wire_server, OpcUaWireServer};
+use trust_runtime::openot_persistence::OpenOtPersistenceService;
 use trust_runtime::retain::FileRetainStore;
 use trust_runtime::scheduler::{ResourceCommand, ResourceRunner, StartGate, StdClock};
 use trust_runtime::security::{load_tls_materials, pairing::PairingStore};

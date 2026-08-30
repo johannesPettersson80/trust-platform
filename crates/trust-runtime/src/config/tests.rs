@@ -538,6 +538,238 @@ fn runtime_schema_defaults_openot_telemetry_disabled() {
 }
 
 #[test]
+fn runtime_schema_accepts_explicitly_disabled_openot_persistence() {
+    let text = format!(
+        "{}\n[runtime.openot]\n[runtime.openot.persistence]\nenabled = false\n",
+        runtime_toml()
+    );
+
+    parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("disabled OpenOT persistence should parse without selecting a backend");
+}
+
+#[test]
+fn runtime_schema_selects_sqlite_openot_persistence_from_toml() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\n[runtime.openot.persistence]\nenabled = true\nbackend = \"sqlite\"\n\
+         \n[runtime.openot.persistence.sqlite]\npath = \"history/openot.sqlite3\"\n",
+        runtime_toml()
+    );
+
+    parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("TOML backend='sqlite' should select a valid SQLite persistence config");
+}
+
+#[test]
+fn runtime_schema_rejects_persistence_when_openot_carriage_is_disabled() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = false\n\
+         \n[runtime.openot.persistence]\nenabled = true\nbackend = \"sqlite\"\n\
+         \n[runtime.openot.persistence.sqlite]\npath = \"history/openot.sqlite3\"\n",
+        runtime_toml()
+    );
+
+    let error = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect_err("persistence cannot consume a disabled carriage");
+    assert!(
+        error
+            .to_string()
+            .contains("requires runtime.openot.enabled=true"),
+        "{error}"
+    );
+}
+
+#[test]
+fn runtime_schema_accepts_every_openot_persistence_backend_table() {
+    for (backend, backend_table) in [
+        (
+            "postgresql",
+            "connection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"openot\"\ntls = \"require\"",
+        ),
+        (
+            "timescaledb",
+            "connection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"openot\"\ntls = \"require\"",
+        ),
+        (
+            "mysql",
+            "connection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\ndatabase = \"openot\"\ntls = \"require\"",
+        ),
+        (
+            "sqlserver",
+            "connection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"openot\"\ntls = \"require\"",
+        ),
+        (
+            "influxdb3",
+            "host_env = \"TRUST_OPENOT_INFLUX_HOST\"\ntoken_env = \"TRUST_OPENOT_INFLUX_TOKEN\"\ndatabase = \"openot\"\nspool_path = \"history/openot-influx-spool.sqlite3\"\nmax_bytes = 1073741824",
+        ),
+    ] {
+        let text = format!(
+            "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\n[runtime.openot.persistence]\nenabled = true\nbackend = \"{backend}\"\n\
+             \n[runtime.openot.persistence.{backend}]\n{backend_table}\n",
+            runtime_toml()
+        );
+
+        parse_runtime_toml_from_text(&text, "runtime.toml")
+            .unwrap_or_else(|error| panic!("backend={backend}: {error}"));
+    }
+}
+
+#[test]
+fn runtime_schema_requires_an_explicit_bounded_influx_spool_capacity() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\n[runtime.openot.persistence]\nenabled = true\nbackend = \"influxdb3\"\n\
+         \n[runtime.openot.persistence.influxdb3]\nhost_env = \"TRUST_OPENOT_INFLUX_HOST\"\ntoken_env = \"TRUST_OPENOT_INFLUX_TOKEN\"\ndatabase = \"openot\"\nspool_path = \"history/openot-influx-spool.sqlite3\"\nmax_bytes = 1048576\n",
+        runtime_toml()
+    );
+
+    parse_runtime_toml_from_text(&text, "runtime.toml").expect("bounded spool");
+}
+
+#[test]
+fn runtime_schema_rejects_unselected_openot_persistence_backend_table() {
+    let text = format!(
+        "{}\n[runtime.openot]\n[runtime.openot.persistence]\nenabled = true\nbackend = \"sqlite\"\n\
+         \n[runtime.openot.persistence.sqlite]\npath = \"history/openot.sqlite3\"\n\
+         \n[runtime.openot.persistence.postgresql]\nconnection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"openot\"\ntls = \"require\"\n",
+        runtime_toml()
+    );
+
+    let error = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect_err("an unselected backend table must fail closed");
+    assert!(
+        error
+            .to_string()
+            .contains("unselected runtime.openot.persistence.postgresql"),
+        "{error}"
+    );
+}
+
+#[test]
+fn runtime_schema_accepts_openot_persistence_operational_limits() {
+    let text = format!(
+        "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\n[runtime.openot.persistence]\nenabled = true\nbackend = \"sqlite\"\nbatch_size = 128\nflush_interval_ms = 500\nqueue_capacity = 2048\nshutdown_timeout_ms = 7000\nretry_initial_ms = 100\nretry_max_ms = 10000\nretry_multiplier = 3\nretry_max_attempts = 4\n\
+         \n[runtime.openot.persistence.sqlite]\npath = \"history/openot.sqlite3\"\n",
+        runtime_toml()
+    );
+
+    parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("valid OpenOT persistence operational limits should parse");
+}
+
+#[test]
+fn openot_example_has_parseable_toml_for_every_supported_database_product() {
+    let repository_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let example_root = repository_root.join("examples/openot_database");
+    for (directory, expected_backend) in [
+        ("sqlite", crate::config::OpenOtPersistenceBackend::Sqlite),
+        (
+            "postgresql",
+            crate::config::OpenOtPersistenceBackend::PostgreSql,
+        ),
+        (
+            "timescaledb",
+            crate::config::OpenOtPersistenceBackend::TimescaleDb,
+        ),
+        ("mysql", crate::config::OpenOtPersistenceBackend::MySql),
+        ("mariadb", crate::config::OpenOtPersistenceBackend::MySql),
+        (
+            "sqlserver",
+            crate::config::OpenOtPersistenceBackend::SqlServer,
+        ),
+        (
+            "influxdb3",
+            crate::config::OpenOtPersistenceBackend::InfluxDb3,
+        ),
+    ] {
+        let path = example_root.join(directory).join("runtime.toml");
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("read runnable example '{}': {error}", path.display()));
+        let config = parse_runtime_toml_from_text(&text, "runtime.toml")
+            .unwrap_or_else(|error| panic!("parse runnable example '{directory}': {error}"));
+        assert!(config.openot.persistence.enabled, "{directory}");
+        assert_eq!(
+            config.openot.persistence.backend,
+            Some(expected_backend),
+            "{directory}"
+        );
+        assert!(example_root.join(directory).join("README.md").is_file());
+    }
+    assert_eq!(
+        std::fs::read(example_root.join("workload/Main.st")).expect("shared workload"),
+        std::fs::read(repository_root.join("examples/openot_multi_program/src/Main.st"))
+            .expect("canonical workload")
+    );
+    assert_eq!(
+        std::fs::read(example_root.join("workload/openot-coverage-manifest.json"))
+            .expect("shared coverage manifest"),
+        std::fs::read(
+            repository_root.join("examples/openot_multi_program/openot-coverage-manifest.json")
+        )
+        .expect("canonical coverage manifest")
+    );
+}
+
+#[test]
+fn runtime_schema_accepts_openot_remote_database_ca_certificate_path() {
+    let text = format!(
+        "{}\n[runtime.openot]\n[runtime.openot.persistence]\nenabled = true\nbackend = \"postgresql\"\n\
+         \n[runtime.openot.persistence.postgresql]\nconnection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"openot\"\ntls = \"require\"\nca_cert_path = \"certs/openot-database-ca.pem\"\n",
+        runtime_toml()
+    );
+
+    parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("remote database CA certificate path should parse");
+}
+
+#[test]
+fn runtime_schema_accepts_openot_influxdb3_ca_certificate_path() {
+    let text = format!(
+        "{}\n[runtime.openot]\n[runtime.openot.persistence]\nenabled = true\nbackend = \"influxdb3\"\n\
+         \n[runtime.openot.persistence.influxdb3]\nhost_env = \"TRUST_OPENOT_INFLUX_HOST\"\ntoken_env = \"TRUST_OPENOT_INFLUX_TOKEN\"\ndatabase = \"openot\"\nspool_path = \"history/openot-influx-spool.sqlite3\"\nmax_bytes = 1073741824\nca_cert_path = \"certs/openot-influx-ca.pem\"\n",
+        runtime_toml()
+    );
+
+    parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect("InfluxDB 3 CA certificate path should parse");
+}
+
+#[test]
+fn runtime_schema_rejects_inline_openot_database_credentials() {
+    let text = format!(
+        "{}\n[runtime.openot]\n[runtime.openot.persistence]\nenabled = true\nbackend = \"postgresql\"\n\
+         \n[runtime.openot.persistence.postgresql]\nconnection_url_env = \"postgresql://logger:secret@db/openot\"\nschema = \"openot\"\ntls = \"require\"\n",
+        runtime_toml()
+    );
+
+    let error = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect_err("connection_url_env must contain an environment variable name, not a URL");
+    assert!(
+        error
+            .to_string()
+            .contains("connection_url_env must be an environment variable name"),
+        "{error}"
+    );
+}
+
+#[test]
+fn runtime_schema_rejects_unsafe_openot_database_identifier() {
+    let text = format!(
+        "{}\n[runtime.openot]\n[runtime.openot.persistence]\nenabled = true\nbackend = \"postgresql\"\n\
+         \n[runtime.openot.persistence.postgresql]\nconnection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"openot; DROP SCHEMA public\"\ntls = \"require\"\n",
+        runtime_toml()
+    );
+
+    let error = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect_err("schema must be a plain SQL identifier");
+    assert!(
+        error
+            .to_string()
+            .contains("postgresql.schema must be a SQL identifier"),
+        "{error}"
+    );
+}
+
+#[test]
 fn runtime_schema_accepts_openot_telemetry_section() {
     let text = format!(
         "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\ncapacity = 4096\nfence_mode = \"fenced\"\n",

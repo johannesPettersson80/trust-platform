@@ -201,6 +201,16 @@ nav:
       - Secrets: operate/secrets.md
       - Audit Log: operate/audit-log.md
       - Observability: operate/observability.md
+      - OpenOT Database Persistence:
+          - Overview: operate/openot-database-persistence.md
+          - Choose A Database: operate/openot-database-selection.md
+          - Real Database Verification: operate/openot-database-verification.md
+          - SQLite: operate/openot-database-sqlite.md
+          - PostgreSQL: operate/openot-database-postgresql.md
+          - TimescaleDB: operate/openot-database-timescaledb.md
+          - MySQL And MariaDB: operate/openot-database-mysql.md
+          - SQL Server: operate/openot-database-sqlserver.md
+          - InfluxDB 3: operate/openot-database-influxdb3.md
       - Performance Tuning: operate/performance-tuning.md
       - Runtime Lifecycle: operate/lifecycle.md
       - Runtime Cloud: operate/runtime-cloud.md
