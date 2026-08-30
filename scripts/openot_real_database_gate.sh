@@ -7,6 +7,10 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 artifact_root=${TRUST_OPENOT_EVIDENCE_DIR:-"$repo_root/target/openot-real-database-evidence"}
+if [[ -d $artifact_root && -n $(find "$artifact_root" -mindepth 1 -maxdepth 1 -print -quit) ]]; then
+  echo "OpenOT evidence directory must be empty before an exact gate: $artifact_root" >&2
+  exit 2
+fi
 mkdir -p "$artifact_root"
 mkdir -p "$artifact_root/runtime-configs" "$artifact_root/sqlite-artifact"
 

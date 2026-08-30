@@ -73,6 +73,8 @@ def main() -> int:
             fail(f"verification page omits executable identity {identity}")
 
     gate = (ROOT / "scripts/openot_real_database_gate.sh").read_text()
+    if "evidence directory must be empty" not in gate.lower():
+        fail("real-database gate does not reject a stale evidence directory")
     for artifact in (
         "sqlite-artifact",
         "runtime-configs",
