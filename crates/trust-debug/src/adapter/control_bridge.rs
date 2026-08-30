@@ -83,6 +83,7 @@ impl DebugControlServer {
             debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
             hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
             hmi_persistence: None,
+            openot_persistence_status: None,
             hmi_descriptor,
             historian: None,
             pairing: None,

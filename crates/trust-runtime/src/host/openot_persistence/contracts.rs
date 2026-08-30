@@ -1,5 +1,8 @@
 use open_ot_document::Document;
 
+#[cfg(all(test, feature = "openot-real-database-tests"))]
+pub(crate) type StoredCheckpointRow = (u32, Vec<u8>, Vec<u8>);
+
 #[cfg(test)]
 use super::projection::document_identity;
 

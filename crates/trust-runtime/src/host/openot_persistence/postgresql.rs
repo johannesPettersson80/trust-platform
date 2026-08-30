@@ -169,7 +169,7 @@ impl PostgreSqlDocumentSink {
     #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn checkpoint(
         &mut self,
-    ) -> Result<Option<(u32, Vec<u8>, Vec<u8>)>, PersistenceError> {
+    ) -> Result<Option<super::contracts::StoredCheckpointRow>, PersistenceError> {
         let sql = format!(
             "SELECT buffer_id, run_id, cursor_abs FROM \"{}\".openot_checkpoint WHERE singleton = TRUE",
             self.schema
