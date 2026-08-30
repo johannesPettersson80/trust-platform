@@ -118,6 +118,10 @@ fn status_baseline_preserves_runtime_identity_and_modes() {
             "documents_committed": 0,
             "documents_duplicated": 0,
             "remote_pending": 0,
+            "projection_rows_committed": 0,
+            "unclassified_event_count": 0,
+            "reconciled_part_count": 0,
+            "pending_part_count": 0,
             "documents_retried": 0,
             "pending": 0,
             "rejected": 0,
@@ -146,6 +150,10 @@ fn openot_status_projects_every_applicable_operator_warning() {
             documents_committed: 4,
             documents_duplicated: 0,
             remote_pending: 3,
+            projection_rows_committed: 17,
+            unclassified_event_count: 2,
+            reconciled_part_count: 11,
+            pending_part_count: 7,
             documents_retried: 2,
             pending: 64,
             rejected: 0,
@@ -160,6 +168,10 @@ fn openot_status_projects_every_applicable_operator_warning() {
     )));
 
     let value = result(handle_status(1, &state));
+    assert_eq!(value["openot_persistence"]["projection_rows_committed"], 17);
+    assert_eq!(value["openot_persistence"]["unclassified_event_count"], 2);
+    assert_eq!(value["openot_persistence"]["reconciled_part_count"], 11);
+    assert_eq!(value["openot_persistence"]["pending_part_count"], 7);
     assert_eq!(
         value["openot_persistence"]["warnings"],
         json!([

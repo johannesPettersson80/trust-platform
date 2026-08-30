@@ -22,6 +22,9 @@ required_variables=(
   TRUST_TEST_OPENOT_SQLSERVER_URL TRUST_TEST_OPENOT_SQLSERVER_CA
   TRUST_TEST_OPENOT_INFLUX_HOST TRUST_TEST_OPENOT_INFLUX_TOKEN
   TRUST_TEST_OPENOT_INFLUX_CA
+  TRUST_TEST_OPENOT_POSTGRES_CONTAINER TRUST_TEST_OPENOT_TIMESCALE_CONTAINER
+  TRUST_TEST_OPENOT_MYSQL_CONTAINER TRUST_TEST_OPENOT_MARIADB_CONTAINER
+  TRUST_TEST_OPENOT_SQLSERVER_CONTAINER TRUST_TEST_OPENOT_INFLUX_CONTAINER
 )
 
 missing=()
@@ -102,6 +105,10 @@ run_gate() {
 run_gate adapter-contracts cargo test -p trust-runtime \
   --features openot-real-database-tests --lib \
   openot_persistence::contract_tests -- --test-threads=1
+run_gate release-qualification cargo test --release -p trust-runtime \
+  --features openot-real-database-tests --lib \
+  openot_persistence::contract_tests::every_real_backend_meets_openot_ingest_and_catch_up_qualification_floors \
+  -- --exact --nocapture
 run_gate service-lifecycle cargo test -p trust-runtime \
   --features openot-real-database-tests --lib \
   openot_persistence::service::tests -- --test-threads=1
@@ -117,8 +124,11 @@ connection = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
 queries = (
     ("integrity_check", "PRAGMA integrity_check"),
     ("schema_version", "PRAGMA user_version"),
-    ("document_count", "SELECT COUNT(*) FROM openot_documents"),
-    ("checkpoint_count", "SELECT COUNT(*) FROM openot_checkpoint"),
+    ("document_count", "SELECT COUNT(*) FROM logging_records"),
+    ("checkpoint_count", "SELECT COUNT(*) FROM logging_checkpoint"),
+    ("event_count", "SELECT COUNT(*) FROM event_log"),
+    ("value_count", "SELECT COUNT(*) FROM logged_values"),
+    ("alarm_count", "SELECT COUNT(*) FROM alarm_history"),
 )
 for label, query in queries:
     print(f"{label}={connection.execute(query).fetchone()[0]}")

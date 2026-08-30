@@ -25,9 +25,9 @@ trust-runtime run --project "$example_root"
 ```bash
 psql "$TRUST_OPENOT_DATABASE_URL" -c 'select version()'
 psql "$TRUST_OPENOT_DATABASE_URL" -c \
-  'select document_kind,event_name,count(*) from openot.openot_documents group by 1,2 order by 1,2'
+  'select event_name,count(*) from openot.event_log group by 1 order by 1'
 psql "$TRUST_OPENOT_DATABASE_URL" -c \
-  'select buffer_id,encode(run_id,'\''hex'\''),encode(cursor_abs,'\''hex'\'') from openot.openot_checkpoint'
+  'select buffer_id,encode(run_id,'\''hex'\''),encode(cursor_abs,'\''hex'\'') from openot.logging_checkpoint'
 ```
 
 ## Outage and restart

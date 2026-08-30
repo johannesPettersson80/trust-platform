@@ -78,7 +78,9 @@ allow additional filesystem headroom for WAL and allocation overhead.
 
 The runtime `status` response exposes `openot_persistence` with state, selected
 backend, schema version, document counters, cursor/head/lag, loss and unresolved
-counts, `remote_pending`, last success, and a redacted last error. `pending` is
+counts, projection-row and unclassified-event counters, Influx reconciliation
+and pending-part counters, `remote_pending`, last success, and a redacted last
+error. `pending` is
 source-ring byte lag; `remote_pending` is the count accepted by a mandatory
 local spool but not yet acknowledged by its server. `ready` requires both to be
 zero; runtime health remains separate. The ordered `warnings` array uses stable
@@ -120,20 +122,28 @@ configurations.
 
 ## Inspect and operate
 
-For SQL products, the portable first query is:
+For SQL products, normal operator queries use descriptive public objects. For
+example:
 
 ```sql
-SELECT document_kind, event_name, COUNT(*)
-FROM openot_documents
-GROUP BY document_kind, event_name
-ORDER BY document_kind, event_name;
+SELECT event_name, COUNT(*) AS event_count
+FROM event_log
+GROUP BY event_name
+ORDER BY event_name;
+
+SELECT value_name, value_type, exact_value, unit, quality, received_time
+FROM logged_values
+ORDER BY received_time DESC;
+
+SELECT condition, lifecycle_action, condition_class, received_time
+FROM alarm_history
+ORDER BY received_time DESC;
 ```
 
-Then inspect `canonical_json` for the complete document and query
-`openot_checkpoint` to compare the durable cursor with runtime status. InfluxDB
-3 stores the canonical JSON projection and identity fields in the `openot`
-measurement; use its SQL API and inspect the local spool with `sqlite3` during
-an outage.
+`logging_records` and `logging_checkpoint` are internal durability/recovery
+objects. They retain canonical JSON and the durable cursor, but application and
+operator reports normally do not query them. InfluxDB 3 exposes the same public
+measurement names and keeps its internal spool in local SQLite.
 
 ### Product-native checks
 
@@ -141,12 +151,13 @@ PostgreSQL and TimescaleDB:
 
 ```bash
 psql "$TRUST_OPENOT_DATABASE_URL" -c \
-  'SELECT document_kind,event_name,count(*) FROM openot.openot_documents GROUP BY 1,2 ORDER BY 1,2'
+  'SELECT event_name,count(*) FROM openot.event_log GROUP BY 1 ORDER BY 1'
 psql "$TRUST_OPENOT_DATABASE_URL" -c \
   'SELECT extversion FROM pg_extension WHERE extname = '\''timescaledb'\'''
 ```
 
-For TimescaleDB also verify `openot_time_index` in
+For TimescaleDB also verify `event_log`, `logged_values`, `alarm_history`,
+`message_log`, and `state_history` in
 `timescaledb_information.hypertables`. Configure retention/compression only
 after the audit-retention owner has approved it; those policies are not created
 implicitly by truST.
@@ -156,7 +167,7 @@ MySQL or MariaDB:
 ```bash
 mysql --ssl-mode=VERIFY_CA --ssl-ca=certs/openot-database-ca.pem \
   "$TRUST_OPENOT_DATABASE_URL" -e \
-  'SELECT document_kind,event_name,count(*) FROM openot_documents GROUP BY 1,2 ORDER BY 1,2'
+  'SELECT event_name,count(*) FROM event_log GROUP BY 1 ORDER BY 1'
 ```
 
 Check `SELECT VERSION()` and retain separate acceptance evidence for MySQL and
@@ -166,7 +177,7 @@ SQL Server:
 
 ```bash
 sqlcmd -N -S localhost -d master -Q \
-  'SELECT document_kind,event_name,COUNT_BIG(*) FROM openot.openot_documents GROUP BY document_kind,event_name ORDER BY document_kind,event_name'
+  'SELECT event_name,COUNT_BIG(*) FROM openot.event_log GROUP BY event_name ORDER BY event_name'
 ```
 
 Install the database CA in the client trust store first. truST's adapter always
@@ -179,9 +190,9 @@ curl --fail --cacert certs/openot-influx-ca.pem \
   -H "Authorization: Bearer $TRUST_OPENOT_INFLUX_TOKEN" \
   --get "$TRUST_OPENOT_INFLUX_HOST/api/v3/query_sql" \
   --data-urlencode 'db=openot' \
-  --data-urlencode 'q=SELECT document_kind,event_name,count(*) FROM openot_documents GROUP BY document_kind,event_name ORDER BY document_kind,event_name'
+  --data-urlencode 'q=SELECT event_name,count(*) FROM event_log GROUP BY event_name ORDER BY event_name'
 sqlite3 history/openot-influx-spool.sqlite3 \
-  'SELECT delivered,count(*) FROM openot_spool GROUP BY delivered;'
+  'SELECT delivered,count(*) FROM logging_delivery_spool GROUP BY delivered;'
 ```
 
 To test recovery, stop only the selected database service, confirm runtime
@@ -194,7 +205,7 @@ spool, use the SQLite online backup mechanism or stop the runtime cleanly before
 copying. For server databases, use the vendor's transaction-consistent backup.
 Restore into the same schema version and validate the document count, canonical
 JSON, and checkpoint before reconnecting a producer. Retention is operator
-owned in schema version 2; do not delete checkpoint state or remove documents
+owned in schema version 3; do not delete checkpoint state or remove documents
 that remain inside an audit retention period.
 
 The tables and columns are implementation-owned and versioned by truST. Do not

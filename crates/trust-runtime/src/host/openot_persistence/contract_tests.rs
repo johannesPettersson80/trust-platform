@@ -1,7 +1,7 @@
 use open_ot_document::{
-    Document, DocumentEpoch, DocumentFlags, DocumentKind, DocumentSource, EpochRelation,
-    EventDocument, LossBasis, LossDocument, PlaceholderDocument, PlaceholderReasonDocument,
-    PlaceholderReasonKind, Provenance, RawSlot,
+    Document, DocumentEpoch, DocumentField, DocumentFlags, DocumentKind, DocumentSource,
+    EpochRelation, EventDocument, LossBasis, LossDocument, PlaceholderDocument,
+    PlaceholderReasonDocument, PlaceholderReasonKind, Provenance, RawSlot,
 };
 
 use super::contracts::{
@@ -50,6 +50,7 @@ use super::SqlServerDocumentSink;
 use super::TimescaleDbDocumentSink;
 
 fn provenance(source_id: u32) -> Provenance {
+    let definition = open_ot_definition::sample_definition();
     Provenance {
         buffer_id: 7,
         source: DocumentSource::unresolved(source_id),
@@ -57,12 +58,101 @@ fn provenance(source_id: u32) -> Provenance {
         epoch: DocumentEpoch {
             id: 13,
             relation: EpochRelation::Current,
-            definition_hash: "0102030405060708".to_string(),
+            definition_hash: definition_hash_hex(&definition),
             semantic_version: Some("1.0.0".to_string()),
         },
         source_time_ns: Some(17),
         receive_time_ns: 19,
         flags: DocumentFlags::default(),
+    }
+}
+
+fn open_test_sqlite(path: &std::path::Path) -> Result<SqliteDocumentSink, super::PersistenceError> {
+    SqliteDocumentSink::open_with_definitions(path, vec![open_ot_definition::sample_definition()])
+}
+
+fn heartbeat_document() -> Document {
+    Document::Event(EventDocument {
+        kind: DocumentKind::Event,
+        provenance: provenance(66),
+        event_name: "Heartbeat".to_string(),
+        event_type_id: open_ot_carriage::registry::EVENT_HEARTBEAT,
+        seq: 1,
+        fields: Vec::new(),
+        extension_fields: Vec::new(),
+    })
+}
+
+fn definition_hash_hex(definition: &open_ot_definition::DefinitionFile) -> String {
+    open_ot_definition::compute_content_hash(definition)
+        .expect("hash logging definition")
+        .carriage_hash
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+fn value_changed_document(
+    definition: &open_ot_definition::DefinitionFile,
+    seq: u64,
+    value_id: u32,
+    type_name: &str,
+    value: serde_json::Value,
+) -> Document {
+    let mut provenance = provenance(66);
+    provenance.source = DocumentSource {
+        id: 66,
+        name: Some("UnitA.Phase1".to_string()),
+        path: vec![
+            "Area1".to_string(),
+            "UnitA".to_string(),
+            "Phase1".to_string(),
+        ],
+        hierarchy: vec!["area".to_string(), "unit".to_string(), "phase".to_string()],
+        dynamic: Some(false),
+    };
+    provenance.epoch.definition_hash = definition_hash_hex(definition);
+    Document::Event(EventDocument {
+        kind: DocumentKind::Event,
+        provenance,
+        event_name: "ValueChanged".to_string(),
+        event_type_id: open_ot_carriage::registry::EVENT_VALUE_CHANGED,
+        seq,
+        fields: vec![
+            DocumentField {
+                key: open_ot_carriage::registry::KEY_VALUE_ID,
+                name: "valueId".to_string(),
+                type_name: "UDInt".to_string(),
+                value: serde_json::json!(value_id),
+                unit: None,
+                enum_label: None,
+            },
+            DocumentField {
+                key: open_ot_carriage::registry::KEY_NEW_VALUE,
+                name: "newValue".to_string(),
+                type_name: type_name.to_string(),
+                value,
+                unit: None,
+                enum_label: None,
+            },
+        ],
+        extension_fields: Vec::new(),
+    })
+}
+
+fn field(key: u16, name: &str, value: serde_json::Value) -> DocumentField {
+    DocumentField {
+        key,
+        name: name.to_string(),
+        type_name: match &value {
+            serde_json::Value::Bool(_) => "Bool",
+            serde_json::Value::Number(_) => "ULInt",
+            _ => "String",
+        }
+        .to_string(),
+        value,
+        unit: None,
+        enum_label: None,
     }
 }
 
@@ -108,13 +198,166 @@ fn canonical_documents() -> Vec<Document> {
         .into_iter()
         .enumerate()
         .map(|(seq, (event_name, event_type_id))| {
+            let fields = match event_type_id {
+                open_ot_carriage::registry::EVENT_MESSAGE => vec![field(
+                    open_ot_carriage::registry::KEY_MESSAGE_TEMPLATE_ID,
+                    "messageTemplate",
+                    serde_json::json!("test message"),
+                )],
+                open_ot_carriage::registry::EVENT_STATE_TRANSITION => vec![
+                    field(
+                        open_ot_carriage::registry::KEY_STATE_MACHINE_ID,
+                        "stateMachine",
+                        serde_json::json!("Machine"),
+                    ),
+                    field(
+                        open_ot_carriage::registry::KEY_CATEGORY,
+                        "category",
+                        serde_json::json!("Operating"),
+                    ),
+                    field(
+                        open_ot_carriage::registry::KEY_PREVIOUS_STATE,
+                        "previousState",
+                        serde_json::json!("Idle"),
+                    ),
+                    field(
+                        open_ot_carriage::registry::KEY_NEW_STATE,
+                        "newState",
+                        serde_json::json!("Running"),
+                    ),
+                ],
+                open_ot_carriage::registry::EVENT_VALUE_CHANGED => vec![
+                    DocumentField {
+                        key: open_ot_carriage::registry::KEY_VALUE_ID,
+                        name: "valueId".into(),
+                        type_name: "UDInt".into(),
+                        value: serde_json::json!(2003),
+                        unit: None,
+                        enum_label: None,
+                    },
+                    DocumentField {
+                        key: open_ot_carriage::registry::KEY_NEW_VALUE,
+                        name: "newValue".into(),
+                        type_name: "Bool".into(),
+                        value: serde_json::json!(true),
+                        unit: None,
+                        enum_label: None,
+                    },
+                ],
+                open_ot_carriage::registry::EVENT_PARAMETER_CHANGE => vec![
+                    DocumentField {
+                        key: open_ot_carriage::registry::KEY_VALUE_ID,
+                        name: "valueId".into(),
+                        type_name: "UDInt".into(),
+                        value: serde_json::json!(2003),
+                        unit: None,
+                        enum_label: None,
+                    },
+                    DocumentField {
+                        key: open_ot_carriage::registry::KEY_PREVIOUS_VALUE,
+                        name: "previousValue".into(),
+                        type_name: "Bool".into(),
+                        value: serde_json::json!(false),
+                        unit: None,
+                        enum_label: None,
+                    },
+                    DocumentField {
+                        key: open_ot_carriage::registry::KEY_NEW_VALUE,
+                        name: "newValue".into(),
+                        type_name: "Bool".into(),
+                        value: serde_json::json!(true),
+                        unit: None,
+                        enum_label: None,
+                    },
+                    DocumentField {
+                        key: open_ot_carriage::registry::KEY_ACTOR,
+                        name: "actor".into(),
+                        type_name: "String".into(),
+                        value: serde_json::json!("operator-a"),
+                        unit: None,
+                        enum_label: None,
+                    },
+                    DocumentField {
+                        key: open_ot_carriage::registry::KEY_REASON,
+                        name: "reason".into(),
+                        type_name: "String".into(),
+                        value: serde_json::json!("approved change"),
+                        unit: None,
+                        enum_label: None,
+                    },
+                ],
+                open_ot_carriage::registry::EVENT_CONDITION_ACTIVE
+                    ..=open_ot_carriage::registry::EVENT_REFRESH_END => vec![field(
+                    open_ot_carriage::registry::KEY_CONDITION_ID,
+                    "condition",
+                    serde_json::json!("HighTemperature"),
+                )],
+                open_ot_carriage::registry::EVENT_RECIPE_LOADED
+                | open_ot_carriage::registry::EVENT_RECIPE_APPROVED => vec![field(
+                    open_ot_carriage::registry::KEY_RECIPE_ID,
+                    "recipeId",
+                    serde_json::json!("Recipe-1"),
+                )],
+                open_ot_carriage::registry::EVENT_MATERIAL_ADDITION => vec![
+                    field(
+                        open_ot_carriage::registry::KEY_BATCH_ID,
+                        "batchId",
+                        serde_json::json!("Batch-1"),
+                    ),
+                    field(
+                        open_ot_carriage::registry::KEY_MATERIAL_ID,
+                        "materialId",
+                        serde_json::json!("Material-1"),
+                    ),
+                    field(
+                        open_ot_carriage::registry::KEY_QUANTITY,
+                        "quantity",
+                        serde_json::json!(12.5),
+                    ),
+                ],
+                open_ot_carriage::registry::EVENT_BATCH_EVENT => vec![
+                    field(
+                        open_ot_carriage::registry::KEY_BATCH_ID,
+                        "batchId",
+                        serde_json::json!("Batch-1"),
+                    ),
+                    field(
+                        open_ot_carriage::registry::KEY_NEW_STATE,
+                        "newState",
+                        serde_json::json!("Running"),
+                    ),
+                ],
+                open_ot_carriage::registry::EVENT_ESIGNATURE => vec![
+                    field(
+                        open_ot_carriage::registry::KEY_ACTION_ID,
+                        "actionId",
+                        serde_json::json!("Action-1"),
+                    ),
+                    field(
+                        open_ot_carriage::registry::KEY_ACTOR,
+                        "actor",
+                        serde_json::json!("operator-a"),
+                    ),
+                    field(
+                        open_ot_carriage::registry::KEY_SIGNATURE_MEANING,
+                        "meaning",
+                        serde_json::json!("Approved"),
+                    ),
+                    field(
+                        open_ot_carriage::registry::KEY_SIGNED_EVENT_SEQ,
+                        "signedSequence",
+                        serde_json::json!(1),
+                    ),
+                ],
+                _ => Vec::new(),
+            };
             Document::Event(EventDocument {
                 kind: DocumentKind::Event,
                 provenance: provenance(1),
                 event_name: event_name.to_string(),
                 event_type_id,
                 seq: seq as u64,
-                fields: Vec::new(),
+                fields,
                 extension_fields: Vec::new(),
             })
         })
@@ -269,7 +512,7 @@ fn sink_rejects_checkpoint_regression_without_changing_durable_state() {
 }
 
 #[test]
-fn sqlite_sink_opens_real_database_and_applies_schema_v2() {
+fn sqlite_sink_opens_real_database_and_applies_schema_v3() {
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
@@ -280,12 +523,212 @@ fn sqlite_sink_opens_real_database_and_applies_schema_v2() {
     ));
     let path = root.join("openot.sqlite3");
 
-    let sink = SqliteDocumentSink::open(&path)
+    let sink = open_test_sqlite(&path)
         .unwrap_or_else(|error| panic!("SQLite migration failed: {error:?}"));
 
     assert!(path.is_file(), "SQLite database was not created");
-    assert_eq!(sink.schema_version().expect("schema version"), 2);
+    assert_eq!(sink.schema_version().expect("schema version"), 3);
     let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn sqlite_sink_exposes_heartbeat_through_descriptive_event_log() {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "trust-logging-event-log-{}-{stamp}",
+        std::process::id()
+    ));
+    let path = root.join("trust-logging.sqlite3");
+    let mut sink = open_test_sqlite(&path).expect("open SQLite logging database");
+    sink.commit(&PersistenceBatch {
+        documents: vec![heartbeat_document()],
+        checkpoint: PersistenceCheckpoint {
+            buffer_id: 7,
+            run_id: u64::from(std::process::id()),
+            cursor_abs: 64,
+        },
+    })
+    .expect("commit heartbeat");
+    drop(sink);
+
+    let connection = rusqlite::Connection::open(&path).expect("inspect logging database");
+    let public_event_log_exists: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='event_log')",
+            [],
+            |row| row.get(0),
+        )
+        .expect("inspect public event log");
+    assert!(
+        public_event_log_exists,
+        "schema v3 must expose the descriptive event_log table"
+    );
+    let internal_record_exists: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='logging_records')",
+            [],
+            |row| row.get(0),
+        )
+        .expect("inspect internal logging records");
+    assert!(
+        internal_record_exists,
+        "schema v3 must use the descriptive internal logging_records name"
+    );
+    let stored: (String, i64, i64, String) = connection
+        .query_row(
+            "SELECT event_name,event_type_id,source_id,sequence FROM event_log",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .expect("query heartbeat without JSON extraction");
+    assert_eq!(
+        stored,
+        ("Heartbeat".to_string(), 0x0100, 66, "1".to_string())
+    );
+    drop(connection);
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn sqlite_sink_projects_named_bool_and_full_ulint_without_json() {
+    let definition = open_ot_definition::sample_definition();
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "trust-logging-typed-values-{}-{stamp}",
+        std::process::id()
+    ));
+    let path = root.join("trust-logging.sqlite3");
+    let mut sink = SqliteDocumentSink::open_with_definitions(&path, vec![definition.clone()])
+        .expect("open SQLite with logging definition");
+    sink.commit(&PersistenceBatch {
+        documents: vec![
+            value_changed_document(&definition, 2, 2003, "Bool", serde_json::json!(true)),
+            value_changed_document(&definition, 3, 2009, "ULInt", serde_json::json!(u64::MAX)),
+        ],
+        checkpoint: PersistenceCheckpoint {
+            buffer_id: 7,
+            run_id: u64::from(std::process::id()),
+            cursor_abs: 128,
+        },
+    })
+    .expect("commit typed values");
+    drop(sink);
+
+    let connection = rusqlite::Connection::open(&path).expect("inspect typed logging values");
+    let mut statement = connection
+        .prepare(
+            "SELECT value_name,value_type,boolean_value,unsigned_value,exact_value \
+             FROM logged_values ORDER BY sequence",
+        )
+        .expect("query typed values without JSON");
+    let rows = statement
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<bool>>(2)?,
+                row.get::<_, Option<String>>(3)?,
+                row.get::<_, String>(4)?,
+            ))
+        })
+        .expect("read typed values")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("collect typed values");
+    assert_eq!(
+        rows,
+        vec![
+            (
+                "Enabled".to_string(),
+                "BOOL".to_string(),
+                Some(true),
+                None,
+                "true".to_string(),
+            ),
+            (
+                "UnsignedLong".to_string(),
+                "ULINT".to_string(),
+                None,
+                Some(u64::MAX.to_string()),
+                u64::MAX.to_string(),
+            ),
+        ]
+    );
+    drop(statement);
+    drop(connection);
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn sqlite_public_read_model_exposes_common_columns_on_every_object() {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "trust-logging-common-columns-{}-{stamp}",
+        std::process::id()
+    ));
+    let path = root.join("trust-logging.sqlite3");
+    drop(open_test_sqlite(&path).expect("create SQLite public read model"));
+    let connection = rusqlite::Connection::open(&path).expect("inspect SQLite public read model");
+    let required = [
+        "record_id",
+        "event_time",
+        "event_time_ns",
+        "received_time",
+        "received_time_ns",
+        "source",
+        "source_id",
+        "source_path",
+        "source_hierarchy",
+        "buffer_id",
+        "run_id",
+        "epoch_id",
+        "sequence",
+        "definition_hash",
+        "time_unsynced",
+        "synthetic_record",
+        "partial_payload",
+    ];
+    for object in [
+        "event_log",
+        "logged_values",
+        "alarm_history",
+        "message_log",
+        "state_history",
+        "batch_history",
+        "recipe_history",
+        "material_additions",
+        "operator_activity",
+        "audit_log",
+        "electronic_signatures",
+        "system_events",
+        "data_loss",
+        "unresolved_records",
+    ] {
+        let mut statement = connection
+            .prepare(&format!("PRAGMA table_info({object})"))
+            .expect("inspect public object columns");
+        let columns = statement
+            .query_map([], |row| row.get::<_, String>(1))
+            .expect("query public object columns")
+            .collect::<Result<std::collections::HashSet<_>, _>>()
+            .expect("collect public object columns");
+        for column in required {
+            assert!(
+                columns.contains(column),
+                "public object {object} must expose common column {column}"
+            );
+        }
+    }
+    drop(connection);
+    std::fs::remove_dir_all(root).ok();
 }
 
 #[test]
@@ -328,9 +771,9 @@ fn sqlite_sink_migrates_v1_checkpoint_and_separates_recreated_ring_run() {
         .expect("seed schema v1");
     drop(connection);
 
-    let mut sink = SqliteDocumentSink::open(&path).expect("migrate schema v1 to v2");
+    let mut sink = open_test_sqlite(&path).expect("migrate schema v1 to v3");
 
-    assert_eq!(sink.schema_version().expect("schema version"), 2);
+    assert_eq!(sink.schema_version().expect("schema version"), 3);
     assert_eq!(
         sink.load_checkpoint(7, 0).expect("migrated old run"),
         Some(PersistenceCheckpoint {
@@ -366,19 +809,19 @@ fn sqlite_sink_rejects_newer_schema_without_mutating_it() {
     let path = root.join("openot.sqlite3");
     let connection = rusqlite::Connection::open(&path).expect("create newer database");
     connection
-        .execute_batch("CREATE TABLE sentinel(value TEXT); PRAGMA user_version=3;")
+        .execute_batch("CREATE TABLE sentinel(value TEXT); PRAGMA user_version=4;")
         .expect("seed newer schema");
     drop(connection);
 
-    let error = SqliteDocumentSink::open(&path).expect_err("newer schema must fail closed");
+    let error = open_test_sqlite(&path).expect_err("newer schema must fail closed");
 
-    assert!(format!("{error:?}").contains("newer than supported version 2"));
+    assert!(format!("{error:?}").contains("newer than supported version 3"));
     let connection = rusqlite::Connection::open(&path).expect("reopen untouched database");
     assert_eq!(
         connection
             .query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
             .expect("schema version"),
-        3
+        4
     );
     std::fs::remove_dir_all(root).ok();
 }
@@ -394,17 +837,17 @@ fn sqlite_sink_rejects_malformed_checkpoint_run_identity() {
         std::process::id()
     ));
     let path = root.join("openot.sqlite3");
-    drop(SqliteDocumentSink::open(&path).expect("create schema"));
+    drop(open_test_sqlite(&path).expect("create schema"));
     let connection = rusqlite::Connection::open(&path).expect("open database for corruption");
     connection
         .execute_batch(
             "PRAGMA ignore_check_constraints=ON; \
-             INSERT INTO openot_checkpoint(singleton,buffer_id,run_id,cursor_abs) \
+             INSERT INTO logging_checkpoint(singleton,buffer_id,run_id,cursor_abs) \
              VALUES(1,7,X'01',X'000000000000007B');",
         )
         .expect("inject malformed durable bytes");
     drop(connection);
-    let mut sink = SqliteDocumentSink::open(&path).expect("schema itself remains readable");
+    let mut sink = open_test_sqlite(&path).expect("schema itself remains readable");
 
     let error = sink
         .load_checkpoint(7, 1)
@@ -425,7 +868,7 @@ fn sqlite_sink_rejects_malformed_stored_canonical_document_on_reopen() {
         std::process::id()
     ));
     let path = root.join("openot.sqlite3");
-    let mut sink = SqliteDocumentSink::open(&path).expect("create schema");
+    let mut sink = open_test_sqlite(&path).expect("create schema");
     sink.commit(&PersistenceBatch {
         documents: canonical_documents(),
         checkpoint: PersistenceCheckpoint {
@@ -439,13 +882,13 @@ fn sqlite_sink_rejects_malformed_stored_canonical_document_on_reopen() {
     let connection = rusqlite::Connection::open(&path).expect("open database for corruption");
     connection
         .execute(
-            "UPDATE openot_documents SET canonical_json='{not-json' WHERE identity_key=(SELECT MIN(identity_key) FROM openot_documents)",
+            "UPDATE logging_records SET canonical_json='{not-json' WHERE identity_key=(SELECT MIN(identity_key) FROM logging_records)",
             [],
         )
         .expect("inject malformed canonical JSON");
     drop(connection);
 
-    let error = SqliteDocumentSink::open(&path)
+    let error = open_test_sqlite(&path)
         .expect_err("malformed stored canonical document must fail closed at startup");
 
     assert!(format!("{error:?}").contains("malformed canonical document"));
@@ -466,7 +909,7 @@ fn sqlite_sink_rejects_corrupt_database_bytes() {
     let path = root.join("openot.sqlite3");
     std::fs::write(&path, b"not a sqlite database").expect("seed corrupt database");
 
-    let _error = SqliteDocumentSink::open(&path).expect_err("corrupt database must fail closed");
+    let _error = open_test_sqlite(&path).expect_err("corrupt database must fail closed");
     std::fs::remove_dir_all(root).ok();
 }
 
@@ -484,11 +927,11 @@ fn sqlite_sink_rejects_read_only_database_before_accepting_work() {
         std::process::id()
     ));
     let path = root.join("openot.sqlite3");
-    drop(SqliteDocumentSink::open(&path).expect("create valid database"));
+    drop(open_test_sqlite(&path).expect("create valid database"));
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o400))
         .expect("make database read-only");
 
-    let error = SqliteDocumentSink::open(&path).expect_err("read-only database must fail closed");
+    let error = open_test_sqlite(&path).expect_err("read-only database must fail closed");
 
     assert!(format!("{error:?}").contains("read-only"));
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).ok();
@@ -504,8 +947,8 @@ fn sqlite_uncommitted_child_transaction_body() {
     connection
         .execute_batch(
             "BEGIN IMMEDIATE; \
-             UPDATE openot_documents SET canonical_json='partial-child-write'; \
-             UPDATE openot_checkpoint SET cursor_abs=X'000000000000270F';",
+             UPDATE logging_records SET canonical_json='partial-child-write'; \
+             UPDATE logging_checkpoint SET cursor_abs=X'000000000000270F';",
         )
         .expect("stage uncommitted child transaction");
     std::process::exit(86);
@@ -537,7 +980,7 @@ fn sqlite_process_termination_recovers_before_or_after_batch_never_partial() {
             cursor_abs: 4096,
         },
     };
-    let mut sink = SqliteDocumentSink::open(&path).expect("open baseline database");
+    let mut sink = open_test_sqlite(&path).expect("open baseline database");
     sink.commit(&baseline).expect("commit baseline");
     drop(sink);
     let child = std::process::Command::new(std::env::current_exe().expect("current test binary"))
@@ -551,7 +994,7 @@ fn sqlite_process_termination_recovers_before_or_after_batch_never_partial() {
         .expect("run crash child");
     assert_eq!(child.code(), Some(86));
 
-    let mut recovered = SqliteDocumentSink::open(&path).expect("recover after child exit");
+    let mut recovered = open_test_sqlite(&path).expect("recover after child exit");
     assert_eq!(
         recovered
             .load_checkpoint(7, 1)
@@ -561,16 +1004,14 @@ fn sqlite_process_termination_recovers_before_or_after_batch_never_partial() {
     let connection = rusqlite::Connection::open(&path).expect("inspect recovered documents");
     let partial: i64 = connection
         .query_row(
-            "SELECT COUNT(*) FROM openot_documents WHERE canonical_json='partial-child-write'",
+            "SELECT COUNT(*) FROM logging_records WHERE canonical_json='partial-child-write'",
             [],
             |row| row.get(0),
         )
         .expect("partial row count");
     assert_eq!(partial, 0);
     let count: i64 = connection
-        .query_row("SELECT COUNT(*) FROM openot_documents", [], |row| {
-            row.get(0)
-        })
+        .query_row("SELECT COUNT(*) FROM logging_records", [], |row| row.get(0))
         .expect("recovered document count");
     assert_eq!(count, CANONICAL_DOCUMENT_COUNT as i64);
     drop(connection);
@@ -628,7 +1069,7 @@ fn sqlite_disk_full_on_isolated_bounded_filesystem_preserves_last_checkpoint() {
     std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
         .expect("secure bounded tmpfs");
     let path = root.join("openot.sqlite3");
-    let mut sink = SqliteDocumentSink::open(&path).expect("schema fits bounded filesystem");
+    let mut sink = open_test_sqlite(&path).expect("schema fits bounded filesystem");
     let mut last_checkpoint = None;
     let mut full_error = None;
     for run_id in 1..=10_000u64 {
@@ -680,7 +1121,7 @@ fn sqlite_sink_creates_missing_parent_directory_for_configured_path() {
     ));
     let path = root.join("history/openot.sqlite3");
 
-    let sink = SqliteDocumentSink::open(&path).expect("create SQLite parent and database");
+    let sink = open_test_sqlite(&path).expect("create SQLite parent and database");
 
     assert!(path.is_file());
     drop(sink);
@@ -704,7 +1145,7 @@ fn sqlite_sink_rejects_group_or_world_writable_parent() {
     std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o777))
         .expect("set insecure permissions");
 
-    let result = SqliteDocumentSink::open(&root.join("openot.sqlite3"));
+    let result = open_test_sqlite(&root.join("openot.sqlite3"));
 
     assert!(matches!(
         result,
@@ -733,7 +1174,7 @@ fn sqlite_sink_commits_documents_and_checkpoint_in_one_real_transaction() {
         documents: canonical_documents(),
         checkpoint,
     };
-    let mut sink = SqliteDocumentSink::open(&path).expect("open SQLite sink");
+    let mut sink = open_test_sqlite(&path).expect("open SQLite sink");
 
     let outcome = sink.commit(&batch).expect("commit SQLite batch");
     drop(sink);
@@ -743,20 +1184,18 @@ fn sqlite_sink_commits_documents_and_checkpoint_in_one_real_transaction() {
     assert_eq!(outcome.checkpoint, checkpoint);
     let connection = rusqlite::Connection::open(&path).expect("independent SQLite inspection");
     let document_count: i64 = connection
-        .query_row("SELECT COUNT(*) FROM openot_documents", [], |row| {
-            row.get(0)
-        })
+        .query_row("SELECT COUNT(*) FROM logging_records", [], |row| row.get(0))
         .expect("document count");
     let (buffer_id, cursor_abs): (u32, Vec<u8>) = connection
         .query_row(
-            "SELECT buffer_id, cursor_abs FROM openot_checkpoint WHERE singleton = 1",
+            "SELECT buffer_id, cursor_abs FROM logging_checkpoint WHERE singleton = 1",
             [],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .expect("checkpoint");
     assert_eq!(document_count, CANONICAL_DOCUMENT_COUNT as i64);
     let canonical_jsons = connection
-        .prepare("SELECT canonical_json FROM openot_documents ORDER BY identity_key")
+        .prepare("SELECT canonical_json FROM logging_records ORDER BY identity_key")
         .expect("prepare canonical SQLite query")
         .query_map([], |row| row.get::<_, String>(0))
         .expect("query canonical SQLite documents")
@@ -829,7 +1268,7 @@ fn sink_factory_rejects_recognized_backend_omitted_from_binary_without_fallback(
 
 #[cfg(feature = "openot-real-database-tests")]
 #[test]
-fn postgresql_sink_connects_to_real_tls_server_and_applies_schema_v2() {
+fn postgresql_sink_connects_to_real_tls_server_and_applies_schema_v3_read_model() {
     let connection_url = std::env::var("TRUST_TEST_OPENOT_POSTGRES_URL")
         .expect("TRUST_TEST_OPENOT_POSTGRES_URL must identify the reviewed real server");
     let ca_cert_path = std::env::var("TRUST_TEST_OPENOT_POSTGRES_CA")
@@ -842,7 +1281,37 @@ fn postgresql_sink_connects_to_real_tls_server_and_applies_schema_v2() {
     )
     .expect("connect and migrate real PostgreSQL");
 
-    assert_eq!(sink.schema_version().expect("PostgreSQL schema version"), 2);
+    assert_eq!(sink.schema_version().expect("PostgreSQL schema version"), 3);
+    let public_objects: i64 = sink
+        .client
+        .query_one(
+            "SELECT COUNT(*) FROM information_schema.tables \
+             WHERE table_schema=$1 AND table_name IN ('event_log','logged_values','alarm_history')",
+            &[&sink.schema],
+        )
+        .expect("inspect PostgreSQL public read model")
+        .get(0);
+    assert_eq!(public_objects, 3);
+    let internal_objects: i64 = sink
+        .client
+        .query_one(
+            "SELECT COUNT(*) FROM information_schema.tables \
+             WHERE table_schema=$1 AND table_name IN ('logging_schema','logging_records','logging_checkpoint')",
+            &[&sink.schema],
+        )
+        .expect("inspect PostgreSQL internal logging objects")
+        .get(0);
+    assert_eq!(internal_objects, 3);
+    let legacy_objects: i64 = sink
+        .client
+        .query_one(
+            "SELECT COUNT(*) FROM information_schema.tables \
+             WHERE table_schema=$1 AND table_name LIKE 'openot_%'",
+            &[&sink.schema],
+        )
+        .expect("inspect PostgreSQL legacy OpenOT names")
+        .get(0);
+    assert_eq!(legacy_objects, 0);
 }
 
 #[cfg(feature = "openot-real-database-tests")]
@@ -862,10 +1331,11 @@ fn postgresql_sink_commits_documents_and_checkpoint_on_real_server() {
         documents: canonical_documents(),
         checkpoint,
     };
-    let mut sink = PostgreSqlDocumentSink::open(
+    let mut sink = PostgreSqlDocumentSink::open_with_definitions(
         &connection_url,
         &schema,
         std::path::Path::new(&ca_cert_path),
+        vec![open_ot_definition::sample_definition()],
     )
     .expect("connect and migrate real PostgreSQL");
 
@@ -886,6 +1356,32 @@ fn postgresql_sink_commits_documents_and_checkpoint_on_real_server() {
             checkpoint.cursor_abs.to_be_bytes().to_vec()
         ))
     );
+    for (table, expected) in [
+        ("event_log", 35_i64),
+        ("logged_values", 2),
+        ("alarm_history", 13),
+        ("message_log", 1),
+        ("state_history", 1),
+        ("batch_history", 1),
+        ("recipe_history", 2),
+        ("material_additions", 1),
+        ("operator_activity", 4),
+        ("audit_log", 1),
+        ("electronic_signatures", 1),
+        ("system_events", 9),
+        ("data_loss", 1),
+        ("unresolved_records", 1),
+    ] {
+        let count: i64 = sink
+            .client
+            .query_one(
+                &format!("SELECT COUNT(*) FROM \"{}\".{table}", sink.schema),
+                &[],
+            )
+            .unwrap_or_else(|error| panic!("query PostgreSQL {table}: {error}"))
+            .get(0);
+        assert_eq!(count, expected, "PostgreSQL {table} projection count");
+    }
     assert_canonical_jsons(
         sink.canonical_jsons()
             .expect("canonical PostgreSQL documents"),
@@ -963,8 +1459,12 @@ fn sink_factory_selects_timescaledb_and_commits_to_real_hypertable() {
         documents: canonical_documents(),
         checkpoint,
     };
-    let mut sink = OpenOtDocumentSink::open(&config, std::path::Path::new("/"))
-        .expect("open selected TimescaleDB sink");
+    let mut sink = OpenOtDocumentSink::open_with_definitions(
+        &config,
+        std::path::Path::new("/"),
+        &[open_ot_definition::sample_definition()],
+    )
+    .expect("open selected TimescaleDB sink");
 
     let outcome = sink.commit(&batch).expect("commit TimescaleDB batch");
     let OpenOtDocumentSink::TimescaleDb(timescale) = &mut sink else {
@@ -972,10 +1472,7 @@ fn sink_factory_selects_timescaledb_and_commits_to_real_hypertable() {
     };
     assert_eq!(outcome.inserted, CANONICAL_DOCUMENT_COUNT);
     assert_eq!(outcome.checkpoint, checkpoint);
-    assert_eq!(
-        timescale.time_index_count().expect("time index count"),
-        CANONICAL_DOCUMENT_COUNT as i64
-    );
+    assert_eq!(timescale.time_index_count().expect("time index count"), 35);
     assert_canonical_jsons(
         timescale
             .canonical_jsons()
@@ -998,16 +1495,21 @@ fn assert_mysql_protocol_product(url_env: &str, ca_env: &str, expected_version_f
         documents: canonical_documents(),
         checkpoint,
     };
-    let mut sink = MySqlDocumentSink::open(
+    let mut sink = MySqlDocumentSink::open_with_definitions(
         &connection_url,
         "openot",
         std::path::Path::new(&ca_cert_path),
+        vec![open_ot_definition::sample_definition()],
     )
     .expect("connect and migrate real MySQL-protocol server");
 
     sink.reset_test_state()
         .expect("reset reviewed test database");
-    assert_eq!(sink.schema_version().expect("schema version"), 2);
+    assert_eq!(sink.schema_version().expect("schema version"), 3);
+    assert_eq!(
+        sink.internal_name_counts().expect("internal logging names"),
+        (3, 0)
+    );
     assert!(sink
         .server_version()
         .expect("server version")
@@ -1025,6 +1527,29 @@ fn assert_mysql_protocol_product(url_env: &str, ca_env: &str, expected_version_f
         sink.document_count().expect("document count"),
         CANONICAL_DOCUMENT_COUNT as u64
     );
+    assert_eq!(sink.public_count("event_log").expect("event count"), 35);
+    assert_eq!(sink.public_count("logged_values").expect("value count"), 2);
+    assert_eq!(sink.public_count("alarm_history").expect("alarm count"), 13);
+    for (table, expected) in [
+        ("message_log", 1),
+        ("state_history", 1),
+        ("batch_history", 1),
+        ("recipe_history", 2),
+        ("material_additions", 1),
+        ("operator_activity", 4),
+        ("audit_log", 1),
+        ("electronic_signatures", 1),
+        ("system_events", 9),
+        ("data_loss", 1),
+        ("unresolved_records", 1),
+    ] {
+        assert_eq!(
+            sink.public_count(table)
+                .unwrap_or_else(|error| panic!("query MySQL-protocol {table}: {error}")),
+            expected,
+            "MySQL-protocol {table} projection count"
+        );
+    }
     assert_eq!(
         sink.checkpoint().expect("checkpoint"),
         Some((
@@ -1060,6 +1585,115 @@ fn mysql_sink_migrates_and_commits_on_real_mariadb_11_8_lts() {
         "TRUST_TEST_OPENOT_MARIADB_URL",
         "TRUST_TEST_OPENOT_MARIADB_CA",
         "11.8.8-MariaDB",
+    );
+}
+
+#[cfg(feature = "openot-real-database-tests")]
+#[test]
+fn mysql_sink_backfills_populated_v2_with_shared_projector() {
+    let connection_url = std::env::var("TRUST_TEST_OPENOT_MYSQL_URL").expect("MySQL URL");
+    let ca = std::env::var("TRUST_TEST_OPENOT_MYSQL_CA").expect("MySQL CA");
+    let definition = open_ot_definition::sample_definition();
+    let mut sink = MySqlDocumentSink::open_with_definitions(
+        &connection_url,
+        "openot",
+        std::path::Path::new(&ca),
+        vec![definition.clone()],
+    )
+    .expect("open MySQL v3 seed");
+    sink.reset_test_state().expect("reset MySQL v2 seed");
+    sink.commit(&PersistenceBatch {
+        documents: canonical_documents(),
+        checkpoint: PersistenceCheckpoint {
+            buffer_id: 7,
+            run_id: 1,
+            cursor_abs: 4096,
+        },
+    })
+    .expect("seed populated MySQL history");
+    sink.seed_v2_without_projections()
+        .expect("seed MySQL schema v2 projection gap");
+    drop(sink);
+
+    let mut migrated = MySqlDocumentSink::open_with_definitions(
+        &connection_url,
+        "openot",
+        std::path::Path::new(&ca),
+        vec![definition],
+    )
+    .expect("migrate populated MySQL v2");
+    assert_eq!(migrated.schema_version().expect("migrated version"), 3);
+    assert_eq!(
+        migrated
+            .public_count("event_log")
+            .expect("backfilled events"),
+        35
+    );
+    assert_eq!(
+        migrated
+            .public_count("logged_values")
+            .expect("backfilled values"),
+        2
+    );
+    assert_eq!(
+        migrated
+            .public_count("alarm_history")
+            .expect("backfilled alarms"),
+        13
+    );
+}
+
+#[cfg(feature = "openot-real-database-tests")]
+#[test]
+fn mariadb_sink_backfills_populated_v2_with_shared_projector() {
+    let connection_url = std::env::var("TRUST_TEST_OPENOT_MARIADB_URL").expect("MariaDB URL");
+    let ca = std::env::var("TRUST_TEST_OPENOT_MARIADB_CA").expect("MariaDB CA");
+    let definition = open_ot_definition::sample_definition();
+    let mut sink = MySqlDocumentSink::open_with_definitions(
+        &connection_url,
+        "openot",
+        std::path::Path::new(&ca),
+        vec![definition.clone()],
+    )
+    .expect("open MariaDB v3 seed");
+    sink.reset_test_state().expect("reset MariaDB v2 seed");
+    sink.commit(&PersistenceBatch {
+        documents: canonical_documents(),
+        checkpoint: PersistenceCheckpoint {
+            buffer_id: 7,
+            run_id: 1,
+            cursor_abs: 4096,
+        },
+    })
+    .expect("seed populated MariaDB history");
+    sink.seed_v2_without_projections()
+        .expect("seed MariaDB schema v2 projection gap");
+    drop(sink);
+    let mut migrated = MySqlDocumentSink::open_with_definitions(
+        &connection_url,
+        "openot",
+        std::path::Path::new(&ca),
+        vec![definition],
+    )
+    .expect("migrate populated MariaDB v2");
+    assert_eq!(migrated.schema_version().expect("migrated version"), 3);
+    assert_eq!(
+        migrated
+            .public_count("event_log")
+            .expect("backfilled events"),
+        35
+    );
+    assert_eq!(
+        migrated
+            .public_count("logged_values")
+            .expect("backfilled values"),
+        2
+    );
+    assert_eq!(
+        migrated
+            .public_count("alarm_history")
+            .expect("backfilled alarms"),
+        13
     );
 }
 
@@ -1103,14 +1737,19 @@ fn sqlserver_sink_migrates_and_commits_on_real_sql_server_2025() {
         documents: canonical_documents(),
         checkpoint,
     };
-    let mut sink = SqlServerDocumentSink::open(
+    let mut sink = SqlServerDocumentSink::open_with_definitions(
         &connection_url,
         &schema,
         std::path::Path::new(&ca_cert_path),
+        vec![open_ot_definition::sample_definition()],
     )
     .expect("connect and migrate real SQL Server");
 
-    assert_eq!(sink.schema_version().expect("schema version"), 2);
+    assert_eq!(sink.schema_version().expect("schema version"), 3);
+    assert_eq!(
+        sink.internal_name_counts().expect("internal logging names"),
+        (3, 0)
+    );
     assert!(sink
         .product_version()
         .expect("product version")
@@ -1127,6 +1766,29 @@ fn sqlserver_sink_migrates_and_commits_on_real_sql_server_2025() {
         sink.invalid_json_count().expect("canonical JSON validity"),
         0
     );
+    assert_eq!(sink.public_count("event_log").expect("event count"), 35);
+    assert_eq!(sink.public_count("logged_values").expect("value count"), 2);
+    assert_eq!(sink.public_count("alarm_history").expect("alarm count"), 13);
+    for (table, expected) in [
+        ("message_log", 1),
+        ("state_history", 1),
+        ("batch_history", 1),
+        ("recipe_history", 2),
+        ("material_additions", 1),
+        ("operator_activity", 4),
+        ("audit_log", 1),
+        ("electronic_signatures", 1),
+        ("system_events", 9),
+        ("data_loss", 1),
+        ("unresolved_records", 1),
+    ] {
+        assert_eq!(
+            sink.public_count(table)
+                .unwrap_or_else(|error| panic!("query SQL Server {table}: {error}")),
+            expected,
+            "SQL Server {table} projection count"
+        );
+    }
     assert_eq!(
         sink.checkpoint().expect("checkpoint"),
         Some((
@@ -1142,6 +1804,61 @@ fn sqlserver_sink_migrates_and_commits_on_real_sql_server_2025() {
     let retried = sink.commit(&batch).expect("idempotent retry");
     assert_eq!(retried.inserted, 0);
     assert_eq!(retried.duplicated, CANONICAL_DOCUMENT_COUNT);
+}
+
+#[cfg(feature = "openot-real-database-tests")]
+#[test]
+fn sqlserver_sink_backfills_populated_v2_with_shared_projector() {
+    let connection_url = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_URL").expect("SQL Server URL");
+    let ca = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_CA").expect("SQL Server CA");
+    let schema = format!("openot_v2_{}", std::process::id());
+    let definition = open_ot_definition::sample_definition();
+    let mut sink = SqlServerDocumentSink::open_with_definitions(
+        &connection_url,
+        &schema,
+        std::path::Path::new(&ca),
+        vec![definition.clone()],
+    )
+    .expect("open SQL Server v3 seed");
+    sink.commit(&PersistenceBatch {
+        documents: canonical_documents(),
+        checkpoint: PersistenceCheckpoint {
+            buffer_id: 7,
+            run_id: 1,
+            cursor_abs: 4096,
+        },
+    })
+    .expect("seed populated SQL Server history");
+    sink.seed_v2_without_projections()
+        .expect("seed SQL Server schema v2 projection gap");
+    drop(sink);
+
+    let mut migrated = SqlServerDocumentSink::open_with_definitions(
+        &connection_url,
+        &schema,
+        std::path::Path::new(&ca),
+        vec![definition],
+    )
+    .expect("migrate populated SQL Server v2");
+    assert_eq!(migrated.schema_version().expect("migrated version"), 3);
+    assert_eq!(
+        migrated
+            .public_count("event_log")
+            .expect("backfilled events"),
+        35
+    );
+    assert_eq!(
+        migrated
+            .public_count("logged_values")
+            .expect("backfilled values"),
+        2
+    );
+    assert_eq!(
+        migrated
+            .public_count("alarm_history")
+            .expect("backfilled alarms"),
+        13
+    );
 }
 
 #[cfg(feature = "openot-real-database-tests")]
@@ -1188,11 +1905,22 @@ fn influxdb3_sink_spools_and_delivers_to_real_influxdb_3_core() {
         documents: canonical_documents(),
         checkpoint,
     };
-    let mut sink =
-        InfluxDb3DocumentSink::open(&host, &token, "openot", &spool, std::path::Path::new(&ca))
-            .expect("open real InfluxDB 3 sink and spool");
+    let mut sink = InfluxDb3DocumentSink::open_bounded_with_definitions(
+        &host,
+        &token,
+        "openot",
+        &spool,
+        std::path::Path::new(&ca),
+        u64::MAX,
+        vec![open_ot_definition::sample_definition()],
+    )
+    .expect("open real InfluxDB 3 sink and spool");
 
     assert_eq!(sink.server_version().expect("server version"), "3.11.2");
+    assert_eq!(
+        sink.internal_name_counts().expect("InfluxDB spool names"),
+        (4, 0)
+    );
     let outcome = sink
         .commit(&batch)
         .expect("durably accept batch into spool");
@@ -1200,6 +1928,11 @@ fn influxdb3_sink_spools_and_delivers_to_real_influxdb_3_core() {
     assert_eq!(outcome.duplicated, 0);
     assert_eq!(outcome.checkpoint, checkpoint);
     assert_eq!(outcome.remote_pending, CANONICAL_DOCUMENT_COUNT);
+    assert_eq!(
+        sink.pending_part_count().expect("pending delivery parts"),
+        110,
+        "each canonical and typed InfluxDB point must have durable per-part state"
+    );
     assert_eq!(sink.maintenance().expect("deliver accepted spool batch"), 0);
     assert_eq!(sink.pending_count().expect("pending spool count"), 0);
     assert_eq!(
@@ -1207,6 +1940,33 @@ fn influxdb3_sink_spools_and_delivers_to_real_influxdb_3_core() {
             .expect("remote document count"),
         CANONICAL_DOCUMENT_COUNT as i64
     );
+    assert_eq!(
+        sink.remote_measurement_count_for_run("message_log", u64::from(std::process::id()))
+            .expect("InfluxDB message count"),
+        1
+    );
+    for (measurement, expected) in [
+        ("event_log", 35),
+        ("logged_values", 2),
+        ("alarm_history", 13),
+        ("state_history", 1),
+        ("batch_history", 1),
+        ("recipe_history", 2),
+        ("material_additions", 1),
+        ("operator_activity", 4),
+        ("audit_log", 1),
+        ("electronic_signatures", 1),
+        ("system_events", 9),
+        ("data_loss", 1),
+        ("unresolved_records", 1),
+    ] {
+        assert_eq!(
+            sink.remote_measurement_count_for_run(measurement, u64::from(std::process::id()),)
+                .unwrap_or_else(|error| panic!("query InfluxDB {measurement}: {error}")),
+            expected,
+            "InfluxDB {measurement} projection count"
+        );
+    }
     assert_canonical_jsons(
         sink.remote_canonical_jsons_for_run(u64::from(std::process::id()))
             .expect("canonical InfluxDB documents"),
@@ -1235,9 +1995,16 @@ fn influxdb3_sink_accepts_during_outage_then_catches_up_in_order() {
         documents: canonical_documents(),
         checkpoint,
     };
-    let mut sink =
-        InfluxDb3DocumentSink::open(&host, &token, "openot", &spool, std::path::Path::new(&ca))
-            .expect("open InfluxDB sink before outage");
+    let mut sink = InfluxDb3DocumentSink::open_bounded_with_definitions(
+        &host,
+        &token,
+        "openot",
+        &spool,
+        std::path::Path::new(&ca),
+        u64::MAX,
+        vec![open_ot_definition::sample_definition()],
+    )
+    .expect("open InfluxDB sink before outage");
 
     sink.set_host_for_test("https://127.0.0.1:1");
     let accepted = sink
@@ -1292,18 +2059,26 @@ fn influxdb3_spool_full_rolls_back_documents_and_checkpoint() {
         std::process::id()
     ));
     let spool = spool_root.join("spool.sqlite3");
-    let initial =
-        InfluxDb3DocumentSink::open(&host, &token, "openot", &spool, std::path::Path::new(&ca))
-            .expect("create baseline spool");
+    let initial = InfluxDb3DocumentSink::open_bounded_with_definitions(
+        &host,
+        &token,
+        "openot",
+        &spool,
+        std::path::Path::new(&ca),
+        u64::MAX,
+        vec![open_ot_definition::sample_definition()],
+    )
+    .expect("create baseline spool");
     let schema_bytes = initial.spool_logical_bytes().expect("schema footprint");
     drop(initial);
-    let mut bounded = InfluxDb3DocumentSink::open_bounded(
+    let mut bounded = InfluxDb3DocumentSink::open_bounded_with_definitions(
         &host,
         &token,
         "openot",
         &spool,
         std::path::Path::new(&ca),
         schema_bytes,
+        vec![open_ot_definition::sample_definition()],
     )
     .expect("open exactly schema-sized spool");
     let batch = PersistenceBatch {
@@ -1358,7 +2133,12 @@ fn sink_factory_opens_toml_selected_influxdb3_adapter() {
         ..Default::default()
     };
 
-    let mut sink = OpenOtDocumentSink::open(&config, &root).expect("open selected InfluxDB 3 sink");
+    let mut sink = OpenOtDocumentSink::open_with_definitions(
+        &config,
+        &root,
+        &[open_ot_definition::sample_definition()],
+    )
+    .expect("open selected InfluxDB 3 sink");
     assert!(matches!(sink, OpenOtDocumentSink::InfluxDb3(_)));
     let checkpoint = PersistenceCheckpoint {
         buffer_id: 7,
@@ -1561,8 +2341,12 @@ fn assert_real_product_restart_recovery(product: RealRestartProduct) {
             .expect("secure restart test root");
     }
     let config = product.config(&root, stamp);
-    let mut sink = OpenOtDocumentSink::open(&config, &root)
-        .unwrap_or_else(|error| panic!("open {} before restart: {error:?}", product.label()));
+    let mut sink = OpenOtDocumentSink::open_with_definitions(
+        &config,
+        &root,
+        &[open_ot_definition::sample_definition()],
+    )
+    .unwrap_or_else(|error| panic!("open {} before restart: {error:?}", product.label()));
     let baseline = PersistenceBatch {
         documents: canonical_documents_for_run(stamp),
         checkpoint: PersistenceCheckpoint {
@@ -1620,8 +2404,12 @@ fn assert_real_product_restart_recovery(product: RealRestartProduct) {
                 }
             })
         } else {
-            OpenOtDocumentSink::open(&config, &root)
-                .and_then(|mut reopened| reopened.commit(&recovery).map(|_| ()))
+            OpenOtDocumentSink::open_with_definitions(
+                &config,
+                &root,
+                &[open_ot_definition::sample_definition()],
+            )
+            .and_then(|mut reopened| reopened.commit(&recovery).map(|_| ()))
         };
         if result.is_ok() {
             break;
@@ -1636,8 +2424,12 @@ fn assert_real_product_restart_recovery(product: RealRestartProduct) {
     let checkpoint = if matches!(product, RealRestartProduct::InfluxDb3) {
         sink.load_checkpoint(7, recovery.checkpoint.run_id)
     } else {
-        OpenOtDocumentSink::open(&config, &root)
-            .and_then(|mut verifier| verifier.load_checkpoint(7, recovery.checkpoint.run_id))
+        OpenOtDocumentSink::open_with_definitions(
+            &config,
+            &root,
+            &[open_ot_definition::sample_definition()],
+        )
+        .and_then(|mut verifier| verifier.load_checkpoint(7, recovery.checkpoint.run_id))
     }
     .expect("load recovery checkpoint");
     assert_eq!(checkpoint, Some(recovery.checkpoint));
@@ -1753,13 +2545,21 @@ fn every_real_network_backend_migrates_v1_and_rejects_newer_schema() {
                 .expect("secure migration root");
         }
         let config = product.config(&root, stamp.saturating_add(index as u64));
-        let mut v2 = OpenOtDocumentSink::open(&config, &root)
-            .unwrap_or_else(|error| panic!("open {} v2 fixture: {error:?}", product.label()));
+        let mut v2 = OpenOtDocumentSink::open_with_definitions(
+            &config,
+            &root,
+            &[open_ot_definition::sample_definition()],
+        )
+        .unwrap_or_else(|error| panic!("open {} v2 fixture: {error:?}", product.label()));
         downgrade(&mut v2);
         drop(v2);
 
-        let mut migrated = OpenOtDocumentSink::open(&config, &root)
-            .unwrap_or_else(|error| panic!("migrate {} v1 fixture: {error:?}", product.label()));
+        let mut migrated = OpenOtDocumentSink::open_with_definitions(
+            &config,
+            &root,
+            &[open_ot_definition::sample_definition()],
+        )
+        .unwrap_or_else(|error| panic!("migrate {} v1 fixture: {error:?}", product.label()));
         let run_id = stamp.saturating_add(10_000 + index as u64);
         let batch = PersistenceBatch {
             documents: canonical_documents_for_run(run_id),
@@ -1779,15 +2579,19 @@ fn every_real_network_backend_migrates_v1_and_rejects_newer_schema() {
             Some(batch.checkpoint)
         );
 
-        set_version(&mut migrated, 3);
-        let error =
-            OpenOtDocumentSink::open(&config, &root).expect_err("newer schema must fail closed");
+        set_version(&mut migrated, 4);
+        let error = OpenOtDocumentSink::open_with_definitions(
+            &config,
+            &root,
+            &[open_ot_definition::sample_definition()],
+        )
+        .expect_err("newer schema must fail closed");
         assert!(
             format!("{error:?}").contains("newer"),
             "{} newer-schema error was not actionable: {error:?}",
             product.label()
         );
-        set_version(&mut migrated, 2);
+        set_version(&mut migrated, 3);
         drop(migrated);
         std::fs::remove_dir_all(root).ok();
     }
@@ -1947,6 +2751,10 @@ fn process_rss_kib() -> u64 {
 }
 
 #[cfg(feature = "openot-real-database-tests")]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "OpenOT throughput floors are release-profile qualification"
+)]
 #[test]
 fn every_real_backend_meets_openot_ingest_and_catch_up_qualification_floors() {
     use crate::config::{
@@ -1998,8 +2806,12 @@ fn every_real_backend_meets_openot_ingest_and_catch_up_qualification_floors() {
     }
 
     for (index, (name, config)) in cases.into_iter().enumerate() {
-        let mut sink = OpenOtDocumentSink::open(&config, &root)
-            .unwrap_or_else(|error| panic!("open {name} benchmark sink: {error:?}"));
+        let mut sink = OpenOtDocumentSink::open_with_definitions(
+            &config,
+            &root,
+            &[open_ot_definition::sample_definition()],
+        )
+        .unwrap_or_else(|error| panic!("open {name} benchmark sink: {error:?}"));
         let (sustained, catch_up, p95) = benchmark_real_sink(
             name,
             &mut sink,

@@ -24,9 +24,9 @@ trust-runtime run --project "$example_root"
 ```bash
 psql "$TRUST_OPENOT_DATABASE_URL" -c "select extversion from pg_extension where extname='timescaledb'"
 psql "$TRUST_OPENOT_DATABASE_URL" -c \
-  "select hypertable_name from timescaledb_information.hypertables where hypertable_name='openot_time_index'"
+  "select hypertable_name from timescaledb_information.hypertables where hypertable_name in ('event_log','logged_values','alarm_history','message_log','state_history') order by hypertable_name"
 psql "$TRUST_OPENOT_DATABASE_URL" -c \
-  'select time_bucket(60000000000,receive_time_ns),count(*) from openot.openot_time_index group by 1 order by 1'
+  "select time_bucket('1 minute',received_time),count(*) from openot.event_log group by 1 order by 1"
 ```
 
 ## Outage and restart

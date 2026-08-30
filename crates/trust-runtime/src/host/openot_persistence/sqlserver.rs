@@ -4,17 +4,18 @@ use tiberius::{Client, Config, EncryptionLevel, Query, Row};
 use tokio::net::TcpStream;
 use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 
-use super::projection::document_row;
+use super::projection::LoggingProjector;
 use super::{CommitOutcome, DocumentSink, PersistenceBatch, PersistenceError};
 
 type TdsClient = Client<Compat<TcpStream>>;
-const SCHEMA_VERSION: u32 = 2;
+const SCHEMA_VERSION: u32 = 3;
 
 /// Dedicated Microsoft SQL Server/Azure SQL TDS persistence adapter.
 pub struct SqlServerDocumentSink {
     runtime: tokio::runtime::Runtime,
     client: TdsClient,
     schema: String,
+    projector: LoggingProjector,
 }
 
 impl std::fmt::Debug for SqlServerDocumentSink {
@@ -28,6 +29,16 @@ impl std::fmt::Debug for SqlServerDocumentSink {
 impl SqlServerDocumentSink {
     /// Connects with CA-verified TLS and applies compatible migrations.
     pub fn open(url: &str, schema: &str, ca: &Path) -> Result<Self, PersistenceError> {
+        Self::open_with_definitions(url, schema, ca, Vec::new())
+    }
+
+    #[doc(hidden)]
+    pub fn open_with_definitions(
+        url: &str,
+        schema: &str,
+        ca: &Path,
+        definitions: Vec<open_ot_definition::DefinitionFile>,
+    ) -> Result<Self, PersistenceError> {
         validate_identifier(schema)?;
         let mut config = Config::from_ado_string(url)
             .map_err(|error| sql_error("parse connection string", error))?;
@@ -48,11 +59,14 @@ impl SqlServerDocumentSink {
                 .await
                 .map_err(|error| sql_error("connect with required TLS", error))
         })?;
+        let projector = LoggingProjector::new(definitions)?;
         let mut sink = Self {
             runtime,
             client,
             schema: schema.to_string(),
+            projector,
         };
+        sink.batch("SET NOCOUNT ON")?;
         sink.migrate()?;
         Ok(sink)
     }
@@ -60,7 +74,7 @@ impl SqlServerDocumentSink {
     /// Returns the truST-owned schema version.
     pub fn schema_version(&mut self) -> Result<u32, PersistenceError> {
         let row = self.one(&format!(
-            "SELECT version FROM [{}].openot_schema WHERE singleton=1",
+            "SELECT version FROM [{}].logging_schema WHERE singleton=1",
             self.schema
         ))?;
         let version: i32 = row
@@ -80,18 +94,67 @@ impl SqlServerDocumentSink {
     #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn document_count(&mut self) -> Result<i64, PersistenceError> {
         self.one(&format!(
-            "SELECT COUNT_BIG(*) FROM [{}].openot_documents",
+            "SELECT COUNT_BIG(*) FROM [{}].logging_records",
             self.schema
         ))?
         .get(0)
         .ok_or_else(|| commit_error("document count is absent"))
     }
 
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn internal_name_counts(&mut self) -> Result<(i64, i64), PersistenceError> {
+        let row = self.one(&format!(
+            "SELECT
+               SUM(CONVERT(BIGINT,CASE WHEN t.name IN ('logging_schema','logging_records','logging_checkpoint') THEN 1 ELSE 0 END)),
+               SUM(CONVERT(BIGINT,CASE WHEN t.name IN ('openot_schema','openot_documents','openot_checkpoint') THEN 1 ELSE 0 END))
+             FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id
+             WHERE s.name=N'{}'",
+            self.schema
+        ))?;
+        Ok((
+            row.get(0)
+                .ok_or_else(|| commit_error("logging name count is absent"))?,
+            row.get(1)
+                .ok_or_else(|| commit_error("legacy name count is absent"))?,
+        ))
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn public_count(&mut self, table: &str) -> Result<i64, PersistenceError> {
+        if !matches!(
+            table,
+            "event_log"
+                | "logged_values"
+                | "alarm_history"
+                | "message_log"
+                | "state_history"
+                | "batch_history"
+                | "recipe_history"
+                | "material_additions"
+                | "operator_activity"
+                | "audit_log"
+                | "electronic_signatures"
+                | "system_events"
+                | "data_loss"
+                | "unresolved_records"
+        ) {
+            return Err(PersistenceError::InvalidConfig(
+                "unsupported SQL Server test table".into(),
+            ));
+        }
+        self.one(&format!(
+            "SELECT COUNT_BIG(*) FROM [{}].[{table}]",
+            self.schema
+        ))?
+        .get(0)
+        .ok_or_else(|| commit_error("public count is absent"))
+    }
+
     #[cfg(feature = "openot-real-database-tests")]
     #[doc(hidden)]
     pub fn canonical_jsons(&mut self) -> Result<Vec<String>, PersistenceError> {
         self.rows(&format!(
-            "SELECT canonical_json FROM [{}].openot_documents ORDER BY identity_key",
+            "SELECT canonical_json FROM [{}].logging_records ORDER BY identity_key",
             self.schema
         ))?
         .into_iter()
@@ -105,16 +168,16 @@ impl SqlServerDocumentSink {
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn downgrade_checkpoint_to_v1_for_test(&mut self) -> Result<(), PersistenceError> {
-        let s = &self.schema;
+        let s = self.schema.clone();
         self.batch(&format!(
-            "DELETE FROM [{s}].openot_checkpoint;
+            "DELETE FROM [{s}].logging_checkpoint;
              DECLARE @constraint NVARCHAR(128);
              SELECT @constraint=dc.name FROM sys.default_constraints dc
              JOIN sys.columns c ON c.default_object_id=dc.object_id
-             WHERE dc.parent_object_id=OBJECT_ID(N'[{s}].openot_checkpoint') AND c.name=N'run_id';
-             IF @constraint IS NOT NULL EXEC(N'ALTER TABLE [{s}].openot_checkpoint DROP CONSTRAINT ['+@constraint+N']');
-             ALTER TABLE [{s}].openot_checkpoint DROP COLUMN run_id;
-             UPDATE [{s}].openot_schema SET version=1 WHERE singleton=1;"
+             WHERE dc.parent_object_id=OBJECT_ID(N'[{s}].logging_checkpoint') AND c.name=N'run_id';
+             IF @constraint IS NOT NULL EXEC(N'ALTER TABLE [{s}].logging_checkpoint DROP CONSTRAINT ['+@constraint+N']');
+             ALTER TABLE [{s}].logging_checkpoint DROP COLUMN run_id;
+             UPDATE [{s}].logging_schema SET version=1 WHERE singleton=1;"
         ))
     }
 
@@ -123,17 +186,32 @@ impl SqlServerDocumentSink {
         &mut self,
         version: u32,
     ) -> Result<(), PersistenceError> {
-        let s = &self.schema;
+        let s = self.schema.clone();
         self.batch(&format!(
-            "UPDATE [{s}].openot_schema SET version={version} WHERE singleton=1"
+            "UPDATE [{s}].logging_schema SET version={version} WHERE singleton=1"
+        ))
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn seed_v2_without_projections(&mut self) -> Result<(), PersistenceError> {
+        let s = self.schema.clone();
+        self.batch(&format!(
+            "DELETE FROM [{s}].message_log; DELETE FROM [{s}].state_history;
+             DELETE FROM [{s}].batch_history; DELETE FROM [{s}].recipe_history;
+             DELETE FROM [{s}].material_additions; DELETE FROM [{s}].operator_activity;
+             DELETE FROM [{s}].audit_log; DELETE FROM [{s}].electronic_signatures;
+             DELETE FROM [{s}].system_events; DELETE FROM [{s}].data_loss;
+             DELETE FROM [{s}].unresolved_records; DELETE FROM [{s}].alarm_history;
+             DELETE FROM [{s}].logged_values; DELETE FROM [{s}].event_log;
+             UPDATE [{s}].logging_schema SET version=2 WHERE singleton=1;"
         ))
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn storage_bytes(&mut self) -> Result<u64, PersistenceError> {
-        let s = &self.schema;
+        let s = self.schema.clone();
         let row = self.one(&format!(
-            "SELECT COALESCE(SUM(reserved_page_count),0)*8192 FROM sys.dm_db_partition_stats WHERE object_id IN (OBJECT_ID(N'[{s}].openot_schema'),OBJECT_ID(N'[{s}].openot_documents'),OBJECT_ID(N'[{s}].openot_checkpoint'))"
+            "SELECT COALESCE(SUM(reserved_page_count),0)*8192 FROM sys.dm_db_partition_stats WHERE object_id IN (OBJECT_ID(N'[{s}].logging_schema'),OBJECT_ID(N'[{s}].logging_records'),OBJECT_ID(N'[{s}].logging_checkpoint'))"
         ))?;
         let bytes: i64 = row
             .get(0)
@@ -145,7 +223,7 @@ impl SqlServerDocumentSink {
     #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn invalid_json_count(&mut self) -> Result<i64, PersistenceError> {
         self.one(&format!(
-            "SELECT COUNT_BIG(*) FROM [{}].openot_documents WHERE ISJSON(canonical_json)<>1",
+            "SELECT COUNT_BIG(*) FROM [{}].logging_records WHERE ISJSON(canonical_json)<>1",
             self.schema
         ))?
         .get(0)
@@ -158,7 +236,7 @@ impl SqlServerDocumentSink {
     ) -> Result<Option<super::contracts::StoredCheckpointRow>, PersistenceError> {
         let row = self
             .rows(&format!(
-                "SELECT buffer_id,run_id,cursor_abs FROM [{}].openot_checkpoint WHERE singleton=1",
+                "SELECT buffer_id,run_id,cursor_abs FROM [{}].logging_checkpoint WHERE singleton=1",
                 self.schema
             ))?
             .into_iter()
@@ -179,27 +257,115 @@ impl SqlServerDocumentSink {
     }
 
     fn migrate(&mut self) -> Result<(), PersistenceError> {
-        let s = &self.schema;
+        let s = self.schema.clone();
         self.batch(&format!(
             "IF SCHEMA_ID(N'{s}') IS NULL EXEC(N'CREATE SCHEMA [{s}]');
-             IF OBJECT_ID(N'[{s}].openot_schema',N'U') IS NULL CREATE TABLE [{s}].openot_schema(singleton BIT PRIMARY KEY,version INT NOT NULL);
-             IF EXISTS(SELECT 1 FROM [{s}].openot_schema WHERE singleton=1 AND version>{SCHEMA_VERSION}) THROW 51000,'OpenOT schema is newer than supported',1;
-             IF OBJECT_ID(N'[{s}].openot_documents',N'U') IS NULL BEGIN
-               CREATE TABLE [{s}].openot_documents(
+             IF OBJECT_ID(N'[{s}].logging_schema',N'U') IS NULL AND OBJECT_ID(N'[{s}].openot_schema',N'U') IS NOT NULL EXEC sp_rename N'[{s}].openot_schema',N'logging_schema';
+             IF OBJECT_ID(N'[{s}].logging_records',N'U') IS NULL AND OBJECT_ID(N'[{s}].openot_documents',N'U') IS NOT NULL EXEC sp_rename N'[{s}].openot_documents',N'logging_records';
+             IF OBJECT_ID(N'[{s}].logging_checkpoint',N'U') IS NULL AND OBJECT_ID(N'[{s}].openot_checkpoint',N'U') IS NOT NULL EXEC sp_rename N'[{s}].openot_checkpoint',N'logging_checkpoint';
+             IF OBJECT_ID(N'[{s}].logging_schema',N'U') IS NULL CREATE TABLE [{s}].logging_schema(singleton BIT PRIMARY KEY,version INT NOT NULL);
+             IF EXISTS(SELECT 1 FROM [{s}].logging_schema WHERE singleton=1 AND version>{SCHEMA_VERSION}) THROW 51000,'Logging schema is newer than supported',1;
+             IF OBJECT_ID(N'[{s}].logging_records',N'U') IS NULL BEGIN
+               CREATE TABLE [{s}].logging_records(
                  identity_key NVARCHAR(255) COLLATE Latin1_General_100_BIN2 PRIMARY KEY,
                  document_kind NVARCHAR(16) NOT NULL,buffer_id BIGINT NOT NULL,run_id BINARY(8) NOT NULL,
                  source_id BIGINT NOT NULL,epoch_id BINARY(8) NOT NULL,seq BINARY(8) NULL,
                  first_seq BINARY(8) NULL,last_seq BINARY(8) NULL,loss_basis NVARCHAR(16) NULL,
                  source_time_ns BINARY(8) NULL,receive_time_ns BINARY(8) NOT NULL,event_type_id BIGINT NULL,
                  event_name NVARCHAR(MAX) NULL,definition_hash NVARCHAR(MAX) NOT NULL,canonical_json NVARCHAR(MAX) NOT NULL);
-               CREATE INDEX openot_source_sequence ON [{s}].openot_documents(buffer_id,run_id,source_id,seq);
-               CREATE INDEX openot_receive_time ON [{s}].openot_documents(receive_time_ns);
-               CREATE INDEX openot_event_type ON [{s}].openot_documents(event_type_id); END;
-             IF OBJECT_ID(N'[{s}].openot_checkpoint',N'U') IS NULL CREATE TABLE [{s}].openot_checkpoint(singleton BIT PRIMARY KEY,buffer_id BIGINT NOT NULL,run_id BINARY(8) NOT NULL,cursor_abs BINARY(8) NOT NULL);
-             IF COL_LENGTH(N'[{s}].openot_checkpoint',N'run_id') IS NULL ALTER TABLE [{s}].openot_checkpoint ADD run_id BINARY(8) NOT NULL DEFAULT 0x0000000000000000;
-             IF NOT EXISTS(SELECT 1 FROM [{s}].openot_schema WHERE singleton=1) INSERT INTO [{s}].openot_schema VALUES(1,{SCHEMA_VERSION});
-             ELSE UPDATE [{s}].openot_schema SET version={SCHEMA_VERSION} WHERE singleton=1;"
-        ))
+               CREATE INDEX logging_source_sequence ON [{s}].logging_records(buffer_id,run_id,source_id,seq);
+               CREATE INDEX logging_receive_time ON [{s}].logging_records(receive_time_ns);
+               CREATE INDEX logging_event_type ON [{s}].logging_records(event_type_id); END;
+             IF OBJECT_ID(N'[{s}].logging_checkpoint',N'U') IS NULL CREATE TABLE [{s}].logging_checkpoint(singleton BIT PRIMARY KEY,buffer_id BIGINT NOT NULL,run_id BINARY(8) NOT NULL,cursor_abs BINARY(8) NOT NULL);
+             IF COL_LENGTH(N'[{s}].logging_checkpoint',N'run_id') IS NULL ALTER TABLE [{s}].logging_checkpoint ADD run_id BINARY(8) NOT NULL DEFAULT 0x0000000000000000;
+             IF OBJECT_ID(N'[{s}].event_log',N'U') IS NULL CREATE TABLE [{s}].event_log(
+               record_id NVARCHAR(255) COLLATE Latin1_General_100_BIN2 PRIMARY KEY REFERENCES [{s}].logging_records(identity_key),
+               event_time DATETIME2(7) NULL,event_time_ns DECIMAL(20,0) NULL,
+               received_time DATETIME2(7) NOT NULL,received_time_ns DECIMAL(20,0) NOT NULL,
+               source NVARCHAR(MAX) NULL,source_id BIGINT NOT NULL,source_path NVARCHAR(MAX) NOT NULL,
+               source_hierarchy NVARCHAR(MAX) NOT NULL,buffer_id BIGINT NOT NULL,run_id DECIMAL(20,0) NOT NULL,
+               epoch_id DECIMAL(20,0) NOT NULL,sequence DECIMAL(20,0) NOT NULL,definition_hash NVARCHAR(MAX) NOT NULL,
+               time_unsynced BIT NOT NULL,synthetic_record BIT NOT NULL,partial_payload BIT NOT NULL,
+               event_type_id BIGINT NOT NULL,event_name NVARCHAR(MAX) NOT NULL,has_unclassified_fields BIT NOT NULL);
+             IF OBJECT_ID(N'[{s}].logged_values',N'U') IS NULL CREATE TABLE [{s}].logged_values(
+               record_id NVARCHAR(255) COLLATE Latin1_General_100_BIN2 PRIMARY KEY REFERENCES [{s}].logging_records(identity_key),
+               event_time DATETIME2(7) NULL,event_time_ns DECIMAL(20,0) NULL,received_time DATETIME2(7) NOT NULL,
+               received_time_ns DECIMAL(20,0) NOT NULL,source NVARCHAR(MAX) NULL,source_id BIGINT NOT NULL,
+               source_path NVARCHAR(MAX) NOT NULL,source_hierarchy NVARCHAR(MAX) NOT NULL,buffer_id BIGINT NOT NULL,
+               run_id DECIMAL(20,0) NOT NULL,epoch_id DECIMAL(20,0) NOT NULL,sequence DECIMAL(20,0) NOT NULL,
+               definition_hash NVARCHAR(MAX) NOT NULL,time_unsynced BIT NOT NULL,synthetic_record BIT NOT NULL,
+               partial_payload BIT NOT NULL,value_id BIGINT NOT NULL,value_name NVARCHAR(MAX) NOT NULL,
+               value_type NVARCHAR(32) NOT NULL,unit NVARCHAR(MAX) NULL,quality INT NULL,semantic_role INT NOT NULL,
+               boolean_value BIT NULL,signed_value BIGINT NULL,unsigned_value DECIMAL(20,0) NULL,
+               number_value FLOAT NULL,text_value NVARCHAR(MAX) NULL,exact_value NVARCHAR(MAX) NOT NULL);
+             IF OBJECT_ID(N'[{s}].alarm_history',N'U') IS NULL CREATE TABLE [{s}].alarm_history(
+               record_id NVARCHAR(255) COLLATE Latin1_General_100_BIN2 PRIMARY KEY REFERENCES [{s}].logging_records(identity_key),
+               event_time DATETIME2(7) NULL,event_time_ns DECIMAL(20,0) NULL,received_time DATETIME2(7) NOT NULL,
+               received_time_ns DECIMAL(20,0) NOT NULL,source NVARCHAR(MAX) NULL,source_id BIGINT NOT NULL,
+               source_path NVARCHAR(MAX) NOT NULL,source_hierarchy NVARCHAR(MAX) NOT NULL,buffer_id BIGINT NOT NULL,
+               run_id DECIMAL(20,0) NOT NULL,epoch_id DECIMAL(20,0) NOT NULL,sequence DECIMAL(20,0) NOT NULL,
+               definition_hash NVARCHAR(MAX) NOT NULL,time_unsynced BIT NOT NULL,synthetic_record BIT NOT NULL,
+               partial_payload BIT NOT NULL,condition NVARCHAR(MAX) NOT NULL,condition_class NVARCHAR(MAX) NULL,
+               lifecycle_action NVARCHAR(MAX) NOT NULL);
+             IF NOT EXISTS(SELECT 1 FROM [{s}].logging_schema WHERE singleton=1) INSERT INTO [{s}].logging_schema VALUES(1,{SCHEMA_VERSION});"
+        ))?;
+        super::sqlserver_read_model::create_domain_schema(&self.runtime, &mut self.client, &s)?;
+        let version = self.schema_version()?;
+        if version < SCHEMA_VERSION {
+            self.backfill_v3()?;
+            self.batch(&format!(
+                "UPDATE [{s}].logging_schema SET version={SCHEMA_VERSION} WHERE singleton=1"
+            ))?;
+        }
+        Ok(())
+    }
+
+    fn backfill_v3(&mut self) -> Result<(), PersistenceError> {
+        let s = self.schema.clone();
+        let canonical = self
+            .rows(&format!(
+                "SELECT canonical_json FROM [{s}].logging_records ORDER BY identity_key"
+            ))?
+            .into_iter()
+            .map(|row| {
+                row.get::<&str, _>(0)
+                    .map(str::to_string)
+                    .ok_or_else(|| commit_error("v2 canonical JSON is absent"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        self.batch("BEGIN TRANSACTION")?;
+        let result = (|| {
+            self.batch(&format!(
+                "DELETE FROM [{s}].message_log; DELETE FROM [{s}].state_history;
+                 DELETE FROM [{s}].batch_history; DELETE FROM [{s}].recipe_history;
+                 DELETE FROM [{s}].material_additions; DELETE FROM [{s}].operator_activity;
+                 DELETE FROM [{s}].audit_log; DELETE FROM [{s}].electronic_signatures;
+                 DELETE FROM [{s}].system_events; DELETE FROM [{s}].data_loss;
+                 DELETE FROM [{s}].unresolved_records; DELETE FROM [{s}].alarm_history;
+                 DELETE FROM [{s}].logged_values; DELETE FROM [{s}].event_log;"
+            ))?;
+            for json in canonical {
+                let document = serde_json::from_str(&json).map_err(|error| {
+                    commit_error(&format!("v2 canonical document is malformed: {error}"))
+                })?;
+                let projected = self.projector.project(&document)?;
+                super::sqlserver_read_model::insert_projection(
+                    &self.runtime,
+                    &mut self.client,
+                    &s,
+                    projected.event,
+                    projected.logged_values,
+                    projected.domains,
+                )?;
+            }
+            Ok(())
+        })();
+        if result.is_ok() {
+            self.batch("COMMIT TRANSACTION")?;
+        } else {
+            let _ = self.batch("IF @@TRANCOUNT>0 ROLLBACK TRANSACTION");
+        }
+        result
     }
 
     fn batch(&mut self, sql: &str) -> Result<(), PersistenceError> {
@@ -237,7 +403,7 @@ impl DocumentSink for SqlServerDocumentSink {
     ) -> Result<Option<super::PersistenceCheckpoint>, PersistenceError> {
         let row = self
             .rows(&format!(
-                "SELECT buffer_id,run_id,cursor_abs FROM [{}].openot_checkpoint WHERE singleton=1",
+                "SELECT buffer_id,run_id,cursor_abs FROM [{}].logging_checkpoint WHERE singleton=1",
                 self.schema
             ))?
             .into_iter()
@@ -268,11 +434,8 @@ impl DocumentSink for SqlServerDocumentSink {
     }
 
     fn commit(&mut self, batch: &PersistenceBatch) -> Result<CommitOutcome, PersistenceError> {
-        self.batch("BEGIN TRANSACTION")?;
         let result = self.commit_inner(batch);
-        if result.is_ok() {
-            self.batch("COMMIT TRANSACTION")?;
-        } else {
+        if result.is_err() {
             let _ = self.batch("IF @@TRANCOUNT>0 ROLLBACK TRANSACTION");
         }
         result
@@ -285,7 +448,7 @@ impl SqlServerDocumentSink {
         batch: &PersistenceBatch,
     ) -> Result<CommitOutcome, PersistenceError> {
         let s = self.schema.clone();
-        if let Some(row) = self.rows(&format!("SELECT buffer_id,run_id,cursor_abs FROM [{s}].openot_checkpoint WITH(UPDLOCK,HOLDLOCK) WHERE singleton=1"))?.first() {
+        if let Some(row) = self.rows(&format!("BEGIN TRANSACTION; SELECT buffer_id,run_id,cursor_abs FROM [{s}].logging_checkpoint WITH(UPDLOCK,HOLDLOCK) WHERE singleton=1"))?.first() {
             let buffer: i64 = row.get(0).ok_or_else(|| commit_error("checkpoint buffer is absent"))?;
             let run_bytes: &[u8] = row.get(1).ok_or_else(|| commit_error("checkpoint run is absent"))?;
             let current_run = decode_u64(run_bytes, "checkpoint run")?;
@@ -295,57 +458,166 @@ impl SqlServerDocumentSink {
                 return Err(PersistenceError::CheckpointRegression { current, requested: batch.checkpoint.cursor_abs });
             }
         }
-        let mut inserted = 0;
-        let mut duplicated = 0;
-        for document in &batch.documents {
-            let row = document_row(document)?;
-            let mut lookup = Query::new(format!("SELECT canonical_json FROM [{s}].openot_documents WITH(UPDLOCK,HOLDLOCK) WHERE identity_key=@P1"));
-            lookup.bind(row.identity_key.as_str());
-            let existing = self
+        let projected = batch
+            .documents
+            .iter()
+            .map(|document| self.projector.project(document))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut existing = std::collections::HashMap::new();
+        if !projected.is_empty() {
+            let placeholders = (1..=projected.len())
+                .map(|index| format!("@P{index}"))
+                .collect::<Vec<_>>()
+                .join(",");
+            let mut lookup = Query::new(format!(
+                "SELECT identity_key,canonical_json FROM [{s}].logging_records WITH(UPDLOCK,HOLDLOCK) WHERE identity_key IN ({placeholders})"
+            ));
+            for document in &projected {
+                lookup.bind(document.canonical.identity_key.as_str());
+            }
+            let rows = self
                 .runtime
-                .block_on(async { lookup.query(&mut self.client).await?.into_row().await })
-                .map_err(|e| sql_error("check identity", e))?;
-            if let Some(existing) = existing {
-                let json: &str = existing
-                    .get(0)
+                .block_on(async {
+                    lookup
+                        .query(&mut self.client)
+                        .await?
+                        .into_first_result()
+                        .await
+                })
+                .map_err(|error| sql_error("check identities", error))?;
+            for row in rows {
+                let identity = row
+                    .get::<&str, _>(0)
+                    .ok_or_else(|| commit_error("identity key is absent"))?;
+                let json = row
+                    .get::<&str, _>(1)
                     .ok_or_else(|| commit_error("canonical JSON is absent"))?;
-                if json == row.canonical_json {
+                existing.insert(identity.to_string(), json.to_string());
+            }
+        }
+        let mut duplicated = 0;
+        let mut pending = Vec::new();
+        for projected in projected {
+            let row = &projected.canonical;
+            if let Some(json) = existing.get(&row.identity_key) {
+                if json == &row.canonical_json {
                     duplicated += 1;
                     continue;
                 }
-                return Err(PersistenceError::IdentityConflict(row.identity_key));
+                return Err(PersistenceError::IdentityConflict(row.identity_key.clone()));
             }
-            let mut q = Query::new(format!("INSERT INTO [{s}].openot_documents(identity_key,document_kind,buffer_id,run_id,source_id,epoch_id,seq,first_seq,last_seq,loss_basis,source_time_ns,receive_time_ns,event_type_id,event_name,definition_hash,canonical_json) VALUES(@P1,@P2,@P3,@P4,@P5,@P6,@P7,@P8,@P9,@P10,@P11,@P12,@P13,@P14,@P15,@P16)"));
-            q.bind(row.identity_key.as_str());
-            q.bind(row.document_kind);
-            q.bind(i64::from(row.buffer_id));
-            q.bind(row.run_id.as_slice());
-            q.bind(i64::from(row.source_id));
-            q.bind(row.epoch_id.as_slice());
-            q.bind(row.seq.as_deref());
-            q.bind(row.first_seq.as_deref());
-            q.bind(row.last_seq.as_deref());
-            q.bind(row.loss_basis);
-            q.bind(row.source_time_ns.as_deref());
-            q.bind(row.receive_time_ns.as_slice());
-            q.bind(row.event_type_id.map(i64::from));
-            q.bind(row.event_name.as_deref());
-            q.bind(row.definition_hash.as_str());
-            q.bind(row.canonical_json.as_str());
+            pending.push(projected);
+        }
+        let inserted = pending.len();
+        if !pending.is_empty() {
+            let mut parameter = 1;
+            let tuples = pending
+                .iter()
+                .map(|_| {
+                    let tuple = (0..16)
+                        .map(|_| {
+                            let placeholder = format!("@P{parameter}");
+                            parameter += 1;
+                            placeholder
+                        })
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    format!("({tuple})")
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            let mut q = Query::new(format!("INSERT INTO [{s}].logging_records(identity_key,document_kind,buffer_id,run_id,source_id,epoch_id,seq,first_seq,last_seq,loss_basis,source_time_ns,receive_time_ns,event_type_id,event_name,definition_hash,canonical_json) VALUES {tuples}"));
+            for projected in &pending {
+                let row = &projected.canonical;
+                q.bind(row.identity_key.as_str());
+                q.bind(row.document_kind);
+                q.bind(i64::from(row.buffer_id));
+                q.bind(row.run_id.as_slice());
+                q.bind(i64::from(row.source_id));
+                q.bind(row.epoch_id.as_slice());
+                q.bind(row.seq.as_deref());
+                q.bind(row.first_seq.as_deref());
+                q.bind(row.last_seq.as_deref());
+                q.bind(row.loss_basis);
+                q.bind(row.source_time_ns.as_deref());
+                q.bind(row.receive_time_ns.as_slice());
+                q.bind(row.event_type_id.map(i64::from));
+                q.bind(row.event_name.as_deref());
+                q.bind(row.definition_hash.as_str());
+                q.bind(row.canonical_json.as_str());
+            }
             self.runtime
                 .block_on(q.execute(&mut self.client))
-                .map_err(|e| sql_error("insert document", e))?;
-            inserted += 1;
+                .map_err(|e| sql_error("insert document batch", e))?;
+            let events = pending
+                .iter()
+                .filter_map(|document| document.event.as_ref())
+                .collect::<Vec<_>>();
+            super::sqlserver_read_model::insert_event_batch(
+                &self.runtime,
+                &mut self.client,
+                &s,
+                &events,
+            )?;
+            super::sqlserver_read_model::insert_repeated_domains_combined(
+                &self.runtime,
+                &mut self.client,
+                &s,
+                &pending,
+            )?;
+            let values = pending
+                .iter()
+                .flat_map(|document| document.logged_values.iter())
+                .collect::<Vec<_>>();
+            super::sqlserver_read_model::insert_value_batch(
+                &self.runtime,
+                &mut self.client,
+                &s,
+                &values,
+            )?;
+            super::sqlserver_read_model::insert_singleton_event_domains_batch(
+                &self.runtime,
+                &mut self.client,
+                &s,
+                &pending,
+            )?;
+            super::sqlserver_read_model::insert_loss_and_unresolved_batch(
+                &self.runtime,
+                &mut self.client,
+                &s,
+                &pending,
+            )?;
         }
-        let mut q = Query::new(format!("MERGE [{s}].openot_checkpoint WITH(HOLDLOCK) AS t USING(SELECT CAST(1 AS BIT) singleton,@P1 buffer_id,@P2 run_id,@P3 cursor_abs) AS x ON t.singleton=x.singleton WHEN MATCHED THEN UPDATE SET buffer_id=x.buffer_id,run_id=x.run_id,cursor_abs=x.cursor_abs WHEN NOT MATCHED THEN INSERT(singleton,buffer_id,run_id,cursor_abs) VALUES(x.singleton,x.buffer_id,x.run_id,x.cursor_abs);"));
-        q.bind(i64::from(batch.checkpoint.buffer_id));
-        let run_id = batch.checkpoint.run_id.to_be_bytes();
-        q.bind(run_id.as_slice());
-        let cursor = batch.checkpoint.cursor_abs.to_be_bytes();
-        q.bind(cursor.as_slice());
-        self.runtime
-            .block_on(q.execute(&mut self.client))
-            .map_err(|e| sql_error("write checkpoint", e))?;
+        for mut projected in pending {
+            projected.event = None;
+            projected.logged_values.clear();
+            projected.domains.retain(|domain| {
+                !matches!(
+                    domain,
+                    super::projection_domains::DomainRow::Alarm(_)
+                        | super::projection_domains::DomainRow::System(_)
+                        | super::projection_domains::DomainRow::Operator(_)
+                        | super::projection_domains::DomainRow::Recipe(_)
+                        | super::projection_domains::DomainRow::Message(_)
+                        | super::projection_domains::DomainRow::State(_)
+                        | super::projection_domains::DomainRow::Batch(_)
+                        | super::projection_domains::DomainRow::Material(_)
+                        | super::projection_domains::DomainRow::Audit(_)
+                        | super::projection_domains::DomainRow::Signature(_)
+                        | super::projection_domains::DomainRow::Loss(_)
+                        | super::projection_domains::DomainRow::Unresolved(_)
+                )
+            });
+            super::sqlserver_read_model::insert_projection(
+                &self.runtime,
+                &mut self.client,
+                &s,
+                projected.event,
+                projected.logged_values,
+                projected.domains,
+            )?;
+        }
+        self.batch(&format!("MERGE [{s}].logging_checkpoint WITH(HOLDLOCK) AS t USING(SELECT CAST(1 AS BIT) singleton,{} buffer_id,0x{:016x} run_id,0x{:016x} cursor_abs) AS x ON t.singleton=x.singleton WHEN MATCHED THEN UPDATE SET buffer_id=x.buffer_id,run_id=x.run_id,cursor_abs=x.cursor_abs WHEN NOT MATCHED THEN INSERT(singleton,buffer_id,run_id,cursor_abs) VALUES(x.singleton,x.buffer_id,x.run_id,x.cursor_abs); COMMIT TRANSACTION;", batch.checkpoint.buffer_id, batch.checkpoint.run_id, batch.checkpoint.cursor_abs))?;
         Ok(CommitOutcome {
             inserted,
             duplicated,

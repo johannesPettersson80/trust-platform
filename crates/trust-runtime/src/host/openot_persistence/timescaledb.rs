@@ -17,7 +17,17 @@ impl TimescaleDbDocumentSink {
         schema: &str,
         ca_cert_path: &Path,
     ) -> Result<Self, PersistenceError> {
-        PostgreSqlDocumentSink::open_timescale(connection_url, schema, ca_cert_path)
+        Self::open_with_definitions(connection_url, schema, ca_cert_path, Vec::new())
+    }
+
+    #[doc(hidden)]
+    pub fn open_with_definitions(
+        connection_url: &str,
+        schema: &str,
+        ca_cert_path: &Path,
+        definitions: Vec<open_ot_definition::DefinitionFile>,
+    ) -> Result<Self, PersistenceError> {
+        PostgreSqlDocumentSink::open_timescale(connection_url, schema, ca_cert_path, definitions)
             .map(|postgresql| Self { postgresql })
     }
 
@@ -35,15 +45,14 @@ impl TimescaleDbDocumentSink {
             })
     }
 
-    /// Reports whether the OpenOT time index is an actual hypertable.
+    /// Reports whether every required public time-series object is a hypertable.
     pub fn hypertable_exists(&mut self) -> Result<bool, PersistenceError> {
         self.postgresql
             .client
             .query_one(
-                "SELECT EXISTS (\n\
-                     SELECT 1 FROM timescaledb_information.hypertables\n\
-                     WHERE hypertable_schema = $1 AND hypertable_name = 'openot_time_index'\n\
-                 )",
+                "SELECT COUNT(*) = 5 FROM timescaledb_information.hypertables
+                 WHERE hypertable_schema = $1
+                   AND hypertable_name IN ('event_log','logged_values','alarm_history','message_log','state_history')",
                 &[&self.postgresql.schema],
             )
             .map(|row| row.get(0))
@@ -58,7 +67,7 @@ impl TimescaleDbDocumentSink {
             .client
             .query_one(
                 &format!(
-                    "SELECT COUNT(*) FROM \"{}\".openot_time_index",
+                    "SELECT COUNT(*) FROM \"{}\".event_log",
                     self.postgresql.schema
                 ),
                 &[],

@@ -24,9 +24,9 @@ project. Stop the runtime cleanly after the workload completes.
 ```bash
 sqlite3 "$example_root/history/openot.sqlite3" 'PRAGMA integrity_check;'
 sqlite3 -json "$example_root/history/openot.sqlite3" \
-  'SELECT document_kind,event_name,count(*) AS count FROM openot_documents GROUP BY 1,2 ORDER BY 1,2;'
+  'SELECT event_name,count(*) AS count FROM event_log GROUP BY 1 ORDER BY 1;'
 sqlite3 "$example_root/history/openot.sqlite3" \
-  'SELECT buffer_id,hex(run_id),hex(cursor_abs) FROM openot_checkpoint;'
+  'SELECT buffer_id,hex(run_id),hex(cursor_abs) FROM logging_checkpoint;'
 ```
 
 Compare document families with `../workload/openot-coverage-manifest.json`;

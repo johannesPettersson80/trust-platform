@@ -4,7 +4,7 @@ use native_tls::{Certificate, TlsConnector};
 use postgres::Client;
 use postgres_native_tls::MakeTlsConnector;
 
-use super::projection::document_row;
+use super::projection::LoggingProjector;
 use super::{CommitOutcome, DocumentSink, PersistenceBatch, PersistenceError};
 
 /// PostgreSQL-backed durable OpenOT document sink.
@@ -12,6 +12,7 @@ pub struct PostgreSqlDocumentSink {
     pub(super) client: Client,
     pub(super) schema: String,
     timescale: bool,
+    projector: LoggingProjector,
 }
 
 impl std::fmt::Debug for PostgreSqlDocumentSink {
@@ -23,7 +24,7 @@ impl std::fmt::Debug for PostgreSqlDocumentSink {
     }
 }
 
-const SCHEMA_VERSION: u32 = 2;
+const SCHEMA_VERSION: u32 = 3;
 
 impl PostgreSqlDocumentSink {
     /// Connects with authenticated TLS and applies compatible migrations.
@@ -31,6 +32,16 @@ impl PostgreSqlDocumentSink {
         connection_url: &str,
         schema: &str,
         ca_cert_path: &Path,
+    ) -> Result<Self, PersistenceError> {
+        Self::open_with_definitions(connection_url, schema, ca_cert_path, Vec::new())
+    }
+
+    #[doc(hidden)]
+    pub fn open_with_definitions(
+        connection_url: &str,
+        schema: &str,
+        ca_cert_path: &Path,
+        definitions: Vec<open_ot_definition::DefinitionFile>,
     ) -> Result<Self, PersistenceError> {
         validate_identifier(schema)?;
         let ca_pem = fs::read(ca_cert_path).map_err(|error| {
@@ -47,10 +58,12 @@ impl PostgreSqlDocumentSink {
         let mut client = Client::connect(connection_url, MakeTlsConnector::new(connector))
             .map_err(pg_error("connect with required TLS"))?;
         migrate(&mut client, schema)?;
+        let projector = LoggingProjector::new(definitions)?;
         Ok(Self {
             client,
             schema: schema.to_string(),
             timescale: false,
+            projector,
         })
     }
 
@@ -58,28 +71,42 @@ impl PostgreSqlDocumentSink {
         connection_url: &str,
         schema: &str,
         ca_cert_path: &Path,
+        definitions: Vec<open_ot_definition::DefinitionFile>,
     ) -> Result<Self, PersistenceError> {
-        let mut sink = Self::open(connection_url, schema, ca_cert_path)?;
+        let mut sink =
+            Self::open_with_definitions(connection_url, schema, ca_cert_path, definitions)?;
         sink.client
             .batch_execute("CREATE EXTENSION IF NOT EXISTS timescaledb")
             .map_err(pg_error("require TimescaleDB extension"))?;
         sink.client
             .batch_execute(&format!(
-                "CREATE TABLE IF NOT EXISTS \"{schema}\".openot_time_index (\n\
-                     receive_time_ns BIGINT NOT NULL,\n\
-                     identity_key TEXT NOT NULL,\n\
-                     document_kind TEXT NOT NULL,\n\
-                     PRIMARY KEY (receive_time_ns, identity_key)\n\
-                 );"
+                "DROP TABLE IF EXISTS \"{schema}\".openot_time_index"
             ))
-            .map_err(pg_error("create TimescaleDB time index"))?;
-        sink.client
-            .query_one(
-                "SELECT create_hypertable($1::text::regclass, 'receive_time_ns',\n\
-                     chunk_time_interval => 86400000000000::BIGINT, if_not_exists => TRUE)",
-                &[&format!("{schema}.openot_time_index")],
-            )
-            .map_err(pg_error("create TimescaleDB hypertable"))?;
+            .map_err(pg_error("remove legacy detached TimescaleDB time index"))?;
+        for table in [
+            "event_log",
+            "logged_values",
+            "alarm_history",
+            "message_log",
+            "state_history",
+        ] {
+            sink.client
+                .batch_execute(&format!(
+                    "ALTER TABLE \"{schema}\".{table} DROP CONSTRAINT IF EXISTS {table}_pkey;
+                     DO $constraint$ BEGIN
+                       IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='\"{schema}\".{table}'::regclass AND conname='{table}_received_record_key') THEN
+                         ALTER TABLE \"{schema}\".{table} ADD CONSTRAINT {table}_received_record_key UNIQUE(received_time,record_id);
+                       END IF;
+                     END $constraint$;"
+                ))
+                .map_err(pg_error("prepare TimescaleDB public hypertable"))?;
+            sink.client
+                .query_one(
+                    "SELECT * FROM create_hypertable($1::text::regclass, by_range('received_time', INTERVAL '1 day'), if_not_exists => TRUE, migrate_data => TRUE)",
+                    &[&format!("\"{schema}\".{table}")],
+                )
+                .map_err(pg_error("create TimescaleDB public hypertable"))?;
+        }
         sink.timescale = true;
         Ok(sink)
     }
@@ -87,7 +114,7 @@ impl PostgreSqlDocumentSink {
     /// Returns the truST-owned schema version.
     pub fn schema_version(&mut self) -> Result<u32, PersistenceError> {
         let sql = format!(
-            "SELECT version FROM \"{}\".openot_schema WHERE singleton = TRUE",
+            "SELECT version FROM \"{}\".logging_schema WHERE singleton = TRUE",
             self.schema
         );
         let version: i32 = self
@@ -102,7 +129,7 @@ impl PostgreSqlDocumentSink {
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn document_count(&mut self) -> Result<i64, PersistenceError> {
-        let sql = format!("SELECT COUNT(*) FROM \"{}\".openot_documents", self.schema);
+        let sql = format!("SELECT COUNT(*) FROM \"{}\".logging_records", self.schema);
         Ok(self
             .client
             .query_one(&sql, &[])
@@ -114,7 +141,7 @@ impl PostgreSqlDocumentSink {
     #[doc(hidden)]
     pub fn canonical_jsons(&mut self) -> Result<Vec<String>, PersistenceError> {
         let sql = format!(
-            "SELECT canonical_json FROM \"{}\".openot_documents ORDER BY identity_key",
+            "SELECT canonical_json FROM \"{}\".logging_records ORDER BY identity_key",
             self.schema
         );
         self.client
@@ -127,9 +154,9 @@ impl PostgreSqlDocumentSink {
     pub(crate) fn downgrade_checkpoint_to_v1_for_test(&mut self) -> Result<(), PersistenceError> {
         self.client
             .batch_execute(&format!(
-                "DELETE FROM \"{}\".openot_checkpoint; \
-                 ALTER TABLE \"{}\".openot_checkpoint DROP COLUMN run_id; \
-                 UPDATE \"{}\".openot_schema SET version=1 WHERE singleton=TRUE;",
+                "DELETE FROM \"{}\".logging_checkpoint; \
+                 ALTER TABLE \"{}\".logging_checkpoint DROP COLUMN run_id; \
+                 UPDATE \"{}\".logging_schema SET version=1 WHERE singleton=TRUE;",
                 self.schema, self.schema, self.schema
             ))
             .map_err(pg_error("seed schema v1"))
@@ -143,7 +170,7 @@ impl PostgreSqlDocumentSink {
         self.client
             .execute(
                 &format!(
-                    "UPDATE \"{}\".openot_schema SET version=$1 WHERE singleton=TRUE",
+                    "UPDATE \"{}\".logging_schema SET version=$1 WHERE singleton=TRUE",
                     self.schema
                 ),
                 &[&(version as i32)],
@@ -171,7 +198,7 @@ impl PostgreSqlDocumentSink {
         &mut self,
     ) -> Result<Option<super::contracts::StoredCheckpointRow>, PersistenceError> {
         let sql = format!(
-            "SELECT buffer_id, run_id, cursor_abs FROM \"{}\".openot_checkpoint WHERE singleton = TRUE",
+            "SELECT buffer_id, run_id, cursor_abs FROM \"{}\".logging_checkpoint WHERE singleton = TRUE",
             self.schema
         );
         self.client
@@ -195,7 +222,18 @@ fn migrate(client: &mut Client, schema: &str) -> Result<(), PersistenceError> {
     transaction
         .batch_execute(&format!(
             "CREATE SCHEMA IF NOT EXISTS \"{schema}\";\n\
-             CREATE TABLE IF NOT EXISTS \"{schema}\".openot_schema (\n\
+             DO $migration$ BEGIN
+               IF to_regclass('\"{schema}\".logging_schema') IS NULL AND to_regclass('\"{schema}\".openot_schema') IS NOT NULL THEN
+                 ALTER TABLE \"{schema}\".openot_schema RENAME TO logging_schema;
+               END IF;
+               IF to_regclass('\"{schema}\".logging_records') IS NULL AND to_regclass('\"{schema}\".openot_documents') IS NOT NULL THEN
+                 ALTER TABLE \"{schema}\".openot_documents RENAME TO logging_records;
+               END IF;
+               IF to_regclass('\"{schema}\".logging_checkpoint') IS NULL AND to_regclass('\"{schema}\".openot_checkpoint') IS NOT NULL THEN
+                 ALTER TABLE \"{schema}\".openot_checkpoint RENAME TO logging_checkpoint;
+               END IF;
+             END $migration$;
+             CREATE TABLE IF NOT EXISTS \"{schema}\".logging_schema (\n\
                  singleton BOOLEAN PRIMARY KEY CHECK (singleton),\n\
                  version INTEGER NOT NULL CHECK (version >= 1)\n\
              );"
@@ -204,7 +242,7 @@ fn migrate(client: &mut Client, schema: &str) -> Result<(), PersistenceError> {
     let version = transaction
         .query_opt(
             &format!(
-                "SELECT version FROM \"{schema}\".openot_schema WHERE singleton = TRUE FOR UPDATE"
+                "SELECT version FROM \"{schema}\".logging_schema WHERE singleton = TRUE FOR UPDATE"
             ),
             &[],
         )
@@ -220,7 +258,7 @@ fn migrate(client: &mut Client, schema: &str) -> Result<(), PersistenceError> {
         transaction
             .execute(
                 &format!(
-                    "INSERT INTO \"{schema}\".openot_schema (singleton, version) VALUES (TRUE, $1)"
+                    "INSERT INTO \"{schema}\".logging_schema (singleton, version) VALUES (TRUE, $1)"
                 ),
                 &[&(SCHEMA_VERSION as i32)],
             )
@@ -228,7 +266,7 @@ fn migrate(client: &mut Client, schema: &str) -> Result<(), PersistenceError> {
     }
     transaction
         .batch_execute(&format!(
-            "CREATE TABLE IF NOT EXISTS \"{schema}\".openot_documents (\n\
+            "CREATE TABLE IF NOT EXISTS \"{schema}\".logging_records (\n\
                  identity_key TEXT PRIMARY KEY,\n\
                  document_kind TEXT NOT NULL CHECK (document_kind IN ('event', 'loss', 'placeholder')),\n\
                  buffer_id BIGINT NOT NULL CHECK (buffer_id BETWEEN 0 AND 4294967295),\n\
@@ -246,23 +284,67 @@ fn migrate(client: &mut Client, schema: &str) -> Result<(), PersistenceError> {
                  definition_hash TEXT NOT NULL,\n\
                  canonical_json TEXT NOT NULL\n\
              );\n\
-             CREATE INDEX IF NOT EXISTS openot_documents_source_sequence\n\
-                 ON \"{schema}\".openot_documents (buffer_id, run_id, source_id, seq);\n\
-             CREATE INDEX IF NOT EXISTS openot_documents_receive_time\n\
-                 ON \"{schema}\".openot_documents (receive_time_ns);\n\
-             CREATE INDEX IF NOT EXISTS openot_documents_event_type\n\
-                 ON \"{schema}\".openot_documents (event_type_id);\n\
-             CREATE TABLE IF NOT EXISTS \"{schema}\".openot_checkpoint (\n\
+             CREATE INDEX IF NOT EXISTS logging_records_source_sequence\n\
+                 ON \"{schema}\".logging_records (buffer_id, run_id, source_id, seq);\n\
+             CREATE INDEX IF NOT EXISTS logging_records_receive_time\n\
+                 ON \"{schema}\".logging_records (receive_time_ns);\n\
+             CREATE INDEX IF NOT EXISTS logging_records_event_type\n\
+                 ON \"{schema}\".logging_records (event_type_id);\n\
+             CREATE TABLE IF NOT EXISTS \"{schema}\".logging_checkpoint (\n\
                  singleton BOOLEAN PRIMARY KEY CHECK (singleton),\n\
                  buffer_id BIGINT NOT NULL CHECK (buffer_id BETWEEN 0 AND 4294967295),\n\
                  run_id BYTEA NOT NULL CHECK (octet_length(run_id) = 8),\n\
                  cursor_abs BYTEA NOT NULL CHECK (octet_length(cursor_abs) = 8)\n\
              );\n\
-             ALTER TABLE \"{schema}\".openot_checkpoint\n\
+             ALTER TABLE \"{schema}\".logging_checkpoint\n\
                  ADD COLUMN IF NOT EXISTS run_id BYTEA NOT NULL DEFAULT decode('0000000000000000', 'hex') CHECK (octet_length(run_id) = 8);\n\
-             UPDATE \"{schema}\".openot_schema SET version = {SCHEMA_VERSION} WHERE singleton = TRUE;"
+             UPDATE \"{schema}\".logging_schema SET version = {SCHEMA_VERSION} WHERE singleton = TRUE;"
         ))
         .map_err(pg_error("apply schema migration"))?;
+    transaction
+        .batch_execute(&format!(
+            "CREATE TABLE IF NOT EXISTS \"{schema}\".event_log (
+                 record_id TEXT PRIMARY KEY REFERENCES \"{schema}\".logging_records(identity_key),
+                 event_time TIMESTAMPTZ, event_time_ns NUMERIC(20),
+                 received_time TIMESTAMPTZ NOT NULL, received_time_ns NUMERIC(20) NOT NULL,
+                 source TEXT, source_id BIGINT NOT NULL, source_path TEXT NOT NULL,
+                 source_hierarchy TEXT NOT NULL, buffer_id BIGINT NOT NULL,
+                 run_id NUMERIC(20) NOT NULL, epoch_id NUMERIC(20) NOT NULL,
+                 sequence NUMERIC(20) NOT NULL, definition_hash TEXT NOT NULL,
+                 time_unsynced BOOLEAN NOT NULL, synthetic_record BOOLEAN NOT NULL,
+                 partial_payload BOOLEAN NOT NULL, event_type_id BIGINT NOT NULL,
+                 event_name TEXT NOT NULL, has_unclassified_fields BOOLEAN NOT NULL
+             );
+             CREATE TABLE IF NOT EXISTS \"{schema}\".logged_values (
+                 record_id TEXT PRIMARY KEY REFERENCES \"{schema}\".logging_records(identity_key),
+                 event_time TIMESTAMPTZ, event_time_ns NUMERIC(20),
+                 received_time TIMESTAMPTZ NOT NULL, received_time_ns NUMERIC(20) NOT NULL,
+                 source TEXT, source_id BIGINT NOT NULL, source_path TEXT NOT NULL,
+                 source_hierarchy TEXT NOT NULL, buffer_id BIGINT NOT NULL,
+                 run_id NUMERIC(20) NOT NULL, epoch_id NUMERIC(20) NOT NULL,
+                 sequence NUMERIC(20) NOT NULL, definition_hash TEXT NOT NULL,
+                 time_unsynced BOOLEAN NOT NULL, synthetic_record BOOLEAN NOT NULL,
+                 partial_payload BOOLEAN NOT NULL, value_id BIGINT NOT NULL,
+                 value_name TEXT NOT NULL, value_type TEXT NOT NULL, unit TEXT,
+                 quality INTEGER, semantic_role INTEGER NOT NULL, boolean_value BOOLEAN,
+                 signed_value BIGINT, unsigned_value NUMERIC(20), number_value DOUBLE PRECISION,
+                 text_value TEXT, exact_value TEXT NOT NULL
+             );
+             CREATE TABLE IF NOT EXISTS \"{schema}\".alarm_history (
+                 record_id TEXT PRIMARY KEY REFERENCES \"{schema}\".logging_records(identity_key),
+                 event_time TIMESTAMPTZ, event_time_ns NUMERIC(20),
+                 received_time TIMESTAMPTZ NOT NULL, received_time_ns NUMERIC(20) NOT NULL,
+                 source TEXT, source_id BIGINT NOT NULL, source_path TEXT NOT NULL,
+                 source_hierarchy TEXT NOT NULL, buffer_id BIGINT NOT NULL,
+                 run_id NUMERIC(20) NOT NULL, epoch_id NUMERIC(20) NOT NULL,
+                 sequence NUMERIC(20) NOT NULL, definition_hash TEXT NOT NULL,
+                 time_unsynced BOOLEAN NOT NULL, synthetic_record BOOLEAN NOT NULL,
+                 partial_payload BOOLEAN NOT NULL, condition TEXT NOT NULL,
+                 condition_class TEXT, lifecycle_action TEXT NOT NULL
+             );"
+        ))
+        .map_err(pg_error("create schema v3 public read model"))?;
+    super::postgres_read_model::create_domain_schema(&mut transaction, schema)?;
     transaction
         .commit()
         .map_err(pg_error("commit schema migration"))
@@ -294,7 +376,7 @@ impl DocumentSink for PostgreSqlDocumentSink {
         run_id: u64,
     ) -> Result<Option<super::PersistenceCheckpoint>, PersistenceError> {
         let sql = format!(
-            "SELECT buffer_id, run_id, cursor_abs FROM \"{}\".openot_checkpoint WHERE singleton = TRUE",
+            "SELECT buffer_id, run_id, cursor_abs FROM \"{}\".logging_checkpoint WHERE singleton = TRUE",
             self.schema
         );
         let stored = self
@@ -329,108 +411,16 @@ impl DocumentSink for PostgreSqlDocumentSink {
             .client
             .transaction()
             .map_err(pg_error("begin document transaction"))?;
-        let checkpoint_sql = format!(
-            "SELECT buffer_id, run_id, cursor_abs FROM \"{schema}\".openot_checkpoint WHERE singleton = TRUE FOR UPDATE"
-        );
-        if let Some(row) = transaction
-            .query_opt(&checkpoint_sql, &[])
-            .map_err(pg_error("lock checkpoint"))?
-        {
-            let buffer_id: i64 = row.get(0);
-            let current_run = decode_u64(&row.get::<_, Vec<u8>>(1), "checkpoint run")?;
-            let cursor_bytes: Vec<u8> = row.get(2);
-            let cursor_abs = decode_u64(&cursor_bytes, "checkpoint cursor")?;
-            if buffer_id == i64::from(batch.checkpoint.buffer_id)
-                && current_run == batch.checkpoint.run_id
-                && batch.checkpoint.cursor_abs < cursor_abs
-            {
-                return Err(PersistenceError::CheckpointRegression {
-                    current: cursor_abs,
-                    requested: batch.checkpoint.cursor_abs,
-                });
-            }
-        }
-
-        let identity_sql = format!(
-            "SELECT canonical_json FROM \"{schema}\".openot_documents WHERE identity_key = $1"
-        );
-        let insert_sql = format!(
-            "INSERT INTO \"{schema}\".openot_documents (\n\
-                 identity_key, document_kind, buffer_id, run_id, source_id, epoch_id,\n\
-                 seq, first_seq, last_seq, loss_basis, source_time_ns, receive_time_ns,\n\
-                 event_type_id, event_name, definition_hash, canonical_json\n\
-             ) VALUES (\n\
-                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16\n\
-             )"
-        );
-        let mut inserted = 0;
-        let mut duplicated = 0;
-        for document in &batch.documents {
-            let row = document_row(document)?;
-            if let Some(existing) = transaction
-                .query_opt(&identity_sql, &[&row.identity_key])
-                .map_err(pg_error("check document identity"))?
-            {
-                let canonical_json: String = existing.get(0);
-                if canonical_json == row.canonical_json {
-                    duplicated += 1;
-                    continue;
-                }
-                return Err(PersistenceError::IdentityConflict(row.identity_key));
-            }
-            let buffer_id = i64::from(row.buffer_id);
-            let source_id = i64::from(row.source_id);
-            let event_type_id = row.event_type_id.map(i64::from);
-            transaction
-                .execute(
-                    &insert_sql,
-                    &[
-                        &row.identity_key,
-                        &row.document_kind,
-                        &buffer_id,
-                        &row.run_id.as_slice(),
-                        &source_id,
-                        &row.epoch_id.as_slice(),
-                        &row.seq,
-                        &row.first_seq,
-                        &row.last_seq,
-                        &row.loss_basis,
-                        &row.source_time_ns,
-                        &row.receive_time_ns.as_slice(),
-                        &event_type_id,
-                        &row.event_name,
-                        &row.definition_hash,
-                        &row.canonical_json,
-                    ],
-                )
-                .map_err(pg_error("insert document"))?;
-            if self.timescale {
-                let receive_time_ns = decode_u64(&row.receive_time_ns, "receive time")?;
-                let receive_time_ns = i64::try_from(receive_time_ns).map_err(|_| {
-                    PersistenceError::Commit(
-                        "TimescaleDB receive_time_ns exceeds signed BIGINT range".to_string(),
-                    )
-                })?;
-                transaction
-                    .execute(
-                        &format!(
-                            "INSERT INTO \"{schema}\".openot_time_index\n\
-                                 (receive_time_ns, identity_key, document_kind)\n\
-                             VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
-                        ),
-                        &[&receive_time_ns, &row.identity_key, &row.document_kind],
-                    )
-                    .map_err(pg_error("insert TimescaleDB time index"))?;
-            }
-            inserted += 1;
-        }
         let upsert_sql = format!(
-            "INSERT INTO \"{schema}\".openot_checkpoint (singleton, buffer_id, run_id, cursor_abs)\n\
+            "INSERT INTO \"{schema}\".logging_checkpoint (singleton, buffer_id, run_id, cursor_abs)\n\
              VALUES (TRUE, $1, $2, $3)\n\
              ON CONFLICT (singleton) DO UPDATE SET\n\
-                 buffer_id = EXCLUDED.buffer_id, run_id = EXCLUDED.run_id, cursor_abs = EXCLUDED.cursor_abs"
+                 buffer_id = EXCLUDED.buffer_id, run_id = EXCLUDED.run_id, cursor_abs = EXCLUDED.cursor_abs\n\
+             WHERE \"{schema}\".logging_checkpoint.buffer_id <> EXCLUDED.buffer_id\n\
+                OR \"{schema}\".logging_checkpoint.run_id <> EXCLUDED.run_id\n\
+                OR \"{schema}\".logging_checkpoint.cursor_abs <= EXCLUDED.cursor_abs"
         );
-        transaction
+        let updated = transaction
             .execute(
                 &upsert_sql,
                 &[
@@ -440,6 +430,149 @@ impl DocumentSink for PostgreSqlDocumentSink {
                 ],
             )
             .map_err(pg_error("write checkpoint"))?;
+        if updated == 0 {
+            let cursor: Vec<u8> = transaction
+                .query_one(
+                    &format!(
+                        "SELECT cursor_abs FROM \"{schema}\".logging_checkpoint WHERE singleton = TRUE"
+                    ),
+                    &[],
+                )
+                .map_err(pg_error("read regressed checkpoint"))?
+                .get(0);
+            return Err(PersistenceError::CheckpointRegression {
+                current: decode_u64(&cursor, "checkpoint cursor")?,
+                requested: batch.checkpoint.cursor_abs,
+            });
+        }
+
+        let projected = batch
+            .documents
+            .iter()
+            .map(|document| self.projector.project(document))
+            .collect::<Result<Vec<_>, _>>()?;
+        let identities = projected
+            .iter()
+            .map(|document| document.canonical.identity_key.clone())
+            .collect::<Vec<_>>();
+        let existing = transaction
+            .query(
+                &format!("SELECT identity_key,canonical_json FROM \"{schema}\".logging_records WHERE identity_key=ANY($1)"),
+                &[&identities],
+            )
+            .map_err(pg_error("check document identities"))?
+            .into_iter()
+            .map(|row| (row.get::<_, String>(0), row.get::<_, String>(1)))
+            .collect::<std::collections::HashMap<_, _>>();
+        let mut projection_statements = super::postgres_read_model::StatementCache::default();
+        let mut duplicated = 0;
+        let mut pending = Vec::new();
+        for document in projected {
+            if let Some(canonical_json) = existing.get(&document.canonical.identity_key) {
+                if canonical_json == &document.canonical.canonical_json {
+                    duplicated += 1;
+                    continue;
+                }
+                return Err(PersistenceError::IdentityConflict(
+                    document.canonical.identity_key,
+                ));
+            }
+            pending.push(document);
+        }
+        let inserted = pending.len();
+        if !pending.is_empty() {
+            let rows = pending
+                .iter()
+                .map(|document| &document.canonical)
+                .collect::<Vec<_>>();
+            let identity_keys = rows
+                .iter()
+                .map(|row| row.identity_key.as_str())
+                .collect::<Vec<_>>();
+            let document_kinds = rows.iter().map(|row| row.document_kind).collect::<Vec<_>>();
+            let buffer_ids = rows
+                .iter()
+                .map(|row| i64::from(row.buffer_id))
+                .collect::<Vec<_>>();
+            let run_ids = rows
+                .iter()
+                .map(|row| row.run_id.to_vec())
+                .collect::<Vec<_>>();
+            let source_ids = rows
+                .iter()
+                .map(|row| i64::from(row.source_id))
+                .collect::<Vec<_>>();
+            let epoch_ids = rows
+                .iter()
+                .map(|row| row.epoch_id.to_vec())
+                .collect::<Vec<_>>();
+            let seqs = rows.iter().map(|row| row.seq.clone()).collect::<Vec<_>>();
+            let first_seqs = rows
+                .iter()
+                .map(|row| row.first_seq.clone())
+                .collect::<Vec<_>>();
+            let last_seqs = rows
+                .iter()
+                .map(|row| row.last_seq.clone())
+                .collect::<Vec<_>>();
+            let loss_bases = rows.iter().map(|row| row.loss_basis).collect::<Vec<_>>();
+            let source_times = rows
+                .iter()
+                .map(|row| row.source_time_ns.clone())
+                .collect::<Vec<_>>();
+            let receive_times = rows
+                .iter()
+                .map(|row| row.receive_time_ns.to_vec())
+                .collect::<Vec<_>>();
+            let event_type_ids = rows
+                .iter()
+                .map(|row| row.event_type_id.map(i64::from))
+                .collect::<Vec<_>>();
+            let event_names = rows
+                .iter()
+                .map(|row| row.event_name.as_deref())
+                .collect::<Vec<_>>();
+            let definition_hashes = rows
+                .iter()
+                .map(|row| row.definition_hash.as_str())
+                .collect::<Vec<_>>();
+            let canonical_jsons = rows
+                .iter()
+                .map(|row| row.canonical_json.as_str())
+                .collect::<Vec<_>>();
+            transaction.execute(
+                &format!("INSERT INTO \"{schema}\".logging_records(identity_key,document_kind,buffer_id,run_id,source_id,epoch_id,seq,first_seq,last_seq,loss_basis,source_time_ns,receive_time_ns,event_type_id,event_name,definition_hash,canonical_json) SELECT * FROM UNNEST($1::text[],$2::text[],$3::bigint[],$4::bytea[],$5::bigint[],$6::bytea[],$7::bytea[],$8::bytea[],$9::bytea[],$10::text[],$11::bytea[],$12::bytea[],$13::bigint[],$14::text[],$15::text[],$16::text[])"),
+                &[&identity_keys,&document_kinds,&buffer_ids,&run_ids,&source_ids,&epoch_ids,&seqs,&first_seqs,&last_seqs,&loss_bases,&source_times,&receive_times,&event_type_ids,&event_names,&definition_hashes,&canonical_jsons],
+            ).map_err(pg_error("insert document batch"))?;
+            let events = pending
+                .iter()
+                .filter_map(|document| document.event.as_ref())
+                .collect::<Vec<_>>();
+            super::postgres_read_model::insert_event_batch(&mut transaction, &schema, &events)?;
+            super::postgres_read_model::insert_high_volume_domain_batches(
+                &mut transaction,
+                &schema,
+                &pending,
+            )?;
+        }
+        for mut projected in pending {
+            projected.domains.retain(|domain| {
+                !matches!(
+                    domain,
+                    super::projection_domains::DomainRow::Alarm(_)
+                        | super::projection_domains::DomainRow::System(_)
+                        | super::projection_domains::DomainRow::Operator(_)
+                        | super::projection_domains::DomainRow::Recipe(_)
+                )
+            });
+            super::postgres_read_model::insert_projection(
+                &mut transaction,
+                &schema,
+                projected.logged_values,
+                projected.domains,
+                &mut projection_statements,
+            )?;
+        }
         transaction
             .commit()
             .map_err(pg_error("commit document transaction"))?;

@@ -25,7 +25,7 @@ trust-runtime run --project "$example_root"
 ```bash
 sqlcmd -N -S db.example -d openot -Q 'select @@version'
 sqlcmd -N -S db.example -d openot -Q \
-  'select document_kind,event_name,count_big(*) from openot.openot_documents group by document_kind,event_name order by document_kind,event_name'
+  'select event_name,count_big(*) from openot.event_log group by event_name order by event_name'
 sqlcmd -N -S db.example -d openot -Q \
   "select encrypt_option from sys.dm_exec_connections where session_id=@@spid"
 ```

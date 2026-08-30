@@ -17,14 +17,17 @@ package "Host persistence thread" {
   component "LossAccountingConsumer" as loss
   component "Definition resolver\n(current + prior epoch)" as resolver
   component "OpenOtPersistenceWorker" as worker
+  component "LoggingProjector\n(definition-bound semantics)" as projector
   component "OpenOtDocumentSink factory" as factory
   component "Supervision + redacted status" as status
   ring --> source : concurrent poll
   source --> loss : raw batches + control snapshot
   loss --> resolver : records + explicit loss ranges
   resolver --> worker : event / loss / placeholder documents
-  worker --> factory : atomic batch + cursor
-  worker --> status : lag, loss, unresolved, retry
+  worker --> factory : typed documents + atomic cursor
+  factory --> projector : exact definition catalog
+  projector --> factory : canonical + envelope + typed domain rows
+  worker --> status : lag, loss, projection, reconciliation, retry
 }
 
 artifact "openot-definition.json" as definition
@@ -54,7 +57,9 @@ Ring overflow remains explicit as loss documents.
 end note
 
 note bottom of factory
-SQL adapters commit canonical documents and the
-absolute ring cursor in one transaction.
+Relational adapters commit internal canonical rows,
+descriptive public read-model rows, and the absolute
+ring cursor in one transaction. Influx uses durable
+per-part reconciliation before remote acknowledgement.
 end note
 @enduml

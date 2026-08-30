@@ -38,9 +38,25 @@ the product versions in the dated real-product evidence. Until a second
 version is run, the tested minimum and current version are the same version;
 protocol compatibility is not inferred. Azure SQL remains unclaimed.
 
-All adapters preserve the canonical document JSON plus indexed provenance.
-They share identities, conflict detection, status semantics, and canonical
-contract tests, but keep backend connection and durability details separate.
+All adapters preserve an internal canonical document plus indexed provenance
+and expose the same truST-owned descriptive typed read model. The public
+database vocabulary is logging vocabulary (`logged_values`, `alarm_history`,
+`message_log`, and the other objects frozen in specification Section 4), not an
+`openot_*` implementation prefix. They share identities, projection semantics,
+conflict detection, status semantics, and canonical contract tests, but keep
+backend connection and durability details separate.
+
+One backend-neutral `LoggingProjector` owns the OpenOT-to-read-model mapping.
+It consumes typed `open_ot_document::Document` values plus the exact
+hash-matched definition metadata and produces a canonical row, an event
+envelope, and zero or more domain rows. The definition is an explicit input
+because the document retains referenced IDs but does not duplicate all
+human-facing definition names. Missing or mismatched historical definitions
+fail migration closed. Adapters own DDL/type
+mapping and durable writes; they do not parse OpenOT JSON or maintain separate
+event-name dispatch tables. In relational products the canonical row, every
+required domain row, and checkpoint share the existing sink transaction. This
+avoids the lag and independent failure state of an asynchronous projector.
 Each relational adapter owns one connection because the persistence worker is
 serialized and permits only one in-flight transaction. A pool would add idle
 connections and failure states without concurrency to serve. Reconnect replaces
@@ -75,13 +91,51 @@ burden” is relative to truST's first release, not a universal ranking.
 
 | Candidate | Fidelity and durability | Offline/operations | Rust/build/supply-chain result | Decision |
 | --- | --- | --- | --- | --- |
-| SQLite | canonical text plus indexed columns; atomic batch/checkpoint transaction | embedded and strongest offline story; site owns file backup/integrity/retention | `rusqlite 0.40.2`, bundled SQLite C build; feature-scoped; permissive crate license | support local/single-controller deployments |
-| PostgreSQL | full text/JSON query support, constraints, indexes, transactions | central service, TLS/roles/backups required | pure-Rust `postgres 0.19.14` plus `postgres-native-tls 0.5.3`; feature-scoped | primary central relational store |
-| TimescaleDB | PostgreSQL canonical table plus real hypertable/time index | PostgreSQL operations plus extension upgrades and explicit retention/compression policy | reuses PostgreSQL client; server extension/license boundary remains operator-visible | support time-oriented relational deployment separately from PostgreSQL |
+| SQLite | canonical text plus typed read tables; atomic canonical/projection/checkpoint transaction; exact `ULINT` overflow uses decimal text | embedded and strongest offline story; site owns file backup/integrity/retention | `rusqlite 0.40.2`, bundled SQLite C build; feature-scoped; permissive crate license | support local/single-controller deployments |
+| PostgreSQL | internal canonical text plus typed relational read model, constraints, indexes, and transactions | central service, TLS/roles/backups required | pure-Rust `postgres 0.19.14` plus `postgres-native-tls 0.5.3`; feature-scoped | primary central relational store |
+| TimescaleDB | ordinary canonical table plus typed public hypertables partitioned on non-null receive time while preserving nullable source event time | PostgreSQL operations plus extension upgrades and explicit retention/compression policy | reuses PostgreSQL client; server extension/license boundary remains operator-visible | support time-oriented relational deployment separately from PostgreSQL |
 | MySQL | canonical text, binary identities, InnoDB transaction/checkpoint | central service, TLS, vendor-native backup | `mysql 28.0.0` with minimal Rust/rustls features; largest new Rust dependency group; feature-scoped | support MySQL 8.4 LTS |
 | MariaDB | shared protocol adapter but separately verified JSON/collation/migration behavior | separate vendor lifecycle and backup policy | same client dependency, distinct real product proof | support MariaDB 11.8 separately through `backend = "mysql"` |
 | SQL Server | canonical NVARCHAR JSON with `ISJSON` verification and TDS transaction | proprietary server operations and supported x86_64 runner required | `tiberius 0.12.3` plus Tokio compatibility; pure-Rust TLS/TDS; feature-scoped | support real Microsoft SQL Server; defer Azure claim |
-| InfluxDB 3 | point API cannot atomically bind remote document and checkpoint | remote time-series operations plus mandatory bounded local spool | existing HTTP client plus feature-scoped `rusqlite`; no additional native client | support only with SQLite spool as durable acceptance authority |
+| InfluxDB 3 | homogeneous descriptive measurements with native typed fields; point API cannot atomically bind every remote projection and checkpoint | remote time-series operations plus mandatory bounded local spool and per-part reconciliation | existing HTTP client plus feature-scoped `rusqlite`; no additional native client | support only with SQLite spool as durable acceptance authority |
+
+### Query-model research correction
+
+The initial JSON-only implementation met canonical fidelity but failed the
+ordinary database-user usability requirement. Primary product documentation
+supports a typed read-model correction:
+
+- SQLite JSON is stored as ordinary text; generated columns exist but would
+  couple the public contract to SQLite JSON expressions:
+  <https://www.sqlite.org/json1.html> and <https://www.sqlite.org/gencol.html>.
+- PostgreSQL views can encapsulate structures, but a PostgreSQL-only JSON view
+  does not define the same behavior for the other products:
+  <https://www.postgresql.org/docs/18/tutorial-views.html>.
+- MySQL JSON indexing depends on matching generated-column expressions and has
+  JSON unquoting/collation details that are inappropriate as a cross-product
+  public contract:
+  <https://dev.mysql.com/doc/refman/8.4/en/generated-column-index-optimizations.html>.
+- SQL Server exposes JSON through computed columns or product-specific JSON
+  indexing:
+  <https://learn.microsoft.com/en-us/sql/relational-databases/json/store-json-documents-in-sql-tables?view=sql-server-ver17>.
+- TimescaleDB recommends keeping common queried fields in ordinary columns
+  because field access is more efficient than JSONB lookup, and recommends
+  time-oriented hypertables:
+  <https://docs.timescale.com/use-timescale/latest/schema-management/json/>.
+- InfluxDB 3 recommends simple descriptive names, homogeneous tables, native
+  typed fields, and avoiding wide sparse schemas:
+  <https://docs.influxdata.com/influxdb3/core/write-data/best-practices/schema-design/>.
+- InfluxDB documents that a failed batch can be partially written, so a spool
+  cannot mark a multi-part projection complete solely from one failed request:
+  <https://docs.influxdata.com/influxdb3/core/api/write-data/>.
+
+Database-specific JSON views were rejected because OpenOT fields are a
+repeatable typed array, extraction syntax and index behavior differ by product,
+and InfluxDB is natively table/tag/field oriented. A generic EAV `event_fields`
+table was rejected because ordinary value, alarm, and audit queries would still
+require pivots and self-joins. Removing canonical storage was rejected because
+future events, private extensions, raw placeholders, and replay would lose
+their authority.
 
 The release supply-chain gate must still run license/advisory/unused-dependency
 tools on the exact candidate. Server-product licenses and deployment rights are
@@ -123,6 +177,12 @@ wire slots directly would either lose meaning or duplicate the resolver and
 its epoch/loss rules. Consuming resolved documents preserves the three OpenOT
 contract boundaries and gives every database one semantic input.
 
+Canonical documents are appropriate replay and audit authority but are not a
+usable database read model. The selected design is a transactional projection:
+retain canonical input once, then store normal typed domain rows for ordinary
+queries. This preserves extensibility without forcing users to learn OpenOT
+field arrays or seven JSON dialects.
+
 Explicit TOML selection is predictable and reviewable. URL inference and
 fallback can silently write regulated history to the wrong system, so both are
 forbidden.
@@ -141,6 +201,12 @@ transaction semantics.
   through the worker.
 - Shared batching, retry, and status code depends only on sink contracts.
 - Loss and placeholders are first-class persisted documents.
+- Every known event is projected by one shared Rust owner into documented,
+  descriptive typed tables; adapters do not duplicate semantic dispatch.
+- Relational projection rows and checkpoint are immediately consistent because
+  they share one transaction.
+- Unknown future events remain visible in `event_log`, canonical and counted as
+  unclassified rather than guessed or discarded.
 - No source-local order is converted into an invented global order.
 - No new module may approach 1,000 lines; adapter and migration ownership stays
   split when necessary.
@@ -161,3 +227,13 @@ transaction semantics.
   second durable system and changes acknowledgement semantics.
 - Treating InfluxDB acknowledgement as a relational transaction: makes a
   durability claim its API cannot supply.
+- Canonical JSON as the ordinary query API: preserves data but makes common
+  value/alarm/message queries need OpenOT array and JSON-path knowledge.
+- Per-product JSON views/generated columns: creates seven semantic
+  implementations and no coherent InfluxDB contract.
+- One generic EAV field table: moves complexity from JSON paths to pivots and
+  joins without producing a user-friendly logging model.
+- Typed projections without canonical storage: loses future extension fields,
+  placeholder raw slots, deterministic replay, and corruption comparison.
+- An asynchronous relational projector: adds avoidable lag and a second
+  checkpoint/failure state despite the existing atomic sink transaction.

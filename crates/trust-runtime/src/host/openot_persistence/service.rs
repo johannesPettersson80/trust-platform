@@ -31,7 +31,11 @@ fn open_runtime_worker(
     definition: &open_ot_definition::DefinitionFile,
 ) -> Result<RuntimePersistenceWorker, PersistenceError> {
     let consumer = OpenOtPersistenceConsumer::new(definition.clone(), None)?;
-    let sink = OpenOtDocumentSink::open(persistence, bundle_root)?;
+    let sink = OpenOtDocumentSink::open_with_definitions(
+        persistence,
+        bundle_root,
+        std::slice::from_ref(definition),
+    )?;
     let source = SharedMemoryOpenOtSource::open_with_limits(
         source_path,
         persistence.batch_size,
@@ -125,6 +129,14 @@ pub struct OpenOtPersistenceStatus {
     pub documents_duplicated: u64,
     /// Documents durable in a required local spool but not acknowledged remotely.
     pub remote_pending: u64,
+    /// Descriptive public read-model rows newly committed by this runtime.
+    pub projection_rows_committed: u64,
+    /// Future event records retained with fields that could not be classified.
+    pub unclassified_event_count: u64,
+    /// Durable remote-delivery parts confirmed by reconciliation.
+    pub reconciled_part_count: u64,
+    /// Durable remote-delivery parts still awaiting reconciliation.
+    pub pending_part_count: u64,
     /// Retry attempts made after transient failures.
     pub documents_retried: u64,
     /// Source-ring bytes observed beyond the last durable cursor.
@@ -197,11 +209,15 @@ impl OpenOtPersistenceService {
                 .persistence
                 .backend
                 .map(|backend| backend.as_str().to_string()),
-            schema_version: Some(2),
+            schema_version: Some(3),
             documents_read: 0,
             documents_committed: 0,
             documents_duplicated: 0,
             remote_pending: 0,
+            projection_rows_committed: 0,
+            unclassified_event_count: 0,
+            reconciled_part_count: 0,
+            pending_part_count: 0,
             documents_retried: 0,
             pending: 0,
             rejected: 0,
@@ -368,6 +384,10 @@ impl OpenOtPersistenceService {
                 documents_committed: 0,
                 documents_duplicated: 0,
                 remote_pending: 0,
+                projection_rows_committed: 0,
+                unclassified_event_count: 0,
+                reconciled_part_count: 0,
+                pending_part_count: 0,
                 documents_retried: 0,
                 pending: 0,
                 rejected: 0,
@@ -458,8 +478,10 @@ fn redacted_error(error: &PersistenceError) -> String {
 mod tests {
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-    use open_ot_carriage::registry::EVENT_HEARTBEAT;
-    use open_ot_carriage::wire::Record;
+    use open_ot_carriage::registry::{
+        EVENT_HEARTBEAT, EVENT_VALUE_CHANGED, KEY_NEW_VALUE, KEY_VALUE_ID, TY_BOOL, TY_UDINT,
+    };
+    use open_ot_carriage::wire::{Record, Slot};
     use open_ot_definition::sample_definition;
     use open_ot_shm::SharedRecordPublisher;
 
@@ -542,6 +564,79 @@ mod tests {
     }
 
     #[test]
+    fn service_supplies_compiled_definition_to_typed_database_projection() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "trust-logging-service-definition-{}-{stamp}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&root).expect("root");
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
+            .expect("secure root");
+        let definition = sample_definition();
+        std::fs::write(
+            root.join("openot-definition.json"),
+            serde_json::to_vec_pretty(&definition).expect("serialize definition"),
+        )
+        .expect("write definition");
+        let shm_path = root.join("openot.shm");
+        let mut publisher = SharedRecordPublisher::create(&shm_path, 4096).expect("publisher");
+        let mut value = Record::new(11, 1, 0, 66, EVENT_VALUE_CHANGED);
+        value.slots = vec![
+            Slot::new(KEY_VALUE_ID, TY_UDINT, 2003u32.to_le_bytes()),
+            Slot::new(KEY_NEW_VALUE, TY_BOOL, [1]),
+        ];
+        publisher
+            .append_record(&value)
+            .expect("publish typed value");
+        let config = OpenOtTelemetryConfig {
+            enabled: true,
+            path: "openot.shm".into(),
+            persistence: OpenOtPersistenceConfig {
+                enabled: true,
+                backend: Some(OpenOtPersistenceBackend::Sqlite),
+                flush_interval_ms: 10,
+                retry_max_attempts: 2,
+                sqlite: Some(OpenOtSqlitePersistenceConfig {
+                    path: "trust-logging.sqlite3".into(),
+                }),
+                ..OpenOtPersistenceConfig::default()
+            },
+            ..OpenOtTelemetryConfig::default()
+        };
+
+        let mut service = OpenOtPersistenceService::start(&config, &root)
+            .expect("start typed logging service")
+            .expect("enabled typed logging service");
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while service.status().documents_committed < 1 && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let status = service.status();
+        service.shutdown();
+        assert_eq!(
+            status.documents_committed, 1,
+            "typed persistence status: {status:?}"
+        );
+        let database = rusqlite::Connection::open(root.join("trust-logging.sqlite3"))
+            .expect("inspect typed logging database");
+        let stored: (String, bool) = database
+            .query_row(
+                "SELECT value_name,boolean_value FROM logged_values",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("query service-projected value");
+        assert_eq!(stored, ("Enabled".to_string(), true));
+        drop(database);
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
     fn sqlite_service_restart_uses_durable_checkpoint_and_catches_up_once() {
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -620,7 +715,7 @@ mod tests {
             .expect("inspect restart database");
         let events: i64 = database
             .query_row(
-                "SELECT COUNT(*) FROM openot_documents WHERE document_kind='event'",
+                "SELECT COUNT(*) FROM logging_records WHERE document_kind='event'",
                 [],
                 |row| row.get(0),
             )
@@ -653,6 +748,10 @@ mod tests {
             documents_committed: 0,
             documents_duplicated: 0,
             remote_pending: 0,
+            projection_rows_committed: 0,
+            unclassified_event_count: 0,
+            reconciled_part_count: 0,
+            pending_part_count: 0,
             documents_retried: 0,
             pending: 4,
             rejected: 0,

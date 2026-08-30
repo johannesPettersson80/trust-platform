@@ -7,7 +7,7 @@ variable named by TOML. truST owns the selected schema and its migrations.
 Use the repository's `examples/openot_database/postgresql/` example
 for queries, checkpoint inspection, outage/restart, backup, restore, and clean
 schema removal. Readiness requires a successful TLS connection, compatible
-schema 2, and zero lag. During outage the service retries with bounded backoff;
+schema 3, and zero lag. During outage the service retries with bounded backoff;
 the PLC continues and the ring remains bounded, so prolonged outage can become
 explicit loss.
 

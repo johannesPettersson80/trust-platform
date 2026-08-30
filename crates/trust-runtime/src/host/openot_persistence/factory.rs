@@ -59,6 +59,14 @@ impl OpenOtDocumentSink {
         config: &OpenOtPersistenceConfig,
         bundle_root: &Path,
     ) -> Result<Self, PersistenceError> {
+        Self::open_with_definitions(config, bundle_root, &[])
+    }
+
+    pub(crate) fn open_with_definitions(
+        config: &OpenOtPersistenceConfig,
+        bundle_root: &Path,
+        definitions: &[open_ot_definition::DefinitionFile],
+    ) -> Result<Self, PersistenceError> {
         if !config.enabled {
             return Err(PersistenceError::InvalidConfig(
                 "runtime.openot.persistence is disabled".to_string(),
@@ -82,7 +90,8 @@ impl OpenOtDocumentSink {
                 } else {
                     bundle_root.join(&sqlite.path)
                 };
-                SqliteDocumentSink::open(&path).map(Self::Sqlite)
+                SqliteDocumentSink::open_with_definitions(&path, definitions.to_vec())
+                    .map(Self::Sqlite)
             }
             #[cfg(not(feature = "openot-database-sqlite"))]
             OpenOtPersistenceBackend::Sqlite => Err(backend_unavailable("sqlite")),
@@ -111,10 +120,11 @@ impl OpenOtDocumentSink {
                 } else {
                     bundle_root.join(ca_cert_path)
                 };
-                PostgreSqlDocumentSink::open(
+                PostgreSqlDocumentSink::open_with_definitions(
                     &connection_url,
                     postgresql.schema.as_str(),
                     &ca_cert_path,
+                    definitions.to_vec(),
                 )
                 .map(Self::PostgreSql)
             }
@@ -145,10 +155,11 @@ impl OpenOtDocumentSink {
                 } else {
                     bundle_root.join(ca_cert_path)
                 };
-                TimescaleDbDocumentSink::open(
+                TimescaleDbDocumentSink::open_with_definitions(
                     &connection_url,
                     timescaledb.schema.as_str(),
                     &ca_cert_path,
+                    definitions.to_vec(),
                 )
                 .map(Self::TimescaleDb)
             }
@@ -178,8 +189,13 @@ impl OpenOtDocumentSink {
                 } else {
                     bundle_root.join(ca_cert_path)
                 };
-                MySqlDocumentSink::open(&connection_url, mysql.database.as_str(), &ca_cert_path)
-                    .map(Self::MySql)
+                MySqlDocumentSink::open_with_definitions(
+                    &connection_url,
+                    mysql.database.as_str(),
+                    &ca_cert_path,
+                    definitions.to_vec(),
+                )
+                .map(Self::MySql)
             }
             #[cfg(not(feature = "openot-database-mysql"))]
             OpenOtPersistenceBackend::MySql => Err(backend_unavailable("mysql")),
@@ -207,10 +223,11 @@ impl OpenOtDocumentSink {
                 } else {
                     bundle_root.join(ca_cert_path)
                 };
-                SqlServerDocumentSink::open(
+                SqlServerDocumentSink::open_with_definitions(
                     &connection_url,
                     sqlserver.schema.as_str(),
                     &ca_cert_path,
+                    definitions.to_vec(),
                 )
                 .map(Self::SqlServer)
             }
@@ -250,13 +267,14 @@ impl OpenOtDocumentSink {
                 } else {
                     bundle_root.join(ca)
                 };
-                InfluxDb3DocumentSink::open_bounded(
+                InfluxDb3DocumentSink::open_bounded_with_definitions(
                     &host,
                     &token,
                     influx.database.as_str(),
                     &spool,
                     &ca,
                     influx.max_bytes,
+                    definitions.to_vec(),
                 )
                 .map(Self::InfluxDb3)
             }

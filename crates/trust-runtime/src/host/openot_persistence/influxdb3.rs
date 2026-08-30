@@ -6,10 +6,10 @@ use ureq::{
     Agent,
 };
 
-use super::projection::document_row;
+use super::projection::LoggingProjector;
 use super::{CommitOutcome, DocumentSink, PersistenceBatch, PersistenceError};
 
-const SPOOL_SCHEMA_VERSION: u32 = 2;
+const SPOOL_SCHEMA_VERSION: u32 = 3;
 
 /// InfluxDB 3 HTTP adapter with a mandatory durable SQLite delivery spool.
 pub struct InfluxDb3DocumentSink {
@@ -19,7 +19,7 @@ pub struct InfluxDb3DocumentSink {
     host: String,
     token: String,
     database: String,
-    #[cfg(feature = "openot-real-database-tests")]
+    projector: LoggingProjector,
     query_ca_pem: Vec<u8>,
 }
 
@@ -54,6 +54,27 @@ impl InfluxDb3DocumentSink {
         ca_cert_path: &Path,
         max_bytes: u64,
     ) -> Result<Self, PersistenceError> {
+        Self::open_bounded_with_definitions(
+            host,
+            token,
+            database,
+            spool_path,
+            ca_cert_path,
+            max_bytes,
+            Vec::new(),
+        )
+    }
+
+    #[doc(hidden)]
+    pub fn open_bounded_with_definitions(
+        host: &str,
+        token: &str,
+        database: &str,
+        spool_path: &Path,
+        ca_cert_path: &Path,
+        max_bytes: u64,
+        definitions: Vec<open_ot_definition::DefinitionFile>,
+    ) -> Result<Self, PersistenceError> {
         if !host.starts_with("https://") {
             return Err(PersistenceError::InvalidConfig(
                 "InfluxDB 3 host must use https://".to_string(),
@@ -63,6 +84,7 @@ impl InfluxDb3DocumentSink {
         super::contracts::ensure_private_parent(spool_path, "InfluxDB 3 spool")?;
         let ca_pem = fs::read(ca_cert_path).map_err(|e| influx_error("read CA certificate", e))?;
         let agent = tls_agent(&ca_pem)?;
+        let projector = LoggingProjector::new(definitions)?;
         let spool = Connection::open(spool_path)
             .map_err(|e| PersistenceError::Commit(format!("InfluxDB 3 open spool: {e}")))?;
         migrate_spool(&spool)?;
@@ -78,7 +100,7 @@ impl InfluxDb3DocumentSink {
             host: host.trim_end_matches('/').to_string(),
             token: token.to_string(),
             database: database.to_string(),
-            #[cfg(feature = "openot-real-database-tests")]
+            projector,
             query_ca_pem: ca_pem,
         };
         sink.authorized_get("/health")?;
@@ -89,11 +111,15 @@ impl InfluxDb3DocumentSink {
     pub fn flush_pending(&mut self) -> Result<usize, PersistenceError> {
         let mut statement = self
             .spool
-            .prepare("SELECT identity_key,line_protocol FROM openot_spool WHERE delivered=0 ORDER BY spool_id")
+            .prepare("SELECT document_identity,part_id,line_protocol FROM logging_delivery_spool WHERE delivered=0 ORDER BY document_identity,part_ordinal")
             .map_err(spool_error("prepare pending delivery"))?;
         let rows = statement
             .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
             })
             .map_err(spool_error("read pending delivery"))?
             .collect::<Result<Vec<_>, _>>()
@@ -104,11 +130,11 @@ impl InfluxDb3DocumentSink {
         }
         let body = rows
             .iter()
-            .map(|(_, line)| line.as_str())
+            .map(|(_, _, line)| line.as_str())
             .collect::<Vec<_>>()
             .join("\n");
         let url = format!(
-            "{}/api/v3/write_lp?db={}&precision=nanosecond",
+            "{}/api/v3/write_lp?db={}&precision=nanosecond&accept_partial=false&no_sync=false",
             self.host,
             urlencoding::encode(&self.database)
         );
@@ -118,22 +144,115 @@ impl InfluxDb3DocumentSink {
             .header("Content-Type", "text/plain; charset=utf-8")
             .send(body)
             .map_err(http_error("write WAL-synchronous line protocol"))?;
+        let verified = self.reconcile_remote_parts(&rows)?;
         let transaction = self
             .spool
             .transaction()
             .map_err(spool_error("begin delivery acknowledgement"))?;
-        for (identity, _) in &rows {
+        for part_id in &verified {
             transaction
                 .execute(
-                    "UPDATE openot_spool SET delivered=1 WHERE identity_key=?1",
-                    [identity],
+                    "UPDATE logging_delivery_spool SET delivered=1 WHERE part_id=?1",
+                    [part_id],
                 )
                 .map_err(spool_error("mark delivered"))?;
         }
         transaction
             .commit()
             .map_err(spool_error("commit delivery acknowledgement"))?;
-        Ok(rows.len())
+        if verified.len() != rows.len() {
+            return Err(PersistenceError::Commit(format!(
+                "InfluxDB 3 reconciliation found {} of {} expected delivery parts",
+                verified.len(),
+                rows.len()
+            )));
+        }
+        Ok(verified.len())
+    }
+
+    fn reconcile_remote_parts(
+        &self,
+        rows: &[(String, String, String)],
+    ) -> Result<Vec<String>, PersistenceError> {
+        let agent = tls_agent(&self.query_ca_pem)?;
+        let mut groups = std::collections::BTreeMap::<String, Vec<(String, String)>>::new();
+        for (_, part_id, line) in rows {
+            let (series, remainder) = line.split_once(' ').ok_or_else(|| {
+                PersistenceError::Commit("InfluxDB 3 spooled line omitted fields".into())
+            })?;
+            let measurement = series.split(',').next().unwrap_or_default();
+            let identity = series
+                .split(',')
+                .skip(1)
+                .find_map(|tag| {
+                    tag.strip_prefix("record_id=")
+                        .or_else(|| tag.strip_prefix("identity_key="))
+                })
+                .ok_or_else(|| {
+                    PersistenceError::Commit("InfluxDB 3 spooled line omitted identity tag".into())
+                })?;
+            let identity_column = if series.contains(",record_id=") {
+                "record_id"
+            } else {
+                "identity_key"
+            };
+            let timestamp = remainder
+                .rsplit_once(' ')
+                .map(|(_, time)| time)
+                .ok_or_else(|| {
+                    PersistenceError::Commit("InfluxDB 3 spooled line omitted timestamp".into())
+                })?;
+            groups.entry(measurement.to_string()).or_default().push((
+                part_id.clone(),
+                format!(
+                    "({identity_column}='{}' AND time=to_timestamp_nanos({timestamp}))",
+                    identity.replace('\'', "''")
+                ),
+            ));
+        }
+        let mut verified = Vec::with_capacity(rows.len());
+        for (measurement, points) in groups {
+            for chunk in points.chunks(12) {
+                let query = format!(
+                    "SELECT COUNT(*) AS count FROM {measurement} WHERE {}",
+                    chunk
+                        .iter()
+                        .map(|(_, predicate)| predicate.as_str())
+                        .collect::<Vec<_>>()
+                        .join(" OR ")
+                );
+                let url = format!(
+                    "{}/api/v3/query_sql?db={}&q={}&format=json",
+                    self.host,
+                    urlencoding::encode(&self.database),
+                    urlencoding::encode(&query)
+                );
+                let mut response = agent
+                    .get(&url)
+                    .header("Authorization", &format!("Bearer {}", self.token))
+                    .call()
+                    .map_err(http_error("reconcile delivery measurement"))?;
+                let body = response
+                    .body_mut()
+                    .read_to_string()
+                    .map_err(|error| influx_error("read reconciliation query", error))?;
+                let result: Vec<serde_json::Value> =
+                    serde_json::from_str(&body).map_err(|error| {
+                        PersistenceError::Commit(format!(
+                            "InfluxDB 3 decode reconciliation query: {error}"
+                        ))
+                    })?;
+                let count = result
+                    .first()
+                    .and_then(|row| row.get("count"))
+                    .and_then(serde_json::Value::as_i64)
+                    .unwrap_or(0);
+                if count == i64::try_from(chunk.len()).unwrap_or(i64::MAX) {
+                    verified.extend(chunk.iter().map(|(part_id, _)| part_id.clone()));
+                }
+            }
+        }
+        Ok(verified)
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
@@ -154,7 +273,7 @@ impl InfluxDb3DocumentSink {
         run_id: u64,
     ) -> Result<i64, PersistenceError> {
         let query = format!(
-            "SELECT COUNT(*) AS count FROM openot_documents WHERE identity_key LIKE '%:{run_id:016x}:%'"
+            "SELECT COUNT(*) AS count FROM logging_records WHERE identity_key LIKE '%:{run_id:016x}:%'"
         );
         let url = format!(
             "{}/api/v3/query_sql?db={}&q={}&format=json",
@@ -184,6 +303,59 @@ impl InfluxDb3DocumentSink {
             .ok_or_else(|| {
                 PersistenceError::Commit("InfluxDB 3 count query omitted count".to_string())
             })
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn remote_measurement_count_for_run(
+        &self,
+        measurement: &str,
+        run_id: u64,
+    ) -> Result<i64, PersistenceError> {
+        if !matches!(
+            measurement,
+            "event_log"
+                | "logged_values"
+                | "alarm_history"
+                | "message_log"
+                | "state_history"
+                | "batch_history"
+                | "recipe_history"
+                | "material_additions"
+                | "operator_activity"
+                | "audit_log"
+                | "electronic_signatures"
+                | "system_events"
+                | "data_loss"
+                | "unresolved_records"
+        ) {
+            return Err(PersistenceError::InvalidConfig(
+                "unsupported InfluxDB test measurement".into(),
+            ));
+        }
+        let query = format!("SELECT COUNT(*) AS count FROM {measurement} WHERE run_id='{run_id}'");
+        let url = format!(
+            "{}/api/v3/query_sql?db={}&q={}&format=json",
+            self.host,
+            urlencoding::encode(&self.database),
+            urlencoding::encode(&query)
+        );
+        let query_agent = tls_agent(&self.query_ca_pem)?;
+        let mut response = query_agent
+            .get(&url)
+            .header("Authorization", &format!("Bearer {}", self.token))
+            .call()
+            .map_err(http_error("query typed measurement"))?;
+        let body = response
+            .body_mut()
+            .read_to_string()
+            .map_err(|error| influx_error("read typed measurement query", error))?;
+        let rows: Vec<serde_json::Value> = serde_json::from_str(&body).map_err(|error| {
+            PersistenceError::Commit(format!("InfluxDB 3 decode typed query: {error}"))
+        })?;
+        rows.first()
+            .and_then(|row| row.get("count"))
+            .and_then(serde_json::Value::as_i64)
+            .ok_or_else(|| PersistenceError::Commit("InfluxDB 3 typed query omitted count".into()))
     }
 
     #[cfg(feature = "openot-real-database-tests")]
@@ -231,7 +403,7 @@ impl InfluxDb3DocumentSink {
             .unwrap_or_default()
             .as_nanos();
         let query = format!(
-            "SELECT canonical_json FROM openot_documents WHERE {predicate} ORDER BY identity_key /* visibility-probe-{probe} */"
+            "SELECT canonical_json FROM logging_records WHERE {predicate} ORDER BY identity_key /* visibility-probe-{probe} */"
         );
         let url = format!(
             "{}/api/v3/query_sql?db={}&q={}&format=json",
@@ -269,7 +441,7 @@ impl InfluxDb3DocumentSink {
     fn query_pending_count(&self) -> Result<i64, PersistenceError> {
         self.spool
             .query_row(
-                "SELECT COUNT(*) FROM openot_spool WHERE delivered=0",
+                "SELECT COUNT(DISTINCT document_identity) FROM logging_delivery_spool WHERE delivered=0",
                 [],
                 |row| row.get(0),
             )
@@ -282,6 +454,41 @@ impl InfluxDb3DocumentSink {
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn pending_part_count(&self) -> Result<i64, PersistenceError> {
+        let exists: i64 = self
+            .spool
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='logging_delivery_spool'",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(spool_error("inspect delivery-part schema"))?;
+        if exists == 0 {
+            return Ok(0);
+        }
+        self.spool
+            .query_row(
+                "SELECT COUNT(*) FROM logging_delivery_spool WHERE delivered=0",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(spool_error("count pending delivery parts"))
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn internal_name_counts(&self) -> Result<(i64, i64), PersistenceError> {
+        let logging = self.spool.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('logging_schema','logging_records','logging_checkpoint','logging_delivery_spool')",
+            [], |row| row.get(0),
+        ).map_err(spool_error("inspect logging spool names"))?;
+        let legacy = self.spool.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('openot_schema','openot_spool','openot_checkpoint')",
+            [], |row| row.get(0),
+        ).map_err(spool_error("inspect legacy spool names"))?;
+        Ok((logging, legacy))
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn spool_logical_bytes(&self) -> Result<u64, PersistenceError> {
         logical_spool_bytes(&self.spool)
     }
@@ -290,9 +497,9 @@ impl InfluxDb3DocumentSink {
     pub(crate) fn downgrade_checkpoint_to_v1_for_test(&self) -> Result<(), PersistenceError> {
         self.spool
             .execute_batch(
-                "DELETE FROM openot_checkpoint;
-                 ALTER TABLE openot_checkpoint DROP COLUMN run_id;
-                 UPDATE openot_schema SET version=1 WHERE singleton=1;",
+                "DELETE FROM logging_checkpoint;
+                 ALTER TABLE logging_checkpoint DROP COLUMN run_id;
+                 UPDATE logging_schema SET version=1 WHERE singleton=1;",
             )
             .map_err(spool_error("seed spool schema v1"))
     }
@@ -301,7 +508,7 @@ impl InfluxDb3DocumentSink {
     pub(crate) fn set_schema_version_for_test(&self, version: u32) -> Result<(), PersistenceError> {
         self.spool
             .execute(
-                "UPDATE openot_schema SET version=?1 WHERE singleton=1",
+                "UPDATE logging_schema SET version=?1 WHERE singleton=1",
                 [version],
             )
             .map(|_| ())
@@ -350,7 +557,7 @@ impl DocumentSink for InfluxDb3DocumentSink {
         let stored = self
             .spool
             .query_row(
-                "SELECT buffer_id,run_id,cursor_abs FROM openot_checkpoint WHERE singleton=1",
+                "SELECT buffer_id,run_id,cursor_abs FROM logging_checkpoint WHERE singleton=1",
                 [],
                 |row| {
                     Ok((
@@ -384,7 +591,7 @@ impl DocumentSink for InfluxDb3DocumentSink {
             .map_err(spool_error("begin spool transaction"))?;
         if let Some((buffer, run, cursor)) = transaction
             .query_row(
-                "SELECT buffer_id,run_id,cursor_abs FROM openot_checkpoint WHERE singleton=1",
+                "SELECT buffer_id,run_id,cursor_abs FROM logging_checkpoint WHERE singleton=1",
                 [],
                 |row| {
                     Ok((
@@ -412,10 +619,11 @@ impl DocumentSink for InfluxDb3DocumentSink {
         let mut inserted = 0;
         let mut duplicated = 0;
         for document in &batch.documents {
-            let row = document_row(document)?;
+            let projected = self.projector.project(document)?;
+            let row = &projected.canonical;
             let existing: Option<String> = transaction
                 .query_row(
-                    "SELECT canonical_json FROM openot_spool WHERE identity_key=?1",
+                    "SELECT canonical_json FROM logging_records WHERE identity_key=?1",
                     [&row.identity_key],
                     |db_row| db_row.get(0),
                 )
@@ -426,17 +634,24 @@ impl DocumentSink for InfluxDb3DocumentSink {
                     duplicated += 1;
                     continue;
                 }
-                return Err(PersistenceError::IdentityConflict(row.identity_key));
+                return Err(PersistenceError::IdentityConflict(row.identity_key.clone()));
             }
-            let line = line_protocol(&row)?;
+            let line = super::influxdb3_read_model::line_protocol(&projected)?;
             transaction.execute(
-                "INSERT INTO openot_spool(identity_key,canonical_json,line_protocol,delivered) VALUES(?1,?2,?3,0)",
-                params![row.identity_key, row.canonical_json, line],
+                "INSERT INTO logging_records(identity_key,canonical_json,line_protocol,delivered) VALUES(?1,?2,?3,0)",
+                params![&row.identity_key, &row.canonical_json, &line],
             ).map_err(spool_error("insert spool document"))?;
+            for (ordinal, part) in line.lines().enumerate() {
+                let part_id = format!("{}:{ordinal}", row.identity_key);
+                transaction.execute(
+                    "INSERT INTO logging_delivery_spool(part_id,document_identity,part_ordinal,line_protocol,delivered) VALUES(?1,?2,?3,?4,0)",
+                    params![part_id, &row.identity_key, ordinal as u32, part],
+                ).map_err(spool_error("insert durable delivery part"))?;
+            }
             inserted += 1;
         }
         transaction.execute(
-            "INSERT INTO openot_checkpoint(singleton,buffer_id,run_id,cursor_abs) VALUES(1,?1,?2,?3)
+            "INSERT INTO logging_checkpoint(singleton,buffer_id,run_id,cursor_abs) VALUES(1,?1,?2,?3)
              ON CONFLICT(singleton) DO UPDATE SET buffer_id=excluded.buffer_id,run_id=excluded.run_id,cursor_abs=excluded.cursor_abs",
             params![batch.checkpoint.buffer_id, batch.checkpoint.run_id.to_be_bytes().as_slice(), batch.checkpoint.cursor_abs.to_be_bytes().as_slice()],
         ).map_err(spool_error("write spool checkpoint"))?;
@@ -460,17 +675,44 @@ impl DocumentSink for InfluxDb3DocumentSink {
 }
 
 fn migrate_spool(connection: &Connection) -> Result<(), PersistenceError> {
+    for (legacy, current) in [
+        ("openot_schema", "logging_schema"),
+        ("openot_spool", "logging_records"),
+        ("openot_checkpoint", "logging_checkpoint"),
+        ("logging_delivery_parts", "logging_delivery_spool"),
+    ] {
+        let legacy_exists: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
+                [legacy],
+                |row| row.get(0),
+            )
+            .map_err(spool_error("inspect legacy spool object"))?;
+        let current_exists: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
+                [current],
+                |row| row.get(0),
+            )
+            .map_err(spool_error("inspect logging spool object"))?;
+        if legacy_exists == 1 && current_exists == 0 {
+            connection
+                .execute_batch(&format!("ALTER TABLE {legacy} RENAME TO {current}"))
+                .map_err(spool_error("rename legacy spool object"))?;
+        }
+    }
     connection.execute_batch(&format!(
-        "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;
-         CREATE TABLE IF NOT EXISTS openot_schema(singleton INTEGER PRIMARY KEY CHECK(singleton=1),version INTEGER NOT NULL);
-         CREATE TABLE IF NOT EXISTS openot_spool(spool_id INTEGER PRIMARY KEY AUTOINCREMENT,identity_key TEXT NOT NULL UNIQUE,canonical_json TEXT NOT NULL,line_protocol TEXT NOT NULL,delivered INTEGER NOT NULL CHECK(delivered IN(0,1)));
-         CREATE INDEX IF NOT EXISTS openot_spool_pending ON openot_spool(delivered,spool_id);
-         CREATE TABLE IF NOT EXISTS openot_checkpoint(singleton INTEGER PRIMARY KEY CHECK(singleton=1),buffer_id INTEGER NOT NULL,run_id BLOB NOT NULL CHECK(length(run_id)=8),cursor_abs BLOB NOT NULL CHECK(length(cursor_abs)=8));
-         INSERT OR IGNORE INTO openot_schema(singleton,version) VALUES(1,{SPOOL_SCHEMA_VERSION});"
+        "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;
+         CREATE TABLE IF NOT EXISTS logging_schema(singleton INTEGER PRIMARY KEY CHECK(singleton=1),version INTEGER NOT NULL);
+         CREATE TABLE IF NOT EXISTS logging_records(spool_id INTEGER PRIMARY KEY AUTOINCREMENT,identity_key TEXT NOT NULL UNIQUE,canonical_json TEXT NOT NULL,line_protocol TEXT NOT NULL,delivered INTEGER NOT NULL CHECK(delivered IN(0,1)));
+         CREATE TABLE IF NOT EXISTS logging_delivery_spool(part_id TEXT PRIMARY KEY,document_identity TEXT NOT NULL,part_ordinal INTEGER NOT NULL,line_protocol TEXT NOT NULL,delivered INTEGER NOT NULL CHECK(delivered IN(0,1)),UNIQUE(document_identity,part_ordinal),FOREIGN KEY(document_identity) REFERENCES logging_records(identity_key));
+         CREATE INDEX IF NOT EXISTS logging_delivery_spool_pending ON logging_delivery_spool(delivered,document_identity,part_ordinal);
+         CREATE TABLE IF NOT EXISTS logging_checkpoint(singleton INTEGER PRIMARY KEY CHECK(singleton=1),buffer_id INTEGER NOT NULL,run_id BLOB NOT NULL CHECK(length(run_id)=8),cursor_abs BLOB NOT NULL CHECK(length(cursor_abs)=8));
+         INSERT OR IGNORE INTO logging_schema(singleton,version) VALUES(1,{SPOOL_SCHEMA_VERSION});"
     )).map_err(spool_error("migrate spool"))?;
     let version: u32 = connection
         .query_row(
-            "SELECT version FROM openot_schema WHERE singleton=1",
+            "SELECT version FROM logging_schema WHERE singleton=1",
             [],
             |row| row.get(0),
         )
@@ -483,10 +725,37 @@ fn migrate_spool(connection: &Connection) -> Result<(), PersistenceError> {
     if version == 1 {
         connection
             .execute_batch(
-                "ALTER TABLE openot_checkpoint ADD COLUMN run_id BLOB NOT NULL DEFAULT X'0000000000000000' CHECK(length(run_id)=8);
-                 UPDATE openot_schema SET version=2 WHERE singleton=1;",
+                "ALTER TABLE logging_checkpoint ADD COLUMN run_id BLOB NOT NULL DEFAULT X'0000000000000000' CHECK(length(run_id)=8);
+                 UPDATE logging_schema SET version=2 WHERE singleton=1;",
             )
             .map_err(spool_error("migrate spool schema 1 to 2"))?;
+    }
+    if version <= 2 {
+        let rows = connection
+            .prepare("SELECT identity_key,line_protocol,delivered FROM logging_records ORDER BY spool_id")
+            .and_then(|mut statement| {
+                statement
+                    .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, i64>(2)?)))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .map_err(spool_error("read legacy delivery records"))?;
+        let transaction = connection
+            .unchecked_transaction()
+            .map_err(spool_error("begin delivery-part backfill"))?;
+        for (identity, line_protocol, delivered) in rows {
+            for (ordinal, line) in line_protocol.lines().enumerate() {
+                transaction.execute(
+                    "INSERT OR IGNORE INTO logging_delivery_spool(part_id,document_identity,part_ordinal,line_protocol,delivered) VALUES(?1,?2,?3,?4,?5)",
+                    params![format!("{identity}:{ordinal}"), identity, ordinal as u32, line, delivered],
+                ).map_err(spool_error("backfill delivery part"))?;
+            }
+        }
+        transaction
+            .execute("UPDATE logging_schema SET version=3 WHERE singleton=1", [])
+            .map_err(spool_error("migrate spool schema 2 to 3"))?;
+        transaction
+            .commit()
+            .map_err(spool_error("commit delivery-part backfill"))?;
     }
     Ok(())
 }
@@ -505,25 +774,27 @@ fn logical_spool_bytes(connection: &Connection) -> Result<u64, PersistenceError>
     Ok(page_count.saturating_mul(page_size))
 }
 
-fn line_protocol(row: &super::projection::DocumentRow) -> Result<String, PersistenceError> {
+pub(super) fn canonical_line_protocol(
+    row: &super::projection::DocumentRow,
+) -> Result<String, PersistenceError> {
     let timestamp = decode_u64(&row.receive_time_ns, "receive time")?;
     let timestamp = i64::try_from(timestamp).map_err(|_| {
         PersistenceError::Commit("InfluxDB 3 timestamp exceeds signed nanosecond range".to_string())
     })?;
     Ok(format!(
-        "openot_documents,identity_key={},document_kind={} canonical_json=\"{}\",buffer_id={}u,source_id={}u {}",
+        "logging_records,identity_key={},document_kind={} canonical_json=\"{}\",buffer_id={}u,source_id={}u {}",
         escape_tag(&row.identity_key), escape_tag(row.document_kind), escape_field(&row.canonical_json), row.buffer_id, row.source_id, timestamp
     ))
 }
 
-fn escape_tag(value: &str) -> String {
+pub(super) fn escape_tag(value: &str) -> String {
     value
         .replace('\\', "\\\\")
         .replace(',', "\\,")
         .replace('=', "\\=")
         .replace(' ', "\\ ")
 }
-fn escape_field(value: &str) -> String {
+pub(super) fn escape_field(value: &str) -> String {
     value
         .replace('\\', "\\\\")
         .replace('"', "\\\"")

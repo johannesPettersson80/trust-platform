@@ -69,7 +69,7 @@ For SQLite, run the checked-in default directly:
 trust-runtime build --project examples/openot_multi_program --sources src
 trust-runtime run --project examples/openot_multi_program
 sqlite3 examples/openot_multi_program/openot.sqlite3 \
-  'SELECT document_kind, event_name, COUNT(*) FROM openot_documents GROUP BY 1,2 ORDER BY 1,2;'
+  'SELECT event_name, COUNT(*) FROM event_log GROUP BY 1 ORDER BY 1;'
 ```
 
 The build emits `openot-definition.json` beside the bytecode. Persistence uses

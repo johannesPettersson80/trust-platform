@@ -24,7 +24,7 @@ trust-runtime run --project "$example_root"
 ```bash
 mariadb --ssl-verify-server-cert --ssl-ca="$example_root/certs/openot-database-ca.pem" -h db.example -u openot_logger -p openot -e 'select version()'
 mariadb --ssl-verify-server-cert --ssl-ca="$example_root/certs/openot-database-ca.pem" -h db.example -u openot_logger -p openot -e \
-  'select document_kind,event_name,count(*) from openot_documents group by 1,2 order by 1,2'
+  'select event_name,count(*) from event_log group by 1 order by 1'
 ```
 
 ## Outage and restart

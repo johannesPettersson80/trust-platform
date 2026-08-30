@@ -24,7 +24,7 @@ trust-runtime run --project "$example_root"
 ```bash
 mysql --ssl-mode=VERIFY_CA --ssl-ca="$example_root/certs/openot-database-ca.pem" -h db.example -u openot_logger -p openot -e 'select version()'
 mysql --ssl-mode=VERIFY_CA --ssl-ca="$example_root/certs/openot-database-ca.pem" -h db.example -u openot_logger -p openot -e \
-  'select document_kind,event_name,count(*) from openot_documents group by 1,2 order by 1,2'
+  'select event_name,count(*) from event_log group by 1 order by 1'
 ```
 
 ## Outage and restart
@@ -34,8 +34,8 @@ catch-up without changing the TOML discriminator or silently selecting SQLite.
 
 ## Backup and restore
 
-Use a transaction-consistent InnoDB backup and restore `openot_documents` with
-`openot_checkpoint`; never reset one independently of the other.
+Use a transaction-consistent InnoDB backup and restore `logging_records` with
+`logging_checkpoint`; never reset one independently of the other.
 
 ## Clean up
 

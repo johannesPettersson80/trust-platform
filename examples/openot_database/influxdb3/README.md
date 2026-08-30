@@ -27,9 +27,9 @@ trust-runtime run --project "$example_root"
 curl --fail --cacert "$example_root/certs/openot-influx-ca.pem" \
   -H "Authorization: Bearer $TRUST_OPENOT_INFLUX_TOKEN" \
   --get "$TRUST_OPENOT_INFLUX_HOST/api/v3/query_sql" --data-urlencode 'db=openot' \
-  --data-urlencode 'q=select document_kind,event_name,count(*) from openot_documents group by 1,2 order by 1,2'
+  --data-urlencode 'q=select event_name,count(*) from event_log group by 1 order by 1'
 sqlite3 "$example_root/history/openot-influx-spool.sqlite3" \
-  'select delivered,count(*) from openot_spool group by delivered;'
+  'select delivered,count(*) from logging_delivery_spool group by delivered;'
 ```
 
 ## Outage and restart

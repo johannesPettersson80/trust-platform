@@ -48,7 +48,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.66`
+Target release: `v0.24.67`
 
 ### Added
 
@@ -57,6 +57,10 @@ Target release: `v0.24.66`
   SQL Server, or InfluxDB 3 backend, with atomic durable checkpoints,
   idempotent replay, TLS/secret boundaries, InfluxDB outage spooling, runtime
   status, complete examples, and real-vendor conformance coverage.
+- Expose schema-v3 typed logging objects with descriptive names such as
+  `logged_values`, `alarm_history`, `message_log`, `state_history`, and
+  `audit_log`; normal reports no longer require OpenOT field arrays or JSON
+  paths, while canonical JSON remains internal recovery authority.
 - Support MQTT tag mappings that bind fully qualified scalar program variables
   directly to broker topics with explicit PLC-relative `read` and `write`
   directions.

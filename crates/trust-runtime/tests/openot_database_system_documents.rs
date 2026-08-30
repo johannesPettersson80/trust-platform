@@ -256,7 +256,7 @@ fn runtime_system_loss_and_placeholder_documents_round_trip_through_every_real_p
         |_| {
             let connection = rusqlite::Connection::open(&sqlite_path).expect("inspect SQLite");
             let mut statement = connection
-                .prepare("SELECT canonical_json FROM openot_documents ORDER BY identity_key")
+                .prepare("SELECT canonical_json FROM logging_records ORDER BY identity_key")
                 .expect("prepare SQLite query");
             statement
                 .query_map([], |row| row.get(0))

@@ -1053,7 +1053,7 @@ fn openot_database_example_coverage_manifest_names_the_reviewed_contract() {
 fn openot_database_example_persists_real_st_documents_to_sqlite() {
     let ring_path = temp_shm_path("database-example-sqlite-ring");
     let database_root = temp_shm_path("database-example-sqlite");
-    let database_path = database_root.join("openot.sqlite3");
+    let database_path = database_root.join("trust-logging.sqlite3");
     let program = include_str!("../../../examples/openot_multi_program/src/Main.st");
     let definition_json = openot_authoring::definition_json_from_sources(&[SourceFile::with_path(
         "main.st", program,
@@ -1103,9 +1103,10 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
         .collect::<Vec<_>>();
     expected_json.sort();
     let source = SharedMemoryOpenOtSource::open(&ring_path).expect("open real shared-memory ring");
-    let consumer =
-        OpenOtPersistenceConsumer::new(definition, None).expect("create canonical resolver");
-    let sink = SqliteDocumentSink::open(&database_path).expect("open real SQLite database");
+    let consumer = OpenOtPersistenceConsumer::new(definition.clone(), None)
+        .expect("create canonical resolver");
+    let sink = SqliteDocumentSink::open_with_definitions(&database_path, vec![definition])
+        .expect("open real SQLite database");
     let mut worker = OpenOtPersistenceWorker::new(source, consumer, sink);
     let committed = worker
         .run_once(DETERMINISTIC_SOURCE_TIME_BASE)
@@ -1129,13 +1130,11 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
     let status_loss_range_count = worker.status().loss_range_count;
     let connection = rusqlite::Connection::open(&database_path).expect("inspect persisted SQLite");
     let persisted: i64 = connection
-        .query_row("SELECT COUNT(*) FROM openot_documents", [], |row| {
-            row.get(0)
-        })
+        .query_row("SELECT COUNT(*) FROM logging_records", [], |row| row.get(0))
         .expect("count persisted documents");
     let event_families: i64 = connection
         .query_row(
-            "SELECT COUNT(DISTINCT event_name) FROM openot_documents WHERE document_kind='event'",
+            "SELECT COUNT(DISTINCT event_name) FROM event_log",
             [],
             |row| row.get(0),
         )
@@ -1145,8 +1144,27 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
         event_families >= 26,
         "all authored event families must persist"
     );
+    for table in [
+        "logged_values",
+        "alarm_history",
+        "message_log",
+        "state_history",
+        "batch_history",
+        "recipe_history",
+        "material_additions",
+        "operator_activity",
+        "audit_log",
+        "electronic_signatures",
+    ] {
+        let count: i64 = connection
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap_or_else(|error| panic!("query descriptive {table}: {error}"));
+        assert!(count > 0, "real ST workload must populate {table}");
+    }
     let mut actual_json = connection
-        .prepare("SELECT canonical_json FROM openot_documents ORDER BY identity_key")
+        .prepare("SELECT canonical_json FROM logging_records ORDER BY identity_key")
         .expect("prepare exact SQLite JSON query")
         .query_map([], |row| row.get::<_, String>(0))
         .expect("query exact SQLite JSON")
@@ -1172,11 +1190,9 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .expect("inspect retained SQLite schema version");
         let retained_documents: i64 = retained
-            .query_row("SELECT COUNT(*) FROM openot_documents", [], |row| {
-                row.get(0)
-            })
+            .query_row("SELECT COUNT(*) FROM logging_records", [], |row| row.get(0))
             .expect("inspect retained SQLite document count");
-        assert_eq!(retained_schema, 2);
+        assert_eq!(retained_schema, 3);
         assert_eq!(retained_documents, persisted);
         retained
             .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
@@ -1191,11 +1207,9 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .expect("inspect retained SQLite schema version");
         let retained_documents: i64 = retained
-            .query_row("SELECT COUNT(*) FROM openot_documents", [], |row| {
-                row.get(0)
-            })
+            .query_row("SELECT COUNT(*) FROM logging_records", [], |row| row.get(0))
             .expect("inspect retained SQLite document count");
-        assert_eq!(retained_schema, 2);
+        assert_eq!(retained_schema, 3);
         assert_eq!(retained_documents, persisted);
         std::fs::write(
             evidence_root.join("openot-definition.json"),
@@ -1207,7 +1221,7 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
         )
         .expect("retain generated OpenOT definition");
         let reconciliation = serde_json::json!({
-            "schemaVersion": 2,
+            "schemaVersion": 3,
             "integrityCheck": "ok",
             "persistedDocuments": persisted,
             "insertedDocuments": committed.inserted,
@@ -1624,10 +1638,11 @@ fn openot_database_example_persists_same_real_st_workload_to_every_network_backe
     let pid = std::process::id();
     let postgres_url = std::env::var("TRUST_TEST_OPENOT_POSTGRES_URL").expect("PostgreSQL URL");
     let postgres_ca = std::env::var("TRUST_TEST_OPENOT_POSTGRES_CA").expect("PostgreSQL CA");
-    let mut postgres = PostgreSqlDocumentSink::open(
+    let mut postgres = PostgreSqlDocumentSink::open_with_definitions(
         &postgres_url,
         &format!("openot_e2e_{pid}"),
         std::path::Path::new(&postgres_ca),
+        vec![definition.clone()],
     )
     .expect("open PostgreSQL e2e sink");
     persist(&mut postgres, &batch, "PostgreSQL");
@@ -1639,10 +1654,11 @@ fn openot_database_example_persists_same_real_st_workload_to_every_network_backe
 
     let timescale_url = std::env::var("TRUST_TEST_OPENOT_TIMESCALE_URL").expect("Timescale URL");
     let timescale_ca = std::env::var("TRUST_TEST_OPENOT_TIMESCALE_CA").expect("Timescale CA");
-    let mut timescale = TimescaleDbDocumentSink::open(
+    let mut timescale = TimescaleDbDocumentSink::open_with_definitions(
         &timescale_url,
         &format!("openot_e2e_{pid}"),
         std::path::Path::new(&timescale_ca),
+        vec![definition.clone()],
     )
     .expect("open TimescaleDB e2e sink");
     persist(&mut timescale, &batch, "TimescaleDB");
@@ -1666,8 +1682,13 @@ fn openot_database_example_persists_same_real_st_workload_to_every_network_backe
     ] {
         let url = std::env::var(url_env).unwrap_or_else(|_| panic!("{name} URL"));
         let ca = std::env::var(ca_env).unwrap_or_else(|_| panic!("{name} CA"));
-        let mut sink = MySqlDocumentSink::open(&url, "openot", std::path::Path::new(&ca))
-            .unwrap_or_else(|error| panic!("open {name} e2e sink: {error:?}"));
+        let mut sink = MySqlDocumentSink::open_with_definitions(
+            &url,
+            "openot",
+            std::path::Path::new(&ca),
+            vec![definition.clone()],
+        )
+        .unwrap_or_else(|error| panic!("open {name} e2e sink: {error:?}"));
         sink.reset_test_state()
             .unwrap_or_else(|error| panic!("reset {name} fixture: {error:?}"));
         persist(&mut sink, &batch, name);
@@ -1681,10 +1702,11 @@ fn openot_database_example_persists_same_real_st_workload_to_every_network_backe
 
     let sqlserver_url = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_URL").expect("SQL Server URL");
     let sqlserver_ca = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_CA").expect("SQL Server CA");
-    let mut sqlserver = SqlServerDocumentSink::open(
+    let mut sqlserver = SqlServerDocumentSink::open_with_definitions(
         &sqlserver_url,
         &format!("openot_e2e_{pid}"),
         std::path::Path::new(&sqlserver_ca),
+        vec![definition.clone()],
     )
     .expect("open SQL Server e2e sink");
     persist(&mut sqlserver, &batch, "SQL Server");
@@ -1699,12 +1721,14 @@ fn openot_database_example_persists_same_real_st_workload_to_every_network_backe
     let influx_ca = std::env::var("TRUST_TEST_OPENOT_INFLUX_CA").expect("InfluxDB CA");
     let spool_root = temp_shm_path("database-example-influx-spool");
     let spool = spool_root.join("spool.sqlite3");
-    let mut influx = InfluxDb3DocumentSink::open(
+    let mut influx = InfluxDb3DocumentSink::open_bounded_with_definitions(
         &influx_host,
         &influx_token,
         "openot",
         &spool,
         std::path::Path::new(&influx_ca),
+        u64::MAX,
+        vec![definition],
     )
     .expect("open InfluxDB 3 e2e sink");
     persist(&mut influx, &batch, "InfluxDB 3");
