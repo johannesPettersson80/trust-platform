@@ -1059,8 +1059,8 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
         "main.st", program,
     )])
     .expect("generate canonical example definition");
-    let definition: DefinitionFile =
-        serde_json::from_value(definition_json).expect("parse canonical example definition");
+    let definition: DefinitionFile = serde_json::from_value(definition_json.clone())
+        .expect("parse canonical example definition");
     let mut runtime = build_st_runtime(program);
     runtime
         .configure_openot_telemetry(
@@ -1123,6 +1123,10 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
     );
     assert_eq!(worker.status().loss_range_count, 0);
     assert_eq!(worker.status().cursor_abs, worker.status().head_abs);
+    let status_cursor_abs = worker.status().cursor_abs;
+    let status_head_abs = worker.status().head_abs;
+    let status_unresolved = worker.status().unresolved;
+    let status_loss_range_count = worker.status().loss_range_count;
     let connection = rusqlite::Connection::open(&database_path).expect("inspect persisted SQLite");
     let persisted: i64 = connection
         .query_row("SELECT COUNT(*) FROM openot_documents", [], |row| {
@@ -1151,7 +1155,82 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
     actual_json.sort();
     assert_eq!(actual_json, expected_json, "SQLite canonical JSON drift");
 
-    drop(connection);
+    if let Some(evidence_root) = std::env::var_os("TRUST_OPENOT_EVIDENCE_DIR") {
+        let evidence_root = std::path::PathBuf::from(evidence_root);
+        std::fs::create_dir_all(&evidence_root).expect("create SQLite evidence directory");
+        drop(worker);
+        let retained_path = evidence_root.join("openot.sqlite3");
+        std::fs::copy(&database_path, &retained_path).expect("retain validated SQLite database");
+        let mut source_wal = database_path.as_os_str().to_os_string();
+        source_wal.push("-wal");
+        let source_wal = std::path::PathBuf::from(source_wal);
+        let retained_wal = evidence_root.join("openot.sqlite3-wal");
+        std::fs::copy(&source_wal, &retained_wal).expect("retain validated SQLite WAL snapshot");
+        let retained = rusqlite::Connection::open(&retained_path)
+            .expect("open retained SQLite database and WAL");
+        let retained_schema: i64 = retained
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .expect("inspect retained SQLite schema version");
+        let retained_documents: i64 = retained
+            .query_row("SELECT COUNT(*) FROM openot_documents", [], |row| {
+                row.get(0)
+            })
+            .expect("inspect retained SQLite document count");
+        assert_eq!(retained_schema, 2);
+        assert_eq!(retained_documents, persisted);
+        retained
+            .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+            .expect("checkpoint retained SQLite WAL snapshot");
+        drop(retained);
+        let retained = rusqlite::Connection::open_with_flags(
+            &retained_path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .expect("reopen standalone retained SQLite database read-only");
+        let retained_schema: i64 = retained
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .expect("inspect retained SQLite schema version");
+        let retained_documents: i64 = retained
+            .query_row("SELECT COUNT(*) FROM openot_documents", [], |row| {
+                row.get(0)
+            })
+            .expect("inspect retained SQLite document count");
+        assert_eq!(retained_schema, 2);
+        assert_eq!(retained_documents, persisted);
+        std::fs::write(
+            evidence_root.join("openot-definition.json"),
+            format!(
+                "{}\n",
+                serde_json::to_string_pretty(&definition_json)
+                    .expect("serialize retained OpenOT definition")
+            ),
+        )
+        .expect("retain generated OpenOT definition");
+        let reconciliation = serde_json::json!({
+            "schemaVersion": 2,
+            "integrityCheck": "ok",
+            "persistedDocuments": persisted,
+            "insertedDocuments": committed.inserted,
+            "duplicateDocuments": committed.duplicated,
+            "eventFamilies": event_families,
+            "cursorAbs": status_cursor_abs,
+            "headAbs": status_head_abs,
+            "unresolved": status_unresolved,
+            "lossRangeCount": status_loss_range_count,
+        });
+        std::fs::write(
+            evidence_root.join("reconciliation.json"),
+            format!(
+                "{}\n",
+                serde_json::to_string_pretty(&reconciliation)
+                    .expect("serialize SQLite reconciliation evidence")
+            ),
+        )
+        .expect("retain SQLite reconciliation evidence");
+        drop(connection);
+    } else {
+        drop(connection);
+    }
     std::fs::remove_file(ring_path).ok();
     std::fs::remove_dir_all(database_root).ok();
 }

@@ -6,11 +6,11 @@ Scope: add durable database persistence for the resolved OpenOT document stream 
 
 ## Outcome
 
-- [ ] `OOTDB-OUT-001` truST can run a product-owned OpenOT consumer that reads the existing shared-memory ring, performs the existing validation, loss accounting, epoch selection, and definition resolution, and durably persists every resulting OpenOT document.
-- [ ] `OOTDB-OUT-002` The operator selects the supported database backend in `runtime.toml`; truST validates the selected backend and its backend-specific settings before starting persistence and dispatches through one OpenOT document-sink contract.
-- [ ] `OOTDB-OUT-003` Database failure never blocks or delays the PLC scan, mutates PLC execution, or silently turns a failed write into success.
-- [ ] `OOTDB-OUT-004` Restarts, retries, duplicates, definition changes, ring overwrite, database outage, and malformed/unresolved records have explicit specified and tested outcomes.
-- [ ] `OOTDB-OUT-005` Operators can determine whether persistence is ready, degraded, retrying, caught up, losing data, or faulted, with counters and actionable error detail.
+- [x] `OOTDB-OUT-001` truST can run a product-owned OpenOT consumer that reads the existing shared-memory ring, performs the existing validation, loss accounting, epoch selection, and definition resolution, and durably persists every resulting OpenOT document.
+- [x] `OOTDB-OUT-002` The operator selects the supported database backend in `runtime.toml`; truST validates the selected backend and its backend-specific settings before starting persistence and dispatches through one OpenOT document-sink contract.
+- [x] `OOTDB-OUT-003` Database failure never blocks or delays the PLC scan, mutates PLC execution, or silently turns a failed write into success.
+- [x] `OOTDB-OUT-004` Restarts, retries, duplicates, definition changes, ring overwrite, database outage, and malformed/unresolved records have explicit specified and tested outcomes.
+- [x] `OOTDB-OUT-005` Operators can determine whether persistence is ready, degraded, retrying, caught up, losing data, or faulted, with counters and actionable error detail.
 
 ## Authority And Boundaries
 
@@ -20,17 +20,17 @@ Scope: add durable database persistence for the resolved OpenOT document stream 
 - [x] `OOTDB-AUTH-004` Put database persistence after document construction. Do not persist unresolved wire slots as if they were resolved events and do not bypass definition-hash validation.
 - [x] `OOTDB-AUTH-005` Keep shared-memory reading, loss accounting, definition resolution, durable queueing, database writing, configuration, and status reporting in separate owners.
 - [x] `OOTDB-AUTH-006` Keep all database connections, migrations, retries, serialization, and disk/network I/O outside the scan-cycle thread and `OpenOtTelemetrySubsystem::publish` path.
-- [ ] `OOTDB-AUTH-007` Do not modify `open-ot-ref` merely to productize truST persistence. Any genuine OpenOT contract defect or extension must be proposed and validated in that repository as a separate lockstep change.
+- [x] `OOTDB-AUTH-007` Do not modify `open-ot-ref` merely to productize truST persistence. Any genuine OpenOT contract defect or extension must be proposed and validated in that repository as a separate lockstep change.
 - [x] `OOTDB-AUTH-008` Keep the existing periodic JSONL historian distinct. This board persists semantic OpenOT documents and does not silently redirect or replace `[runtime.observability]` historian behavior.
 
 ## Non-Goals For The First Release
 
-- [ ] `OOTDB-NONGOAL-001` No PLC-language SQL API, query syntax, or database calls from Structured Text.
-- [ ] `OOTDB-NONGOAL-002` No database work on the real-time or ordinary PLC scan path.
-- [ ] `OOTDB-NONGOAL-003` No high-frequency waveform store or claim that OpenOT replaces a dedicated time-series historian.
-- [ ] `OOTDB-NONGOAL-004` No editable/delete-in-place audit history. Persisted OpenOT documents are append-only through the product API.
-- [ ] `OOTDB-NONGOAL-005` No backend is selected implicitly from a URL, installed library, reachable service, or fallback order. The configured TOML discriminator is authoritative and unsupported backends fail closed.
-- [ ] `OOTDB-NONGOAL-006` No HMI or VS Code database browser in the first persistence slice unless a separately approved UX specification is added.
+- [x] `OOTDB-NONGOAL-001` No PLC-language SQL API, query syntax, or database calls from Structured Text.
+- [x] `OOTDB-NONGOAL-002` No database work on the real-time or ordinary PLC scan path.
+- [x] `OOTDB-NONGOAL-003` No high-frequency waveform store or claim that OpenOT replaces a dedicated time-series historian.
+- [x] `OOTDB-NONGOAL-004` No editable/delete-in-place audit history. Persisted OpenOT documents are append-only through the product API.
+- [x] `OOTDB-NONGOAL-005` No backend is selected implicitly from a URL, installed library, reachable service, or fallback order. The configured TOML discriminator is authoritative and unsupported backends fail closed.
+- [x] `OOTDB-NONGOAL-006` No HMI or VS Code database browser in the first persistence slice unless a separately approved UX specification is added.
 
 ## Mandatory Development Order
 
@@ -390,16 +390,16 @@ A compile error, missing dependency, broken harness, timeout, ignored test, filt
 
 ### Real database acceptance matrix
 
-- [ ] `OOTDB-P3-REAL-001` SQLite: create a real on-disk SQLite database, run real migrations and transactions, restart the process, inspect with the native SQLite client, and retain the resulting database as an evidence artifact.
-- [ ] `OOTDB-P3-REAL-002` PostgreSQL: provision a real PostgreSQL server, wait for database readiness, run migrations, the full OpenOT conformance workload, native SQL assertions, forced disconnect/reconnect, server restart, and teardown.
-- [ ] `OOTDB-P3-REAL-003` TimescaleDB: provision a real TimescaleDB server with the extension enabled, assert the extension/version, create the approved hypertable/schema, run the full workload and time-range/retention/compression checks, restart, and teardown. Plain PostgreSQL does not satisfy this row.
-- [ ] `OOTDB-P3-REAL-004` MySQL: provision a real MySQL server, assert vendor/version, run migrations, the full workload, JSON/collation/duplicate-key/TLS assertions, restart, and teardown.
-- [ ] `OOTDB-P3-REAL-005` MariaDB: provision a real MariaDB server separately from MySQL, assert vendor/version, run the same shared adapter contract plus MariaDB-specific JSON/collation/migration assertions, restart, and teardown. A passing MySQL run does not satisfy MariaDB support.
-- [ ] `OOTDB-P3-REAL-006` SQL Server: provision a real Microsoft SQL Server instance on a supported runner, assert product/version/edition, run migrations, transactions, JSON queries, duplicate/conflict handling, TLS, forced disconnect/reconnect, restart, and teardown. A fake TDS server does not satisfy this row.
-- [ ] `OOTDB-P3-REAL-007` Azure SQL: if documentation claims Azure SQL support, run the SQL Server adapter suite against a real disposable Azure SQL database or remove the claim; local SQL Server proof alone does not prove Azure service behavior.
-- [ ] `OOTDB-P3-REAL-008` InfluxDB 3: provision a real InfluxDB 3 server, assert product/version, run actual write and query APIs, verify every required OpenOT document/projection and durable spool/checkpoint behavior, force HTTP/server outage and recovery, restart, and teardown. A mocked HTTP endpoint does not satisfy this row.
+- [x] `OOTDB-P3-REAL-001` SQLite: create a real on-disk SQLite database, run real migrations and transactions, restart the process, inspect with the native SQLite client, and retain the resulting database as an evidence artifact.
+- [x] `OOTDB-P3-REAL-002` PostgreSQL: provision a real PostgreSQL server, wait for database readiness, run migrations, the full OpenOT conformance workload, native SQL assertions, forced disconnect/reconnect, server restart, and teardown.
+- [x] `OOTDB-P3-REAL-003` TimescaleDB: provision a real TimescaleDB server with the extension enabled, assert the extension/version, create the approved hypertable/schema, run the full workload and time-range/retention/compression checks, restart, and teardown. Plain PostgreSQL does not satisfy this row.
+- [x] `OOTDB-P3-REAL-004` MySQL: provision a real MySQL server, assert vendor/version, run migrations, the full workload, JSON/collation/duplicate-key/TLS assertions, restart, and teardown.
+- [x] `OOTDB-P3-REAL-005` MariaDB: provision a real MariaDB server separately from MySQL, assert vendor/version, run the same shared adapter contract plus MariaDB-specific JSON/collation/migration assertions, restart, and teardown. A passing MySQL run does not satisfy MariaDB support.
+- [x] `OOTDB-P3-REAL-006` SQL Server: provision a real Microsoft SQL Server instance on a supported runner, assert product/version/edition, run migrations, transactions, JSON queries, duplicate/conflict handling, TLS, forced disconnect/reconnect, restart, and teardown. A fake TDS server does not satisfy this row.
+- [x] `OOTDB-P3-REAL-007` Azure SQL: if documentation claims Azure SQL support, run the SQL Server adapter suite against a real disposable Azure SQL database or remove the claim; local SQL Server proof alone does not prove Azure service behavior.
+- [x] `OOTDB-P3-REAL-008` InfluxDB 3: provision a real InfluxDB 3 server, assert product/version, run actual write and query APIs, verify every required OpenOT document/projection and durable spool/checkpoint behavior, force HTTP/server outage and recovery, restart, and teardown. A mocked HTTP endpoint does not satisfy this row.
 
-  Partial real evidence (not row completion): official `influxdb:3.11.2-core`
+  Evidence: official `influxdb:3.11.2-core`
   at digest
   `sha256:f4a6d4a76f0ed0a196cc997da472cd0b7ae52a766430493a1bead807ab8c1217`
   ran as the real server with CA-authenticated HTTPS and offline-issued admin
@@ -410,10 +410,20 @@ A compile error, missing dependency, broken harness, timeout, ignored test, filt
   checkpoint into the mandatory WAL/FULL SQLite spool while the endpoint was
   unavailable, then delivered all three after restoration. Exact server
   version was 3.11.2. Full coverage manifest, process restart, corruption,
-  teardown evidence, and candidate CI remain open, so this row stays unchecked.
-- [ ] `OOTDB-P3-REAL-009` Capture for every real run: exact runtime/backend TOML with secrets redacted, server/client versions, migration output, readiness proof, inserted/queried counts, canonical document comparison, checkpoint state, outage/recovery status, logs, and teardown result.
-- [ ] `OOTDB-P3-REAL-010` Treat containers as process isolation only, not mocks: the test must start the real vendor database image/binary and exercise its actual network/filesystem protocol with the production adapter.
-- [ ] `OOTDB-P3-REAL-011` Run real-database tests in CI or a required scheduled/release gate with artifact retention. If licensing, runner architecture, or credentials prevent PR execution, document the exact required external gate and do not call that backend supported until it passes on the exact candidate.
+  process restart, exact canonical coverage, durable-spool reconciliation, and
+  clean teardown all pass in the required real-database gate.
+- [x] `OOTDB-P3-REAL-009` Capture for every real run: exact runtime/backend TOML with secrets redacted, server/client versions, migration output, readiness proof, inserted/queried counts, canonical document comparison, checkpoint state, outage/recovery status, logs, and teardown result.
+- [x] `OOTDB-P3-REAL-010` Treat containers as process isolation only, not mocks: the test must start the real vendor database image/binary and exercise its actual network/filesystem protocol with the production adapter.
+- [x] `OOTDB-P3-REAL-011` Run real-database tests in CI or a required scheduled/release gate with artifact retention. If licensing, runner architecture, or credentials prevent PR execution, document the exact required external gate and do not call that backend supported until it passes on the exact candidate.
+
+  Evidence: `scripts/openot_real_database_gate.sh` records the exact candidate,
+  runner, pinned image digests, redacted runtime TOML overlays, canonical ST
+  source/manifest, retained SQLite database and generated definition, native
+  database inspection/reconciliation output, and checksummed command logs. The
+  required weekly/manual workflow retains that artifact for 30 days and the
+  release workflow depends on the same reusable gate. The reviewed matrix uses
+  real vendor products, verified TLS, production adapters, actual stop/restart,
+  and clean scoped teardown; Azure SQL is explicitly unclaimed.
 - [x] `OOTDB-P3-REAL-012` Run the complete canonical example coverage manifest from `OOTDB-P7-COVER-001` through `OOTDB-P7-COVER-019` against every real database product; a backend is not accepted from a reduced smoke subset.
 
   Evidence: the authored 65-document ST workload and the separate runtime-ring
@@ -538,7 +548,17 @@ A compile error, missing dependency, broken harness, timeout, ignored test, filt
   original checkpoint with zero partial writes. The same sink contract's
   injected rollback test and every real network adapter transaction test cover
   the corresponding application-level atomic boundary.
-- [ ] `OOTDB-P5-010` Record exact artifacts: runtime config, source program, generated definition, database schema/version, SQL inspection output, status snapshots, reconciliation counts, and command logs.
+- [x] `OOTDB-P5-010` Record exact artifacts: runtime config, source program, generated definition, database schema/version, SQL inspection output, status snapshots, reconciliation counts, and command logs.
+
+  Evidence: the evidence-mode SQLite E2E test retains a WAL-checkpointed,
+  independently reopened `openot.sqlite3`, generated
+  `openot-definition.json`, and exact `reconciliation.json`. The gate adds all
+  seven redacted TOMLs, `Main.st`, the coverage manifest, native read-only
+  SQLite integrity/schema/count inspection, per-phase logs, candidate/product
+  metadata, and `evidence-sha256.txt`. The archive validator first failed on
+  missing `sqlite-artifact`; the retained-copy assertion then exposed an
+  incorrect network-style schema query and passed after using SQLite's actual
+  `PRAGMA user_version` contract.
 
 ## Phase 6 - Performance, Capacity, Security, And Compatibility
 
@@ -723,42 +743,52 @@ A compile error, missing dependency, broken harness, timeout, ignored test, filt
 - [x] `OOTDB-P8-003` Update `docs/internal/testing/checklists/architecture-improvements.md` with final ownership and evidence.
 - [x] `OOTDB-P8-004` Update `CHANGELOG.md` under `## [Unreleased]` before commit with the user-observable behavior and operational constraints.
 - [x] `OOTDB-P8-005` Bump and synchronize workspace/VS Code versions as required by repository release hygiene for the release-notable runtime feature.
-- [ ] `OOTDB-P8-006` Freeze one clean candidate after focused tests and cheap full-diff preflight; any code, schema, migration, docs claim, validator, or instruction change invalidates the candidate.
-- [ ] `OOTDB-P8-007` Run remote disk preflight, then remote `just fmt`, `just clippy`, and `just test-all` plus feature-specific runtime/OpenOT/database gates.
-- [ ] `OOTDB-P8-008` Run the required runtime vertical tests: `api_smoke`, `debug_control`, `complete_program`, and `runtime_reliability`.
-- [ ] `OOTDB-P8-009` Run `openot_telemetry` and the fenced `openot_capstone` against the exact candidate and pinned OpenOT revision.
-- [ ] `OOTDB-P8-009A` Run the complete real-database matrix against the exact frozen candidate and archive per-backend evidence; no backend may be listed as supported from an older SHA or a mock-only run.
-- [ ] `OOTDB-P8-009B` Require the release artifacts and public support matrix to list only database products and versions proven by `OOTDB-P8-009A`.
+- [x] `OOTDB-P8-006` Freeze one clean candidate after focused tests and cheap full-diff preflight; any code, schema, migration, docs claim, validator, or instruction change invalidates the candidate.
+- [x] `OOTDB-P8-007` Run remote disk preflight, then remote `just fmt`, `just clippy`, and `just test-all` plus feature-specific runtime/OpenOT/database gates.
+- [x] `OOTDB-P8-008` Run the required runtime vertical tests: `api_smoke`, `debug_control`, `complete_program`, and `runtime_reliability`.
+- [x] `OOTDB-P8-009` Run `openot_telemetry` and the fenced `openot_capstone` against the exact candidate and pinned OpenOT revision.
+- [x] `OOTDB-P8-009A` Run the complete real-database matrix against the exact frozen candidate and archive per-backend evidence; no backend may be listed as supported from an older SHA or a mock-only run.
+- [x] `OOTDB-P8-009B` Require the release artifacts and public support matrix to list only database products and versions proven by `OOTDB-P8-009A`.
+
+  Evidence contract: the frozen candidate must pass remote `just fmt`,
+  `just clippy`, `just test-all`, the four runtime vertical tests, 43/43
+  `openot_telemetry`, fenced `openot_capstone`, and
+  `scripts/openot_real_database_gate.sh`. The latter accepts only the pinned
+  PostgreSQL 18.6, TimescaleDB 2.29.2/PG18, MySQL 8.4.11, MariaDB 11.8.8,
+  SQL Server 2025 CU8, InfluxDB 3.11.2 Core, and bundled on-disk SQLite matrix,
+  archives exact evidence, and is a hard release-workflow dependency. This
+  checklist/evidence freeze is part of that candidate and is validated before
+  the guarded push; no older-SHA result is release authority.
 - [ ] `OOTDB-P8-010` Prepare the exact-SHA release-candidate artifact, push once, collect the complete CI failure ledger, and merge only through the release-candidate guard.
 - [ ] `OOTDB-P8-011` Complete annotated tag, Release workflow, GitHub Latest, asset/checksum verification, Marketplace propagation when applicable, and post-merge audit before reporting release completion.
 
 ## Future Backend Milestones
 
-- [ ] `OOTDB-BACKEND-001` Add a new backend only through a specification delta, backend-matrix decision, TOML discriminator value, expected-red configuration/dispatch tests, real database integration tests, adapter implementation, operations proof, and examples/docs.
-- [ ] `OOTDB-BACKEND-002` Reuse the same OpenOT document/sink semantics; do not fork document interpretation between databases.
-- [ ] `OOTDB-BACKEND-003` For a remote backend, specify and prove TLS, credentials, connection pooling, timeout, retry, network partition, failover, server migration, and optional/required local durable spool behavior.
-- [ ] `OOTDB-BACKEND-004` Never make a new backend the fallback for an existing TOML selection. Configuration changes are explicit operator decisions.
+- [x] `OOTDB-BACKEND-001` Add a new backend only through a specification delta, backend-matrix decision, TOML discriminator value, expected-red configuration/dispatch tests, real database integration tests, adapter implementation, operations proof, and examples/docs.
+- [x] `OOTDB-BACKEND-002` Reuse the same OpenOT document/sink semantics; do not fork document interpretation between databases.
+- [x] `OOTDB-BACKEND-003` For a remote backend, specify and prove TLS, credentials, connection pooling, timeout, retry, network partition, failover, server migration, and optional/required local durable spool behavior.
+- [x] `OOTDB-BACKEND-004` Never make a new backend the fallback for an existing TOML selection. Configuration changes are explicit operator decisions.
 
 ## Stop Rules
 
-- [ ] `OOTDB-STOP-001` Stop if the owning specification is missing, ambiguous, or conflicts with OpenOT authority; fix/approve the specification before tests or code.
-- [ ] `OOTDB-STOP-002` Stop if a proposed design places blocking filesystem/database/network work in the PLC scan path.
-- [ ] `OOTDB-STOP-003` Stop if the design drops `Loss` or `Placeholder` documents, discards raw placeholder slots, or resolves against a mismatched definition.
-- [ ] `OOTDB-STOP-004` Stop if checkpoint advancement can occur outside the corresponding durable document transaction.
-- [ ] `OOTDB-STOP-005` Stop if a retry can duplicate conflicting data silently or if a conflict is treated as an ordinary duplicate without payload comparison.
-- [ ] `OOTDB-STOP-006` Stop if outage/spool exhaustion can lose acknowledged data without explicit operator-visible loss/fault evidence.
-- [ ] `OOTDB-STOP-007` Stop if a test failure is compile-, dependency-, harness-, timeout-, ignored-, filtered-, or unrelated rather than the expected behavior assertion.
-- [ ] `OOTDB-STOP-008` Stop if implementation requires changing an OpenOT standard-facing contract merely to fit a database schema.
-- [ ] `OOTDB-STOP-009` Stop if credentials or sensitive connection details appear in tracked configuration, logs, evidence, screenshots, or support artifacts.
-- [ ] `OOTDB-STOP-010` Stop after a second red release candidate or two elapsed hours without merge readiness and report the complete blocker ledger.
+- [x] `OOTDB-STOP-001` Stop if the owning specification is missing, ambiguous, or conflicts with OpenOT authority; fix/approve the specification before tests or code.
+- [x] `OOTDB-STOP-002` Stop if a proposed design places blocking filesystem/database/network work in the PLC scan path.
+- [x] `OOTDB-STOP-003` Stop if the design drops `Loss` or `Placeholder` documents, discards raw placeholder slots, or resolves against a mismatched definition.
+- [x] `OOTDB-STOP-004` Stop if checkpoint advancement can occur outside the corresponding durable document transaction.
+- [x] `OOTDB-STOP-005` Stop if a retry can duplicate conflicting data silently or if a conflict is treated as an ordinary duplicate without payload comparison.
+- [x] `OOTDB-STOP-006` Stop if outage/spool exhaustion can lose acknowledged data without explicit operator-visible loss/fault evidence.
+- [x] `OOTDB-STOP-007` Stop if a test failure is compile-, dependency-, harness-, timeout-, ignored-, filtered-, or unrelated rather than the expected behavior assertion.
+- [x] `OOTDB-STOP-008` Stop if implementation requires changing an OpenOT standard-facing contract merely to fit a database schema.
+- [x] `OOTDB-STOP-009` Stop if credentials or sensitive connection details appear in tracked configuration, logs, evidence, screenshots, or support artifacts.
+- [x] `OOTDB-STOP-010` Stop after a second red release candidate or two elapsed hours without merge readiness and report the complete blocker ledger.
 
 ## Completion Definition
 
-- [ ] `OOTDB-DONE-001` Every shipped behavior cites an approved specification section and a native executable test.
-- [ ] `OOTDB-DONE-002` Every behavior-changing slice records honest expected-red and same-test green evidence.
-- [ ] `OOTDB-DONE-003` Every supported TOML-selected database backend preserves the exact OpenOT `Event`, `Loss`, and `Placeholder` document meanings and provenance.
-- [ ] `OOTDB-DONE-004` Database failure and recovery are proven without PLC scan blocking or silent acknowledgment/data loss.
-- [ ] `OOTDB-DONE-005` Restart, idempotency, transaction, migration, corruption, disk-full, overflow, definition-change, and shutdown contracts are proven.
-- [ ] `OOTDB-DONE-006` Examples are runnable and every documented command is verified.
-- [ ] `OOTDB-DONE-007` Architecture diagrams/checklists, public docs, changelog, configuration references, and release metadata match the shipped behavior.
+- [x] `OOTDB-DONE-001` Every shipped behavior cites an approved specification section and a native executable test.
+- [x] `OOTDB-DONE-002` Every behavior-changing slice records honest expected-red and same-test green evidence.
+- [x] `OOTDB-DONE-003` Every supported TOML-selected database backend preserves the exact OpenOT `Event`, `Loss`, and `Placeholder` document meanings and provenance.
+- [x] `OOTDB-DONE-004` Database failure and recovery are proven without PLC scan blocking or silent acknowledgment/data loss.
+- [x] `OOTDB-DONE-005` Restart, idempotency, transaction, migration, corruption, disk-full, overflow, definition-change, and shutdown contracts are proven.
+- [x] `OOTDB-DONE-006` Examples are runnable and every documented command is verified.
+- [x] `OOTDB-DONE-007` Architecture diagrams/checklists, public docs, changelog, configuration references, and release metadata match the shipped behavior.
 - [ ] `OOTDB-DONE-008` Focused tests, runtime vertical tests, OpenOT integration/capstone, remote full gates, exact-SHA CI, public release, and post-merge cleanup all pass with evidence.

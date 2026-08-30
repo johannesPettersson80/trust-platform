@@ -71,6 +71,19 @@ def main() -> int:
     ):
         if identity not in verification:
             fail(f"verification page omits executable identity {identity}")
+
+    gate = (ROOT / "scripts/openot_real_database_gate.sh").read_text()
+    for artifact in (
+        "sqlite-artifact",
+        "runtime-configs",
+        "openot.sqlite3",
+        "openot-definition.json",
+        "openot-coverage-manifest.json",
+        "Main.st",
+        "evidence-sha256.txt",
+    ):
+        if artifact not in gate:
+            fail(f"real-database gate omits required retained artifact {artifact}")
     print("OpenOT database example and documentation contract passed")
     return 0
 
