@@ -120,6 +120,12 @@ def remote_validation_commands(
     if vscode_changed:
         commands.append(
             (
+                "remote_docs_capture_lifecycle",
+                "python3 -m unittest scripts.tests.test_capture_lifecycle -v",
+            )
+        )
+        commands.append(
+            (
                 "remote_vscode",
                 "vscode_tmp=$(mktemp -d /tmp/trust-vscode-candidate.XXXXXX) && "
                 "trap 'rm -rf -- \"$vscode_tmp\"' EXIT && "

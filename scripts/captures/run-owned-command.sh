@@ -23,7 +23,10 @@ cleanup_owned_session() {
   fi
 
   pkill -TERM -s "$OWNED_SESSION" >/dev/null 2>&1 || true
-  for ((_attempt = 0; _attempt < 50; _attempt++)); do
+  # Capture tools may ignore TERM or leave browser helpers behind. Keep the
+  # graceful window bounded so the parent launcher cannot retain their pipes
+  # long enough to time out its own signal handling.
+  for ((_attempt = 0; _attempt < 10; _attempt++)); do
     if ! pgrep -s "$OWNED_SESSION" >/dev/null 2>&1; then
       break
     fi

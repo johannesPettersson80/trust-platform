@@ -107,6 +107,22 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn("npm ci &&", commands["remote_vscode"])
         self.assertIn("xvfb-run -a npm test", commands["remote_vscode"])
 
+    def test_vscode_candidate_runs_docs_capture_lifecycle_parity(self) -> None:
+        commands = dict(
+            candidate_prepare.remote_validation_commands(
+                vscode_changed=True, remote_target="/tmp/trust-target"
+            )
+        )
+
+        self.assertEqual(
+            commands["remote_docs_capture_lifecycle"],
+            "python3 -m unittest scripts.tests.test_capture_lifecycle -v",
+        )
+        self.assertIn(
+            "remote_docs_capture_lifecycle",
+            guard.required_command_ids(vscode_changed=True),
+        )
+
     def test_vscode_remote_gate_uses_unique_short_lived_temp_directory(self) -> None:
         commands = dict(
             candidate_prepare.remote_validation_commands(

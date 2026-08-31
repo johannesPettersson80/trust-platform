@@ -39,6 +39,9 @@ description: Enforce trust-platform release hygiene for user-visible changes. Us
    - If the candidate changes `editors/vscode/**`, `scripts/captures/**`, capture assets, or the
      capture workflow, require a successful `Docs Captures` pull-request run on the exact candidate
      SHA before merge. A post-merge capture failure is not candidate proof.
+   - Before pushing such a candidate, require the exact-SHA artifact to record
+     `python3 -m unittest scripts.tests.test_capture_lifecycle -v` as
+     `remote_docs_capture_lifecycle`.
 
 6. Preflight the first push.
    - Record `git remote get-url origin`, `git remote get-url --push origin`, and

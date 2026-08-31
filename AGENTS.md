@@ -119,6 +119,9 @@ applicable, and lexer/parser tests or snapshots.
   parity. For runtime changes, the exact-SHA artifact must include
   `./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross`; a passing
   artifact is invalid without that recorded command.
+- When the Docs Captures workflow path filter is triggered, the exact-SHA artifact must also run
+  and record `python3 -m unittest scripts.tests.test_capture_lifecycle -v`; VS Code `npm test` is
+  not a substitute for this workflow-specific lifecycle gate.
 - Integration, release, `main`, and version-bump pushes require the exact-SHA artifact produced by
   `.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py prepare`; the shared
   pre-push hook must be installed and must not be bypassed.
