@@ -47,8 +47,15 @@ impl MySqlDocumentSink {
         })?;
         let ssl = SslOpts::default().with_root_cert_path(Some(ca_cert_path.to_path_buf()));
         let options = OptsBuilder::from_opts(options).ssl_opts(Some(ssl));
-        let mut connection =
-            Conn::new(options).map_err(|error| mysql_error("connect with required TLS", error))?;
+        let mut connection = Conn::new(options).map_err(|error| {
+            let retryable = error.is_connectivity_error();
+            let message = format!("MySQL connect with required TLS: {error}");
+            if retryable {
+                PersistenceError::Connection(message)
+            } else {
+                PersistenceError::Commit(message)
+            }
+        })?;
         let ssl_cipher: Option<(String, String)> = connection
             .query_first("SHOW SESSION STATUS LIKE 'Ssl_cipher'")
             .map_err(|error| mysql_error("inspect TLS session", error))?;

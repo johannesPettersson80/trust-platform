@@ -63,10 +63,31 @@ After configuration and local artifact validation succeed, opening a remote
 database MUST occur in the supervised persistence worker. An unreachable
 configured database MUST NOT prevent the PLC runtime from starting; persistence
 reports `retrying` and reconnects under the configured bounded retry policy.
+Every environment-variable name selected by the backend configuration MUST be
+resolved before the persistence worker is spawned. A required variable that is
+absent or whose value is empty is a local configuration failure and MUST reject
+startup synchronously. Validation and status output MUST identify only the
+variable name; secret values MUST NOT be included.
 For every network backend, the selected `ca_cert_path` MUST resolve relative to
 the runtime bundle when it is not absolute and MUST be readable before the
 persistence worker is spawned. Missing or unreadable CA files are local
 artifact failures and MUST reject startup synchronously.
+
+The service MUST classify failures by the operation that observed them; it MUST
+NOT infer retryability from diagnostic text. The required lifecycle behavior is:
+
+| Failure boundary | Required behavior |
+| --- | --- |
+| Invalid TOML, unavailable adapter, missing or empty required environment variable, missing definition/carriage artifact, or missing/unreadable CA file | reject `start()` synchronously; no worker is spawned |
+| Remote endpoint cannot be reached while opening the selected network adapter, or a reached PostgreSQL-compatible endpoint reports a typed connection/startup/shutdown SQLSTATE (`08` connection class or `57P01`/`57P02`/`57P03`) | start the PLC runtime, report persistence as `retrying`, and apply the bounded reconnect policy |
+| The endpoint is reached but rejects authentication/authorization, or opening/migration detects an unsupported newer schema, corrupt migration metadata, incompatible required product capability, corrupt local database/spool, or another deterministic storage/schema violation | report persistence as `faulted` immediately; do not consume the reconnect budget or reopen repeatedly |
+| An established worker loses remote commit or maintenance availability | preserve the last durable checkpoint/counters, report `retrying`, and reconnect under the bounded policy |
+| Identity conflict, checkpoint regression, capacity exhaustion, malformed stored canonical data, or deterministic projection corruption | report `faulted`; do not retry or delete durable state |
+
+Opening and migration code MUST return an explicitly classified reachability
+failure for the retryable open case. Generic commit/storage errors are not
+implicitly retryable during initial open. Adding a new open failure path
+requires a direct native assertion of its lifecycle classification.
 
 When `enabled = false` or the persistence table is absent, no persistence
 worker, spool, migration, or database connection is created. When enabled,

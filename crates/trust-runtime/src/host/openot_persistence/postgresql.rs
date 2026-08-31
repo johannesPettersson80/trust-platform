@@ -1,6 +1,7 @@
 use std::{fs, path::Path};
 
 use native_tls::{Certificate, TlsConnector};
+use postgres::error::SqlState;
 use postgres::Client;
 use postgres_native_tls::MakeTlsConnector;
 
@@ -56,7 +57,14 @@ impl PostgreSqlDocumentSink {
             PersistenceError::Commit(format!("PostgreSQL build TLS connector: {error}"))
         })?;
         let mut client = Client::connect(connection_url, MakeTlsConnector::new(connector))
-            .map_err(pg_error("connect with required TLS"))?;
+            .map_err(|error| {
+                let message = format!("PostgreSQL connect with required TLS: {error}");
+                if postgresql_connect_error_is_transient(&error) {
+                    PersistenceError::Connection(message)
+                } else {
+                    PersistenceError::Commit(message)
+                }
+            })?;
         migrate(&mut client, schema)?;
         let projector = LoggingProjector::new(definitions)?;
         Ok(Self {
@@ -213,6 +221,17 @@ impl PostgreSqlDocumentSink {
             })
             .map_err(pg_error("read checkpoint"))
     }
+}
+
+fn postgresql_connect_error_is_transient(error: &postgres::Error) -> bool {
+    let Some(code) = error.code() else {
+        return true;
+    };
+    code.code().starts_with("08")
+        || matches!(
+            code,
+            &SqlState::ADMIN_SHUTDOWN | &SqlState::CRASH_SHUTDOWN | &SqlState::CANNOT_CONNECT_NOW
+        )
 }
 
 fn migrate(client: &mut Client, schema: &str) -> Result<(), PersistenceError> {

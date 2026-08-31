@@ -18,6 +18,7 @@ fn operator_status_redacts_backend_secrets_and_sensitive_paths() {
     for error in [
         PersistenceError::InvalidConfig(secret.to_string()),
         PersistenceError::Commit(secret.to_string()),
+        PersistenceError::Connection(secret.to_string()),
         PersistenceError::CapacityExhausted(secret.to_string()),
     ] {
         let projected = redacted_error(&error);
@@ -45,6 +46,15 @@ fn service_rejects_missing_database_ca_before_worker_start() {
     )
     .expect("write definition");
     SharedRecordPublisher::create(root.join("openot.shm"), 4096).expect("publisher");
+    let database_environment = format!(
+        "TRUST_TEST_OPENOT_MISSING_CA_DATABASE_URL_{}_{}",
+        std::process::id(),
+        stamp
+    );
+    std::env::set_var(
+        &database_environment,
+        "postgresql://unused.invalid/trust_logging",
+    );
     let config = OpenOtTelemetryConfig {
         enabled: true,
         path: "openot.shm".into(),
@@ -52,7 +62,7 @@ fn service_rejects_missing_database_ca_before_worker_start() {
             enabled: true,
             backend: Some(OpenOtPersistenceBackend::PostgreSql),
             postgresql: Some(OpenOtPostgreSqlPersistenceConfig {
-                connection_url_env: "TRUST_TEST_UNUSED_DATABASE_URL".into(),
+                connection_url_env: database_environment.clone().into(),
                 schema: "trust_logging".into(),
                 tls: OpenOtPersistenceTlsMode::Require,
                 ca_cert_path: Some("missing-ca.pem".into()),
@@ -66,10 +76,149 @@ fn service_rejects_missing_database_ca_before_worker_start() {
         Err(error) => error,
         Ok(_) => panic!("missing local CA must reject startup synchronously"),
     };
+    std::env::remove_var(database_environment);
     assert!(
         error.to_string().contains("missing-ca.pem"),
         "unexpected error: {error}"
     );
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[cfg(feature = "openot-database-postgresql")]
+#[test]
+fn service_rejects_missing_database_environment_before_worker_start() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "trust-openot-missing-database-environment-{}-{stamp}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&root).expect("root");
+    std::fs::write(
+        root.join("openot-definition.json"),
+        serde_json::to_vec_pretty(&sample_definition()).expect("serialize definition"),
+    )
+    .expect("write definition");
+    std::fs::write(root.join("database-ca.pem"), b"local-startup-artifact")
+        .expect("write CA artifact");
+    SharedRecordPublisher::create(root.join("openot.shm"), 4096).expect("publisher");
+    let missing_environment = format!(
+        "TRUST_TEST_OPENOT_MISSING_DATABASE_URL_{}_{}",
+        std::process::id(),
+        stamp
+    );
+    assert!(std::env::var_os(&missing_environment).is_none());
+    let config = OpenOtTelemetryConfig {
+        enabled: true,
+        path: "openot.shm".into(),
+        persistence: OpenOtPersistenceConfig {
+            enabled: true,
+            backend: Some(OpenOtPersistenceBackend::PostgreSql),
+            postgresql: Some(OpenOtPostgreSqlPersistenceConfig {
+                connection_url_env: missing_environment.clone().into(),
+                schema: "trust_logging".into(),
+                tls: OpenOtPersistenceTlsMode::Require,
+                ca_cert_path: Some("database-ca.pem".into()),
+            }),
+            ..OpenOtPersistenceConfig::default()
+        },
+        ..OpenOtTelemetryConfig::default()
+    };
+
+    let error = match OpenOtPersistenceService::start(&config, &root) {
+        Err(error) => error,
+        Ok(_) => panic!("missing database environment must reject startup synchronously"),
+    };
+    let diagnostic = error.to_string();
+    assert!(
+        diagnostic.contains(&missing_environment),
+        "unexpected error: {error}"
+    );
+    assert!(!diagnostic.contains("postgresql://"));
+
+    std::env::set_var(&missing_environment, "");
+    let empty_error = match OpenOtPersistenceService::start(&config, &root) {
+        Err(error) => error,
+        Ok(_) => panic!("empty database environment must reject startup synchronously"),
+    };
+    std::env::remove_var(&missing_environment);
+    assert!(empty_error.to_string().contains(&missing_environment));
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[cfg(feature = "openot-database-sqlite")]
+#[test]
+fn service_faults_newer_schema_without_spending_reconnect_budget() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "trust-openot-service-newer-schema-{}-{stamp}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&root).expect("root");
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
+            .expect("secure root");
+    }
+    std::fs::write(
+        root.join("openot-definition.json"),
+        serde_json::to_vec_pretty(&sample_definition()).expect("serialize definition"),
+    )
+    .expect("write definition");
+    SharedRecordPublisher::create(root.join("openot.shm"), 4096).expect("publisher");
+    let database_path = root.join("openot.sqlite3");
+    rusqlite::Connection::open(&database_path)
+        .expect("create newer database")
+        .execute_batch("CREATE TABLE sentinel(value TEXT); PRAGMA user_version=5;")
+        .expect("seed newer schema");
+    let config = OpenOtTelemetryConfig {
+        enabled: true,
+        path: "openot.shm".into(),
+        persistence: OpenOtPersistenceConfig {
+            enabled: true,
+            backend: Some(OpenOtPersistenceBackend::Sqlite),
+            retry_initial_ms: 1_000,
+            retry_max_ms: 1_000,
+            retry_multiplier: 1,
+            retry_max_attempts: 3,
+            sqlite: Some(OpenOtSqlitePersistenceConfig {
+                path: database_path.clone(),
+            }),
+            ..OpenOtPersistenceConfig::default()
+        },
+        ..OpenOtTelemetryConfig::default()
+    };
+
+    let mut service = OpenOtPersistenceService::start(&config, &root)
+        .expect("local schema validation belongs to supervised worker")
+        .expect("enabled service");
+    let deadline = std::time::Instant::now() + Duration::from_millis(250);
+    while service.status().state == OpenOtPersistenceState::Starting
+        && std::time::Instant::now() < deadline
+    {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let status = service.status();
+    assert_eq!(status.state, OpenOtPersistenceState::Faulted);
+    assert_eq!(status.documents_retried, 0);
+    assert!(
+        status
+            .last_error
+            .as_deref()
+            .is_some_and(|message| message.contains("schema version 5 is newer")),
+        "unexpected status: {status:?}"
+    );
+    service.shutdown();
+    let version: u32 = rusqlite::Connection::open(database_path)
+        .expect("reopen database")
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .expect("schema version");
+    assert_eq!(version, 5);
     std::fs::remove_dir_all(root).ok();
 }
 

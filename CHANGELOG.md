@@ -78,6 +78,9 @@ Target release: `v0.24.68`
 - Publish an InfluxDB spool commit before surfacing later reconciliation
   failures, preserve detailed reconciliation counters through backend
   selection, and reject compiled-out TOML backends synchronously at startup.
+- Reject missing or empty selected database environment variables before
+  worker startup, retry only explicitly classified remote-open reachability
+  failures, and fault permanent schema or storage-open errors immediately.
 - Reject missing database CA files before starting the persistence worker,
   preserve complete loss/unresolved provenance in SQL Server combined commits,
   and require capture-lifecycle parity for every Docs Captures workflow path.

@@ -54,6 +54,80 @@ fn backend_unavailable(backend: &str) -> PersistenceError {
 }
 
 impl OpenOtDocumentSink {
+    /// Resolves only the selected backend's required secret-bearing environment variables.
+    #[cfg(unix)]
+    pub(crate) fn validate_required_environment(
+        config: &OpenOtPersistenceConfig,
+    ) -> Result<(), PersistenceError> {
+        let backend = config.backend.ok_or_else(|| {
+            PersistenceError::InvalidConfig(
+                "runtime.openot.persistence.backend is required".to_string(),
+            )
+        })?;
+        let required = match backend {
+            OpenOtPersistenceBackend::Sqlite => Vec::new(),
+            OpenOtPersistenceBackend::PostgreSql => vec![config
+                .postgresql
+                .as_ref()
+                .ok_or_else(|| {
+                    PersistenceError::InvalidConfig(
+                        "runtime.openot.persistence.postgresql is required".to_string(),
+                    )
+                })?
+                .connection_url_env
+                .as_str()],
+            OpenOtPersistenceBackend::TimescaleDb => vec![config
+                .timescaledb
+                .as_ref()
+                .ok_or_else(|| {
+                    PersistenceError::InvalidConfig(
+                        "runtime.openot.persistence.timescaledb is required".to_string(),
+                    )
+                })?
+                .connection_url_env
+                .as_str()],
+            OpenOtPersistenceBackend::MySql => vec![config
+                .mysql
+                .as_ref()
+                .ok_or_else(|| {
+                    PersistenceError::InvalidConfig(
+                        "runtime.openot.persistence.mysql is required".to_string(),
+                    )
+                })?
+                .connection_url_env
+                .as_str()],
+            OpenOtPersistenceBackend::SqlServer => vec![config
+                .sqlserver
+                .as_ref()
+                .ok_or_else(|| {
+                    PersistenceError::InvalidConfig(
+                        "runtime.openot.persistence.sqlserver is required".to_string(),
+                    )
+                })?
+                .connection_url_env
+                .as_str()],
+            OpenOtPersistenceBackend::InfluxDb3 => {
+                let influx = config.influxdb3.as_ref().ok_or_else(|| {
+                    PersistenceError::InvalidConfig(
+                        "runtime.openot.persistence.influxdb3 is required".to_string(),
+                    )
+                })?;
+                vec![influx.host_env.as_str(), influx.token_env.as_str()]
+            }
+        };
+        for name in required {
+            let value = std::env::var(name).map_err(|_| {
+                PersistenceError::InvalidConfig(format!("environment variable '{name}' is not set"))
+            })?;
+            if value.is_empty() {
+                return Err(PersistenceError::InvalidConfig(format!(
+                    "environment variable '{name}' is empty"
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// Rejects a configured adapter that was omitted from this runtime binary.
     #[cfg(unix)]
     pub(crate) fn validate_backend_available(

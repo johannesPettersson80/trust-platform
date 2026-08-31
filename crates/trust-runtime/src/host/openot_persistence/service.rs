@@ -65,6 +65,7 @@ fn validate_startup_artifacts(
     PersistenceError,
 > {
     OpenOtDocumentSink::validate_backend_available(&config.persistence)?;
+    OpenOtDocumentSink::validate_required_environment(&config.persistence)?;
     validate_database_ca(&config.persistence, bundle_root)?;
     let definition_path = bundle_root.join("openot-definition.json");
     let definition_bytes = std::fs::read(&definition_path).map_err(|error| {
@@ -169,8 +170,8 @@ fn apply_worker_error(
     error: &PersistenceError,
     consecutive_retries: &mut u32,
     retry_max_attempts: u32,
+    transient: bool,
 ) {
-    let transient = matches!(error, PersistenceError::Commit(_));
     if transient {
         *consecutive_retries = consecutive_retries.saturating_add(1);
     }
@@ -385,8 +386,9 @@ impl OpenOtPersistenceService {
                                     &error,
                                     &mut consecutive_retries,
                                     retry_max_attempts,
+                                    matches!(error, PersistenceError::Connection(_)),
                                 );
-                                if !matches!(error, PersistenceError::Commit(_))
+                                if !matches!(error, PersistenceError::Connection(_))
                                     || consecutive_retries >= retry_max_attempts
                                 {
                                     break;
@@ -436,6 +438,7 @@ impl OpenOtPersistenceService {
                                 &error,
                                 &mut consecutive_retries,
                                 retry_max_attempts,
+                                transient,
                             );
                             if !transient || consecutive_retries >= retry_max_attempts {
                                 break;

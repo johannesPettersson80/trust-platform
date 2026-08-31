@@ -50,14 +50,14 @@ impl SqlServerDocumentSink {
             let tcp = TcpStream::connect(config.get_addr())
                 .await
                 .map_err(|error| {
-                    PersistenceError::Commit(format!("SQL Server TCP connect: {error}"))
+                    PersistenceError::Connection(format!("SQL Server TCP connect: {error}"))
                 })?;
             tcp.set_nodelay(true).map_err(|error| {
                 PersistenceError::Commit(format!("SQL Server TCP options: {error}"))
             })?;
             Client::connect(config, tcp.compat_write())
                 .await
-                .map_err(|error| sql_error("connect with required TLS", error))
+                .map_err(sqlserver_connect_error)
         })?;
         let projector = LoggingProjector::new(definitions)?;
         let mut sink = Self {
@@ -697,6 +697,19 @@ fn decode_u64(bytes: &[u8], context: &str) -> Result<u64, PersistenceError> {
 
 fn commit_error(message: &str) -> PersistenceError {
     PersistenceError::Commit(format!("SQL Server {message}"))
+}
+
+fn sqlserver_connect_error(error: tiberius::error::Error) -> PersistenceError {
+    let retryable = matches!(
+        error,
+        tiberius::error::Error::Io { .. } | tiberius::error::Error::Routing { .. }
+    );
+    let message = format!("SQL Server connect with required TLS: {error}");
+    if retryable {
+        PersistenceError::Connection(message)
+    } else {
+        PersistenceError::Commit(message)
+    }
 }
 fn sql_error(context: &str, error: tiberius::error::Error) -> PersistenceError {
     commit_error(&format!("{context}: {error}"))

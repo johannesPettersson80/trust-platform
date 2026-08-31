@@ -71,6 +71,8 @@ pub enum PersistenceError {
     IdentityConflict(String),
     /// A backend could not durably commit the requested batch.
     Commit(String),
+    /// A remote backend could not be reached while opening a connection.
+    Connection(String),
     /// A configured durable capacity bound cannot accept another batch.
     CapacityExhausted(String),
     /// A batch attempted to move an existing buffer cursor backward.
@@ -95,6 +97,9 @@ impl std::fmt::Display for PersistenceError {
             }
             Self::Commit(message) => {
                 write!(formatter, "OpenOT persistence commit failed: {message}")
+            }
+            Self::Connection(message) => {
+                write!(formatter, "OpenOT persistence connection failed: {message}")
             }
             Self::CapacityExhausted(message) => {
                 write!(

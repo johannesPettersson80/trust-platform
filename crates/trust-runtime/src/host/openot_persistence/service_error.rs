@@ -17,6 +17,10 @@ pub(super) fn redacted_error(error: &PersistenceError) -> String {
             || "selected OpenOT persistence backend operation failed".to_string(),
             |context| format!("selected OpenOT persistence backend operation failed: {context}"),
         ),
+        PersistenceError::Connection(message) => safe_commit_context(message).map_or_else(
+            || "selected OpenOT persistence backend is unreachable".to_string(),
+            |context| format!("selected OpenOT persistence backend is unreachable: {context}"),
+        ),
         PersistenceError::CapacityExhausted(_) => {
             "OpenOT persistence durable capacity is exhausted; free space or increase the configured bound"
                 .to_string()
