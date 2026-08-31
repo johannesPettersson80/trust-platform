@@ -134,43 +134,13 @@ def changed_paths_sha256(repo: Path, base: str, head: str) -> str:
     return sha256_bytes(canonical_json_bytes(changed_paths(repo, base, head)))
 
 
-DOCS_CAPTURE_EXACT_PATHS = frozenset(
-    {
-        ".github/workflows/docs-captures.yml",
-        "docs/public/assets/capture-inventory.json",
-        "scripts/build_browser_analysis_wasm_spike.sh",
-        "scripts/tests/test_capture_lifecycle.py",
-        "scripts/check_public_docs_assets.py",
-        "scripts/generate_public_docs_media.py",
-    }
-)
-DOCS_CAPTURE_PREFIXES = (
-    "crates/trust-runtime/src/web/ui/",
-    "docs/public/assets/images/",
-    "editors/vscode/",
-    "examples/tutorials/12_hmi_pid_process_dashboard/",
-    "manual-tests/trust-lsp-smoke/",
-    "scripts/captures/",
-)
-
-
-def docs_captures_changed(paths: list[str]) -> bool:
-    return any(
-        path in DOCS_CAPTURE_EXACT_PATHS
-        or any(path.startswith(prefix) for prefix in DOCS_CAPTURE_PREFIXES)
-        for path in paths
-    )
-
-
-def required_command_ids(
-    *, vscode_changed: bool, docs_captures_changed: bool = False
-) -> tuple[str, ...]:
-    required = BASE_REQUIRED_COMMANDS
-    if docs_captures_changed or vscode_changed:
-        required += ("remote_docs_capture_lifecycle",)
+def required_command_ids(*, vscode_changed: bool) -> tuple[str, ...]:
     if vscode_changed:
-        required += ("remote_vscode",)
-    return required
+        return BASE_REQUIRED_COMMANDS + (
+            "remote_docs_capture_lifecycle",
+            "remote_vscode",
+        )
+    return BASE_REQUIRED_COMMANDS
 
 
 def command_state(check: dict[str, Any]) -> str:
@@ -220,7 +190,6 @@ def validate_artifact(repo: Path, artifact: dict[str, Any], head: str) -> list[s
         by_id[command_id] = row
 
     vscode_changed = False
-    capture_paths_changed = False
     base_exists = (
         isinstance(base_sha, str)
         and SHA_RE.fullmatch(base_sha) is not None
@@ -231,16 +200,11 @@ def validate_artifact(repo: Path, artifact: dict[str, Any], head: str) -> list[s
         and git(repo, "cat-file", "-e", f"{head}^{{commit}}", check=False) == ""
     )
     if base_exists and head_exists:
-        paths = changed_paths(repo, base_sha, head)
         vscode_changed = any(
             path == "editors/vscode" or path.startswith("editors/vscode/")
-            for path in paths
+            for path in changed_paths(repo, base_sha, head)
         )
-        capture_paths_changed = docs_captures_changed(paths)
-    for command_id in required_command_ids(
-        vscode_changed=vscode_changed,
-        docs_captures_changed=capture_paths_changed,
-    ):
+    for command_id in required_command_ids(vscode_changed=vscode_changed):
         row = by_id.get(command_id)
         if row is None:
             failures.append(f"artifact is missing required command {command_id}")

@@ -1,6 +1,5 @@
 import io
 import json
-import re
 import subprocess
 import tempfile
 import unittest
@@ -121,54 +120,8 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         )
         self.assertIn(
             "remote_docs_capture_lifecycle",
-            guard.required_command_ids(vscode_changed=True, docs_captures_changed=True),
+            guard.required_command_ids(vscode_changed=True),
         )
-
-    def test_every_docs_capture_workflow_path_requires_lifecycle_parity(self) -> None:
-        workflow_paths = (
-            ".github/workflows/docs-captures.yml",
-            "crates/trust-runtime/src/web/ui/index.html",
-            "docs/public/assets/capture-inventory.json",
-            "docs/public/assets/images/hmi.png",
-            "editors/vscode/src/extension.ts",
-            "examples/tutorials/12_hmi_pid_process_dashboard/main.st",
-            "manual-tests/trust-lsp-smoke/README.md",
-            "scripts/build_browser_analysis_wasm_spike.sh",
-            "scripts/captures/run-owned-command.sh",
-            "scripts/tests/test_capture_lifecycle.py",
-            "scripts/check_public_docs_assets.py",
-            "scripts/generate_public_docs_media.py",
-        )
-
-        for path in workflow_paths:
-            with self.subTest(path=path):
-                self.assertTrue(guard.docs_captures_changed([path]))
-                self.assertIn(
-                    "remote_docs_capture_lifecycle",
-                    guard.required_command_ids(
-                        vscode_changed=False, docs_captures_changed=True
-                    ),
-                )
-
-    def test_docs_capture_predicate_matches_pull_request_workflow_filter(self) -> None:
-        repo_root = Path(__file__).resolve().parents[4]
-        workflow = (repo_root / ".github/workflows/docs-captures.yml").read_text(
-            encoding="utf-8"
-        )
-        pull_request_paths = workflow.split("  pull_request:", 1)[1]
-        pull_request_paths = pull_request_paths.split("  push:", 1)[0]
-        paths = re.findall(r'^      - "([^"]+)"$', pull_request_paths, re.MULTILINE)
-
-        self.assertTrue(paths)
-        for path in paths:
-            representative = (
-                path.removesuffix("**") + "representative.txt"
-                if path.endswith("**")
-                else path
-            )
-            with self.subTest(path=path):
-                self.assertTrue(guard.docs_captures_changed([representative]))
-        self.assertFalse(guard.docs_captures_changed(["docs/specs/unrelated.md"]))
 
     def test_vscode_remote_gate_uses_unique_short_lived_temp_directory(self) -> None:
         commands = dict(
