@@ -69,6 +69,11 @@ class OpenOtDatabaseRunnerContractTests(unittest.TestCase):
 
         self.assertIn("[[ -L $state_dir || -L $marker ]]", teardown)
         self.assertIn("docker rm -f", teardown)
+        self.assertIn("docker volume rm", teardown)
+        self.assertLess(
+            teardown.index('docker inspect --format'),
+            teardown.index('docker rm -f'),
+        )
         self.assertIn("docker network rm", teardown)
         self.assertIn("OPENOT_DATABASE_RUNNER_STATE_DIR", teardown)
         self.assertIn(".trust-openot-runner-state", teardown)

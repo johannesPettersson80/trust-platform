@@ -80,7 +80,8 @@ Target release: `v0.24.68`
   selection, and reject compiled-out TOML backends synchronously at startup.
 - Provision every real logging database from repository-owned, digest-pinned
   runner scripts with ephemeral credentials, authenticated readiness checks,
-  symlink-safe teardown, and retained exact-candidate evidence.
+  symlink-safe container/network/anonymous-volume teardown, and retained
+  exact-candidate evidence.
 - Make every OpenOT database example portable to Windows and Linux by using a
   TCP runtime control endpoint with an explicit local-only example token instead
   of a Unix-only `/tmp` socket.

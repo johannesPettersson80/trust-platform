@@ -31,7 +31,17 @@ containers=(
   "$prefix-mariadb" "$prefix-sqlserver" "$prefix-influx"
   "$prefix-influx-tls"
 )
+mapfile -t volumes < <(
+  for container in "${containers[@]}"; do
+    docker inspect --format \
+      '{{range .Mounts}}{{if eq .Type "volume"}}{{println .Name}}{{end}}{{end}}' \
+      "$container" 2>/dev/null || true
+  done | sed '/^$/d' | sort -u
+)
 docker rm -f "${containers[@]}" >/dev/null 2>&1 || true
+if (( ${#volumes[@]} != 0 )); then
+  docker volume rm "${volumes[@]}" >/dev/null 2>&1 || true
+fi
 docker network rm "$prefix-network" >/dev/null 2>&1 || true
 
 if [[ -d $state_dir/sqlserver ]]; then
