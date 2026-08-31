@@ -53,6 +53,49 @@ fn open_runtime_worker(
 }
 
 #[cfg(unix)]
+fn validate_startup_artifacts(
+    config: &OpenOtTelemetryConfig,
+    bundle_root: &Path,
+) -> Result<
+    (
+        open_ot_definition::DefinitionFile,
+        std::path::PathBuf,
+        OpenOtPersistenceConfig,
+    ),
+    PersistenceError,
+> {
+    OpenOtDocumentSink::validate_backend_available(&config.persistence)?;
+    let definition_path = bundle_root.join("openot-definition.json");
+    let definition_bytes = std::fs::read(&definition_path).map_err(|error| {
+        PersistenceError::InvalidConfig(format!(
+            "read compiled OpenOT definition '{}': {error}",
+            definition_path.display()
+        ))
+    })?;
+    let definition: open_ot_definition::DefinitionFile = serde_json::from_slice(&definition_bytes)
+        .map_err(|error| {
+            PersistenceError::InvalidConfig(format!(
+                "parse compiled OpenOT definition '{}': {error}",
+                definition_path.display()
+            ))
+        })?;
+    let source_path = if config.path.is_absolute() {
+        config.path.clone()
+    } else {
+        bundle_root.join(&config.path)
+    };
+    let persistence = config.persistence.clone();
+    OpenOtPersistenceConsumer::new(definition.clone(), None)?;
+    super::projection::LoggingProjector::new(std::iter::once(definition.clone()))?;
+    SharedMemoryOpenOtSource::open_with_limits(
+        &source_path,
+        persistence.batch_size,
+        persistence.queue_capacity,
+    )?;
+    Ok((definition, source_path, persistence))
+}
+
+#[cfg(unix)]
 fn apply_worker_error(
     status: &Arc<Mutex<OpenOtPersistenceStatus>>,
     error: &PersistenceError,
@@ -188,37 +231,12 @@ impl OpenOtPersistenceService {
         if !config.persistence.enabled {
             return Ok(None);
         }
-        let definition_path = bundle_root.join("openot-definition.json");
-        let definition_bytes = std::fs::read(&definition_path).map_err(|error| {
-            PersistenceError::InvalidConfig(format!(
-                "read compiled OpenOT definition '{}': {error}",
-                definition_path.display()
-            ))
-        })?;
-        let definition: open_ot_definition::DefinitionFile =
-            serde_json::from_slice(&definition_bytes).map_err(|error| {
-                PersistenceError::InvalidConfig(format!(
-                    "parse compiled OpenOT definition '{}': {error}",
-                    definition_path.display()
-                ))
-            })?;
-        let source_path = if config.path.is_absolute() {
-            config.path.clone()
-        } else {
-            bundle_root.join(&config.path)
-        };
-        let persistence_config = config.persistence.clone();
+        let (definition, source_path, persistence_config) =
+            validate_startup_artifacts(config, bundle_root)?;
         // Definition parsing and shared-memory carriage availability are local
         // bundle artifacts and therefore remain synchronous startup checks.
         // Opening or migrating the selected database belongs to the supervised
         // worker below so a remote outage cannot stop PLC startup.
-        OpenOtPersistenceConsumer::new(definition.clone(), None)?;
-        super::projection::LoggingProjector::new(std::iter::once(definition.clone()))?;
-        SharedMemoryOpenOtSource::open_with_limits(
-            &source_path,
-            persistence_config.batch_size,
-            persistence_config.queue_capacity,
-        )?;
         let reconnect_bundle_root = bundle_root.to_path_buf();
         let reconnect_source_path = source_path.clone();
         let reconnect_definition = definition.clone();

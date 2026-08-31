@@ -1,5 +1,5 @@
 use super::projection::{EventLogRow, ProjectedDocument};
-use super::projection_domains::DomainRow;
+use super::projection_domains::{DomainRow, LossRow, UnresolvedRow};
 use super::PersistenceError;
 
 pub(super) fn line_protocol(projected: &ProjectedDocument) -> Result<String, PersistenceError> {
@@ -259,70 +259,74 @@ fn domain_line(row: &DomainRow) -> Result<String, PersistenceError> {
             optional_bool(&mut fields, "cold_start", row.cold_start);
             event_line("system_events", &row.common, "system", fields)
         }
-        DomainRow::Loss(row) => {
-            let mut fields = vec![
-                string("received_time", &row.received_time),
-                unsigned_text("received_time_ns", &row.received_time_ns),
-                uint("buffer_id", row.buffer_id),
-                unsigned_text("epoch_id", &row.epoch_id),
-                unsigned_text("sequence", &row.first_sequence),
-                string("definition_hash", &row.definition_hash),
-                string("source_path", &row.source_path),
-                string("source_hierarchy", &row.source_hierarchy),
-                boolean("time_unsynced", row.time_unsynced),
-                boolean("synthetic_record", row.synthetic_record),
-                boolean("partial_payload", row.partial_payload),
-                unsigned_text("first_sequence", &row.first_sequence),
-                unsigned_text("last_sequence", &row.last_sequence),
-                unsigned_text("lost_count", &row.lost_count),
-                string("basis", row.basis),
-            ];
-            optional_string(&mut fields, "source", row.source.as_deref());
-            custom_line(
-                "data_loss",
-                &row.record_id,
-                &row.run_id,
-                row.source_id,
-                &row.received_time_ns,
-                fields,
-            )
-        }
-        DomainRow::Unresolved(row) => {
-            let mut fields = vec![
-                string("received_time", &row.received_time),
-                unsigned_text("received_time_ns", &row.received_time_ns),
-                uint("buffer_id", row.buffer_id),
-                unsigned_text("epoch_id", &row.epoch_id),
-                unsigned_text("sequence", &row.sequence),
-                string("definition_hash", &row.definition_hash),
-                string("source_path", &row.source_path),
-                string("source_hierarchy", &row.source_hierarchy),
-                boolean("time_unsynced", row.time_unsynced),
-                boolean("synthetic_record", row.synthetic_record),
-                boolean("partial_payload", row.partial_payload),
-                uint("event_type_id", row.event_type_id),
-                string("reason", &row.reason),
-            ];
-            optional_string(&mut fields, "event_time", row.event_time.as_deref());
-            optional_unsigned_text(&mut fields, "event_time_ns", row.event_time_ns.as_deref());
-            optional_string(&mut fields, "source", row.source.as_deref());
-            optional_string(
-                &mut fields,
-                "diagnostic_summary",
-                row.diagnostic_summary.as_deref(),
-            );
-            custom_line(
-                "unresolved_records",
-                &row.record_id,
-                &row.run_id,
-                row.source_id,
-                row.event_time_ns
-                    .as_deref()
-                    .unwrap_or(&row.received_time_ns),
-                fields,
-            )
-        }
+        DomainRow::Loss(row) => loss_line(row),
+        DomainRow::Unresolved(row) => unresolved_line(row),
     }
+}
+
+fn loss_line(row: &LossRow) -> Result<String, PersistenceError> {
+    let mut fields = vec![
+        string("received_time", &row.received_time),
+        unsigned_text("received_time_ns", &row.received_time_ns),
+        uint("buffer_id", row.buffer_id),
+        unsigned_text("epoch_id", &row.epoch_id),
+        unsigned_text("sequence", &row.first_sequence),
+        string("definition_hash", &row.definition_hash),
+        string("source_path", &row.source_path),
+        string("source_hierarchy", &row.source_hierarchy),
+        boolean("time_unsynced", row.time_unsynced),
+        boolean("synthetic_record", row.synthetic_record),
+        boolean("partial_payload", row.partial_payload),
+        unsigned_text("first_sequence", &row.first_sequence),
+        unsigned_text("last_sequence", &row.last_sequence),
+        unsigned_text("lost_count", &row.lost_count),
+        string("basis", row.basis),
+    ];
+    optional_string(&mut fields, "source", row.source.as_deref());
+    custom_line(
+        "data_loss",
+        &row.record_id,
+        &row.run_id,
+        row.source_id,
+        &row.received_time_ns,
+        fields,
+    )
+}
+
+fn unresolved_line(row: &UnresolvedRow) -> Result<String, PersistenceError> {
+    let mut fields = vec![
+        string("received_time", &row.received_time),
+        unsigned_text("received_time_ns", &row.received_time_ns),
+        uint("buffer_id", row.buffer_id),
+        unsigned_text("epoch_id", &row.epoch_id),
+        unsigned_text("sequence", &row.sequence),
+        string("definition_hash", &row.definition_hash),
+        string("source_path", &row.source_path),
+        string("source_hierarchy", &row.source_hierarchy),
+        boolean("time_unsynced", row.time_unsynced),
+        boolean("synthetic_record", row.synthetic_record),
+        boolean("partial_payload", row.partial_payload),
+        uint("event_type_id", row.event_type_id),
+        string("reason", &row.reason),
+    ];
+    optional_string(&mut fields, "event_time", row.event_time.as_deref());
+    optional_unsigned_text(&mut fields, "event_time_ns", row.event_time_ns.as_deref());
+    optional_string(&mut fields, "source", row.source.as_deref());
+    optional_string(
+        &mut fields,
+        "diagnostic_summary",
+        row.diagnostic_summary.as_deref(),
+    );
+    custom_line(
+        "unresolved_records",
+        &row.record_id,
+        &row.run_id,
+        row.source_id,
+        row.event_time_ns
+            .as_deref()
+            .unwrap_or(&row.received_time_ns),
+        fields,
+    )
 }
 
 fn event_line(

@@ -56,12 +56,16 @@ fn influxdb3_sink_spools_and_delivers_to_real_influxdb_3_core() {
         110,
         "each canonical and typed InfluxDB point must have durable per-part state"
     );
-    let reconciliation = sink
+    let mut selected_sink = OpenOtDocumentSink::InfluxDb3(sink);
+    let reconciliation = selected_sink
         .maintenance_status()
-        .expect("deliver accepted spool batch");
+        .expect("selected enum must delegate detailed InfluxDB maintenance");
     assert_eq!(reconciliation.remote_pending, 0);
     assert_eq!(reconciliation.reconciled_parts, outcome.pending_parts);
     assert_eq!(reconciliation.pending_parts, 0);
+    let OpenOtDocumentSink::InfluxDb3(mut sink) = selected_sink else {
+        unreachable!("selected InfluxDB variant changed")
+    };
     assert_eq!(sink.pending_count().expect("pending spool count"), 0);
     assert_eq!(
         sink.remote_document_count_for_run(u64::from(std::process::id()))

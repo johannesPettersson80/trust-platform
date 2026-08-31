@@ -22,6 +22,13 @@ class OpenOtDatabaseRunnerContractTests(unittest.TestCase):
         self.assertTrue(prepare.is_file())
         self.assertTrue(teardown.is_file())
 
+    def test_release_gate_checks_compiled_out_backend_startup(self) -> None:
+        gate = (ROOT / "scripts/openot_real_database_gate.sh").read_text()
+
+        self.assertIn("openot_compiled_out_backend", gate)
+        self.assertIn("--no-default-features", gate)
+        self.assertIn("--features openot-database-postgresql", gate)
+
     def test_prepare_contract_is_ephemeral_and_exports_every_backend(self) -> None:
         prepare = (ROOT / "scripts/openot_database_runner_prepare.sh").read_text()
 

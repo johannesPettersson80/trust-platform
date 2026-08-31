@@ -102,6 +102,11 @@ run_gate() {
   "$@" 2>&1 | tee "$artifact_root/$name.log"
 }
 
+run_gate compiled-out-backend cargo test -p trust-runtime \
+  --no-default-features --features openot-database-postgresql \
+  --test openot_compiled_out_backend \
+  service_rejects_a_selected_backend_omitted_from_the_binary_synchronously \
+  -- --exact
 run_gate adapter-contracts cargo test -p trust-runtime \
   --features openot-real-database-tests --lib \
   openot_persistence::contract_tests -- --test-threads=1

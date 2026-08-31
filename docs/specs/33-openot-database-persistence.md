@@ -565,6 +565,12 @@ could not be assigned to a known typed domain without guessing.
 `pending_part_count` counts durable InfluxDB delivery parts not yet reconciled;
 it is zero for atomic relational backends. `reconciled_part_count` is the
 cumulative number of such parts confirmed remotely during this runtime.
+After a sink accepts a batch durably, the service MUST publish that commit's
+cursor, document counters, and known remote backlog before reporting a later
+maintenance/reconciliation failure. The maintenance failure is retried through
+the supervised error path and MUST NOT hide or roll back the already-durable
+local acceptance. A selected-sink wrapper MUST preserve the concrete adapter's
+detailed maintenance counters rather than replacing them with generic zeros.
 Status MUST also expose deterministic warning codes derived without database
 I/O: `lag` for a nonzero cursor lag, `retrying` after a retry, `placeholder`
 for unresolved documents, `loss` for any loss range, `spool_pressure` for

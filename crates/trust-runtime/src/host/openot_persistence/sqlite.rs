@@ -486,44 +486,7 @@ fn migrate(
     super::sqlite_read_model::create_domain_schema(&transaction)?;
 
     if version > 0 {
-        let canonical = {
-            let mut statement = transaction
-                .prepare("SELECT canonical_json FROM logging_records ORDER BY identity_key")
-                .map_err(sqlite_error("prepare schema v4 projection backfill"))?;
-            let rows = statement
-                .query_map([], |row| row.get::<_, String>(0))
-                .map_err(sqlite_error("query schema v4 projection backfill"))?
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(sqlite_error("decode schema v4 projection backfill"))?;
-            rows
-        };
-        for canonical_json in canonical {
-            let document: open_ot_document::Document = serde_json::from_str(&canonical_json)
-                .map_err(|error| {
-                    PersistenceError::Commit(format!(
-                        "SQLite migrate canonical document to schema 4 is malformed: {error}"
-                    ))
-                })?;
-            let projected = projector.project(&document)?;
-            if let Some(event) = projected.event {
-                transaction
-                    .execute(
-                        "INSERT INTO event_log (record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,event_type_id,event_name,has_unclassified_fields) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)",
-                        params![event.record_id,event.event_time,event.event_time_ns,event.received_time,event.received_time_ns,event.source,event.source_id,event.source_path,event.source_hierarchy,event.buffer_id,event.run_id,event.epoch_id,event.sequence,event.definition_hash,event.time_unsynced,event.synthetic_record,event.partial_payload,event.event_type_id,event.event_name,event.has_unclassified_fields],
-                    )
-                    .map_err(sqlite_error("backfill schema v4 event projection"))?;
-            }
-            for value in projected.logged_values {
-                let common = value.common;
-                transaction
-                    .execute(
-                        "INSERT INTO logged_values (record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value,previous_boolean_value,previous_signed_value,previous_unsigned_value,previous_number_value,previous_text_value,previous_exact_value,is_audited,actor,reason,authorization_result) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37,?38,?39)",
-                        params![common.record_id,common.event_time,common.event_time_ns,common.received_time,common.received_time_ns,common.source,common.source_id,common.source_path,common.source_hierarchy,common.buffer_id,common.run_id,common.epoch_id,common.sequence,common.definition_hash,common.time_unsynced,common.synthetic_record,common.partial_payload,value.value_id,value.value_name,value.value_type,value.unit,value.quality,value.semantic_role,value.boolean_value,value.signed_value,value.unsigned_value,value.number_value,value.text_value,value.exact_value,value.previous_boolean_value,value.previous_signed_value,value.previous_unsigned_value,value.previous_number_value,value.previous_text_value,value.previous_exact_value,value.is_audited,value.actor,value.reason,value.authorization_result],
-                    )
-                    .map_err(sqlite_error("backfill schema v4 logged value projection"))?;
-            }
-            super::sqlite_read_model::insert_domains(&transaction, projected.domains)?;
-        }
+        backfill_read_model(&transaction, projector)?;
     }
     transaction
         .execute_batch("PRAGMA user_version = 4;")
@@ -531,6 +494,51 @@ fn migrate(
     transaction
         .commit()
         .map_err(sqlite_error("commit schema migration"))
+}
+
+fn backfill_read_model(
+    transaction: &rusqlite::Transaction<'_>,
+    projector: &LoggingProjector,
+) -> Result<(), PersistenceError> {
+    let canonical = {
+        let mut statement = transaction
+            .prepare("SELECT canonical_json FROM logging_records ORDER BY identity_key")
+            .map_err(sqlite_error("prepare schema v4 projection backfill"))?;
+        let rows = statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(sqlite_error("query schema v4 projection backfill"))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(sqlite_error("decode schema v4 projection backfill"))?;
+        rows
+    };
+    for canonical_json in canonical {
+        let document: open_ot_document::Document =
+            serde_json::from_str(&canonical_json).map_err(|error| {
+                PersistenceError::Commit(format!(
+                    "SQLite migrate canonical document to schema 4 is malformed: {error}"
+                ))
+            })?;
+        let projected = projector.project(&document)?;
+        if let Some(event) = projected.event {
+            transaction
+                .execute(
+                    "INSERT INTO event_log (record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,event_type_id,event_name,has_unclassified_fields) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)",
+                    params![event.record_id,event.event_time,event.event_time_ns,event.received_time,event.received_time_ns,event.source,event.source_id,event.source_path,event.source_hierarchy,event.buffer_id,event.run_id,event.epoch_id,event.sequence,event.definition_hash,event.time_unsynced,event.synthetic_record,event.partial_payload,event.event_type_id,event.event_name,event.has_unclassified_fields],
+                )
+                .map_err(sqlite_error("backfill schema v4 event projection"))?;
+        }
+        for value in projected.logged_values {
+            let common = value.common;
+            transaction
+                .execute(
+                    "INSERT INTO logged_values (record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value,previous_boolean_value,previous_signed_value,previous_unsigned_value,previous_number_value,previous_text_value,previous_exact_value,is_audited,actor,reason,authorization_result) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37,?38,?39)",
+                    params![common.record_id,common.event_time,common.event_time_ns,common.received_time,common.received_time_ns,common.source,common.source_id,common.source_path,common.source_hierarchy,common.buffer_id,common.run_id,common.epoch_id,common.sequence,common.definition_hash,common.time_unsynced,common.synthetic_record,common.partial_payload,value.value_id,value.value_name,value.value_type,value.unit,value.quality,value.semantic_role,value.boolean_value,value.signed_value,value.unsigned_value,value.number_value,value.text_value,value.exact_value,value.previous_boolean_value,value.previous_signed_value,value.previous_unsigned_value,value.previous_number_value,value.previous_text_value,value.previous_exact_value,value.is_audited,value.actor,value.reason,value.authorization_result],
+                )
+                .map_err(sqlite_error("backfill schema v4 logged value projection"))?;
+        }
+        super::sqlite_read_model::insert_domains(transaction, projected.domains)?;
+    }
+    Ok(())
 }
 
 fn sqlite_error(context: &'static str) -> impl FnOnce(rusqlite::Error) -> PersistenceError {

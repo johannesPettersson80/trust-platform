@@ -34,7 +34,7 @@ package "Host persistence thread" {
 artifact "openot-definition.json" as definition
 component "runtime.toml\nbackend discriminator" as toml
 definition --> resolver : exact compiled definition
-toml --> factory : selects exactly one adapter
+toml --> factory : synchronously validates compiled support\nthen selects exactly one adapter
 
 database "SQLite" as sqlite
 database "PostgreSQL" as postgres
@@ -64,5 +64,7 @@ ring cursor in one transaction. Influx uses durable
 per-part reconciliation before remote acknowledgement.
 Initial remote open, migration, and reconnect remain in
 the supervised host worker and cannot block PLC startup.
+Durable commit status is published before a subsequent
+maintenance failure enters supervised retry.
 end note
 @enduml

@@ -75,6 +75,9 @@ Target release: `v0.24.68`
 - Make InfluxDB delivery bounded and continuous under sustained input, retain
   the complete typed/domain/provenance model, and require authenticated,
   CA-verified real-product release proof.
+- Publish an InfluxDB spool commit before surfacing later reconciliation
+  failures, preserve detailed reconciliation counters through backend
+  selection, and reject compiled-out TOML backends synchronously at startup.
 - Provision every real logging database from repository-owned, digest-pinned
   runner scripts with ephemeral credentials, authenticated readiness checks,
   symlink-safe teardown, and retained exact-candidate evidence.

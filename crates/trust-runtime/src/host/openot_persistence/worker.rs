@@ -61,6 +61,7 @@ pub struct OpenOtPersistenceWorker<S, D> {
     sink: D,
     status: OpenOtPersistenceWorkerStatus,
     pending: Option<super::PersistenceBatch>,
+    deferred_maintenance_error: Option<PersistenceError>,
 }
 
 impl<S, D> OpenOtPersistenceWorker<S, D>
@@ -76,6 +77,7 @@ where
             sink,
             status: OpenOtPersistenceWorkerStatus::default(),
             pending: None,
+            deferred_maintenance_error: None,
         }
     }
 
@@ -84,6 +86,9 @@ where
         &mut self,
         receive_time_ns: u64,
     ) -> Result<Option<CommitOutcome>, PersistenceError> {
+        if let Some(error) = self.deferred_maintenance_error.take() {
+            return Err(error);
+        }
         if self.pending.is_some() {
             return self.commit_pending().map(Some);
         }
@@ -154,15 +159,21 @@ where
             .lost_record_count
             .saturating_add(outcome.lost_records);
         self.status.cursor_abs = outcome.checkpoint.cursor_abs;
-        let maintenance = self.sink.maintenance_status()?;
-        outcome.remote_pending = maintenance.remote_pending;
-        outcome.pending_parts = maintenance.pending_parts;
-        self.status.remote_pending = maintenance.remote_pending as u64;
-        self.status.reconciled_part_count = self
-            .status
-            .reconciled_part_count
-            .saturating_add(maintenance.reconciled_parts as u64);
-        self.status.pending_part_count = maintenance.pending_parts as u64;
+        self.status.remote_pending = outcome.remote_pending as u64;
+        self.status.pending_part_count = outcome.pending_parts as u64;
+        match self.sink.maintenance_status() {
+            Ok(maintenance) => {
+                outcome.remote_pending = maintenance.remote_pending;
+                outcome.pending_parts = maintenance.pending_parts;
+                self.status.remote_pending = maintenance.remote_pending as u64;
+                self.status.reconciled_part_count = self
+                    .status
+                    .reconciled_part_count
+                    .saturating_add(maintenance.reconciled_parts as u64);
+                self.status.pending_part_count = maintenance.pending_parts as u64;
+            }
+            Err(error) => self.deferred_maintenance_error = Some(error),
+        }
         Ok(outcome)
     }
 
@@ -182,6 +193,35 @@ mod tests {
 
     use super::*;
     use crate::openot_persistence::contracts::InMemoryDocumentSink;
+
+    struct CommitThenMaintenanceFails {
+        inner: InMemoryDocumentSink,
+    }
+
+    impl DocumentSink for CommitThenMaintenanceFails {
+        fn maintenance_status(
+            &mut self,
+        ) -> Result<super::super::MaintenanceOutcome, PersistenceError> {
+            Err(PersistenceError::Commit(
+                "reviewed remote maintenance outage".to_string(),
+            ))
+        }
+
+        fn load_checkpoint(
+            &mut self,
+            buffer_id: u32,
+            run_id: u64,
+        ) -> Result<Option<super::super::PersistenceCheckpoint>, PersistenceError> {
+            self.inner.load_checkpoint(buffer_id, run_id)
+        }
+
+        fn commit(
+            &mut self,
+            batch: &super::super::PersistenceBatch,
+        ) -> Result<CommitOutcome, PersistenceError> {
+            self.inner.commit(batch)
+        }
+    }
 
     struct OnePoll(Option<OpenOtSourcePoll>);
 
@@ -350,6 +390,56 @@ mod tests {
         worker.run_once(22).expect("durable local acceptance");
 
         assert_eq!(worker.status().remote_pending, 1);
+    }
+
+    #[test]
+    fn worker_publishes_durable_commit_before_reporting_remote_maintenance_failure() {
+        let definition = sample_definition();
+        let hash = compute_content_hash(&definition).expect("hash sample definition");
+        let poll = OpenOtSourcePoll {
+            batch: ReadBatch {
+                records: vec![ReadRecord {
+                    start_abs: 0,
+                    end_abs: 64,
+                    record: Record::new(11, 1, 0, 1, EVENT_HEARTBEAT),
+                }],
+                next_abs: 64,
+                lapped: false,
+            },
+            snapshot: ControlBlockSnapshot {
+                version: 2,
+                caps: 0,
+                buffer_id: DEFAULT_BUFFER_ID,
+                buffer_bytes: 4096,
+                head_abs: 64,
+                oldest_abs: 0,
+                lost_count: 0,
+                run_id: 1,
+                epoch_id: 1,
+                epoch_first_abs: 0,
+                definition_hash: hash.carriage_hash,
+                prev_definition_hash: [0; 8],
+            },
+            rejected_total: 0,
+        };
+        let consumer = OpenOtPersistenceConsumer::new(definition, None).expect("consumer");
+        let sink = CommitThenMaintenanceFails {
+            inner: InMemoryDocumentSink::new(),
+        };
+        let mut worker = OpenOtPersistenceWorker::new(OnePoll(Some(poll)), consumer, sink);
+
+        let committed = worker
+            .run_once(22)
+            .expect("local durable commit must be published before maintenance failure")
+            .expect("one committed batch");
+        assert_eq!(committed.checkpoint.cursor_abs, 64);
+        assert_eq!(worker.status().documents_committed, 1);
+        assert_eq!(worker.status().cursor_abs, 64);
+
+        let error = worker
+            .run_once(23)
+            .expect_err("deferred remote maintenance failure must remain observable");
+        assert!(matches!(error, PersistenceError::Commit(_)));
     }
 
     #[test]
