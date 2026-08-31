@@ -787,12 +787,12 @@ A compile error, missing dependency, broken harness, timeout, ignored test, filt
 - [x] `OOTDB-P8-005` Bump and synchronize workspace/VS Code versions as required by repository release hygiene for the release-notable runtime feature.
 - [x] `OOTDB-P8-005A` Read every automatic security/code review and repair the complete finding ledger test-first. Evidence: security review reported no findings; code review identified durable status publication, selected-sink maintenance delegation, and synchronous compiled-backend validation defects. Each received an expected assertion red before production repair and a same-test green afterward, including the real InfluxDB 3 reconciliation test (110 parts). A separate expected-red runner-contract test then registered the compiled-out-backend test in the mandatory real-database release gate and passed after the gate was wired.
 - [x] `OOTDB-P8-005B` Run a post-repair SOLID/KISS/DRY and architecture audit. Evidence: startup artifact validation, SQLite read-model backfill, and Influx domain-line construction were extracted into focused helpers; `cargo run -p xtask -- architecture-doctor --full-map` changed `FULLMAP-CHECK-10` from three OpenOT oversized-function findings to `PASS`. Builder storage forensics also found anonymous database volumes surviving teardown; an expected-red runner-contract test now requires pre-removal volume discovery and explicit removal, and the real runner lifecycle verifies no owned volume remains.
-- [ ] `OOTDB-P8-006` Freeze one clean candidate after focused tests and cheap full-diff preflight; any code, schema, migration, docs claim, validator, or instruction change invalidates the candidate.
-- [ ] `OOTDB-P8-007` Run remote disk preflight, then remote `just fmt`, `just clippy`, and `just test-all` plus feature-specific runtime/OpenOT/database gates.
-- [ ] `OOTDB-P8-008` Run the required runtime vertical tests: `api_smoke`, `debug_control`, `complete_program`, and `runtime_reliability`.
-- [ ] `OOTDB-P8-009` Run `openot_telemetry` and the fenced `openot_capstone` against the exact candidate and pinned OpenOT revision.
-- [ ] `OOTDB-P8-009A` Run the complete real-database matrix against the exact frozen candidate and archive per-backend evidence; no backend may be listed as supported from an older SHA or a mock-only run.
-- [ ] `OOTDB-P8-009B` Require the release artifacts and public support matrix to list only database products and versions proven by `OOTDB-P8-009A`.
+- [x] `OOTDB-P8-006` Freeze one clean candidate after focused tests and cheap full-diff preflight; any code, schema, migration, docs claim, validator, or instruction change invalidates the candidate.
+- [x] `OOTDB-P8-007` Run remote disk preflight, then remote `just fmt`, `just clippy`, and `just test-all` plus feature-specific runtime/OpenOT/database gates.
+- [x] `OOTDB-P8-008` Run the required runtime vertical tests: `api_smoke`, `debug_control`, `complete_program`, and `runtime_reliability`.
+- [x] `OOTDB-P8-009` Run `openot_telemetry` and the fenced `openot_capstone` against the exact candidate and pinned OpenOT revision.
+- [x] `OOTDB-P8-009A` Run the complete real-database matrix against the exact frozen candidate and archive per-backend evidence; no backend may be listed as supported from an older SHA or a mock-only run.
+- [x] `OOTDB-P8-009B` Require the release artifacts and public support matrix to list only database products and versions proven by `OOTDB-P8-009A`.
 
   Evidence contract: the frozen candidate must pass remote `just fmt`,
   `just clippy`, `just test-all`, the four runtime vertical tests, 43/43
@@ -803,6 +803,21 @@ A compile error, missing dependency, broken harness, timeout, ignored test, filt
   archives exact evidence, and is a hard release-workflow dependency. This
   checklist/evidence freeze is part of that candidate and is validated before
   the guarded push; no older-SHA result is release authority.
+
+  Final pre-push evidence: the exact-SHA release-candidate guard passed remote
+  VS Code tests, `just fmt`, `just clippy`, and `just test-all`. The four
+  explicit runtime vertical suites then passed 3, 20, 1, and 4 tests
+  respectively; the complete `openot_telemetry` binary passed 43/43 and the
+  fenced cross-process `openot_capstone` passed with zero lost, lapped,
+  rejected, poll-error, or stale records. `scripts/openot_real_database_gate.sh`
+  passed 50 real adapter contracts, 8 service-lifecycle tests, release-profile
+  ingest/catch-up qualification, the real authored PLC workload on SQLite and
+  all six network products, and the system/loss/placeholder matrix. The
+  archived product identities are limited to PostgreSQL 18.6, TimescaleDB
+  2.29.2/PG18, MySQL 8.4.11, MariaDB 11.8.8, SQL Server 2025 CU8, InfluxDB
+  3.11.2 Core, and bundled SQLite. The runner teardown returned containers,
+  network, state, environment files, and anonymous Docker volumes to their
+  pre-run baseline.
 - [ ] `OOTDB-P8-010` Prepare the exact-SHA release-candidate artifact, push once, collect the complete CI failure ledger, and merge only through the release-candidate guard.
 - [ ] `OOTDB-P8-011` Complete annotated tag, Release workflow, GitHub Latest, asset/checksum verification, Marketplace propagation when applicable, and post-merge audit before reporting release completion.
 
@@ -829,11 +844,11 @@ A compile error, missing dependency, broken harness, timeout, ignored test, filt
 
 ## Completion Definition
 
-- [ ] `OOTDB-DONE-001` Every shipped behavior cites an approved specification section and a native executable test.
-- [ ] `OOTDB-DONE-002` Every behavior-changing slice records honest expected-red and same-test green evidence.
-- [ ] `OOTDB-DONE-003` Every supported TOML-selected database backend preserves exact OpenOT meaning internally and exposes the specified descriptive typed read model.
-- [ ] `OOTDB-DONE-004` Database failure and recovery are proven without PLC scan blocking or silent acknowledgment/data loss.
-- [ ] `OOTDB-DONE-005` Restart, idempotency, transaction, migration, corruption, disk-full, overflow, definition-change, and shutdown contracts are proven.
-- [ ] `OOTDB-DONE-006` Examples are runnable, cover every logging domain/value type, avoid JSON-path queries, and every documented command is verified.
-- [ ] `OOTDB-DONE-007` Architecture diagrams/checklists, public docs, changelog, configuration references, and release metadata match the shipped behavior.
+- [x] `OOTDB-DONE-001` Every shipped behavior cites an approved specification section and a native executable test.
+- [x] `OOTDB-DONE-002` Every behavior-changing slice records honest expected-red and same-test green evidence.
+- [x] `OOTDB-DONE-003` Every supported TOML-selected database backend preserves exact OpenOT meaning internally and exposes the specified descriptive typed read model.
+- [x] `OOTDB-DONE-004` Database failure and recovery are proven without PLC scan blocking or silent acknowledgment/data loss.
+- [x] `OOTDB-DONE-005` Restart, idempotency, transaction, migration, corruption, disk-full, overflow, definition-change, and shutdown contracts are proven.
+- [x] `OOTDB-DONE-006` Examples are runnable, cover every logging domain/value type, avoid JSON-path queries, and every documented command is verified.
+- [x] `OOTDB-DONE-007` Architecture diagrams/checklists, public docs, changelog, configuration references, and release metadata match the shipped behavior.
 - [ ] `OOTDB-DONE-008` Focused tests, runtime vertical tests, OpenOT integration/capstone, remote full gates, exact-SHA CI, public release, and post-merge cleanup all pass with evidence.
