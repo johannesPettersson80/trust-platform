@@ -517,6 +517,8 @@ impl SqlServerDocumentSink {
             .iter()
             .filter(|document| document.has_unclassified_event())
             .count();
+        let (unresolved_documents, loss_ranges, lost_records) =
+            super::projection::committed_special_counts(&pending)?;
         if !pending.is_empty() {
             let mut parameter = 1;
             let tuples = pending
@@ -632,6 +634,9 @@ impl SqlServerDocumentSink {
             remote_pending: 0,
             projection_rows_committed,
             unclassified_events,
+            unresolved_documents,
+            loss_ranges,
+            lost_records,
             pending_parts: 0,
             checkpoint: batch.checkpoint,
         })

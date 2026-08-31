@@ -33,19 +33,23 @@ fn open_runtime_worker(
     bundle_root: &Path,
     source_path: &Path,
     definition: &open_ot_definition::DefinitionFile,
-) -> Result<RuntimePersistenceWorker, PersistenceError> {
+) -> Result<(RuntimePersistenceWorker, u32), PersistenceError> {
     let consumer = OpenOtPersistenceConsumer::new(definition.clone(), None)?;
-    let sink = OpenOtDocumentSink::open_with_definitions(
+    let mut sink = OpenOtDocumentSink::open_with_definitions(
         persistence,
         bundle_root,
         std::slice::from_ref(definition),
     )?;
+    let schema_version = sink.schema_version()?;
     let source = SharedMemoryOpenOtSource::open_with_limits(
         source_path,
         persistence.batch_size,
         persistence.queue_capacity,
     )?;
-    Ok(OpenOtPersistenceWorker::new(source, consumer, sink))
+    Ok((
+        OpenOtPersistenceWorker::new(source, consumer, sink),
+        schema_version,
+    ))
 }
 
 #[cfg(unix)]
@@ -124,7 +128,7 @@ pub struct OpenOtPersistenceStatus {
     pub state: OpenOtPersistenceState,
     /// TOML-selected backend name, absent when disabled.
     pub backend: Option<String>,
-    /// Compatible truST-owned schema version, absent when disabled.
+    /// Compatible truST-owned schema version, absent until a selected sink opens.
     pub schema_version: Option<u32>,
     /// Canonical documents prepared by the worker.
     pub documents_read: u64,
@@ -167,6 +171,8 @@ pub struct OpenOtPersistenceStatus {
 /// Owned host service handle. Dropping it requests bounded shutdown.
 pub struct OpenOtPersistenceService {
     stop: Arc<AtomicBool>,
+    drain_expired: Arc<AtomicBool>,
+    shutdown_deadline: Arc<Mutex<Option<std::time::Instant>>>,
     status: Arc<Mutex<OpenOtPersistenceStatus>>,
     thread: Option<JoinHandle<()>>,
     shutdown_timeout: Duration,
@@ -202,19 +208,30 @@ impl OpenOtPersistenceService {
             bundle_root.join(&config.path)
         };
         let persistence_config = config.persistence.clone();
+        // Definition parsing and shared-memory carriage availability are local
+        // bundle artifacts and therefore remain synchronous startup checks.
+        // Opening or migrating the selected database belongs to the supervised
+        // worker below so a remote outage cannot stop PLC startup.
+        OpenOtPersistenceConsumer::new(definition.clone(), None)?;
+        super::projection::LoggingProjector::new(std::iter::once(definition.clone()))?;
+        SharedMemoryOpenOtSource::open_with_limits(
+            &source_path,
+            persistence_config.batch_size,
+            persistence_config.queue_capacity,
+        )?;
         let reconnect_bundle_root = bundle_root.to_path_buf();
         let reconnect_source_path = source_path.clone();
         let reconnect_definition = definition.clone();
-        let initial_worker =
-            open_runtime_worker(&persistence_config, bundle_root, &source_path, &definition)?;
         let stop = Arc::new(AtomicBool::new(false));
+        let drain_expired = Arc::new(AtomicBool::new(false));
+        let shutdown_deadline = Arc::new(Mutex::new(None));
         let status = Arc::new(Mutex::new(OpenOtPersistenceStatus {
             state: OpenOtPersistenceState::Starting,
             backend: config
                 .persistence
                 .backend
                 .map(|backend| backend.as_str().to_string()),
-            schema_version: Some(3),
+            schema_version: None,
             documents_read: 0,
             documents_committed: 0,
             documents_duplicated: 0,
@@ -235,6 +252,8 @@ impl OpenOtPersistenceService {
             last_error: None,
         }));
         let worker_stop = Arc::clone(&stop);
+        let worker_drain_expired = Arc::clone(&drain_expired);
+        let worker_shutdown_deadline = Arc::clone(&shutdown_deadline);
         let worker_status = Arc::clone(&status);
         let interval = Duration::from_millis(config.persistence.flush_interval_ms);
         let retry_initial = Duration::from_millis(config.persistence.retry_initial_ms);
@@ -244,15 +263,22 @@ impl OpenOtPersistenceService {
         let thread = std::thread::Builder::new()
             .name("trust-openot-persistence".to_string())
             .spawn(move || {
-                let mut worker = Some(initial_worker);
+                let mut worker = None;
                 let mut retry_delay = retry_initial;
                 let mut consecutive_retries = 0u32;
-                let mut committed_before_reconnect = 0u64;
-                let mut duplicated_before_reconnect = 0u64;
-                let mut projection_rows_before_reconnect = 0u64;
-                let mut unclassified_before_reconnect = 0u64;
-                let mut reconciled_parts_before_reconnect = 0u64;
-                while !worker_stop.load(Ordering::Acquire) {
+                let mut reconnect_totals = ReconnectTotals::default();
+                let mut drain_target = None;
+                loop {
+                    let requested = worker_stop.load(Ordering::Acquire);
+                    let deadline = worker_shutdown_deadline
+                        .lock()
+                        .ok()
+                        .and_then(|deadline| *deadline);
+                    if requested && deadline.is_some_and(|limit| std::time::Instant::now() >= limit)
+                    {
+                        worker_drain_expired.store(true, Ordering::Release);
+                        break;
+                    }
                     if worker.is_none() {
                         match open_runtime_worker(
                             &persistence_config,
@@ -260,8 +286,11 @@ impl OpenOtPersistenceService {
                             &reconnect_source_path,
                             &reconnect_definition,
                         ) {
-                            Ok(reconnected) => {
+                            Ok((reconnected, schema_version)) => {
                                 worker = Some(reconnected);
+                                if let Ok(mut status) = worker_status.lock() {
+                                    status.schema_version = Some(schema_version);
+                                }
                                 continue;
                             }
                             Err(error) => {
@@ -290,7 +319,7 @@ impl OpenOtPersistenceService {
                         .expect("worker reconnected above")
                         .run_once(unix_time_ns())
                     {
-                        Ok(_) => {
+                        Ok(outcome) => {
                             retry_delay = retry_initial;
                             consecutive_retries = 0;
                             let snapshot =
@@ -299,12 +328,19 @@ impl OpenOtPersistenceService {
                                 apply_worker_snapshot(
                                     &mut status,
                                     snapshot,
-                                    committed_before_reconnect,
-                                    duplicated_before_reconnect,
-                                    projection_rows_before_reconnect,
-                                    unclassified_before_reconnect,
-                                    reconciled_parts_before_reconnect,
+                                    &reconnect_totals,
+                                    outcome.is_some(),
                                 );
+                            }
+                            if requested {
+                                let target = *drain_target.get_or_insert(snapshot.head_abs);
+                                if snapshot.cursor_abs >= target
+                                    && snapshot.remote_pending == 0
+                                    && snapshot.pending_part_count == 0
+                                {
+                                    break;
+                                }
+                                continue;
                             }
                         }
                         Err(error) => {
@@ -319,22 +355,7 @@ impl OpenOtPersistenceService {
                                 break;
                             }
                             if let Some(failed_worker) = worker.as_ref() {
-                                committed_before_reconnect = committed_before_reconnect
-                                    .saturating_add(failed_worker.status().documents_committed);
-                                duplicated_before_reconnect = duplicated_before_reconnect
-                                    .saturating_add(failed_worker.status().documents_duplicated);
-                                projection_rows_before_reconnect = projection_rows_before_reconnect
-                                    .saturating_add(
-                                        failed_worker.status().projection_rows_committed,
-                                    );
-                                unclassified_before_reconnect = unclassified_before_reconnect
-                                    .saturating_add(
-                                        failed_worker.status().unclassified_event_count,
-                                    );
-                                reconciled_parts_before_reconnect =
-                                    reconciled_parts_before_reconnect.saturating_add(
-                                        failed_worker.status().reconciled_part_count,
-                                    );
+                                reconnect_totals.accumulate(failed_worker.status());
                             }
                             worker = None;
                             std::thread::park_timeout(retry_delay);
@@ -353,6 +374,8 @@ impl OpenOtPersistenceService {
             })?;
         Ok(Some(Self {
             stop,
+            drain_expired,
+            shutdown_deadline,
             status,
             thread: Some(thread),
             shutdown_timeout: Duration::from_millis(config.persistence.shutdown_timeout_ms),
@@ -413,22 +436,26 @@ impl OpenOtPersistenceService {
 
     /// Requests shutdown and waits for the worker thread to exit.
     pub fn shutdown(&mut self) {
+        let Some(thread) = self.thread.take() else {
+            return;
+        };
+        let deadline = std::time::Instant::now() + self.shutdown_timeout;
+        if let Ok(mut requested_deadline) = self.shutdown_deadline.lock() {
+            *requested_deadline = Some(deadline);
+        }
         self.stop.store(true, Ordering::Release);
         let mut timed_out = false;
-        if let Some(thread) = self.thread.take() {
-            thread.thread().unpark();
-            let deadline = std::time::Instant::now() + self.shutdown_timeout;
-            while !thread.is_finished() && std::time::Instant::now() < deadline {
-                std::thread::sleep(Duration::from_millis(1));
-            }
-            if thread.is_finished() {
-                let _ = thread.join();
-            } else {
-                timed_out = true;
-            }
+        thread.thread().unpark();
+        while !thread.is_finished() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        if thread.is_finished() {
+            let _ = thread.join();
+        } else {
+            timed_out = true;
         }
         if let Ok(mut status) = self.status.lock() {
-            if timed_out {
+            if timed_out || self.drain_expired.load(Ordering::Acquire) {
                 status.state = OpenOtPersistenceState::Faulted;
                 status.last_error = Some(format!(
                     "OpenOT persistence shutdown timed out with {} source bytes and {} remote documents pending",
@@ -442,32 +469,85 @@ impl OpenOtPersistenceService {
 }
 
 #[cfg(unix)]
+#[derive(Default)]
+struct ReconnectTotals {
+    documents_read: u64,
+    documents_committed: u64,
+    documents_duplicated: u64,
+    projection_rows_committed: u64,
+    unclassified_event_count: u64,
+    reconciled_part_count: u64,
+    rejected: u64,
+    unresolved: u64,
+    loss_range_count: u64,
+    lost_record_count: u64,
+}
+
+#[cfg(unix)]
+impl ReconnectTotals {
+    fn accumulate(&mut self, status: &super::worker::OpenOtPersistenceWorkerStatus) {
+        self.documents_read = self.documents_read.saturating_add(status.documents_read);
+        self.documents_committed = self
+            .documents_committed
+            .saturating_add(status.documents_committed);
+        self.documents_duplicated = self
+            .documents_duplicated
+            .saturating_add(status.documents_duplicated);
+        self.projection_rows_committed = self
+            .projection_rows_committed
+            .saturating_add(status.projection_rows_committed);
+        self.unclassified_event_count = self
+            .unclassified_event_count
+            .saturating_add(status.unclassified_event_count);
+        self.reconciled_part_count = self
+            .reconciled_part_count
+            .saturating_add(status.reconciled_part_count);
+        self.rejected = self.rejected.saturating_add(status.rejected);
+        self.unresolved = self.unresolved.saturating_add(status.unresolved);
+        self.loss_range_count = self
+            .loss_range_count
+            .saturating_add(status.loss_range_count);
+        self.lost_record_count = self
+            .lost_record_count
+            .saturating_add(status.lost_record_count);
+    }
+}
+
+#[cfg(unix)]
 fn apply_worker_snapshot(
     status: &mut OpenOtPersistenceStatus,
     snapshot: &super::worker::OpenOtPersistenceWorkerStatus,
-    committed_before_reconnect: u64,
-    duplicated_before_reconnect: u64,
-    projection_rows_before_reconnect: u64,
-    unclassified_before_reconnect: u64,
-    reconciled_parts_before_reconnect: u64,
+    reconnect: &ReconnectTotals,
+    committed_this_pass: bool,
 ) {
-    status.documents_read = snapshot.documents_read;
-    status.documents_committed =
-        committed_before_reconnect.saturating_add(snapshot.documents_committed);
-    status.documents_duplicated =
-        duplicated_before_reconnect.saturating_add(snapshot.documents_duplicated);
+    status.documents_read = reconnect
+        .documents_read
+        .saturating_add(snapshot.documents_read);
+    status.documents_committed = reconnect
+        .documents_committed
+        .saturating_add(snapshot.documents_committed);
+    status.documents_duplicated = reconnect
+        .documents_duplicated
+        .saturating_add(snapshot.documents_duplicated);
     status.remote_pending = snapshot.remote_pending;
-    status.projection_rows_committed =
-        projection_rows_before_reconnect.saturating_add(snapshot.projection_rows_committed);
-    status.unclassified_event_count =
-        unclassified_before_reconnect.saturating_add(snapshot.unclassified_event_count);
-    status.reconciled_part_count =
-        reconciled_parts_before_reconnect.saturating_add(snapshot.reconciled_part_count);
+    status.projection_rows_committed = reconnect
+        .projection_rows_committed
+        .saturating_add(snapshot.projection_rows_committed);
+    status.unclassified_event_count = reconnect
+        .unclassified_event_count
+        .saturating_add(snapshot.unclassified_event_count);
+    status.reconciled_part_count = reconnect
+        .reconciled_part_count
+        .saturating_add(snapshot.reconciled_part_count);
     status.pending_part_count = snapshot.pending_part_count;
-    status.rejected = snapshot.rejected;
-    status.unresolved = snapshot.unresolved;
-    status.loss_range_count = snapshot.loss_range_count;
-    status.lost_record_count = snapshot.lost_record_count;
+    status.rejected = reconnect.rejected.saturating_add(snapshot.rejected);
+    status.unresolved = reconnect.unresolved.saturating_add(snapshot.unresolved);
+    status.loss_range_count = reconnect
+        .loss_range_count
+        .saturating_add(snapshot.loss_range_count);
+    status.lost_record_count = reconnect
+        .lost_record_count
+        .saturating_add(snapshot.lost_record_count);
     status.cursor_abs = snapshot.cursor_abs;
     status.head_abs = snapshot.head_abs;
     status.pending = snapshot.head_abs.saturating_sub(snapshot.cursor_abs);
@@ -478,7 +558,9 @@ fn apply_worker_snapshot(
     } else {
         OpenOtPersistenceState::Ready
     };
-    status.last_success_time_ns = Some(unix_time_ns());
+    if committed_this_pass {
+        status.last_success_time_ns = Some(unix_time_ns());
+    }
     status.last_error = None;
 }
 
@@ -497,494 +579,5 @@ fn unix_time_ns() -> u64 {
 }
 
 #[cfg(all(test, unix))]
-mod tests {
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
-    use open_ot_carriage::registry::{
-        EVENT_HEARTBEAT, EVENT_VALUE_CHANGED, KEY_NEW_VALUE, KEY_VALUE_ID, TY_BOOL, TY_UDINT,
-    };
-    use open_ot_carriage::wire::{Record, Slot};
-    use open_ot_definition::sample_definition;
-    use open_ot_shm::SharedRecordPublisher;
-
-    use super::*;
-    use crate::config::{
-        OpenOtPersistenceBackend, OpenOtPersistenceConfig, OpenOtSqlitePersistenceConfig,
-    };
-    #[cfg(feature = "openot-real-database-tests")]
-    use crate::config::{OpenOtPersistenceTlsMode, OpenOtPostgreSqlPersistenceConfig};
-
-    #[test]
-    fn operator_status_redacts_backend_secrets_and_sensitive_paths() {
-        let secret = "password=plant-secret token=operator-token /private/customer/history.db";
-        for error in [
-            PersistenceError::InvalidConfig(secret.to_string()),
-            PersistenceError::Commit(secret.to_string()),
-            PersistenceError::CapacityExhausted(secret.to_string()),
-        ] {
-            let projected = redacted_error(&error);
-            assert!(!projected.contains("plant-secret"));
-            assert!(!projected.contains("operator-token"));
-            assert!(!projected.contains("/private/customer"));
-        }
-    }
-
-    #[test]
-    fn enabled_service_persists_shared_memory_record_off_thread_and_stops() {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock")
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!(
-            "trust-openot-persistence-service-{}-{stamp}",
-            std::process::id()
-        ));
-        std::fs::create_dir_all(&root).expect("root");
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
-                .expect("secure root");
-        }
-        let shm_path = root.join("openot.shm");
-        let mut publisher = SharedRecordPublisher::create(&shm_path, 4096).expect("publisher");
-        publisher
-            .append_record(&Record::new(11, 1, 0, 7, EVENT_HEARTBEAT))
-            .expect("publish");
-        std::fs::write(
-            root.join("openot-definition.json"),
-            serde_json::to_vec_pretty(&sample_definition()).expect("serialize definition"),
-        )
-        .expect("write definition");
-        let mut config = OpenOtTelemetryConfig {
-            enabled: true,
-            path: std::path::PathBuf::from("openot.shm"),
-            ..OpenOtTelemetryConfig::default()
-        };
-        config.persistence = OpenOtPersistenceConfig {
-            enabled: true,
-            backend: Some(OpenOtPersistenceBackend::Sqlite),
-            flush_interval_ms: 10,
-            sqlite: Some(OpenOtSqlitePersistenceConfig {
-                path: std::path::PathBuf::from("openot.sqlite3"),
-            }),
-            ..OpenOtPersistenceConfig::default()
-        };
-
-        let mut service = OpenOtPersistenceService::start(&config, &root)
-            .expect("start service")
-            .expect("enabled service");
-        let deadline = std::time::Instant::now() + Duration::from_secs(2);
-        while service.status().documents_committed < 1 && std::time::Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        assert_eq!(service.status().documents_committed, 1);
-        assert_eq!(service.status().state, OpenOtPersistenceState::Ready);
-        service.shutdown();
-        assert_eq!(service.status().state, OpenOtPersistenceState::Stopped);
-        assert!(root.join("openot.sqlite3").is_file());
-        std::fs::remove_dir_all(root).ok();
-    }
-
-    #[test]
-    fn service_supplies_compiled_definition_to_typed_database_projection() {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock")
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!(
-            "trust-logging-service-definition-{}-{stamp}",
-            std::process::id()
-        ));
-        std::fs::create_dir_all(&root).expect("root");
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
-            .expect("secure root");
-        let definition = sample_definition();
-        std::fs::write(
-            root.join("openot-definition.json"),
-            serde_json::to_vec_pretty(&definition).expect("serialize definition"),
-        )
-        .expect("write definition");
-        let shm_path = root.join("openot.shm");
-        let mut publisher = SharedRecordPublisher::create(&shm_path, 4096).expect("publisher");
-        let mut value = Record::new(11, 1, 0, 66, EVENT_VALUE_CHANGED);
-        value.slots = vec![
-            Slot::new(KEY_VALUE_ID, TY_UDINT, 2003u32.to_le_bytes()),
-            Slot::new(KEY_NEW_VALUE, TY_BOOL, [1]),
-        ];
-        publisher
-            .append_record(&value)
-            .expect("publish typed value");
-        let config = OpenOtTelemetryConfig {
-            enabled: true,
-            path: "openot.shm".into(),
-            persistence: OpenOtPersistenceConfig {
-                enabled: true,
-                backend: Some(OpenOtPersistenceBackend::Sqlite),
-                flush_interval_ms: 10,
-                retry_max_attempts: 2,
-                sqlite: Some(OpenOtSqlitePersistenceConfig {
-                    path: "trust-logging.sqlite3".into(),
-                }),
-                ..OpenOtPersistenceConfig::default()
-            },
-            ..OpenOtTelemetryConfig::default()
-        };
-
-        let mut service = OpenOtPersistenceService::start(&config, &root)
-            .expect("start typed logging service")
-            .expect("enabled typed logging service");
-        let deadline = std::time::Instant::now() + Duration::from_secs(2);
-        while service.status().documents_committed < 1 && std::time::Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        let status = service.status();
-        service.shutdown();
-        assert_eq!(
-            status.documents_committed, 1,
-            "typed persistence status: {status:?}"
-        );
-        let database = rusqlite::Connection::open(root.join("trust-logging.sqlite3"))
-            .expect("inspect typed logging database");
-        let stored: (String, bool) = database
-            .query_row(
-                "SELECT value_name,boolean_value FROM logged_values",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .expect("query service-projected value");
-        assert_eq!(stored, ("Enabled".to_string(), true));
-        let projection_rows: i64 = database
-            .query_row(
-                "SELECT (SELECT COUNT(*) FROM event_log) + (SELECT COUNT(*) FROM logged_values)",
-                [],
-                |row| row.get(0),
-            )
-            .expect("count event and value projections");
-        assert_eq!(status.projection_rows_committed, projection_rows as u64);
-        assert_eq!(status.projection_rows_committed, 2);
-        assert_eq!(status.unclassified_event_count, 0);
-        assert_eq!(status.reconciled_part_count, 0);
-        assert_eq!(status.pending_part_count, 0);
-        drop(database);
-        std::fs::remove_dir_all(root).ok();
-    }
-
-    #[test]
-    fn sqlite_service_restart_uses_durable_checkpoint_and_catches_up_once() {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock")
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!(
-            "trust-openot-sqlite-service-restart-{}-{stamp}",
-            std::process::id()
-        ));
-        std::fs::create_dir_all(&root).expect("root");
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
-                .expect("secure root");
-        }
-        let shm_path = root.join("openot.shm");
-        let mut publisher = SharedRecordPublisher::create(&shm_path, 4096).expect("publisher");
-        publisher
-            .append_record(&Record::new(11, 1, 0, 7, EVENT_HEARTBEAT))
-            .expect("publish baseline");
-        std::fs::write(
-            root.join("openot-definition.json"),
-            serde_json::to_vec_pretty(&sample_definition()).expect("serialize definition"),
-        )
-        .expect("write definition");
-        let mut config = OpenOtTelemetryConfig {
-            enabled: true,
-            path: std::path::PathBuf::from("openot.shm"),
-            ..OpenOtTelemetryConfig::default()
-        };
-        config.persistence = OpenOtPersistenceConfig {
-            enabled: true,
-            backend: Some(OpenOtPersistenceBackend::Sqlite),
-            flush_interval_ms: 10,
-            sqlite: Some(OpenOtSqlitePersistenceConfig {
-                path: "history/openot.sqlite3".into(),
-            }),
-            ..OpenOtPersistenceConfig::default()
-        };
-
-        let mut first = OpenOtPersistenceService::start(&config, &root)
-            .expect("start first service")
-            .expect("enabled first service");
-        let first_deadline = std::time::Instant::now() + Duration::from_secs(5);
-        while first.status().documents_committed < 1 && std::time::Instant::now() < first_deadline {
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        assert_eq!(first.status().documents_committed, 1);
-        let baseline_cursor = first.status().cursor_abs;
-        first.shutdown();
-
-        publisher
-            .append_record(&Record::new(12, 1, 1, 7, EVENT_HEARTBEAT))
-            .expect("publish while stopped 1");
-        publisher
-            .append_record(&Record::new(13, 1, 2, 7, EVENT_HEARTBEAT))
-            .expect("publish while stopped 2");
-        let mut second = OpenOtPersistenceService::start(&config, &root)
-            .expect("restart service")
-            .expect("enabled restarted service");
-        let second_deadline = std::time::Instant::now() + Duration::from_secs(5);
-        while (second.status().state != OpenOtPersistenceState::Ready
-            || second.status().cursor_abs <= baseline_cursor)
-            && std::time::Instant::now() < second_deadline
-        {
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        let second_status = second.status();
-        assert_eq!(second_status.state, OpenOtPersistenceState::Ready);
-        assert_eq!(second_status.cursor_abs, second_status.head_abs);
-        assert_eq!(second_status.documents_committed, 2);
-        second.shutdown();
-
-        let database = rusqlite::Connection::open(root.join("history/openot.sqlite3"))
-            .expect("inspect restart database");
-        let events: i64 = database
-            .query_row(
-                "SELECT COUNT(*) FROM logging_records WHERE document_kind='event'",
-                [],
-                |row| row.get(0),
-            )
-            .expect("event count");
-        assert_eq!(events, 3);
-        drop(database);
-
-        let mut third = OpenOtPersistenceService::start(&config, &root)
-            .expect("start caught-up service")
-            .expect("enabled caught-up service");
-        let third_deadline = std::time::Instant::now() + Duration::from_secs(5);
-        while third.status().state != OpenOtPersistenceState::Ready
-            && std::time::Instant::now() < third_deadline
-        {
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        assert_eq!(third.status().documents_committed, 0);
-        assert_eq!(third.status().cursor_abs, third.status().head_abs);
-        third.shutdown();
-        std::fs::remove_dir_all(root).ok();
-    }
-
-    #[test]
-    fn shutdown_does_not_wait_past_the_configured_deadline_for_a_stuck_backend_call() {
-        let status = Arc::new(Mutex::new(OpenOtPersistenceStatus {
-            state: OpenOtPersistenceState::Ready,
-            backend: Some("sqlite".to_string()),
-            schema_version: Some(2),
-            documents_read: 0,
-            documents_committed: 0,
-            documents_duplicated: 0,
-            remote_pending: 0,
-            projection_rows_committed: 0,
-            unclassified_event_count: 0,
-            reconciled_part_count: 0,
-            pending_part_count: 0,
-            documents_retried: 0,
-            pending: 4,
-            rejected: 0,
-            unresolved: 0,
-            loss_range_count: 0,
-            lost_record_count: 0,
-            cursor_abs: 0,
-            head_abs: 4,
-            last_success_time_ns: None,
-            last_error: None,
-        }));
-        let mut service = OpenOtPersistenceService {
-            stop: Arc::new(AtomicBool::new(false)),
-            status,
-            thread: Some(std::thread::spawn(|| {
-                std::thread::sleep(Duration::from_millis(500));
-            })),
-            shutdown_timeout: Duration::from_millis(20),
-        };
-        let started = std::time::Instant::now();
-
-        service.shutdown();
-
-        assert!(started.elapsed() < Duration::from_millis(200));
-        let status = service.status();
-        assert_eq!(status.state, OpenOtPersistenceState::Faulted);
-        assert_eq!(status.pending, 4);
-    }
-
-    #[cfg(feature = "openot-real-database-tests")]
-    #[test]
-    fn postgresql_service_reconnects_and_catches_up_after_real_server_restart() {
-        struct RestartGuard(String);
-        impl Drop for RestartGuard {
-            fn drop(&mut self) {
-                let _ = std::process::Command::new("docker")
-                    .args(["start", self.0.as_str()])
-                    .status();
-            }
-        }
-
-        let container = std::env::var("TRUST_TEST_OPENOT_POSTGRES_CONTAINER")
-            .expect("real PostgreSQL container name");
-        let ca = std::env::var("TRUST_TEST_OPENOT_POSTGRES_CA").expect("PostgreSQL CA");
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock")
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!(
-            "trust-openot-postgresql-reconnect-{}-{stamp}",
-            std::process::id()
-        ));
-        std::fs::create_dir_all(&root).expect("root");
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
-                .expect("secure root");
-        }
-        let shm_path = root.join("openot.shm");
-        let mut publisher = SharedRecordPublisher::create(&shm_path, 4096).expect("publisher");
-        publisher
-            .append_record(&Record::new(11, 1, 0, 7, EVENT_HEARTBEAT))
-            .expect("publish baseline");
-        std::fs::write(
-            root.join("openot-definition.json"),
-            serde_json::to_vec_pretty(&sample_definition()).expect("serialize definition"),
-        )
-        .expect("write definition");
-        let mut config = OpenOtTelemetryConfig {
-            enabled: true,
-            path: std::path::PathBuf::from("openot.shm"),
-            ..OpenOtTelemetryConfig::default()
-        };
-        config.persistence = OpenOtPersistenceConfig {
-            enabled: true,
-            backend: Some(OpenOtPersistenceBackend::PostgreSql),
-            flush_interval_ms: 10,
-            retry_initial_ms: 20,
-            retry_max_ms: 20,
-            retry_multiplier: 1,
-            retry_max_attempts: 200,
-            postgresql: Some(OpenOtPostgreSqlPersistenceConfig {
-                connection_url_env: "TRUST_TEST_OPENOT_POSTGRES_URL".into(),
-                schema: format!("openot_reconnect_{}_{}", std::process::id(), stamp).into(),
-                tls: OpenOtPersistenceTlsMode::Require,
-                ca_cert_path: Some(ca.into()),
-            }),
-            ..OpenOtPersistenceConfig::default()
-        };
-        let mut service = OpenOtPersistenceService::start(&config, &root)
-            .expect("start PostgreSQL service")
-            .expect("enabled service");
-        wait_for_status(&service, Duration::from_secs(5), |status| {
-            status.state == OpenOtPersistenceState::Ready && status.cursor_abs > 0
-        });
-
-        let stopped = std::process::Command::new("docker")
-            .args(["stop", container.as_str()])
-            .status()
-            .expect("stop real PostgreSQL");
-        assert!(stopped.success());
-        let _restart_guard = RestartGuard(container.clone());
-        publisher
-            .append_record(&Record::new(11, 2, 0, 7, EVENT_HEARTBEAT))
-            .expect("publish during outage");
-        wait_for_status(&service, Duration::from_secs(5), |status| {
-            status.state == OpenOtPersistenceState::Retrying
-        });
-        let started = std::process::Command::new("docker")
-            .args(["start", container.as_str()])
-            .status()
-            .expect("restart real PostgreSQL");
-        assert!(started.success());
-
-        wait_for_status(&service, Duration::from_secs(15), |status| {
-            status.state == OpenOtPersistenceState::Ready
-                && status.cursor_abs == status.head_abs
-                && status.cursor_abs > 64
-        });
-        assert_eq!(
-            service.status().documents_committed,
-            2,
-            "reconnection must preserve cumulative service counters"
-        );
-        service.shutdown();
-        std::fs::remove_dir_all(root).ok();
-    }
-
-    #[cfg(feature = "openot-real-database-tests")]
-    fn wait_for_status(
-        service: &OpenOtPersistenceService,
-        timeout: Duration,
-        predicate: impl Fn(&OpenOtPersistenceStatus) -> bool,
-    ) {
-        let deadline = std::time::Instant::now() + timeout;
-        while std::time::Instant::now() < deadline {
-            let status = service.status();
-            if predicate(&status) {
-                return;
-            }
-            std::thread::sleep(Duration::from_millis(20));
-        }
-        panic!(
-            "OpenOT persistence status deadline expired: {:#?}",
-            service.status()
-        );
-    }
-
-    #[test]
-    fn unresolved_document_keeps_caught_up_service_degraded() {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock")
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!(
-            "trust-openot-persistence-degraded-{}-{stamp}",
-            std::process::id()
-        ));
-        std::fs::create_dir_all(&root).expect("root");
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
-                .expect("secure root");
-        }
-        let shm_path = root.join("openot.shm");
-        let mut publisher = SharedRecordPublisher::create(&shm_path, 4096).expect("publisher");
-        publisher
-            .append_record(&Record::new(11, 1, 0, 7, 0xFFFF))
-            .expect("publish unresolved event");
-        std::fs::write(
-            root.join("openot-definition.json"),
-            serde_json::to_vec_pretty(&sample_definition()).expect("serialize definition"),
-        )
-        .expect("write definition");
-        let mut config = OpenOtTelemetryConfig {
-            enabled: true,
-            path: std::path::PathBuf::from("openot.shm"),
-            ..OpenOtTelemetryConfig::default()
-        };
-        config.persistence = OpenOtPersistenceConfig {
-            enabled: true,
-            backend: Some(OpenOtPersistenceBackend::Sqlite),
-            flush_interval_ms: 10,
-            sqlite: Some(OpenOtSqlitePersistenceConfig {
-                path: std::path::PathBuf::from("openot.sqlite3"),
-            }),
-            ..OpenOtPersistenceConfig::default()
-        };
-        let mut service = OpenOtPersistenceService::start(&config, &root)
-            .expect("start service")
-            .expect("enabled service");
-        let deadline = std::time::Instant::now() + Duration::from_secs(2);
-        while service.status().documents_committed < 1 && std::time::Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(10));
-        }
-
-        assert_eq!(service.status().unresolved, 1);
-        assert_eq!(service.status().state, OpenOtPersistenceState::Degraded);
-        service.shutdown();
-        std::fs::remove_dir_all(root).ok();
-    }
-}
+#[path = "service_tests.rs"]
+mod tests;

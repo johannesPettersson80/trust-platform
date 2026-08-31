@@ -1,6 +1,6 @@
 use super::*;
 #[test]
-fn sqlite_sink_opens_real_database_and_applies_schema_v3() {
+fn sqlite_sink_opens_real_database_and_applies_schema_v4() {
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
@@ -15,7 +15,7 @@ fn sqlite_sink_opens_real_database_and_applies_schema_v3() {
         .unwrap_or_else(|error| panic!("SQLite migration failed: {error:?}"));
 
     assert!(path.is_file(), "SQLite database was not created");
-    assert_eq!(sink.schema_version().expect("schema version"), 3);
+    assert_eq!(sink.schema_version().expect("schema version"), 4);
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -52,7 +52,7 @@ fn sqlite_sink_exposes_heartbeat_through_descriptive_event_log() {
         .expect("inspect public event log");
     assert!(
         public_event_log_exists,
-        "schema v3 must expose the descriptive event_log table"
+        "schema v4 must expose the descriptive event_log table"
     );
     let internal_record_exists: bool = connection
         .query_row(
@@ -63,7 +63,7 @@ fn sqlite_sink_exposes_heartbeat_through_descriptive_event_log() {
         .expect("inspect internal logging records");
     assert!(
         internal_record_exists,
-        "schema v3 must use the descriptive internal logging_records name"
+        "schema v4 must use the descriptive internal logging_records name"
     );
     let stored: (String, i64, i64, String) = connection
         .query_row(
@@ -206,15 +206,85 @@ fn sqlite_public_read_model_exposes_common_columns_on_every_object() {
         let columns = statement
             .query_map([], |row| row.get::<_, String>(1))
             .expect("query public object columns")
-            .collect::<Result<std::collections::HashSet<_>, _>>()
+            .collect::<Result<Vec<_>, _>>()
             .expect("collect public object columns");
         for column in required {
             assert!(
-                columns.contains(column),
-                "public object {object} must expose common column {column}"
+                columns.iter().filter(|candidate| *candidate == column).count() == 1,
+                "public object {object} must expose common column {column} exactly once: {columns:?}"
             );
         }
+        assert!(
+            columns.iter().all(|column| !column.contains(':')),
+            "public object {object} must not expose SQLite-renamed duplicate columns: {columns:?}"
+        );
     }
+    drop(connection);
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn sqlite_sink_migrates_v3_read_model_to_v4_without_losing_canonical_data() {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "trust-logging-v3-v4-migration-{}-{stamp}",
+        std::process::id()
+    ));
+    let path = root.join("trust-logging.sqlite3");
+    let mut sink = open_test_sqlite(&path).expect("create source database");
+    let documents = canonical_documents();
+    sink.commit(&PersistenceBatch {
+        documents: documents.clone(),
+        checkpoint: PersistenceCheckpoint {
+            buffer_id: 7,
+            run_id: u64::from(std::process::id()),
+            cursor_abs: 4096,
+        },
+    })
+    .expect("seed canonical documents");
+    drop(sink);
+
+    let connection = rusqlite::Connection::open(&path).expect("open source database");
+    connection
+        .execute_batch("UPDATE logging_schema SET version=3; PRAGMA user_version=3;")
+        .expect("mark source as schema v3");
+    drop(connection);
+
+    let sink = open_test_sqlite(&path).expect("migrate schema v3 to v4");
+    assert_eq!(sink.schema_version().expect("schema version"), 4);
+    drop(sink);
+
+    let connection = rusqlite::Connection::open(&path).expect("inspect migrated database");
+    let canonical = connection
+        .prepare("SELECT canonical_json FROM logging_records ORDER BY identity_key")
+        .expect("prepare canonical query")
+        .query_map([], |row| row.get::<_, String>(0))
+        .expect("query canonical rows")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("collect canonical rows");
+    assert_canonical_jsons(canonical);
+    let loss_provenance: (String, String, bool, bool, bool) = connection
+        .query_row(
+            "SELECT source_path,source_hierarchy,time_unsynced,synthetic_record,partial_payload FROM data_loss",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+        )
+        .expect("read migrated loss provenance");
+    assert_eq!(loss_provenance, ("".into(), "".into(), false, false, false));
+    let unresolved_provenance: (String, String, bool, bool, bool) = connection
+        .query_row(
+            "SELECT source_path,source_hierarchy,time_unsynced,synthetic_record,partial_payload FROM unresolved_records",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+        )
+        .expect("read migrated unresolved provenance");
+    assert_eq!(
+        unresolved_provenance,
+        ("".into(), "".into(), false, false, false)
+    );
     drop(connection);
     std::fs::remove_dir_all(root).ok();
 }
@@ -259,9 +329,9 @@ fn sqlite_sink_migrates_v1_checkpoint_and_separates_recreated_ring_run() {
         .expect("seed schema v1");
     drop(connection);
 
-    let mut sink = open_test_sqlite(&path).expect("migrate schema v1 to v3");
+    let mut sink = open_test_sqlite(&path).expect("migrate schema v1 to v4");
 
-    assert_eq!(sink.schema_version().expect("schema version"), 3);
+    assert_eq!(sink.schema_version().expect("schema version"), 4);
     assert_eq!(
         sink.load_checkpoint(7, 0).expect("migrated old run"),
         Some(PersistenceCheckpoint {
@@ -297,19 +367,19 @@ fn sqlite_sink_rejects_newer_schema_without_mutating_it() {
     let path = root.join("openot.sqlite3");
     let connection = rusqlite::Connection::open(&path).expect("create newer database");
     connection
-        .execute_batch("CREATE TABLE sentinel(value TEXT); PRAGMA user_version=4;")
+        .execute_batch("CREATE TABLE sentinel(value TEXT); PRAGMA user_version=5;")
         .expect("seed newer schema");
     drop(connection);
 
     let error = open_test_sqlite(&path).expect_err("newer schema must fail closed");
 
-    assert!(format!("{error:?}").contains("newer than supported version 3"));
+    assert!(format!("{error:?}").contains("newer than supported version 4"));
     let connection = rusqlite::Connection::open(&path).expect("reopen untouched database");
     assert_eq!(
         connection
             .query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
             .expect("schema version"),
-        4
+        5
     );
     std::fs::remove_dir_all(root).ok();
 }

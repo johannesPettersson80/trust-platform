@@ -12,7 +12,7 @@ pub struct SqliteDocumentSink {
     projector: LoggingProjector,
 }
 
-const SCHEMA_VERSION: u32 = 3;
+const SCHEMA_VERSION: u32 = 4;
 
 impl SqliteDocumentSink {
     /// Opens the database and applies compatible truST-owned migrations.
@@ -166,10 +166,14 @@ impl DocumentSink for SqliteDocumentSink {
         let mut duplicated = 0;
         let mut projection_rows_committed = 0;
         let mut unclassified_events = 0;
+        let mut unresolved_documents = 0;
+        let mut loss_ranges = 0;
+        let mut lost_records = 0u64;
         for document in &batch.documents {
             let projected = self.projector.project(document)?;
             let projected_row_count = projected.public_row_count();
             let has_unclassified_event = projected.has_unclassified_event();
+            let special_counts = projected.loss_and_unresolved_counts()?;
             let row = projected.canonical;
             let existing = transaction
                 .query_row(
@@ -218,6 +222,9 @@ impl DocumentSink for SqliteDocumentSink {
             inserted += 1;
             projection_rows_committed += projected_row_count;
             unclassified_events += usize::from(has_unclassified_event);
+            unresolved_documents += special_counts.0;
+            loss_ranges += special_counts.1;
+            lost_records = lost_records.saturating_add(special_counts.2);
             if let Some(event) = projected.event {
                 transaction
                     .execute(
@@ -295,6 +302,9 @@ impl DocumentSink for SqliteDocumentSink {
             remote_pending: 0,
             projection_rows_committed,
             unclassified_events,
+            unresolved_documents,
+            loss_ranges,
+            lost_records,
             pending_parts: 0,
             checkpoint: batch.checkpoint,
         })
@@ -327,7 +337,39 @@ fn migrate(
     let transaction = connection
         .transaction()
         .map_err(sqlite_error("begin schema migration"))?;
-    if version == 0 {
+    if version == 3 {
+        transaction
+            .execute_batch(
+                "DROP VIEW IF EXISTS alarm_history;
+                 DROP VIEW IF EXISTS message_log;
+                 DROP VIEW IF EXISTS state_history;
+                 DROP VIEW IF EXISTS batch_history;
+                 DROP VIEW IF EXISTS recipe_history;
+                 DROP VIEW IF EXISTS material_additions;
+                 DROP VIEW IF EXISTS operator_activity;
+                 DROP VIEW IF EXISTS audit_log;
+                 DROP VIEW IF EXISTS electronic_signatures;
+                 DROP VIEW IF EXISTS system_events;
+                 DROP VIEW IF EXISTS data_loss;
+                 DROP VIEW IF EXISTS unresolved_records;
+                 DROP TABLE IF EXISTS logging_alarm_history;
+                 DROP TABLE IF EXISTS logging_message_log;
+                 DROP TABLE IF EXISTS logging_state_history;
+                 DROP TABLE IF EXISTS logging_batch_history;
+                 DROP TABLE IF EXISTS logging_recipe_history;
+                 DROP TABLE IF EXISTS logging_material_additions;
+                 DROP TABLE IF EXISTS logging_operator_activity;
+                 DROP TABLE IF EXISTS logging_audit_log;
+                 DROP TABLE IF EXISTS logging_electronic_signatures;
+                 DROP TABLE IF EXISTS logging_system_events;
+                 DROP TABLE IF EXISTS logging_data_loss;
+                 DROP TABLE IF EXISTS logging_unresolved_records;
+                 DROP TABLE IF EXISTS logged_values;
+                 DROP TABLE IF EXISTS event_log;
+                 DROP TABLE IF EXISTS logging_schema;",
+            )
+            .map_err(sqlite_error("remove schema v3 read model"))?;
+    } else if version == 0 {
         transaction
             .execute_batch(
                 "CREATE TABLE logging_records (\n\
@@ -361,7 +403,7 @@ fn migrate(
                  cursor_abs BLOB NOT NULL CHECK (length(cursor_abs) = 8)\n\
              );",
             )
-            .map_err(sqlite_error("create schema v3 internal tables"))?;
+            .map_err(sqlite_error("create schema v4 internal tables"))?;
     } else {
         if version == 1 {
             transaction
@@ -389,7 +431,7 @@ fn migrate(
                  singleton INTEGER PRIMARY KEY CHECK (singleton = 1),\n\
                  version INTEGER NOT NULL CHECK (version > 0)\n\
              );\n\
-             INSERT INTO logging_schema(singleton,version) VALUES(1,3);\n\
+             INSERT INTO logging_schema(singleton,version) VALUES(1,4);\n\
              CREATE TABLE event_log (\n\
                  record_id TEXT PRIMARY KEY NOT NULL REFERENCES logging_records(identity_key),\n\
                  event_time TEXT,\n\
@@ -416,7 +458,7 @@ fn migrate(
              CREATE INDEX event_log_source_sequence ON event_log(source_id,run_id,sequence);\n\
              CREATE INDEX event_log_type_time ON event_log(event_type_id,event_time);",
         )
-        .map_err(sqlite_error("create schema v3 read model"))?;
+        .map_err(sqlite_error("create schema v4 read model"))?;
     transaction
         .execute_batch(
             "CREATE TABLE logged_values (\n\
@@ -440,26 +482,26 @@ fn migrate(
              CREATE INDEX logged_values_name_time ON logged_values(value_name,event_time);\n\
              CREATE INDEX logged_values_source_time ON logged_values(source_id,event_time);",
         )
-        .map_err(sqlite_error("create schema v3 logged values"))?;
+        .map_err(sqlite_error("create schema v4 logged values"))?;
     super::sqlite_read_model::create_domain_schema(&transaction)?;
 
     if version > 0 {
         let canonical = {
             let mut statement = transaction
                 .prepare("SELECT canonical_json FROM logging_records ORDER BY identity_key")
-                .map_err(sqlite_error("prepare schema v3 projection backfill"))?;
+                .map_err(sqlite_error("prepare schema v4 projection backfill"))?;
             let rows = statement
                 .query_map([], |row| row.get::<_, String>(0))
-                .map_err(sqlite_error("query schema v3 projection backfill"))?
+                .map_err(sqlite_error("query schema v4 projection backfill"))?
                 .collect::<Result<Vec<_>, _>>()
-                .map_err(sqlite_error("decode schema v3 projection backfill"))?;
+                .map_err(sqlite_error("decode schema v4 projection backfill"))?;
             rows
         };
         for canonical_json in canonical {
             let document: open_ot_document::Document = serde_json::from_str(&canonical_json)
                 .map_err(|error| {
                     PersistenceError::Commit(format!(
-                        "SQLite migrate schema 2 to 3 malformed canonical document: {error}"
+                        "SQLite migrate canonical document to schema 4 is malformed: {error}"
                     ))
                 })?;
             let projected = projector.project(&document)?;
@@ -469,7 +511,7 @@ fn migrate(
                         "INSERT INTO event_log (record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,event_type_id,event_name,has_unclassified_fields) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)",
                         params![event.record_id,event.event_time,event.event_time_ns,event.received_time,event.received_time_ns,event.source,event.source_id,event.source_path,event.source_hierarchy,event.buffer_id,event.run_id,event.epoch_id,event.sequence,event.definition_hash,event.time_unsynced,event.synthetic_record,event.partial_payload,event.event_type_id,event.event_name,event.has_unclassified_fields],
                     )
-                    .map_err(sqlite_error("backfill schema v3 event projection"))?;
+                    .map_err(sqlite_error("backfill schema v4 event projection"))?;
             }
             for value in projected.logged_values {
                 let common = value.common;
@@ -478,14 +520,14 @@ fn migrate(
                         "INSERT INTO logged_values (record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value,previous_boolean_value,previous_signed_value,previous_unsigned_value,previous_number_value,previous_text_value,previous_exact_value,is_audited,actor,reason,authorization_result) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37,?38,?39)",
                         params![common.record_id,common.event_time,common.event_time_ns,common.received_time,common.received_time_ns,common.source,common.source_id,common.source_path,common.source_hierarchy,common.buffer_id,common.run_id,common.epoch_id,common.sequence,common.definition_hash,common.time_unsynced,common.synthetic_record,common.partial_payload,value.value_id,value.value_name,value.value_type,value.unit,value.quality,value.semantic_role,value.boolean_value,value.signed_value,value.unsigned_value,value.number_value,value.text_value,value.exact_value,value.previous_boolean_value,value.previous_signed_value,value.previous_unsigned_value,value.previous_number_value,value.previous_text_value,value.previous_exact_value,value.is_audited,value.actor,value.reason,value.authorization_result],
                     )
-                    .map_err(sqlite_error("backfill schema v3 logged value projection"))?;
+                    .map_err(sqlite_error("backfill schema v4 logged value projection"))?;
             }
             super::sqlite_read_model::insert_domains(&transaction, projected.domains)?;
         }
     }
     transaction
-        .execute_batch("PRAGMA user_version = 3;")
-        .map_err(sqlite_error("advance schema version to 3"))?;
+        .execute_batch("PRAGMA user_version = 4;")
+        .map_err(sqlite_error("advance schema version to 4"))?;
     transaction
         .commit()
         .map_err(sqlite_error("commit schema migration"))

@@ -378,6 +378,8 @@ impl DocumentSink for MySqlDocumentSink {
             .iter()
             .filter(|document| document.has_unclassified_event())
             .count();
+        let (unresolved_documents, loss_ranges, lost_records) =
+            super::projection::committed_special_counts(&pending)?;
         if !pending.is_empty() {
             let placeholders =
                 std::iter::repeat_n("(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", pending.len())
@@ -449,6 +451,9 @@ impl DocumentSink for MySqlDocumentSink {
             remote_pending: 0,
             projection_rows_committed,
             unclassified_events,
+            unresolved_documents,
+            loss_ranges,
+            lost_records,
             pending_parts: 0,
             checkpoint: batch.checkpoint,
         })

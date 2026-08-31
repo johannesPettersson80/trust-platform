@@ -59,6 +59,11 @@ clients, or fall back to another adapter after configuration, startup, or
 connection failure. A recognized backend omitted from the current build MUST
 fail startup with a named unavailable-backend error.
 
+After configuration and local artifact validation succeed, opening a remote
+database MUST occur in the supervised persistence worker. An unreachable
+configured database MUST NOT prevent the PLC runtime from starting; persistence
+reports `retrying` and reconnects under the configured bounded retry policy.
+
 When `enabled = false` or the persistence table is absent, no persistence
 worker, spool, migration, or database connection is created. When enabled,
 `backend` and exactly one matching backend table are required. Unknown fields,
@@ -418,6 +423,17 @@ The projector MUST be deterministic and replayable so future read-model
 versions can be rebuilt from `logging_records` without changing OpenOT or PLC
 execution.
 
+SQLite schema version 4 rebuilds the descriptive public views created by
+schema v3 so every public object exposes explicit common provenance columns;
+the views MUST NOT depend on `SELECT *` or leak internal projection-column
+ordering. The v3-to-v4 migration drops and recreates only the derived public
+views and projection tables, replays their rows from canonical JSON, and
+preserves `logging_records` and `logging_checkpoint` unchanged. PostgreSQL,
+TimescaleDB, MySQL, MariaDB, SQL Server, and the InfluxDB durable spool remain
+at schema version 3 because their public objects already declare the columns
+explicitly. Operator status MUST report the selected backend's actual durable
+schema version rather than a common hard-coded value.
+
 Schemas and migrations are owned by truST. Users MUST NOT rely on undocumented
 columns as a stable API. Stored history is append-only through truST. A backend
 MUST reject an unknown newer schema version and corrupt migration metadata; it
@@ -491,6 +507,10 @@ reported as committed.
 
 Shutdown drains for at most `shutdown_timeout_ms`, then reports the exact
 pending count and exits without advancing beyond the last durable commit.
+The drain MUST poll and commit source records that were published before the
+shutdown request and MUST run required remote-spool maintenance until both the
+source cursor and required remote delivery are caught up or the deadline
+expires.
 Disk-full, permission, corrupt database/spool, malformed stored document, and
 definition corruption are actionable failures and MUST NOT trigger automatic
 state deletion.
@@ -508,6 +528,19 @@ Operators MUST size the ring
 and Influx spool for their outage window; truST MUST expose lag before unread
 ring data is overwritten.
 
+### 6.1 Release-runner provisioning
+
+The mandatory real-database release job MUST be runnable from a clean,
+repository-registered Linux x86_64 runner without undocumented host files or
+pre-existing database credentials. Version-controlled prepare and teardown
+scripts MUST provision the pinned database products with ephemeral credentials
+and TLS material, export only the values required by the job through
+`GITHUB_ENV`, wait for every endpoint to become ready, and remove the
+containers, network, credentials, and certificates after the job. The workflow
+MUST call those repository scripts directly. Runner registration is an
+explicit operational prerequisite and MUST be verified before a release tag is
+pushed; a release MUST NOT be left waiting for an unregistered label.
+
 ## 7. Lifecycle and observability
 
 The lifecycle states are `disabled`, `starting`, `ready`, `catching_up`,
@@ -521,6 +554,12 @@ unclassified-event count, projection rows committed, cursor/head lag, last
 successful commit time, and a redacted last error.
 `projection_rows_committed` counts newly committed rows in the descriptive
 public read model, excluding internal canonical/checkpoint rows.
+`documents_read`, `unresolved`, `loss_range_count`, and `lost_record_count`
+advance only after the corresponding canonical transaction is durable.
+Idempotent replay may increase `documents_read` and `documents_duplicated`, but
+MUST NOT increase unresolved or loss totals for rows that already exist.
+Reconnect MUST preserve these runtime-cumulative meanings without counting the
+same worker-local total twice.
 `unclassified_event_count` counts retained future event records whose fields
 could not be assigned to a known typed domain without guessing.
 `pending_part_count` counts durable InfluxDB delivery parts not yet reconciled;

@@ -11,6 +11,11 @@ pub struct TimescaleDbDocumentSink {
 }
 
 impl TimescaleDbDocumentSink {
+    /// Returns the compatible truST-owned relational schema version.
+    pub fn schema_version(&mut self) -> Result<u32, PersistenceError> {
+        self.postgresql.schema_version()
+    }
+
     /// Connects with authenticated TLS, requires TimescaleDB, and migrates.
     pub fn open(
         connection_url: &str,

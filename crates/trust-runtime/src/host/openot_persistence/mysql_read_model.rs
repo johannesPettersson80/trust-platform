@@ -185,8 +185,8 @@ fn insert_loss(
 ) -> Result<(), PersistenceError> {
     transaction.exec_drop(
         "INSERT INTO data_loss(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,first_sequence,last_sequence,lost_count,basis)
-         VALUES(:record_id,NULL,NULL,STR_TO_DATE(LEFT(:received_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:received_time_ns,:source,:source_id,'','',:buffer_id,:run_id,:epoch_id,:first_sequence,:definition_hash,TRUE,TRUE,TRUE,:first_sequence,:last_sequence,:lost_count,:basis)",
-        params! {"record_id"=>row.record_id,"received_time"=>row.received_time,"received_time_ns"=>row.received_time_ns,"source"=>row.source,"source_id"=>row.source_id,"buffer_id"=>row.buffer_id,"run_id"=>row.run_id,"epoch_id"=>row.epoch_id,"definition_hash"=>row.definition_hash,"first_sequence"=>row.first_sequence,"last_sequence"=>row.last_sequence,"lost_count"=>row.lost_count,"basis"=>row.basis},
+         VALUES(:record_id,NULL,NULL,STR_TO_DATE(LEFT(:received_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:received_time_ns,:source,:source_id,:source_path,:source_hierarchy,:buffer_id,:run_id,:epoch_id,:first_sequence,:definition_hash,:time_unsynced,:synthetic_record,:partial_payload,:first_sequence,:last_sequence,:lost_count,:basis)",
+        params! {"record_id"=>row.record_id,"received_time"=>row.received_time,"received_time_ns"=>row.received_time_ns,"source"=>row.source,"source_id"=>row.source_id,"source_path"=>row.source_path,"source_hierarchy"=>row.source_hierarchy,"buffer_id"=>row.buffer_id,"run_id"=>row.run_id,"epoch_id"=>row.epoch_id,"definition_hash"=>row.definition_hash,"time_unsynced"=>row.time_unsynced,"synthetic_record"=>row.synthetic_record,"partial_payload"=>row.partial_payload,"first_sequence"=>row.first_sequence,"last_sequence"=>row.last_sequence,"lost_count"=>row.lost_count,"basis"=>row.basis},
     ).map_err(error("insert MySQL data loss projection"))
 }
 
@@ -196,8 +196,8 @@ fn insert_unresolved(
 ) -> Result<(), PersistenceError> {
     transaction.exec_drop(
         "INSERT INTO unresolved_records(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,event_type_id,reason,diagnostic_summary)
-         VALUES(:record_id,STR_TO_DATE(LEFT(:event_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:event_time_ns,STR_TO_DATE(LEFT(:received_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:received_time_ns,:source,:source_id,'','',:buffer_id,:run_id,:epoch_id,:sequence,:definition_hash,TRUE,TRUE,TRUE,:event_type_id,:reason,:diagnostic_summary)",
-        params! {"record_id"=>row.record_id,"event_time"=>row.event_time,"event_time_ns"=>row.event_time_ns,"received_time"=>row.received_time,"received_time_ns"=>row.received_time_ns,"source"=>row.source,"source_id"=>row.source_id,"buffer_id"=>row.buffer_id,"run_id"=>row.run_id,"epoch_id"=>row.epoch_id,"sequence"=>row.sequence,"definition_hash"=>row.definition_hash,"event_type_id"=>row.event_type_id,"reason"=>row.reason,"diagnostic_summary"=>row.diagnostic_summary},
+         VALUES(:record_id,STR_TO_DATE(LEFT(:event_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:event_time_ns,STR_TO_DATE(LEFT(:received_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:received_time_ns,:source,:source_id,:source_path,:source_hierarchy,:buffer_id,:run_id,:epoch_id,:sequence,:definition_hash,:time_unsynced,:synthetic_record,:partial_payload,:event_type_id,:reason,:diagnostic_summary)",
+        params! {"record_id"=>row.record_id,"event_time"=>row.event_time,"event_time_ns"=>row.event_time_ns,"received_time"=>row.received_time,"received_time_ns"=>row.received_time_ns,"source"=>row.source,"source_id"=>row.source_id,"source_path"=>row.source_path,"source_hierarchy"=>row.source_hierarchy,"buffer_id"=>row.buffer_id,"run_id"=>row.run_id,"epoch_id"=>row.epoch_id,"sequence"=>row.sequence,"definition_hash"=>row.definition_hash,"time_unsynced"=>row.time_unsynced,"synthetic_record"=>row.synthetic_record,"partial_payload"=>row.partial_payload,"event_type_id"=>row.event_type_id,"reason"=>row.reason,"diagnostic_summary"=>row.diagnostic_summary},
     ).map_err(error("insert MySQL unresolved projection"))
 }
 

@@ -34,6 +34,15 @@ def fail(message: str) -> None:
 
 
 def main() -> int:
+    persistence_spec = (ROOT / "docs" / "specs" / "33-openot-database-persistence.md").read_text()
+    for contract in (
+        "SQLite schema version 4",
+        "explicit common provenance columns",
+        "preserves `logging_records` and `logging_checkpoint`",
+    ):
+        if contract not in persistence_spec:
+            fail(f"database persistence specification omits migration contract {contract!r}")
+
     persistence_sources = ROOT / "crates" / "trust-runtime" / "src" / "host" / "openot_persistence"
     for source_path in persistence_sources.rglob("*.rs"):
         source_text = source_path.read_text()
@@ -88,6 +97,16 @@ def main() -> int:
     ):
         if identity not in verification:
             fail(f"verification page omits executable identity {identity}")
+
+    operator_guide = (ROOT / "docs/public/operate/openot-database-persistence.md").read_text()
+    operator_guide_normalized = " ".join(operator_guide.split())
+    for contract in (
+        "SQLite uses schema version 4",
+        "documented public objects or a documented export boundary",
+        "Canonical JSON remains an internal recovery authority",
+    ):
+        if contract not in operator_guide_normalized:
+            fail(f"operator guide omits public migration/query contract {contract!r}")
 
     gate = (ROOT / "scripts/openot_real_database_gate.sh").read_text()
     if "evidence directory must be empty" not in gate.lower():

@@ -10,6 +10,8 @@ use super::projection::LoggingProjector;
 use super::{CommitOutcome, DocumentSink, PersistenceBatch, PersistenceError};
 
 const SPOOL_SCHEMA_VERSION: u32 = 3;
+const MAX_DELIVERY_PARTS_PER_PASS: i64 = 2_048;
+const RECONCILIATION_POINTS_PER_QUERY: usize = 32;
 
 /// InfluxDB 3 HTTP adapter with a mandatory durable SQLite delivery spool.
 pub struct InfluxDb3DocumentSink {
@@ -34,6 +36,17 @@ impl std::fmt::Debug for InfluxDb3DocumentSink {
 }
 
 impl InfluxDb3DocumentSink {
+    /// Returns the compatible truST-owned durable spool schema version.
+    pub fn schema_version(&self) -> Result<u32, PersistenceError> {
+        self.spool
+            .query_row(
+                "SELECT version FROM logging_schema WHERE singleton=1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(spool_error("read spool schema version"))
+    }
+
     /// Opens the durable spool and CA-authenticated InfluxDB 3 connection.
     pub fn open(
         host: &str,
@@ -111,10 +124,10 @@ impl InfluxDb3DocumentSink {
     pub fn flush_pending(&mut self) -> Result<usize, PersistenceError> {
         let mut statement = self
             .spool
-            .prepare("SELECT document_identity,part_id,line_protocol FROM logging_delivery_spool WHERE delivered=0 ORDER BY document_identity,part_ordinal")
+            .prepare("SELECT document_identity,part_id,line_protocol FROM logging_delivery_spool WHERE delivered=0 ORDER BY document_identity,part_ordinal LIMIT ?1")
             .map_err(spool_error("prepare pending delivery"))?;
         let rows = statement
-            .query_map([], |row| {
+            .query_map([MAX_DELIVERY_PARTS_PER_PASS], |row| {
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
@@ -212,7 +225,7 @@ impl InfluxDb3DocumentSink {
         }
         let mut verified = Vec::with_capacity(rows.len());
         for (measurement, points) in groups {
-            for chunk in points.chunks(12) {
+            for chunk in points.chunks(RECONCILIATION_POINTS_PER_QUERY) {
                 let query = format!(
                     "SELECT COUNT(*) AS count FROM {measurement} WHERE {}",
                     chunk
@@ -635,10 +648,14 @@ impl DocumentSink for InfluxDb3DocumentSink {
         let mut duplicated = 0;
         let mut projection_rows_committed = 0;
         let mut unclassified_events = 0;
+        let mut unresolved_documents = 0;
+        let mut loss_ranges = 0;
+        let mut lost_records = 0u64;
         for document in &batch.documents {
             let projected = self.projector.project(document)?;
             let projected_row_count = projected.public_row_count();
             let has_unclassified_event = projected.has_unclassified_event();
+            let special_counts = projected.loss_and_unresolved_counts()?;
             let row = &projected.canonical;
             let existing: Option<String> = transaction
                 .query_row(
@@ -670,6 +687,9 @@ impl DocumentSink for InfluxDb3DocumentSink {
             inserted += 1;
             projection_rows_committed += projected_row_count;
             unclassified_events += usize::from(has_unclassified_event);
+            unresolved_documents += special_counts.0;
+            loss_ranges += special_counts.1;
+            lost_records = lost_records.saturating_add(special_counts.2);
         }
         transaction.execute(
             "INSERT INTO logging_checkpoint(singleton,buffer_id,run_id,cursor_abs) VALUES(1,?1,?2,?3)
@@ -693,6 +713,9 @@ impl DocumentSink for InfluxDb3DocumentSink {
             remote_pending,
             projection_rows_committed,
             unclassified_events,
+            unresolved_documents,
+            loss_ranges,
+            lost_records,
             pending_parts,
             checkpoint: batch.checkpoint,
         })

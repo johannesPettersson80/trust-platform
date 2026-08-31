@@ -488,17 +488,22 @@ fn insert_loss(
     schema: &str,
     row: super::projection_domains::LossRow,
 ) -> Result<(), PersistenceError> {
-    let mut query = Query::new(format!("INSERT INTO [{schema}].data_loss({COMMON_COLUMNS},first_sequence,last_sequence,lost_count,basis) VALUES(@P1,NULL,NULL,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),@P4,@P5,N'',N'',@P6,CONVERT(DECIMAL(20,0),@P7),CONVERT(DECIMAL(20,0),@P8),CONVERT(DECIMAL(20,0),@P9),@P10,1,1,1,CONVERT(DECIMAL(20,0),@P9),CONVERT(DECIMAL(20,0),@P11),CONVERT(DECIMAL(20,0),@P12),@P13)"));
+    let mut query = Query::new(format!("INSERT INTO [{schema}].data_loss({COMMON_COLUMNS},first_sequence,last_sequence,lost_count,basis) VALUES(@P1,NULL,NULL,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),@P4,@P5,@P6,@P7,@P8,CONVERT(DECIMAL(20,0),@P9),CONVERT(DECIMAL(20,0),@P10),CONVERT(DECIMAL(20,0),@P11),@P12,@P13,@P14,@P15,CONVERT(DECIMAL(20,0),@P11),CONVERT(DECIMAL(20,0),@P16),CONVERT(DECIMAL(20,0),@P17),@P18)"));
     query.bind(row.record_id);
     query.bind(row.received_time);
     query.bind(row.received_time_ns);
     query.bind(row.source);
     query.bind(i64::from(row.source_id));
+    query.bind(row.source_path);
+    query.bind(row.source_hierarchy);
     query.bind(i64::from(row.buffer_id));
     query.bind(row.run_id);
     query.bind(row.epoch_id);
     query.bind(row.first_sequence);
     query.bind(row.definition_hash);
+    query.bind(row.time_unsynced);
+    query.bind(row.synthetic_record);
+    query.bind(row.partial_payload);
     query.bind(row.last_sequence);
     query.bind(row.lost_count);
     query.bind(row.basis);
@@ -511,7 +516,7 @@ fn insert_unresolved(
     schema: &str,
     row: super::projection_domains::UnresolvedRow,
 ) -> Result<(), PersistenceError> {
-    let mut query = Query::new(format!("INSERT INTO [{schema}].unresolved_records({COMMON_COLUMNS},event_type_id,reason,diagnostic_summary) VALUES(@P1,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),CONVERT(DATETIME2(7),LEFT(@P4,27),127),CONVERT(DECIMAL(20,0),@P5),@P6,@P7,N'',N'',@P8,CONVERT(DECIMAL(20,0),@P9),CONVERT(DECIMAL(20,0),@P10),CONVERT(DECIMAL(20,0),@P11),@P12,1,1,1,@P13,@P14,@P15)"));
+    let mut query = Query::new(format!("INSERT INTO [{schema}].unresolved_records({COMMON_COLUMNS},event_type_id,reason,diagnostic_summary) VALUES(@P1,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),CONVERT(DATETIME2(7),LEFT(@P4,27),127),CONVERT(DECIMAL(20,0),@P5),@P6,@P7,@P8,@P9,@P10,CONVERT(DECIMAL(20,0),@P11),CONVERT(DECIMAL(20,0),@P12),CONVERT(DECIMAL(20,0),@P13),@P14,@P15,@P16,@P17,@P18,@P19,@P20)"));
     query.bind(row.record_id);
     query.bind(row.event_time);
     query.bind(row.event_time_ns);
@@ -519,11 +524,16 @@ fn insert_unresolved(
     query.bind(row.received_time_ns);
     query.bind(row.source);
     query.bind(i64::from(row.source_id));
+    query.bind(row.source_path);
+    query.bind(row.source_hierarchy);
     query.bind(i64::from(row.buffer_id));
     query.bind(row.run_id);
     query.bind(row.epoch_id);
     query.bind(row.sequence);
     query.bind(row.definition_hash);
+    query.bind(row.time_unsynced);
+    query.bind(row.synthetic_record);
+    query.bind(row.partial_payload);
     query.bind(i64::from(row.event_type_id));
     query.bind(row.reason);
     query.bind(row.diagnostic_summary);

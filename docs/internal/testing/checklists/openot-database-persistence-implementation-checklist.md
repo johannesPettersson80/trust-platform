@@ -1,8 +1,15 @@
 # OpenOT Database Persistence Implementation Checklist
 
-Status: active; typed read model implemented and locally qualified, exact-candidate release proof pending
+Status: corrective audit active; release blocked
 Owner: runtime/OpenOT product persistence
 Scope: add durable database persistence for the resolved OpenOT document stream without changing the OpenOT carriage, definition, or document contracts and without placing database work in the PLC scan path.
+
+Corrective authority:
+`docs/internal/testing/checklists/openot-database-persistence-corrective-audit.md`.
+The post-merge audit found lifecycle, sustained-delivery, projection-fidelity,
+shutdown, status, and release-runner defects. Existing completion marks are
+historical implementation evidence, not current release acceptance, until the
+corrective board closes.
 
 Active correction board:
 `docs/internal/testing/checklists/openot-typed-database-read-model-checklist.md`.
@@ -389,11 +396,11 @@ A compile error, missing dependency, broken harness, timeout, ignored test, filt
 
 ## Phase 3 - Approved Database Adapters, Schemas, Migrations, And Durable Writes
 
-- [ ] `OOTDB-P3-READMODEL-001` Implement `LoggingProjector` as the sole typed OpenOT-to-logging semantic owner; adapters must not parse canonical JSON or duplicate event-name dispatch.
-- [ ] `OOTDB-P3-READMODEL-002` Implement schema v3 and typed public tables for SQLite, PostgreSQL, MySQL, MariaDB, and SQL Server with product-correct exact types and indexes.
-- [ ] `OOTDB-P3-READMODEL-003` Implement typed public TimescaleDB hypertables for time-oriented domain data while retaining ordinary internal canonical authority.
-- [ ] `OOTDB-P3-READMODEL-004` Implement descriptive homogeneous InfluxDB measurements and per-record/per-part spool reconciliation without unsafe partial-write acknowledgement.
-- [ ] `OOTDB-P3-READMODEL-005` Implement deterministic v2-to-v3 migration/backfill and fail closed on malformed canonical rows or projection conflicts.
+- [x] `OOTDB-P3-READMODEL-001` Implement `LoggingProjector` as the sole typed OpenOT-to-logging semantic owner; adapters must not parse canonical JSON or duplicate event-name dispatch.
+- [x] `OOTDB-P3-READMODEL-002` Implement the typed public tables with SQLite schema v4 and schema v3 for PostgreSQL, MySQL, MariaDB, and SQL Server, using product-correct exact types and indexes.
+- [x] `OOTDB-P3-READMODEL-003` Implement typed public TimescaleDB hypertables for time-oriented domain data while retaining ordinary internal canonical authority.
+- [x] `OOTDB-P3-READMODEL-004` Implement descriptive homogeneous InfluxDB measurements and per-record/per-part spool reconciliation without unsafe partial-write acknowledgement.
+- [x] `OOTDB-P3-READMODEL-005` Implement deterministic v2-to-v3 migration/backfill and fail closed on malformed canonical rows or projection conflicts.
 
 - [x] `OOTDB-P3-001` Implement only the database adapters approved in the Phase 0 backend matrix; each adapter owns its connection, migration, transaction, and backend-specific error mapping.
 - [x] `OOTDB-P3-002` Add migration versioning and create the approved schema for every supported backend with explicit constraints and indexes.
@@ -682,9 +689,9 @@ A compile error, missing dependency, broken harness, timeout, ignored test, filt
 
 ## Phase 7 - Examples And Documentation
 
-- [ ] `OOTDB-P7-READMODEL-001` Update every backend example to query the descriptive public objects without JSON paths and show the same logical rows across products.
-- [ ] `OOTDB-P7-READMODEL-002` Demonstrate all supported logging domains and all IEC value types, including exact `ULINT`, alarms, messages, values, states, batches, recipes, material, operator actions, audits, signatures, system events, loss, and unresolved records.
-- [ ] `OOTDB-P7-READMODEL-003` Document which objects are stable read-only database API, which are internal, retention/index guidance, migration/backup procedure, and the InfluxDB relational-model differences.
+- [x] `OOTDB-P7-READMODEL-001` Update every backend example to query the descriptive public objects without JSON paths and show the same logical rows across products.
+- [x] `OOTDB-P7-READMODEL-002` Demonstrate all supported logging domains and all IEC value types, including exact `ULINT`, alarms, messages, values, states, batches, recipes, material, operator actions, audits, signatures, system events, loss, and unresolved records.
+- [x] `OOTDB-P7-READMODEL-003` Document which objects are stable read-only database API, which are internal, retention/index guidance, migration/backup procedure, and the InfluxDB relational-model differences.
 
 - [x] `OOTDB-P7-001` Add one comprehensive runnable example for every supported backend. Every example uses the same canonical ST workload and expected OpenOT document set; only the TOML backend selection and backend-specific settings differ.
 - [x] `OOTDB-P7-001A` Add `examples/openot_database/sqlite/` with ST source, `runtime.toml`, safe local path, run/inspect/reset commands, expected rows/documents, and a checked database artifact or deterministic generation procedure.
@@ -773,11 +780,11 @@ A compile error, missing dependency, broken harness, timeout, ignored test, filt
 
 ## Phase 8 - Architecture, Release, And Public Completion
 
-- [ ] `OOTDB-P8-001` Update PlantUML sources for the final producer/consumer/resolver/projector/persistence/status flow.
-- [ ] `OOTDB-P8-002` Regenerate diagram outputs on `trust-builder`, refresh `docs/diagrams/manifest.json`, and pass diagram drift validation.
-- [ ] `OOTDB-P8-003` Update `docs/internal/testing/checklists/architecture-improvements.md` with final ownership and evidence.
-- [ ] `OOTDB-P8-004` Update `CHANGELOG.md` under `## [Unreleased]` before commit with the user-observable behavior and operational constraints.
-- [ ] `OOTDB-P8-005` Bump and synchronize workspace/VS Code versions as required by repository release hygiene for the release-notable runtime feature.
+- [x] `OOTDB-P8-001` Update PlantUML sources for the final producer/consumer/resolver/projector/persistence/status flow.
+- [x] `OOTDB-P8-002` Regenerate diagram outputs on `trust-builder`, refresh `docs/diagrams/manifest.json`, and pass diagram drift validation.
+- [x] `OOTDB-P8-003` Update `docs/internal/testing/checklists/architecture-improvements.md` with final ownership and evidence.
+- [x] `OOTDB-P8-004` Update `CHANGELOG.md` under `## [Unreleased]` before commit with the user-observable behavior and operational constraints.
+- [x] `OOTDB-P8-005` Bump and synchronize workspace/VS Code versions as required by repository release hygiene for the release-notable runtime feature.
 - [ ] `OOTDB-P8-006` Freeze one clean candidate after focused tests and cheap full-diff preflight; any code, schema, migration, docs claim, validator, or instruction change invalidates the candidate.
 - [ ] `OOTDB-P8-007` Run remote disk preflight, then remote `just fmt`, `just clippy`, and `just test-all` plus feature-specific runtime/OpenOT/database gates.
 - [ ] `OOTDB-P8-008` Run the required runtime vertical tests: `api_smoke`, `debug_control`, `complete_program`, and `runtime_reliability`.

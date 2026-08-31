@@ -1192,7 +1192,7 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
         let retained_documents: i64 = retained
             .query_row("SELECT COUNT(*) FROM logging_records", [], |row| row.get(0))
             .expect("inspect retained SQLite document count");
-        assert_eq!(retained_schema, 3);
+        assert_eq!(retained_schema, 4);
         assert_eq!(retained_documents, persisted);
         retained
             .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
@@ -1209,7 +1209,7 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
         let retained_documents: i64 = retained
             .query_row("SELECT COUNT(*) FROM logging_records", [], |row| row.get(0))
             .expect("inspect retained SQLite document count");
-        assert_eq!(retained_schema, 3);
+        assert_eq!(retained_schema, 4);
         assert_eq!(retained_documents, persisted);
         std::fs::write(
             evidence_root.join("openot-definition.json"),
@@ -1221,7 +1221,7 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
         )
         .expect("retain generated OpenOT definition");
         let reconciliation = serde_json::json!({
-            "schemaVersion": 3,
+            "schemaVersion": 4,
             "integrityCheck": "ok",
             "persistedDocuments": persisted,
             "insertedDocuments": committed.inserted,

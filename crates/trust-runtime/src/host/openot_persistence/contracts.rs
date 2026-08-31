@@ -39,6 +39,12 @@ pub struct CommitOutcome {
     pub projection_rows_committed: usize,
     /// Newly committed future events retaining unclassified fields.
     pub unclassified_events: usize,
+    /// Newly inserted fail-closed placeholder documents.
+    pub unresolved_documents: usize,
+    /// Newly inserted queryable loss ranges.
+    pub loss_ranges: usize,
+    /// Source records represented by newly inserted loss ranges.
+    pub lost_records: u64,
     /// Durable delivery parts still awaiting remote reconciliation.
     pub pending_parts: usize,
     /// Durable checkpoint after the commit.
@@ -192,6 +198,7 @@ pub(crate) struct InMemoryDocumentSink {
     pub(crate) checkpoint: Option<PersistenceCheckpoint>,
     fail_next_commit: bool,
     remote_pending: usize,
+    maintenance_calls: usize,
 }
 
 #[cfg(test)]
@@ -202,6 +209,7 @@ impl InMemoryDocumentSink {
             checkpoint: None,
             fail_next_commit: false,
             remote_pending: 0,
+            maintenance_calls: 0,
         }
     }
 
@@ -212,11 +220,16 @@ impl InMemoryDocumentSink {
     pub(crate) fn set_remote_pending(&mut self, remote_pending: usize) {
         self.remote_pending = remote_pending;
     }
+
+    pub(crate) fn maintenance_calls(&self) -> usize {
+        self.maintenance_calls
+    }
 }
 
 #[cfg(test)]
 impl DocumentSink for InMemoryDocumentSink {
     fn maintenance(&mut self) -> Result<usize, PersistenceError> {
+        self.maintenance_calls = self.maintenance_calls.saturating_add(1);
         Ok(self.remote_pending)
     }
 
@@ -251,6 +264,9 @@ impl DocumentSink for InMemoryDocumentSink {
         let mut staged = self.documents.clone();
         let mut inserted = 0;
         let mut duplicated = 0;
+        let mut unresolved_documents = 0;
+        let mut loss_ranges = 0;
+        let mut lost_records = 0u64;
         for document in &batch.documents {
             let identity = document_identity(document);
             if let Some(existing) = staged
@@ -265,6 +281,14 @@ impl DocumentSink for InMemoryDocumentSink {
             }
             staged.push(document.clone());
             inserted += 1;
+            match document {
+                Document::Placeholder(_) => unresolved_documents += 1,
+                Document::Loss(loss) => {
+                    loss_ranges += 1;
+                    lost_records = lost_records.saturating_add(loss.count);
+                }
+                Document::Event(_) => {}
+            }
         }
         self.documents = staged;
         self.checkpoint = Some(batch.checkpoint);
@@ -274,6 +298,9 @@ impl DocumentSink for InMemoryDocumentSink {
             remote_pending: self.remote_pending,
             projection_rows_committed: 0,
             unclassified_events: 0,
+            unresolved_documents,
+            loss_ranges,
+            lost_records,
             pending_parts: 0,
             checkpoint: batch.checkpoint,
         })

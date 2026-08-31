@@ -38,6 +38,43 @@ pub(super) fn line_protocol(projected: &ProjectedDocument) -> Result<String, Per
         );
         optional_float(&mut fields, "number_value", value.number_value);
         optional_string(&mut fields, "text_value", value.text_value.as_deref());
+        optional_bool(
+            &mut fields,
+            "previous_boolean_value",
+            value.previous_boolean_value,
+        );
+        optional_signed(
+            &mut fields,
+            "previous_signed_value",
+            value.previous_signed_value,
+        );
+        optional_unsigned_text(
+            &mut fields,
+            "previous_unsigned_value",
+            value.previous_unsigned_value.as_deref(),
+        );
+        optional_float(
+            &mut fields,
+            "previous_number_value",
+            value.previous_number_value,
+        );
+        optional_string(
+            &mut fields,
+            "previous_text_value",
+            value.previous_text_value.as_deref(),
+        );
+        optional_string(
+            &mut fields,
+            "previous_exact_value",
+            value.previous_exact_value.as_deref(),
+        );
+        optional_string(&mut fields, "actor", value.actor.as_deref());
+        optional_string(&mut fields, "reason", value.reason.as_deref());
+        optional_string(
+            &mut fields,
+            "authorization_result",
+            value.authorization_result.as_deref(),
+        );
         lines.push(event_line("logged_values", &value.common, "value", fields)?);
     }
     for domain in &projected.domains {
@@ -80,57 +117,85 @@ fn domain_line(row: &DomainRow) -> Result<String, PersistenceError> {
             }
             event_line("message_log", &row.common, "message", fields)
         }
-        DomainRow::State(row) => event_line(
-            "state_history",
-            &row.common,
-            "state",
-            vec![
+        DomainRow::State(row) => {
+            let mut fields = vec![
                 string("state_machine", &row.state_machine),
                 string("state_category", &row.state_category),
                 string("previous_state", &row.previous_state),
                 string("new_state", &row.new_state),
-            ],
-        ),
-        DomainRow::Batch(row) => event_line(
-            "batch_history",
-            &row.common,
-            "batch",
-            vec![
+            ];
+            optional_string(
+                &mut fields,
+                "previous_state_label",
+                row.previous_state_label.as_deref(),
+            );
+            optional_string(
+                &mut fields,
+                "new_state_label",
+                row.new_state_label.as_deref(),
+            );
+            event_line("state_history", &row.common, "state", fields)
+        }
+        DomainRow::Batch(row) => {
+            let mut fields = vec![
                 string("batch_id", &row.batch_id),
                 string("new_state", &row.new_state),
-            ],
-        ),
-        DomainRow::Recipe(row) => event_line(
-            "recipe_history",
-            &row.common,
-            "recipe",
-            vec![
+            ];
+            optional_string(&mut fields, "recipe_id", row.recipe_id.as_deref());
+            optional_string(&mut fields, "previous_state", row.previous_state.as_deref());
+            optional_string(
+                &mut fields,
+                "new_state_label",
+                row.new_state_label.as_deref(),
+            );
+            event_line("batch_history", &row.common, "batch", fields)
+        }
+        DomainRow::Recipe(row) => {
+            let mut fields = vec![
                 string("action", &row.action),
                 string("recipe_id", &row.recipe_id),
-            ],
-        ),
-        DomainRow::Material(row) => event_line(
-            "material_additions",
-            &row.common,
-            "material",
-            vec![
+            ];
+            optional_string(&mut fields, "recipe_version", row.recipe_version.as_deref());
+            optional_string(&mut fields, "batch_id", row.batch_id.as_deref());
+            optional_string(&mut fields, "actor", row.actor.as_deref());
+            optional_string(
+                &mut fields,
+                "authorization_result",
+                row.authorization_result.as_deref(),
+            );
+            event_line("recipe_history", &row.common, "recipe", fields)
+        }
+        DomainRow::Material(row) => {
+            let mut fields = vec![
                 string("batch_id", &row.batch_id),
                 string("material_id", &row.material_id),
                 float("quantity", row.quantity),
                 string("exact_quantity", &row.exact_quantity),
-            ],
-        ),
-        DomainRow::Operator(row) => event_line(
-            "operator_activity",
-            &row.common,
-            "operator",
-            vec![string("action", &row.action)],
-        ),
-        DomainRow::Audit(row) => event_line(
-            "audit_log",
-            &row.common,
-            "audit",
-            vec![
+            ];
+            optional_string(&mut fields, "unit", row.unit.as_deref());
+            event_line("material_additions", &row.common, "material", fields)
+        }
+        DomainRow::Operator(row) => {
+            let mut fields = vec![string("action", &row.action)];
+            optional_string(&mut fields, "action_id", row.action_id.as_deref());
+            optional_string(&mut fields, "actor", row.actor.as_deref());
+            optional_string(&mut fields, "workstation", row.workstation.as_deref());
+            optional_string(&mut fields, "role", row.role.as_deref());
+            optional_string(
+                &mut fields,
+                "authorization_result",
+                row.authorization_result.as_deref(),
+            );
+            optional_string(&mut fields, "reason", row.reason.as_deref());
+            optional_string(
+                &mut fields,
+                "context_references",
+                row.context_references.as_deref(),
+            );
+            event_line("operator_activity", &row.common, "operator", fields)
+        }
+        DomainRow::Audit(row) => {
+            let mut fields = vec![
                 string("action", &row.action),
                 string("target", &row.target),
                 string("actor", &row.actor),
@@ -138,20 +203,30 @@ fn domain_line(row: &DomainRow) -> Result<String, PersistenceError> {
                 string("value_type", &row.value_type),
                 string("previous_value", &row.previous_value),
                 string("current_value", &row.current_value),
-            ],
-        ),
-        DomainRow::Signature(row) => event_line(
-            "electronic_signatures",
-            &row.common,
-            "signature",
-            vec![
+            ];
+            optional_string(
+                &mut fields,
+                "authorization_result",
+                row.authorization_result.as_deref(),
+            );
+            optional_string(&mut fields, "workstation", row.workstation.as_deref());
+            event_line("audit_log", &row.common, "audit", fields)
+        }
+        DomainRow::Signature(row) => {
+            let mut fields = vec![
                 string("action_id", &row.action_id),
                 string("actor", &row.actor),
                 string("meaning", &row.meaning),
                 uint("signed_source_id", row.signed_source_id),
                 unsigned_text("signed_sequence", &row.signed_sequence),
-            ],
-        ),
+            ];
+            optional_string(
+                &mut fields,
+                "authorization_result",
+                row.authorization_result.as_deref(),
+            );
+            event_line("electronic_signatures", &row.common, "signature", fields)
+        }
         DomainRow::System(row) => {
             let mut fields = vec![string("event_name", &row.event_name)];
             optional_uint(&mut fields, "interval_ms", row.interval_ms);
@@ -184,32 +259,69 @@ fn domain_line(row: &DomainRow) -> Result<String, PersistenceError> {
             optional_bool(&mut fields, "cold_start", row.cold_start);
             event_line("system_events", &row.common, "system", fields)
         }
-        DomainRow::Loss(row) => custom_line(
-            "data_loss",
-            &row.record_id,
-            &row.run_id,
-            row.source_id,
-            &row.received_time_ns,
-            vec![
+        DomainRow::Loss(row) => {
+            let mut fields = vec![
+                string("received_time", &row.received_time),
+                unsigned_text("received_time_ns", &row.received_time_ns),
+                uint("buffer_id", row.buffer_id),
+                unsigned_text("epoch_id", &row.epoch_id),
+                unsigned_text("sequence", &row.first_sequence),
+                string("definition_hash", &row.definition_hash),
+                string("source_path", &row.source_path),
+                string("source_hierarchy", &row.source_hierarchy),
+                boolean("time_unsynced", row.time_unsynced),
+                boolean("synthetic_record", row.synthetic_record),
+                boolean("partial_payload", row.partial_payload),
                 unsigned_text("first_sequence", &row.first_sequence),
                 unsigned_text("last_sequence", &row.last_sequence),
                 unsigned_text("lost_count", &row.lost_count),
                 string("basis", row.basis),
-            ],
-        ),
-        DomainRow::Unresolved(row) => custom_line(
-            "unresolved_records",
-            &row.record_id,
-            &row.run_id,
-            row.source_id,
-            row.event_time_ns
-                .as_deref()
-                .unwrap_or(&row.received_time_ns),
-            vec![
+            ];
+            optional_string(&mut fields, "source", row.source.as_deref());
+            custom_line(
+                "data_loss",
+                &row.record_id,
+                &row.run_id,
+                row.source_id,
+                &row.received_time_ns,
+                fields,
+            )
+        }
+        DomainRow::Unresolved(row) => {
+            let mut fields = vec![
+                string("received_time", &row.received_time),
+                unsigned_text("received_time_ns", &row.received_time_ns),
+                uint("buffer_id", row.buffer_id),
+                unsigned_text("epoch_id", &row.epoch_id),
+                unsigned_text("sequence", &row.sequence),
+                string("definition_hash", &row.definition_hash),
+                string("source_path", &row.source_path),
+                string("source_hierarchy", &row.source_hierarchy),
+                boolean("time_unsynced", row.time_unsynced),
+                boolean("synthetic_record", row.synthetic_record),
+                boolean("partial_payload", row.partial_payload),
                 uint("event_type_id", row.event_type_id),
                 string("reason", &row.reason),
-            ],
-        ),
+            ];
+            optional_string(&mut fields, "event_time", row.event_time.as_deref());
+            optional_unsigned_text(&mut fields, "event_time_ns", row.event_time_ns.as_deref());
+            optional_string(&mut fields, "source", row.source.as_deref());
+            optional_string(
+                &mut fields,
+                "diagnostic_summary",
+                row.diagnostic_summary.as_deref(),
+            );
+            custom_line(
+                "unresolved_records",
+                &row.record_id,
+                &row.run_id,
+                row.source_id,
+                row.event_time_ns
+                    .as_deref()
+                    .unwrap_or(&row.received_time_ns),
+                fields,
+            )
+        }
     }
 }
 
@@ -219,6 +331,9 @@ fn event_line(
     part: &str,
     mut fields: Vec<String>,
 ) -> Result<String, PersistenceError> {
+    optional_string(&mut fields, "event_time", row.event_time.as_deref());
+    optional_unsigned_text(&mut fields, "event_time_ns", row.event_time_ns.as_deref());
+    fields.push(string("received_time", &row.received_time));
     fields.push(unsigned_text("received_time_ns", &row.received_time_ns));
     optional_string(&mut fields, "source", row.source.as_deref());
     fields.push(string("source_path", &row.source_path));

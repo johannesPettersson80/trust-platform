@@ -204,13 +204,17 @@ Back up both documents and checkpoint consistently. For SQLite and the Influx
 spool, use the SQLite online backup mechanism or stop the runtime cleanly before
 copying. For server databases, use the vendor's transaction-consistent backup.
 Restore into the same schema version and validate the document count, canonical
-JSON, and checkpoint before reconnecting a producer. Retention is operator
-owned in schema version 3; do not delete checkpoint state or remove documents
-that remain inside an audit retention period.
+JSON, and checkpoint before reconnecting a producer. PostgreSQL, TimescaleDB,
+MySQL, MariaDB, SQL Server, and the Influx spool use schema version 3.
+SQLite uses schema version 4 to expose explicit, unambiguous provenance
+columns in every public view. Retention is operator owned; do not delete
+checkpoint state or remove documents that remain inside an audit retention
+period.
 
 The tables and columns are implementation-owned and versioned by truST. Do not
-treat undocumented columns as a stable integration API; consume canonical
-OpenOT JSON or a documented export boundary.
+treat undocumented columns as a stable integration API; consume documented
+public objects or a documented export boundary. Canonical JSON remains an
+internal recovery authority, not the ordinary query model.
 
 ## Example and verification
 

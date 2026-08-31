@@ -18,13 +18,14 @@ package "Host persistence thread" {
   component "Definition resolver\n(current + prior epoch)" as resolver
   component "OpenOtPersistenceWorker" as worker
   component "LoggingProjector\n(definition-bound semantics)" as projector
-  component "OpenOtDocumentSink factory" as factory
-  component "Supervision + redacted status" as status
+  component "OpenOtDocumentSink factory\n(open / migrate / reconnect)" as factory
+  component "Supervision + redacted status\n(schema only after successful open)" as status
   ring --> source : concurrent poll
   source --> loss : raw batches + control snapshot
   loss --> resolver : records + explicit loss ranges
   resolver --> worker : event / loss / placeholder documents
-  worker --> factory : typed documents + atomic cursor
+  status --> factory : supervised initial open + retry
+  worker --> factory : typed documents + atomic cursor + maintenance
   factory --> projector : exact definition catalog
   projector --> factory : canonical + envelope + typed domain rows
   worker --> status : lag, loss, projection, reconciliation, retry
@@ -49,7 +50,7 @@ factory --> timescale
 factory --> mysql
 factory --> sqlserver
 factory --> spool : Influx acceptance authority
-spool --> influx : ordered HTTPS delivery
+spool --> influx : ordered bounded HTTPS chunks
 
 note bottom of ring
 Database work is outside the PLC scan.
@@ -61,5 +62,7 @@ Relational adapters commit internal canonical rows,
 descriptive public read-model rows, and the absolute
 ring cursor in one transaction. Influx uses durable
 per-part reconciliation before remote acknowledgement.
+Initial remote open, migration, and reconnect remain in
+the supervised host worker and cannot block PLC startup.
 end note
 @enduml

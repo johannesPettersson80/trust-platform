@@ -48,7 +48,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.67`
+Target release: `v0.24.68`
 
 ### Added
 
@@ -57,16 +57,27 @@ Target release: `v0.24.67`
   SQL Server, or InfluxDB 3 backend, with atomic durable checkpoints,
   idempotent replay, TLS/secret boundaries, InfluxDB outage spooling, runtime
   status, complete examples, and real-vendor conformance coverage.
-- Expose schema-v3 typed logging objects with descriptive names such as
+- Expose typed logging objects with descriptive names such as
   `logged_values`, `alarm_history`, `message_log`, `state_history`, and
   `audit_log`; normal reports no longer require OpenOT field arrays or JSON
-  paths, while canonical JSON remains internal recovery authority.
+  paths, while canonical JSON remains internal recovery authority. Relational
+  products use schema v3; SQLite schema v4 rebuilds its public views with
+  explicit, unambiguous provenance columns.
 - Support MQTT tag mappings that bind fully qualified scalar program variables
   directly to broker topics with explicit PLC-relative `read` and `write`
   directions.
 
 ### Fixed
 
+- Keep PLC startup independent of remote logging availability, preserve
+  cumulative status across reconnects, drain bounded shutdown work, and report
+  the actual opened backend schema without exposing secrets.
+- Make InfluxDB delivery bounded and continuous under sustained input, retain
+  the complete typed/domain/provenance model, and require authenticated,
+  CA-verified real-product release proof.
+- Provision every real logging database from repository-owned, digest-pinned
+  runner scripts with ephemeral credentials, authenticated readiness checks,
+  symlink-safe teardown, and retained exact-candidate evidence.
 - Make every OpenOT database example portable to Windows and Linux by using a
   TCP runtime control endpoint with an explicit local-only example token instead
   of a Unix-only `/tmp` socket.

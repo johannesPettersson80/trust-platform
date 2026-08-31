@@ -1,6 +1,6 @@
 {
   "docs/diagrams/architecture/full-software-map-generated.puml": "d8da81d1e271f488fc7a494cd011c556ffdda27ee6e3ba5a6767f7830e21bd85",
-  "docs/diagrams/architecture/openot-database-persistence.puml": "ef472494667932e34f806829be12566882813e46782aa05efc678b231e03e4b3",
+  "docs/diagrams/architecture/openot-database-persistence.puml": "e10544f9cf259b3bab9eb420d0e54ba3ba477661f0ec5fced96459f0b179435e",
   "docs/diagrams/architecture/plcopen-interchange-contracts.puml": "5dc205de19bacbb12172e121d594bb46e23b1d81b6cc72509a3fa3df8c869bb8",
   "docs/diagrams/architecture/plcopen-motion-library.puml": "a946e8cdde0f4316302cab0ac1c3e13003b634f098264dc0f539240955aa31d4",
   "docs/diagrams/architecture/release-evidence-flow.puml": "9949338919b21936342df4cec2f22db954535bb34bfa8cd71a7a5369f5d7beb3",

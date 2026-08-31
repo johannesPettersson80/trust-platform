@@ -54,6 +54,24 @@ fn backend_unavailable(backend: &str) -> PersistenceError {
 }
 
 impl OpenOtDocumentSink {
+    #[cfg(unix)]
+    pub(crate) fn schema_version(&mut self) -> Result<u32, PersistenceError> {
+        match self {
+            #[cfg(feature = "openot-database-sqlite")]
+            Self::Sqlite(sink) => sink.schema_version(),
+            #[cfg(feature = "openot-database-postgresql")]
+            Self::PostgreSql(sink) => sink.schema_version(),
+            #[cfg(feature = "openot-database-timescaledb")]
+            Self::TimescaleDb(sink) => sink.schema_version(),
+            #[cfg(feature = "openot-database-mysql")]
+            Self::MySql(sink) => sink.schema_version(),
+            #[cfg(feature = "openot-database-sqlserver")]
+            Self::SqlServer(sink) => sink.schema_version(),
+            #[cfg(feature = "openot-database-influxdb3")]
+            Self::InfluxDb3(sink) => sink.schema_version(),
+        }
+    }
+
     /// Validates and opens only the explicitly selected adapter.
     pub fn open(
         config: &OpenOtPersistenceConfig,

@@ -488,6 +488,8 @@ impl DocumentSink for PostgreSqlDocumentSink {
             .iter()
             .filter(|document| document.has_unclassified_event())
             .count();
+        let (unresolved_documents, loss_ranges, lost_records) =
+            super::projection::committed_special_counts(&pending)?;
         if !pending.is_empty() {
             let rows = pending
                 .iter()
@@ -590,6 +592,9 @@ impl DocumentSink for PostgreSqlDocumentSink {
             remote_pending: 0,
             projection_rows_committed,
             unclassified_events,
+            unresolved_documents,
+            loss_ranges,
+            lost_records,
             pending_parts: 0,
             checkpoint: batch.checkpoint,
         })
