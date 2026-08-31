@@ -36,9 +36,9 @@ description: Enforce trust-platform release hygiene for user-visible changes. Us
    - Cheap local checks are allowed when narrowly scoped.
    - Required full gates before completion: remote `just fmt`, `just clippy`, and `just test-all`,
      plus feature-specific runtime/VS Code gates when behavior changed.
-   - If the candidate changes `editors/vscode/**`, `scripts/captures/**`, capture assets, or the
-     capture workflow, require a successful `Docs Captures` pull-request run on the exact candidate
-     SHA before merge. A post-merge capture failure is not candidate proof.
+   - If the candidate changes any path listed by the `Docs Captures` workflow filter, require a
+     successful `Docs Captures` pull-request run on the exact candidate SHA before merge. A
+     post-merge capture failure is not candidate proof.
    - Before pushing such a candidate, require the exact-SHA artifact to record
      `python3 -m unittest scripts.tests.test_capture_lifecycle -v` as
      `remote_docs_capture_lifecycle`.

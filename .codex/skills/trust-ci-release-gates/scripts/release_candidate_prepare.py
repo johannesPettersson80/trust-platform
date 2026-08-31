@@ -81,7 +81,7 @@ def remote_command(host: str, worktree: str, command: str) -> list[str]:
 
 
 def remote_validation_commands(
-    *, vscode_changed: bool, remote_target: str
+    *, vscode_changed: bool, remote_target: str, docs_captures_changed: bool = False
 ) -> list[tuple[str, str]]:
     target = validated_remote_target(remote_target)
     target_tmp = str(PurePosixPath(target) / "tmp")
@@ -117,13 +117,14 @@ def remote_validation_commands(
         ("remote_disk_preflight", disk_preflight),
         ("remote_prepare_target", prepare_target),
     ]
-    if vscode_changed:
+    if docs_captures_changed or vscode_changed:
         commands.append(
             (
                 "remote_docs_capture_lifecycle",
                 "python3 -m unittest scripts.tests.test_capture_lifecycle -v",
             )
         )
+    if vscode_changed:
         commands.append(
             (
                 "remote_vscode",
@@ -203,10 +204,16 @@ def finish_artifact(
     base_ref: str,
     base_sha: str,
     vscode_changed: bool,
+    docs_captures_changed: bool = False,
     records: list[dict[str, Any]],
     log_dir: Path,
 ) -> int:
-    required = set(guard.required_command_ids(vscode_changed=vscode_changed))
+    required = set(
+        guard.required_command_ids(
+            vscode_changed=vscode_changed,
+            docs_captures_changed=docs_captures_changed,
+        )
+    )
     recorded_required = {row["id"] for row in records if row["id"] in required}
     passed = required == recorded_required and all(
         row["exit_status"] == 0 for row in records if row["id"] in required
@@ -297,6 +304,7 @@ def prepare(args: Any) -> int:
     vscode_changed = any(
         path == "editors/vscode" or path.startswith("editors/vscode/") for path in paths
     )
+    capture_paths_changed = guard.docs_captures_changed(paths)
     cheap_ids = ("bootstrap", "clean", "base_ancestor", "diff_check", "planner")
     if not stage_passed(records, cheap_ids):
         return finish_artifact(
@@ -305,6 +313,7 @@ def prepare(args: Any) -> int:
             base_ref=args.base,
             base_sha=base_sha,
             vscode_changed=vscode_changed,
+            docs_captures_changed=capture_paths_changed,
             records=records,
             log_dir=log_dir,
         )
@@ -319,6 +328,7 @@ def prepare(args: Any) -> int:
             base_ref=args.base,
             base_sha=base_sha,
             vscode_changed=vscode_changed,
+            docs_captures_changed=capture_paths_changed,
             records=records,
             log_dir=log_dir,
         )
@@ -338,6 +348,7 @@ def prepare(args: Any) -> int:
             base_ref=args.base,
             base_sha=base_sha,
             vscode_changed=vscode_changed,
+            docs_captures_changed=capture_paths_changed,
             records=records,
             log_dir=log_dir,
         )
@@ -347,7 +358,9 @@ def prepare(args: Any) -> int:
         'test -z "$(git status --porcelain=v1 --untracked-files=all)"'
     )
     remote_commands = remote_validation_commands(
-        vscode_changed=vscode_changed, remote_target=args.remote_target
+        vscode_changed=vscode_changed,
+        docs_captures_changed=capture_paths_changed,
+        remote_target=args.remote_target,
     )
     remote_commands[0] = ("remote_exact_head", remote_head_check)
     for command_id, command in remote_commands:
@@ -369,6 +382,7 @@ def prepare(args: Any) -> int:
         base_ref=args.base,
         base_sha=base_sha,
         vscode_changed=vscode_changed,
+        docs_captures_changed=capture_paths_changed,
         records=records,
         log_dir=log_dir,
     )

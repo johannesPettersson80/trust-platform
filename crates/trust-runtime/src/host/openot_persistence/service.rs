@@ -65,6 +65,7 @@ fn validate_startup_artifacts(
     PersistenceError,
 > {
     OpenOtDocumentSink::validate_backend_available(&config.persistence)?;
+    validate_database_ca(&config.persistence, bundle_root)?;
     let definition_path = bundle_root.join("openot-definition.json");
     let definition_bytes = std::fs::read(&definition_path).map_err(|error| {
         PersistenceError::InvalidConfig(format!(
@@ -93,6 +94,73 @@ fn validate_startup_artifacts(
         persistence.queue_capacity,
     )?;
     Ok((definition, source_path, persistence))
+}
+
+#[cfg(unix)]
+fn validate_database_ca(
+    persistence: &OpenOtPersistenceConfig,
+    bundle_root: &Path,
+) -> Result<(), PersistenceError> {
+    let (backend, configured_path) = match persistence.backend {
+        Some(crate::config::OpenOtPersistenceBackend::Sqlite) => return Ok(()),
+        Some(crate::config::OpenOtPersistenceBackend::PostgreSql) => (
+            "postgresql",
+            persistence
+                .postgresql
+                .as_ref()
+                .and_then(|config| config.ca_cert_path.as_ref()),
+        ),
+        Some(crate::config::OpenOtPersistenceBackend::TimescaleDb) => (
+            "timescaledb",
+            persistence
+                .timescaledb
+                .as_ref()
+                .and_then(|config| config.ca_cert_path.as_ref()),
+        ),
+        Some(crate::config::OpenOtPersistenceBackend::MySql) => (
+            "mysql",
+            persistence
+                .mysql
+                .as_ref()
+                .and_then(|config| config.ca_cert_path.as_ref()),
+        ),
+        Some(crate::config::OpenOtPersistenceBackend::SqlServer) => (
+            "sqlserver",
+            persistence
+                .sqlserver
+                .as_ref()
+                .and_then(|config| config.ca_cert_path.as_ref()),
+        ),
+        Some(crate::config::OpenOtPersistenceBackend::InfluxDb3) => (
+            "influxdb3",
+            persistence
+                .influxdb3
+                .as_ref()
+                .and_then(|config| config.ca_cert_path.as_ref()),
+        ),
+        None => {
+            return Err(PersistenceError::InvalidConfig(
+                "runtime.openot.persistence.backend is required".to_string(),
+            ));
+        }
+    };
+    let configured_path = configured_path.ok_or_else(|| {
+        PersistenceError::InvalidConfig(format!(
+            "runtime.openot.persistence.{backend}.ca_cert_path is required"
+        ))
+    })?;
+    let path = if configured_path.is_absolute() {
+        configured_path.clone()
+    } else {
+        bundle_root.join(configured_path)
+    };
+    std::fs::read(&path).map_err(|error| {
+        PersistenceError::InvalidConfig(format!(
+            "read runtime.openot.persistence.{backend}.ca_cert_path '{}': {error}",
+            path.display()
+        ))
+    })?;
+    Ok(())
 }
 
 #[cfg(unix)]

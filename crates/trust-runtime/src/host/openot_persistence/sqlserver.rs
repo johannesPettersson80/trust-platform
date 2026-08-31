@@ -150,6 +150,36 @@ impl SqlServerDocumentSink {
         .ok_or_else(|| commit_error("public count is absent"))
     }
 
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn public_provenance(
+        &mut self,
+        table: &str,
+    ) -> Result<(String, String, bool, bool, bool), PersistenceError> {
+        if !matches!(table, "data_loss" | "unresolved_records") {
+            return Err(PersistenceError::InvalidConfig(
+                "unsupported SQL Server provenance table".into(),
+            ));
+        }
+        let row = self.one(&format!(
+            "SELECT TOP 1 source_path,source_hierarchy,time_unsynced,synthetic_record,partial_payload FROM [{}].[{table}] ORDER BY record_id",
+            self.schema
+        ))?;
+        Ok((
+            row.get::<&str, _>(0)
+                .map(str::to_string)
+                .ok_or_else(|| commit_error("source path is absent"))?,
+            row.get::<&str, _>(1)
+                .map(str::to_string)
+                .ok_or_else(|| commit_error("source hierarchy is absent"))?,
+            row.get(2)
+                .ok_or_else(|| commit_error("time-unsynced flag is absent"))?,
+            row.get(3)
+                .ok_or_else(|| commit_error("synthetic-record flag is absent"))?,
+            row.get(4)
+                .ok_or_else(|| commit_error("partial-payload flag is absent"))?,
+        ))
+    }
+
     #[cfg(feature = "openot-real-database-tests")]
     #[doc(hidden)]
     pub fn canonical_jsons(&mut self) -> Result<Vec<String>, PersistenceError> {

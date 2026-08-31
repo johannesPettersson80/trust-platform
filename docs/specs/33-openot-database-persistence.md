@@ -63,6 +63,10 @@ After configuration and local artifact validation succeed, opening a remote
 database MUST occur in the supervised persistence worker. An unreachable
 configured database MUST NOT prevent the PLC runtime from starting; persistence
 reports `retrying` and reconnects under the configured bounded retry policy.
+For every network backend, the selected `ca_cert_path` MUST resolve relative to
+the runtime bundle when it is not absolute and MUST be readable before the
+persistence worker is spawned. Missing or unreadable CA files are local
+artifact failures and MUST reject startup synchronously.
 
 When `enabled = false` or the persistence table is absent, no persistence
 worker, spool, migration, or database connection is created. When enabled,

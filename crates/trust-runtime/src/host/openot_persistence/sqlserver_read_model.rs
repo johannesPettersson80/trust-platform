@@ -440,17 +440,22 @@ pub(super) fn insert_loss_and_unresolved_batch(
     let (Some(loss), Some(unresolved)) = (loss, unresolved) else {
         return Ok(());
     };
-    let mut query = Query::new(format!("INSERT INTO [{schema}].data_loss({COMMON_COLUMNS},first_sequence,last_sequence,lost_count,basis) VALUES(@P1,NULL,NULL,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),@P4,@P5,N'',N'',@P6,CONVERT(DECIMAL(20,0),@P7),CONVERT(DECIMAL(20,0),@P8),CONVERT(DECIMAL(20,0),@P9),@P10,1,1,1,CONVERT(DECIMAL(20,0),@P9),CONVERT(DECIMAL(20,0),@P11),CONVERT(DECIMAL(20,0),@P12),@P13); INSERT INTO [{schema}].unresolved_records({COMMON_COLUMNS},event_type_id,reason,diagnostic_summary) VALUES(@P14,CONVERT(DATETIME2(7),LEFT(@P15,27),127),CONVERT(DECIMAL(20,0),@P16),CONVERT(DATETIME2(7),LEFT(@P17,27),127),CONVERT(DECIMAL(20,0),@P18),@P19,@P20,N'',N'',@P21,CONVERT(DECIMAL(20,0),@P22),CONVERT(DECIMAL(20,0),@P23),CONVERT(DECIMAL(20,0),@P24),@P25,1,1,1,@P26,@P27,@P28)"));
+    let mut query = Query::new(format!("INSERT INTO [{schema}].data_loss({COMMON_COLUMNS},first_sequence,last_sequence,lost_count,basis) VALUES(@P1,NULL,NULL,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),@P4,@P5,@P6,@P7,@P8,CONVERT(DECIMAL(20,0),@P9),CONVERT(DECIMAL(20,0),@P10),CONVERT(DECIMAL(20,0),@P11),@P12,@P13,@P14,@P15,CONVERT(DECIMAL(20,0),@P11),CONVERT(DECIMAL(20,0),@P16),CONVERT(DECIMAL(20,0),@P17),@P18); INSERT INTO [{schema}].unresolved_records({COMMON_COLUMNS},event_type_id,reason,diagnostic_summary) VALUES(@P19,CONVERT(DATETIME2(7),LEFT(@P20,27),127),CONVERT(DECIMAL(20,0),@P21),CONVERT(DATETIME2(7),LEFT(@P22,27),127),CONVERT(DECIMAL(20,0),@P23),@P24,@P25,@P26,@P27,@P28,CONVERT(DECIMAL(20,0),@P29),CONVERT(DECIMAL(20,0),@P30),CONVERT(DECIMAL(20,0),@P31),@P32,@P33,@P34,@P35,@P36,@P37,@P38)"));
     query.bind(loss.record_id.as_str());
     query.bind(loss.received_time.as_str());
     query.bind(loss.received_time_ns.as_str());
     query.bind(loss.source.as_deref());
     query.bind(i64::from(loss.source_id));
+    query.bind(loss.source_path.as_str());
+    query.bind(loss.source_hierarchy.as_str());
     query.bind(i64::from(loss.buffer_id));
     query.bind(loss.run_id.as_str());
     query.bind(loss.epoch_id.as_str());
     query.bind(loss.first_sequence.as_str());
     query.bind(loss.definition_hash.as_str());
+    query.bind(loss.time_unsynced);
+    query.bind(loss.synthetic_record);
+    query.bind(loss.partial_payload);
     query.bind(loss.last_sequence.as_str());
     query.bind(loss.lost_count.as_str());
     query.bind(loss.basis);
@@ -461,11 +466,16 @@ pub(super) fn insert_loss_and_unresolved_batch(
     query.bind(unresolved.received_time_ns.as_str());
     query.bind(unresolved.source.as_deref());
     query.bind(i64::from(unresolved.source_id));
+    query.bind(unresolved.source_path.as_str());
+    query.bind(unresolved.source_hierarchy.as_str());
     query.bind(i64::from(unresolved.buffer_id));
     query.bind(unresolved.run_id.as_str());
     query.bind(unresolved.epoch_id.as_str());
     query.bind(unresolved.sequence.as_str());
     query.bind(unresolved.definition_hash.as_str());
+    query.bind(unresolved.time_unsynced);
+    query.bind(unresolved.synthetic_record);
+    query.bind(unresolved.partial_payload);
     query.bind(i64::from(unresolved.event_type_id));
     query.bind(unresolved.reason.as_str());
     query.bind(unresolved.diagnostic_summary.as_deref());
@@ -627,4 +637,38 @@ fn batch(
         .map_err(|error| {
             PersistenceError::Commit(format!("SQL Server create domain schema: {error}"))
         })
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn combined_loss_and_unresolved_insert_binds_complete_provenance() {
+        let source = include_str!("sqlserver_read_model.rs");
+        let combined = source
+            .split("pub(super) fn insert_loss_and_unresolved_batch")
+            .nth(1)
+            .expect("combined insert function")
+            .split("fn message_args")
+            .next()
+            .expect("combined insert body");
+
+        assert!(!combined.contains("N'',N''"));
+        for field in [
+            "loss.source_path",
+            "loss.source_hierarchy",
+            "loss.time_unsynced",
+            "loss.synthetic_record",
+            "loss.partial_payload",
+            "unresolved.source_path",
+            "unresolved.source_hierarchy",
+            "unresolved.time_unsynced",
+            "unresolved.synthetic_record",
+            "unresolved.partial_payload",
+        ] {
+            assert!(
+                combined.contains(field),
+                "missing combined binding: {field}"
+            );
+        }
+    }
 }

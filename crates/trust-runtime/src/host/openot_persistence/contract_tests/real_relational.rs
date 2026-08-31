@@ -466,8 +466,26 @@ fn sqlserver_sink_migrates_and_commits_on_real_sql_server_2025() {
         run_id: 1,
         cursor_abs: 24576,
     };
+    let mut documents = canonical_documents();
+    for document in &mut documents {
+        let provenance = match document {
+            Document::Loss(document) => &mut document.provenance,
+            Document::Placeholder(document) => &mut document.provenance,
+            _ => continue,
+        };
+        provenance.source.path = vec!["Area1".into(), "Line2".into()];
+        provenance.source.hierarchy = vec!["area".into(), "line".into()];
+        provenance.flags.time_unsynced = true;
+        provenance.flags.synthetic_record = true;
+        provenance.flags.partial_payload = true;
+    }
+    let mut expected_jsons = documents
+        .iter()
+        .map(|document| open_ot_document::to_json(document).expect("serialize SQL fixture"))
+        .collect::<Vec<_>>();
+    expected_jsons.sort();
     let batch = PersistenceBatch {
-        documents: canonical_documents(),
+        documents,
         checkpoint,
     };
     let mut sink = SqlServerDocumentSink::open_with_definitions(
@@ -522,6 +540,20 @@ fn sqlserver_sink_migrates_and_commits_on_real_sql_server_2025() {
             "SQL Server {table} projection count"
         );
     }
+    for table in ["data_loss", "unresolved_records"] {
+        assert_eq!(
+            sink.public_provenance(table)
+                .unwrap_or_else(|error| panic!("query SQL Server {table} provenance: {error}")),
+            (
+                "Area1/Line2".to_string(),
+                "area/line".to_string(),
+                true,
+                true,
+                true,
+            ),
+            "SQL Server {table} must preserve canonical provenance"
+        );
+    }
     assert_eq!(
         sink.checkpoint().expect("checkpoint"),
         Some((
@@ -530,10 +562,11 @@ fn sqlserver_sink_migrates_and_commits_on_real_sql_server_2025() {
             checkpoint.cursor_abs.to_be_bytes().to_vec()
         ))
     );
-    assert_canonical_jsons(
-        sink.canonical_jsons()
-            .expect("canonical SQL Server documents"),
-    );
+    let mut actual_jsons = sink
+        .canonical_jsons()
+        .expect("canonical SQL Server documents");
+    actual_jsons.sort();
+    assert_eq!(actual_jsons, expected_jsons);
     let retried = sink.commit(&batch).expect("idempotent retry");
     assert_eq!(retried.inserted, 0);
     assert_eq!(retried.duplicated, CANONICAL_DOCUMENT_COUNT);

@@ -9,11 +9,9 @@ use open_ot_shm::SharedRecordPublisher;
 
 use super::*;
 use crate::config::{
-    OpenOtPersistenceBackend, OpenOtPersistenceConfig, OpenOtSqlitePersistenceConfig,
+    OpenOtPersistenceBackend, OpenOtPersistenceConfig, OpenOtPersistenceTlsMode,
+    OpenOtPostgreSqlPersistenceConfig, OpenOtSqlitePersistenceConfig,
 };
-#[cfg(feature = "openot-real-database-tests")]
-use crate::config::{OpenOtPersistenceTlsMode, OpenOtPostgreSqlPersistenceConfig};
-
 #[test]
 fn operator_status_redacts_backend_secrets_and_sensitive_paths() {
     let secret = "password=plant-secret token=operator-token /private/customer/history.db";
@@ -27,6 +25,52 @@ fn operator_status_redacts_backend_secrets_and_sensitive_paths() {
         assert!(!projected.contains("operator-token"));
         assert!(!projected.contains("/private/customer"));
     }
+}
+
+#[cfg(feature = "openot-database-postgresql")]
+#[test]
+fn service_rejects_missing_database_ca_before_worker_start() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "trust-openot-missing-ca-{}-{stamp}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&root).expect("root");
+    std::fs::write(
+        root.join("openot-definition.json"),
+        serde_json::to_vec_pretty(&sample_definition()).expect("serialize definition"),
+    )
+    .expect("write definition");
+    SharedRecordPublisher::create(root.join("openot.shm"), 4096).expect("publisher");
+    let config = OpenOtTelemetryConfig {
+        enabled: true,
+        path: "openot.shm".into(),
+        persistence: OpenOtPersistenceConfig {
+            enabled: true,
+            backend: Some(OpenOtPersistenceBackend::PostgreSql),
+            postgresql: Some(OpenOtPostgreSqlPersistenceConfig {
+                connection_url_env: "TRUST_TEST_UNUSED_DATABASE_URL".into(),
+                schema: "trust_logging".into(),
+                tls: OpenOtPersistenceTlsMode::Require,
+                ca_cert_path: Some("missing-ca.pem".into()),
+            }),
+            ..OpenOtPersistenceConfig::default()
+        },
+        ..OpenOtTelemetryConfig::default()
+    };
+
+    let error = match OpenOtPersistenceService::start(&config, &root) {
+        Err(error) => error,
+        Ok(_) => panic!("missing local CA must reject startup synchronously"),
+    };
+    assert!(
+        error.to_string().contains("missing-ca.pem"),
+        "unexpected error: {error}"
+    );
+    std::fs::remove_dir_all(root).ok();
 }
 
 #[test]
