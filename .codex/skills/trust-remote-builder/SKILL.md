@@ -48,6 +48,11 @@ The Linux builder does not prove Windows console encoding, locale, TCP-close, or
 behavior. Preserve portable harness tests and treat the Windows GitHub job as authoritative for
 those surfaces.
 
+For `trust-runtime` candidates, run the repository's required Windows GNU cross-target warning
+shape on the builder before calling the candidate push-ready:
+`./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross`. Host
+`just clippy` and `just test-all` do not replace this command.
+
 ## Disk Preflight Rule
 
 Before running any broad remote gate (`just clippy`, `just test`, `just test-all`, `npm test`, or

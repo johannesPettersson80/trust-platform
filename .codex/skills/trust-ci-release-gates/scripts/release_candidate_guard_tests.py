@@ -141,6 +141,24 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn("remote_test_all", commands)
         self.assertIn("just test-all", commands["remote_test_all"])
 
+    def test_remote_validation_runs_required_cross_target_warning_gate_before_clippy(self) -> None:
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target="/tmp/trust-target"
+        )
+        command_ids = [command_id for command_id, _command in commands]
+        by_id = dict(commands)
+
+        self.assertIn("remote_cross_target_warnings", command_ids)
+        self.assertLess(
+            command_ids.index("remote_cross_target_warnings"),
+            command_ids.index("remote_clippy"),
+        )
+        self.assertEqual(
+            by_id["remote_cross_target_warnings"],
+            "./scripts/check_runtime_cross_target_warnings.sh "
+            "--install-missing --require-cross",
+        )
+
     def test_remote_validation_reclaims_exact_target_before_test_all(self) -> None:
         commands = candidate_prepare.remote_validation_commands(
             vscode_changed=True, remote_target="/tmp/trust target"

@@ -20,6 +20,13 @@ gate wiring, artifact evidence, and release enforcement.
 
 ## Core workflow
 
+Before candidate preparation, enumerate the required GitHub jobs and their exact commands from the
+current workflows. Do not treat a broad host command as a substitute for a platform-specific job.
+For every runtime candidate, preparation must run and record
+`./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross` before Clippy;
+the guard must list `remote_cross_target_warnings` as a required artifact command. If the command is
+missing, skipped, or fails, the candidate cannot be pushed.
+
 ### Release-candidate state machine
 
 For integration, release, `main`, or any branch whose workspace version differs from

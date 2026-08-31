@@ -38,6 +38,7 @@ BASE_REQUIRED_COMMANDS = (
     "remote_exact_head",
     "remote_disk_preflight",
     "remote_fmt",
+    "remote_cross_target_warnings",
     "remote_clippy",
     "remote_reclaim_before_test_all",
     "remote_test_all",

@@ -130,6 +130,11 @@ def remote_validation_commands(
     commands.extend(
         [
             ("remote_fmt", "just fmt"),
+            (
+                "remote_cross_target_warnings",
+                "./scripts/check_runtime_cross_target_warnings.sh "
+                "--install-missing --require-cross",
+            ),
             ("remote_clippy", f"{target_env} just clippy"),
             (
                 "remote_reclaim_before_test_all",

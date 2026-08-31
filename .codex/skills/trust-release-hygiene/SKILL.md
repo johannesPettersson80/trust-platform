@@ -26,6 +26,11 @@ description: Enforce trust-platform release hygiene for user-visible changes. Us
    - Ensure tutorials, examples, specs, and coverage docs reflect shipped behavior.
 
 5. Validate.
+   - Inventory the current pull-request workflow jobs and exact command shapes before candidate
+     preparation. For runtime changes, require the exact-SHA artifact's
+     `remote_cross_target_warnings` record from
+     `./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross`; Linux
+     Clippy or tests alone are not Windows proof.
    - In trust-platform checkouts on a Raspberry Pi or other slow local host, use the remote builder for broad/full validation first, especially `just test-all`.
    - Ask before starting expensive local commands such as workspace `cargo test`, `cargo test -p trust-runtime ...`, local `just test`, local `just clippy`, or local `just test-all`.
    - Cheap local checks are allowed when narrowly scoped.

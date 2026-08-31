@@ -55,6 +55,7 @@ fn backend_unavailable(backend: &str) -> PersistenceError {
 
 impl OpenOtDocumentSink {
     /// Rejects a configured adapter that was omitted from this runtime binary.
+    #[cfg(unix)]
     pub(crate) fn validate_backend_available(
         config: &OpenOtPersistenceConfig,
     ) -> Result<(), PersistenceError> {

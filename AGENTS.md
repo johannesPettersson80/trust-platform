@@ -113,6 +113,12 @@ applicable, and lexer/parser tests or snapshots.
 
 ## Release Candidate State Machine (non-negotiable)
 
+- Before preparing or pushing a candidate, inventory every required GitHub job and run every
+  feasible job-specific command shape that is not already an identical required artifact command.
+  A host-only `just clippy`, `just test`, or `just test-all` result is never cross-platform CI
+  parity. For runtime changes, the exact-SHA artifact must include
+  `./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross`; a passing
+  artifact is invalid without that recorded command.
 - Integration, release, `main`, and version-bump pushes require the exact-SHA artifact produced by
   `.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py prepare`; the shared
   pre-push hook must be installed and must not be bypassed.
