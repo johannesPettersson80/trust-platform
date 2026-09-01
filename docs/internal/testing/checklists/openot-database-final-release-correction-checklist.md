@@ -1,13 +1,14 @@
 # OpenOT database final release correction checklist
 
 Owner specification: `docs/specs/33-openot-database-persistence.md`, especially
-Sections 2.1 and 6.1. Candidate under correction:
-`69dfa503a98e00e420dc8a9ce7b48f069e1700f7`.
+Sections 2, 4.5, 4.8, 6.1, and 9. Candidates under correction:
+`69dfa503a98e00e420dc8a9ce7b48f069e1700f7` and
+`e4e8b05bfb755527e7170cb8ecddf2408648cefa`.
 
 This is the single repair ledger for PR #118 after all 24 exact-head GitHub
-checks and the exact-head automatic review completed. The aggregate Release
-Gate Report failure is derivative of the Clippy failure, not a separate code
-defect. No corrective push is permitted until Sections 1 through 7 are green
+checks and the exact-head automatic review completed. Each aggregate Release
+Gate Report failure is derivative of its owning failed job, not a separate code
+defect. No corrective push is permitted until Sections 1 through 8 are green
 on one frozen replacement commit.
 
 ## 1. Complete failure ledger
@@ -95,3 +96,31 @@ on one frozen replacement commit.
 - [ ] Merge only through `check-merge`, then verify main CI, annotated tag,
   Release workflow, GitHub Latest/assets/checksums, Marketplace propagation,
   and a clean post-merge audit.
+
+## 8. Exact-head supply-chain and automatic-review correction
+
+- [x] Preserve the complete 24-check GitHub failure artifact and both logs for
+  `e4e8b05b`: `Supply Chain` rejected yanked `mysql@28.0.0`; `Release Gate
+  Report` failed only because the supply-chain marker was absent.
+- [x] Record the exact-head automatic review findings: SQL Server logged-value
+  requests can exceed 2,100 parameters, and MySQL/MariaDB does not physically
+  constrain the schema marker to singleton `1`.
+- [x] Specify non-yanked dependency proof, exact pre-push supply-chain parity,
+  SQL Server parameter-bounded chunking, and MySQL/MariaDB singleton DDL before
+  tests or production changes.
+- [x] Add and run expected-red focused tests for all four missing behaviors.
+- [x] Replace yanked `mysql@28.0.0` with the supported non-yanked patch release.
+- [x] Make CI and exact-candidate preparation call one shared supply-chain gate
+  and require its exact-SHA artifact result.
+- [x] Chunk SQL Server logged-value inserts below the 2,100-parameter ceiling
+  without splitting the surrounding transaction.
+- [x] Chunk every SQL Server canonical/event/domain statement below 2,100
+  parameters and prove that multiple loss/unresolved documents are all
+  projected rather than collapsed to the first match.
+- [x] Add the MySQL/MariaDB `CHECK(singleton=1)` constraint and validate it on
+  both real products.
+- [ ] Rerun focused supply-chain, guard, SQL Server, MySQL, and MariaDB tests;
+  then rerun the complete real-database gate and exact candidate preparation.
+- [ ] Push one frozen replacement, request/read exact-head automatic review,
+  collect every GitHub check, and proceed only when the complete ledger is
+  green.

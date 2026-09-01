@@ -688,33 +688,8 @@ jobs:
           fi
           cargo deny --version
           cargo audit --version
-      - name: Validate owned dependency exception lifetimes
-        run: python3 scripts/check_dependency_exceptions.py
-      - name: Run release candidate guard self-tests
-        run: >-
-          python3 -m unittest discover -s
-          .codex/skills/trust-ci-release-gates/scripts
-          -p 'release_candidate_*_tests.py'
-      - name: Run cargo-deny
-        run: cargo deny check advisories licenses bans sources
-      - name: Run cargo-audit with tracked advisory exceptions
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 scripts/test_check_cargo_audit_policy.py
-          mapfile -t audit_ignore_args < <(python3 - <<'PY'
-          import tomllib
-          data = tomllib.load(open("deny.toml", "rb"))
-          for entry in data.get("advisories", {}).get("ignore", []):
-              advisory = entry.get("id")
-              if advisory:
-                  print("--ignore")
-                  print(advisory)
-          PY
-          )
-          cargo audit --json "${audit_ignore_args[@]}" \
-            | python3 scripts/check_cargo_audit_policy.py \
-                --allowlist scripts/cargo-audit-yanked-allowlist.json
+      - name: Run shared supply-chain gate
+        run: bash scripts/supply_chain_gate.sh
       - name: Mark gate success
         if: ${{ success() }}
         run: |

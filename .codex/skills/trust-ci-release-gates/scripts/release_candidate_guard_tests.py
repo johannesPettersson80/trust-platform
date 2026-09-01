@@ -180,6 +180,27 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         )
         self.assertNotIn("just clippy", by_id["remote_clippy"])
 
+    def test_remote_validation_runs_the_same_supply_chain_gate_as_ci(self) -> None:
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target="/tmp/trust-target"
+        )
+        command_ids = [command_id for command_id, _command in commands]
+        by_id = dict(commands)
+
+        self.assertIn("remote_supply_chain", command_ids)
+        self.assertIn("remote_supply_chain", guard.BASE_REQUIRED_COMMANDS)
+        self.assertLess(
+            command_ids.index("remote_supply_chain"),
+            command_ids.index("remote_clippy"),
+        )
+        self.assertEqual(
+            by_id["remote_supply_chain"], "bash scripts/supply_chain_gate.sh"
+        )
+        workflow = (Path(__file__).parents[4] / ".github/workflows/ci.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("bash scripts/supply_chain_gate.sh", workflow)
+
     def test_remote_validation_reclaims_exact_target_before_test_all(self) -> None:
         commands = candidate_prepare.remote_validation_commands(
             vscode_changed=True, remote_target="/tmp/trust target"

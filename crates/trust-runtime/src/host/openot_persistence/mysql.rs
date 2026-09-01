@@ -502,7 +502,7 @@ fn initialize_schema(connection: &mut Conn) -> Result<(), PersistenceError> {
     connection
         .query_drop(
             "CREATE TABLE logging_schema (
-                 singleton TINYINT UNSIGNED PRIMARY KEY,
+                 singleton TINYINT UNSIGNED PRIMARY KEY CHECK(singleton=1),
                  version INT UNSIGNED NOT NULL CHECK(version=1),
                  catalog_fingerprint CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
              ) ENGINE=InnoDB",

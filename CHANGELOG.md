@@ -72,6 +72,10 @@ Target release: `v0.24.68`
 
 ### Fixed
 
+- Keep SQL Server logged-value statements below its 2,100-parameter limit,
+  constrain the MySQL/MariaDB schema marker to its single valid key, replace
+  the yanked MySQL client patch release, and run the same supply-chain policy
+  in exact pre-push validation and GitHub CI.
 - Keep PLC startup independent of remote logging availability, preserve
   cumulative status across reconnects, drain bounded shutdown work, and report
   the actual opened backend schema without exposing secrets.

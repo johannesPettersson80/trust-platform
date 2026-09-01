@@ -188,6 +188,23 @@ fn influx_logged_values_preserve_previous_and_audit_fields() {
 }
 
 #[test]
+fn mysql_schema_marker_ddl_constrains_singleton_to_one() {
+    let source = include_str!("../mysql.rs");
+    let ddl = source
+        .split("CREATE TABLE logging_schema")
+        .nth(1)
+        .expect("MySQL logging_schema DDL")
+        .split(") ENGINE=InnoDB")
+        .next()
+        .expect("MySQL logging_schema body");
+
+    assert!(
+        ddl.contains("CHECK(singleton=1)"),
+        "MySQL/MariaDB schema marker must physically reject singleton values other than one"
+    );
+}
+
+#[test]
 fn influx_domain_measurements_preserve_the_complete_backend_neutral_rows() {
     use super::super::projection_domains::DomainRow;
 

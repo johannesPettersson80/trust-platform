@@ -26,6 +26,10 @@ For every runtime candidate, preparation must run and record
 `./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross` before Clippy;
 the guard must list `remote_cross_target_warnings` as a required artifact command. If the command is
 missing, skipped, or fails, the candidate cannot be pushed.
+Every candidate must also run `bash scripts/supply_chain_gate.sh` as
+`remote_supply_chain` before Clippy. CI must call that same script rather than
+duplicating its commands. Advisory and yanked-package data are live inputs: a
+passing older artifact cannot substitute for this exact-candidate check.
 When Docs Captures paths are present in the candidate diff, preparation must also run and record
 `python3 -m unittest scripts.tests.test_capture_lifecycle -v` as
 `remote_docs_capture_lifecycle`. Do not infer coverage from the VS Code npm suite.

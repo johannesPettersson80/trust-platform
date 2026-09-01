@@ -9,6 +9,7 @@ use super::projection::LoggingProjector;
 use super::{CommitOutcome, DocumentSink, PersistenceBatch, PersistenceError};
 
 type TdsClient = Client<Compat<TcpStream>>;
+const SQLSERVER_PROJECTED_DOCUMENTS_PER_STATEMENT: usize = 100;
 
 const REQUIRED_TABLES: &[&str] = &[
     "logging_schema",
@@ -603,34 +604,36 @@ impl SqlServerDocumentSink {
             .collect::<Result<Vec<_>, _>>()?;
         let mut existing = std::collections::HashMap::new();
         if !projected.is_empty() {
-            let placeholders = (1..=projected.len())
-                .map(|index| format!("@P{index}"))
-                .collect::<Vec<_>>()
-                .join(",");
-            let mut lookup = Query::new(format!(
-                "SELECT identity_key,canonical_json FROM [{s}].logging_records WITH(UPDLOCK,HOLDLOCK) WHERE identity_key IN ({placeholders})"
-            ));
-            for document in &projected {
-                lookup.bind(document.canonical.identity_key.as_str());
-            }
-            let rows = self
-                .runtime
-                .block_on(async {
-                    lookup
-                        .query(&mut self.client)
-                        .await?
-                        .into_first_result()
-                        .await
-                })
-                .map_err(|error| sql_error("check identities", error))?;
-            for row in rows {
-                let identity = row
-                    .get::<&str, _>(0)
-                    .ok_or_else(|| commit_error("identity key is absent"))?;
-                let json = row
-                    .get::<&str, _>(1)
-                    .ok_or_else(|| commit_error("canonical JSON is absent"))?;
-                existing.insert(identity.to_string(), json.to_string());
+            for projected in projected.chunks(SQLSERVER_PROJECTED_DOCUMENTS_PER_STATEMENT) {
+                let placeholders = (1..=projected.len())
+                    .map(|index| format!("@P{index}"))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let mut lookup = Query::new(format!(
+                    "SELECT identity_key,canonical_json FROM [{s}].logging_records WITH(UPDLOCK,HOLDLOCK) WHERE identity_key IN ({placeholders})"
+                ));
+                for document in projected {
+                    lookup.bind(document.canonical.identity_key.as_str());
+                }
+                let rows = self
+                    .runtime
+                    .block_on(async {
+                        lookup
+                            .query(&mut self.client)
+                            .await?
+                            .into_first_result()
+                            .await
+                    })
+                    .map_err(|error| sql_error("check identities", error))?;
+                for row in rows {
+                    let identity = row
+                        .get::<&str, _>(0)
+                        .ok_or_else(|| commit_error("identity key is absent"))?;
+                    let json = row
+                        .get::<&str, _>(1)
+                        .ok_or_else(|| commit_error("canonical JSON is absent"))?;
+                    existing.insert(identity.to_string(), json.to_string());
+                }
             }
         }
         let mut duplicated = 0;
@@ -658,83 +661,85 @@ impl SqlServerDocumentSink {
         let (unresolved_documents, loss_ranges, lost_records) =
             super::projection::committed_special_counts(&pending)?;
         if !pending.is_empty() {
-            let mut parameter = 1;
-            let tuples = pending
-                .iter()
-                .map(|_| {
-                    let tuple = (0..16)
-                        .map(|_| {
-                            let placeholder = format!("@P{parameter}");
-                            parameter += 1;
-                            placeholder
-                        })
-                        .collect::<Vec<_>>()
-                        .join(",");
-                    format!("({tuple})")
-                })
-                .collect::<Vec<_>>()
-                .join(",");
-            let mut q = Query::new(format!("INSERT INTO [{s}].logging_records(identity_key,document_kind,buffer_id,run_id,source_id,epoch_id,seq,first_seq,last_seq,loss_basis,source_time_ns,receive_time_ns,event_type_id,event_name,definition_hash,canonical_json) VALUES {tuples}"));
-            for projected in &pending {
-                let row = &projected.canonical;
-                q.bind(row.identity_key.as_str());
-                q.bind(row.document_kind);
-                q.bind(i64::from(row.buffer_id));
-                q.bind(row.run_id.as_slice());
-                q.bind(i64::from(row.source_id));
-                q.bind(row.epoch_id.as_slice());
-                q.bind(row.seq.as_deref());
-                q.bind(row.first_seq.as_deref());
-                q.bind(row.last_seq.as_deref());
-                q.bind(row.loss_basis);
-                q.bind(row.source_time_ns.as_deref());
-                q.bind(row.receive_time_ns.as_slice());
-                q.bind(row.event_type_id.map(i64::from));
-                q.bind(row.event_name.as_deref());
-                q.bind(row.definition_hash.as_str());
-                q.bind(row.canonical_json.as_str());
+            for pending in pending.chunks(SQLSERVER_PROJECTED_DOCUMENTS_PER_STATEMENT) {
+                let mut parameter = 1;
+                let tuples = pending
+                    .iter()
+                    .map(|_| {
+                        let tuple = (0..16)
+                            .map(|_| {
+                                let placeholder = format!("@P{parameter}");
+                                parameter += 1;
+                                placeholder
+                            })
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        format!("({tuple})")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let mut q = Query::new(format!("INSERT INTO [{s}].logging_records(identity_key,document_kind,buffer_id,run_id,source_id,epoch_id,seq,first_seq,last_seq,loss_basis,source_time_ns,receive_time_ns,event_type_id,event_name,definition_hash,canonical_json) VALUES {tuples}"));
+                for projected in pending {
+                    let row = &projected.canonical;
+                    q.bind(row.identity_key.as_str());
+                    q.bind(row.document_kind);
+                    q.bind(i64::from(row.buffer_id));
+                    q.bind(row.run_id.as_slice());
+                    q.bind(i64::from(row.source_id));
+                    q.bind(row.epoch_id.as_slice());
+                    q.bind(row.seq.as_deref());
+                    q.bind(row.first_seq.as_deref());
+                    q.bind(row.last_seq.as_deref());
+                    q.bind(row.loss_basis);
+                    q.bind(row.source_time_ns.as_deref());
+                    q.bind(row.receive_time_ns.as_slice());
+                    q.bind(row.event_type_id.map(i64::from));
+                    q.bind(row.event_name.as_deref());
+                    q.bind(row.definition_hash.as_str());
+                    q.bind(row.canonical_json.as_str());
+                }
+                self.runtime
+                    .block_on(q.execute(&mut self.client))
+                    .map_err(|e| sql_error("insert document batch", e))?;
+                let events = pending
+                    .iter()
+                    .filter_map(|document| document.event.as_ref())
+                    .collect::<Vec<_>>();
+                super::sqlserver_read_model::insert_event_batch(
+                    &self.runtime,
+                    &mut self.client,
+                    &s,
+                    &events,
+                )?;
+                super::sqlserver_read_model::insert_repeated_domains_combined(
+                    &self.runtime,
+                    &mut self.client,
+                    &s,
+                    pending,
+                )?;
+                let values = pending
+                    .iter()
+                    .flat_map(|document| document.logged_values.iter())
+                    .collect::<Vec<_>>();
+                super::sqlserver_read_model::insert_value_batch(
+                    &self.runtime,
+                    &mut self.client,
+                    &s,
+                    &values,
+                )?;
+                super::sqlserver_read_model::insert_singleton_event_domains_batch(
+                    &self.runtime,
+                    &mut self.client,
+                    &s,
+                    pending,
+                )?;
+                super::sqlserver_read_model::insert_loss_and_unresolved_batch(
+                    &self.runtime,
+                    &mut self.client,
+                    &s,
+                    pending,
+                )?;
             }
-            self.runtime
-                .block_on(q.execute(&mut self.client))
-                .map_err(|e| sql_error("insert document batch", e))?;
-            let events = pending
-                .iter()
-                .filter_map(|document| document.event.as_ref())
-                .collect::<Vec<_>>();
-            super::sqlserver_read_model::insert_event_batch(
-                &self.runtime,
-                &mut self.client,
-                &s,
-                &events,
-            )?;
-            super::sqlserver_read_model::insert_repeated_domains_combined(
-                &self.runtime,
-                &mut self.client,
-                &s,
-                &pending,
-            )?;
-            let values = pending
-                .iter()
-                .flat_map(|document| document.logged_values.iter())
-                .collect::<Vec<_>>();
-            super::sqlserver_read_model::insert_value_batch(
-                &self.runtime,
-                &mut self.client,
-                &s,
-                &values,
-            )?;
-            super::sqlserver_read_model::insert_singleton_event_domains_batch(
-                &self.runtime,
-                &mut self.client,
-                &s,
-                &pending,
-            )?;
-            super::sqlserver_read_model::insert_loss_and_unresolved_batch(
-                &self.runtime,
-                &mut self.client,
-                &s,
-                &pending,
-            )?;
         }
         for mut projected in pending {
             projected.event = None;
@@ -821,4 +826,23 @@ fn sqlserver_connect_error(error: tiberius::error::Error) -> PersistenceError {
 }
 fn sql_error(context: &str, error: tiberius::error::Error) -> PersistenceError {
     commit_error(&format!("{context}: {error}"))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn projected_document_batches_bound_every_sql_server_statement() {
+        let source = include_str!("sqlserver.rs");
+        let production = source
+            .split("#[cfg(test)]")
+            .next()
+            .expect("SQL Server production module");
+        assert!(
+            production.contains("const SQLSERVER_PROJECTED_DOCUMENTS_PER_STATEMENT: usize = 100;")
+        );
+        assert!(
+            production.contains("projected.chunks(SQLSERVER_PROJECTED_DOCUMENTS_PER_STATEMENT)")
+        );
+        assert!(production.contains("pending.chunks(SQLSERVER_PROJECTED_DOCUMENTS_PER_STATEMENT)"));
+    }
 }

@@ -71,6 +71,11 @@ Every backend initializes the same schema generation 1.
 The recorded catalog fingerprint covers native columns,
 keys, checks, foreign keys, and indexes. Changed or
 incomplete pre-release state fails without repair.
+SQL Server splits canonical/event/domain groups at 100
+projected documents and logged values at 53 rows so every
+statement stays below the driver/product parameter boundary;
+all chunks and every loss/unresolved row remain in the same
+transaction before the checkpoint advances.
 Initial remote open, initialization, and reconnect remain in
 the supervised host worker and cannot block PLC startup.
 Only explicitly classified remote reachability failures

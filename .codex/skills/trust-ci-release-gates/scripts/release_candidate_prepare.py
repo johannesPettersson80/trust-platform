@@ -141,6 +141,7 @@ def remote_validation_commands(
                 "./scripts/check_runtime_cross_target_warnings.sh "
                 "--install-missing --require-cross",
             ),
+            ("remote_supply_chain", "bash scripts/supply_chain_gate.sh"),
             (
                 "remote_clippy",
                 f"{target_env} cargo clippy --all-targets --all-features -- -D warnings",

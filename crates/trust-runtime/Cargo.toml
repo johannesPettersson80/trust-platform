@@ -60,7 +60,7 @@ region = "3.0"
 rusqlite = { version = "0.40.2", features = ["bundled"], optional = true }
 postgres = { version = "0.19.14", optional = true }
 postgres-native-tls = { version = "0.5.3", optional = true }
-mysql = { version = "28.0.0", default-features = false, features = ["minimal-rust", "rustls-tls"], optional = true }
+mysql = { version = "28.0.2", default-features = false, features = ["minimal-rust", "rustls-tls"], optional = true }
 open-ot-definition = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 open-ot-document = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 open-ot-carriage = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }

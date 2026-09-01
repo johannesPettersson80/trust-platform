@@ -398,6 +398,18 @@ of them. Duplicate replay compares the canonical payload and creates no
 duplicate public rows. Each public row is keyed by `record_id` (and a stable
 ordinal only where one event legitimately projects repeated values).
 
+An adapter MAY split one logical projection group into multiple statements
+inside that transaction when the database imposes a statement-size or bind-
+parameter limit. Every SQL Server statement MUST remain at or below its
+2,100-parameter limit for every permitted `batch_size`. Canonical-document and
+event/domain projection groups MUST use at most 100 projected documents per
+statement; logged-value groups MUST use at most 53 rows per statement because
+each row binds 39 parameters. Chunking MUST NOT split the surrounding
+transaction or advance the checkpoint before every chunk succeeds. Every loss
+and unresolved document in the logical batch MUST receive its own `data_loss`
+or `unresolved_records` row; batching MUST never collapse either domain to the
+first matching document.
+
 No asynchronous relational projector or trigger is introduced. Query tables
 MUST be immediately consistent with a successful durable commit.
 
@@ -457,6 +469,9 @@ On open, an adapter MUST follow this sequence without destructive recovery:
    Adapters whose DDL is not transactional MUST create the marker last, so a
    partial initialization is never advertised as compatible. Every adapter
    MUST complete compatibility validation before it accepts documents.
+   MySQL and MariaDB MUST enforce this singleton rule in the physical
+   `logging_schema` table with a database `CHECK(singleton=1)` constraint; a
+   primary key alone is insufficient because it still admits other values.
 2. If the generation-1 marker exists, validate the exact marker, every required
    object, and every required product capability before opening. The marker is
    truST's assertion that its generation-1 DDL (including column, key, check,
@@ -687,6 +702,15 @@ tests, example, operations documentation, and full canonical OpenOT coverage
 manifest pass against the real named product. Compile-only tests, mocks,
 protocol substitutes, and a different compatible server do not establish a
 product claim.
+
+Every locked Rust dependency used by a supported backend MUST pass the
+repository's cargo-deny and cargo-audit policy at the frozen release-candidate
+SHA. A yanked package MUST be replaced by a supported non-yanked release unless
+an explicit, reviewed, time-bounded repository exception already permits that
+exact package and version. The exact-SHA pre-push guard MUST run the same
+version-controlled supply-chain gate as GitHub CI and record it as a required,
+successful artifact command; `just test-all` does not substitute for this
+live-advisory and yanked-package check.
 
 The intended first-release matrix is SQLite, PostgreSQL, TimescaleDB, MySQL,
 MariaDB through the `mysql` adapter, SQL Server, and InfluxDB 3. Exact minimum

@@ -440,6 +440,51 @@ fn mysql_sink_initializes_and_commits_on_real_mariadb_11_8_lts() {
 }
 
 #[cfg(feature = "openot-real-database-tests")]
+fn assert_mysql_protocol_schema_marker_rejects_non_singleton(url_env: &str, ca_env: &str) {
+    use mysql::{prelude::Queryable, Conn, Opts, OptsBuilder, SslOpts};
+
+    let connection_url = std::env::var(url_env).unwrap_or_else(|_| panic!("{url_env} is required"));
+    let ca = std::env::var(ca_env).unwrap_or_else(|_| panic!("{ca_env} is required"));
+    MySqlDocumentSink::open(&connection_url, "trust_logging", std::path::Path::new(&ca))
+        .expect("initialize MySQL-protocol schema marker");
+    let options = Opts::from_url(&connection_url).expect("parse MySQL-protocol test URL");
+    let ssl = SslOpts::default().with_root_cert_path(Some(std::path::PathBuf::from(ca)));
+    let options = OptsBuilder::from_opts(options).ssl_opts(Some(ssl));
+    let mut connection = Conn::new(options).expect("connect to MySQL-protocol test server");
+    connection
+        .query_drop("USE `trust_logging`")
+        .expect("select MySQL-protocol test database");
+    let result = connection.query_drop(
+        "INSERT INTO logging_schema(singleton,version,catalog_fingerprint) \
+         VALUES(2,1,REPEAT('0',64))",
+    );
+    let _ = connection.query_drop("DELETE FROM logging_schema WHERE singleton=2");
+
+    assert!(
+        result.is_err(),
+        "MySQL/MariaDB logging_schema must reject singleton=2"
+    );
+}
+
+#[cfg(feature = "openot-real-database-tests")]
+#[test]
+fn mysql_schema_marker_rejects_non_singleton_on_real_server() {
+    assert_mysql_protocol_schema_marker_rejects_non_singleton(
+        "TRUST_TEST_OPENOT_MYSQL_URL",
+        "TRUST_TEST_OPENOT_MYSQL_CA",
+    );
+}
+
+#[cfg(feature = "openot-real-database-tests")]
+#[test]
+fn mariadb_schema_marker_rejects_non_singleton_on_real_server() {
+    assert_mysql_protocol_schema_marker_rejects_non_singleton(
+        "TRUST_TEST_OPENOT_MARIADB_URL",
+        "TRUST_TEST_OPENOT_MARIADB_CA",
+    );
+}
+
+#[cfg(feature = "openot-real-database-tests")]
 fn assert_mysql_protocol_rejects_changed_catalog(url_env: &str, ca_env: &str) {
     let connection_url = std::env::var(url_env).unwrap_or_else(|_| panic!("{url_env} is required"));
     let ca = std::env::var(ca_env).unwrap_or_else(|_| panic!("{ca_env} is required"));
@@ -571,6 +616,92 @@ fn sink_factory_opens_toml_selected_mysql_adapter() {
         .expect("open selected MySQL sink");
 
     assert!(matches!(sink, OpenOtDocumentSink::MySql(_)));
+}
+
+#[cfg(feature = "openot-real-database-tests")]
+#[test]
+fn sqlserver_full_projection_batch_stays_below_real_parameter_limit() {
+    let connection_url = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_URL")
+        .expect("TRUST_TEST_OPENOT_SQLSERVER_URL must identify the reviewed real server");
+    let ca_cert_path = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_CA")
+        .expect("TRUST_TEST_OPENOT_SQLSERVER_CA must identify its CA certificate");
+    let schema = format!("logging_parameter_limit_{}", std::process::id());
+    let definition = open_ot_definition::sample_definition();
+    let documents = (1_u64..=2_101)
+        .map(|sequence| {
+            value_changed_document(
+                &definition,
+                sequence,
+                2003,
+                "Bool",
+                serde_json::json!(sequence % 2 == 0),
+            )
+        })
+        .collect::<Vec<_>>();
+    let batch = PersistenceBatch {
+        documents,
+        checkpoint: PersistenceCheckpoint {
+            buffer_id: 7,
+            run_id: 1,
+            cursor_abs: 2_101 * 4096,
+        },
+    };
+    let mut sink = SqlServerDocumentSink::open_with_definitions(
+        &connection_url,
+        &schema,
+        std::path::Path::new(&ca_cert_path),
+        vec![definition],
+    )
+    .expect("connect and initialize SQL Server parameter-limit fixture");
+
+    let outcome = sink
+        .commit(&batch)
+        .expect("commit 2,101 projected documents without exceeding 2,100 parameters");
+
+    assert_eq!(outcome.inserted, 2_101);
+    assert_eq!(
+        sink.public_count("logged_values")
+            .expect("SQL Server logged-value count"),
+        2_101
+    );
+}
+
+#[cfg(feature = "openot-real-database-tests")]
+#[test]
+fn sqlserver_projects_every_loss_and_unresolved_document_in_one_batch() {
+    let connection_url = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_URL")
+        .expect("TRUST_TEST_OPENOT_SQLSERVER_URL must identify the reviewed real server");
+    let ca_cert_path = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_CA")
+        .expect("TRUST_TEST_OPENOT_SQLSERVER_CA must identify its CA certificate");
+    let schema = format!("logging_special_batch_{}", std::process::id());
+    let mut documents = canonical_documents_for_run(10_001);
+    documents.extend(canonical_documents_for_run(10_002));
+    let mut sink = SqlServerDocumentSink::open_with_definitions(
+        &connection_url,
+        &schema,
+        std::path::Path::new(&ca_cert_path),
+        vec![open_ot_definition::sample_definition()],
+    )
+    .expect("connect and initialize SQL Server special-document fixture");
+
+    let outcome = sink
+        .commit(&PersistenceBatch {
+            documents,
+            checkpoint: PersistenceCheckpoint {
+                buffer_id: 7,
+                run_id: 10_002,
+                cursor_abs: 74 * 4096,
+            },
+        })
+        .expect("commit every loss and unresolved projection");
+
+    assert_eq!(outcome.inserted, 2 * CANONICAL_DOCUMENT_COUNT);
+    assert_eq!(sink.public_count("data_loss").expect("loss rows"), 2);
+    assert_eq!(
+        sink.public_count("unresolved_records")
+            .expect("unresolved rows"),
+        2
+    );
 }
 
 #[cfg(feature = "openot-real-database-tests")]

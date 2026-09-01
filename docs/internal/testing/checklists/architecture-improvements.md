@@ -228,3 +228,9 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   connection-local SQLite/Influx spool durability settings on every open.
   Close after focused corruption red-green tests, all real database products,
   a real PLC workload, refreshed diagrams, and exact-candidate release gates.
+- [ ] `ARCH-OPENOT-DB-05` Bound every SQL Server persistence statement below
+  its effective parameter ceiling without splitting the logical transaction;
+  preserve every loss and unresolved typed projection in multi-document
+  batches. Close after real 2,101-document and repeated-special-document tests,
+  the complete real-product PLC gate, refreshed diagrams, and exact-candidate
+  release proof.
