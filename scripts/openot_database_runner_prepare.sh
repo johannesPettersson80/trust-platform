@@ -3,6 +3,7 @@ set -euo pipefail
 
 state_dir=${OPENOT_DATABASE_RUNNER_STATE_DIR:-${RUNNER_TEMP:-/tmp}/trust-openot-databases}
 prefix=${OPENOT_DATABASE_RUNNER_PREFIX:-trust-openot-${GITHUB_RUN_ID:-local}}
+ownership_label="com.trust.openot.runner=$prefix"
 github_env=${GITHUB_ENV:?GITHUB_ENV must identify the GitHub Actions environment file}
 postgres_image='postgres:18.6@sha256:4ef4dbc939d61acea57712655ddb4b4ab27419c913f94cca0cd57cb3ea3c2280'
 timescale_image='timescale/timescaledb:2.29.2-pg18@sha256:9508616d5b941ed931198504c5db3fb47e8f53f790732ea1e889591f1062057c'
@@ -43,12 +44,12 @@ openssl x509 -req -sha256 -days 2 -in "$state_dir/tls/server.csr" \
 chmod 640 "$state_dir/tls/server.key"
 chmod 644 "$state_dir/tls/ca.pem" "$state_dir/tls/server.crt"
 
-docker network create "$prefix-network" >/dev/null
+docker network create --label "$ownership_label" "$prefix-network" >/dev/null
 
 prepare_postgres_tls() {
   local image=$1 directory=$2 uid gid
-  uid=$(docker run --rm --entrypoint sh "$image" -c 'id -u postgres')
-  gid=$(docker run --rm --entrypoint sh "$image" -c 'id -g postgres')
+  uid=$(docker run --rm --label "$ownership_label" --entrypoint sh "$image" -c 'id -u postgres')
+  gid=$(docker run --rm --label "$ownership_label" --entrypoint sh "$image" -c 'id -g postgres')
   mkdir -p "$directory"
   cp "$state_dir/tls/server.crt" "$directory/server.crt"
   cp "$state_dir/tls/server.key" "$directory/server.key"
@@ -59,13 +60,13 @@ prepare_postgres_tls() {
 prepare_postgres_tls "$postgres_image" "$state_dir/postgres-tls"
 prepare_postgres_tls "$timescale_image" "$state_dir/timescale-tls"
 
-docker run -d --name "$prefix-postgres" --network "$prefix-network" \
+docker run -d --label "$ownership_label" --name "$prefix-postgres" --network "$prefix-network" \
   -p 127.0.0.1:55432:5432 \
   -e POSTGRES_PASSWORD="$password" -e POSTGRES_DB=trust_logging \
   -v "$state_dir/postgres-tls:/tls:ro" "$postgres_image" \
   -c ssl=on -c ssl_cert_file=/tls/server.crt -c ssl_key_file=/tls/server.key >/dev/null
 
-docker run -d --name "$prefix-timescale" --network "$prefix-network" \
+docker run -d --label "$ownership_label" --name "$prefix-timescale" --network "$prefix-network" \
   -p 127.0.0.1:55433:5432 \
   -e POSTGRES_PASSWORD="$password" -e POSTGRES_DB=trust_logging \
   -v "$state_dir/timescale-tls:/tls:ro" "$timescale_image" \
@@ -73,8 +74,8 @@ docker run -d --name "$prefix-timescale" --network "$prefix-network" \
 
 prepare_mysql_tls() {
   local image=$1 directory=$2 uid gid
-  uid=$(docker run --rm --entrypoint sh "$image" -c 'id -u mysql')
-  gid=$(docker run --rm --entrypoint sh "$image" -c 'id -g mysql')
+  uid=$(docker run --rm --label "$ownership_label" --entrypoint sh "$image" -c 'id -u mysql')
+  gid=$(docker run --rm --label "$ownership_label" --entrypoint sh "$image" -c 'id -g mysql')
   mkdir -p "$directory"
   cp "$state_dir/tls/ca.pem" "$directory/ca.pem"
   cp "$state_dir/tls/server.crt" "$directory/server.crt"
@@ -86,13 +87,13 @@ prepare_mysql_tls() {
 }
 prepare_mysql_tls "$mysql_image" "$state_dir/mysql-tls"
 prepare_mysql_tls "$mariadb_image" "$state_dir/mariadb-tls"
-docker run -d --name "$prefix-mysql" --network "$prefix-network" \
+docker run -d --label "$ownership_label" --name "$prefix-mysql" --network "$prefix-network" \
   -p 127.0.0.1:53306:3306 -e MYSQL_ROOT_PASSWORD="$password" \
   -e MYSQL_DATABASE=trust_logging -v "$state_dir/mysql-tls:/tls:ro" "$mysql_image" \
   --ssl-ca=/tls/ca.pem --ssl-cert=/tls/server.crt --ssl-key=/tls/server.key \
   --require-secure-transport=ON >/dev/null
 
-docker run -d --name "$prefix-mariadb" --network "$prefix-network" \
+docker run -d --label "$ownership_label" --name "$prefix-mariadb" --network "$prefix-network" \
   -p 127.0.0.1:53307:3306 -e MARIADB_ROOT_PASSWORD="$password" \
   -e MARIADB_DATABASE=trust_logging -v "$state_dir/mariadb-tls:/tls:ro" "$mariadb_image" \
   --ssl-ca=/tls/ca.pem --ssl-cert=/tls/server.crt --ssl-key=/tls/server.key \
@@ -111,7 +112,7 @@ EOF
 chmod 644 "$state_dir/sqlserver/server.crt" "$state_dir/sqlserver/mssql.conf"
 chmod 600 "$state_dir/sqlserver/server.key"
 sudo chown -R 10001:0 "$state_dir/sqlserver"
-docker run -d --name "$prefix-sqlserver" --network "$prefix-network" \
+docker run -d --label "$ownership_label" --name "$prefix-sqlserver" --network "$prefix-network" \
   -p 127.0.0.1:51433:1433 -e ACCEPT_EULA=Y -e MSSQL_PID=Developer \
   -e MSSQL_SA_PASSWORD="$sqlserver_password" \
   -v "$state_dir/sqlserver/mssql.conf:/var/opt/mssql/mssql.conf:ro" \
@@ -119,16 +120,16 @@ docker run -d --name "$prefix-sqlserver" --network "$prefix-network" \
   "$sqlserver_image" >/dev/null
 
 mkdir -p "$state_dir/influx"
-docker run --rm --user "$(id -u):$(id -g)" -v "$state_dir/influx:/state" \
+docker run --rm --label "$ownership_label" --user "$(id -u):$(id -g)" -v "$state_dir/influx:/state" \
   "$influx_image" influxdb3 create token --admin --name trust-openot-release \
   --expiry 1d --offline --output-file /state/admin-token.json >/dev/null
-influx_uid=$(docker run --rm --entrypoint sh "$influx_image" -c 'id -u')
-influx_gid=$(docker run --rm --entrypoint sh "$influx_image" -c 'id -g')
+influx_uid=$(docker run --rm --label "$ownership_label" --entrypoint sh "$influx_image" -c 'id -u')
+influx_gid=$(docker run --rm --label "$ownership_label" --entrypoint sh "$influx_image" -c 'id -g')
 influx_token=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["token"])' \
   "$state_dir/influx/admin-token.json")
 chmod 600 "$state_dir/influx/admin-token.json"
 sudo chown "$influx_uid:$influx_gid" "$state_dir/influx/admin-token.json"
-docker run -d --name "$prefix-influx" --network "$prefix-network" \
+docker run -d --label "$ownership_label" --name "$prefix-influx" --network "$prefix-network" \
   -v "$state_dir/influx/admin-token.json:/run/secrets/influx-admin-token.json:ro" \
   "$influx_image" influxdb3 serve --node-id openot --object-store memory \
   --admin-token-file /run/secrets/influx-admin-token.json >/dev/null
@@ -145,7 +146,7 @@ cp "$state_dir/tls/server.crt" "$state_dir/nginx-tls/server.crt"
 cp "$state_dir/tls/server.key" "$state_dir/nginx-tls/server.key"
 chmod 644 "$state_dir/nginx-tls/server.crt"
 chmod 600 "$state_dir/nginx-tls/server.key"
-docker run -d --name "$prefix-influx-tls" --network "$prefix-network" \
+docker run -d --label "$ownership_label" --name "$prefix-influx-tls" --network "$prefix-network" \
   -p 127.0.0.1:58181:443 -v "$state_dir/nginx-tls:/tls:ro" \
   -v "$state_dir/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro" "$nginx_image" >/dev/null
 

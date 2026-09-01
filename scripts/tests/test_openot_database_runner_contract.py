@@ -61,6 +61,13 @@ class OpenOtDatabaseRunnerContractTests(unittest.TestCase):
         self.assertIn("client_max_body_size 16m", prepare)
         self.assertIn("@127.0.0.1:53306/trust_logging", prepare)
         self.assertIn("@127.0.0.1:53307/trust_logging", prepare)
+        for line in prepare.splitlines():
+            if "docker run" in line:
+                self.assertIn('--label "$ownership_label"', line)
+        self.assertIn(
+            'docker network create --label "$ownership_label"',
+            prepare,
+        )
         self.assertNotIn('$state_dir/tls:/tls:ro', prepare)
         self.assertNotIn("OpenOtPassword", prepare)
 
@@ -115,6 +122,55 @@ class OpenOtDatabaseRunnerContractTests(unittest.TestCase):
             self.assertIn("refusing symlinked OpenOT runner state", completed.stderr)
             self.assertTrue(state.is_symlink())
             self.assertTrue(target.is_dir())
+
+    def test_teardown_reclaims_exact_labelled_orphans_without_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            docker_log = root / "docker.log"
+            docker_log.write_text("", encoding="utf-8")
+            fake_docker = bin_dir / "docker"
+            fake_docker.write_text(
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >>"$DOCKER_LOG"
+case "$1 $2" in
+  "ps -aq") printf '%s\\n' owned-container ;;
+  "inspect --format") printf '%s\\n' owned-volume ;;
+  "network ls") printf '%s\\n' owned-network ;;
+esac
+""",
+                encoding="utf-8",
+            )
+            fake_docker.chmod(0o755)
+            prefix = "trust-openot-orphan-test"
+            environment = os.environ.copy()
+            environment.update(
+                PATH=f"{bin_dir}{os.pathsep}{environment['PATH']}",
+                DOCKER_LOG=str(docker_log),
+                OPENOT_DATABASE_RUNNER_STATE_DIR=str(root / "missing-state"),
+                OPENOT_DATABASE_RUNNER_PREFIX=prefix,
+            )
+
+            completed = subprocess.run(
+                [str(ROOT / "scripts" / "openot_database_runner_teardown.sh")],
+                cwd=ROOT,
+                env=environment,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            calls = docker_log.read_text(encoding="utf-8")
+            ownership = f"com.trust.openot.runner={prefix}"
+            self.assertIn(f"ps -aq --filter label={ownership}", calls)
+            self.assertIn("inspect --format", calls)
+            self.assertIn("rm -f owned-container", calls)
+            self.assertIn("volume rm owned-volume", calls)
+            self.assertIn(f"network ls -q --filter label={ownership}", calls)
+            self.assertIn("network rm owned-network", calls)
 
 
 if __name__ == "__main__":

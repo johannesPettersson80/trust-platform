@@ -9,8 +9,8 @@ use open_ot_shm::SharedRecordPublisher;
 
 use super::*;
 use crate::config::{
-    OpenOtPersistenceBackend, OpenOtPersistenceConfig, OpenOtPersistenceTlsMode,
-    OpenOtPostgreSqlPersistenceConfig, OpenOtSqlitePersistenceConfig,
+    OpenOtInfluxDb3PersistenceConfig, OpenOtPersistenceBackend, OpenOtPersistenceConfig,
+    OpenOtPersistenceTlsMode, OpenOtPostgreSqlPersistenceConfig, OpenOtSqlitePersistenceConfig,
 };
 #[test]
 fn operator_status_redacts_backend_secrets_and_sensitive_paths() {
@@ -145,6 +145,96 @@ fn service_rejects_missing_database_environment_before_worker_start() {
     };
     std::env::remove_var(&missing_environment);
     assert!(empty_error.to_string().contains(&missing_environment));
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[cfg(feature = "openot-database-influxdb3")]
+#[test]
+fn service_retries_unreachable_influxdb_during_initial_open() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "trust-openot-influx-initial-retry-{}-{stamp}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&root).expect("root");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
+            .expect("secure root");
+    }
+    std::fs::write(
+        root.join("openot-definition.json"),
+        serde_json::to_vec_pretty(&sample_definition()).expect("serialize definition"),
+    )
+    .expect("write definition");
+    SharedRecordPublisher::create(root.join("openot.shm"), 4096).expect("publisher");
+    std::fs::copy(
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/tls/server-cert.pem"
+        ),
+        root.join("database-ca.pem"),
+    )
+    .expect("copy parseable CA certificate");
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("reserve local port");
+    let address = listener.local_addr().expect("read reserved local port");
+    drop(listener);
+    let host_environment = format!(
+        "TRUST_TEST_OPENOT_INFLUX_INITIAL_HOST_{}_{}",
+        std::process::id(),
+        stamp
+    );
+    let token_environment = format!(
+        "TRUST_TEST_OPENOT_INFLUX_INITIAL_TOKEN_{}_{}",
+        std::process::id(),
+        stamp
+    );
+    std::env::set_var(&host_environment, format!("https://{address}"));
+    std::env::set_var(&token_environment, "test-token");
+    let config = OpenOtTelemetryConfig {
+        enabled: true,
+        path: "openot.shm".into(),
+        persistence: OpenOtPersistenceConfig {
+            enabled: true,
+            backend: Some(OpenOtPersistenceBackend::InfluxDb3),
+            retry_initial_ms: 10,
+            retry_max_ms: 10,
+            retry_multiplier: 1,
+            retry_max_attempts: 1_000,
+            shutdown_timeout_ms: 50,
+            influxdb3: Some(OpenOtInfluxDb3PersistenceConfig {
+                host_env: host_environment.clone().into(),
+                token_env: token_environment.clone().into(),
+                database: "trust_logging".into(),
+                spool_path: "trust-logging-spool.sqlite3".into(),
+                max_bytes: 1_073_741_824,
+                ca_cert_path: Some("database-ca.pem".into()),
+            }),
+            ..OpenOtPersistenceConfig::default()
+        },
+        ..OpenOtTelemetryConfig::default()
+    };
+
+    let mut service = OpenOtPersistenceService::start(&config, &root)
+        .expect("unreachable remote endpoint must not reject PLC startup")
+        .expect("enabled persistence service");
+    let deadline = std::time::Instant::now() + Duration::from_secs(1);
+    while service.status().state == OpenOtPersistenceState::Starting
+        && std::time::Instant::now() < deadline
+    {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let status = service.status();
+    service.shutdown();
+    std::env::remove_var(host_environment);
+    std::env::remove_var(token_environment);
+
+    assert_eq!(status.state, OpenOtPersistenceState::Retrying, "{status:?}");
+    assert!(status.documents_retried >= 1, "{status:?}");
     std::fs::remove_dir_all(root).ok();
 }
 

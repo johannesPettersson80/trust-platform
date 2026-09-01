@@ -917,7 +917,22 @@ fn spool_error(context: &'static str) -> impl FnOnce(rusqlite::Error) -> Persist
     move |error| PersistenceError::Commit(format!("InfluxDB 3 {context}: {error}"))
 }
 fn http_error(context: &'static str) -> impl FnOnce(ureq::Error) -> PersistenceError {
-    move |error| PersistenceError::Commit(format!("InfluxDB 3 {context}: {error}"))
+    move |error| {
+        let retryable = matches!(
+            &error,
+            ureq::Error::Io(_)
+                | ureq::Error::Timeout(_)
+                | ureq::Error::HostNotFound
+                | ureq::Error::ConnectionFailed
+                | ureq::Error::ConnectProxyFailed(_)
+        );
+        let message = format!("InfluxDB 3 {context}: {error}");
+        if retryable {
+            PersistenceError::Connection(message)
+        } else {
+            PersistenceError::Commit(message)
+        }
+    }
 }
 fn influx_error(context: &'static str, error: impl std::fmt::Display) -> PersistenceError {
     PersistenceError::Commit(format!("InfluxDB 3 {context}: {error}"))

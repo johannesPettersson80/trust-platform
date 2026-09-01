@@ -1,6 +1,30 @@
 use super::*;
 
 #[test]
+fn initial_http_transport_failure_is_retryable_connection_error() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("reserve local port");
+    let address = listener.local_addr().expect("read reserved local port");
+    drop(listener);
+    let transport = ureq::get(&format!("http://{address}/health"))
+        .call()
+        .expect_err("closed local port must refuse the request");
+
+    let classified = http_error("initial health request")(transport);
+
+    assert!(
+        matches!(classified, PersistenceError::Connection(_)),
+        "initial transport failure must consume the reconnect policy: {classified}"
+    );
+}
+
+#[test]
+fn initial_http_status_failure_remains_permanent() {
+    let classified = http_error("initial health request")(ureq::Error::StatusCode(401));
+
+    assert!(matches!(classified, PersistenceError::Commit(_)));
+}
+
+#[test]
 fn reopening_generation_1_spool_reapplies_connection_local_durability_pragmas() {
     static CASE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let root = std::env::temp_dir().join(format!(

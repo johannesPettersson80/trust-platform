@@ -88,6 +88,11 @@ Opening and schema-initialization code MUST return an explicitly classified reac
 failure for the retryable open case. Generic commit/storage errors are not
 implicitly retryable during initial open. Adding a new open failure path
 requires a direct native assertion of its lifecycle classification.
+For InfluxDB 3, a transport failure from the initial authenticated `/health`
+request is a reachability failure and MUST be returned as a retryable
+connection error. A received HTTP response, including authentication or
+authorization rejection, is not a transport failure and MUST remain a
+non-retryable open error.
 
 When `enabled = false` or the persistence table is absent, no persistence
 worker, spool, schema initialization, or database connection is created. When enabled,
@@ -594,6 +599,15 @@ containers, network, credentials, and certificates after the job. The workflow
 MUST call those repository scripts directly. Runner registration is an
 explicit operational prerequisite and MUST be verified before a release tag is
 pushed; a release MUST NOT be left waiting for an unregistered label.
+
+Every Docker container and network created by the prepare script MUST carry an
+ownership label whose value is the validated per-run resource prefix. Teardown
+MUST discover and remove only resources bearing that exact ownership label,
+including their attached Docker volumes, even when the temporary filesystem
+state directory or marker was lost after an interrupted job. When state is
+present, its marker MUST still match the validated prefix before any mutation;
+symlinked or mismatched state MUST fail closed. Label discovery MUST NOT widen
+cleanup to unlabelled or differently labelled runner resources.
 
 ## 7. Lifecycle and observability
 

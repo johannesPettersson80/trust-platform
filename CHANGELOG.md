@@ -98,6 +98,10 @@ Target release: `v0.24.68`
   row, reapply SQLite/Influx spool durability settings on every connection,
   and reject generation-1 databases whose actual columns, constraints, foreign
   keys, or indexes differ from the schema created by truST.
+- Keep initial InfluxDB transport outages in the bounded reconnect lifecycle,
+  reclaim exact-labelled real-database runner resources after interrupted jobs
+  even when temporary state was lost, and make exact-candidate Clippy use the
+  same warning-deny command as GitHub CI.
 
 - Keep real-Mosquitto conformance compatible with broker versions whose help
   command prints a usable version and then exits nonzero, so optional version

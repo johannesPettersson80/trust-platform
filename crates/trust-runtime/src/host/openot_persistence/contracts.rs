@@ -6,6 +6,15 @@ pub(crate) const LOGGING_SCHEMA_GENERATION: u32 = 1;
 #[cfg(all(test, feature = "openot-real-database-tests"))]
 pub(crate) type StoredCheckpointRow = (u32, Vec<u8>, Vec<u8>);
 
+#[cfg(all(test, feature = "openot-real-database-tests"))]
+pub(crate) type AuditedValueProjection = (
+    Option<bool>,
+    bool,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
+
 #[cfg(test)]
 use super::projection::document_identity;
 

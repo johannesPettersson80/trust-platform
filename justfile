@@ -4,7 +4,7 @@ fmt:
 	cargo fmt
 
 clippy:
-	cargo clippy --all-targets --all-features
+	cargo clippy --all-targets --all-features -- -D warnings
 
 test:
 	@if command -v cargo-nextest >/dev/null 2>&1; then \

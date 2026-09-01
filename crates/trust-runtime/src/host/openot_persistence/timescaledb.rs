@@ -86,16 +86,7 @@ impl TimescaleDbDocumentSink {
     #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn audited_value_projection(
         &mut self,
-    ) -> Result<
-        (
-            Option<bool>,
-            bool,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-        ),
-        PersistenceError,
-    > {
+    ) -> Result<super::contracts::AuditedValueProjection, PersistenceError> {
         self.postgresql
             .client
             .query_one(

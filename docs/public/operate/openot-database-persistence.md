@@ -72,6 +72,11 @@ InfluxDB in order. During an HTTP/server outage, inspect spool pressure and
 restore connectivity before its bounded storage is exhausted. Locally durable
 spool entries are reported as `remote_pending`; the service cannot report
 `ready` until that counter returns to zero.
+If the configured InfluxDB endpoint is unreachable during initial startup, the
+PLC runtime continues and persistence reports `retrying` under the configured
+bounded reconnect policy. A reached endpoint that rejects authentication or
+authorization is a permanent configuration/credential failure and reports
+`faulted` instead of consuming that retry budget.
 `max_bytes` bounds the spool's logical SQLite page footprint. A full spool
 rolls back the incoming documents and checkpoint together and faults visibly;
 allow additional filesystem headroom for WAL and allocation overhead.

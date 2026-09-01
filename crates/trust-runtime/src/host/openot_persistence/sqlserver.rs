@@ -203,16 +203,7 @@ impl SqlServerDocumentSink {
     #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn audited_value_projection(
         &mut self,
-    ) -> Result<
-        (
-            Option<bool>,
-            bool,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-        ),
-        PersistenceError,
-    > {
+    ) -> Result<super::contracts::AuditedValueProjection, PersistenceError> {
         let row = self.one(&format!(
             "SELECT TOP 1 previous_boolean_value,is_audited,actor,reason,authorization_result \
              FROM [{}].logged_values WHERE is_audited=1",

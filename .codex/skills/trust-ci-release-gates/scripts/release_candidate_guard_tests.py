@@ -174,6 +174,11 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             "./scripts/check_runtime_cross_target_warnings.sh "
             "--install-missing --require-cross",
         )
+        self.assertIn(
+            "cargo clippy --all-targets --all-features -- -D warnings",
+            by_id["remote_clippy"],
+        )
+        self.assertNotIn("just clippy", by_id["remote_clippy"])
 
     def test_remote_validation_reclaims_exact_target_before_test_all(self) -> None:
         commands = candidate_prepare.remote_validation_commands(

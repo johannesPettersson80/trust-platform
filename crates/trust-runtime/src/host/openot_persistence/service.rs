@@ -432,7 +432,10 @@ impl OpenOtPersistenceService {
                             }
                         }
                         Err(error) => {
-                            let transient = matches!(error, PersistenceError::Commit(_));
+                            let transient = matches!(
+                                error,
+                                PersistenceError::Commit(_) | PersistenceError::Connection(_)
+                            );
                             apply_worker_error(
                                 &worker_status,
                                 &error,

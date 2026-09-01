@@ -64,6 +64,11 @@ products and issue ephemeral secrets/CA material; the workflow always tears
 down that disposable state and retains the redacted evidence artifact for 30
 days. A missing runner, secret, CA file, product, artifact, or teardown is a
 failed gate, not permission to skip a backend.
+The provisioner labels every Docker container and network with the validated
+per-run prefix. Teardown uses that exact label to recover containers, attached
+volumes, and the network after an interrupted job even if `RUNNER_TEMP` was
+cleared. It never discovers unlabelled resources or resources carrying another
+run's prefix.
 
 Required environment variable names are
 `TRUST_TEST_OPENOT_POSTGRES_URL`/`_CA`,

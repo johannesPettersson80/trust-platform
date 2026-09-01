@@ -141,7 +141,10 @@ def remote_validation_commands(
                 "./scripts/check_runtime_cross_target_warnings.sh "
                 "--install-missing --require-cross",
             ),
-            ("remote_clippy", f"{target_env} just clippy"),
+            (
+                "remote_clippy",
+                f"{target_env} cargo clippy --all-targets --all-features -- -D warnings",
+            ),
             (
                 "remote_reclaim_before_test_all",
                 f"rm -rf -- {shlex.quote(target)} && {prepare_target}",

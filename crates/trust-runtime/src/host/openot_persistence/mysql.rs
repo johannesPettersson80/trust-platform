@@ -163,16 +163,7 @@ impl MySqlDocumentSink {
     #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn audited_value_projection(
         &mut self,
-    ) -> Result<
-        (
-            Option<bool>,
-            bool,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-        ),
-        PersistenceError,
-    > {
+    ) -> Result<super::contracts::AuditedValueProjection, PersistenceError> {
         self.connection
             .query_first(
                 "SELECT previous_boolean_value,is_audited,actor,reason,authorization_result \
