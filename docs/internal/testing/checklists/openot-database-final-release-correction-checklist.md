@@ -143,6 +143,9 @@ on one frozen replacement commit.
   Architecture Safety script in GitHub CI and exact-candidate preparation.
 - [x] Split SQL Server commit orchestration below the architecture threshold
   without changing transaction, chunk, projection, or checkpoint behavior.
+- [x] Preserve the exact expected-red Windows warning-deny failure for the
+  Unix-only retry helper, specify its platform boundary, apply the same
+  `cfg(unix)` ownership as the worker path, and rerun that cross-target gate.
 - [ ] Run the shared Architecture Safety gate, focused SQL Server tests, real
   databases with the real PLC runtime, and every enumerated PR CI command on
   `trust-builder` before freezing another candidate.

@@ -208,6 +208,7 @@ fn observe_source_status(
     Ok(())
 }
 
+#[cfg(unix)]
 fn next_retry_delay(current: Duration, multiplier: u32, maximum: Duration) -> Duration {
     current
         .checked_mul(multiplier)
