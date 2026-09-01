@@ -201,6 +201,36 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         )
         self.assertIn("bash scripts/supply_chain_gate.sh", workflow)
 
+    def test_remote_validation_runs_the_same_architecture_safety_gate_as_ci(self) -> None:
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target="/tmp/trust-target"
+        )
+        command_ids = [command_id for command_id, _command in commands]
+        by_id = dict(commands)
+
+        self.assertIn("remote_architecture_safety", command_ids)
+        self.assertIn("remote_architecture_safety", guard.BASE_REQUIRED_COMMANDS)
+        self.assertLess(
+            command_ids.index("remote_architecture_safety"),
+            command_ids.index("remote_clippy"),
+        )
+        self.assertEqual(
+            by_id["remote_architecture_safety"],
+            "bash scripts/architecture_safety_gate.sh",
+        )
+        workflow = (Path(__file__).parents[4] / ".github/workflows/ci.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("bash scripts/architecture_safety_gate.sh", workflow)
+
+    def test_architecture_safety_gate_exposes_cargo_installed_tools(self) -> None:
+        gate = (
+            Path(__file__).parents[4] / "scripts/architecture_safety_gate.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"', gate)
+        self.assertLess(gate.index("export PATH="), gate.index("command -v ast-grep"))
+
     def test_remote_validation_reclaims_exact_target_before_test_all(self) -> None:
         commands = candidate_prepare.remote_validation_commands(
             vscode_changed=True, remote_target="/tmp/trust target"

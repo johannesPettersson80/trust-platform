@@ -171,7 +171,8 @@ fn service_retries_unreachable_influxdb_during_initial_open() {
         serde_json::to_vec_pretty(&sample_definition()).expect("serialize definition"),
     )
     .expect("write definition");
-    SharedRecordPublisher::create(root.join("openot.shm"), 4096).expect("publisher");
+    let mut publisher =
+        SharedRecordPublisher::create(root.join("openot.shm"), 4096).expect("publisher");
     std::fs::copy(
         concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -222,19 +223,33 @@ fn service_retries_unreachable_influxdb_during_initial_open() {
     let mut service = OpenOtPersistenceService::start(&config, &root)
         .expect("unreachable remote endpoint must not reject PLC startup")
         .expect("enabled persistence service");
+    publisher
+        .append_record(&Record::new(11, 1, 0, 7, EVENT_HEARTBEAT))
+        .expect("publish while the initial database connection is unavailable");
     let deadline = std::time::Instant::now() + Duration::from_secs(1);
-    while service.status().state == OpenOtPersistenceState::Starting
-        && std::time::Instant::now() < deadline
-    {
+    while {
+        let status = service.status();
+        (status.state == OpenOtPersistenceState::Starting || status.head_abs == 0)
+            && std::time::Instant::now() < deadline
+    } {
         std::thread::sleep(Duration::from_millis(5));
     }
     let status = service.status();
     service.shutdown();
+    let stopped_status = service.status();
     std::env::remove_var(host_environment);
     std::env::remove_var(token_environment);
 
     assert_eq!(status.state, OpenOtPersistenceState::Retrying, "{status:?}");
     assert!(status.documents_retried >= 1, "{status:?}");
+    assert!(status.head_abs > 0, "{status:?}");
+    assert_eq!(status.cursor_abs, 0, "{status:?}");
+    assert_eq!(status.pending, status.head_abs, "{status:?}");
+    assert_eq!(
+        stopped_status.head_abs, status.head_abs,
+        "{stopped_status:?}"
+    );
+    assert_eq!(stopped_status.pending, status.pending, "{stopped_status:?}");
     std::fs::remove_dir_all(root).ok();
 }
 

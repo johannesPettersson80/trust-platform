@@ -579,6 +579,16 @@ identity conflict, or retry policy exhaustion enters `faulted`. Any resulting
 ring overwrite remains explicit as OpenOT loss. No uncommitted document is
 reported as committed.
 
+Source observation MUST remain active while the selected database is
+unreachable during initial open or reconnect. Database connectivity MUST NOT
+gate reading the shared-memory control snapshot. During such an outage,
+`head_abs` MUST track the latest coherently published producer head and
+`pending` MUST equal `head_abs - cursor_abs`, using the last durable cursor
+known to this service (zero before a first database checkpoint can be read).
+The service MUST NOT consume or advance the source cursor merely to observe
+lag, and shutdown status MUST retain the observed pending source bytes even
+when no database connection was established.
+
 Shutdown drains for at most `shutdown_timeout_ms`, then reports the exact
 pending count and exits without advancing beyond the last durable commit.
 The drain MUST poll and commit source records that were published before the

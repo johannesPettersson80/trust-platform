@@ -58,6 +58,8 @@ pub use postgresql::PostgreSqlDocumentSink;
 pub use service::{OpenOtPersistenceService, OpenOtPersistenceState, OpenOtPersistenceStatus};
 #[cfg(unix)]
 pub use source::SharedMemoryOpenOtSource;
+#[cfg(unix)]
+pub(crate) use source::SharedMemoryOpenOtSourceObserver;
 #[cfg(feature = "openot-database-sqlite")]
 pub use sqlite::SqliteDocumentSink;
 #[cfg(feature = "openot-database-sqlserver")]

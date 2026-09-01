@@ -30,6 +30,11 @@ Every candidate must also run `bash scripts/supply_chain_gate.sh` as
 `remote_supply_chain` before Clippy. CI must call that same script rather than
 duplicating its commands. Advisory and yanked-package data are live inputs: a
 passing older artifact cannot substitute for this exact-candidate check.
+Every candidate must run `bash scripts/architecture_safety_gate.sh` as
+`remote_architecture_safety` before Clippy. The GitHub Architecture Safety job
+must call the same script, including its AST safety checks and full-map
+architecture doctor. `verification_report_gate --strict --smoke`, Clippy, and
+`just test-all` do not substitute for this command.
 When Docs Captures paths are present in the candidate diff, preparation must also run and record
 `python3 -m unittest scripts.tests.test_capture_lifecycle -v` as
 `remote_docs_capture_lifecycle`. Do not infer coverage from the VS Code npm suite.

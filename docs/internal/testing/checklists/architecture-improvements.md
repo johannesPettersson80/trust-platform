@@ -234,3 +234,10 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   batches. Close after real 2,101-document and repeated-special-document tests,
   the complete real-product PLC gate, refreshed diagrams, and exact-candidate
   release proof.
+- [ ] `ARCH-OPENOT-DB-06` Keep shared-memory source observation independent of
+  initial database connectivity: a non-consuming control-snapshot owner keeps
+  head and durable-cursor lag visible during retry and shutdown, while the
+  consuming source remains owned by the connected persistence worker. Keep the
+  exact GitHub Architecture Safety gate and release-candidate preparation on
+  one shared script. Close after focused red-green outage proof, the exact
+  full-map gate, real-product PLC/database proof, and release verification.

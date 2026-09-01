@@ -40,6 +40,7 @@ BASE_REQUIRED_COMMANDS = (
     "remote_fmt",
     "remote_cross_target_warnings",
     "remote_supply_chain",
+    "remote_architecture_safety",
     "remote_clippy",
     "remote_reclaim_before_test_all",
     "remote_test_all",

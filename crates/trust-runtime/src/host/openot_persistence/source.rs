@@ -22,6 +22,33 @@ mod imp {
         pending_snapshot: Option<ControlBlockSnapshot>,
     }
 
+    /// Non-consuming view of the producer control block used while a durable
+    /// sink is unavailable.
+    #[derive(Debug)]
+    pub(crate) struct SharedMemoryOpenOtSourceObserver {
+        store: SharedConcurrentStore,
+    }
+
+    impl SharedMemoryOpenOtSourceObserver {
+        pub(crate) fn open(path: &Path) -> Result<Self, PersistenceError> {
+            let store = SharedConcurrentStore::open_existing(path).map_err(|error| {
+                PersistenceError::Commit(format!(
+                    "open OpenOT shared-memory observer '{}': {error}",
+                    path.display()
+                ))
+            })?;
+            Ok(Self { store })
+        }
+
+        pub(crate) fn snapshot(&self) -> Result<ControlBlockSnapshot, PersistenceError> {
+            self.store.read_control_snapshot().map_err(|error| {
+                PersistenceError::Commit(format!(
+                    "read OpenOT shared-memory control snapshot: {error:?}"
+                ))
+            })
+        }
+    }
+
     impl SharedMemoryOpenOtSource {
         /// Opens the existing carriage created by the runtime publisher.
         pub fn open(path: &Path) -> Result<Self, PersistenceError> {
@@ -121,6 +148,8 @@ mod imp {
 
 #[cfg(unix)]
 pub use imp::SharedMemoryOpenOtSource;
+#[cfg(unix)]
+pub(crate) use imp::SharedMemoryOpenOtSourceObserver;
 
 #[cfg(all(test, unix))]
 mod tests {

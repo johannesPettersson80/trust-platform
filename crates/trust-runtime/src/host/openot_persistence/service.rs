@@ -20,7 +20,7 @@ use super::PersistenceError;
 #[cfg(unix)]
 use super::{
     OpenOtDocumentSink, OpenOtPersistenceConsumer, OpenOtPersistenceWorker,
-    SharedMemoryOpenOtSource,
+    SharedMemoryOpenOtSource, SharedMemoryOpenOtSourceObserver,
 };
 
 #[cfg(unix)]
@@ -195,6 +195,26 @@ fn apply_worker_error(
     }
 }
 
+#[cfg(unix)]
+fn observe_source_status(
+    observer: &SharedMemoryOpenOtSourceObserver,
+    status: &Arc<Mutex<OpenOtPersistenceStatus>>,
+) -> Result<(), PersistenceError> {
+    let snapshot = observer.snapshot()?;
+    if let Ok(mut status) = status.lock() {
+        status.head_abs = snapshot.head_abs;
+        status.pending = status.head_abs.saturating_sub(status.cursor_abs);
+    }
+    Ok(())
+}
+
+fn next_retry_delay(current: Duration, multiplier: u32, maximum: Duration) -> Duration {
+    current
+        .checked_mul(multiplier)
+        .unwrap_or(maximum)
+        .min(maximum)
+}
+
 /// Observable lifecycle of the persistence service.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpenOtPersistenceState {
@@ -302,6 +322,7 @@ impl OpenOtPersistenceService {
         }
         let (definition, source_path, persistence_config) =
             validate_startup_artifacts(config, bundle_root)?;
+        let source_observer = SharedMemoryOpenOtSourceObserver::open(&source_path)?;
         // Definition parsing and shared-memory carriage availability are local
         // bundle artifacts and therefore remain synchronous startup checks.
         // Opening or initializing the selected database belongs to the supervised
@@ -367,6 +388,23 @@ impl OpenOtPersistenceService {
                         break;
                     }
                     if worker.is_none() {
+                        if let Err(error) = observe_source_status(&source_observer, &worker_status)
+                        {
+                            apply_worker_error(
+                                &worker_status,
+                                &error,
+                                &mut consecutive_retries,
+                                retry_max_attempts,
+                                true,
+                            );
+                            if consecutive_retries >= retry_max_attempts {
+                                break;
+                            }
+                            std::thread::park_timeout(retry_delay);
+                            retry_delay =
+                                next_retry_delay(retry_delay, retry_multiplier, retry_max);
+                            continue;
+                        }
                         match open_runtime_worker(
                             &persistence_config,
                             &reconnect_bundle_root,
@@ -394,10 +432,8 @@ impl OpenOtPersistenceService {
                                     break;
                                 }
                                 std::thread::park_timeout(retry_delay);
-                                retry_delay = retry_delay
-                                    .checked_mul(retry_multiplier)
-                                    .unwrap_or(retry_max)
-                                    .min(retry_max);
+                                retry_delay =
+                                    next_retry_delay(retry_delay, retry_multiplier, retry_max);
                                 continue;
                             }
                         }
@@ -451,10 +487,8 @@ impl OpenOtPersistenceService {
                             }
                             worker = None;
                             std::thread::park_timeout(retry_delay);
-                            retry_delay = retry_delay
-                                .checked_mul(retry_multiplier)
-                                .unwrap_or(retry_max)
-                                .min(retry_max);
+                            retry_delay =
+                                next_retry_delay(retry_delay, retry_multiplier, retry_max);
                             continue;
                         }
                     }

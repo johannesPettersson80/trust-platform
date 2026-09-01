@@ -143,6 +143,10 @@ def remote_validation_commands(
             ),
             ("remote_supply_chain", "bash scripts/supply_chain_gate.sh"),
             (
+                "remote_architecture_safety",
+                "bash scripts/architecture_safety_gate.sh",
+            ),
+            (
                 "remote_clippy",
                 f"{target_env} cargo clippy --all-targets --all-features -- -D warnings",
             ),

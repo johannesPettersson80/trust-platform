@@ -72,6 +72,9 @@ Target release: `v0.24.68`
 
 ### Fixed
 
+- Keep OpenOT source-head and pending-byte status observable while an initial
+  remote database connection is unavailable, and run the same complete
+  Architecture Safety gate before push and in GitHub CI.
 - Keep SQL Server logged-value statements below its 2,100-parameter limit,
   constrain the MySQL/MariaDB schema marker to its single valid key, replace
   the yanked MySQL client patch release, and run the same supply-chain policy

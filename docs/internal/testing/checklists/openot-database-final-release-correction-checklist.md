@@ -124,3 +124,28 @@ on one frozen replacement commit.
 - [ ] Push one frozen replacement, request/read exact-head automatic review,
   collect every GitHub check, and proceed only when the complete ledger is
   green.
+
+## 9. Source-observation and architecture-parity correction
+
+- [x] Record the exact automatic-review P1: initial sink outage left source
+  `head_abs` and pending bytes falsely zero because source observation was
+  gated by database opening.
+- [x] Record the exact GitHub Architecture Safety failure: SQL Server
+  `commit_inner` was 202 lines against the enforced 200-line threshold.
+- [x] Specify non-consuming source observation during initial open/reconnect
+  outage before changing tests or production code.
+- [x] Add and run the focused expected-red real-carriage service test; require
+  nonzero head/pending during unreachable InfluxDB startup and preservation
+  through shutdown.
+- [x] Implement an independent shared-memory control observer and rerun the
+  identical focused test green.
+- [x] Add and run the expected-red release-guard self-test requiring one shared
+  Architecture Safety script in GitHub CI and exact-candidate preparation.
+- [x] Split SQL Server commit orchestration below the architecture threshold
+  without changing transaction, chunk, projection, or checkpoint behavior.
+- [ ] Run the shared Architecture Safety gate, focused SQL Server tests, real
+  databases with the real PLC runtime, and every enumerated PR CI command on
+  `trust-builder` before freezing another candidate.
+- [ ] Commit and prepare one clean exact-SHA artifact, push once, request/read
+  the exact-head automatic review, and merge/release only after every check is
+  green.
