@@ -246,6 +246,16 @@ and fail-closed aggregation boundaries. They do not prove that an unexecuted
 GitHub workflow ran successfully, that uploaded artifacts are publicly
 available, or that the final release candidate is green.
 
+Shared-builder Cargo targets used by an active gate MUST hold a stable external
+lease for the complete command lifetime. Generated-target cleanup MUST acquire
+that same lease without waiting and MUST skip a target whose lease is held; a
+globbed deletion of the shared target root is forbidden. Exact-candidate
+preparation MUST use the leased target for every Cargo-producing VS Code,
+cross-target, supply-chain, architecture, clippy, and full-test command, and
+its deliberate pre-test reclaim MUST use the lease-aware cleanup command. A
+successful assertion run followed by a missing executable due to concurrent
+target deletion is an infrastructure failure, never a green test result.
+
 ### Native test and docs-capture lifecycle portability
 
 Native Unix control-endpoint fixtures must derive a collision-resistant socket

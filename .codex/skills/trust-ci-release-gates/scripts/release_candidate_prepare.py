@@ -104,6 +104,12 @@ def remote_validation_commands(
         f"mkdir -p -- {shlex.quote(target_tmp)} {shlex.quote(target_bin)} && "
         f"install -m 755 {passthrough_source} {shlex.quote(sccache_shim)}"
     )
+    def leased(command: str) -> str:
+        return (
+            "bash scripts/with_cargo_target_lease.sh "
+            f"{shlex.quote(target)} bash -lc {shlex.quote(command)}"
+        )
+
     disk_preflight = (
         'available_kib=$(df --output=avail -k "$HOME" | tail -n 1 | tr -d " "); '
         "required_kib=83886080; "
@@ -127,10 +133,12 @@ def remote_validation_commands(
         commands.append(
             (
                 "remote_vscode",
-                "vscode_tmp=$(mktemp -d /tmp/trust-vscode-candidate.XXXXXX) && "
-                "trap 'rm -rf -- \"$vscode_tmp\"' EXIT && "
-                "cd editors/vscode && npm ci && npm run lint && npm run compile && "
-                f"{vscode_target_env} xvfb-run -a npm test",
+                leased(
+                    "vscode_tmp=$(mktemp -d /tmp/trust-vscode-candidate.XXXXXX) && "
+                    "trap 'rm -rf -- \"$vscode_tmp\"' EXIT && "
+                    "cd editors/vscode && npm ci && npm run lint && npm run compile && "
+                    f"{vscode_target_env} xvfb-run -a npm test"
+                ),
             )
         )
     commands.extend(
@@ -138,23 +146,34 @@ def remote_validation_commands(
             ("remote_fmt", "just fmt"),
             (
                 "remote_cross_target_warnings",
-                "./scripts/check_runtime_cross_target_warnings.sh "
-                "--install-missing --require-cross",
+                leased(
+                    f"{target_env} ./scripts/check_runtime_cross_target_warnings.sh "
+                    "--install-missing --require-cross"
+                ),
             ),
-            ("remote_supply_chain", "bash scripts/supply_chain_gate.sh"),
+            (
+                "remote_supply_chain",
+                leased(f"{target_env} bash scripts/supply_chain_gate.sh"),
+            ),
             (
                 "remote_architecture_safety",
-                "bash scripts/architecture_safety_gate.sh",
+                leased(f"{target_env} bash scripts/architecture_safety_gate.sh"),
             ),
             (
                 "remote_clippy",
-                f"{target_env} cargo clippy --all-targets --all-features -- -D warnings",
+                leased(
+                    f"{target_env} cargo clippy --all-targets --all-features -- -D warnings"
+                ),
             ),
             (
                 "remote_reclaim_before_test_all",
-                f"rm -rf -- {shlex.quote(target)} && {prepare_target}",
+                "bash scripts/remove_cargo_target_if_idle.sh "
+                f"{shlex.quote(target)} && {prepare_target}",
             ),
-            ("remote_test_all", f"{target_env} CARGO_BUILD_JOBS=1 just test-all"),
+            (
+                "remote_test_all",
+                leased(f"{target_env} CARGO_BUILD_JOBS=1 just test-all"),
+            ),
             ("remote_clean_after", 'test -z "$(git status --porcelain=v1 --untracked-files=all)"'),
         ]
     )

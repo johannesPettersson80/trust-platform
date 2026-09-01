@@ -197,6 +197,11 @@ Prevent known Windows-only regressions in `trust-lsp` tests:
   Reclaim only that validated `CARGO_TARGET_DIR` between Clippy and
   `just test-all`. Never apply that cleanup to a repository, home directory,
   shared cache, unrelated target, or unresolved path.
+  Every Cargo-producing exact-candidate command must run through
+  `scripts/with_cargo_target_lease.sh`; reclamation must use
+  `scripts/remove_cargo_target_if_idle.sh`. Never use a direct or globbed
+  `rm -rf` for a target on the shared builder. A leased target returns exit 75
+  from cleanup and must be left intact.
 - Before creating the exact-candidate target, fail closed unless the builder has
   at least 80 GiB available under `$HOME`. Report both `$HOME` and `/tmp`
   filesystem state in that preflight. The floor must be enforced by the

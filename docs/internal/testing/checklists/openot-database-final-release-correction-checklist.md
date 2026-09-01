@@ -146,6 +146,13 @@ on one frozen replacement commit.
 - [x] Preserve the exact expected-red Windows warning-deny failure for the
   Unix-only retry helper, specify its platform boundary, apply the same
   `cfg(unix)` ownership as the worker path, and rerun that cross-target gate.
+- [x] Preserve the exact `test-all` infrastructure red where 3,866 tests passed
+  but a just-built test executable was concurrently deleted; specify and test
+  stable shared-target leases before changing cleanup or guard production code.
+- [x] Lease every Cargo-producing exact-candidate command, replace direct
+  target deletion with nonblocking lease-aware cleanup, remove glob cleanup
+  from `AGENTS.md` and builder skills, and rerun the lease and guard suites
+  green.
 - [ ] Run the shared Architecture Safety gate, focused SQL Server tests, real
   databases with the real PLC runtime, and every enumerated PR CI command on
   `trust-builder` before freezing another candidate.
