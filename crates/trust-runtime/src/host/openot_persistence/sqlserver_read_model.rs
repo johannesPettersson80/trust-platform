@@ -142,12 +142,32 @@ pub(super) fn insert_value_batch(
         return Ok(());
     }
     let mut parameter = 1;
-    let tuples = values.iter().map(|_| {
-        let indices = (0..29).map(|_| { let value = parameter; parameter += 1; value }).collect::<Vec<_>>();
-        let raw = indices.iter().map(|index| format!("@P{index}")).collect::<Vec<_>>();
-        format!("({},CONVERT(DATETIME2(7),LEFT({},27),127),CONVERT(DECIMAL(20,0),{}),CONVERT(DATETIME2(7),LEFT({},27),127),CONVERT(DECIMAL(20,0),{}),{},{},{},{},{},CONVERT(DECIMAL(20,0),{}),CONVERT(DECIMAL(20,0),{}),CONVERT(DECIMAL(20,0),{}),{},{},{},{},{},{},{},{},{},{},{},{},CONVERT(DECIMAL(20,0),{}),{},{},{})", raw[0],raw[1],raw[2],raw[3],raw[4],raw[5],raw[6],raw[7],raw[8],raw[9],raw[10],raw[11],raw[12],raw[13],raw[14],raw[15],raw[16],raw[17],raw[18],raw[19],raw[20],raw[21],raw[22],raw[23],raw[24],raw[25],raw[26],raw[27],raw[28])
-    }).collect::<Vec<_>>().join(",");
-    let mut query = Query::new(format!("INSERT INTO [{schema}].logged_values(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value) VALUES {tuples}"));
+    let tuples = values
+        .iter()
+        .map(|_| {
+            let indices = (0..39)
+                .map(|_| {
+                    let value = parameter;
+                    parameter += 1;
+                    value
+                })
+                .collect::<Vec<_>>();
+            let mut raw = indices
+                .iter()
+                .map(|index| format!("@P{index}"))
+                .collect::<Vec<_>>();
+            raw[1] = format!("CONVERT(DATETIME2(7),LEFT({},27),127)", raw[1]);
+            raw[2] = format!("CONVERT(DECIMAL(20,0),{})", raw[2]);
+            raw[3] = format!("CONVERT(DATETIME2(7),LEFT({},27),127)", raw[3]);
+            raw[4] = format!("CONVERT(DECIMAL(20,0),{})", raw[4]);
+            for index in [10_usize, 11, 12, 25, 31] {
+                raw[index] = format!("CONVERT(DECIMAL(20,0),{})", raw[index]);
+            }
+            format!("({})", raw.join(","))
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let mut query = Query::new(format!("INSERT INTO [{schema}].logged_values(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value,previous_boolean_value,previous_signed_value,previous_unsigned_value,previous_number_value,previous_text_value,previous_exact_value,is_audited,actor,reason,authorization_result) VALUES {tuples}"));
     for value in values {
         bind_common(&mut query, &value.common);
         query.bind(i64::from(value.value_id));
@@ -162,6 +182,16 @@ pub(super) fn insert_value_batch(
         query.bind(value.number_value);
         query.bind(value.text_value.as_deref());
         query.bind(value.exact_value.as_str());
+        query.bind(value.previous_boolean_value);
+        query.bind(value.previous_signed_value);
+        query.bind(value.previous_unsigned_value.as_deref());
+        query.bind(value.previous_number_value);
+        query.bind(value.previous_text_value.as_deref());
+        query.bind(value.previous_exact_value.as_deref());
+        query.bind(value.is_audited);
+        query.bind(value.actor.as_deref());
+        query.bind(value.reason.as_deref());
+        query.bind(value.authorization_result.as_deref());
     }
     execute(
         runtime,
@@ -575,8 +605,8 @@ fn insert_value(
 ) -> Result<(), PersistenceError> {
     let common = value.common;
     let mut query = Query::new(format!(
-        "INSERT INTO [{schema}].logged_values(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value)
-         VALUES(@P1,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),CONVERT(DATETIME2(7),LEFT(@P4,27),127),CONVERT(DECIMAL(20,0),@P5),@P6,@P7,@P8,@P9,@P10,CONVERT(DECIMAL(20,0),@P11),CONVERT(DECIMAL(20,0),@P12),CONVERT(DECIMAL(20,0),@P13),@P14,@P15,@P16,@P17,@P18,@P19,@P20,@P21,@P22,@P23,@P24,@P25,CONVERT(DECIMAL(20,0),@P26),@P27,@P28,@P29)"
+        "INSERT INTO [{schema}].logged_values(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value,previous_boolean_value,previous_signed_value,previous_unsigned_value,previous_number_value,previous_text_value,previous_exact_value,is_audited,actor,reason,authorization_result)
+         VALUES(@P1,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),CONVERT(DATETIME2(7),LEFT(@P4,27),127),CONVERT(DECIMAL(20,0),@P5),@P6,@P7,@P8,@P9,@P10,CONVERT(DECIMAL(20,0),@P11),CONVERT(DECIMAL(20,0),@P12),CONVERT(DECIMAL(20,0),@P13),@P14,@P15,@P16,@P17,@P18,@P19,@P20,@P21,@P22,@P23,@P24,@P25,CONVERT(DECIMAL(20,0),@P26),@P27,@P28,@P29,@P30,@P31,CONVERT(DECIMAL(20,0),@P32),@P33,@P34,@P35,@P36,@P37,@P38,@P39)"
     ));
     bind_common(&mut query, &common);
     query.bind(i64::from(value.value_id));
@@ -591,6 +621,16 @@ fn insert_value(
     query.bind(value.number_value);
     query.bind(value.text_value);
     query.bind(value.exact_value);
+    query.bind(value.previous_boolean_value);
+    query.bind(value.previous_signed_value);
+    query.bind(value.previous_unsigned_value);
+    query.bind(value.previous_number_value);
+    query.bind(value.previous_text_value);
+    query.bind(value.previous_exact_value);
+    query.bind(value.is_audited);
+    query.bind(value.actor);
+    query.bind(value.reason);
+    query.bind(value.authorization_result);
     execute(runtime, client, query, "insert logged value projection")
 }
 

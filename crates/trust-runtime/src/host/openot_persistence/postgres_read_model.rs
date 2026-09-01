@@ -511,10 +511,12 @@ fn insert_value(
                  source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,
                  time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,
                  quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,
-                 text_value,exact_value)
+                 text_value,exact_value,previous_boolean_value,previous_signed_value,
+                 previous_unsigned_value,previous_number_value,previous_text_value,
+                 previous_exact_value,is_audited,actor,reason,authorization_result)
                  VALUES($1,$2::text::timestamptz,$3::text::numeric,$4::text::timestamptz,$5::text::numeric,$6,$7,$8,$9,$10,
                  $11::text::numeric,$12::text::numeric,$13::text::numeric,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,
-                 $25,$26::text::numeric,$27,$28,$29)"
+                 $25,$26::text::numeric,$27,$28,$29,$30,$31,$32::text::numeric,$33,$34,$35,$36,$37,$38,$39)"
             ),
             &[
                 &common.record_id,
@@ -546,6 +548,16 @@ fn insert_value(
                 &value.number_value,
                 &value.text_value,
                 &value.exact_value,
+                &value.previous_boolean_value,
+                &value.previous_signed_value,
+                &value.previous_unsigned_value,
+                &value.previous_number_value,
+                &value.previous_text_value,
+                &value.previous_exact_value,
+                &value.is_audited,
+                &value.actor,
+                &value.reason,
+                &value.authorization_result,
             ],
         )
         .map(|_| ())

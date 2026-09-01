@@ -10,6 +10,26 @@ use super::{CommitOutcome, DocumentSink, PersistenceBatch, PersistenceError};
 
 type TdsClient = Client<Compat<TcpStream>>;
 
+const REQUIRED_TABLES: &[&str] = &[
+    "logging_schema",
+    "logging_records",
+    "logging_checkpoint",
+    "event_log",
+    "logged_values",
+    "alarm_history",
+    "message_log",
+    "state_history",
+    "batch_history",
+    "recipe_history",
+    "material_additions",
+    "operator_activity",
+    "audit_log",
+    "electronic_signatures",
+    "system_events",
+    "data_loss",
+    "unresolved_records",
+];
+
 /// Dedicated Microsoft SQL Server/Azure SQL TDS persistence adapter.
 pub struct SqlServerDocumentSink {
     runtime: tokio::runtime::Runtime,
@@ -180,6 +200,53 @@ impl SqlServerDocumentSink {
         ))
     }
 
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn audited_value_projection(
+        &mut self,
+    ) -> Result<
+        (
+            Option<bool>,
+            bool,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ),
+        PersistenceError,
+    > {
+        let row = self.one(&format!(
+            "SELECT TOP 1 previous_boolean_value,is_audited,actor,reason,authorization_result \
+             FROM [{}].logged_values WHERE is_audited=1",
+            self.schema
+        ))?;
+        Ok((
+            row.get(0),
+            row.get(1)
+                .ok_or_else(|| commit_error("audited flag is absent"))?,
+            row.get::<&str, _>(2).map(str::to_string),
+            row.get::<&str, _>(3).map(str::to_string),
+            row.get::<&str, _>(4).map(str::to_string),
+        ))
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn set_required_index_present_for_test(
+        &mut self,
+        present: bool,
+    ) -> Result<(), PersistenceError> {
+        let statement = if present {
+            format!(
+                "CREATE INDEX logging_receive_time ON [{}].logging_records(receive_time_ns)",
+                self.schema
+            )
+        } else {
+            format!(
+                "DROP INDEX logging_receive_time ON [{}].logging_records",
+                self.schema
+            )
+        };
+        self.batch(&statement)
+    }
+
     #[cfg(feature = "openot-real-database-tests")]
     #[doc(hidden)]
     pub fn canonical_jsons(&mut self) -> Result<Vec<String>, PersistenceError> {
@@ -202,11 +269,27 @@ impl SqlServerDocumentSink {
         version: u32,
     ) -> Result<(), PersistenceError> {
         let s = self.schema.clone();
+        let catalog_fingerprint = self.sqlserver_catalog_fingerprint()?;
         self.batch(&format!(
             "IF EXISTS (SELECT 1 FROM [{s}].logging_schema WHERE singleton=1)
-                 UPDATE [{s}].logging_schema SET version={version} WHERE singleton=1;
-             ELSE INSERT INTO [{s}].logging_schema(singleton, version) VALUES (1, {version});"
+                 UPDATE [{s}].logging_schema SET version={version},catalog_fingerprint=N'{catalog_fingerprint}' WHERE singleton=1;
+             ELSE INSERT INTO [{s}].logging_schema(singleton,version,catalog_fingerprint) VALUES (1,{version},N'{catalog_fingerprint}');"
         ))
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn set_unrelated_table_present_for_test(
+        &mut self,
+        present: bool,
+    ) -> Result<(), PersistenceError> {
+        let schema = self.schema.clone();
+        if present {
+            self.batch(&format!(
+                "CREATE TABLE [{schema}].operator_owned_notes(id BIGINT PRIMARY KEY)"
+            ))
+        } else {
+            self.batch(&format!("DROP TABLE [{schema}].operator_owned_notes"))
+        }
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
@@ -296,6 +379,16 @@ impl SqlServerDocumentSink {
                 )));
             }
             self.validate_schema_shape()?;
+            let expected = self
+                .one(&format!(
+                    "SELECT catalog_fingerprint FROM [{s}].logging_schema WHERE singleton=1"
+                ))?
+                .get::<&str, _>(0)
+                .map(str::to_string)
+                .ok_or_else(|| commit_error("catalog fingerprint is absent"))?;
+            if self.sqlserver_catalog_fingerprint()? != expected {
+                return Err(super::schema_contract::incompatible("SQL Server"));
+            }
             return Ok(());
         }
         self.batch("BEGIN TRANSACTION")?;
@@ -303,7 +396,8 @@ impl SqlServerDocumentSink {
             self.batch(&format!(
             "IF SCHEMA_ID(N'{s}') IS NULL EXEC(N'CREATE SCHEMA [{s}]');
              IF OBJECT_ID(N'[{s}].logging_schema',N'U') IS NULL CREATE TABLE [{s}].logging_schema(
-               singleton BIT PRIMARY KEY CHECK(singleton=1),version INT NOT NULL CHECK(version=1));
+               singleton BIT PRIMARY KEY CHECK(singleton=1),version INT NOT NULL CHECK(version=1),
+               catalog_fingerprint CHAR(64) COLLATE Latin1_General_100_BIN2 NOT NULL);
              IF OBJECT_ID(N'[{s}].logging_records',N'U') IS NULL BEGIN
                CREATE TABLE [{s}].logging_records(
                  identity_key NVARCHAR(255) COLLATE Latin1_General_100_BIN2 PRIMARY KEY,
@@ -335,7 +429,12 @@ impl SqlServerDocumentSink {
                partial_payload BIT NOT NULL,value_id BIGINT NOT NULL,value_name NVARCHAR(MAX) NOT NULL,
                value_type NVARCHAR(32) NOT NULL,unit NVARCHAR(MAX) NULL,quality INT NULL,semantic_role INT NOT NULL,
                boolean_value BIT NULL,signed_value BIGINT NULL,unsigned_value DECIMAL(20,0) NULL,
-               number_value FLOAT NULL,text_value NVARCHAR(MAX) NULL,exact_value NVARCHAR(MAX) NOT NULL);
+               number_value FLOAT NULL,text_value NVARCHAR(MAX) NULL,exact_value NVARCHAR(MAX) NOT NULL,
+               previous_boolean_value BIT NULL,previous_signed_value BIGINT NULL,
+               previous_unsigned_value DECIMAL(20,0) NULL,previous_number_value FLOAT NULL,
+               previous_text_value NVARCHAR(MAX) NULL,previous_exact_value NVARCHAR(MAX) NULL,
+               is_audited BIT NOT NULL,actor NVARCHAR(MAX) NULL,reason NVARCHAR(MAX) NULL,
+               authorization_result NVARCHAR(MAX) NULL);
              IF OBJECT_ID(N'[{s}].alarm_history',N'U') IS NULL CREATE TABLE [{s}].alarm_history(
                record_id NVARCHAR(255) COLLATE Latin1_General_100_BIN2 PRIMARY KEY REFERENCES [{s}].logging_records(identity_key),
                event_time DATETIME2(7) NULL,event_time_ns DECIMAL(20,0) NULL,received_time DATETIME2(7) NOT NULL,
@@ -348,8 +447,9 @@ impl SqlServerDocumentSink {
             ))?;
             super::sqlserver_read_model::create_domain_schema(&self.runtime, &mut self.client, &s)?;
             self.validate_schema_shape()?;
+            let catalog_fingerprint = self.sqlserver_catalog_fingerprint()?;
             self.batch(&format!(
-                "INSERT INTO [{s}].logging_schema(singleton,version) VALUES(1,{LOGGING_SCHEMA_GENERATION})"
+                "INSERT INTO [{s}].logging_schema(singleton,version,catalog_fingerprint) VALUES(1,{LOGGING_SCHEMA_GENERATION},N'{catalog_fingerprint}')"
             ))?;
             if self.schema_version()? != LOGGING_SCHEMA_GENERATION {
                 return Err(commit_error("schema generation marker was not recorded"));
@@ -373,26 +473,7 @@ impl SqlServerDocumentSink {
 
     fn validate_schema_shape(&mut self) -> Result<(), PersistenceError> {
         let s = self.schema.clone();
-        let required = [
-            "logging_schema",
-            "logging_records",
-            "logging_checkpoint",
-            "event_log",
-            "logged_values",
-            "alarm_history",
-            "message_log",
-            "state_history",
-            "batch_history",
-            "recipe_history",
-            "material_additions",
-            "operator_activity",
-            "audit_log",
-            "electronic_signatures",
-            "system_events",
-            "data_loss",
-            "unresolved_records",
-        ];
-        for table in required {
+        for table in REQUIRED_TABLES {
             let exists = self
                 .one(&format!(
                     "SELECT COUNT_BIG(*) FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE s.name=N'{s}' AND t.name=N'{table}'"
@@ -406,6 +487,32 @@ impl SqlServerDocumentSink {
             }
         }
         Ok(())
+    }
+
+    fn sqlserver_catalog_fingerprint(&mut self) -> Result<String, PersistenceError> {
+        let s = self.schema.clone();
+        let table_filter = REQUIRED_TABLES
+            .iter()
+            .map(|table| format!("N'{table}'"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let queries = [
+            format!("SELECT (SELECT object_name,type_desc FROM (SELECT t.name AS object_name,N'USER_TABLE' AS type_desc FROM sys.tables t JOIN sys.schemas schema_row ON schema_row.schema_id=t.schema_id WHERE schema_row.name=N'{s}' AND t.name IN ({table_filter}) UNION ALL SELECT v.name AS object_name,N'VIEW' AS type_desc FROM sys.views v JOIN sys.schemas schema_row ON schema_row.schema_id=v.schema_id WHERE schema_row.name=N'{s}' AND v.name IN ({table_filter})) objects ORDER BY object_name,type_desc FOR JSON PATH)"),
+            format!("SELECT (SELECT t.name AS table_name,c.column_id,c.name AS column_name,ty.name AS type_name,c.max_length,c.precision,c.scale,c.is_nullable,c.is_identity,c.is_computed,COALESCE(dc.definition,N'') AS default_definition FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id JOIN sys.columns c ON c.object_id=t.object_id JOIN sys.types ty ON ty.user_type_id=c.user_type_id LEFT JOIN sys.default_constraints dc ON dc.object_id=c.default_object_id WHERE s.name=N'{s}' AND t.name IN ({table_filter}) ORDER BY t.name,c.column_id FOR JSON PATH)"),
+            format!("SELECT (SELECT t.name AS table_name,i.name AS index_name,i.type_desc,i.is_unique,i.is_primary_key,i.is_unique_constraint,COALESCE(i.filter_definition,N'') AS filter_definition,ic.key_ordinal,ic.is_descending_key,ic.is_included_column,c.name AS column_name FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id JOIN sys.indexes i ON i.object_id=t.object_id JOIN sys.index_columns ic ON ic.object_id=i.object_id AND ic.index_id=i.index_id JOIN sys.columns c ON c.object_id=ic.object_id AND c.column_id=ic.column_id WHERE s.name=N'{s}' AND t.name IN ({table_filter}) AND i.index_id>0 ORDER BY t.name,i.name,ic.index_column_id FOR JSON PATH)"),
+            format!("SELECT (SELECT t.name AS table_name,cc.name AS constraint_name,cc.definition,cc.is_disabled,cc.is_not_trusted FROM sys.check_constraints cc JOIN sys.tables t ON t.object_id=cc.parent_object_id JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE s.name=N'{s}' AND t.name IN ({table_filter}) ORDER BY t.name,cc.name FOR JSON PATH)"),
+            format!("SELECT (SELECT parent_table.name AS parent_table,fk.name AS foreign_key,parent_column.name AS parent_column,referenced_table.name AS referenced_table,referenced_column.name AS referenced_column,fkc.constraint_column_id,fk.delete_referential_action,fk.update_referential_action FROM sys.foreign_keys fk JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id=fk.object_id JOIN sys.tables parent_table ON parent_table.object_id=fk.parent_object_id JOIN sys.schemas parent_schema ON parent_schema.schema_id=parent_table.schema_id JOIN sys.columns parent_column ON parent_column.object_id=fkc.parent_object_id AND parent_column.column_id=fkc.parent_column_id JOIN sys.tables referenced_table ON referenced_table.object_id=fk.referenced_object_id JOIN sys.columns referenced_column ON referenced_column.object_id=fkc.referenced_object_id AND referenced_column.column_id=fkc.referenced_column_id WHERE parent_schema.name=N'{s}' AND parent_table.name IN ({table_filter}) ORDER BY parent_table.name,fk.name,fkc.constraint_column_id FOR JSON PATH)"),
+        ];
+        let mut rows = Vec::with_capacity(queries.len());
+        for query in queries {
+            let value = self
+                .one(&query)?
+                .get::<&str, _>(0)
+                .unwrap_or("[]")
+                .to_string();
+            rows.push(value);
+        }
+        Ok(super::schema_contract::fingerprint(rows))
     }
 
     fn batch(&mut self, sql: &str) -> Result<(), PersistenceError> {

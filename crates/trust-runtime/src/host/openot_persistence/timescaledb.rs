@@ -83,6 +83,63 @@ impl TimescaleDbDocumentSink {
             })
     }
 
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn audited_value_projection(
+        &mut self,
+    ) -> Result<
+        (
+            Option<bool>,
+            bool,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ),
+        PersistenceError,
+    > {
+        self.postgresql
+            .client
+            .query_one(
+                &format!(
+                    "SELECT previous_boolean_value,is_audited,actor,reason,authorization_result \
+                     FROM \"{}\".logged_values WHERE is_audited LIMIT 1",
+                    self.postgresql.schema
+                ),
+                &[],
+            )
+            .map(|row| (row.get(0), row.get(1), row.get(2), row.get(3), row.get(4)))
+            .map_err(|error| {
+                PersistenceError::Commit(format!(
+                    "TimescaleDB read audited value projection: {error}"
+                ))
+            })
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn set_required_index_present_for_test(
+        &mut self,
+        present: bool,
+    ) -> Result<(), PersistenceError> {
+        let statement = if present {
+            format!(
+                "CREATE INDEX logging_records_receive_time ON \"{}\".logging_records(receive_time_ns)",
+                self.postgresql.schema
+            )
+        } else {
+            format!(
+                "DROP INDEX \"{}\".logging_records_receive_time",
+                self.postgresql.schema
+            )
+        };
+        self.postgresql
+            .client
+            .batch_execute(&statement)
+            .map_err(|error| {
+                PersistenceError::Commit(format!(
+                    "TimescaleDB change required index for compatibility test: {error}"
+                ))
+            })
+    }
+
     #[cfg(feature = "openot-real-database-tests")]
     #[doc(hidden)]
     pub fn canonical_jsons(&mut self) -> Result<Vec<String>, PersistenceError> {

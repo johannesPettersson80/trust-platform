@@ -6,6 +6,26 @@ use super::contracts::LOGGING_SCHEMA_GENERATION;
 use super::projection::LoggingProjector;
 use super::{CommitOutcome, DocumentSink, PersistenceBatch, PersistenceError};
 
+const REQUIRED_TABLES: &[&str] = &[
+    "logging_schema",
+    "logging_records",
+    "logging_checkpoint",
+    "event_log",
+    "logged_values",
+    "alarm_history",
+    "message_log",
+    "state_history",
+    "batch_history",
+    "recipe_history",
+    "material_additions",
+    "operator_activity",
+    "audit_log",
+    "electronic_signatures",
+    "system_events",
+    "data_loss",
+    "unresolved_records",
+];
+
 /// Shared MySQL-protocol sink used by reviewed MySQL and MariaDB servers.
 pub struct MySqlDocumentSink {
     connection: Conn,
@@ -141,6 +161,43 @@ impl MySqlDocumentSink {
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn audited_value_projection(
+        &mut self,
+    ) -> Result<
+        (
+            Option<bool>,
+            bool,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ),
+        PersistenceError,
+    > {
+        self.connection
+            .query_first(
+                "SELECT previous_boolean_value,is_audited,actor,reason,authorization_result \
+                 FROM logged_values WHERE is_audited=TRUE LIMIT 1",
+            )
+            .map_err(|error| mysql_error("read audited value projection", error))?
+            .ok_or_else(|| PersistenceError::Commit("MySQL audited value row is absent".into()))
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn set_required_index_present_for_test(
+        &mut self,
+        present: bool,
+    ) -> Result<(), PersistenceError> {
+        let statement = if present {
+            "CREATE INDEX logging_records_receive_time ON logging_records(receive_time_ns)"
+        } else {
+            "DROP INDEX logging_records_receive_time ON logging_records"
+        };
+        self.connection
+            .query_drop(statement)
+            .map_err(|error| mysql_error("change required index for compatibility test", error))
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn internal_name_counts(&mut self) -> Result<(u64, u64), PersistenceError> {
         self.connection
             .exec_first::<(u64, u64), _, _>(
@@ -176,11 +233,13 @@ impl MySqlDocumentSink {
         &mut self,
         version: u32,
     ) -> Result<(), PersistenceError> {
+        let catalog_fingerprint = mysql_catalog_fingerprint(&mut self.connection)?;
         self.connection
             .exec_drop(
-                "INSERT INTO logging_schema(singleton, version) VALUES (1, :version)
-                 ON DUPLICATE KEY UPDATE version=VALUES(version)",
-                params! { "version" => version },
+                "INSERT INTO logging_schema(singleton,version,catalog_fingerprint)
+                 VALUES (1,:version,:catalog_fingerprint)
+                 ON DUPLICATE KEY UPDATE version=VALUES(version),catalog_fingerprint=VALUES(catalog_fingerprint)",
+                params! { "version" => version, "catalog_fingerprint" => catalog_fingerprint },
             )
             .map_err(|error| mysql_error("seed schema version", error))
     }
@@ -432,24 +491,29 @@ fn initialize_schema(connection: &mut Conn) -> Result<(), PersistenceError> {
         )
         .map_err(|error| mysql_error("inspect schema ownership", error))?;
     if owned_object.is_some() {
-        let version: Option<u32> = connection
-            .query_first("SELECT version FROM logging_schema WHERE singleton=1")
+        let marker: Option<(u32, String)> = connection
+            .query_first("SELECT version,catalog_fingerprint FROM logging_schema WHERE singleton=1")
             .map_err(|_| PersistenceError::Commit(
                 "MySQL incompatible pre-release schema; back up and recreate the development database".into(),
             ))?;
-        if version != Some(LOGGING_SCHEMA_GENERATION) {
+        if marker.as_ref().map(|value| value.0) != Some(LOGGING_SCHEMA_GENERATION) {
             return Err(PersistenceError::Commit(format!(
-                "MySQL incompatible pre-release schema generation {version:?}; back up and recreate the development database"
+                "MySQL incompatible pre-release schema generation {:?}; back up and recreate the development database",
+                marker.as_ref().map(|value| value.0)
             )));
         }
         validate_schema_shape(connection)?;
+        if mysql_catalog_fingerprint(connection)? != marker.expect("validated marker").1 {
+            return Err(super::schema_contract::incompatible("MySQL"));
+        }
         return Ok(());
     }
     connection
         .query_drop(
             "CREATE TABLE logging_schema (
                  singleton TINYINT UNSIGNED PRIMARY KEY,
-                 version INT UNSIGNED NOT NULL CHECK(version=1)
+                 version INT UNSIGNED NOT NULL CHECK(version=1),
+                 catalog_fingerprint CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
              ) ENGINE=InnoDB",
         )
         .map_err(|error| mysql_error("create schema metadata", error))?;
@@ -521,6 +585,11 @@ fn initialize_schema(connection: &mut Conn) -> Result<(), PersistenceError> {
                  quality INT UNSIGNED NULL,semantic_role INT UNSIGNED NOT NULL,
                  boolean_value BOOLEAN NULL,signed_value BIGINT NULL,unsigned_value DECIMAL(20,0) NULL,
                  number_value DOUBLE NULL,text_value TEXT NULL,exact_value TEXT NOT NULL,
+                 previous_boolean_value BOOLEAN NULL,previous_signed_value BIGINT NULL,
+                 previous_unsigned_value DECIMAL(20,0) NULL,previous_number_value DOUBLE NULL,
+                 previous_text_value TEXT NULL,previous_exact_value TEXT NULL,
+                 is_audited BOOLEAN NOT NULL,actor TEXT NULL,reason TEXT NULL,
+                 authorization_result TEXT NULL,
                  FOREIGN KEY(record_id) REFERENCES logging_records(identity_key)
              ) ENGINE=InnoDB",
         )
@@ -544,35 +613,18 @@ fn initialize_schema(connection: &mut Conn) -> Result<(), PersistenceError> {
         .map_err(|error| mysql_error("create alarm history", error))?;
     super::mysql_read_model::create_domain_schema(connection)?;
     validate_schema_shape(connection)?;
+    let catalog_fingerprint = mysql_catalog_fingerprint(connection)?;
     connection
         .exec_drop(
-            "INSERT INTO logging_schema(singleton,version) VALUES(1,:version)",
-            params! { "version" => LOGGING_SCHEMA_GENERATION },
+            "INSERT INTO logging_schema(singleton,version,catalog_fingerprint)
+             VALUES(1,:version,:catalog_fingerprint)",
+            params! { "version" => LOGGING_SCHEMA_GENERATION, "catalog_fingerprint" => catalog_fingerprint },
         )
         .map_err(|error| mysql_error("record schema generation", error))?;
     Ok(())
 }
 
 fn validate_schema_shape(connection: &mut Conn) -> Result<(), PersistenceError> {
-    const REQUIRED_TABLES: &[&str] = &[
-        "logging_schema",
-        "logging_records",
-        "logging_checkpoint",
-        "event_log",
-        "logged_values",
-        "alarm_history",
-        "message_log",
-        "state_history",
-        "batch_history",
-        "recipe_history",
-        "material_additions",
-        "operator_activity",
-        "audit_log",
-        "electronic_signatures",
-        "system_events",
-        "data_loss",
-        "unresolved_records",
-    ];
     let found: Vec<String> = connection
         .query_map(
             "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()",
@@ -587,6 +639,30 @@ fn validate_schema_shape(connection: &mut Conn) -> Result<(), PersistenceError> 
         }
     }
     Ok(())
+}
+
+fn mysql_catalog_fingerprint(connection: &mut Conn) -> Result<String, PersistenceError> {
+    let table_filter = REQUIRED_TABLES
+        .iter()
+        .map(|table| format!("'{table}'"))
+        .collect::<Vec<_>>()
+        .join(",");
+    let queries = [
+        format!("SELECT CONCAT_WS('|','table',TABLE_NAME,TABLE_TYPE,COALESCE(ENGINE,''),COALESCE(TABLE_COLLATION,'')) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ({table_filter})"),
+        format!("SELECT CONCAT_WS('|','column',TABLE_NAME,ORDINAL_POSITION,COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COALESCE(COLUMN_DEFAULT,'<NULL>'),EXTRA,COALESCE(COLLATION_NAME,'')) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ({table_filter})"),
+        format!("SELECT CONCAT_WS('|','index',TABLE_NAME,INDEX_NAME,NON_UNIQUE,SEQ_IN_INDEX,COLUMN_NAME,COALESCE(COLLATION,''),COALESCE(SUB_PART,''),NULLABLE,INDEX_TYPE) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ({table_filter})"),
+        format!("SELECT CONCAT_WS('|','constraint',tc.TABLE_NAME,tc.CONSTRAINT_NAME,tc.CONSTRAINT_TYPE,COALESCE(kcu.ORDINAL_POSITION,''),COALESCE(kcu.COLUMN_NAME,''),COALESCE(kcu.REFERENCED_TABLE_NAME,''),COALESCE(kcu.REFERENCED_COLUMN_NAME,'')) FROM information_schema.TABLE_CONSTRAINTS tc LEFT JOIN information_schema.KEY_COLUMN_USAGE kcu ON kcu.CONSTRAINT_SCHEMA=tc.CONSTRAINT_SCHEMA AND kcu.TABLE_NAME=tc.TABLE_NAME AND kcu.CONSTRAINT_NAME=tc.CONSTRAINT_NAME WHERE tc.CONSTRAINT_SCHEMA=DATABASE() AND tc.TABLE_NAME IN ({table_filter})"),
+        format!("SELECT CONCAT_WS('|','check',tc.TABLE_NAME,tc.CONSTRAINT_NAME,cc.CHECK_CLAUSE) FROM information_schema.TABLE_CONSTRAINTS tc JOIN information_schema.CHECK_CONSTRAINTS cc ON cc.CONSTRAINT_SCHEMA=tc.CONSTRAINT_SCHEMA AND cc.CONSTRAINT_NAME=tc.CONSTRAINT_NAME WHERE tc.CONSTRAINT_SCHEMA=DATABASE() AND tc.TABLE_NAME IN ({table_filter}) AND tc.CONSTRAINT_TYPE='CHECK'"),
+    ];
+    let mut rows = Vec::new();
+    for query in queries {
+        rows.extend(
+            connection
+                .query_map(query, |row: String| row)
+                .map_err(|error| mysql_error("read generation-1 catalog fingerprint", error))?,
+        );
+    }
+    Ok(super::schema_contract::fingerprint(rows))
 }
 
 fn validate_identifier(value: &str) -> Result<(), PersistenceError> {

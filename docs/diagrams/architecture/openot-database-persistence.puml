@@ -20,6 +20,7 @@ package "Host persistence thread" {
   component "LoggingProjector\n(definition-bound semantics)" as projector
   component "Synchronous startup validation\n(adapter + env names + local artifacts)" as startup
   component "OpenOtDocumentSink factory\n(open / initialize / reconnect)" as factory
+  component "Schema contract validator\n(native catalog -> SHA-256)" as schema
   component "Supervision + redacted status\n(generation 1 after successful open)" as status
   ring --> source : concurrent poll
   source --> loss : raw batches + control snapshot
@@ -28,6 +29,8 @@ package "Host persistence thread" {
   startup --> factory : validated selected configuration
   status --> factory : supervised initial open + bounded retry
   worker --> factory : typed documents + atomic cursor + maintenance
+  factory --> schema : backend-native catalog definitions
+  schema --> factory : exact generation-1 match / fail closed
   factory --> projector : exact definition catalog
   projector --> factory : canonical + envelope + typed domain rows
   worker --> status : lag, loss, projection, reconciliation, retry
@@ -65,7 +68,9 @@ descriptive public read-model rows, and the absolute
 ring cursor in one transaction. Influx uses durable
 per-part reconciliation before remote acknowledgement.
 Every backend initializes the same schema generation 1.
-Incompatible pre-release state fails without repair.
+The recorded catalog fingerprint covers native columns,
+keys, checks, foreign keys, and indexes. Changed or
+incomplete pre-release state fails without repair.
 Initial remote open, initialization, and reconnect remain in
 the supervised host worker and cannot block PLC startup.
 Only explicitly classified remote reachability failures

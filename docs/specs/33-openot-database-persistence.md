@@ -309,6 +309,12 @@ event, including future events that do not yet have a domain projection.
   representations;
 - `is_audited`, `actor`, `reason`, and `authorization_result`.
 
+This column contract and its value bindings are identical on SQLite,
+PostgreSQL, TimescaleDB, MySQL, MariaDB, and SQL Server. InfluxDB 3 MUST expose
+the same fields on its `logged_values` measurement. An adapter MUST NOT create
+the columns while discarding their values, or retain the values only in the
+canonical document.
+
 Exactly one current typed lane MUST be non-`NULL`, selected by `value_type`.
 Previous lanes are all `NULL` when OpenOT has no previous value; otherwise
 exactly the matching previous lane is non-`NULL`. `BOOL` uses the Boolean lane;
@@ -451,7 +457,13 @@ On open, an adapter MUST follow this sequence without destructive recovery:
    truST's assertion that its generation-1 DDL (including column, key, check,
    foreign-key, and index definitions) was installed as one contract; manual
    changes to truST-owned objects are unsupported and make the database
-   operator-owned recovery work.
+   operator-owned recovery work. Each adapter MUST derive a deterministic
+   catalog fingerprint from the actual truST-owned table/view kind, ordered
+   columns and physical types, nullability/defaults, primary and unique keys,
+   checks, foreign keys, and indexes. The fingerprint recorded when the empty
+   generation-1 schema is created MUST match the freshly derived fingerprint
+   on every later open. Enumerating object names alone is not compatibility
+   validation.
 3. If any truST logging object exists without the exact generation-1 marker,
    if the marker has another value, or if a required generation-1 object is
    missing or incompatible, fail closed before consuming documents or changing
@@ -464,6 +476,11 @@ downgrade, or advance schema metadata. Unrelated objects in a shared server
 namespace do not by themselves make it incompatible, but a name collision with
 any truST-owned object does. SQLite and InfluxDB spool files with no truST
 objects are empty candidates; files containing legacy truST objects are not.
+Connection-local SQLite settings are part of opening, not schema creation.
+Every SQLite database and every InfluxDB spool connection MUST reapply and
+verify `foreign_keys=ON`, `journal_mode=WAL`, and `synchronous=FULL` before it
+can accept documents, including when an existing compatible generation-1 file
+is reopened.
 
 The projector remains deterministic so newly accepted canonical records and
 their public projections can be verified, but reconstruction of a previous

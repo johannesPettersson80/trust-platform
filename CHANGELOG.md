@@ -94,6 +94,10 @@ Target release: `v0.24.68`
 - Make every OpenOT database example portable to Windows and Linux by using a
   TCP runtime control endpoint with an explicit local-only example token instead
   of a Unix-only `/tmp` socket.
+- Preserve previous-value and audit fields in every relational `logged_values`
+  row, reapply SQLite/Influx spool durability settings on every connection,
+  and reject generation-1 databases whose actual columns, constraints, foreign
+  keys, or indexes differ from the schema created by truST.
 
 - Keep real-Mosquitto conformance compatible with broker versions whose help
   command prints a usable version and then exits nonzero, so optional version

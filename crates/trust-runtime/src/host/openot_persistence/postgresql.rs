@@ -9,6 +9,26 @@ use super::contracts::LOGGING_SCHEMA_GENERATION;
 use super::projection::LoggingProjector;
 use super::{CommitOutcome, DocumentSink, PersistenceBatch, PersistenceError};
 
+const REQUIRED_TABLES: &[&str] = &[
+    "logging_schema",
+    "logging_records",
+    "logging_checkpoint",
+    "event_log",
+    "logged_values",
+    "alarm_history",
+    "message_log",
+    "state_history",
+    "batch_history",
+    "recipe_history",
+    "material_additions",
+    "operator_activity",
+    "audit_log",
+    "electronic_signatures",
+    "system_events",
+    "data_loss",
+    "unresolved_records",
+];
+
 /// PostgreSQL-backed durable OpenOT document sink.
 pub struct PostgreSqlDocumentSink {
     pub(super) client: Client,
@@ -139,14 +159,16 @@ impl PostgreSqlDocumentSink {
         &mut self,
         version: u32,
     ) -> Result<(), PersistenceError> {
+        let schema = self.schema.clone();
+        let catalog_fingerprint = postgres_catalog_fingerprint(&mut self.client, &schema)?;
         self.client
             .execute(
                 &format!(
-                    "INSERT INTO \"{}\".logging_schema(singleton, version) VALUES (TRUE, $1)
-                     ON CONFLICT (singleton) DO UPDATE SET version=EXCLUDED.version",
+                    "INSERT INTO \"{}\".logging_schema(singleton,version,catalog_fingerprint) VALUES (TRUE,$1,$2)
+                     ON CONFLICT (singleton) DO UPDATE SET version=EXCLUDED.version,catalog_fingerprint=EXCLUDED.catalog_fingerprint",
                     self.schema
                 ),
-                &[&(version as i32)],
+                &[&(version as i32), &catalog_fingerprint],
             )
             .map(|_| ())
             .map_err(pg_error("seed schema version"))
@@ -245,23 +267,29 @@ fn initialize_schema(
         )
         .map_err(pg_error("inspect schema ownership"))?;
     if owned_object.is_some() {
-        let version = transaction
+        let marker = transaction
             .query_opt(
-                &format!("SELECT version FROM \"{schema}\".logging_schema WHERE singleton=TRUE"),
+                &format!("SELECT version,catalog_fingerprint FROM \"{schema}\".logging_schema WHERE singleton=TRUE"),
                 &[],
             )
             .map_err(|_| PersistenceError::Commit(
                 "PostgreSQL incompatible pre-release schema; back up and recreate the development database".into(),
             ))?
-            .map(|row| row.get::<_, i32>(0));
-        if version != Some(LOGGING_SCHEMA_GENERATION as i32) {
+            .map(|row| (row.get::<_, i32>(0), row.get::<_, String>(1)));
+        if marker.as_ref().map(|value| value.0) != Some(LOGGING_SCHEMA_GENERATION as i32) {
             return Err(PersistenceError::Commit(format!(
-                "PostgreSQL incompatible pre-release schema generation {version:?}; back up and recreate the development database"
+                "PostgreSQL incompatible pre-release schema generation {:?}; back up and recreate the development database",
+                marker.as_ref().map(|value| value.0)
             )));
         }
         validate_schema_shape(&mut transaction, schema)?;
         if timescale {
             validate_timescale_shape(&mut transaction, schema)?;
+        }
+        if postgres_catalog_fingerprint(&mut transaction, schema)?
+            != marker.expect("validated marker").1
+        {
+            return Err(super::schema_contract::incompatible("PostgreSQL"));
         }
         return transaction
             .commit()
@@ -269,8 +297,8 @@ fn initialize_schema(
     }
     transaction
         .batch_execute(&format!(
-            "CREATE TABLE \"{schema}\".logging_schema (singleton BOOLEAN PRIMARY KEY CHECK(singleton),version INTEGER NOT NULL CHECK(version=1));\n\
-             INSERT INTO \"{schema}\".logging_schema(singleton,version) VALUES(TRUE,1);\n\
+            "CREATE TABLE \"{schema}\".logging_schema (singleton BOOLEAN PRIMARY KEY CHECK(singleton),version INTEGER NOT NULL CHECK(version=1),catalog_fingerprint TEXT NOT NULL);\n\
+             INSERT INTO \"{schema}\".logging_schema(singleton,version,catalog_fingerprint) VALUES(TRUE,1,'');\n\
              CREATE TABLE \"{schema}\".logging_records (\n\
                  identity_key TEXT PRIMARY KEY,\n\
                  document_kind TEXT NOT NULL CHECK (document_kind IN ('event', 'loss', 'placeholder')),\n\
@@ -330,7 +358,12 @@ fn initialize_schema(
                  value_name TEXT NOT NULL, value_type TEXT NOT NULL, unit TEXT,
                  quality INTEGER, semantic_role INTEGER NOT NULL, boolean_value BOOLEAN,
                  signed_value BIGINT, unsigned_value NUMERIC(20), number_value DOUBLE PRECISION,
-                 text_value TEXT, exact_value TEXT NOT NULL
+                 text_value TEXT, exact_value TEXT NOT NULL,
+                 previous_boolean_value BOOLEAN, previous_signed_value BIGINT,
+                 previous_unsigned_value NUMERIC(20), previous_number_value DOUBLE PRECISION,
+                 previous_text_value TEXT, previous_exact_value TEXT,
+                 is_audited BOOLEAN NOT NULL, actor TEXT, reason TEXT,
+                 authorization_result TEXT
              );
              CREATE TABLE \"{schema}\".alarm_history (
                  record_id TEXT PRIMARY KEY REFERENCES \"{schema}\".logging_records(identity_key),
@@ -350,9 +383,58 @@ fn initialize_schema(
     if timescale {
         initialize_timescale_shape(&mut transaction, schema)?;
     }
+    let catalog_fingerprint = postgres_catalog_fingerprint(&mut transaction, schema)?;
+    transaction
+        .execute(
+            &format!(
+                "UPDATE \"{schema}\".logging_schema SET catalog_fingerprint=$1 WHERE singleton=TRUE"
+            ),
+            &[&catalog_fingerprint],
+        )
+        .map_err(pg_error("record generation-1 catalog fingerprint"))?;
     transaction
         .commit()
         .map_err(pg_error("commit schema initialization"))
+}
+
+fn postgres_catalog_fingerprint(
+    transaction: &mut impl postgres::GenericClient,
+    schema: &str,
+) -> Result<String, PersistenceError> {
+    let table_filter = REQUIRED_TABLES
+        .iter()
+        .map(|table| format!("'{table}'"))
+        .collect::<Vec<_>>()
+        .join(",");
+    let rows = transaction
+        .query(
+            &format!("SELECT definition FROM (
+               SELECT 'table|' || table_name || '|' || table_type AS definition
+                 FROM information_schema.tables WHERE table_schema=$1 AND table_name IN ({table_filter})
+               UNION ALL
+               SELECT 'column|' || table_name || '|' || ordinal_position::text || '|' || column_name || '|' || data_type || '|' || udt_name || '|' || is_nullable || '|' || COALESCE(column_default,'') || '|' || COALESCE(character_maximum_length::text,'') || '|' || COALESCE(numeric_precision::text,'') || '|' || COALESCE(numeric_scale::text,'')
+                 FROM information_schema.columns WHERE table_schema=$1 AND table_name IN ({table_filter})
+               UNION ALL
+               SELECT 'constraint|' || relation.relname || '|' || constraint_row.conname || '|' || pg_get_constraintdef(constraint_row.oid,TRUE)
+                 FROM pg_constraint constraint_row
+                 JOIN pg_class relation ON relation.oid=constraint_row.conrelid
+                 JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace
+                WHERE namespace.nspname=$1 AND relation.relname IN ({table_filter})
+               UNION ALL
+               SELECT 'index|' || relation.relname || '|' || index_relation.relname || '|' || pg_get_indexdef(index_row.indexrelid)
+                 FROM pg_index index_row
+                 JOIN pg_class relation ON relation.oid=index_row.indrelid
+                 JOIN pg_class index_relation ON index_relation.oid=index_row.indexrelid
+                 JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace
+                WHERE namespace.nspname=$1 AND relation.relname IN ({table_filter})
+             ) catalog"),
+            &[&schema],
+        )
+        .map_err(pg_error("read generation-1 catalog fingerprint"))?
+        .into_iter()
+        .map(|row| row.get::<_, String>(0))
+        .collect();
+    Ok(super::schema_contract::fingerprint(rows))
 }
 
 fn initialize_timescale_shape(
@@ -416,25 +498,6 @@ fn validate_schema_shape(
     transaction: &mut postgres::Transaction<'_>,
     schema: &str,
 ) -> Result<(), PersistenceError> {
-    const REQUIRED_TABLES: &[&str] = &[
-        "logging_schema",
-        "logging_records",
-        "logging_checkpoint",
-        "event_log",
-        "logged_values",
-        "alarm_history",
-        "message_log",
-        "state_history",
-        "batch_history",
-        "recipe_history",
-        "material_additions",
-        "operator_activity",
-        "audit_log",
-        "electronic_signatures",
-        "system_events",
-        "data_loss",
-        "unresolved_records",
-    ];
     let found: Vec<String> = transaction
         .query(
             "SELECT table_name FROM information_schema.tables WHERE table_schema=$1",

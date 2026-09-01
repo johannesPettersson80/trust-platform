@@ -386,9 +386,10 @@ fn initialize_schema(connection: &mut Connection) -> Result<(), PersistenceError
         .execute_batch(
             "CREATE TABLE logging_schema (\n\
                  singleton INTEGER PRIMARY KEY CHECK (singleton = 1),\n\
-                 version INTEGER NOT NULL CHECK (version = 1)\n\
+                 version INTEGER NOT NULL CHECK (version = 1),\n\
+                 catalog_fingerprint TEXT NOT NULL\n\
              );\n\
-             INSERT INTO logging_schema(singleton,version) VALUES(1,1);\n\
+             INSERT INTO logging_schema(singleton,version,catalog_fingerprint) VALUES(1,1,'');\n\
              CREATE TABLE event_log (\n\
                  record_id TEXT PRIMARY KEY NOT NULL REFERENCES logging_records(identity_key),\n\
                  event_time TEXT,\n\
@@ -444,6 +445,13 @@ fn initialize_schema(connection: &mut Connection) -> Result<(), PersistenceError
     transaction
         .execute_batch("PRAGMA user_version = 1;")
         .map_err(sqlite_error("record schema generation 1"))?;
+    let catalog_fingerprint = sqlite_catalog_fingerprint(&transaction)?;
+    transaction
+        .execute(
+            "UPDATE logging_schema SET catalog_fingerprint=?1 WHERE singleton=1",
+            [&catalog_fingerprint],
+        )
+        .map_err(sqlite_error("record generation-1 catalog fingerprint"))?;
     transaction
         .commit()
         .map_err(sqlite_error("commit schema initialization"))?;
@@ -451,16 +459,17 @@ fn initialize_schema(connection: &mut Connection) -> Result<(), PersistenceError
 }
 
 fn validate_schema_shape(connection: &Connection) -> Result<(), PersistenceError> {
-    let marker: u32 = connection
+    let version: u32 = connection
         .query_row(
             "SELECT version FROM logging_schema WHERE singleton=1",
             [],
             |row| row.get(0),
         )
         .map_err(sqlite_error("validate schema generation marker"))?;
-    if marker != LOGGING_SCHEMA_GENERATION {
+    if version != LOGGING_SCHEMA_GENERATION {
         return Err(PersistenceError::Commit(format!(
-            "SQLite incompatible pre-release schema generation {marker}; back up and recreate the development database"
+            "SQLite incompatible pre-release schema generation {}; back up and recreate the development database",
+            version
         )));
     }
     const REQUIRED_OBJECTS: &[&str] = &[
@@ -496,9 +505,81 @@ fn validate_schema_shape(connection: &Connection) -> Result<(), PersistenceError
             )));
         }
     }
+    let catalog_fingerprint: String = connection
+        .query_row(
+            "SELECT catalog_fingerprint FROM logging_schema WHERE singleton=1",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(sqlite_error("validate schema catalog marker"))?;
+    if sqlite_catalog_fingerprint(connection)? != catalog_fingerprint {
+        return Err(super::schema_contract::incompatible("SQLite"));
+    }
     Ok(())
+}
+
+fn sqlite_catalog_fingerprint(connection: &Connection) -> Result<String, PersistenceError> {
+    let mut statement = connection
+        .prepare(
+            "SELECT type || '|' || name || '|' || tbl_name || '|' || COALESCE(sql,'') \
+             FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND (\
+               name LIKE 'logging_%' OR tbl_name LIKE 'logging_%' OR \
+               tbl_name IN ('event_log','logged_values','alarm_history','message_log',\
+                 'state_history','batch_history','recipe_history','material_additions',\
+                 'operator_activity','audit_log','electronic_signatures','system_events',\
+                 'data_loss','unresolved_records'))",
+        )
+        .map_err(sqlite_error("prepare catalog fingerprint"))?;
+    let rows = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(sqlite_error("read catalog fingerprint"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(sqlite_error("decode catalog fingerprint"))?;
+    Ok(super::schema_contract::fingerprint(rows))
 }
 
 fn sqlite_error(context: &'static str) -> impl FnOnce(rusqlite::Error) -> PersistenceError {
     move |error| PersistenceError::Commit(format!("SQLite {context}: {error}"))
+}
+
+#[cfg(test)]
+mod schema_contract_tests {
+    use super::*;
+
+    #[test]
+    fn generation_1_database_with_changed_index_fails_closed() {
+        static CASE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let root = std::env::temp_dir().join(format!(
+            "trust-logging-schema-contract-{}-{}",
+            std::process::id(),
+            CASE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&root).expect("create isolated database directory");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
+                .expect("secure isolated database directory");
+        }
+        let path = root.join("trust-logging.sqlite3");
+        let sink = SqliteDocumentSink::open(&path).expect("initialize generation-1 database");
+        sink.connection
+            .execute_batch("DROP INDEX logging_records_receive_time;")
+            .expect("damage required generation-1 index");
+        let reopened = SqliteDocumentSink::open(&path);
+        sink.connection
+            .execute_batch(
+                "CREATE INDEX logging_records_receive_time ON logging_records(receive_time_ns);",
+            )
+            .expect("restore required index");
+        let error = reopened.expect_err("changed generation-1 index must fail closed");
+        assert!(
+            error
+                .to_string()
+                .contains("incompatible pre-release schema"),
+            "unexpected compatibility error: {error}"
+        );
+        drop(sink);
+        std::fs::remove_dir_all(root).expect("remove isolated database directory");
+    }
 }

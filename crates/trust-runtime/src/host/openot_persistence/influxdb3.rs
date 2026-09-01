@@ -512,11 +512,12 @@ impl InfluxDb3DocumentSink {
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn set_schema_version_for_test(&self, version: u32) -> Result<(), PersistenceError> {
+        let catalog_fingerprint = spool_catalog_fingerprint(&self.spool)?;
         self.spool
             .execute(
-                "INSERT INTO logging_schema(singleton, version) VALUES (1, ?1)
-             ON CONFLICT(singleton) DO UPDATE SET version=excluded.version",
-                [version],
+                "INSERT INTO logging_schema(singleton,version,catalog_fingerprint) VALUES (1,?1,?2)
+             ON CONFLICT(singleton) DO UPDATE SET version=excluded.version,catalog_fingerprint=excluded.catalog_fingerprint",
+                rusqlite::params![version, catalog_fingerprint],
             )
             .and_then(|_| self.spool.pragma_update(None, "user_version", version))
             .map_err(spool_error("seed spool schema version"))
@@ -725,17 +726,24 @@ fn initialize_spool_schema(connection: &Connection) -> Result<(), PersistenceErr
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .map_err(spool_error("read spool schema generation"))?;
     if version == LOGGING_SCHEMA_GENERATION {
-        let marker: u32 = connection
-            .query_row("SELECT version FROM logging_schema WHERE singleton=1", [], |row| row.get(0))
+        let marker: (u32, String) = connection
+            .query_row("SELECT version,catalog_fingerprint FROM logging_schema WHERE singleton=1", [], |row| Ok((row.get(0)?, row.get(1)?)))
             .map_err(|_| PersistenceError::Commit(
                 "InfluxDB 3 incompatible pre-release spool schema; back up and recreate the development spool".into(),
             ))?;
-        if marker != LOGGING_SCHEMA_GENERATION {
+        if marker.0 != LOGGING_SCHEMA_GENERATION {
             return Err(PersistenceError::Commit(format!(
-                "InfluxDB 3 incompatible pre-release spool generation {marker}; back up and recreate the development spool"
+                "InfluxDB 3 incompatible pre-release spool generation {}; back up and recreate the development spool",
+                marker.0
             )));
         }
-        return validate_spool_schema(connection);
+        validate_spool_schema(connection)?;
+        if spool_catalog_fingerprint(connection)? != marker.1 {
+            return Err(PersistenceError::Commit(
+                "InfluxDB 3 incompatible pre-release spool schema: the generation-1 catalog definition changed; back up and recreate the development spool".into(),
+            ));
+        }
+        return apply_and_verify_spool_pragmas(connection);
     }
     if version != 0 {
         return Err(PersistenceError::Commit(format!(
@@ -758,17 +766,47 @@ fn initialize_spool_schema(connection: &Connection) -> Result<(), PersistenceErr
     connection.execute_batch(
         "BEGIN IMMEDIATE;
          PRAGMA foreign_keys=ON;
-         CREATE TABLE logging_schema(singleton INTEGER PRIMARY KEY CHECK(singleton=1),version INTEGER NOT NULL CHECK(version=1));
-         INSERT INTO logging_schema(singleton,version) VALUES(1,1);
+         CREATE TABLE logging_schema(singleton INTEGER PRIMARY KEY CHECK(singleton=1),version INTEGER NOT NULL CHECK(version=1),catalog_fingerprint TEXT NOT NULL);
+         INSERT INTO logging_schema(singleton,version,catalog_fingerprint) VALUES(1,1,'');
          CREATE TABLE logging_records(spool_id INTEGER PRIMARY KEY AUTOINCREMENT,identity_key TEXT NOT NULL UNIQUE,canonical_json TEXT NOT NULL,line_protocol TEXT NOT NULL,delivered INTEGER NOT NULL CHECK(delivered IN(0,1)));
          CREATE TABLE logging_delivery_spool(part_id TEXT PRIMARY KEY,document_identity TEXT NOT NULL,part_ordinal INTEGER NOT NULL,line_protocol TEXT NOT NULL,delivered INTEGER NOT NULL CHECK(delivered IN(0,1)),UNIQUE(document_identity,part_ordinal),FOREIGN KEY(document_identity) REFERENCES logging_records(identity_key));
          CREATE INDEX logging_delivery_spool_pending ON logging_delivery_spool(delivered,document_identity,part_ordinal);
          CREATE TABLE logging_checkpoint(singleton INTEGER PRIMARY KEY CHECK(singleton=1),buffer_id INTEGER NOT NULL,run_id BLOB NOT NULL CHECK(length(run_id)=8),cursor_abs BLOB NOT NULL CHECK(length(cursor_abs)=8));
-         PRAGMA user_version=1;
-         COMMIT;
-         PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;"
+         PRAGMA user_version=1;"
     ).map_err(spool_error("initialize generation-1 spool"))?;
-    validate_spool_schema(connection)
+    let catalog_fingerprint = spool_catalog_fingerprint(connection)?;
+    connection
+        .execute(
+            "UPDATE logging_schema SET catalog_fingerprint=?1 WHERE singleton=1",
+            [&catalog_fingerprint],
+        )
+        .map_err(spool_error("record generation-1 spool catalog fingerprint"))?;
+    connection
+        .execute_batch("COMMIT;")
+        .map_err(spool_error("commit generation-1 spool"))?;
+    validate_spool_schema(connection)?;
+    apply_and_verify_spool_pragmas(connection)
+}
+
+fn apply_and_verify_spool_pragmas(connection: &Connection) -> Result<(), PersistenceError> {
+    connection
+        .execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;")
+        .map_err(spool_error("apply connection-local durability settings"))?;
+    let foreign_keys: u32 = connection
+        .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
+        .map_err(spool_error("verify foreign-key mode"))?;
+    let synchronous: u32 = connection
+        .query_row("PRAGMA synchronous", [], |row| row.get(0))
+        .map_err(spool_error("verify synchronous mode"))?;
+    let journal_mode: String = connection
+        .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+        .map_err(spool_error("verify journal mode"))?;
+    if foreign_keys != 1 || synchronous != 2 || !journal_mode.eq_ignore_ascii_case("wal") {
+        return Err(PersistenceError::Commit(format!(
+            "InfluxDB 3 spool durability settings were not applied: foreign_keys={foreign_keys}, synchronous={synchronous}, journal_mode={journal_mode}"
+        )));
+    }
+    Ok(())
 }
 
 fn validate_spool_schema(connection: &Connection) -> Result<(), PersistenceError> {
@@ -792,6 +830,22 @@ fn validate_spool_schema(connection: &Connection) -> Result<(), PersistenceError
         }
     }
     Ok(())
+}
+
+fn spool_catalog_fingerprint(connection: &Connection) -> Result<String, PersistenceError> {
+    let mut statement = connection
+        .prepare(
+            "SELECT type || '|' || name || '|' || tbl_name || '|' || COALESCE(sql,'') \
+             FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND \
+             (name LIKE 'logging_%' OR tbl_name LIKE 'logging_%')",
+        )
+        .map_err(spool_error("prepare spool catalog fingerprint"))?;
+    let rows = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(spool_error("read spool catalog fingerprint"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(spool_error("decode spool catalog fingerprint"))?;
+    Ok(super::schema_contract::fingerprint(rows))
 }
 
 fn logical_spool_bytes(connection: &Connection) -> Result<u64, PersistenceError> {
@@ -870,41 +924,5 @@ fn influx_error(context: &'static str, error: impl std::fmt::Display) -> Persist
 }
 
 #[cfg(test)]
-mod spool_durability_tests {
-    use super::*;
-
-    #[test]
-    fn reopening_generation_1_spool_reapplies_connection_local_durability_pragmas() {
-        static CASE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        let root = std::env::temp_dir().join(format!(
-            "trust-logging-spool-reopen-{}-{}",
-            std::process::id(),
-            CASE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-        ));
-        std::fs::create_dir_all(&root).expect("create isolated spool directory");
-        let path = root.join("spool.sqlite3");
-        {
-            let connection = Connection::open(&path).expect("create spool");
-            initialize_spool_schema(&connection).expect("initialize spool");
-        }
-        let reopened = Connection::open(&path).expect("reopen spool");
-        initialize_spool_schema(&reopened).expect("validate reopened spool");
-        let foreign_keys: u32 = reopened
-            .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
-            .expect("read foreign-key mode");
-        let synchronous: u32 = reopened
-            .query_row("PRAGMA synchronous", [], |row| row.get(0))
-            .expect("read synchronous mode");
-        let journal_mode: String = reopened
-            .query_row("PRAGMA journal_mode", [], |row| row.get(0))
-            .expect("read journal mode");
-        assert_eq!(
-            foreign_keys, 1,
-            "foreign keys must be enabled per connection"
-        );
-        assert_eq!(synchronous, 2, "spool durability requires synchronous=FULL");
-        assert_eq!(journal_mode, "wal", "spool durability requires WAL mode");
-        drop(reopened);
-        std::fs::remove_dir_all(root).expect("remove isolated spool directory");
-    }
-}
+#[path = "influxdb3_tests.rs"]
+mod tests;

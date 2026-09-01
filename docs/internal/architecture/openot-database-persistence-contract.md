@@ -17,9 +17,14 @@ shows that process isolation is worth the deployment cost.
 
 The narrow ownership boundaries are `DocumentSource`, `DocumentSink`,
 `CheckpointStore`, `RetryPolicy`, and status projection. A sink owns its client,
-schema initialization and validation, transaction, and backend error mapping. It does not own
-OpenOT resolution or retry policy. Portable runtime core receives no database
-dependency.
+schema initialization and validation, transaction, and backend error mapping.
+Validation derives a deterministic fingerprint from the backend's actual
+truST-owned catalog and compares it with the fingerprint recorded only after
+the complete generation-1 shape is created. The shared fingerprint owner normalizes catalog
+rows and hashes them; each adapter remains responsible for extracting native
+table/view, column, key, check, foreign-key, and index definitions. It does not
+own OpenOT resolution or retry policy. Portable runtime core receives no
+database dependency.
 
 The requested first-release adapter matrix is:
 
@@ -204,7 +209,9 @@ implementation. Those paths add destructive branches, historical-definition
 requirements, and backend divergence without serving a released user.
 
 Opening an empty target creates and validates generation 1. Opening an exact
-generation-1 target validates it without changing it. Any truST-owned object
+generation-1 target re-derives the actual catalog fingerprint and validates it
+without changing it. Object-name presence alone is insufficient. Any
+truST-owned object
 without the exact marker, any other marker, or any incomplete or incompatible
 generation-1 layout fails closed and directs the operator to back up and
 recreate the pre-release development target. No adapter renames, drops,
@@ -221,6 +228,9 @@ than inferred from these removed development layouts.
 - Loss and placeholders are first-class persisted documents.
 - Every known event is projected by one shared Rust owner into documented,
   descriptive typed tables; adapters do not duplicate semantic dispatch.
+- Every adapter validates the complete native catalog definition on reopen;
+  changed columns, constraints, foreign keys, or indexes fail closed without a
+  repair or migration branch.
 - Relational projection rows and checkpoint are immediately consistent because
   they share one transaction.
 - Unknown future events remain visible in `event_log`, canonical and counted as

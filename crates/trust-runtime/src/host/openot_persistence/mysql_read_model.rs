@@ -54,8 +54,8 @@ pub(super) fn insert_projection(
     for value in values {
         let common = value.common;
         transaction.exec_drop(
-            "INSERT INTO logged_values(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value)
-             VALUES(:record_id,STR_TO_DATE(LEFT(:event_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:event_time_ns,STR_TO_DATE(LEFT(:received_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:received_time_ns,:source,:source_id,:source_path,:source_hierarchy,:buffer_id,:run_id,:epoch_id,:sequence,:definition_hash,:time_unsynced,:synthetic_record,:partial_payload,:value_id,:value_name,:value_type,:unit,:quality,:semantic_role,:boolean_value,:signed_value,:unsigned_value,:number_value,:text_value,:exact_value)",
+            "INSERT INTO logged_values(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value,previous_boolean_value,previous_signed_value,previous_unsigned_value,previous_number_value,previous_text_value,previous_exact_value,is_audited,actor,reason,authorization_result)
+             VALUES(:record_id,STR_TO_DATE(LEFT(:event_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:event_time_ns,STR_TO_DATE(LEFT(:received_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:received_time_ns,:source,:source_id,:source_path,:source_hierarchy,:buffer_id,:run_id,:epoch_id,:sequence,:definition_hash,:time_unsynced,:synthetic_record,:partial_payload,:value_id,:value_name,:value_type,:unit,:quality,:semantic_role,:boolean_value,:signed_value,:unsigned_value,:number_value,:text_value,:exact_value,:previous_boolean_value,:previous_signed_value,:previous_unsigned_value,:previous_number_value,:previous_text_value,:previous_exact_value,:is_audited,:actor,:reason,:authorization_result)",
             common_params(&common, params! {
                 "value_id" => value.value_id,
                 "value_name" => value.value_name,
@@ -69,6 +69,16 @@ pub(super) fn insert_projection(
                 "number_value" => value.number_value,
                 "text_value" => value.text_value,
                 "exact_value" => value.exact_value,
+                "previous_boolean_value" => value.previous_boolean_value,
+                "previous_signed_value" => value.previous_signed_value,
+                "previous_unsigned_value" => value.previous_unsigned_value,
+                "previous_number_value" => value.previous_number_value,
+                "previous_text_value" => value.previous_text_value,
+                "previous_exact_value" => value.previous_exact_value,
+                "is_audited" => value.is_audited,
+                "actor" => value.actor,
+                "reason" => value.reason,
+                "authorization_result" => value.authorization_result,
             }),
         ).map_err(error("insert logged value projection"))?;
     }

@@ -25,6 +25,15 @@ compatibility requirements. They must be removed, not repaired.
 
 ## 2. Focused native tests before production changes
 
+- [x] Add expected-red real-backend tests proving every network relational
+  `logged_values` row preserves previous-value and audit fields.
+- [x] Run the existing InfluxDB spool reopen durability test with the backend
+  feature enabled and record its expected-red `foreign_keys` assertion.
+- [x] Add expected-red corruption tests proving changed columns, keys/checks,
+  foreign keys, or indexes make an existing generation-1 target fail closed.
+- [x] Add expected-red shared-schema tests proving unrelated operator objects
+  do not alter the truST-owned catalog contract.
+
 - [x] Add an expected-red contract that every adapter reports generation 1.
 - [x] Replace legacy migration tests with expected-red tests proving an empty
   target creates the complete final schema directly.
@@ -36,6 +45,14 @@ compatibility requirements. They must be removed, not repaired.
   atomic checkpoints, duplicate replay, loss, placeholders, and status.
 
 ## 3. Minimal production implementation
+
+- [x] Add and bind the complete previous-value and audit contract on
+  PostgreSQL/TimescaleDB, MySQL/MariaDB, and SQL Server.
+- [x] Reapply and verify connection-local durability pragmas before returning
+  from every compatible InfluxDB spool open.
+- [x] Persist and verify a deterministic full catalog fingerprint for every
+  relational schema and the InfluxDB spool; keep generation fixed at 1 and add
+  no migration or repair path.
 
 - [x] Use one shared schema-generation constant with value 1.
 - [x] Delete all legacy migration, rename, backfill, replay, reconstruction,

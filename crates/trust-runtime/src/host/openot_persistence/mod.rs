@@ -23,6 +23,7 @@ mod postgres_read_model;
 mod postgresql;
 mod projection;
 mod projection_domains;
+mod schema_contract;
 mod service;
 #[cfg(unix)]
 mod service_error;

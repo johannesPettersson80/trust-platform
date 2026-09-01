@@ -220,3 +220,11 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   gate across SQLite, PostgreSQL, TimescaleDB, MySQL, MariaDB, SQL Server, and
   InfluxDB 3; refreshed `openot-database-persistence.puml`, generated SVG, and
   manifest; remote diagram render and drift check.
+- [ ] `ARCH-OPENOT-DB-04` Validate generation 1 from each backend's actual
+  catalog instead of object names alone: adapters extract native table/view,
+  column, key, check, foreign-key, and index definitions, while the shared
+  schema-contract owner provides deterministic ordering and SHA-256 identity.
+  Preserve one initial schema with no migration or repair path, and reapply
+  connection-local SQLite/Influx spool durability settings on every open.
+  Close after focused corruption red-green tests, all real database products,
+  a real PLC workload, refreshed diagrams, and exact-candidate release gates.
