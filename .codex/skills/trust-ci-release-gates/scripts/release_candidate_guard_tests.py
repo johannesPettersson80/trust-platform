@@ -176,6 +176,9 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             "--install-missing --require-cross",
             by_id["remote_cross_target_warnings"],
         )
+        cross_body = shlex.split(by_id["remote_cross_target_warnings"])[-1]
+        self.assertNotIn("CC=cc", cross_body)
+        self.assertNotIn("CXX=c++", cross_body)
         self.assertIn(
             "cargo clippy --all-targets --all-features -- -D warnings",
             by_id["remote_clippy"],

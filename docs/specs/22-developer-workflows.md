@@ -253,6 +253,9 @@ globbed deletion of the shared target root is forbidden. Exact-candidate
 preparation MUST use the leased target for every Cargo-producing VS Code,
 cross-target, supply-chain, architecture, clippy, and full-test command, and
 its deliberate pre-test reclaim MUST use the lease-aware cleanup command. A
+cross-target command MUST NOT inject host `CC` or `CXX` overrides into the
+target build; target-specific compiler discovery remains owned by Cargo and
+the cross-target gate. Host-only commands MAY pin the host C/C++ compilers. A
 successful assertion run followed by a missing executable due to concurrent
 target deletion is an infrastructure failure, never a green test result.
 

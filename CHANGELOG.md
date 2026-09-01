@@ -76,7 +76,9 @@ Target release: `v0.24.68`
   remote database connection is unavailable, and run the same complete
   Architecture Safety gate before push and in GitHub CI. Protect active
   shared-builder Cargo targets with stable external leases so concurrent
-  cleanup cannot delete exact-candidate test executables.
+  cleanup cannot delete exact-candidate test executables, and preserve target
+  compiler discovery instead of injecting host C/C++ compilers into Windows
+  cross-target checks.
 - Keep SQL Server logged-value statements below its 2,100-parameter limit,
   constrain the MySQL/MariaDB schema marker to its single valid key, replace
   the yanked MySQL client patch release, and run the same supply-chain policy

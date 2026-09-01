@@ -90,11 +90,17 @@ def remote_validation_commands(
     passthrough_source = (
         ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh"
     )
-    target_env = (
+    cargo_env = (
         f"CARGO_TARGET_DIR={shlex.quote(target)} "
         "CARGO_INCREMENTAL=0 RUSTC_WRAPPER=/usr/bin/env "
-        "CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env "
-        f"CC=cc CXX=c++ TMPDIR={shlex.quote(target_tmp)} "
+        "CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env"
+    )
+    target_env = (
+        f"{cargo_env} CC=cc CXX=c++ TMPDIR={shlex.quote(target_tmp)} "
+        f"PATH={shlex.quote(target_bin)}:$PATH"
+    )
+    cross_target_env = (
+        f"{cargo_env} TMPDIR={shlex.quote(target_tmp)} "
         f"PATH={shlex.quote(target_bin)}:$PATH"
     )
     vscode_target_env = target_env.replace(
@@ -147,7 +153,7 @@ def remote_validation_commands(
             (
                 "remote_cross_target_warnings",
                 leased(
-                    f"{target_env} ./scripts/check_runtime_cross_target_warnings.sh "
+                    f"{cross_target_env} ./scripts/check_runtime_cross_target_warnings.sh "
                     "--install-missing --require-cross"
                 ),
             ),
