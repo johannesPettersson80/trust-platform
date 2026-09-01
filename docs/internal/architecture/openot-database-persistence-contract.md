@@ -17,7 +17,7 @@ shows that process isolation is worth the deployment cost.
 
 The narrow ownership boundaries are `DocumentSource`, `DocumentSink`,
 `CheckpointStore`, `RetryPolicy`, and status projection. A sink owns its client,
-schema, migrations, transaction, and backend error mapping. It does not own
+schema initialization and validation, transaction, and backend error mapping. It does not own
 OpenOT resolution or retry policy. Portable runtime core receives no database
 dependency.
 
@@ -51,8 +51,8 @@ It consumes typed `open_ot_document::Document` values plus the exact
 hash-matched definition metadata and produces a canonical row, an event
 envelope, and zero or more domain rows. The definition is an explicit input
 because the document retains referenced IDs but does not duplicate all
-human-facing definition names. Missing or mismatched historical definitions
-fail migration closed. Adapters own DDL/type
+human-facing definition names. Missing or mismatched definitions fail
+projection closed. Adapters own DDL/type
 mapping and durable writes; they do not parse OpenOT JSON or maintain separate
 event-name dispatch tables. In relational products the canonical row, every
 required domain row, and checkpoint share the existing sink transaction. This
@@ -95,7 +95,7 @@ burden” is relative to truST's first release, not a universal ranking.
 | PostgreSQL | internal canonical text plus typed relational read model, constraints, indexes, and transactions | central service, TLS/roles/backups required | pure-Rust `postgres 0.19.14` plus `postgres-native-tls 0.5.3`; feature-scoped | primary central relational store |
 | TimescaleDB | ordinary canonical table plus typed public hypertables partitioned on non-null receive time while preserving nullable source event time | PostgreSQL operations plus extension upgrades and explicit retention/compression policy | reuses PostgreSQL client; server extension/license boundary remains operator-visible | support time-oriented relational deployment separately from PostgreSQL |
 | MySQL | canonical text, binary identities, InnoDB transaction/checkpoint | central service, TLS, vendor-native backup | `mysql 28.0.0` with minimal Rust/rustls features; largest new Rust dependency group; feature-scoped | support MySQL 8.4 LTS |
-| MariaDB | shared protocol adapter but separately verified JSON/collation/migration behavior | separate vendor lifecycle and backup policy | same client dependency, distinct real product proof | support MariaDB 11.8 separately through `backend = "mysql"` |
+| MariaDB | shared protocol adapter but separately verified JSON/collation/schema behavior | separate vendor lifecycle and backup policy | same client dependency, distinct real product proof | support MariaDB 11.8 separately through `backend = "mysql"` |
 | SQL Server | canonical NVARCHAR JSON with `ISJSON` verification and TDS transaction | proprietary server operations and supported x86_64 runner required | `tiberius 0.12.3` plus Tokio compatibility; pure-Rust TLS/TDS; feature-scoped | support real Microsoft SQL Server; defer Azure claim |
 | InfluxDB 3 | homogeneous descriptive measurements with native typed fields; point API cannot atomically bind every remote projection and checkpoint | remote time-series operations plus mandatory bounded local spool and per-part reconciliation | existing HTTP client plus feature-scoped `rusqlite`; no additional native client | support only with SQLite spool as durable acceptance authority |
 
@@ -194,6 +194,24 @@ is retained for time-oriented operations, but its non-transactional point write
 boundary requires a visible durable spool instead of pretending it has SQL
 transaction semantics.
 
+### Initial-release schema decision
+
+Database persistence has not previously shipped. Every adapter and the InfluxDB
+durable spool therefore implement the same first schema generation, `1`, from
+their final DDL. There is no legacy product database to migrate and no product
+reason to retain the development-only v1/v2/v3/v4 paths that existed during
+implementation. Those paths add destructive branches, historical-definition
+requirements, and backend divergence without serving a released user.
+
+Opening an empty target creates and validates generation 1. Opening an exact
+generation-1 target validates it without changing it. Any truST-owned object
+without the exact marker, any other marker, or any incomplete or incompatible
+generation-1 layout fails closed and directs the operator to back up and
+recreate the pre-release development target. No adapter renames, drops,
+backfills, rebuilds, downgrades, or silently repairs such state. A future
+released schema change must be designed as a new compatibility decision rather
+than inferred from these removed development layouts.
+
 ## Consequences and acceptance checks
 
 - Database latency and failure cannot block the scan path.
@@ -208,7 +226,7 @@ transaction semantics.
 - Unknown future events remain visible in `event_log`, canonical and counted as
   unclassified rather than guessed or discarded.
 - No source-local order is converted into an invented global order.
-- No new module may approach 1,000 lines; adapter and migration ownership stays
+- No new module may approach 1,000 lines; adapter and schema ownership stays
   split when necessary.
 - Repeated serialization, resolution, and identity logic must be factored once.
 - A backend is not documented as supported until the real product passes the

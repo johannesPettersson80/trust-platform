@@ -16,7 +16,7 @@ impl TimescaleDbDocumentSink {
         self.postgresql.schema_version()
     }
 
-    /// Connects with authenticated TLS, requires TimescaleDB, and migrates.
+    /// Connects with authenticated TLS and opens the initial TimescaleDB schema.
     pub fn open(
         connection_url: &str,
         schema: &str,
@@ -90,16 +90,16 @@ impl TimescaleDbDocumentSink {
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
-    pub(crate) fn downgrade_checkpoint_to_v1_for_test(&mut self) -> Result<(), PersistenceError> {
-        self.postgresql.downgrade_checkpoint_to_v1_for_test()
-    }
-
-    #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn set_schema_version_for_test(
         &mut self,
         version: u32,
     ) -> Result<(), PersistenceError> {
         self.postgresql.set_schema_version_for_test(version)
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn remove_schema_marker_for_test(&mut self) -> Result<(), PersistenceError> {
+        self.postgresql.remove_schema_marker_for_test()
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]

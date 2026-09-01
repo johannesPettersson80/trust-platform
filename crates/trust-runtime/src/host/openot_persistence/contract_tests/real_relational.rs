@@ -1,7 +1,7 @@
 use super::*;
 #[cfg(feature = "openot-real-database-tests")]
 #[test]
-fn postgresql_sink_connects_to_real_tls_server_and_applies_schema_v3_read_model() {
+fn postgresql_sink_connects_to_real_tls_server_and_initializes_generation_1() {
     let connection_url = std::env::var("TRUST_TEST_OPENOT_POSTGRES_URL")
         .expect("TRUST_TEST_OPENOT_POSTGRES_URL must identify the reviewed real server");
     let ca_cert_path = std::env::var("TRUST_TEST_OPENOT_POSTGRES_CA")
@@ -9,12 +9,15 @@ fn postgresql_sink_connects_to_real_tls_server_and_applies_schema_v3_read_model(
 
     let mut sink = PostgreSqlDocumentSink::open(
         &connection_url,
-        "openot",
+        "trust_logging",
         std::path::Path::new(&ca_cert_path),
     )
-    .expect("connect and migrate real PostgreSQL");
+    .expect("connect and initialize real PostgreSQL");
 
-    assert_eq!(sink.schema_version().expect("PostgreSQL schema version"), 3);
+    assert_eq!(
+        sink.schema_version().expect("PostgreSQL schema generation"),
+        1
+    );
     let public_objects: i64 = sink
         .client
         .query_one(
@@ -54,7 +57,7 @@ fn postgresql_sink_commits_documents_and_checkpoint_on_real_server() {
         .expect("TRUST_TEST_OPENOT_POSTGRES_URL must identify the reviewed real server");
     let ca_cert_path = std::env::var("TRUST_TEST_OPENOT_POSTGRES_CA")
         .expect("TRUST_TEST_OPENOT_POSTGRES_CA must identify its CA certificate");
-    let schema = format!("openot_commit_{}", std::process::id());
+    let schema = format!("logging_commit_{}", std::process::id());
     let checkpoint = PersistenceCheckpoint {
         buffer_id: 7,
         run_id: 1,
@@ -70,7 +73,7 @@ fn postgresql_sink_commits_documents_and_checkpoint_on_real_server() {
         std::path::Path::new(&ca_cert_path),
         vec![open_ot_definition::sample_definition()],
     )
-    .expect("connect and migrate real PostgreSQL");
+    .expect("connect and initialize real PostgreSQL");
 
     let outcome = sink.commit(&batch).expect("commit PostgreSQL batch");
 
@@ -131,7 +134,7 @@ fn sink_factory_opens_only_toml_selected_postgresql() {
         backend: Some(crate::config::OpenOtPersistenceBackend::PostgreSql),
         postgresql: Some(crate::config::OpenOtPostgreSqlPersistenceConfig {
             connection_url_env: "TRUST_TEST_OPENOT_POSTGRES_URL".into(),
-            schema: format!("openot_factory_{}", std::process::id()).into(),
+            schema: format!("logging_factory_{}", std::process::id()).into(),
             tls: crate::config::OpenOtPersistenceTlsMode::Require,
             ca_cert_path: Some(ca_cert_path.into()),
         }),
@@ -151,19 +154,20 @@ fn timescaledb_sink_requires_real_extension_and_creates_hypertable() {
         .expect("TRUST_TEST_OPENOT_TIMESCALE_URL must identify the reviewed real server");
     let ca_cert_path = std::env::var("TRUST_TEST_OPENOT_TIMESCALE_CA")
         .expect("TRUST_TEST_OPENOT_TIMESCALE_CA must identify its CA certificate");
-    let schema = format!("openot_timescale_{}", std::process::id());
+    let schema = format!("logging_timescale_{}", std::process::id());
 
     let mut sink = TimescaleDbDocumentSink::open(
         &connection_url,
         &schema,
         std::path::Path::new(&ca_cert_path),
     )
-    .expect("connect and migrate real TimescaleDB");
+    .expect("connect and initialize real TimescaleDB");
 
     assert_eq!(
         sink.extension_version().expect("extension version"),
         "2.29.2"
     );
+    assert_eq!(sink.schema_version().expect("schema generation"), 1);
     assert!(sink.hypertable_exists().expect("hypertable query"));
 }
 
@@ -177,7 +181,7 @@ fn sink_factory_selects_timescaledb_and_commits_to_real_hypertable() {
         backend: Some(crate::config::OpenOtPersistenceBackend::TimescaleDb),
         timescaledb: Some(crate::config::OpenOtTimescaleDbPersistenceConfig {
             connection_url_env: "TRUST_TEST_OPENOT_TIMESCALE_URL".into(),
-            schema: format!("openot_ts_factory_{}", std::process::id()).into(),
+            schema: format!("logging_ts_factory_{}", std::process::id()).into(),
             tls: crate::config::OpenOtPersistenceTlsMode::Require,
             ca_cert_path: Some(ca_cert_path.into()),
         }),
@@ -230,15 +234,15 @@ fn assert_mysql_protocol_product(url_env: &str, ca_env: &str, expected_version_f
     };
     let mut sink = MySqlDocumentSink::open_with_definitions(
         &connection_url,
-        "openot",
+        "trust_logging",
         std::path::Path::new(&ca_cert_path),
         vec![open_ot_definition::sample_definition()],
     )
-    .expect("connect and migrate real MySQL-protocol server");
+    .expect("connect and initialize real MySQL-protocol server");
 
     sink.reset_test_state()
         .expect("reset reviewed test database");
-    assert_eq!(sink.schema_version().expect("schema version"), 3);
+    assert_eq!(sink.schema_version().expect("schema generation"), 1);
     assert_eq!(
         sink.internal_name_counts().expect("internal logging names"),
         (3, 0)
@@ -303,7 +307,7 @@ fn assert_mysql_protocol_product(url_env: &str, ca_env: &str, expected_version_f
 
 #[cfg(feature = "openot-real-database-tests")]
 #[test]
-fn mysql_sink_migrates_and_commits_on_real_mysql_8_4_lts() {
+fn mysql_sink_initializes_and_commits_on_real_mysql_8_4_lts() {
     assert_mysql_protocol_product(
         "TRUST_TEST_OPENOT_MYSQL_URL",
         "TRUST_TEST_OPENOT_MYSQL_CA",
@@ -313,7 +317,7 @@ fn mysql_sink_migrates_and_commits_on_real_mysql_8_4_lts() {
 
 #[cfg(feature = "openot-real-database-tests")]
 #[test]
-fn mysql_sink_migrates_and_commits_on_real_mariadb_11_8_lts() {
+fn mysql_sink_initializes_and_commits_on_real_mariadb_11_8_lts() {
     assert_mysql_protocol_product(
         "TRUST_TEST_OPENOT_MARIADB_URL",
         "TRUST_TEST_OPENOT_MARIADB_CA",
@@ -323,18 +327,18 @@ fn mysql_sink_migrates_and_commits_on_real_mariadb_11_8_lts() {
 
 #[cfg(feature = "openot-real-database-tests")]
 #[test]
-fn mysql_sink_backfills_populated_v2_with_shared_projector() {
+fn mysql_sink_rejects_populated_incompatible_pre_release_schema() {
     let connection_url = std::env::var("TRUST_TEST_OPENOT_MYSQL_URL").expect("MySQL URL");
     let ca = std::env::var("TRUST_TEST_OPENOT_MYSQL_CA").expect("MySQL CA");
     let definition = open_ot_definition::sample_definition();
     let mut sink = MySqlDocumentSink::open_with_definitions(
         &connection_url,
-        "openot",
+        "trust_logging",
         std::path::Path::new(&ca),
         vec![definition.clone()],
     )
-    .expect("open MySQL v3 seed");
-    sink.reset_test_state().expect("reset MySQL v2 seed");
+    .expect("open MySQL generation-1 seed");
+    sink.reset_test_state().expect("reset MySQL seed");
     sink.commit(&PersistenceBatch {
         documents: canonical_documents(),
         checkpoint: PersistenceCheckpoint {
@@ -344,52 +348,35 @@ fn mysql_sink_backfills_populated_v2_with_shared_projector() {
         },
     })
     .expect("seed populated MySQL history");
-    sink.seed_v2_without_projections()
-        .expect("seed MySQL schema v2 projection gap");
-    drop(sink);
-
-    let mut migrated = MySqlDocumentSink::open_with_definitions(
+    sink.seed_incompatible_generation_for_test()
+        .expect("seed incompatible MySQL generation");
+    let error = MySqlDocumentSink::open_with_definitions(
         &connection_url,
-        "openot",
+        "trust_logging",
         std::path::Path::new(&ca),
         vec![definition],
     )
-    .expect("migrate populated MySQL v2");
-    assert_eq!(migrated.schema_version().expect("migrated version"), 3);
-    assert_eq!(
-        migrated
-            .public_count("event_log")
-            .expect("backfilled events"),
-        35
-    );
-    assert_eq!(
-        migrated
-            .public_count("logged_values")
-            .expect("backfilled values"),
-        2
-    );
-    assert_eq!(
-        migrated
-            .public_count("alarm_history")
-            .expect("backfilled alarms"),
-        13
-    );
+    .expect_err("populated incompatible MySQL schema must fail closed");
+    assert!(format!("{error:?}").contains("incompatible pre-release"));
+    sink.set_schema_version_for_test(1)
+        .expect("restore generation 1");
+    sink.reset_test_state().expect("clear rejected fixture");
 }
 
 #[cfg(feature = "openot-real-database-tests")]
 #[test]
-fn mariadb_sink_backfills_populated_v2_with_shared_projector() {
+fn mariadb_sink_rejects_populated_incompatible_pre_release_schema() {
     let connection_url = std::env::var("TRUST_TEST_OPENOT_MARIADB_URL").expect("MariaDB URL");
     let ca = std::env::var("TRUST_TEST_OPENOT_MARIADB_CA").expect("MariaDB CA");
     let definition = open_ot_definition::sample_definition();
     let mut sink = MySqlDocumentSink::open_with_definitions(
         &connection_url,
-        "openot",
+        "trust_logging",
         std::path::Path::new(&ca),
         vec![definition.clone()],
     )
-    .expect("open MariaDB v3 seed");
-    sink.reset_test_state().expect("reset MariaDB v2 seed");
+    .expect("open MariaDB generation-1 seed");
+    sink.reset_test_state().expect("reset MariaDB seed");
     sink.commit(&PersistenceBatch {
         documents: canonical_documents(),
         checkpoint: PersistenceCheckpoint {
@@ -399,35 +386,19 @@ fn mariadb_sink_backfills_populated_v2_with_shared_projector() {
         },
     })
     .expect("seed populated MariaDB history");
-    sink.seed_v2_without_projections()
-        .expect("seed MariaDB schema v2 projection gap");
-    drop(sink);
-    let mut migrated = MySqlDocumentSink::open_with_definitions(
+    sink.seed_incompatible_generation_for_test()
+        .expect("seed incompatible MariaDB generation");
+    let error = MySqlDocumentSink::open_with_definitions(
         &connection_url,
-        "openot",
+        "trust_logging",
         std::path::Path::new(&ca),
         vec![definition],
     )
-    .expect("migrate populated MariaDB v2");
-    assert_eq!(migrated.schema_version().expect("migrated version"), 3);
-    assert_eq!(
-        migrated
-            .public_count("event_log")
-            .expect("backfilled events"),
-        35
-    );
-    assert_eq!(
-        migrated
-            .public_count("logged_values")
-            .expect("backfilled values"),
-        2
-    );
-    assert_eq!(
-        migrated
-            .public_count("alarm_history")
-            .expect("backfilled alarms"),
-        13
-    );
+    .expect_err("populated incompatible MariaDB schema must fail closed");
+    assert!(format!("{error:?}").contains("incompatible pre-release"));
+    sink.set_schema_version_for_test(1)
+        .expect("restore generation 1");
+    sink.reset_test_state().expect("clear rejected fixture");
 }
 
 #[cfg(feature = "openot-real-database-tests")]
@@ -440,7 +411,7 @@ fn sink_factory_opens_toml_selected_mysql_adapter() {
         backend: Some(crate::config::OpenOtPersistenceBackend::MySql),
         mysql: Some(crate::config::OpenOtMySqlPersistenceConfig {
             connection_url_env: "TRUST_TEST_OPENOT_MYSQL_URL".into(),
-            database: "openot".into(),
+            database: "trust_logging".into(),
             tls: crate::config::OpenOtPersistenceTlsMode::Require,
             ca_cert_path: Some(ca_cert_path.into()),
         }),
@@ -455,12 +426,12 @@ fn sink_factory_opens_toml_selected_mysql_adapter() {
 
 #[cfg(feature = "openot-real-database-tests")]
 #[test]
-fn sqlserver_sink_migrates_and_commits_on_real_sql_server_2025() {
+fn sqlserver_sink_initializes_and_commits_on_real_sql_server_2025() {
     let connection_url = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_URL")
         .expect("TRUST_TEST_OPENOT_SQLSERVER_URL must identify the reviewed real server");
     let ca_cert_path = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_CA")
         .expect("TRUST_TEST_OPENOT_SQLSERVER_CA must identify its CA certificate");
-    let schema = format!("openot_{}", std::process::id());
+    let schema = format!("logging_{}", std::process::id());
     let checkpoint = PersistenceCheckpoint {
         buffer_id: 7,
         run_id: 1,
@@ -494,9 +465,15 @@ fn sqlserver_sink_migrates_and_commits_on_real_sql_server_2025() {
         std::path::Path::new(&ca_cert_path),
         vec![open_ot_definition::sample_definition()],
     )
-    .expect("connect and migrate real SQL Server");
+    .expect("connect and initialize real SQL Server");
 
-    assert_eq!(sink.schema_version().expect("schema version"), 3);
+    assert_eq!(sink.schema_version().expect("schema generation"), 1);
+    sink.set_schema_version_for_test(99)
+        .expect_err("SQL Server generation-1 marker must reject another value");
+    assert_eq!(
+        sink.schema_version().expect("unchanged schema generation"),
+        1
+    );
     assert_eq!(
         sink.internal_name_counts().expect("internal logging names"),
         (3, 0)
@@ -574,10 +551,10 @@ fn sqlserver_sink_migrates_and_commits_on_real_sql_server_2025() {
 
 #[cfg(feature = "openot-real-database-tests")]
 #[test]
-fn sqlserver_sink_backfills_populated_v2_with_shared_projector() {
+fn sqlserver_sink_rejects_populated_incompatible_pre_release_schema() {
     let connection_url = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_URL").expect("SQL Server URL");
     let ca = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_CA").expect("SQL Server CA");
-    let schema = format!("openot_v2_{}", std::process::id());
+    let schema = format!("logging_incompatible_{}", std::process::id());
     let definition = open_ot_definition::sample_definition();
     let mut sink = SqlServerDocumentSink::open_with_definitions(
         &connection_url,
@@ -585,7 +562,7 @@ fn sqlserver_sink_backfills_populated_v2_with_shared_projector() {
         std::path::Path::new(&ca),
         vec![definition.clone()],
     )
-    .expect("open SQL Server v3 seed");
+    .expect("open SQL Server generation-1 seed");
     sink.commit(&PersistenceBatch {
         documents: canonical_documents(),
         checkpoint: PersistenceCheckpoint {
@@ -595,36 +572,18 @@ fn sqlserver_sink_backfills_populated_v2_with_shared_projector() {
         },
     })
     .expect("seed populated SQL Server history");
-    sink.seed_v2_without_projections()
-        .expect("seed SQL Server schema v2 projection gap");
-    drop(sink);
-
-    let mut migrated = SqlServerDocumentSink::open_with_definitions(
+    sink.seed_incompatible_generation_for_test()
+        .expect("seed incompatible SQL Server generation");
+    let error = SqlServerDocumentSink::open_with_definitions(
         &connection_url,
         &schema,
         std::path::Path::new(&ca),
         vec![definition],
     )
-    .expect("migrate populated SQL Server v2");
-    assert_eq!(migrated.schema_version().expect("migrated version"), 3);
-    assert_eq!(
-        migrated
-            .public_count("event_log")
-            .expect("backfilled events"),
-        35
-    );
-    assert_eq!(
-        migrated
-            .public_count("logged_values")
-            .expect("backfilled values"),
-        2
-    );
-    assert_eq!(
-        migrated
-            .public_count("alarm_history")
-            .expect("backfilled alarms"),
-        13
-    );
+    .expect_err("populated incompatible SQL Server schema must fail closed");
+    assert!(format!("{error:?}").contains("incompatible pre-release"));
+    sink.set_schema_version_for_test(1)
+        .expect("restore generation 1");
 }
 
 #[cfg(feature = "openot-real-database-tests")]
@@ -637,7 +596,7 @@ fn sink_factory_opens_toml_selected_sqlserver_adapter() {
         backend: Some(crate::config::OpenOtPersistenceBackend::SqlServer),
         sqlserver: Some(crate::config::OpenOtSqlServerPersistenceConfig {
             connection_url_env: "TRUST_TEST_OPENOT_SQLSERVER_URL".into(),
-            schema: format!("openot_factory_{}", std::process::id()).into(),
+            schema: format!("logging_factory_{}", std::process::id()).into(),
             tls: crate::config::OpenOtPersistenceTlsMode::Require,
             ca_cert_path: Some(ca_cert_path.into()),
         }),

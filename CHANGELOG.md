@@ -60,9 +60,12 @@ Target release: `v0.24.68`
 - Expose typed logging objects with descriptive names such as
   `logged_values`, `alarm_history`, `message_log`, `state_history`, and
   `audit_log`; normal reports no longer require OpenOT field arrays or JSON
-  paths, while canonical JSON remains internal recovery authority. Relational
-  products use schema v3; SQLite schema v4 rebuilds its public views with
-  explicit, unambiguous provenance columns.
+  paths, while canonical JSON remains internal recovery authority. Every
+  backend and the InfluxDB spool initialize the same first schema generation,
+  1, directly. Because database persistence has not previously shipped,
+  incompatible pre-release development schemas fail closed without migration,
+  backfill, reconstruction, or automatic repair. Runtime status reports this
+  shared contract as `schema_generation`, not a backend-specific version.
 - Support MQTT tag mappings that bind fully qualified scalar program variables
   directly to broker topics with explicit PLC-relative `read` and `write`
   directions.

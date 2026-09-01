@@ -15,7 +15,7 @@ enabled = true
 backend = "sqlite"
 
 [runtime.openot.persistence.sqlite]
-path = "history/openot.sqlite3"
+path = "history/trust-logging.sqlite3"
 ```
 
 Supported selectors are `sqlite`, `postgresql`, `timescaledb`, `mysql`,
@@ -77,7 +77,7 @@ rolls back the incoming documents and checkpoint together and faults visibly;
 allow additional filesystem headroom for WAL and allocation overhead.
 
 The runtime `status` response exposes `openot_persistence` with state, selected
-backend, schema version, document counters, cursor/head/lag, loss and unresolved
+backend, the shared `schema_generation`, document counters, cursor/head/lag, loss and unresolved
 counts, projection-row and unclassified-event counters, Influx reconciliation
 and pending-part counters, `remote_pending`, last success, and a redacted last
 error. `pending` is
@@ -85,7 +85,7 @@ source-ring byte lag; `remote_pending` is the count accepted by a mandatory
 local spool but not yet acknowledged by its server. `ready` requires both to be
 zero; runtime health remains separate. The ordered `warnings` array uses stable
 operator codes: `lag`, `retrying`, `placeholder`, `loss`, `spool_pressure`,
-`migration_or_storage_fault`, and `shutdown_pending`. Use the adjacent counters
+`schema_or_storage_fault`, and `shutdown_pending`. Use the adjacent counters
 and redacted error for the exact cause; a warning is not a substitute for those
 measurements.
 
@@ -109,7 +109,7 @@ retry_multiplier = 2
 
 [runtime.openot.persistence.postgresql]
 connection_url_env = "TRUST_OPENOT_DATABASE_URL"
-schema = "openot"
+schema = "trust_logging"
 tls = "require"
 ca_cert_path = "certs/openot-database-ca.pem"
 ```
@@ -151,7 +151,7 @@ PostgreSQL and TimescaleDB:
 
 ```bash
 psql "$TRUST_OPENOT_DATABASE_URL" -c \
-  'SELECT event_name,count(*) FROM openot.event_log GROUP BY 1 ORDER BY 1'
+  'SELECT event_name,count(*) FROM trust_logging.event_log GROUP BY 1 ORDER BY 1'
 psql "$TRUST_OPENOT_DATABASE_URL" -c \
   'SELECT extversion FROM pg_extension WHERE extname = '\''timescaledb'\'''
 ```
@@ -177,7 +177,7 @@ SQL Server:
 
 ```bash
 sqlcmd -N -S localhost -d master -Q \
-  'SELECT event_name,COUNT_BIG(*) FROM openot.event_log GROUP BY event_name ORDER BY event_name'
+  'SELECT event_name,COUNT_BIG(*) FROM trust_logging.event_log GROUP BY event_name ORDER BY event_name'
 ```
 
 Install the database CA in the client trust store first. truST's adapter always
@@ -189,9 +189,9 @@ InfluxDB 3:
 curl --fail --cacert certs/openot-influx-ca.pem \
   -H "Authorization: Bearer $TRUST_OPENOT_INFLUX_TOKEN" \
   --get "$TRUST_OPENOT_INFLUX_HOST/api/v3/query_sql" \
-  --data-urlencode 'db=openot' \
+  --data-urlencode 'db=trust_logging' \
   --data-urlencode 'q=SELECT event_name,count(*) FROM event_log GROUP BY event_name ORDER BY event_name'
-sqlite3 history/openot-influx-spool.sqlite3 \
+sqlite3 history/trust-logging-influx-spool.sqlite3 \
   'SELECT delivered,count(*) FROM logging_delivery_spool GROUP BY delivered;'
 ```
 
@@ -203,15 +203,17 @@ TOML backend during an outage; truST does not silently fail over.
 Back up both documents and checkpoint consistently. For SQLite and the Influx
 spool, use the SQLite online backup mechanism or stop the runtime cleanly before
 copying. For server databases, use the vendor's transaction-consistent backup.
-Restore into the same schema version and validate the document count, canonical
-JSON, and checkpoint before reconnecting a producer. PostgreSQL, TimescaleDB,
-MySQL, MariaDB, SQL Server, and the Influx spool use schema version 3.
-SQLite uses schema version 4 to expose explicit, unambiguous provenance
-columns in every public view. Retention is operator owned; do not delete
+Restore into schema generation 1 and validate the document count, canonical
+JSON, and checkpoint before reconnecting a producer. Every backend and the
+InfluxDB durable spool use the same initial schema generation, 1. Database
+persistence did not ship before this generation, so truST does not migrate
+pre-release development databases. Back them up if needed, remove or recreate
+the selected truST logging schema/database/spool, and let the runtime initialize
+generation 1. Retention is operator owned; do not delete
 checkpoint state or remove documents that remain inside an audit retention
 period.
 
-The tables and columns are implementation-owned and versioned by truST. Do not
+The tables and columns are implementation-owned by truST. Do not
 treat undocumented columns as a stable integration API; consume documented
 public objects or a documented export boundary. Canonical JSON remains an
 internal recovery authority, not the ordinary query model.

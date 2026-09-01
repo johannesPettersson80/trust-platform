@@ -120,7 +120,7 @@ run_gate service-lifecycle cargo test -p trust-runtime \
 TRUST_OPENOT_EVIDENCE_DIR="$artifact_root/sqlite-artifact" \
   run_gate sqlite-artifact cargo test -p trust-runtime --test openot_telemetry \
     openot_database_example_persists_real_st_documents_to_sqlite -- --exact
-python3 - "$artifact_root/sqlite-artifact/openot.sqlite3" \
+python3 - "$artifact_root/sqlite-artifact/trust-logging.sqlite3" \
   >"$artifact_root/sqlite-artifact/sqlite-native-inspection.txt" <<'PY'
 import sqlite3
 import sys
@@ -128,7 +128,7 @@ import sys
 connection = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
 queries = (
     ("integrity_check", "PRAGMA integrity_check"),
-    ("schema_version", "PRAGMA user_version"),
+    ("schema_generation", "PRAGMA user_version"),
     ("document_count", "SELECT COUNT(*) FROM logging_records"),
     ("checkpoint_count", "SELECT COUNT(*) FROM logging_checkpoint"),
     ("event_count", "SELECT COUNT(*) FROM event_log"),
@@ -138,7 +138,7 @@ queries = (
 for label, query in queries:
     print(f"{label}={connection.execute(query).fetchone()[0]}")
 PY
-for artifact in openot.sqlite3 openot-definition.json reconciliation.json sqlite-native-inspection.txt; do
+for artifact in trust-logging.sqlite3 openot-definition.json reconciliation.json sqlite-native-inspection.txt; do
   if [[ ! -s $artifact_root/sqlite-artifact/$artifact ]]; then
     echo "SQLite evidence artifact is missing or empty: $artifact" >&2
     exit 2

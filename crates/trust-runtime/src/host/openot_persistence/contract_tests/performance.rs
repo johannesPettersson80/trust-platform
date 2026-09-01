@@ -182,7 +182,7 @@ fn every_real_backend_meets_openot_ingest_and_catch_up_qualification_floors() {
         enabled: true,
         backend: Some(OpenOtPersistenceBackend::Sqlite),
         sqlite: Some(OpenOtSqlitePersistenceConfig {
-            path: root.join("sqlite/openot.sqlite3"),
+            path: root.join("sqlite/trust-logging.sqlite3"),
         }),
         ..OpenOtPersistenceConfig::default()
     };

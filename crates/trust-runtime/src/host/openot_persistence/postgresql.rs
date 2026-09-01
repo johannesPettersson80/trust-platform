@@ -1,10 +1,11 @@
-use std::{fs, path::Path};
+use std::{error::Error as _, fs, path::Path};
 
 use native_tls::{Certificate, TlsConnector};
 use postgres::error::SqlState;
 use postgres::Client;
 use postgres_native_tls::MakeTlsConnector;
 
+use super::contracts::LOGGING_SCHEMA_GENERATION;
 use super::projection::LoggingProjector;
 use super::{CommitOutcome, DocumentSink, PersistenceBatch, PersistenceError};
 
@@ -12,7 +13,6 @@ use super::{CommitOutcome, DocumentSink, PersistenceBatch, PersistenceError};
 pub struct PostgreSqlDocumentSink {
     pub(super) client: Client,
     pub(super) schema: String,
-    timescale: bool,
     projector: LoggingProjector,
 }
 
@@ -25,10 +25,8 @@ impl std::fmt::Debug for PostgreSqlDocumentSink {
     }
 }
 
-const SCHEMA_VERSION: u32 = 3;
-
 impl PostgreSqlDocumentSink {
-    /// Connects with authenticated TLS and applies compatible migrations.
+    /// Connects with authenticated TLS and opens the initial schema generation.
     pub fn open(
         connection_url: &str,
         schema: &str,
@@ -44,6 +42,16 @@ impl PostgreSqlDocumentSink {
         ca_cert_path: &Path,
         definitions: Vec<open_ot_definition::DefinitionFile>,
     ) -> Result<Self, PersistenceError> {
+        Self::open_configured(connection_url, schema, ca_cert_path, definitions, false)
+    }
+
+    fn open_configured(
+        connection_url: &str,
+        schema: &str,
+        ca_cert_path: &Path,
+        definitions: Vec<open_ot_definition::DefinitionFile>,
+        timescale: bool,
+    ) -> Result<Self, PersistenceError> {
         validate_identifier(schema)?;
         let ca_pem = fs::read(ca_cert_path).map_err(|error| {
             PersistenceError::Commit(format!("PostgreSQL read CA certificate: {error}"))
@@ -56,7 +64,11 @@ impl PostgreSqlDocumentSink {
         let connector = connector.build().map_err(|error| {
             PersistenceError::Commit(format!("PostgreSQL build TLS connector: {error}"))
         })?;
-        let mut client = Client::connect(connection_url, MakeTlsConnector::new(connector))
+        let config: postgres::Config = connection_url.parse().map_err(|error| {
+            PersistenceError::Commit(format!("PostgreSQL connection URL is invalid: {error}"))
+        })?;
+        let mut client = config
+            .connect(MakeTlsConnector::new(connector))
             .map_err(|error| {
                 let message = format!("PostgreSQL connect with required TLS: {error}");
                 if postgresql_connect_error_is_transient(&error) {
@@ -65,12 +77,11 @@ impl PostgreSqlDocumentSink {
                     PersistenceError::Commit(message)
                 }
             })?;
-        migrate(&mut client, schema)?;
+        initialize_schema(&mut client, schema, timescale)?;
         let projector = LoggingProjector::new(definitions)?;
         Ok(Self {
             client,
             schema: schema.to_string(),
-            timescale: false,
             projector,
         })
     }
@@ -81,42 +92,7 @@ impl PostgreSqlDocumentSink {
         ca_cert_path: &Path,
         definitions: Vec<open_ot_definition::DefinitionFile>,
     ) -> Result<Self, PersistenceError> {
-        let mut sink =
-            Self::open_with_definitions(connection_url, schema, ca_cert_path, definitions)?;
-        sink.client
-            .batch_execute("CREATE EXTENSION IF NOT EXISTS timescaledb")
-            .map_err(pg_error("require TimescaleDB extension"))?;
-        sink.client
-            .batch_execute(&format!(
-                "DROP TABLE IF EXISTS \"{schema}\".openot_time_index"
-            ))
-            .map_err(pg_error("remove legacy detached TimescaleDB time index"))?;
-        for table in [
-            "event_log",
-            "logged_values",
-            "alarm_history",
-            "message_log",
-            "state_history",
-        ] {
-            sink.client
-                .batch_execute(&format!(
-                    "ALTER TABLE \"{schema}\".{table} DROP CONSTRAINT IF EXISTS {table}_pkey;
-                     DO $constraint$ BEGIN
-                       IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='\"{schema}\".{table}'::regclass AND conname='{table}_received_record_key') THEN
-                         ALTER TABLE \"{schema}\".{table} ADD CONSTRAINT {table}_received_record_key UNIQUE(received_time,record_id);
-                       END IF;
-                     END $constraint$;"
-                ))
-                .map_err(pg_error("prepare TimescaleDB public hypertable"))?;
-            sink.client
-                .query_one(
-                    "SELECT * FROM create_hypertable($1::text::regclass, by_range('received_time', INTERVAL '1 day'), if_not_exists => TRUE, migrate_data => TRUE)",
-                    &[&format!("\"{schema}\".{table}")],
-                )
-                .map_err(pg_error("create TimescaleDB public hypertable"))?;
-        }
-        sink.timescale = true;
-        Ok(sink)
+        Self::open_configured(connection_url, schema, ca_cert_path, definitions, true)
     }
 
     /// Returns the truST-owned schema version.
@@ -159,18 +135,6 @@ impl PostgreSqlDocumentSink {
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
-    pub(crate) fn downgrade_checkpoint_to_v1_for_test(&mut self) -> Result<(), PersistenceError> {
-        self.client
-            .batch_execute(&format!(
-                "DELETE FROM \"{}\".logging_checkpoint; \
-                 ALTER TABLE \"{}\".logging_checkpoint DROP COLUMN run_id; \
-                 UPDATE \"{}\".logging_schema SET version=1 WHERE singleton=TRUE;",
-                self.schema, self.schema, self.schema
-            ))
-            .map_err(pg_error("seed schema v1"))
-    }
-
-    #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn set_schema_version_for_test(
         &mut self,
         version: u32,
@@ -178,13 +142,28 @@ impl PostgreSqlDocumentSink {
         self.client
             .execute(
                 &format!(
-                    "UPDATE \"{}\".logging_schema SET version=$1 WHERE singleton=TRUE",
+                    "INSERT INTO \"{}\".logging_schema(singleton, version) VALUES (TRUE, $1)
+                     ON CONFLICT (singleton) DO UPDATE SET version=EXCLUDED.version",
                     self.schema
                 ),
                 &[&(version as i32)],
             )
             .map(|_| ())
             .map_err(pg_error("seed schema version"))
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn remove_schema_marker_for_test(&mut self) -> Result<(), PersistenceError> {
+        self.client
+            .execute(
+                &format!(
+                    "DELETE FROM \"{}\".logging_schema WHERE singleton=TRUE",
+                    self.schema
+                ),
+                &[],
+            )
+            .map(|_| ())
+            .map_err(pg_error("remove schema generation marker"))
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
@@ -224,68 +203,75 @@ impl PostgreSqlDocumentSink {
 }
 
 fn postgresql_connect_error_is_transient(error: &postgres::Error) -> bool {
-    let Some(code) = error.code() else {
-        return true;
-    };
-    code.code().starts_with("08")
-        || matches!(
-            code,
-            &SqlState::ADMIN_SHUTDOWN | &SqlState::CRASH_SHUTDOWN | &SqlState::CANNOT_CONNECT_NOW
-        )
+    if let Some(code) = error.code() {
+        return code.code().starts_with("08")
+            || matches!(
+                code,
+                &SqlState::ADMIN_SHUTDOWN
+                    | &SqlState::CRASH_SHUTDOWN
+                    | &SqlState::CANNOT_CONNECT_NOW
+            );
+    }
+    error_source_is_transient(error.source())
 }
 
-fn migrate(client: &mut Client, schema: &str) -> Result<(), PersistenceError> {
+fn error_source_is_transient(mut source: Option<&(dyn std::error::Error + 'static)>) -> bool {
+    let mut has_io_error = false;
+    while let Some(cause) = source {
+        if cause.downcast_ref::<native_tls::Error>().is_some() {
+            return false;
+        }
+        has_io_error |= cause.downcast_ref::<std::io::Error>().is_some();
+        source = cause.source();
+    }
+    has_io_error
+}
+
+fn initialize_schema(
+    client: &mut Client,
+    schema: &str,
+    timescale: bool,
+) -> Result<(), PersistenceError> {
     let mut transaction = client
         .transaction()
-        .map_err(pg_error("begin schema migration"))?;
+        .map_err(pg_error("begin schema initialization"))?;
     transaction
-        .batch_execute(&format!(
-            "CREATE SCHEMA IF NOT EXISTS \"{schema}\";\n\
-             DO $migration$ BEGIN
-               IF to_regclass('\"{schema}\".logging_schema') IS NULL AND to_regclass('\"{schema}\".openot_schema') IS NOT NULL THEN
-                 ALTER TABLE \"{schema}\".openot_schema RENAME TO logging_schema;
-               END IF;
-               IF to_regclass('\"{schema}\".logging_records') IS NULL AND to_regclass('\"{schema}\".openot_documents') IS NOT NULL THEN
-                 ALTER TABLE \"{schema}\".openot_documents RENAME TO logging_records;
-               END IF;
-               IF to_regclass('\"{schema}\".logging_checkpoint') IS NULL AND to_regclass('\"{schema}\".openot_checkpoint') IS NOT NULL THEN
-                 ALTER TABLE \"{schema}\".openot_checkpoint RENAME TO logging_checkpoint;
-               END IF;
-             END $migration$;
-             CREATE TABLE IF NOT EXISTS \"{schema}\".logging_schema (\n\
-                 singleton BOOLEAN PRIMARY KEY CHECK (singleton),\n\
-                 version INTEGER NOT NULL CHECK (version >= 1)\n\
-             );"
-        ))
-        .map_err(pg_error("create schema metadata"))?;
-    let version = transaction
+        .batch_execute(&format!("CREATE SCHEMA IF NOT EXISTS \"{schema}\";"))
+        .map_err(pg_error("create logging schema namespace"))?;
+    let owned_object = transaction
         .query_opt(
-            &format!(
-                "SELECT version FROM \"{schema}\".logging_schema WHERE singleton = TRUE FOR UPDATE"
-            ),
-            &[],
+            "SELECT table_name FROM information_schema.tables WHERE table_schema=$1 AND (left(table_name,8)='logging_' OR table_name IN ('event_log','logged_values','alarm_history','message_log','state_history','batch_history','recipe_history','material_additions','operator_activity','audit_log','electronic_signatures','system_events','data_loss','unresolved_records','openot_schema','openot_documents','openot_checkpoint')) ORDER BY table_name LIMIT 1",
+            &[&schema],
         )
-        .map_err(pg_error("lock schema version"))?
-        .map(|row| row.get::<_, i32>(0));
-    if let Some(version) = version {
-        if version > SCHEMA_VERSION as i32 {
+        .map_err(pg_error("inspect schema ownership"))?;
+    if owned_object.is_some() {
+        let version = transaction
+            .query_opt(
+                &format!("SELECT version FROM \"{schema}\".logging_schema WHERE singleton=TRUE"),
+                &[],
+            )
+            .map_err(|_| PersistenceError::Commit(
+                "PostgreSQL incompatible pre-release schema; back up and recreate the development database".into(),
+            ))?
+            .map(|row| row.get::<_, i32>(0));
+        if version != Some(LOGGING_SCHEMA_GENERATION as i32) {
             return Err(PersistenceError::Commit(format!(
-                "PostgreSQL OpenOT schema version {version} is newer than supported version {SCHEMA_VERSION}"
+                "PostgreSQL incompatible pre-release schema generation {version:?}; back up and recreate the development database"
             )));
         }
-    } else {
-        transaction
-            .execute(
-                &format!(
-                    "INSERT INTO \"{schema}\".logging_schema (singleton, version) VALUES (TRUE, $1)"
-                ),
-                &[&(SCHEMA_VERSION as i32)],
-            )
-            .map_err(pg_error("write schema version"))?;
+        validate_schema_shape(&mut transaction, schema)?;
+        if timescale {
+            validate_timescale_shape(&mut transaction, schema)?;
+        }
+        return transaction
+            .commit()
+            .map_err(pg_error("commit schema validation"));
     }
     transaction
         .batch_execute(&format!(
-            "CREATE TABLE IF NOT EXISTS \"{schema}\".logging_records (\n\
+            "CREATE TABLE \"{schema}\".logging_schema (singleton BOOLEAN PRIMARY KEY CHECK(singleton),version INTEGER NOT NULL CHECK(version=1));\n\
+             INSERT INTO \"{schema}\".logging_schema(singleton,version) VALUES(TRUE,1);\n\
+             CREATE TABLE \"{schema}\".logging_records (\n\
                  identity_key TEXT PRIMARY KEY,\n\
                  document_kind TEXT NOT NULL CHECK (document_kind IN ('event', 'loss', 'placeholder')),\n\
                  buffer_id BIGINT NOT NULL CHECK (buffer_id BETWEEN 0 AND 4294967295),\n\
@@ -303,26 +289,23 @@ fn migrate(client: &mut Client, schema: &str) -> Result<(), PersistenceError> {
                  definition_hash TEXT NOT NULL,\n\
                  canonical_json TEXT NOT NULL\n\
              );\n\
-             CREATE INDEX IF NOT EXISTS logging_records_source_sequence\n\
+             CREATE INDEX logging_records_source_sequence\n\
                  ON \"{schema}\".logging_records (buffer_id, run_id, source_id, seq);\n\
-             CREATE INDEX IF NOT EXISTS logging_records_receive_time\n\
+             CREATE INDEX logging_records_receive_time\n\
                  ON \"{schema}\".logging_records (receive_time_ns);\n\
-             CREATE INDEX IF NOT EXISTS logging_records_event_type\n\
+             CREATE INDEX logging_records_event_type\n\
                  ON \"{schema}\".logging_records (event_type_id);\n\
-             CREATE TABLE IF NOT EXISTS \"{schema}\".logging_checkpoint (\n\
+             CREATE TABLE \"{schema}\".logging_checkpoint (\n\
                  singleton BOOLEAN PRIMARY KEY CHECK (singleton),\n\
                  buffer_id BIGINT NOT NULL CHECK (buffer_id BETWEEN 0 AND 4294967295),\n\
                  run_id BYTEA NOT NULL CHECK (octet_length(run_id) = 8),\n\
                  cursor_abs BYTEA NOT NULL CHECK (octet_length(cursor_abs) = 8)\n\
-             );\n\
-             ALTER TABLE \"{schema}\".logging_checkpoint\n\
-                 ADD COLUMN IF NOT EXISTS run_id BYTEA NOT NULL DEFAULT decode('0000000000000000', 'hex') CHECK (octet_length(run_id) = 8);\n\
-             UPDATE \"{schema}\".logging_schema SET version = {SCHEMA_VERSION} WHERE singleton = TRUE;"
+             );"
         ))
-        .map_err(pg_error("apply schema migration"))?;
+        .map_err(pg_error("create generation-1 internal schema"))?;
     transaction
         .batch_execute(&format!(
-            "CREATE TABLE IF NOT EXISTS \"{schema}\".event_log (
+            "CREATE TABLE \"{schema}\".event_log (
                  record_id TEXT PRIMARY KEY REFERENCES \"{schema}\".logging_records(identity_key),
                  event_time TIMESTAMPTZ, event_time_ns NUMERIC(20),
                  received_time TIMESTAMPTZ NOT NULL, received_time_ns NUMERIC(20) NOT NULL,
@@ -334,7 +317,7 @@ fn migrate(client: &mut Client, schema: &str) -> Result<(), PersistenceError> {
                  partial_payload BOOLEAN NOT NULL, event_type_id BIGINT NOT NULL,
                  event_name TEXT NOT NULL, has_unclassified_fields BOOLEAN NOT NULL
              );
-             CREATE TABLE IF NOT EXISTS \"{schema}\".logged_values (
+             CREATE TABLE \"{schema}\".logged_values (
                  record_id TEXT PRIMARY KEY REFERENCES \"{schema}\".logging_records(identity_key),
                  event_time TIMESTAMPTZ, event_time_ns NUMERIC(20),
                  received_time TIMESTAMPTZ NOT NULL, received_time_ns NUMERIC(20) NOT NULL,
@@ -349,7 +332,7 @@ fn migrate(client: &mut Client, schema: &str) -> Result<(), PersistenceError> {
                  signed_value BIGINT, unsigned_value NUMERIC(20), number_value DOUBLE PRECISION,
                  text_value TEXT, exact_value TEXT NOT NULL
              );
-             CREATE TABLE IF NOT EXISTS \"{schema}\".alarm_history (
+             CREATE TABLE \"{schema}\".alarm_history (
                  record_id TEXT PRIMARY KEY REFERENCES \"{schema}\".logging_records(identity_key),
                  event_time TIMESTAMPTZ, event_time_ns NUMERIC(20),
                  received_time TIMESTAMPTZ NOT NULL, received_time_ns NUMERIC(20) NOT NULL,
@@ -362,11 +345,113 @@ fn migrate(client: &mut Client, schema: &str) -> Result<(), PersistenceError> {
                  condition_class TEXT, lifecycle_action TEXT NOT NULL
              );"
         ))
-        .map_err(pg_error("create schema v3 public read model"))?;
+        .map_err(pg_error("create generation-1 public read model"))?;
     super::postgres_read_model::create_domain_schema(&mut transaction, schema)?;
+    if timescale {
+        initialize_timescale_shape(&mut transaction, schema)?;
+    }
     transaction
         .commit()
-        .map_err(pg_error("commit schema migration"))
+        .map_err(pg_error("commit schema initialization"))
+}
+
+fn initialize_timescale_shape(
+    transaction: &mut postgres::Transaction<'_>,
+    schema: &str,
+) -> Result<(), PersistenceError> {
+    transaction
+        .batch_execute("CREATE EXTENSION IF NOT EXISTS timescaledb")
+        .map_err(pg_error("require TimescaleDB extension"))?;
+    for table in [
+        "event_log",
+        "logged_values",
+        "alarm_history",
+        "message_log",
+        "state_history",
+    ] {
+        transaction
+            .batch_execute(&format!(
+                "ALTER TABLE \"{schema}\".{table} DROP CONSTRAINT {table}_pkey;
+                 ALTER TABLE \"{schema}\".{table} ADD CONSTRAINT {table}_received_record_key UNIQUE(received_time,record_id);"
+            ))
+            .map_err(pg_error("prepare TimescaleDB public hypertable"))?;
+        transaction
+            .query_one(
+                "SELECT * FROM create_hypertable($1::text::regclass, by_range('received_time', INTERVAL '1 day'), if_not_exists => FALSE, migrate_data => FALSE)",
+                &[&format!("\"{schema}\".{table}")],
+            )
+            .map_err(pg_error("create TimescaleDB public hypertable"))?;
+    }
+    Ok(())
+}
+
+fn validate_timescale_shape(
+    transaction: &mut postgres::Transaction<'_>,
+    schema: &str,
+) -> Result<(), PersistenceError> {
+    for table in [
+        "event_log",
+        "logged_values",
+        "alarm_history",
+        "message_log",
+        "state_history",
+    ] {
+        let exists: bool = transaction
+            .query_one(
+                "SELECT EXISTS(SELECT 1 FROM timescaledb_information.hypertables WHERE hypertable_schema=$1 AND hypertable_name=$2)",
+                &[&schema, &table],
+            )
+            .map_err(pg_error("validate TimescaleDB hypertable"))?
+            .get(0);
+        if !exists {
+            return Err(PersistenceError::Commit(format!(
+                "TimescaleDB incompatible pre-release schema: required hypertable {table} is missing; back up and recreate the development database"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_schema_shape(
+    transaction: &mut postgres::Transaction<'_>,
+    schema: &str,
+) -> Result<(), PersistenceError> {
+    const REQUIRED_TABLES: &[&str] = &[
+        "logging_schema",
+        "logging_records",
+        "logging_checkpoint",
+        "event_log",
+        "logged_values",
+        "alarm_history",
+        "message_log",
+        "state_history",
+        "batch_history",
+        "recipe_history",
+        "material_additions",
+        "operator_activity",
+        "audit_log",
+        "electronic_signatures",
+        "system_events",
+        "data_loss",
+        "unresolved_records",
+    ];
+    let found: Vec<String> = transaction
+        .query(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema=$1",
+            &[&schema],
+        )
+        .map_err(pg_error("validate schema objects"))?
+        .into_iter()
+        .map(|row| row.get(0))
+        .collect();
+    for required in REQUIRED_TABLES {
+        if !found.iter().any(|candidate| candidate == required) {
+            return Err(PersistenceError::Commit(format!(
+                "PostgreSQL incompatible pre-release schema: required object {required} is missing; back up and recreate the development database"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn validate_identifier(value: &str) -> Result<(), PersistenceError> {
@@ -627,4 +712,30 @@ fn decode_u64(bytes: &[u8], context: &str) -> Result<u64, PersistenceError> {
         ))
     })?;
     Ok(u64::from_be_bytes(bytes))
+}
+
+#[cfg(test)]
+mod connection_error_tests {
+    use super::error_source_is_transient;
+
+    #[test]
+    fn typed_io_error_is_retryable_without_diagnostic_text_matching() {
+        let error = std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "arbitrary");
+        assert!(error_source_is_transient(Some(&error)));
+    }
+
+    #[test]
+    fn typed_tls_error_is_permanent_even_when_it_wraps_connection_text() {
+        let error = match native_tls::Certificate::from_pem(b"not a certificate") {
+            Ok(_) => panic!("invalid PEM must produce a typed TLS error"),
+            Err(error) => error,
+        };
+        assert!(!error_source_is_transient(Some(&error)));
+    }
+
+    #[test]
+    fn unknown_no_sqlstate_error_is_permanent() {
+        let error = std::fmt::Error;
+        assert!(!error_source_is_transient(Some(&error)));
+    }
 }

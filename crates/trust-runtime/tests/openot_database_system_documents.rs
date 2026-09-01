@@ -248,7 +248,7 @@ fn runtime_system_loss_and_placeholder_documents_round_trip_through_every_real_p
     let expected = expected_json(&batch);
     let pid = std::process::id();
 
-    let sqlite_path = root.join("sqlite/openot.sqlite3");
+    let sqlite_path = root.join("sqlite/trust-logging.sqlite3");
     let mut sqlite = SqliteDocumentSink::open(&sqlite_path).expect("open SQLite");
     commit_and_compare(
         &mut sqlite,
@@ -270,7 +270,7 @@ fn runtime_system_loss_and_placeholder_documents_round_trip_through_every_real_p
 
     let mut postgresql = PostgreSqlDocumentSink::open(
         &std::env::var("TRUST_TEST_OPENOT_POSTGRES_URL").expect("PostgreSQL URL"),
-        &format!("openot_system_{pid}"),
+        &format!("logging_system_{pid}"),
         std::path::Path::new(
             &std::env::var("TRUST_TEST_OPENOT_POSTGRES_CA").expect("PostgreSQL CA"),
         ),
@@ -286,7 +286,7 @@ fn runtime_system_loss_and_placeholder_documents_round_trip_through_every_real_p
 
     let mut timescale = TimescaleDbDocumentSink::open(
         &std::env::var("TRUST_TEST_OPENOT_TIMESCALE_URL").expect("TimescaleDB URL"),
-        &format!("openot_system_{pid}"),
+        &format!("logging_system_{pid}"),
         std::path::Path::new(
             &std::env::var("TRUST_TEST_OPENOT_TIMESCALE_CA").expect("TimescaleDB CA"),
         ),
@@ -314,7 +314,7 @@ fn runtime_system_loss_and_placeholder_documents_round_trip_through_every_real_p
     ] {
         let mut sink = MySqlDocumentSink::open(
             &std::env::var(url_env).unwrap_or_else(|_| panic!("{product} URL")),
-            "openot",
+            "trust_logging",
             std::path::Path::new(&std::env::var(ca_env).unwrap_or_else(|_| panic!("{product} CA"))),
         )
         .unwrap_or_else(|error| panic!("open {product}: {error:?}"));
@@ -334,7 +334,7 @@ fn runtime_system_loss_and_placeholder_documents_round_trip_through_every_real_p
 
     let mut sqlserver = SqlServerDocumentSink::open(
         &std::env::var("TRUST_TEST_OPENOT_SQLSERVER_URL").expect("SQL Server URL"),
-        &format!("openot_system_{pid}"),
+        &format!("logging_system_{pid}"),
         std::path::Path::new(
             &std::env::var("TRUST_TEST_OPENOT_SQLSERVER_CA").expect("SQL Server CA"),
         ),
@@ -352,7 +352,7 @@ fn runtime_system_loss_and_placeholder_documents_round_trip_through_every_real_p
     let mut influx = InfluxDb3DocumentSink::open(
         &std::env::var("TRUST_TEST_OPENOT_INFLUX_HOST").expect("InfluxDB host"),
         &std::env::var("TRUST_TEST_OPENOT_INFLUX_TOKEN").expect("InfluxDB token"),
-        "openot",
+        "trust_logging",
         &spool,
         std::path::Path::new(&std::env::var("TRUST_TEST_OPENOT_INFLUX_CA").expect("InfluxDB CA")),
     )

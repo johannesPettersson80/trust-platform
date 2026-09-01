@@ -1,5 +1,8 @@
 use open_ot_document::Document;
 
+/// Initial database contract generation shared by every persistence adapter.
+pub(crate) const LOGGING_SCHEMA_GENERATION: u32 = 1;
+
 #[cfg(all(test, feature = "openot-real-database-tests"))]
 pub(crate) type StoredCheckpointRow = (u32, Vec<u8>, Vec<u8>);
 

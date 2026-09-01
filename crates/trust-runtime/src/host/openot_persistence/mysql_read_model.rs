@@ -22,14 +22,14 @@ pub(super) fn create_domain_schema(connection: &mut Conn) -> Result<(), Persiste
     ];
     for (table, fields) in tables {
         connection
-            .query_drop(format!("CREATE TABLE IF NOT EXISTS `{table}` ({COMMON_DDL},{fields},PRIMARY KEY(record_id),FOREIGN KEY(record_id) REFERENCES openot_documents(identity_key)) ENGINE=InnoDB"))
+            .query_drop(format!("CREATE TABLE IF NOT EXISTS `{table}` ({COMMON_DDL},{fields},PRIMARY KEY(record_id),FOREIGN KEY(record_id) REFERENCES logging_records(identity_key)) ENGINE=InnoDB"))
             .map_err(error("create MySQL domain table"))?;
     }
     connection
-        .query_drop(format!("CREATE TABLE IF NOT EXISTS data_loss ({COMMON_DDL},first_sequence DECIMAL(20,0) NOT NULL,last_sequence DECIMAL(20,0) NOT NULL,lost_count DECIMAL(20,0) NOT NULL,basis VARCHAR(16) NOT NULL,PRIMARY KEY(record_id),FOREIGN KEY(record_id) REFERENCES openot_documents(identity_key)) ENGINE=InnoDB"))
+        .query_drop(format!("CREATE TABLE IF NOT EXISTS data_loss ({COMMON_DDL},first_sequence DECIMAL(20,0) NOT NULL,last_sequence DECIMAL(20,0) NOT NULL,lost_count DECIMAL(20,0) NOT NULL,basis VARCHAR(16) NOT NULL,PRIMARY KEY(record_id),FOREIGN KEY(record_id) REFERENCES logging_records(identity_key)) ENGINE=InnoDB"))
         .map_err(error("create MySQL data loss table"))?;
     connection
-        .query_drop(format!("CREATE TABLE IF NOT EXISTS unresolved_records ({COMMON_DDL},event_type_id INT UNSIGNED NOT NULL,reason TEXT NOT NULL,diagnostic_summary TEXT NULL,PRIMARY KEY(record_id),FOREIGN KEY(record_id) REFERENCES openot_documents(identity_key)) ENGINE=InnoDB"))
+        .query_drop(format!("CREATE TABLE IF NOT EXISTS unresolved_records ({COMMON_DDL},event_type_id INT UNSIGNED NOT NULL,reason TEXT NOT NULL,diagnostic_summary TEXT NULL,PRIMARY KEY(record_id),FOREIGN KEY(record_id) REFERENCES logging_records(identity_key)) ENGINE=InnoDB"))
         .map_err(error("create MySQL unresolved table"))?;
     Ok(())
 }

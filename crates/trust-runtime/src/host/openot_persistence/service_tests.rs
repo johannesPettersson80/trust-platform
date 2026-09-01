@@ -150,13 +150,13 @@ fn service_rejects_missing_database_environment_before_worker_start() {
 
 #[cfg(feature = "openot-database-sqlite")]
 #[test]
-fn service_faults_newer_schema_without_spending_reconnect_budget() {
+fn service_faults_incompatible_pre_release_schema_without_spending_reconnect_budget() {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
     let root = std::env::temp_dir().join(format!(
-        "trust-openot-service-newer-schema-{}-{stamp}",
+        "trust-logging-service-incompatible-schema-{}-{stamp}",
         std::process::id()
     ));
     std::fs::create_dir_all(&root).expect("root");
@@ -171,11 +171,11 @@ fn service_faults_newer_schema_without_spending_reconnect_budget() {
     )
     .expect("write definition");
     SharedRecordPublisher::create(root.join("openot.shm"), 4096).expect("publisher");
-    let database_path = root.join("openot.sqlite3");
+    let database_path = root.join("trust-logging.sqlite3");
     rusqlite::Connection::open(&database_path)
-        .expect("create newer database")
+        .expect("create incompatible pre-release database")
         .execute_batch("CREATE TABLE sentinel(value TEXT); PRAGMA user_version=5;")
-        .expect("seed newer schema");
+        .expect("seed incompatible pre-release schema");
     let config = OpenOtTelemetryConfig {
         enabled: true,
         path: "openot.shm".into(),
@@ -206,12 +206,10 @@ fn service_faults_newer_schema_without_spending_reconnect_budget() {
     let status = service.status();
     assert_eq!(status.state, OpenOtPersistenceState::Faulted);
     assert_eq!(status.documents_retried, 0);
-    assert!(
-        status
-            .last_error
-            .as_deref()
-            .is_some_and(|message| message.contains("schema version 5 is newer")),
-        "unexpected status: {status:?}"
+    assert_eq!(
+        status.last_error.as_deref(),
+        Some("selected OpenOT persistence backend operation failed"),
+        "operator status must redact storage details: {status:?}"
     );
     service.shutdown();
     let version: u32 = rusqlite::Connection::open(database_path)
@@ -258,7 +256,7 @@ fn enabled_service_persists_shared_memory_record_off_thread_and_stops() {
         backend: Some(OpenOtPersistenceBackend::Sqlite),
         flush_interval_ms: 10,
         sqlite: Some(OpenOtSqlitePersistenceConfig {
-            path: std::path::PathBuf::from("openot.sqlite3"),
+            path: std::path::PathBuf::from("trust-logging.sqlite3"),
         }),
         ..OpenOtPersistenceConfig::default()
     };
@@ -272,10 +270,10 @@ fn enabled_service_persists_shared_memory_record_off_thread_and_stops() {
     }
     assert_eq!(service.status().documents_committed, 1);
     assert_eq!(service.status().state, OpenOtPersistenceState::Ready);
-    assert_eq!(service.status().schema_version, Some(4));
+    assert_eq!(service.status().schema_version, Some(1));
     service.shutdown();
     assert_eq!(service.status().state, OpenOtPersistenceState::Stopped);
-    assert!(root.join("openot.sqlite3").is_file());
+    assert!(root.join("trust-logging.sqlite3").is_file());
     std::fs::remove_dir_all(root).ok();
 }
 
@@ -400,7 +398,7 @@ fn sqlite_service_restart_uses_durable_checkpoint_and_catches_up_once() {
         backend: Some(OpenOtPersistenceBackend::Sqlite),
         flush_interval_ms: 10,
         sqlite: Some(OpenOtSqlitePersistenceConfig {
-            path: "history/openot.sqlite3".into(),
+            path: "history/trust-logging.sqlite3".into(),
         }),
         ..OpenOtPersistenceConfig::default()
     };
@@ -438,7 +436,7 @@ fn sqlite_service_restart_uses_durable_checkpoint_and_catches_up_once() {
     assert_eq!(second_status.documents_committed, 2);
     second.shutdown();
 
-    let database = rusqlite::Connection::open(root.join("history/openot.sqlite3"))
+    let database = rusqlite::Connection::open(root.join("history/trust-logging.sqlite3"))
         .expect("inspect restart database");
     let events: i64 = database
         .query_row(
@@ -470,7 +468,7 @@ fn shutdown_does_not_wait_past_the_configured_deadline_for_a_stuck_backend_call(
     let status = Arc::new(Mutex::new(OpenOtPersistenceStatus {
         state: OpenOtPersistenceState::Ready,
         backend: Some("sqlite".to_string()),
-        schema_version: Some(2),
+        schema_version: Some(1),
         documents_read: 0,
         documents_committed: 0,
         documents_duplicated: 0,
@@ -639,7 +637,7 @@ fn postgresql_service_reconnects_and_catches_up_after_real_server_restart() {
         retry_max_attempts: 200,
         postgresql: Some(OpenOtPostgreSqlPersistenceConfig {
             connection_url_env: "TRUST_TEST_OPENOT_POSTGRES_URL".into(),
-            schema: format!("openot_reconnect_{}_{}", std::process::id(), stamp).into(),
+            schema: format!("logging_reconnect_{}_{}", std::process::id(), stamp).into(),
             tls: OpenOtPersistenceTlsMode::Require,
             ca_cert_path: Some(ca.into()),
         }),
@@ -666,7 +664,7 @@ fn postgresql_service_reconnects_and_catches_up_after_real_server_restart() {
     wait_for_status(&service, Duration::from_secs(5), |status| {
         status.state == OpenOtPersistenceState::Ready && status.cursor_abs > 0
     });
-    assert_eq!(service.status().schema_version, Some(3));
+    assert_eq!(service.status().schema_version, Some(1));
 
     let stopped = std::process::Command::new("docker")
         .args(["stop", container.as_str()])
@@ -760,7 +758,7 @@ fn unresolved_document_keeps_caught_up_service_degraded() {
         backend: Some(OpenOtPersistenceBackend::Sqlite),
         flush_interval_ms: 10,
         sqlite: Some(OpenOtSqlitePersistenceConfig {
-            path: std::path::PathBuf::from("openot.sqlite3"),
+            path: std::path::PathBuf::from("trust-logging.sqlite3"),
         }),
         ..OpenOtPersistenceConfig::default()
     };

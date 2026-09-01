@@ -11,6 +11,11 @@ No existing checked row is accepted as proof by itself. A row closes only with
 the owning specification, an executable assertion at the closest boundary,
 and current evidence from the corrected exact candidate.
 
+The initial-schema correction is now owned by
+`openot-database-initial-schema-corrective-checklist.md`. References below to
+migration or different backend schema versions are historical evidence from
+unreleased development builds and do not define the product contract.
+
 ## Confirmed release blockers
 
 - [x] `OOTDB-AUDIT-P1-001` Remote database unavailability during initial open

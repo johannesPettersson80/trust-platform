@@ -12,15 +12,17 @@ historical implementation evidence, not current release acceptance, until the
 corrective board closes.
 
 Active correction board:
-`docs/internal/testing/checklists/openot-typed-database-read-model-checklist.md`.
+`docs/internal/testing/checklists/openot-database-initial-schema-corrective-checklist.md`.
 That dedicated board controls the specification-to-real-runtime execution order
-for the typed user-facing database model; this larger checklist retains the
-original persistence history and release evidence.
+for the initial schema correction. This larger checklist retains development
+history only. Every v1/v2/v3/v4 migration, rename, backfill, reconstruction,
+or per-backend-version completion row below is superseded and is not a shipped
+requirement or current acceptance claim.
 
 The 2026-08-30 specification correction invalidates the prior final candidate:
 canonical OpenOT storage remains internal replay authority, but it is not the
 ordinary user query model. No push or release occurred. All new unchecked
-projection, migration, example, real-product, and final-candidate rows must
+projection, schema initialization, example, real-product, and final-candidate rows must
 close before this feature can again be called complete.
 
 ## Outcome
@@ -113,7 +115,7 @@ A compile error, missing dependency, broken harness, timeout, ignored test, filt
   flush_interval_ms = 250
 
   [runtime.openot.persistence.sqlite]
-  path = "history/openot.sqlite3"
+  path = "history/trust-logging.sqlite3"
   ```
 
   A server-backed example uses the same discriminator and a backend-specific table without putting credentials in the tracked file:
@@ -125,7 +127,7 @@ A compile error, missing dependency, broken harness, timeout, ignored test, filt
 
   [runtime.openot.persistence.postgresql]
   connection_url_env = "TRUST_OPENOT_DATABASE_URL"
-  schema = "openot"
+  schema = "trust_logging"
   ```
 
   Exact names remain subject to the Phase 0 specification review, but selection in TOML is mandatory.

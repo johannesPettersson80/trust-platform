@@ -1177,12 +1177,12 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
         let evidence_root = std::path::PathBuf::from(evidence_root);
         std::fs::create_dir_all(&evidence_root).expect("create SQLite evidence directory");
         drop(worker);
-        let retained_path = evidence_root.join("openot.sqlite3");
+        let retained_path = evidence_root.join("trust-logging.sqlite3");
         std::fs::copy(&database_path, &retained_path).expect("retain validated SQLite database");
         let mut source_wal = database_path.as_os_str().to_os_string();
         source_wal.push("-wal");
         let source_wal = std::path::PathBuf::from(source_wal);
-        let retained_wal = evidence_root.join("openot.sqlite3-wal");
+        let retained_wal = evidence_root.join("trust-logging.sqlite3-wal");
         std::fs::copy(&source_wal, &retained_wal).expect("retain validated SQLite WAL snapshot");
         let retained = rusqlite::Connection::open(&retained_path)
             .expect("open retained SQLite database and WAL");
@@ -1192,7 +1192,7 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
         let retained_documents: i64 = retained
             .query_row("SELECT COUNT(*) FROM logging_records", [], |row| row.get(0))
             .expect("inspect retained SQLite document count");
-        assert_eq!(retained_schema, 4);
+        assert_eq!(retained_schema, 1);
         assert_eq!(retained_documents, persisted);
         retained
             .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
@@ -1209,7 +1209,7 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
         let retained_documents: i64 = retained
             .query_row("SELECT COUNT(*) FROM logging_records", [], |row| row.get(0))
             .expect("inspect retained SQLite document count");
-        assert_eq!(retained_schema, 4);
+        assert_eq!(retained_schema, 1);
         assert_eq!(retained_documents, persisted);
         std::fs::write(
             evidence_root.join("openot-definition.json"),
@@ -1221,7 +1221,7 @@ fn openot_database_example_persists_real_st_documents_to_sqlite() {
         )
         .expect("retain generated OpenOT definition");
         let reconciliation = serde_json::json!({
-            "schemaVersion": 4,
+            "schemaGeneration": 1,
             "integrityCheck": "ok",
             "persistedDocuments": persisted,
             "insertedDocuments": committed.inserted,
@@ -1264,7 +1264,7 @@ fn openot_persistence_forced_ring_overflow_persists_both_loss_bases() {
         std::fs::set_permissions(&database_root, std::fs::Permissions::from_mode(0o700))
             .expect("secure database root");
     }
-    let database_path = database_root.join("openot.sqlite3");
+    let database_path = database_root.join("trust-logging.sqlite3");
     let mut publisher = SharedRecordPublisher::create(&ring_path, 4096).expect("publisher");
     for seq in 0..200u64 {
         publisher
@@ -1395,7 +1395,7 @@ fn openot_slow_real_sqlite_consumer_remains_bounded_and_reports_ring_loss() {
         std::fs::set_permissions(&database_root, std::fs::Permissions::from_mode(0o700))
             .expect("secure slow-consumer root");
     }
-    let database_path = database_root.join("openot.sqlite3");
+    let database_path = database_root.join("trust-logging.sqlite3");
     let mut publisher = SharedRecordPublisher::create(&ring_path, 4096).expect("publisher");
     publisher
         .append_record(&Record::new(
@@ -1507,7 +1507,7 @@ END_PROGRAM
             batch_size: 256,
             flush_interval_ms: 10,
             sqlite: Some(OpenOtSqlitePersistenceConfig {
-                path: root.join("history/openot.sqlite3"),
+                path: root.join("history/trust-logging.sqlite3"),
             }),
             ..OpenOtPersistenceConfig::default()
         },
@@ -1640,7 +1640,7 @@ fn openot_database_example_persists_same_real_st_workload_to_every_network_backe
     let postgres_ca = std::env::var("TRUST_TEST_OPENOT_POSTGRES_CA").expect("PostgreSQL CA");
     let mut postgres = PostgreSqlDocumentSink::open_with_definitions(
         &postgres_url,
-        &format!("openot_e2e_{pid}"),
+        &format!("logging_e2e_{pid}"),
         std::path::Path::new(&postgres_ca),
         vec![definition.clone()],
     )
@@ -1656,7 +1656,7 @@ fn openot_database_example_persists_same_real_st_workload_to_every_network_backe
     let timescale_ca = std::env::var("TRUST_TEST_OPENOT_TIMESCALE_CA").expect("Timescale CA");
     let mut timescale = TimescaleDbDocumentSink::open_with_definitions(
         &timescale_url,
-        &format!("openot_e2e_{pid}"),
+        &format!("logging_e2e_{pid}"),
         std::path::Path::new(&timescale_ca),
         vec![definition.clone()],
     )
@@ -1684,7 +1684,7 @@ fn openot_database_example_persists_same_real_st_workload_to_every_network_backe
         let ca = std::env::var(ca_env).unwrap_or_else(|_| panic!("{name} CA"));
         let mut sink = MySqlDocumentSink::open_with_definitions(
             &url,
-            "openot",
+            "trust_logging",
             std::path::Path::new(&ca),
             vec![definition.clone()],
         )
@@ -1704,7 +1704,7 @@ fn openot_database_example_persists_same_real_st_workload_to_every_network_backe
     let sqlserver_ca = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_CA").expect("SQL Server CA");
     let mut sqlserver = SqlServerDocumentSink::open_with_definitions(
         &sqlserver_url,
-        &format!("openot_e2e_{pid}"),
+        &format!("logging_e2e_{pid}"),
         std::path::Path::new(&sqlserver_ca),
         vec![definition.clone()],
     )
@@ -1724,7 +1724,7 @@ fn openot_database_example_persists_same_real_st_workload_to_every_network_backe
     let mut influx = InfluxDb3DocumentSink::open_bounded_with_definitions(
         &influx_host,
         &influx_token,
-        "openot",
+        "trust_logging",
         &spool,
         std::path::Path::new(&influx_ca),
         u64::MAX,

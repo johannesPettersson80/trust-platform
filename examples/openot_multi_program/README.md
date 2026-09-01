@@ -68,7 +68,7 @@ For SQLite, run the checked-in default directly:
 ```bash
 trust-runtime build --project examples/openot_multi_program --sources src
 trust-runtime run --project examples/openot_multi_program
-sqlite3 examples/openot_multi_program/openot.sqlite3 \
+sqlite3 examples/openot_multi_program/history/trust-logging.sqlite3 \
   'SELECT event_name, COUNT(*) FROM event_log GROUP BY 1 ORDER BY 1;'
 ```
 

@@ -34,7 +34,7 @@ backend = "postgresql"
 
 [runtime.openot.persistence.postgresql]
 connection_url_env = "TRUST_OPENOT_DATABASE_URL"
-schema = "openot"
+schema = "trust_logging"
 tls = "require"
 ca_cert_path = "certs/openot-database-ca.pem"
 

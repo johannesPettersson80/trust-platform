@@ -2,6 +2,7 @@ use std::path::Path;
 
 use mysql::{params, prelude::Queryable, Conn, Opts, OptsBuilder, SslOpts, TxOpts};
 
+use super::contracts::LOGGING_SCHEMA_GENERATION;
 use super::projection::LoggingProjector;
 use super::{CommitOutcome, DocumentSink, PersistenceBatch, PersistenceError};
 
@@ -21,10 +22,8 @@ impl std::fmt::Debug for MySqlDocumentSink {
     }
 }
 
-const SCHEMA_VERSION: u32 = 3;
-
 impl MySqlDocumentSink {
-    /// Connects with authenticated TLS and applies compatible migrations.
+    /// Connects with authenticated TLS and opens the initial schema generation.
     pub fn open(
         connection_url: &str,
         database: &str,
@@ -68,7 +67,7 @@ impl MySqlDocumentSink {
             .query_drop(format!("USE `{database}`"))
             .map_err(|error| mysql_error("select configured database", error))?;
         let projector = LoggingProjector::new(definitions)?;
-        migrate(&mut connection, &projector)?;
+        initialize_schema(&mut connection)?;
         Ok(Self {
             connection,
             database: database.to_string(),
@@ -155,37 +154,10 @@ impl MySqlDocumentSink {
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
-    pub(crate) fn seed_v2_without_projections(&mut self) -> Result<(), PersistenceError> {
-        for table in [
-            "message_log",
-            "state_history",
-            "batch_history",
-            "recipe_history",
-            "material_additions",
-            "operator_activity",
-            "audit_log",
-            "electronic_signatures",
-            "system_events",
-            "data_loss",
-            "unresolved_records",
-            "alarm_history",
-            "logged_values",
-            "event_log",
-        ] {
-            self.connection
-                .query_drop(format!("DELETE FROM `{table}`"))
-                .map_err(|error| mysql_error("seed empty v2 projections", error))?;
-        }
+    pub(crate) fn seed_incompatible_generation_for_test(&mut self) -> Result<(), PersistenceError> {
         self.connection
-            .query_drop("UPDATE logging_schema SET version=2 WHERE singleton=1")
-            .map_err(|error| mysql_error("seed v2 version", error))?;
-        self.connection
-            .query_drop(
-                "RENAME TABLE logging_schema TO openot_schema,
-                              logging_records TO openot_documents,
-                              logging_checkpoint TO openot_checkpoint",
-            )
-            .map_err(|error| mysql_error("seed v2 internal names", error))
+            .query_drop("DELETE FROM logging_schema WHERE singleton=1")
+            .map_err(|error| mysql_error("remove schema generation marker", error))
     }
 
     #[cfg(feature = "openot-real-database-tests")]
@@ -200,28 +172,14 @@ impl MySqlDocumentSink {
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
-    pub(crate) fn downgrade_checkpoint_to_v1_for_test(&mut self) -> Result<(), PersistenceError> {
-        self.connection
-            .query_drop("DELETE FROM logging_checkpoint")
-            .and_then(|_| {
-                self.connection
-                    .query_drop("ALTER TABLE logging_checkpoint DROP COLUMN run_id")
-            })
-            .and_then(|_| {
-                self.connection
-                    .query_drop("UPDATE logging_schema SET version=1 WHERE singleton=1")
-            })
-            .map_err(|error| mysql_error("seed schema v1", error))
-    }
-
-    #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn set_schema_version_for_test(
         &mut self,
         version: u32,
     ) -> Result<(), PersistenceError> {
         self.connection
             .exec_drop(
-                "UPDATE logging_schema SET version=:version WHERE singleton=1",
+                "INSERT INTO logging_schema(singleton, version) VALUES (1, :version)
+                 ON DUPLICATE KEY UPDATE version=VALUES(version)",
                 params! { "version" => version },
             )
             .map_err(|error| mysql_error("seed schema version", error))
@@ -467,56 +425,38 @@ impl DocumentSink for MySqlDocumentSink {
     }
 }
 
-fn migrate(connection: &mut Conn, projector: &LoggingProjector) -> Result<(), PersistenceError> {
-    let has_logging_schema: u64 = connection
+fn initialize_schema(connection: &mut Conn) -> Result<(), PersistenceError> {
+    let owned_object: Option<String> = connection
         .query_first(
-            "SELECT COUNT(*) FROM information_schema.TABLES
-             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='logging_schema'",
+            "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND (LEFT(TABLE_NAME,8)='logging_' OR TABLE_NAME IN ('event_log','logged_values','alarm_history','message_log','state_history','batch_history','recipe_history','material_additions','operator_activity','audit_log','electronic_signatures','system_events','data_loss','unresolved_records','openot_schema','openot_documents','openot_checkpoint')) ORDER BY TABLE_NAME LIMIT 1",
         )
-        .map_err(|error| mysql_error("inspect migrated schema", error))?
-        .unwrap_or(0);
-    if has_logging_schema == 1 {
-        let version: u32 = connection
+        .map_err(|error| mysql_error("inspect schema ownership", error))?;
+    if owned_object.is_some() {
+        let version: Option<u32> = connection
             .query_first("SELECT version FROM logging_schema WHERE singleton=1")
-            .map_err(|error| mysql_error("read migrated schema version", error))?
-            .ok_or_else(|| PersistenceError::Commit("MySQL schema version is absent".into()))?;
-        if version > SCHEMA_VERSION {
+            .map_err(|_| PersistenceError::Commit(
+                "MySQL incompatible pre-release schema; back up and recreate the development database".into(),
+            ))?;
+        if version != Some(LOGGING_SCHEMA_GENERATION) {
             return Err(PersistenceError::Commit(format!(
-                "MySQL OpenOT schema version {version} is newer than supported version {SCHEMA_VERSION}"
+                "MySQL incompatible pre-release schema generation {version:?}; back up and recreate the development database"
             )));
         }
-        if version == SCHEMA_VERSION {
-            return Ok(());
-        }
-        connection
-            .query_drop(
-                "RENAME TABLE logging_schema TO openot_schema,
-                              logging_records TO openot_documents,
-                              logging_checkpoint TO openot_checkpoint",
-            )
-            .map_err(|error| mysql_error("prepare legacy logging migration", error))?;
+        validate_schema_shape(connection)?;
+        return Ok(());
     }
     connection
         .query_drop(
-            "CREATE TABLE IF NOT EXISTS openot_schema (
+            "CREATE TABLE logging_schema (
                  singleton TINYINT UNSIGNED PRIMARY KEY,
-                 version INT UNSIGNED NOT NULL
+                 version INT UNSIGNED NOT NULL CHECK(version=1)
              ) ENGINE=InnoDB",
         )
         .map_err(|error| mysql_error("create schema metadata", error))?;
-    let version: Option<u32> = connection
-        .query_first("SELECT version FROM openot_schema WHERE singleton = 1")
-        .map_err(|error| mysql_error("read migration version", error))?;
-    if version.is_some_and(|version| version > SCHEMA_VERSION) {
-        return Err(PersistenceError::Commit(format!(
-            "MySQL OpenOT schema version {} is newer than supported version {SCHEMA_VERSION}",
-            version.unwrap_or_default()
-        )));
-    }
     connection
         .query_drop(
-            "CREATE TABLE IF NOT EXISTS openot_documents (
-                 identity_key VARCHAR(255) PRIMARY KEY,
+            "CREATE TABLE logging_records (
+                 identity_key VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
                  document_kind VARCHAR(16) NOT NULL,
                  buffer_id INT UNSIGNED NOT NULL,
                  run_id BINARY(8) NOT NULL,
@@ -532,15 +472,15 @@ fn migrate(connection: &mut Conn, projector: &LoggingProjector) -> Result<(), Pe
                  event_name TEXT NULL,
                  definition_hash TEXT NOT NULL,
                  canonical_json LONGTEXT NOT NULL,
-                 INDEX openot_documents_source_sequence (buffer_id, run_id, source_id, seq),
-                 INDEX openot_documents_receive_time (receive_time_ns),
-                 INDEX openot_documents_event_type (event_type_id)
+                 INDEX logging_records_source_sequence (buffer_id, run_id, source_id, seq),
+                 INDEX logging_records_receive_time (receive_time_ns),
+                 INDEX logging_records_event_type (event_type_id)
              ) ENGINE=InnoDB",
         )
         .map_err(|error| mysql_error("create document table", error))?;
     connection
         .query_drop(
-            "CREATE TABLE IF NOT EXISTS openot_checkpoint (
+            "CREATE TABLE logging_checkpoint (
                  singleton TINYINT UNSIGNED PRIMARY KEY,
                  buffer_id INT UNSIGNED NOT NULL,
                  run_id BINARY(8) NOT NULL,
@@ -548,38 +488,6 @@ fn migrate(connection: &mut Conn, projector: &LoggingProjector) -> Result<(), Pe
              ) ENGINE=InnoDB",
         )
         .map_err(|error| mysql_error("create checkpoint table", error))?;
-    let identity_collation: Option<String> = connection
-        .query_first(
-            "SELECT COLLATION_NAME FROM information_schema.COLUMNS \
-             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='openot_documents' \
-               AND COLUMN_NAME='identity_key'",
-        )
-        .map_err(|error| mysql_error("inspect identity collation", error))?;
-    if identity_collation.as_deref() != Some("ascii_bin") {
-        connection
-            .query_drop(
-                "ALTER TABLE openot_documents MODIFY identity_key \
-                 VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NOT NULL",
-            )
-            .map_err(|error| mysql_error("migrate identity to bytewise collation", error))?;
-    }
-    let has_checkpoint_run_id: u64 = connection
-        .query_first(
-            "SELECT COUNT(*) FROM information_schema.COLUMNS \
-             WHERE TABLE_SCHEMA = DATABASE() \
-               AND TABLE_NAME = 'openot_checkpoint' \
-               AND COLUMN_NAME = 'run_id'",
-        )
-        .map_err(|error| mysql_error("inspect checkpoint migration", error))?
-        .unwrap_or(0);
-    if has_checkpoint_run_id == 0 {
-        connection
-            .query_drop(
-                "ALTER TABLE openot_checkpoint ADD COLUMN run_id BINARY(8) NOT NULL \
-                 DEFAULT 0x0000000000000000 AFTER buffer_id",
-            )
-            .map_err(|error| mysql_error("migrate checkpoint run identity", error))?;
-    }
     connection
         .query_drop(
             "CREATE TABLE IF NOT EXISTS event_log (
@@ -593,7 +501,7 @@ fn migrate(connection: &mut Conn, projector: &LoggingProjector) -> Result<(), Pe
                  time_unsynced BOOLEAN NOT NULL,synthetic_record BOOLEAN NOT NULL,
                  partial_payload BOOLEAN NOT NULL,event_type_id INT UNSIGNED NOT NULL,
                  event_name TEXT NOT NULL,has_unclassified_fields BOOLEAN NOT NULL,
-                 FOREIGN KEY(record_id) REFERENCES openot_documents(identity_key)
+                 FOREIGN KEY(record_id) REFERENCES logging_records(identity_key)
              ) ENGINE=InnoDB",
         )
         .map_err(|error| mysql_error("create event log", error))?;
@@ -613,7 +521,7 @@ fn migrate(connection: &mut Conn, projector: &LoggingProjector) -> Result<(), Pe
                  quality INT UNSIGNED NULL,semantic_role INT UNSIGNED NOT NULL,
                  boolean_value BOOLEAN NULL,signed_value BIGINT NULL,unsigned_value DECIMAL(20,0) NULL,
                  number_value DOUBLE NULL,text_value TEXT NULL,exact_value TEXT NOT NULL,
-                 FOREIGN KEY(record_id) REFERENCES openot_documents(identity_key)
+                 FOREIGN KEY(record_id) REFERENCES logging_records(identity_key)
              ) ENGINE=InnoDB",
         )
         .map_err(|error| mysql_error("create logged values", error))?;
@@ -630,53 +538,29 @@ fn migrate(connection: &mut Conn, projector: &LoggingProjector) -> Result<(), Pe
                  time_unsynced BOOLEAN NOT NULL,synthetic_record BOOLEAN NOT NULL,
                  partial_payload BOOLEAN NOT NULL,`condition` TEXT NOT NULL,
                  condition_class TEXT NULL,lifecycle_action TEXT NOT NULL,
-                 FOREIGN KEY(record_id) REFERENCES openot_documents(identity_key)
+                 FOREIGN KEY(record_id) REFERENCES logging_records(identity_key)
              ) ENGINE=InnoDB",
         )
         .map_err(|error| mysql_error("create alarm history", error))?;
     super::mysql_read_model::create_domain_schema(connection)?;
-    if version.is_some_and(|version| version < SCHEMA_VERSION) {
-        backfill_v3(connection, projector)?;
-    }
-    if version.is_none() {
-        connection
-            .exec_drop(
-                "INSERT INTO openot_schema (singleton, version) VALUES (1, :version)",
-                params! { "version" => SCHEMA_VERSION },
-            )
-            .map_err(|error| mysql_error("write schema version", error))?;
-    } else if version != Some(SCHEMA_VERSION) {
-        connection
-            .exec_drop(
-                "UPDATE openot_schema SET version = :version WHERE singleton = 1",
-                params! { "version" => SCHEMA_VERSION },
-            )
-            .map_err(|error| mysql_error("update schema version", error))?;
-    }
+    validate_schema_shape(connection)?;
     connection
-        .query_drop(
-            "RENAME TABLE openot_schema TO logging_schema,
-                          openot_documents TO logging_records,
-                          openot_checkpoint TO logging_checkpoint",
+        .exec_drop(
+            "INSERT INTO logging_schema(singleton,version) VALUES(1,:version)",
+            params! { "version" => LOGGING_SCHEMA_GENERATION },
         )
-        .map_err(|error| mysql_error("rename internal logging tables", error))?;
+        .map_err(|error| mysql_error("record schema generation", error))?;
     Ok(())
 }
 
-fn backfill_v3(
-    connection: &mut Conn,
-    projector: &LoggingProjector,
-) -> Result<(), PersistenceError> {
-    let canonical = connection
-        .query_map(
-            "SELECT canonical_json FROM openot_documents ORDER BY identity_key",
-            |json: String| json,
-        )
-        .map_err(|error| mysql_error("read v2 canonical backfill", error))?;
-    let mut transaction = connection
-        .start_transaction(TxOpts::default())
-        .map_err(|error| mysql_error("begin v3 projection backfill", error))?;
-    for table in [
+fn validate_schema_shape(connection: &mut Conn) -> Result<(), PersistenceError> {
+    const REQUIRED_TABLES: &[&str] = &[
+        "logging_schema",
+        "logging_records",
+        "logging_checkpoint",
+        "event_log",
+        "logged_values",
+        "alarm_history",
         "message_log",
         "state_history",
         "batch_history",
@@ -688,32 +572,21 @@ fn backfill_v3(
         "system_events",
         "data_loss",
         "unresolved_records",
-        "alarm_history",
-        "logged_values",
-        "event_log",
-    ] {
-        transaction
-            .query_drop(format!("DELETE FROM `{table}`"))
-            .map_err(|error| mysql_error("reset v3 projection backfill", error))?;
+    ];
+    let found: Vec<String> = connection
+        .query_map(
+            "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()",
+            |name: String| name,
+        )
+        .map_err(|error| mysql_error("validate schema objects", error))?;
+    for required in REQUIRED_TABLES {
+        if !found.iter().any(|candidate| candidate == required) {
+            return Err(PersistenceError::Commit(format!(
+                "MySQL incompatible pre-release schema: required object {required} is missing; back up and recreate the development database"
+            )));
+        }
     }
-    for canonical_json in canonical {
-        let document: open_ot_document::Document =
-            serde_json::from_str(&canonical_json).map_err(|error| {
-                PersistenceError::Commit(format!(
-                    "MySQL v2 canonical document is malformed: {error}"
-                ))
-            })?;
-        let projected = projector.project(&document)?;
-        super::mysql_read_model::insert_projection(
-            &mut transaction,
-            projected.event,
-            projected.logged_values,
-            projected.domains,
-        )?;
-    }
-    transaction
-        .commit()
-        .map_err(|error| mysql_error("commit v3 projection backfill", error))
+    Ok(())
 }
 
 fn validate_identifier(value: &str) -> Result<(), PersistenceError> {

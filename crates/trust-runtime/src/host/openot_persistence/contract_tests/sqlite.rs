@@ -1,6 +1,6 @@
 use super::*;
 #[test]
-fn sqlite_sink_opens_real_database_and_applies_schema_v4() {
+fn sqlite_sink_opens_empty_database_with_initial_schema_generation() {
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
@@ -9,13 +9,26 @@ fn sqlite_sink_opens_real_database_and_applies_schema_v4() {
         "trust-openot-persistence-{}-{stamp}",
         std::process::id()
     ));
-    let path = root.join("openot.sqlite3");
+    let path = root.join("trust-logging.sqlite3");
 
     let sink = open_test_sqlite(&path)
-        .unwrap_or_else(|error| panic!("SQLite migration failed: {error:?}"));
+        .unwrap_or_else(|error| panic!("SQLite initialization failed: {error:?}"));
 
     assert!(path.is_file(), "SQLite database was not created");
-    assert_eq!(sink.schema_version().expect("schema version"), 4);
+    assert_eq!(sink.schema_version().expect("schema generation"), 1);
+    drop(sink);
+    let connection = rusqlite::Connection::open(&path).expect("inspect SQLite schema marker");
+    connection
+        .execute("UPDATE logging_schema SET version=2 WHERE singleton=1", [])
+        .expect_err("generation-1 marker constraint must reject another value");
+    let marker: u32 = connection
+        .query_row(
+            "SELECT version FROM logging_schema WHERE singleton=1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("read unchanged schema marker");
+    assert_eq!(marker, 1);
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -52,7 +65,7 @@ fn sqlite_sink_exposes_heartbeat_through_descriptive_event_log() {
         .expect("inspect public event log");
     assert!(
         public_event_log_exists,
-        "schema v4 must expose the descriptive event_log table"
+        "schema generation 1 must expose the descriptive event_log table"
     );
     let internal_record_exists: bool = connection
         .query_row(
@@ -63,7 +76,7 @@ fn sqlite_sink_exposes_heartbeat_through_descriptive_event_log() {
         .expect("inspect internal logging records");
     assert!(
         internal_record_exists,
-        "schema v4 must use the descriptive internal logging_records name"
+        "schema generation 1 must use the descriptive internal logging_records name"
     );
     let stored: (String, i64, i64, String) = connection
         .query_row(
@@ -224,126 +237,131 @@ fn sqlite_public_read_model_exposes_common_columns_on_every_object() {
 }
 
 #[test]
-fn sqlite_sink_migrates_v3_read_model_to_v4_without_losing_canonical_data() {
+fn sqlite_sink_rejects_incompatible_pre_release_schema_without_mutating_it() {
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
     let root = std::env::temp_dir().join(format!(
-        "trust-logging-v3-v4-migration-{}-{stamp}",
+        "trust-logging-incompatible-schema-{}-{stamp}",
         std::process::id()
     ));
     let path = root.join("trust-logging.sqlite3");
-    let mut sink = open_test_sqlite(&path).expect("create source database");
-    let documents = canonical_documents();
-    sink.commit(&PersistenceBatch {
-        documents: documents.clone(),
-        checkpoint: PersistenceCheckpoint {
-            buffer_id: 7,
-            run_id: u64::from(std::process::id()),
-            cursor_abs: 4096,
-        },
-    })
-    .expect("seed canonical documents");
-    drop(sink);
-
-    let connection = rusqlite::Connection::open(&path).expect("open source database");
+    std::fs::create_dir_all(&root).expect("schema root");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
+            .expect("secure schema root");
+    }
+    let connection = rusqlite::Connection::open(&path).expect("create pre-release database");
     connection
-        .execute_batch("UPDATE logging_schema SET version=3; PRAGMA user_version=3;")
-        .expect("mark source as schema v3");
+        .execute_batch(
+            "CREATE TABLE openot_documents(identity_key TEXT PRIMARY KEY); \
+             INSERT INTO openot_documents VALUES('sentinel'); \
+             PRAGMA user_version=3;",
+        )
+        .expect("seed incompatible pre-release schema");
     drop(connection);
 
-    let sink = open_test_sqlite(&path).expect("migrate schema v3 to v4");
-    assert_eq!(sink.schema_version().expect("schema version"), 4);
-    drop(sink);
+    let error = open_test_sqlite(&path).expect_err("legacy schema must fail closed");
+    assert!(format!("{error:?}").contains("incompatible pre-release schema"));
 
-    let connection = rusqlite::Connection::open(&path).expect("inspect migrated database");
-    let canonical = connection
-        .prepare("SELECT canonical_json FROM logging_records ORDER BY identity_key")
-        .expect("prepare canonical query")
-        .query_map([], |row| row.get::<_, String>(0))
-        .expect("query canonical rows")
-        .collect::<Result<Vec<_>, _>>()
-        .expect("collect canonical rows");
-    assert_canonical_jsons(canonical);
-    let loss_provenance: (String, String, bool, bool, bool) = connection
-        .query_row(
-            "SELECT source_path,source_hierarchy,time_unsynced,synthetic_record,partial_payload FROM data_loss",
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-        )
-        .expect("read migrated loss provenance");
-    assert_eq!(loss_provenance, ("".into(), "".into(), false, false, false));
-    let unresolved_provenance: (String, String, bool, bool, bool) = connection
-        .query_row(
-            "SELECT source_path,source_hierarchy,time_unsynced,synthetic_record,partial_payload FROM unresolved_records",
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-        )
-        .expect("read migrated unresolved provenance");
+    let connection = rusqlite::Connection::open(&path).expect("inspect untouched database");
+    let sentinel: String = connection
+        .query_row("SELECT identity_key FROM openot_documents", [], |row| {
+            row.get(0)
+        })
+        .expect("legacy row remains");
+    assert_eq!(sentinel, "sentinel");
     assert_eq!(
-        unresolved_provenance,
-        ("".into(), "".into(), false, false, false)
+        connection
+            .query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
+            .expect("schema marker"),
+        3
     );
     drop(connection);
     std::fs::remove_dir_all(root).ok();
 }
 
 #[test]
-fn sqlite_sink_migrates_v1_checkpoint_and_separates_recreated_ring_run() {
+fn sqlite_sink_rejects_markerless_logging_object_without_mutating_it() {
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
     let root = std::env::temp_dir().join(format!(
-        "trust-openot-v1-migration-{}-{stamp}",
+        "trust-openot-markerless-schema-{}-{stamp}",
         std::process::id()
     ));
-    std::fs::create_dir_all(&root).expect("migration root");
+    std::fs::create_dir_all(&root).expect("schema root");
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
-            .expect("secure migration root");
+            .expect("secure schema root");
     }
-    let path = root.join("openot.sqlite3");
-    let connection = rusqlite::Connection::open(&path).expect("create v1 database");
+    let path = root.join("trust-logging.sqlite3");
+    let connection = rusqlite::Connection::open(&path).expect("create markerless database");
     connection
         .execute_batch(
-            "CREATE TABLE openot_documents( \
-                 identity_key TEXT PRIMARY KEY NOT NULL, \
-                 document_kind TEXT NOT NULL, buffer_id INTEGER NOT NULL, \
-                 run_id BLOB NOT NULL, source_id INTEGER NOT NULL, epoch_id BLOB NOT NULL, \
-                 seq BLOB, first_seq BLOB, last_seq BLOB, loss_basis TEXT, \
-                 source_time_ns BLOB, receive_time_ns BLOB NOT NULL, \
-                 event_type_id INTEGER, event_name TEXT, definition_hash TEXT NOT NULL, \
-                 canonical_json TEXT NOT NULL); \
-             CREATE TABLE openot_checkpoint( \
-                 singleton INTEGER PRIMARY KEY CHECK(singleton=1), \
-                 buffer_id INTEGER NOT NULL, \
-                 cursor_abs BLOB NOT NULL CHECK(length(cursor_abs)=8)); \
-             INSERT INTO openot_checkpoint(singleton,buffer_id,cursor_abs) \
-                 VALUES(1,7,X'000000000000007B'); \
-             PRAGMA user_version=1;",
+            "CREATE TABLE logging_records(identity_key TEXT PRIMARY KEY); \
+             INSERT INTO logging_records VALUES('sentinel');",
         )
-        .expect("seed schema v1");
+        .expect("seed markerless schema");
     drop(connection);
 
-    let mut sink = open_test_sqlite(&path).expect("migrate schema v1 to v4");
-
-    assert_eq!(sink.schema_version().expect("schema version"), 4);
-    assert_eq!(
-        sink.load_checkpoint(7, 0).expect("migrated old run"),
-        Some(PersistenceCheckpoint {
-            buffer_id: 7,
-            run_id: 0,
-            cursor_abs: 123,
+    let error = open_test_sqlite(&path).expect_err("markerless logging schema must fail");
+    assert!(format!("{error:?}").contains("incompatible pre-release schema"));
+    let connection = rusqlite::Connection::open(&path).expect("inspect untouched database");
+    let sentinel: String = connection
+        .query_row("SELECT identity_key FROM logging_records", [], |row| {
+            row.get(0)
         })
-    );
-    assert_eq!(
-        sink.load_checkpoint(7, 1).expect("recreated ring run"),
-        None
-    );
+        .expect("stored row remains");
+    assert_eq!(sentinel, "sentinel");
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn sqlite_sink_rejects_incomplete_generation_1_without_repairing_it() {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "trust-logging-incomplete-schema-{}-{stamp}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&root).expect("schema root");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
+            .expect("secure schema root");
+    }
+    let path = root.join("trust-logging.sqlite3");
+    let connection = rusqlite::Connection::open(&path).expect("create incomplete database");
+    connection
+        .execute_batch(
+            "CREATE TABLE logging_schema(singleton INTEGER PRIMARY KEY,version INTEGER NOT NULL); \
+             INSERT INTO logging_schema VALUES(1,1); \
+             PRAGMA user_version=1;",
+        )
+        .expect("seed incomplete generation 1");
+    drop(connection);
+
+    let error = open_test_sqlite(&path).expect_err("incomplete schema must fail closed");
+    assert!(format!("{error:?}").contains("required object logging_records is missing"));
+    let connection = rusqlite::Connection::open(&path).expect("inspect untouched database");
+    let table_count: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count tables");
+    assert_eq!(table_count, 1, "rejection must not add missing tables");
     std::fs::remove_dir_all(root).ok();
 }
 
@@ -364,7 +382,7 @@ fn sqlite_sink_rejects_newer_schema_without_mutating_it() {
         std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
             .expect("secure schema root");
     }
-    let path = root.join("openot.sqlite3");
+    let path = root.join("trust-logging.sqlite3");
     let connection = rusqlite::Connection::open(&path).expect("create newer database");
     connection
         .execute_batch("CREATE TABLE sentinel(value TEXT); PRAGMA user_version=5;")
@@ -373,7 +391,7 @@ fn sqlite_sink_rejects_newer_schema_without_mutating_it() {
 
     let error = open_test_sqlite(&path).expect_err("newer schema must fail closed");
 
-    assert!(format!("{error:?}").contains("newer than supported version 4"));
+    assert!(format!("{error:?}").contains("incompatible pre-release schema"));
     let connection = rusqlite::Connection::open(&path).expect("reopen untouched database");
     assert_eq!(
         connection
@@ -394,7 +412,7 @@ fn sqlite_sink_rejects_malformed_checkpoint_run_identity() {
         "trust-openot-corrupt-checkpoint-{}-{stamp}",
         std::process::id()
     ));
-    let path = root.join("openot.sqlite3");
+    let path = root.join("trust-logging.sqlite3");
     drop(open_test_sqlite(&path).expect("create schema"));
     let connection = rusqlite::Connection::open(&path).expect("open database for corruption");
     connection
@@ -425,7 +443,7 @@ fn sqlite_sink_rejects_malformed_stored_canonical_document_on_reopen() {
         "trust-openot-corrupt-document-{}-{stamp}",
         std::process::id()
     ));
-    let path = root.join("openot.sqlite3");
+    let path = root.join("trust-logging.sqlite3");
     let mut sink = open_test_sqlite(&path).expect("create schema");
     sink.commit(&PersistenceBatch {
         documents: canonical_documents(),
@@ -464,7 +482,7 @@ fn sqlite_sink_rejects_corrupt_database_bytes() {
         std::process::id()
     ));
     std::fs::create_dir_all(&root).expect("database root");
-    let path = root.join("openot.sqlite3");
+    let path = root.join("trust-logging.sqlite3");
     std::fs::write(&path, b"not a sqlite database").expect("seed corrupt database");
 
     let _error = open_test_sqlite(&path).expect_err("corrupt database must fail closed");
@@ -484,7 +502,7 @@ fn sqlite_sink_rejects_read_only_database_before_accepting_work() {
         "trust-openot-read-only-database-{}-{stamp}",
         std::process::id()
     ));
-    let path = root.join("openot.sqlite3");
+    let path = root.join("trust-logging.sqlite3");
     drop(open_test_sqlite(&path).expect("create valid database"));
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o400))
         .expect("make database read-only");
@@ -529,7 +547,7 @@ fn sqlite_process_termination_recovers_before_or_after_batch_never_partial() {
         std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
             .expect("secure crash root");
     }
-    let path = root.join("openot.sqlite3");
+    let path = root.join("trust-logging.sqlite3");
     let baseline = PersistenceBatch {
         documents: canonical_documents(),
         checkpoint: PersistenceCheckpoint {
@@ -626,7 +644,7 @@ fn sqlite_disk_full_on_isolated_bounded_filesystem_preserves_last_checkpoint() {
     assert!(owned.success());
     std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
         .expect("secure bounded tmpfs");
-    let path = root.join("openot.sqlite3");
+    let path = root.join("trust-logging.sqlite3");
     let mut sink = open_test_sqlite(&path).expect("schema fits bounded filesystem");
     let mut last_checkpoint = None;
     let mut full_error = None;
@@ -677,7 +695,7 @@ fn sqlite_sink_creates_missing_parent_directory_for_configured_path() {
         "trust-openot-persistence-parent-{}-{stamp}",
         std::process::id()
     ));
-    let path = root.join("history/openot.sqlite3");
+    let path = root.join("history/trust-logging.sqlite3");
 
     let sink = open_test_sqlite(&path).expect("create SQLite parent and database");
 
@@ -703,7 +721,7 @@ fn sqlite_sink_rejects_group_or_world_writable_parent() {
     std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o777))
         .expect("set insecure permissions");
 
-    let result = open_test_sqlite(&root.join("openot.sqlite3"));
+    let result = open_test_sqlite(&root.join("trust-logging.sqlite3"));
 
     assert!(matches!(
         result,
@@ -722,7 +740,7 @@ fn sqlite_sink_commits_documents_and_checkpoint_in_one_real_transaction() {
         "trust-openot-persistence-commit-{}-{stamp}",
         std::process::id()
     ));
-    let path = root.join("openot.sqlite3");
+    let path = root.join("trust-logging.sqlite3");
     let checkpoint = PersistenceCheckpoint {
         buffer_id: 7,
         run_id: 1,
@@ -787,7 +805,7 @@ fn sink_factory_opens_only_toml_selected_sqlite_at_bundle_relative_path() {
         enabled: true,
         backend: Some(crate::config::OpenOtPersistenceBackend::Sqlite),
         sqlite: Some(crate::config::OpenOtSqlitePersistenceConfig {
-            path: "history/openot.sqlite3".into(),
+            path: "history/trust-logging.sqlite3".into(),
         }),
         ..Default::default()
     };
@@ -795,7 +813,7 @@ fn sink_factory_opens_only_toml_selected_sqlite_at_bundle_relative_path() {
     let sink = OpenOtDocumentSink::open(&config, &root).expect("open selected SQLite sink");
 
     assert!(matches!(sink, OpenOtDocumentSink::Sqlite(_)));
-    assert!(root.join("history/openot.sqlite3").is_file());
+    assert!(root.join("history/trust-logging.sqlite3").is_file());
     drop(sink);
     let _ = std::fs::remove_dir_all(root);
 }
@@ -808,7 +826,7 @@ fn sink_factory_rejects_recognized_backend_omitted_from_binary_without_fallback(
         backend: Some(crate::config::OpenOtPersistenceBackend::PostgreSql),
         postgresql: Some(crate::config::OpenOtPostgreSqlPersistenceConfig {
             connection_url_env: "TRUST_TEST_MUST_NOT_BE_READ".into(),
-            schema: "openot".into(),
+            schema: "trust_logging".into(),
             tls: crate::config::OpenOtPersistenceTlsMode::Require,
             ca_cert_path: Some("unused-ca.pem".into()),
         }),

@@ -21,19 +21,19 @@ SQLite uses the bundled SQLite library and a real mode-restricted on-disk file;
 it is the seventh product in the matrix even though it has no container image.
 
 For each product, retain redacted TOML, immutable image digest, architecture,
-server/client version, TLS/readiness proof, migration version, canonical JSON
+server/client version, TLS/readiness proof, schema generation, canonical JSON
 comparison, document/checkpoint counts, outage/reconnect status snapshots, and
 clean teardown output. The native executable identities are:
 
-- `openot_persistence::contract_tests` for migrations, transactions,
+- `openot_persistence::contract_tests` for schema initialization and compatibility, transactions,
   idempotency, canonical JSON, checkpointing, and product-native assertions;
 - `openot_database_example_persists_same_real_st_workload_to_every_network_backend`
   for the shared ST-to-ring-to-document-to-database workload;
 - `runtime_system_loss_and_placeholder_documents_round_trip_through_every_real_product`
   for all nine pinned runtime system events, both loss bases, a raw-slot
   placeholder, direct manifest comparison, and exact seven-product retrieval;
-- `every_real_network_backend_migrates_v1_and_rejects_newer_schema` for every
-  implementation-history migration and newer-version refusal;
+- `every_real_network_backend_rejects_incompatible_generation_without_repair`
+  for non-mutating refusal of pre-release schema histories;
 - the product lifecycle tests for forced disconnect, restart, catch-up, and
   cursor/head reconciliation.
 

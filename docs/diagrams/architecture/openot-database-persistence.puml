@@ -19,8 +19,8 @@ package "Host persistence thread" {
   component "OpenOtPersistenceWorker" as worker
   component "LoggingProjector\n(definition-bound semantics)" as projector
   component "Synchronous startup validation\n(adapter + env names + local artifacts)" as startup
-  component "OpenOtDocumentSink factory\n(open / migrate / reconnect)" as factory
-  component "Supervision + redacted status\n(schema only after successful open)" as status
+  component "OpenOtDocumentSink factory\n(open / initialize / reconnect)" as factory
+  component "Supervision + redacted status\n(generation 1 after successful open)" as status
   ring --> source : concurrent poll
   source --> loss : raw batches + control snapshot
   loss --> resolver : records + explicit loss ranges
@@ -64,10 +64,12 @@ Relational adapters commit internal canonical rows,
 descriptive public read-model rows, and the absolute
 ring cursor in one transaction. Influx uses durable
 per-part reconciliation before remote acknowledgement.
-Initial remote open, migration, and reconnect remain in
+Every backend initializes the same schema generation 1.
+Incompatible pre-release state fails without repair.
+Initial remote open, initialization, and reconnect remain in
 the supervised host worker and cannot block PLC startup.
 Only explicitly classified remote reachability failures
-retry during open. Schema, migration, and deterministic
+retry during open. Schema compatibility and deterministic
 storage failures fault immediately without reconnecting.
 Durable commit status is published before a subsequent
 maintenance failure enters supervised retry.

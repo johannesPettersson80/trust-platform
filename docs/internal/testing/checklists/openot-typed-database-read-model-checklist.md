@@ -5,6 +5,13 @@ Owner: truST runtime logging persistence
 Owning specification: `docs/specs/33-openot-database-persistence.md`
 Architecture decision: `docs/internal/architecture/openot-database-persistence-contract.md`
 
+Superseded schema history: all v2-to-v3, SQLite-v4, migration, backfill, and
+reconstruction rows below describe unreleased development iterations. They are
+replaced by
+`docs/internal/testing/checklists/openot-database-initial-schema-corrective-checklist.md`:
+one final schema generation 1, direct initialization, and non-mutating rejection
+of incompatible pre-release state.
+
 ## Execution Evidence
 
 - The projector/schema slices retain their expected-red and paired-green

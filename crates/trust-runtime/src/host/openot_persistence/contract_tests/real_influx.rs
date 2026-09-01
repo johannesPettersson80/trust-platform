@@ -9,7 +9,7 @@ fn influxdb3_sink_spools_and_delivers_to_real_influxdb_3_core() {
     let ca = std::env::var("TRUST_TEST_OPENOT_INFLUX_CA")
         .expect("TRUST_TEST_OPENOT_INFLUX_CA must identify its CA certificate");
     let spool_root =
-        std::env::temp_dir().join(format!("trust-openot-influx-spool-{}", std::process::id()));
+        std::env::temp_dir().join(format!("trust-logging-influx-spool-{}", std::process::id()));
     let spool = spool_root.join("spool.sqlite3");
     let checkpoint = PersistenceCheckpoint {
         buffer_id: 7,
@@ -23,7 +23,7 @@ fn influxdb3_sink_spools_and_delivers_to_real_influxdb_3_core() {
     let mut sink = InfluxDb3DocumentSink::open_bounded_with_definitions(
         &host,
         &token,
-        "openot",
+        "trust_logging",
         &spool,
         std::path::Path::new(&ca),
         u64::MAX,
@@ -32,6 +32,7 @@ fn influxdb3_sink_spools_and_delivers_to_real_influxdb_3_core() {
     .expect("open real InfluxDB 3 sink and spool");
 
     assert_eq!(sink.server_version().expect("server version"), "3.11.2");
+    assert_eq!(sink.schema_version().expect("spool schema generation"), 1);
     assert_eq!(
         sink.internal_name_counts().expect("InfluxDB spool names"),
         (4, 0)
@@ -130,7 +131,7 @@ fn influxdb3_sink_accepts_during_outage_then_catches_up_in_order() {
     let mut sink = InfluxDb3DocumentSink::open_bounded_with_definitions(
         &host,
         &token,
-        "openot",
+        "trust_logging",
         &spool,
         std::path::Path::new(&ca),
         u64::MAX,
@@ -167,7 +168,7 @@ fn influxdb3_sink_rejects_a_spool_limit_smaller_than_its_schema() {
     let result = InfluxDb3DocumentSink::open_bounded(
         &host,
         &token,
-        "openot",
+        "trust_logging",
         &spool_root.join("spool.sqlite3"),
         std::path::Path::new(&ca),
         1,
@@ -194,7 +195,7 @@ fn influxdb3_spool_full_rolls_back_documents_and_checkpoint() {
     let initial = InfluxDb3DocumentSink::open_bounded_with_definitions(
         &host,
         &token,
-        "openot",
+        "trust_logging",
         &spool,
         std::path::Path::new(&ca),
         u64::MAX,
@@ -206,7 +207,7 @@ fn influxdb3_spool_full_rolls_back_documents_and_checkpoint() {
     let mut bounded = InfluxDb3DocumentSink::open_bounded_with_definitions(
         &host,
         &token,
-        "openot",
+        "trust_logging",
         &spool,
         std::path::Path::new(&ca),
         schema_bytes,
@@ -257,7 +258,7 @@ fn sink_factory_opens_toml_selected_influxdb3_adapter() {
         influxdb3: Some(crate::config::OpenOtInfluxDb3PersistenceConfig {
             host_env: "TRUST_TEST_OPENOT_INFLUX_HOST".into(),
             token_env: "TRUST_TEST_OPENOT_INFLUX_TOKEN".into(),
-            database: "openot".into(),
+            database: "trust_logging".into(),
             spool_path: "spool.sqlite3".into(),
             max_bytes: 1_073_741_824,
             ca_cert_path: Some(ca.into()),

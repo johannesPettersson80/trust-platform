@@ -200,9 +200,9 @@ fn apply_worker_error(
 pub enum OpenOtPersistenceState {
     /// No worker exists because persistence is disabled.
     Disabled,
-    /// Startup validation or backend migration is in progress.
+    /// Startup validation or schema initialization is in progress.
     Starting,
-    /// The worker is reachable, migrated, and caught up.
+    /// The worker is reachable, schema-compatible, and caught up.
     Ready,
     /// Durable cursor trails the observed producer head and is making progress.
     CatchingUp,
@@ -304,7 +304,7 @@ impl OpenOtPersistenceService {
             validate_startup_artifacts(config, bundle_root)?;
         // Definition parsing and shared-memory carriage availability are local
         // bundle artifacts and therefore remain synchronous startup checks.
-        // Opening or migrating the selected database belongs to the supervised
+        // Opening or initializing the selected database belongs to the supervised
         // worker below so a remote outage cannot stop PLC startup.
         let reconnect_bundle_root = bundle_root.to_path_buf();
         let reconnect_source_path = source_path.clone();

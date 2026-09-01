@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-Provision the reviewed InfluxDB 3 Core version with HTTPS, database `openot`, an
+Provision the reviewed InfluxDB 3 Core version with HTTPS, database `trust_logging`, an
 API token, and CA. Install `curl` and `sqlite3`. The mandatory bounded SQLite
 spool preserves full documents/checkpoints around the remote point API. The ST
 source is shared `../workload/Main.st`.
@@ -26,9 +26,9 @@ trust-runtime run --project "$example_root"
 ```bash
 curl --fail --cacert "$example_root/certs/openot-influx-ca.pem" \
   -H "Authorization: Bearer $TRUST_OPENOT_INFLUX_TOKEN" \
-  --get "$TRUST_OPENOT_INFLUX_HOST/api/v3/query_sql" --data-urlencode 'db=openot' \
+  --get "$TRUST_OPENOT_INFLUX_HOST/api/v3/query_sql" --data-urlencode 'db=trust_logging' \
   --data-urlencode 'q=select event_name,count(*) from event_log group by 1 order by 1'
-sqlite3 "$example_root/history/openot-influx-spool.sqlite3" \
+sqlite3 "$example_root/history/trust-logging-influx-spool.sqlite3" \
   'select delivered,count(*) from logging_delivery_spool group by delivered;'
 ```
 

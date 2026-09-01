@@ -4,11 +4,11 @@ use tiberius::{Client, Config, EncryptionLevel, Query, Row};
 use tokio::net::TcpStream;
 use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 
+use super::contracts::LOGGING_SCHEMA_GENERATION;
 use super::projection::LoggingProjector;
 use super::{CommitOutcome, DocumentSink, PersistenceBatch, PersistenceError};
 
 type TdsClient = Client<Compat<TcpStream>>;
-const SCHEMA_VERSION: u32 = 3;
 
 /// Dedicated Microsoft SQL Server/Azure SQL TDS persistence adapter.
 pub struct SqlServerDocumentSink {
@@ -27,7 +27,7 @@ impl std::fmt::Debug for SqlServerDocumentSink {
 }
 
 impl SqlServerDocumentSink {
-    /// Connects with CA-verified TLS and applies compatible migrations.
+    /// Connects with CA-verified TLS and opens the initial schema generation.
     pub fn open(url: &str, schema: &str, ca: &Path) -> Result<Self, PersistenceError> {
         Self::open_with_definitions(url, schema, ca, Vec::new())
     }
@@ -67,7 +67,7 @@ impl SqlServerDocumentSink {
             projector,
         };
         sink.batch("SET NOCOUNT ON")?;
-        sink.migrate()?;
+        sink.initialize_schema()?;
         Ok(sink)
     }
 
@@ -197,33 +197,28 @@ impl SqlServerDocumentSink {
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
-    pub(crate) fn downgrade_checkpoint_to_v1_for_test(&mut self) -> Result<(), PersistenceError> {
-        let s = self.schema.clone();
-        self.batch(&format!(
-            "DELETE FROM [{s}].logging_checkpoint;
-             DECLARE @constraint NVARCHAR(128);
-             SELECT @constraint=dc.name FROM sys.default_constraints dc
-             JOIN sys.columns c ON c.default_object_id=dc.object_id
-             WHERE dc.parent_object_id=OBJECT_ID(N'[{s}].logging_checkpoint') AND c.name=N'run_id';
-             IF @constraint IS NOT NULL EXEC(N'ALTER TABLE [{s}].logging_checkpoint DROP CONSTRAINT ['+@constraint+N']');
-             ALTER TABLE [{s}].logging_checkpoint DROP COLUMN run_id;
-             UPDATE [{s}].logging_schema SET version=1 WHERE singleton=1;"
-        ))
-    }
-
-    #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn set_schema_version_for_test(
         &mut self,
         version: u32,
     ) -> Result<(), PersistenceError> {
         let s = self.schema.clone();
         self.batch(&format!(
-            "UPDATE [{s}].logging_schema SET version={version} WHERE singleton=1"
+            "IF EXISTS (SELECT 1 FROM [{s}].logging_schema WHERE singleton=1)
+                 UPDATE [{s}].logging_schema SET version={version} WHERE singleton=1;
+             ELSE INSERT INTO [{s}].logging_schema(singleton, version) VALUES (1, {version});"
         ))
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
-    pub(crate) fn seed_v2_without_projections(&mut self) -> Result<(), PersistenceError> {
+    pub(crate) fn remove_schema_marker_for_test(&mut self) -> Result<(), PersistenceError> {
+        let s = self.schema.clone();
+        self.batch(&format!(
+            "DELETE FROM [{s}].logging_schema WHERE singleton=1"
+        ))
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn seed_incompatible_generation_for_test(&mut self) -> Result<(), PersistenceError> {
         let s = self.schema.clone();
         self.batch(&format!(
             "DELETE FROM [{s}].message_log; DELETE FROM [{s}].state_history;
@@ -233,7 +228,7 @@ impl SqlServerDocumentSink {
              DELETE FROM [{s}].system_events; DELETE FROM [{s}].data_loss;
              DELETE FROM [{s}].unresolved_records; DELETE FROM [{s}].alarm_history;
              DELETE FROM [{s}].logged_values; DELETE FROM [{s}].event_log;
-             UPDATE [{s}].logging_schema SET version=2 WHERE singleton=1;"
+             DELETE FROM [{s}].logging_schema WHERE singleton=1;"
         ))
     }
 
@@ -286,15 +281,29 @@ impl SqlServerDocumentSink {
         .transpose()
     }
 
-    fn migrate(&mut self) -> Result<(), PersistenceError> {
+    fn initialize_schema(&mut self) -> Result<(), PersistenceError> {
         let s = self.schema.clone();
-        self.batch(&format!(
+        let owned = self.one(&format!(
+            "SELECT COUNT_BIG(*) FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE s.name=N'{s}' AND (t.name LIKE N'logging[_]%' OR t.name IN (N'event_log',N'logged_values',N'alarm_history',N'message_log',N'state_history',N'batch_history',N'recipe_history',N'material_additions',N'operator_activity',N'audit_log',N'electronic_signatures',N'system_events',N'data_loss',N'unresolved_records',N'openot_schema',N'openot_documents',N'openot_checkpoint'))"
+        ))?.get::<i64,_>(0).unwrap_or(0);
+        if owned > 0 {
+            let version = self.schema_version().map_err(|_| PersistenceError::Commit(
+                "SQL Server incompatible pre-release schema; back up and recreate the development database".into(),
+            ))?;
+            if version != LOGGING_SCHEMA_GENERATION {
+                return Err(PersistenceError::Commit(format!(
+                    "SQL Server incompatible pre-release schema generation {version}; back up and recreate the development database"
+                )));
+            }
+            self.validate_schema_shape()?;
+            return Ok(());
+        }
+        self.batch("BEGIN TRANSACTION")?;
+        let initialization = (|| -> Result<(), PersistenceError> {
+            self.batch(&format!(
             "IF SCHEMA_ID(N'{s}') IS NULL EXEC(N'CREATE SCHEMA [{s}]');
-             IF OBJECT_ID(N'[{s}].logging_schema',N'U') IS NULL AND OBJECT_ID(N'[{s}].openot_schema',N'U') IS NOT NULL EXEC sp_rename N'[{s}].openot_schema',N'logging_schema';
-             IF OBJECT_ID(N'[{s}].logging_records',N'U') IS NULL AND OBJECT_ID(N'[{s}].openot_documents',N'U') IS NOT NULL EXEC sp_rename N'[{s}].openot_documents',N'logging_records';
-             IF OBJECT_ID(N'[{s}].logging_checkpoint',N'U') IS NULL AND OBJECT_ID(N'[{s}].openot_checkpoint',N'U') IS NOT NULL EXEC sp_rename N'[{s}].openot_checkpoint',N'logging_checkpoint';
-             IF OBJECT_ID(N'[{s}].logging_schema',N'U') IS NULL CREATE TABLE [{s}].logging_schema(singleton BIT PRIMARY KEY,version INT NOT NULL);
-             IF EXISTS(SELECT 1 FROM [{s}].logging_schema WHERE singleton=1 AND version>{SCHEMA_VERSION}) THROW 51000,'Logging schema is newer than supported',1;
+             IF OBJECT_ID(N'[{s}].logging_schema',N'U') IS NULL CREATE TABLE [{s}].logging_schema(
+               singleton BIT PRIMARY KEY CHECK(singleton=1),version INT NOT NULL CHECK(version=1));
              IF OBJECT_ID(N'[{s}].logging_records',N'U') IS NULL BEGIN
                CREATE TABLE [{s}].logging_records(
                  identity_key NVARCHAR(255) COLLATE Latin1_General_100_BIN2 PRIMARY KEY,
@@ -307,7 +316,6 @@ impl SqlServerDocumentSink {
                CREATE INDEX logging_receive_time ON [{s}].logging_records(receive_time_ns);
                CREATE INDEX logging_event_type ON [{s}].logging_records(event_type_id); END;
              IF OBJECT_ID(N'[{s}].logging_checkpoint',N'U') IS NULL CREATE TABLE [{s}].logging_checkpoint(singleton BIT PRIMARY KEY,buffer_id BIGINT NOT NULL,run_id BINARY(8) NOT NULL,cursor_abs BINARY(8) NOT NULL);
-             IF COL_LENGTH(N'[{s}].logging_checkpoint',N'run_id') IS NULL ALTER TABLE [{s}].logging_checkpoint ADD run_id BINARY(8) NOT NULL DEFAULT 0x0000000000000000;
              IF OBJECT_ID(N'[{s}].event_log',N'U') IS NULL CREATE TABLE [{s}].event_log(
                record_id NVARCHAR(255) COLLATE Latin1_General_100_BIN2 PRIMARY KEY REFERENCES [{s}].logging_records(identity_key),
                event_time DATETIME2(7) NULL,event_time_ns DECIMAL(20,0) NULL,
@@ -336,66 +344,68 @@ impl SqlServerDocumentSink {
                run_id DECIMAL(20,0) NOT NULL,epoch_id DECIMAL(20,0) NOT NULL,sequence DECIMAL(20,0) NOT NULL,
                definition_hash NVARCHAR(MAX) NOT NULL,time_unsynced BIT NOT NULL,synthetic_record BIT NOT NULL,
                partial_payload BIT NOT NULL,condition NVARCHAR(MAX) NOT NULL,condition_class NVARCHAR(MAX) NULL,
-               lifecycle_action NVARCHAR(MAX) NOT NULL);
-             IF NOT EXISTS(SELECT 1 FROM [{s}].logging_schema WHERE singleton=1) INSERT INTO [{s}].logging_schema VALUES(1,{SCHEMA_VERSION});"
-        ))?;
-        super::sqlserver_read_model::create_domain_schema(&self.runtime, &mut self.client, &s)?;
-        let version = self.schema_version()?;
-        if version < SCHEMA_VERSION {
-            self.backfill_v3()?;
-            self.batch(&format!(
-                "UPDATE [{s}].logging_schema SET version={SCHEMA_VERSION} WHERE singleton=1"
+               lifecycle_action NVARCHAR(MAX) NOT NULL);"
             ))?;
+            super::sqlserver_read_model::create_domain_schema(&self.runtime, &mut self.client, &s)?;
+            self.validate_schema_shape()?;
+            self.batch(&format!(
+                "INSERT INTO [{s}].logging_schema(singleton,version) VALUES(1,{LOGGING_SCHEMA_GENERATION})"
+            ))?;
+            if self.schema_version()? != LOGGING_SCHEMA_GENERATION {
+                return Err(commit_error("schema generation marker was not recorded"));
+            }
+            Ok(())
+        })();
+        if let Err(error) = initialization {
+            if let Err(rollback_error) = self.batch("IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION") {
+                return Err(PersistenceError::Commit(format!(
+                    "SQL Server schema initialization failed: {error}; rollback also failed: {rollback_error}"
+                )));
+            }
+            return Err(error);
+        }
+        if let Err(error) = self.batch("COMMIT TRANSACTION") {
+            let _ = self.batch("IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION");
+            return Err(error);
         }
         Ok(())
     }
 
-    fn backfill_v3(&mut self) -> Result<(), PersistenceError> {
+    fn validate_schema_shape(&mut self) -> Result<(), PersistenceError> {
         let s = self.schema.clone();
-        let canonical = self
-            .rows(&format!(
-                "SELECT canonical_json FROM [{s}].logging_records ORDER BY identity_key"
-            ))?
-            .into_iter()
-            .map(|row| {
-                row.get::<&str, _>(0)
-                    .map(str::to_string)
-                    .ok_or_else(|| commit_error("v2 canonical JSON is absent"))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        self.batch("BEGIN TRANSACTION")?;
-        let result = (|| {
-            self.batch(&format!(
-                "DELETE FROM [{s}].message_log; DELETE FROM [{s}].state_history;
-                 DELETE FROM [{s}].batch_history; DELETE FROM [{s}].recipe_history;
-                 DELETE FROM [{s}].material_additions; DELETE FROM [{s}].operator_activity;
-                 DELETE FROM [{s}].audit_log; DELETE FROM [{s}].electronic_signatures;
-                 DELETE FROM [{s}].system_events; DELETE FROM [{s}].data_loss;
-                 DELETE FROM [{s}].unresolved_records; DELETE FROM [{s}].alarm_history;
-                 DELETE FROM [{s}].logged_values; DELETE FROM [{s}].event_log;"
-            ))?;
-            for json in canonical {
-                let document = serde_json::from_str(&json).map_err(|error| {
-                    commit_error(&format!("v2 canonical document is malformed: {error}"))
-                })?;
-                let projected = self.projector.project(&document)?;
-                super::sqlserver_read_model::insert_projection(
-                    &self.runtime,
-                    &mut self.client,
-                    &s,
-                    projected.event,
-                    projected.logged_values,
-                    projected.domains,
-                )?;
+        let required = [
+            "logging_schema",
+            "logging_records",
+            "logging_checkpoint",
+            "event_log",
+            "logged_values",
+            "alarm_history",
+            "message_log",
+            "state_history",
+            "batch_history",
+            "recipe_history",
+            "material_additions",
+            "operator_activity",
+            "audit_log",
+            "electronic_signatures",
+            "system_events",
+            "data_loss",
+            "unresolved_records",
+        ];
+        for table in required {
+            let exists = self
+                .one(&format!(
+                    "SELECT COUNT_BIG(*) FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE s.name=N'{s}' AND t.name=N'{table}'"
+                ))?
+                .get::<i64, _>(0)
+                .unwrap_or(0);
+            if exists != 1 {
+                return Err(PersistenceError::Commit(format!(
+                    "SQL Server incompatible pre-release schema: required object {table} is missing; back up and recreate the development database"
+                )));
             }
-            Ok(())
-        })();
-        if result.is_ok() {
-            self.batch("COMMIT TRANSACTION")?;
-        } else {
-            let _ = self.batch("IF @@TRANCOUNT>0 ROLLBACK TRANSACTION");
         }
-        result
+        Ok(())
     }
 
     fn batch(&mut self, sql: &str) -> Result<(), PersistenceError> {

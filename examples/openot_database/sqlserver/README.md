@@ -10,7 +10,7 @@ SQL is intentionally not claimed without a separate real-service run.
 ## Prepare and run
 
 ```bash
-export TRUST_OPENOT_DATABASE_URL='server=tcp:db.example,1433;user=openot_logger;password=FROM_SECRET_STORE;database=openot;TrustServerCertificate=false'
+export TRUST_OPENOT_DATABASE_URL='server=tcp:db.example,1433;user=trust_logging_writer;password=FROM_SECRET_STORE;database=trust_logging;TrustServerCertificate=false'
 example_root=$(mktemp -d /tmp/trust-openot-sqlserver.XXXXXX)
 install -d -m 700 "$example_root/src" "$example_root/certs"
 cp ../workload/Main.st "$example_root/src/Main.st"
@@ -23,10 +23,10 @@ trust-runtime run --project "$example_root"
 ## Verify
 
 ```bash
-sqlcmd -N -S db.example -d openot -Q 'select @@version'
-sqlcmd -N -S db.example -d openot -Q \
-  'select event_name,count_big(*) from openot.event_log group by event_name order by event_name'
-sqlcmd -N -S db.example -d openot -Q \
+sqlcmd -N -S db.example -d trust_logging -Q 'select @@version'
+sqlcmd -N -S db.example -d trust_logging -Q \
+  'select event_name,count_big(*) from trust_logging.event_log group by event_name order by event_name'
+sqlcmd -N -S db.example -d trust_logging -Q \
   "select encrypt_option from sys.dm_exec_connections where session_id=@@spid"
 ```
 

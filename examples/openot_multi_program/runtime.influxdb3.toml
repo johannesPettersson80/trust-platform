@@ -35,8 +35,8 @@ backend = "influxdb3"
 [runtime.openot.persistence.influxdb3]
 host_env = "TRUST_OPENOT_INFLUX_HOST"
 token_env = "TRUST_OPENOT_INFLUX_TOKEN"
-database = "openot"
-spool_path = "history/openot-influx-spool.sqlite3"
+database = "trust_logging"
+spool_path = "history/trust-logging-influx-spool.sqlite3"
 max_bytes = 1073741824
 ca_cert_path = "certs/openot-influx-ca.pem"
 

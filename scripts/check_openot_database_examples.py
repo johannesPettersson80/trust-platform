@@ -10,6 +10,7 @@ import tomllib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples" / "openot_database"
+MULTI_PROGRAM_EXAMPLES = ROOT / "examples" / "openot_multi_program"
 PRODUCTS = {
     "sqlite": "sqlite",
     "postgresql": "postgresql",
@@ -18,6 +19,15 @@ PRODUCTS = {
     "mariadb": "mysql",
     "sqlserver": "sqlserver",
     "influxdb3": "influxdb3",
+}
+EXPECTED_STORAGE = {
+    "sqlite": ("sqlite", "path", "history/trust-logging.sqlite3"),
+    "postgresql": ("postgresql", "schema", "trust_logging"),
+    "timescaledb": ("timescaledb", "schema", "trust_logging"),
+    "mysql": ("mysql", "database", "trust_logging"),
+    "mariadb": ("mysql", "database", "trust_logging"),
+    "sqlserver": ("sqlserver", "schema", "trust_logging"),
+    "influxdb3": ("influxdb3", "database", "trust_logging"),
 }
 REQUIRED_GUIDANCE = (
     "Prerequisites",
@@ -35,13 +45,14 @@ def fail(message: str) -> None:
 
 def main() -> int:
     persistence_spec = (ROOT / "docs" / "specs" / "33-openot-database-persistence.md").read_text()
+    persistence_spec_normalized = " ".join(persistence_spec.split())
     for contract in (
-        "SQLite schema version 4",
-        "explicit common provenance columns",
-        "preserves `logging_records` and `logging_checkpoint`",
+        "exactly one product schema generation: `1`",
+        "MUST NOT contain or advertise legacy schema migrations",
+        "fail closed before consuming documents or changing stored state",
     ):
-        if contract not in persistence_spec:
-            fail(f"database persistence specification omits migration contract {contract!r}")
+        if contract not in persistence_spec_normalized:
+            fail(f"database persistence specification omits initial-schema contract {contract!r}")
 
     persistence_sources = ROOT / "crates" / "trust-runtime" / "src" / "host" / "openot_persistence"
     for source_path in persistence_sources.rglob("*.rs"):
@@ -75,6 +86,17 @@ def main() -> int:
         persistence = config["runtime"]["openot"]["persistence"]
         if persistence["backend"] != expected_backend:
             fail(f"{product}: unexpected TOML backend {persistence['backend']!r}")
+        section, key, expected_value = EXPECTED_STORAGE[product]
+        configured_value = persistence[section][key]
+        if configured_value != expected_value:
+            fail(
+                f"{product}: public {key} must be descriptive {expected_value!r}, "
+                f"got {configured_value!r}"
+            )
+        if product == "influxdb3":
+            expected_spool = "history/trust-logging-influx-spool.sqlite3"
+            if persistence[section]["spool_path"] != expected_spool:
+                fail(f"influxdb3: spool path must be {expected_spool!r}")
         forbidden = ("password=", "secret =", "TrustServerCertificate=true")
         for needle in forbidden:
             if needle.lower() in config_text.lower():
@@ -89,6 +111,31 @@ def main() -> int:
         if "runtime.toml" not in readme or "```bash" not in readme:
             fail(f"{product}: README lacks executable configuration/run commands")
 
+    multi_program_configs = {
+        "sqlite": MULTI_PROGRAM_EXAMPLES / "runtime.toml",
+        **{
+            product: MULTI_PROGRAM_EXAMPLES / f"runtime.{product}.toml"
+            for product in PRODUCTS
+            if product != "sqlite"
+        },
+    }
+    for product, config_path in multi_program_configs.items():
+        persistence = tomllib.loads(config_path.read_text())["runtime"]["openot"]["persistence"]
+        section, key, expected_value = EXPECTED_STORAGE[product]
+        configured_value = persistence[section][key]
+        if configured_value != expected_value:
+            fail(
+                f"openot_multi_program/{config_path.name}: public {key} must be "
+                f"descriptive {expected_value!r}, got {configured_value!r}"
+            )
+        if product == "influxdb3":
+            expected_spool = "history/trust-logging-influx-spool.sqlite3"
+            if persistence[section]["spool_path"] != expected_spool:
+                fail(
+                    f"openot_multi_program/{config_path.name}: spool path must be "
+                    f"{expected_spool!r}"
+                )
+
     verification = (ROOT / "docs/public/operate/openot-database-verification.md").read_text()
     for identity in (
         "openot_real_database_gate.sh",
@@ -101,20 +148,25 @@ def main() -> int:
     operator_guide = (ROOT / "docs/public/operate/openot-database-persistence.md").read_text()
     operator_guide_normalized = " ".join(operator_guide.split())
     for contract in (
-        "SQLite uses schema version 4",
+        "Every backend and the InfluxDB durable spool use the same initial schema generation, 1",
+        "does not migrate pre-release development databases",
         "documented public objects or a documented export boundary",
         "Canonical JSON remains an internal recovery authority",
     ):
         if contract not in operator_guide_normalized:
-            fail(f"operator guide omits public migration/query contract {contract!r}")
+            fail(f"operator guide omits public schema/query contract {contract!r}")
 
     gate = (ROOT / "scripts/openot_real_database_gate.sh").read_text()
     if "evidence directory must be empty" not in gate.lower():
         fail("real-database gate does not reject a stale evidence directory")
+    if '("schema_generation", "PRAGMA user_version")' not in gate:
+        fail("real-database evidence must describe the shared value as schema_generation")
+    if '("schema_version", "PRAGMA user_version")' in gate:
+        fail("real-database evidence must not expose the shared value as schema_version")
     for artifact in (
         "sqlite-artifact",
         "runtime-configs",
-        "openot.sqlite3",
+        "trust-logging.sqlite3",
         "openot-definition.json",
         "openot-coverage-manifest.json",
         "Main.st",
@@ -122,6 +174,18 @@ def main() -> int:
     ):
         if artifact not in gate:
             fail(f"real-database gate omits required retained artifact {artifact}")
+
+    runner = (ROOT / "scripts/openot_database_runner_prepare.sh").read_text()
+    for legacy_storage_name in (
+        "POSTGRES_DB=openot",
+        "MYSQL_DATABASE=openot",
+        "MARIADB_DATABASE=openot",
+        "db=openot",
+        "/openot?sslmode",
+        "/openot\\n",
+    ):
+        if legacy_storage_name in runner:
+            fail(f"real-database runner still provisions ambiguous storage name {legacy_storage_name!r}")
     print("OpenOT database example and documentation contract passed")
     return 0
 

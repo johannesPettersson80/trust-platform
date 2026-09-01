@@ -59,8 +59,8 @@ class OpenOtDatabaseRunnerContractTests(unittest.TestCase):
         self.assertIn("--admin-token-file", prepare)
         self.assertIn("unauthenticated InfluxDB write was accepted", prepare)
         self.assertIn("client_max_body_size 16m", prepare)
-        self.assertIn("@127.0.0.1:53306/openot", prepare)
-        self.assertIn("@127.0.0.1:53307/openot", prepare)
+        self.assertIn("@127.0.0.1:53306/trust_logging", prepare)
+        self.assertIn("@127.0.0.1:53307/trust_logging", prepare)
         self.assertNotIn('$state_dir/tls:/tls:ro', prepare)
         self.assertNotIn("OpenOtPassword", prepare)
 

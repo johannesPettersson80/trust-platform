@@ -61,13 +61,13 @@ prepare_postgres_tls "$timescale_image" "$state_dir/timescale-tls"
 
 docker run -d --name "$prefix-postgres" --network "$prefix-network" \
   -p 127.0.0.1:55432:5432 \
-  -e POSTGRES_PASSWORD="$password" -e POSTGRES_DB=openot \
+  -e POSTGRES_PASSWORD="$password" -e POSTGRES_DB=trust_logging \
   -v "$state_dir/postgres-tls:/tls:ro" "$postgres_image" \
   -c ssl=on -c ssl_cert_file=/tls/server.crt -c ssl_key_file=/tls/server.key >/dev/null
 
 docker run -d --name "$prefix-timescale" --network "$prefix-network" \
   -p 127.0.0.1:55433:5432 \
-  -e POSTGRES_PASSWORD="$password" -e POSTGRES_DB=openot \
+  -e POSTGRES_PASSWORD="$password" -e POSTGRES_DB=trust_logging \
   -v "$state_dir/timescale-tls:/tls:ro" "$timescale_image" \
   -c ssl=on -c ssl_cert_file=/tls/server.crt -c ssl_key_file=/tls/server.key >/dev/null
 
@@ -88,13 +88,13 @@ prepare_mysql_tls "$mysql_image" "$state_dir/mysql-tls"
 prepare_mysql_tls "$mariadb_image" "$state_dir/mariadb-tls"
 docker run -d --name "$prefix-mysql" --network "$prefix-network" \
   -p 127.0.0.1:53306:3306 -e MYSQL_ROOT_PASSWORD="$password" \
-  -e MYSQL_DATABASE=openot -v "$state_dir/mysql-tls:/tls:ro" "$mysql_image" \
+  -e MYSQL_DATABASE=trust_logging -v "$state_dir/mysql-tls:/tls:ro" "$mysql_image" \
   --ssl-ca=/tls/ca.pem --ssl-cert=/tls/server.crt --ssl-key=/tls/server.key \
   --require-secure-transport=ON >/dev/null
 
 docker run -d --name "$prefix-mariadb" --network "$prefix-network" \
   -p 127.0.0.1:53307:3306 -e MARIADB_ROOT_PASSWORD="$password" \
-  -e MARIADB_DATABASE=openot -v "$state_dir/mariadb-tls:/tls:ro" "$mariadb_image" \
+  -e MARIADB_DATABASE=trust_logging -v "$state_dir/mariadb-tls:/tls:ro" "$mariadb_image" \
   --ssl-ca=/tls/ca.pem --ssl-cert=/tls/server.crt --ssl-key=/tls/server.key \
   --require-secure-transport=ON >/dev/null
 
@@ -161,8 +161,8 @@ wait_for() {
   return 1
 }
 
-wait_for PostgreSQL docker exec "$prefix-postgres" pg_isready -U postgres -d openot
-wait_for TimescaleDB docker exec "$prefix-timescale" pg_isready -U postgres -d openot
+wait_for PostgreSQL docker exec "$prefix-postgres" pg_isready -U postgres -d trust_logging
+wait_for TimescaleDB docker exec "$prefix-timescale" pg_isready -U postgres -d trust_logging
 wait_for MySQL docker exec "$prefix-mysql" mysql -h127.0.0.1 -uroot "-p$password" -e 'SELECT 1'
 wait_for MariaDB docker exec "$prefix-mariadb" mariadb -h127.0.0.1 -uroot "-p$password" -e 'SELECT 1'
 wait_for SQLServer docker exec "$prefix-sqlserver" /opt/mssql-tools18/bin/sqlcmd \
@@ -176,11 +176,11 @@ wait_for InfluxDB influx_authenticated_health
 printf 'header = "Authorization: Bearer %s"\n' "$influx_token" | \
   curl --fail --silent --show-error --config - --cacert "$state_dir/tls/ca.pem" \
     -H 'Content-Type: text/plain' --data-binary 'runner_auth_check value=1i' \
-    'https://localhost:58181/api/v3/write_lp?db=openot'
+    'https://localhost:58181/api/v3/write_lp?db=trust_logging'
 unauthenticated_status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
   --cacert "$state_dir/tls/ca.pem" -H 'Content-Type: text/plain' \
   --data-binary 'runner_unauthenticated_check value=1i' \
-  'https://localhost:58181/api/v3/write_lp?db=openot')
+  'https://localhost:58181/api/v3/write_lp?db=trust_logging')
 if [[ $unauthenticated_status =~ ^2 ]]; then
   echo "unauthenticated InfluxDB write was accepted" >&2
   exit 1
@@ -190,10 +190,10 @@ ca_pem=$(cat "$state_dir/tls/ca.pem")
 {
   printf 'OPENOT_DATABASE_RUNNER_STATE_DIR=%s\n' "$state_dir"
   printf 'OPENOT_DATABASE_RUNNER_PREFIX=%s\n' "$prefix"
-  printf 'TRUST_TEST_OPENOT_POSTGRES_URL=postgresql://postgres:%s@localhost:55432/openot?sslmode=require\n' "$password"
-  printf 'TRUST_TEST_OPENOT_TIMESCALE_URL=postgresql://postgres:%s@localhost:55433/openot?sslmode=require\n' "$password"
-  printf 'TRUST_TEST_OPENOT_MYSQL_URL=mysql://root:%s@127.0.0.1:53306/openot\n' "$password"
-  printf 'TRUST_TEST_OPENOT_MARIADB_URL=mysql://root:%s@127.0.0.1:53307/openot\n' "$password"
+  printf 'TRUST_TEST_OPENOT_POSTGRES_URL=postgresql://postgres:%s@localhost:55432/trust_logging?sslmode=require\n' "$password"
+  printf 'TRUST_TEST_OPENOT_TIMESCALE_URL=postgresql://postgres:%s@localhost:55433/trust_logging?sslmode=require\n' "$password"
+  printf 'TRUST_TEST_OPENOT_MYSQL_URL=mysql://root:%s@127.0.0.1:53306/trust_logging\n' "$password"
+  printf 'TRUST_TEST_OPENOT_MARIADB_URL=mysql://root:%s@127.0.0.1:53307/trust_logging\n' "$password"
   printf 'TRUST_TEST_OPENOT_SQLSERVER_URL=server=tcp:localhost,51433;user=sa;password=%s;database=master\n' "$sqlserver_password"
   printf 'TRUST_TEST_OPENOT_INFLUX_HOST=https://localhost:58181\n'
   printf 'TRUST_TEST_OPENOT_INFLUX_TOKEN=%s\n' "$influx_token"
