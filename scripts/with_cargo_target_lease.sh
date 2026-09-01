@@ -20,6 +20,4 @@ lease_root="$HOME/.cache/codex-target-leases"
 mkdir -p "$target" "$lease_root"
 target_digest=$(printf '%s' "$target" | sha256sum | cut -d' ' -f1)
 lease="$lease_root/$target_digest.lock"
-exec 9>"$lease"
-flock -x 9
-exec "$@"
+exec flock --close -x "$lease" "$@"

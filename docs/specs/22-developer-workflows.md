@@ -250,6 +250,11 @@ Shared-builder Cargo targets used by an active gate MUST hold a stable external
 lease for the complete command lifetime. Generated-target cleanup MUST acquire
 that same lease without waiting and MUST skip a target whose lease is held; a
 globbed deletion of the shared target root is forbidden. Exact-candidate
+lease descriptors MUST NOT be inherited by helper daemons or detached
+background children after the invoked command exits. A command that
+intentionally leaves an asynchronous target user running MUST arrange a
+separate lease for that user instead of extending the caller's lease
+accidentally through descriptor inheritance. Exact-candidate
 preparation MUST use the leased target for every Cargo-producing VS Code,
 cross-target, supply-chain, architecture, clippy, and full-test command, and
 its deliberate pre-test reclaim MUST use the lease-aware cleanup command. A

@@ -76,7 +76,8 @@ Target release: `v0.24.68`
   remote database connection is unavailable, and run the same complete
   Architecture Safety gate before push and in GitHub CI. Protect active
   shared-builder Cargo targets with stable external leases so concurrent
-  cleanup cannot delete exact-candidate test executables, and preserve target
+  cleanup cannot delete exact-candidate test executables without leaking those
+  leases into helper daemons or detached children, and preserve target
   compiler discovery instead of injecting host C/C++ compilers into Windows
   cross-target checks.
 - Keep SQL Server logged-value statements below its 2,100-parameter limit,
