@@ -1,0 +1,1260 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "Simulation",
+  "applied": false,
+  "conditions": {
+    "revision": "sha256:lesson-51-common-validation-v1",
+    "sampleSeconds": 0.1,
+    "durationSeconds": 220,
+    "seed": 20260829,
+    "outputLimitsPercent": [
+      0,
+      100
+    ],
+    "eventsSeconds": {
+      "setpoint": 10,
+      "loadDisturbance": 100
+    },
+    "variationFractions": [
+      -0.2,
+      0,
+      0.2
+    ]
+  },
+  "plants": {
+    "heater": {
+      "modelIdentity": "control-heater-accepted-model",
+      "modelRevision": "sha256:lesson-51-heater-model-v1",
+      "controllerConvention": "Parallel Control.PID",
+      "attempts": {
+        "SIMC": {
+          "status": "Feasible",
+          "applied": false,
+          "controller": {
+            "proportionalGain": 5.7692308,
+            "integralTimeSeconds": 5,
+            "integralGain": 1.1538462,
+            "derivativeGain": 0
+          },
+          "assumptions": [
+            "Accepted stable monotone positive-gain first-order or FOPDT model.",
+            "The response choice selects lambda; limits and acceptance requirements do not change."
+          ],
+          "modelInputs": [
+            {
+              "name": "K",
+              "value": 0.2,
+              "unit": "degC/%"
+            },
+            {
+              "name": "T",
+              "value": 5,
+              "unit": "s"
+            },
+            {
+              "name": "L",
+              "value": 1,
+              "unit": "s"
+            },
+            {
+              "name": "Objective",
+              "value": "balanced",
+              "unit": "selection"
+            },
+            {
+              "name": "lambda",
+              "value": 3.3333333,
+              "unit": "s"
+            }
+          ],
+          "nativeRun": {
+            "case": "heater_simc",
+            "plant": "water_heater",
+            "method": "SIMC",
+            "status": "qualified",
+            "iae": "27.439550",
+            "ise": "67.496928",
+            "itae": "726.151701",
+            "overshoot_percent": "0.393329",
+            "final_mean_absolute_error": "0.012560",
+            "applied_movement_pp": "93.338377",
+            "applied": "false"
+          },
+          "frequency": {
+            "grid": {
+              "minimumFrequencyRadPerSecond": 0.0001,
+              "maximumFrequencyRadPerSecond": 100,
+              "pointsPerDecade": 100
+            },
+            "bandwidthRadPerSecond": 0.312316370127,
+            "maximumSensitivity": 1.22743727797,
+            "maximumComplementarySensitivity": 0.999999949444,
+            "gainMarginDb": 16.6582922128,
+            "phaseMarginDegrees": 76.7771349205,
+            "delayMarginSeconds": 5.80672641234
+          },
+          "validation": {
+            "planRevision": "sha256:lesson-51-common-validation-v1",
+            "metrics": {
+              "iae": 27.43955,
+              "ise": 67.496928,
+              "itae": 726.151701,
+              "mvMovement": 93.338377,
+              "settling": {
+                "status": "Settled",
+                "timeSeconds": 10.4,
+                "band": {
+                  "value": 0.25,
+                  "unit": "process unit",
+                  "fractionOfStep": 0.05
+                },
+                "dwellSeconds": 5,
+                "windowSeconds": [
+                  10,
+                  100
+                ]
+              },
+              "peakRequestedOutput": 55.176989873598,
+              "peakAppliedOutput": 55.176989873598,
+              "maximumAppliedOutputRate": 293.88575997413,
+              "saturationDuration": 0,
+              "noiseOutputRms": 0.08140355925128868
+            },
+            "requirements": [
+              {
+                "name": "Normalized overshoot",
+                "status": "Pass",
+                "value": 0.393329,
+                "limit": 10,
+                "unit": "% of setpoint step",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Final mean absolute error",
+                "status": "Pass",
+                "value": 0.01256,
+                "limit": 0.25,
+                "unit": "degC",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Applied output bounds",
+                "status": "Pass",
+                "value": "all samples",
+                "limit": "0..100",
+                "unit": "%",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Settling and dwell",
+                "status": "Pass",
+                "value": 10.4,
+                "limit": 90,
+                "unit": "s after setpoint event",
+                "source": "Native setpoint window 10..100 s; 5% band for 5 s dwell"
+              },
+              {
+                "name": "Peak applied output",
+                "status": "Pass",
+                "value": 55.176989873598,
+                "limit": 100,
+                "unit": "%",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Maximum applied-output rate",
+                "status": "Pass",
+                "value": 293.88575997413,
+                "limit": 1000,
+                "unit": "%/s",
+                "source": "Native 0.1 s applied-output samples"
+              },
+              {
+                "name": "Saturation duration",
+                "status": "Pass",
+                "value": 0,
+                "limit": 0,
+                "unit": "s",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Noise-driven MV RMS",
+                "status": "Pass",
+                "value": 0.08140355925128868,
+                "limit": 0.5,
+                "unit": "% RMS",
+                "source": "Native applied-output window 210..220 s with 0.02-unit 0.5 Hz interference"
+              },
+              {
+                "name": "Gain margin",
+                "status": "Pass",
+                "value": 16.6582922128,
+                "limit": 6,
+                "unit": "dB",
+                "source": "Qualified frequency analyzer"
+              },
+              {
+                "name": "Phase margin",
+                "status": "Pass",
+                "value": 76.7771349205,
+                "limit": 30,
+                "unit": "degrees",
+                "source": "Qualified frequency analyzer"
+              }
+            ],
+            "boundedVariation": [
+              {
+                "gainAndDelayFraction": -0.2,
+                "gainMarginDb": 20.5347544309,
+                "phaseMarginDegrees": 81.5373303157,
+                "status": "Pass"
+              },
+              {
+                "gainAndDelayFraction": 0,
+                "gainMarginDb": 16.6582922128,
+                "phaseMarginDegrees": 76.7771349205,
+                "status": "Pass"
+              },
+              {
+                "gainAndDelayFraction": 0.2,
+                "gainMarginDb": 13.4910997725,
+                "phaseMarginDegrees": 70.9592580895,
+                "status": "Pass"
+              }
+            ],
+            "scenarioDispositions": {
+              "setpointTracking": {
+                "status": "Pass",
+                "windowSeconds": [
+                  10,
+                  100
+                ]
+              },
+              "disturbanceRejection": {
+                "status": "Pass",
+                "windowSeconds": [
+                  100,
+                  220
+                ],
+                "finalWindowSeconds": [
+                  210,
+                  220
+                ]
+              },
+              "measurementNoise": {
+                "status": "Pass",
+                "windowSeconds": [
+                  210,
+                  220
+                ],
+                "injectedAmplitude": 0.02,
+                "injectedFrequencyHz": 0.5
+              },
+              "boundedVariation": {
+                "status": "Pass",
+                "fractions": [
+                  -0.2,
+                  0,
+                  0.2
+                ]
+              }
+            }
+          }
+        },
+        "AMIGO": {
+          "status": "Feasible",
+          "applied": false,
+          "controller": {
+            "proportionalGain": 6.0277778,
+            "integralTimeSeconds": 3.8826087,
+            "integralGain": 1.5525072,
+            "derivativeGain": 0
+          },
+          "assumptions": [
+            "Accepted stable monotone positive-gain FOPDT model with resolved positive dead time.",
+            "The qualified domain is 0 < L/T <= 1; Response changes ranking, not the published coefficients."
+          ],
+          "modelInputs": [
+            {
+              "name": "K",
+              "value": 0.2,
+              "unit": "degC/%"
+            },
+            {
+              "name": "T",
+              "value": 5,
+              "unit": "s"
+            },
+            {
+              "name": "L",
+              "value": 1,
+              "unit": "s"
+            },
+            {
+              "name": "Objective",
+              "value": "balanced",
+              "unit": "selection"
+            }
+          ],
+          "nativeRun": {
+            "case": "heater_amigo",
+            "plant": "water_heater",
+            "method": "AMIGO",
+            "status": "qualified",
+            "iae": "23.874682",
+            "ise": "61.282210",
+            "itae": "615.901967",
+            "overshoot_percent": "3.879261",
+            "final_mean_absolute_error": "0.012536",
+            "applied_movement_pp": "102.483285",
+            "applied": "false"
+          },
+          "frequency": {
+            "grid": {
+              "minimumFrequencyRadPerSecond": 0.0001,
+              "maximumFrequencyRadPerSecond": 100,
+              "pointsPerDecade": 100
+            },
+            "bandwidthRadPerSecond": 0.412420271581,
+            "maximumSensitivity": 1.26376024288,
+            "maximumComplementarySensitivity": 1.0082902281,
+            "gainMarginDb": 16.0245822479,
+            "phaseMarginDegrees": 67.5151309907,
+            "delayMarginSeconds": 4.39680218234
+          },
+          "validation": {
+            "planRevision": "sha256:lesson-51-common-validation-v1",
+            "metrics": {
+              "iae": 23.874682,
+              "ise": 61.28221,
+              "itae": 615.901967,
+              "mvMovement": 102.483285,
+              "settling": {
+                "status": "Settled",
+                "timeSeconds": 7.1000000000000005,
+                "band": {
+                  "value": 0.25,
+                  "unit": "process unit",
+                  "fractionOfStep": 0.05
+                },
+                "dwellSeconds": 5,
+                "windowSeconds": [
+                  10,
+                  100
+                ]
+              },
+              "peakRequestedOutput": 58.752086503585,
+              "peakAppliedOutput": 58.752086503585,
+              "maximumAppliedOutputRate": 308.79248470114,
+              "saturationDuration": 0,
+              "noiseOutputRms": 0.08521867069838189
+            },
+            "requirements": [
+              {
+                "name": "Normalized overshoot",
+                "status": "Pass",
+                "value": 3.879261,
+                "limit": 10,
+                "unit": "% of setpoint step",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Final mean absolute error",
+                "status": "Pass",
+                "value": 0.012536,
+                "limit": 0.25,
+                "unit": "degC",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Applied output bounds",
+                "status": "Pass",
+                "value": "all samples",
+                "limit": "0..100",
+                "unit": "%",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Settling and dwell",
+                "status": "Pass",
+                "value": 7.1000000000000005,
+                "limit": 90,
+                "unit": "s after setpoint event",
+                "source": "Native setpoint window 10..100 s; 5% band for 5 s dwell"
+              },
+              {
+                "name": "Peak applied output",
+                "status": "Pass",
+                "value": 58.752086503585,
+                "limit": 100,
+                "unit": "%",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Maximum applied-output rate",
+                "status": "Pass",
+                "value": 308.79248470114,
+                "limit": 1000,
+                "unit": "%/s",
+                "source": "Native 0.1 s applied-output samples"
+              },
+              {
+                "name": "Saturation duration",
+                "status": "Pass",
+                "value": 0,
+                "limit": 0,
+                "unit": "s",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Noise-driven MV RMS",
+                "status": "Pass",
+                "value": 0.08521867069838189,
+                "limit": 0.5,
+                "unit": "% RMS",
+                "source": "Native applied-output window 210..220 s with 0.02-unit 0.5 Hz interference"
+              },
+              {
+                "name": "Gain margin",
+                "status": "Pass",
+                "value": 16.0245822479,
+                "limit": 6,
+                "unit": "dB",
+                "source": "Qualified frequency analyzer"
+              },
+              {
+                "name": "Phase margin",
+                "status": "Pass",
+                "value": 67.5151309907,
+                "limit": 30,
+                "unit": "degrees",
+                "source": "Qualified frequency analyzer"
+              }
+            ],
+            "boundedVariation": [
+              {
+                "gainAndDelayFraction": -0.2,
+                "gainMarginDb": 19.9590347881,
+                "phaseMarginDegrees": 72.7029415755,
+                "status": "Pass"
+              },
+              {
+                "gainAndDelayFraction": 0,
+                "gainMarginDb": 16.0245822479,
+                "phaseMarginDegrees": 67.5151309907,
+                "status": "Pass"
+              },
+              {
+                "gainAndDelayFraction": 0.2,
+                "gainMarginDb": 12.796085197,
+                "phaseMarginDegrees": 61.4544019969,
+                "status": "Pass"
+              }
+            ],
+            "scenarioDispositions": {
+              "setpointTracking": {
+                "status": "Pass",
+                "windowSeconds": [
+                  10,
+                  100
+                ]
+              },
+              "disturbanceRejection": {
+                "status": "Pass",
+                "windowSeconds": [
+                  100,
+                  220
+                ],
+                "finalWindowSeconds": [
+                  210,
+                  220
+                ]
+              },
+              "measurementNoise": {
+                "status": "Pass",
+                "windowSeconds": [
+                  210,
+                  220
+                ],
+                "injectedAmplitude": 0.02,
+                "injectedFrequencyHz": 0.5
+              },
+              "boundedVariation": {
+                "status": "Pass",
+                "fractions": [
+                  -0.2,
+                  0,
+                  0.2
+                ]
+              }
+            }
+          }
+        }
+      },
+      "paretoMeasures": [
+        "IAE",
+        "ITAE",
+        "MV movement",
+        "maximum sensitivity"
+      ],
+      "paretoFrontier": [
+        "SIMC",
+        "AMIGO"
+      ],
+      "decision": "Inconclusive"
+    },
+    "tank": {
+      "modelIdentity": "control-tank-accepted-model",
+      "modelRevision": "sha256:lesson-51-tank-model-v1",
+      "controllerConvention": "Parallel Control.PID",
+      "attempts": {
+        "SIMC": {
+          "status": "Feasible",
+          "applied": false,
+          "controller": {
+            "proportionalGain": 13.333333,
+            "integralTimeSeconds": 6,
+            "integralGain": 2.2222222,
+            "derivativeGain": 0
+          },
+          "assumptions": [
+            "Accepted monotone integrating model with positive rate gain and resolved positive effective delay.",
+            "The response choice selects lambda; limits and acceptance requirements do not change."
+          ],
+          "modelInputs": [
+            {
+              "name": "Kprime",
+              "value": 0.05,
+              "unit": "level-%/(%·s)"
+            },
+            {
+              "name": "L",
+              "value": 0.5,
+              "unit": "s"
+            },
+            {
+              "name": "Objective",
+              "value": "balanced",
+              "unit": "selection"
+            },
+            {
+              "name": "lambda",
+              "value": 1,
+              "unit": "s"
+            }
+          ],
+          "nativeRun": {
+            "case": "tank_simc",
+            "plant": "buffer_tank",
+            "method": "SIMC",
+            "status": "qualified",
+            "iae": "8.756780",
+            "ise": "5.608732",
+            "itae": "342.632377",
+            "overshoot_percent": "34.482219",
+            "final_mean_absolute_error": "0.013516",
+            "applied_movement_pp": "179.039419",
+            "applied": "false"
+          },
+          "frequency": {
+            "grid": {
+              "minimumFrequencyRadPerSecond": 0.0001,
+              "maximumFrequencyRadPerSecond": 100,
+              "pointsPerDecade": 100
+            },
+            "bandwidthRadPerSecond": 1.28949012102,
+            "maximumSensitivity": 1.39330046328,
+            "maximumComplementarySensitivity": 1.21933044004,
+            "gainMarginDb": 13.1422550631,
+            "phaseMarginDegrees": 56.6893691539,
+            "delayMarginSeconds": 1.44216891467
+          },
+          "validation": {
+            "planRevision": "sha256:lesson-51-common-validation-v1",
+            "metrics": {
+              "iae": 8.75678,
+              "ise": 5.608732,
+              "itae": 342.632377,
+              "mvMovement": 179.039419,
+              "settling": {
+                "status": "Settled",
+                "timeSeconds": 9.1,
+                "band": {
+                  "value": 0.1,
+                  "unit": "process unit",
+                  "fractionOfStep": 0.05
+                },
+                "dwellSeconds": 5,
+                "windowSeconds": [
+                  10,
+                  100
+                ]
+              },
+              "peakRequestedOutput": 77.325812746948,
+              "peakAppliedOutput": 77.325812746948,
+              "maximumAppliedOutputRate": 270.2296360897399,
+              "saturationDuration": 0,
+              "noiseOutputRms": 0.20325592034873477
+            },
+            "requirements": [
+              {
+                "name": "Peak level excursion",
+                "status": "Pass",
+                "value": 0.6896443800000001,
+                "limit": 0.8,
+                "unit": "level pp",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Final mean absolute error",
+                "status": "Pass",
+                "value": 0.013516,
+                "limit": 0.25,
+                "unit": "level-%",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Applied output bounds",
+                "status": "Pass",
+                "value": "all samples",
+                "limit": "0..100",
+                "unit": "%",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Settling and dwell",
+                "status": "Pass",
+                "value": 9.1,
+                "limit": 90,
+                "unit": "s after setpoint event",
+                "source": "Native setpoint window 10..100 s; 5% band for 5 s dwell"
+              },
+              {
+                "name": "Peak applied output",
+                "status": "Pass",
+                "value": 77.325812746948,
+                "limit": 100,
+                "unit": "%",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Maximum applied-output rate",
+                "status": "Pass",
+                "value": 270.2296360897399,
+                "limit": 1000,
+                "unit": "%/s",
+                "source": "Native 0.1 s applied-output samples"
+              },
+              {
+                "name": "Saturation duration",
+                "status": "Pass",
+                "value": 0,
+                "limit": 0,
+                "unit": "s",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Noise-driven MV RMS",
+                "status": "Pass",
+                "value": 0.20325592034873477,
+                "limit": 0.5,
+                "unit": "% RMS",
+                "source": "Native applied-output window 210..220 s with 0.02-unit 0.5 Hz interference"
+              },
+              {
+                "name": "Gain margin",
+                "status": "Pass",
+                "value": 13.1422550631,
+                "limit": 6,
+                "unit": "dB",
+                "source": "Qualified frequency analyzer"
+              },
+              {
+                "name": "Phase margin",
+                "status": "Pass",
+                "value": 56.6893691539,
+                "limit": 30,
+                "unit": "degrees",
+                "source": "Qualified frequency analyzer"
+              }
+            ],
+            "boundedVariation": [
+              {
+                "gainAndDelayFraction": -0.2,
+                "gainMarginDb": 17.0879421064,
+                "phaseMarginDegrees": 60.5730024623,
+                "status": "Pass"
+              },
+              {
+                "gainAndDelayFraction": 0,
+                "gainMarginDb": 13.1422550631,
+                "phaseMarginDegrees": 56.6893691539,
+                "status": "Pass"
+              },
+              {
+                "gainAndDelayFraction": 0.2,
+                "gainMarginDb": 9.90324603268,
+                "phaseMarginDegrees": 50.3922997019,
+                "status": "Pass"
+              }
+            ],
+            "scenarioDispositions": {
+              "setpointTracking": {
+                "status": "Pass",
+                "windowSeconds": [
+                  10,
+                  100
+                ]
+              },
+              "disturbanceRejection": {
+                "status": "Pass",
+                "windowSeconds": [
+                  100,
+                  220
+                ],
+                "finalWindowSeconds": [
+                  210,
+                  220
+                ]
+              },
+              "measurementNoise": {
+                "status": "Pass",
+                "windowSeconds": [
+                  210,
+                  220
+                ],
+                "injectedAmplitude": 0.02,
+                "injectedFrequencyHz": 0.5
+              },
+              "boundedVariation": {
+                "status": "Pass",
+                "fractions": [
+                  -0.2,
+                  0,
+                  0.2
+                ]
+              }
+            }
+          }
+        },
+        "AMIGO": {
+          "status": "Unavailable",
+          "reason": "AMIGO is unavailable for integrating models.",
+          "assumptions": [
+            "Accepted stable monotone positive-gain FOPDT model with resolved positive dead time.",
+            "The qualified domain is 0 < L/T <= 1; Response changes ranking, not the published coefficients."
+          ],
+          "modelInputs": [
+            {
+              "name": "Kprime",
+              "value": 0.05,
+              "unit": "level-%/(%·s)"
+            },
+            {
+              "name": "L",
+              "value": 0.5,
+              "unit": "s"
+            },
+            {
+              "name": "Objective",
+              "value": "balanced",
+              "unit": "selection"
+            }
+          ],
+          "applied": false
+        }
+      },
+      "paretoMeasures": [
+        "IAE",
+        "ITAE",
+        "MV movement",
+        "maximum sensitivity"
+      ],
+      "paretoFrontier": [
+        "SIMC"
+      ],
+      "decision": "Only eligible candidate"
+    },
+    "dryer": {
+      "modelIdentity": "control-dryer-accepted-model",
+      "modelRevision": "sha256:lesson-51-dryer-model-v1",
+      "controllerConvention": "Parallel Control.PID",
+      "attempts": {
+        "SIMC": {
+          "status": "Feasible",
+          "applied": false,
+          "controller": {
+            "proportionalGain": 2.0833333,
+            "integralTimeSeconds": 20,
+            "integralGain": 0.10416667,
+            "derivativeGain": 0
+          },
+          "assumptions": [
+            "Accepted stable monotone positive-gain first-order or FOPDT model.",
+            "The response choice selects lambda; limits and acceptance requirements do not change."
+          ],
+          "modelInputs": [
+            {
+              "name": "K",
+              "value": 0.4,
+              "unit": "dryness-%/%"
+            },
+            {
+              "name": "T",
+              "value": 20,
+              "unit": "s"
+            },
+            {
+              "name": "L",
+              "value": 8,
+              "unit": "s"
+            },
+            {
+              "name": "Objective",
+              "value": "balanced",
+              "unit": "selection"
+            },
+            {
+              "name": "lambda",
+              "value": 16,
+              "unit": "s"
+            }
+          ],
+          "nativeRun": {
+            "case": "dryer_simc",
+            "plant": "belt_dryer",
+            "method": "SIMC",
+            "status": "qualified",
+            "iae": "167.110930",
+            "ise": "452.743558",
+            "itae": "7850.181969",
+            "overshoot_percent": "0.108674",
+            "final_mean_absolute_error": "0.025083",
+            "applied_movement_pp": "33.944062",
+            "applied": "false"
+          },
+          "frequency": {
+            "grid": {
+              "minimumFrequencyRadPerSecond": 0.0001,
+              "maximumFrequencyRadPerSecond": 100,
+              "pointsPerDecade": 100
+            },
+            "bandwidthRadPerSecond": 0.0688227703272,
+            "maximumSensitivity": 1.34858580963,
+            "maximumComplementarySensitivity": 0.999999040001,
+            "gainMarginDb": 13.4643372385,
+            "phaseMarginDegrees": 70.9013032053,
+            "delayMarginSeconds": 29.6990689125
+          },
+          "validation": {
+            "planRevision": "sha256:lesson-51-common-validation-v1",
+            "metrics": {
+              "iae": 167.11093,
+              "ise": 452.743558,
+              "itae": 7850.181969,
+              "mvMovement": 33.944062,
+              "settling": {
+                "status": "Settled",
+                "timeSeconds": 51.800000000000004,
+                "band": {
+                  "value": 0.25,
+                  "unit": "process unit",
+                  "fractionOfStep": 0.05
+                },
+                "dwellSeconds": 5,
+                "windowSeconds": [
+                  10,
+                  100
+                ]
+              },
+              "peakRequestedOutput": 47.54091872748,
+              "peakAppliedOutput": 47.54091872748,
+              "maximumAppliedOutputRate": 104.55820507275003,
+              "saturationDuration": 0,
+              "noiseOutputRms": 0.029639173157464123
+            },
+            "requirements": [
+              {
+                "name": "Normalized overshoot",
+                "status": "Pass",
+                "value": 0.108674,
+                "limit": 10,
+                "unit": "% of setpoint step",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Final mean absolute error",
+                "status": "Pass",
+                "value": 0.025083,
+                "limit": 0.25,
+                "unit": "dryness-%",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Applied output bounds",
+                "status": "Pass",
+                "value": "all samples",
+                "limit": "0..100",
+                "unit": "%",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Settling and dwell",
+                "status": "Pass",
+                "value": 51.800000000000004,
+                "limit": 90,
+                "unit": "s after setpoint event",
+                "source": "Native setpoint window 10..100 s; 5% band for 5 s dwell"
+              },
+              {
+                "name": "Peak applied output",
+                "status": "Pass",
+                "value": 47.54091872748,
+                "limit": 100,
+                "unit": "%",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Maximum applied-output rate",
+                "status": "Pass",
+                "value": 104.55820507275003,
+                "limit": 1000,
+                "unit": "%/s",
+                "source": "Native 0.1 s applied-output samples"
+              },
+              {
+                "name": "Saturation duration",
+                "status": "Pass",
+                "value": 0,
+                "limit": 0,
+                "unit": "s",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Noise-driven MV RMS",
+                "status": "Pass",
+                "value": 0.029639173157464123,
+                "limit": 0.5,
+                "unit": "% RMS",
+                "source": "Native applied-output window 210..220 s with 0.02-unit 0.5 Hz interference"
+              },
+              {
+                "name": "Gain margin",
+                "status": "Pass",
+                "value": 13.4643372385,
+                "limit": 6,
+                "unit": "dB",
+                "source": "Qualified frequency analyzer"
+              },
+              {
+                "name": "Phase margin",
+                "status": "Pass",
+                "value": 70.9013032053,
+                "limit": 30,
+                "unit": "degrees",
+                "source": "Qualified frequency analyzer"
+              }
+            ],
+            "boundedVariation": [
+              {
+                "gainAndDelayFraction": -0.2,
+                "gainMarginDb": 17.3412094875,
+                "phaseMarginDegrees": 77.776234126,
+                "status": "Pass"
+              },
+              {
+                "gainAndDelayFraction": 0,
+                "gainMarginDb": 13.4643372385,
+                "phaseMarginDegrees": 70.9013032053,
+                "status": "Pass"
+              },
+              {
+                "gainAndDelayFraction": 0.2,
+                "gainMarginDb": 10.2970282968,
+                "phaseMarginDegrees": 62.4973567669,
+                "status": "Pass"
+              }
+            ],
+            "scenarioDispositions": {
+              "setpointTracking": {
+                "status": "Pass",
+                "windowSeconds": [
+                  10,
+                  100
+                ]
+              },
+              "disturbanceRejection": {
+                "status": "Pass",
+                "windowSeconds": [
+                  100,
+                  220
+                ],
+                "finalWindowSeconds": [
+                  210,
+                  220
+                ]
+              },
+              "measurementNoise": {
+                "status": "Pass",
+                "windowSeconds": [
+                  210,
+                  220
+                ],
+                "injectedAmplitude": 0.02,
+                "injectedFrequencyHz": 0.5
+              },
+              "boundedVariation": {
+                "status": "Pass",
+                "fractions": [
+                  -0.2,
+                  0,
+                  0.2
+                ]
+              }
+            }
+          }
+        },
+        "AMIGO": {
+          "status": "Feasible",
+          "applied": false,
+          "controller": {
+            "proportionalGain": 1.2869898,
+            "integralTimeSeconds": 17.828902,
+            "integralGain": 0.072185589,
+            "derivativeGain": 0
+          },
+          "assumptions": [
+            "Accepted stable monotone positive-gain FOPDT model with resolved positive dead time.",
+            "The qualified domain is 0 < L/T <= 1; Response changes ranking, not the published coefficients."
+          ],
+          "modelInputs": [
+            {
+              "name": "K",
+              "value": 0.4,
+              "unit": "dryness-%/%"
+            },
+            {
+              "name": "T",
+              "value": 20,
+              "unit": "s"
+            },
+            {
+              "name": "L",
+              "value": 8,
+              "unit": "s"
+            },
+            {
+              "name": "Objective",
+              "value": "balanced",
+              "unit": "selection"
+            }
+          ],
+          "nativeRun": {
+            "case": "dryer_amigo",
+            "plant": "belt_dryer",
+            "method": "AMIGO",
+            "status": "qualified",
+            "iae": "240.634661",
+            "ise": "623.160143",
+            "itae": "13216.853733",
+            "overshoot_percent": "0.000000",
+            "final_mean_absolute_error": "0.082862",
+            "applied_movement_pp": "23.036717",
+            "applied": "false"
+          },
+          "frequency": {
+            "grid": {
+              "minimumFrequencyRadPerSecond": 0.0001,
+              "maximumFrequencyRadPerSecond": 100,
+              "pointsPerDecade": 100
+            },
+            "bandwidthRadPerSecond": 0.0395317570326,
+            "maximumSensitivity": 1.21813515349,
+            "maximumComplementarySensitivity": 0.999997525347,
+            "gainMarginDb": 17.4137005593,
+            "phaseMarginDegrees": 74.3678027813,
+            "delayMarginSeconds": 46.1060863009
+          },
+          "validation": {
+            "planRevision": "sha256:lesson-51-common-validation-v1",
+            "metrics": {
+              "iae": 240.634661,
+              "ise": 623.160143,
+              "itae": 13216.853733,
+              "mvMovement": 23.036717,
+              "settling": {
+                "status": "Settled",
+                "timeSeconds": 81.7,
+                "band": {
+                  "value": 0.25,
+                  "unit": "process unit",
+                  "fractionOfStep": 0.05
+                },
+                "dwellSeconds": 5,
+                "windowSeconds": [
+                  10,
+                  100
+                ]
+              },
+              "peakRequestedOutput": 47.516703859078,
+              "peakAppliedOutput": 47.516703859078,
+              "maximumAppliedOutputRate": 64.63067217253001,
+              "saturationDuration": 0,
+              "noiseOutputRms": 0.019309631802802703
+            },
+            "requirements": [
+              {
+                "name": "Normalized overshoot",
+                "status": "Pass",
+                "value": 0,
+                "limit": 10,
+                "unit": "% of setpoint step",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Final mean absolute error",
+                "status": "Pass",
+                "value": 0.082862,
+                "limit": 0.25,
+                "unit": "dryness-%",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Applied output bounds",
+                "status": "Pass",
+                "value": "all samples",
+                "limit": "0..100",
+                "unit": "%",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Settling and dwell",
+                "status": "Pass",
+                "value": 81.7,
+                "limit": 90,
+                "unit": "s after setpoint event",
+                "source": "Native setpoint window 10..100 s; 5% band for 5 s dwell"
+              },
+              {
+                "name": "Peak applied output",
+                "status": "Pass",
+                "value": 47.516703859078,
+                "limit": 100,
+                "unit": "%",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Maximum applied-output rate",
+                "status": "Pass",
+                "value": 64.63067217253001,
+                "limit": 1000,
+                "unit": "%/s",
+                "source": "Native 0.1 s applied-output samples"
+              },
+              {
+                "name": "Saturation duration",
+                "status": "Pass",
+                "value": 0,
+                "limit": 0,
+                "unit": "s",
+                "source": "Native 220 s simulation"
+              },
+              {
+                "name": "Noise-driven MV RMS",
+                "status": "Pass",
+                "value": 0.019309631802802703,
+                "limit": 0.5,
+                "unit": "% RMS",
+                "source": "Native applied-output window 210..220 s with 0.02-unit 0.5 Hz interference"
+              },
+              {
+                "name": "Gain margin",
+                "status": "Pass",
+                "value": 17.4137005593,
+                "limit": 6,
+                "unit": "dB",
+                "source": "Qualified frequency analyzer"
+              },
+              {
+                "name": "Phase margin",
+                "status": "Pass",
+                "value": 74.3678027813,
+                "limit": 30,
+                "unit": "degrees",
+                "source": "Qualified frequency analyzer"
+              }
+            ],
+            "boundedVariation": [
+              {
+                "gainAndDelayFraction": -0.2,
+                "gainMarginDb": 21.3446244967,
+                "phaseMarginDegrees": 79.295535315,
+                "status": "Pass"
+              },
+              {
+                "gainAndDelayFraction": 0,
+                "gainMarginDb": 17.4137005593,
+                "phaseMarginDegrees": 74.3678027813,
+                "status": "Pass"
+              },
+              {
+                "gainAndDelayFraction": 0.2,
+                "gainMarginDb": 14.1903744631,
+                "phaseMarginDegrees": 68.5828585977,
+                "status": "Pass"
+              }
+            ],
+            "scenarioDispositions": {
+              "setpointTracking": {
+                "status": "Pass",
+                "windowSeconds": [
+                  10,
+                  100
+                ]
+              },
+              "disturbanceRejection": {
+                "status": "Pass",
+                "windowSeconds": [
+                  100,
+                  220
+                ],
+                "finalWindowSeconds": [
+                  210,
+                  220
+                ]
+              },
+              "measurementNoise": {
+                "status": "Pass",
+                "windowSeconds": [
+                  210,
+                  220
+                ],
+                "injectedAmplitude": 0.02,
+                "injectedFrequencyHz": 0.5
+              },
+              "boundedVariation": {
+                "status": "Pass",
+                "fractions": [
+                  -0.2,
+                  0,
+                  0.2
+                ]
+              }
+            }
+          }
+        }
+      },
+      "paretoMeasures": [
+        "IAE",
+        "ITAE",
+        "MV movement",
+        "maximum sensitivity"
+      ],
+      "paretoFrontier": [
+        "SIMC",
+        "AMIGO"
+      ],
+      "decision": "Inconclusive"
+    }
+  }
+}

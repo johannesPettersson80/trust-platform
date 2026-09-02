@@ -11,6 +11,9 @@ walkthrough.
 2. [Test And Debug](test-and-debug.md): prove a runtime value or debugger path
    with a small project.
 3. [HMI](hmi.md): add a live browser surface once the logic is running.
+4. [Control Engineering](learning-paths.md#control-engineering-path): progress
+   through 84 runnable real-world lessons from feedback fundamentals to modern
+   control.
 
 ## Pick By Goal
 
@@ -18,6 +21,7 @@ walkthrough.
 | --- | --- | --- | --- |
 | Tutorials | [Tutorials](tutorials.md) | language basics, testing, deploy, simulation, HMI, CI/CD | 60-360 min |
 | Learning Paths | [Learning Paths](learning-paths.md) | ordered paths for first project, HMI, connectivity, migration, CI, and visual-editor work | 20-90 min |
+| Control Engineering | [Control Engineering Path](learning-paths.md#control-engineering-path) | feedback, modelling, industrial PID, digital control, and modern methods | 25-45 min per lesson |
 | Test and Debug | [Test And Debug](test-and-debug.md) | runtime process image, debugger confirmation, verification loops | 20-30 min |
 | HMI | [HMI](hmi.md) | HMI pages, bindings, live refresh | 35-55 min |
 | Connectivity | [Connectivity](connectivity.md) | Modbus/TCP, MQTT, OPC UA, EtherCAT, GPIO, multi-driver | 120-220 min |

@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 4,
+  "id": "control-compressor-override",
+  "title": "Protect compressor flow margin with tracked override",
+  "level": "Advanced",
+  "sequence": 57,
+  "equipment": "centrifugal compressor",
+  "physicalPurpose": "Give minimum-flow margin priority over discharge-pressure production demand without inactive windup or a release bump.",
+  "principalTechnique": "High selector, external tracking and hysteretic constraint override",
+  "objective": "Configure a recycle-valve high selector that gives minimum-flow margin priority over discharge-pressure production demand.",
+  "prerequisites": ["control-reactor-split-range"],
+  "nextLesson": "control-gravity-tank-scheduling",
+  "signals": [
+    { "role": "authority", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX89.1" },
+    { "role": "quality", "name": "Margin measurement validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX88.5" },
+    { "role": "state", "name": "Tracked protection authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX88.7" },
+    { "role": "state", "name": "Tracked protection availability", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX89.0" },
+    { "role": "SP", "name": "Discharge-pressure setpoint", "unit": "bar", "minimum": 7, "maximum": 10, "resolution": 0.01, "binding": "%ML192" },
+    { "role": "state", "name": "Tracked normal recycle demand", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML200" },
+    { "role": "state", "name": "Tracked protective recycle demand", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML208" },
+    { "role": "PV", "name": "Normal-only discharge pressure", "unit": "bar", "minimum": 7, "maximum": 10, "resolution": 0.01, "binding": "%IL88" },
+    { "role": "state", "name": "Normal-only flow margin", "unit": "%", "minimum": 0, "maximum": 40, "resolution": 0.01, "binding": "%IL96" },
+    { "role": "state", "name": "Untracked discharge pressure", "unit": "bar", "minimum": 7, "maximum": 10, "resolution": 0.01, "binding": "%IL104" },
+    { "role": "state", "name": "Untracked flow margin", "unit": "%", "minimum": 0, "maximum": 40, "resolution": 0.01, "binding": "%IL112" },
+    { "role": "state", "name": "Tracked discharge pressure", "unit": "bar", "minimum": 7, "maximum": 10, "resolution": 0.01, "binding": "%IL120" },
+    { "role": "state", "name": "Tracked flow margin", "unit": "%", "minimum": 0, "maximum": 40, "resolution": 0.01, "binding": "%IL128" },
+    { "role": "MV", "name": "Normal-only recycle request", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL128" },
+    { "role": "state", "name": "Untracked selected recycle request", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL136" },
+    { "role": "state", "name": "Tracked selected recycle request", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL144" }
+  ],
+  "plant": {
+    "modelId": "three_equivalent_local_compressors",
+    "executable": "simulation.toml",
+    "parameters": [
+      { "name": "pressure_time_constant", "value": 5, "unit": "s" },
+      { "name": "margin_time_constant", "value": 2, "unit": "s" },
+      { "name": "pressure_recycle_gain", "value": -0.05, "unit": "bar/%" },
+      { "name": "margin_recycle_gain", "value": 1, "unit": "1" },
+      { "name": "takeover_margin", "value": 14, "unit": "%" },
+      { "name": "release_margin", "value": 16, "unit": "%" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "dischargePressureBar": 8, "flowMarginPercent": 20, "recyclePercent": 30 },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Discharge-pressure setpoint": 8,
+      "Tracked normal recycle demand": 30,
+      "Tracked protective recycle demand": 30,
+      "Normal-only discharge pressure": 8,
+      "Normal-only flow margin": 20,
+      "Untracked discharge pressure": 8,
+      "Untracked flow margin": 20,
+      "Tracked discharge pressure": 8,
+      "Tracked flow margin": 20,
+      "Normal-only recycle request": 30,
+      "Untracked selected recycle request": 30,
+      "Tracked selected recycle request": 30
+    },
+    "validityRange": [
+      { "signal": "Normal-only discharge pressure", "minimum": 7, "maximum": 10, "unit": "bar" },
+      { "signal": "Untracked discharge pressure", "minimum": 7, "maximum": 10, "unit": "bar" },
+      { "signal": "Tracked discharge pressure", "minimum": 7, "maximum": 10, "unit": "bar" },
+      { "signal": "Normal-only flow margin", "minimum": 0, "maximum": 40, "unit": "%" },
+      { "signal": "Untracked flow margin", "minimum": 0, "maximum": 40, "unit": "%" },
+      { "signal": "Tracked flow margin", "minimum": 0, "maximum": 40, "unit": "%" }
+    ],
+    "simplifications": [
+      "Local linear pressure and flow-margin dynamics around one compressor operating point",
+      "Flow margin is an educational control variable, not a compressor-map surge coordinate",
+      "Ideal requested-equals-applied recycle position without valve stiction or rate limit",
+      "Three deterministic equivalent plants isolate selector state management",
+      "Simulation-only I/O and evidence; no machinery-protection claim"
+    ]
+  },
+  "baseline": {
+    "executableId": "Compressor.NormalOnlyAndUntrackedOverride",
+    "settings": { "pressureKp": -10, "pressureKi": -1, "protectKp": 0.5, "protectKi": 0.2, "protectedMinimumPercent": 12 },
+    "limitation": "Normal pressure control violates margin, while an untracked inactive protection integral may take over late or return with a bump."
+  },
+  "change": {
+    "executableId": "Compressor.TrackedHystereticOverride",
+    "settings": { "takeoverMarginPercent": 14, "releaseMarginPercent": 16, "fallbackRecyclePercent": 30, "selector": "MAX", "externalTracking": true },
+    "decision": "Accept override only when common-unit direction, quality, tracked inactive state, one takeover, one release and transition-step limits are all proven."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 8,
+    "amplitude": 0,
+    "durationSeconds": 140.1,
+    "settlingSeconds": 20,
+    "disturbances": ["Pressure setpoint changes from 8 to 9 bar at 20.0 s", "Pressure setpoint returns to 8 bar at 80.0 s", "A separate restored run invalidates flow-margin quality"],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX89.1", "activeValue": true, "inactiveValue": false }
+  },
+  "acceptance": [
+    { "metric": "normal_only_minimum_margin", "signal": "Normal-only flow margin", "window": "minimum from 20 through 80 s", "comparator": "<", "limit": 12, "unit": "%", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "tracked_minimum_margin", "signal": "Tracked flow margin", "window": "minimum from 20 through 80 s", "comparator": ">=", "limit": 11.5, "unit": "%", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "tracked_authority_transitions", "signal": "Tracked protection authority", "window": "complete 140-s demand cycle", "comparator": "==", "limit": 2, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
+    { "metric": "tracked_transition_step", "signal": "Tracked selected recycle request", "window": "adjacent samples at takeover and release", "comparator": "<=", "limit": 1, "unit": "pp", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "invalid_quality_fallback", "signal": "Tracked selected recycle request", "window": "complete invalid-margin-quality run", "comparator": "==", "limit": 30, "unit": "%", "tolerance": 0, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Normal-only discharge pressure", "minimum": 7, "maximum": 10, "unit": "bar" },
+      { "signal": "Tracked discharge pressure", "minimum": 7, "maximum": 10, "unit": "bar" },
+      { "signal": "Normal-only flow margin", "minimum": 0, "maximum": 40, "unit": "%" },
+      { "signal": "Tracked flow margin", "minimum": 0, "maximum": 40, "unit": "%" },
+      { "signal": "Tracked selected recycle request", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "abortPredicates": ["Any required signal is nonfinite, stale, forced, or has invalid quality", "Pressure leaves 7 through 10 bar", "Flow margin crosses the zero local-model boundary", "Recycle request leaves 0 through 100 percent", "Selector authority or restoration is inconsistent", "Authority chatters beyond the declared transition count"],
+    "safeMv": 30,
+    "restorationMode": "With invalid margin quality, remove automatic protection authority and track both candidates to the reviewed 30-percent simulated fallback; qualify measurement and valve state before re-enabling.",
+    "physicalApprovalRole": "authorised compressor controls engineer and responsible machinery engineer",
+    "simulationOnlyRestrictions": ["No physical compressor or recycle valve is operated", "The simulated margin is not anti-surge or machinery-protection certification", "Physical override requires a reviewed compressor map, instrumentation, trips, valve capacity/fail action, protection topology and explicit experiment approval"]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-57--selector-and-override-control-compressor-protection",
+    "nativeTest": "control_curriculum_override_tracks_inactive_compressor_controllers_and_releases_once",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_override control_curriculum_override_tracks_inactive_compressor_controllers_and_releases_once -- --exact --nocapture",
+    "projectPath": "examples/control/09-industrial-control-structures/57-compressor-override",
+    "runArtifactFields": ["projectIdentity", "plantIdentities", "controllerIdentities", "evidenceClass", "sampleTime", "seed", "pressureSetpoint", "pressures", "margins", "candidateRequests", "selectedRequests", "appliedRecycleValues", "protectionAvailability", "authority", "thresholds", "limits", "abortState", "restorationState", "metricDefinitions", "metrics", "settlingQualification"],
+    "renderedJourneyId": "control-compressor-override"
+  },
+  "video": {
+    "viewerOutcome": "Configure and validate a tracked high-selector override, explain inactive windup, and distinguish control evidence from machinery protection.",
+    "requiredVisibleEvidence": ["three equivalent compressors", "pressure and margin SP/PV", "normal and protective candidates", "selected and applied recycle", "authority and hysteresis", "normal-only violation", "untracked transition defect", "tracked takeover and release", "invalid-quality fallback", "Simulation label and protection disclaimer"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Three equivalent centrifugal-compressor local models expose discharge pressure, minimum-flow margin and one shared recycle valve.",
+    "reason": "Unlike split range, two complete control objectives compete for one actuator and equipment margin must have explicit priority over production pressure.",
+    "theory": ["The high selector follows actuator physics because a larger recycle request raises protected margin.", "External tracking aligns whichever integral controller is inactive with the selected applied valve before it can receive authority.", "A 14-percent takeover and 16-percent release band prevents threshold chatter without redefining the 12-percent protected minimum."],
+    "workedPrediction": "Closing recycle from 30 to 10 percent predicts 9 bar but zero margin; at least 22 percent recycle preserves 12-percent margin and limits pressure to about 8.4 bar.",
+    "practicalPreparation": ["Verify Simulation evidence, all identities, SP/PV/request units and signs, selector direction, candidates, applied valve, authority, thresholds, quality, timing and limits.", "Define minimum margin, violation duration, IAE, takeover/release delay, transition count and valve-step measures before showing results."],
+    "baseline": "Run normal-only and untracked override through the same pressure demand to retain constraint conflict and inactive-state defects.",
+    "change": "Track the inactive candidate against selected recycle and use hysteretic takeover and release with valid margin data.",
+    "comparison": "Hold models, state, controller tuning, demand cycle, thresholds, timing, limits and seed equal while changing only selector and tracking behavior.",
+    "validation": "Require tracked margin at least 11.5 percent, exactly one takeover and release, no chatter, at most one-percentage-point transition steps, and explicit unavailable fallback for invalid quality.",
+    "explanation": "Pressure is sacrificed because equipment margin owns priority; tracking removes stored inactive integral mismatch and hysteresis prevents repeated threshold switching.",
+    "transfer": "Use override for competing controllers on one actuator; the next lesson changes controller parameters because gravity-tank dynamics vary with operating level."
+  }
+}

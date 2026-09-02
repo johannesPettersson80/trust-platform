@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 4,
+  "id": "control-relay-autotuning",
+  "title": "Estimate critical behavior with feedback relay",
+  "level": "Advanced",
+  "sequence": 43,
+  "equipment": "Plate heat exchanger with qualified and deliberately weak feedback-relay copies",
+  "physicalPurpose": "Estimate one critical frequency-domain point without manually increasing feedback gain toward instability.",
+  "principalTechnique": "Qualified feedback-relay autotuning experiment",
+  "objective": "Execute and qualify a bounded feedback-relay experiment, reject an uninformative record, and derive one explicitly unapplied PI candidate.",
+  "prerequisites": ["control-manual-historical-tuning"],
+  "nextLesson": "control-model-based-tuning",
+  "signals": [
+    { "role": "state", "name": "Relay amplitude request", "unit": "%", "minimum": 0, "maximum": 20, "resolution": 0.1, "binding": "%ML0" },
+    { "role": "MV", "name": "Qualified relay applied valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL0" },
+    { "role": "MV", "name": "Weak relay applied valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL8" },
+    { "role": "PV", "name": "Qualified relay outlet temperature", "unit": "degC", "minimum": 45, "maximum": 55, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "PV", "name": "Weak relay outlet temperature", "unit": "degC", "minimum": 45, "maximum": 55, "resolution": 0.01, "binding": "%IL8" }
+  ],
+  "plant": {
+    "modelId": "two_independent_plate_heat_exchanger_feedback_relay_copies",
+    "executable": "simulation.toml#heat-exchanger-qualified-feedback-relay",
+    "parameters": [
+      { "name": "local_gain", "value": 0.5, "unit": "degC/%" },
+      { "name": "time_constant", "value": 20, "unit": "s" },
+      { "name": "dead_time", "value": 3, "unit": "s" },
+      { "name": "measurement_noise_standard_deviation", "value": 0.05, "unit": "degC" },
+      { "name": "qualified_relay_amplitude", "value": 18, "unit": "%" },
+      { "name": "weak_relay_amplitude", "value": 0.2, "unit": "%" },
+      { "name": "hysteresis_half_width", "value": 0.08, "unit": "degC" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "outletTemperatureDegC": 50, "delayedValvePositionPercent": 20 },
+    "seed": 20260829,
+    "operatingPoint": { "Qualified relay applied valve position": 20, "Weak relay applied valve position": 20, "Qualified relay outlet temperature": 50, "Weak relay outlet temperature": 50 },
+    "validityRange": [
+      { "signal": "Qualified relay applied valve position", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Weak relay applied valve position", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Qualified relay outlet temperature", "minimum": 40, "maximum": 60, "unit": "degC" },
+      { "signal": "Weak relay outlet temperature", "minimum": 40, "maximum": 60, "unit": "degC" }
+    ],
+    "simplifications": ["One local gain, dominant lag, and dead time", "Ideal valve apart from declared amplitude bounds", "Fixed flows, inlet temperatures, heat transfer, and fouling", "Simulation-only I/O"]
+  },
+  "baseline": {
+    "executableId": "HeatExchanger.ManualCriticalGainExperiment",
+    "settings": { "referenceUltimateGainPercentPerDegC": 22.2350146482, "referenceUltimatePeriodSeconds": 11.3492315019 },
+    "limitation": "Repeated manual gain changes near sustained oscillation are imprecise and potentially hazardous on physical equipment."
+  },
+  "change": {
+    "executableId": "HeatExchanger.QualifiedFeedbackRelay",
+    "settings": { "biasPercent": 20, "qualifiedAmplitudePercentagePoints": 18, "weakAmplitudePercentagePoints": 0.2, "centerDegC": 50, "hysteresisHalfWidthDegC": 0.08, "maximumDurationSeconds": 180, "minimumEvaluationCycles": 6 },
+    "decision": "Derive a candidate only when feedback-dependent cycles satisfy amplitude, noise, repeatability, limit, quality, and restoration criteria."
+  },
+  "experiment": { "kind": "relay", "signal": "Qualified relay applied valve position", "baseline": 20, "amplitude": 18, "durationSeconds": 180, "settlingSeconds": 10, "disturbances": ["Deterministic 0.05-degC measurement noise on both independent copies"], "seed": 20260829, "restorationValue": 20 },
+  "acceptance": [
+    { "metric": "qualified_complete_cycle_count", "signal": "Qualified relay outlet temperature", "window": "after two discarded transient cycles and before 180 s", "comparator": ">=", "limit": 6, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
+    { "metric": "qualified_mean_period_lower_bound", "signal": "Qualified relay outlet temperature", "window": "equivalent-direction crossings over evaluation cycles", "comparator": ">=", "limit": 9, "unit": "s", "tolerance": 0.1, "evidenceClass": "simulation" },
+    { "metric": "qualified_mean_period_upper_bound", "signal": "Qualified relay outlet temperature", "window": "equivalent-direction crossings over evaluation cycles", "comparator": "<=", "limit": 14, "unit": "s", "tolerance": 0.1, "evidenceClass": "simulation" },
+    { "metric": "qualified_process_amplitude", "signal": "Qualified relay outlet temperature", "window": "upper and lower extrema over evaluation cycles", "comparator": ">", "limit": 0.32, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "qualified_oscillation_signal_to_noise_ratio", "signal": "Qualified relay outlet temperature", "window": "evaluation amplitude divided by 0.05-degC noise standard deviation", "comparator": ">=", "limit": 5, "unit": "1", "tolerance": 0.1, "evidenceClass": "simulation" },
+    { "metric": "qualified_amplitude_variation", "signal": "Qualified relay outlet temperature", "window": "evaluation cycles", "comparator": "<=", "limit": 0.1, "unit": "1", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "qualified_period_variation", "signal": "Qualified relay outlet temperature", "window": "evaluation cycles", "comparator": "<=", "limit": 0.1, "unit": "1", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "critical_gain_relative_error", "signal": "Qualified relay outlet temperature", "window": "qualified evaluation amplitude compared with Lesson 42 reference", "comparator": "<=", "limit": 0.2, "unit": "1", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "weak_process_amplitude", "signal": "Weak relay outlet temperature", "window": "5th through 95th percentile over the enabled record", "comparator": "<=", "limit": 0.32, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "qualified_restored_valve_position", "signal": "Qualified relay applied valve position", "window": "final sample after disable or timeout", "comparator": "==", "limit": 20, "unit": "%", "tolerance": 0, "evidenceClass": "simulation" },
+    { "metric": "weak_restored_valve_position", "signal": "Weak relay applied valve position", "window": "final sample after disable or timeout", "comparator": "==", "limit": 20, "unit": "%", "tolerance": 0, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Qualified relay applied valve position", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Weak relay applied valve position", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Qualified relay outlet temperature", "minimum": 40, "maximum": 60, "unit": "degC" },
+      { "signal": "Weak relay outlet temperature", "minimum": 40, "maximum": 60, "unit": "degC" }
+    ],
+    "abortPredicates": ["Any required sample is stale, missing, forced, nonfinite, type-incompatible, or has bad quality", "A valve command or temperature leaves its declared limit", "A plant binding, sample interval, threshold, amplitude, seed, or restoration value changes", "Maximum duration expires", "A physical-plant target is selected"],
+    "safeMv": 20,
+    "restorationMode": "Restore the relay amplitude request to 0 percent or reach the 180-second timeout, then confirm that both simulated valves return to 20 percent",
+    "physicalApprovalRole": "authorised process controls engineer and heat-exchanger operator",
+    "simulationOnlyRestrictions": ["This lesson cannot authorise physical relay excitation or gain application", "Physical relay testing requires independent topology and hazard review, declared limits and interlocks, restoration proof, authorised roles, and explicit immediate approval"]
+  },
+  "workflowStages": ["Monitor", "Test", "Tune"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-43--relay-autotuning-industrial-temperature-loop",
+    "nativeTest": "control_curriculum_feedback_relay_qualifies_cycles_before_producing_candidate",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_tuning_progression control_curriculum_feedback_relay_qualifies_cycles_before_producing_candidate -- --exact --nocapture",
+    "projectPath": "examples/control/06-pid-tuning-methods/43-relay-autotuning",
+    "runArtifactFields": ["plantIdentity", "modelScope", "relayBias", "relayAmplitude", "highLevel", "lowLevel", "processCenter", "upperThreshold", "lowerThreshold", "hysteresis", "samples", "appliedTransitions", "crossingTimes", "extrema", "cycleAmplitudes", "cyclePeriods", "amplitudeVariation", "periodVariation", "signalToNoiseRatio", "criticalGainEstimate", "candidate", "candidateState", "failedCriteria", "stopReason", "restoration", "seed", "evidenceClass"],
+    "renderedJourneyId": "control-relay-autotuning"
+  },
+  "video": { "viewerOutcome": "Recognise and qualify real feedback relay, reject a noisy record, and keep the derived candidate unapplied.", "requiredVisibleEvidence": ["two independent simulated plants", "feedback thresholds", "strong and weak relay levels", "temperature-driven transitions", "cycle extrema and periods", "amplitude and period variation", "signal-to-noise qualification", "critical-gain estimate", "No tuning candidate rejection", "restoration", "unapplied state", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "learning": {
+    "context": "Two independent simulated copies of the locally validated plate heat exchanger execute strong and deliberately weak feedback relays around the same operating point.",
+    "reason": "The preceding manual critical-gain experiment requires repeated operation near instability and should not become an unreviewed physical procedure.",
+    "theory": ["A feedback relay retains one of two bounded output levels and switches only when measured process value crosses a hysteresis threshold.", "A repeatable limit cycle supports measured amplitude and period only after transient cycles, noise, limits, quality, and variation are qualified.", "The symmetric-relay describing-function approximation estimates one critical point from relay amplitude and measured process amplitude.", "Completing the experiment does not qualify the data, choose a controller, validate a candidate, or authorise application."],
+    "workedPrediction": "Predict 2/38 percent strong relay levels, 49.92/50.08 degC thresholds, period near 11.35 s, Ku in the region of 22.24 %/degC, and rejection of the 19.8/20.2 percent weak relay.",
+    "practicalPreparation": ["Verify Simulation evidence, accepted model scope, both independent plants, stable baseline, bindings, units, quality, timing, noise, thresholds, levels, limits, timeout, aborts, and restoration.", "Record cycle, variation, amplitude-to-hysteresis, signal-to-noise, critical-gain, and no-application criteria before starting."],
+    "baseline": "Manual critical-gain search exposes dynamics but relies on repeated gain changes near sustained oscillation.",
+    "change": "Use measured-temperature threshold crossings to switch a bounded stateful relay and retain the complete record.",
+    "comparison": "Compare strong and weak records under equivalent conditions using cycles, amplitude, period, repeatability, signal-to-noise ratio, limits, and restoration.",
+    "validation": "Only the strong record may produce Ku and one historical PI candidate; the weak record must retain failed criteria and No tuning candidate.",
+    "explanation": "Lag and dead time sustain the feedback-dependent cycle, while hysteresis prevents noise chatter and qualification bounds the describing-function estimate.",
+    "transfer": "Relay automation does not replace eligibility, safety, data review, validation, or explicit application; Lesson 44 introduces model-based robustness-speed choices."
+  }
+}

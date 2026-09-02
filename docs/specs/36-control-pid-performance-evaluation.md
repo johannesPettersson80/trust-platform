@@ -2,7 +2,7 @@
 
 This specification defines the deterministic benchmark used to evaluate the
 executed `Control.PID` implementation with truST simulated plants. It answers
-whether the paper-compatible controller behaves well for a declared plant and
+whether the specified controller behaves well for a declared plant and
 tuning; it does not claim that one tuning is stable for every plant.
 
 Controller behavior remains defined by Specification 32. Plant execution
@@ -140,7 +140,7 @@ second. Every executed output increment shall respect the declared rate within
 
 ## 8. Measurement-noise filtering
 
-Two otherwise identical nominal paper loops shall receive the same deterministic
+Two otherwise identical nominal PID loops shall receive the same deterministic
 seeded additive measurement noise. One loop shall pass the measurement directly
 to `Control.PID`; the other shall pass it through a second-order
 `Control.LowPass` with time constant `0.1 s` before `PID.Update`.
@@ -170,7 +170,7 @@ be presented as an observed physical-plant result.
 
 Passing every benchmark means:
 
-- the paper-compatible controller executes correctly through the truST runtime
+- the specified controller executes correctly through the truST runtime
   and simulated process-image boundary for the declared cases;
 - the paper's nominal Lambda PI tuning has acceptable tracking and disturbance
   rejection for the declared FOPDT process and variation range;
@@ -307,7 +307,7 @@ or below `10`, overshoot shall not exceed `20 %`, settling time shall not exceed
 ### 12.2 Scheduled gain change
 
 An FOPDT plant with time constant `1 s`, dead time `0.5 s`, and initial gain
-`0.6` shall use the paper PI tuning `Kp = Ki = 0.667` at `0.1 s`. At `15 s`, a
+`0.6` shall use the fixed PI tuning `Kp = Ki = 0.667` at `0.1 s`. At `15 s`, a
 native `set_parameter` plant event shall change gain to `1.4`. The controller
 shall not be retuned during the `45 s` run.
 
@@ -358,30 +358,44 @@ evidence.
 
 ## 13. Executable learning projects
 
-The benchmark shall also be available as sixteen runnable simulation projects
-in the existing VS Code example catalog. A lesson is a normal truST project,
+The benchmark cases shall also be available inside the thirty-five runnable
+simulation projects defined by Specification 38. A lesson is a normal truST project,
 not a separate tutorial format. Each lesson directory shall contain
 `trust-lsp.toml`, `runtime.toml`, `io.toml`, `simulation.toml`, a runnable
 `src/Main.st`, the existing simulator launch/settings files, `README.md`, and
 `lesson.json`.
+
+The shipped project directories shall be grouped by learning level beneath one
+control category:
+
+```text
+examples/control/
+├── foundation/<lesson-slug>/
+├── practitioner/<lesson-slug>/
+└── advanced/<lesson-slug>/
+```
+
+The manifest `id` remains the stable `control-<lesson-slug>` identity used by
+commands, saved evidence, and documentation. Its `path` shall name the complete
+category/level/slug directory. The leaf directory, not a parent category, is
+the independently copyable and runnable truST project. Control projects shall
+not also remain as duplicate top-level `examples/control-*` directories.
 
 `lesson.json` identifies the lesson, level, benchmark section, the native
 benchmark test that establishes its expected result, expected metrics, and the
 ordered stages that apply. It is navigation metadata only; the referenced
 native test and its direct assertions remain the evidence authority.
 
-Every README shall introduce the plant and control problem, state that all
-results are simulation evidence, and use these sections: Objective, Predict,
-Configure, Monitor, Test, Identify, Tune, Validate, Explain, Export, Questions,
-and Advanced exercise. A stage that is intentionally not performed shall say
-why. Values and acceptance limits shall cite this specification rather than a
+Every README shall satisfy the progressive real-equipment lesson contract in
+Specification 38. A stage that is intentionally not performed shall say why.
+Values and acceptance limits shall cite the owning specification rather than a
 separate teaching equation.
 
-The catalog shall contain these projects:
+These original benchmark mappings remain part of that larger curriculum:
 
 | Lesson id | Level | Benchmark behavior |
 | --- | --- | --- |
-| `control-nominal-fopdt` | Foundation | nominal paper FOPDT and Lambda PI |
+| `control-nominal-fopdt` | Foundation | recirculating-water-heater PI offset removal |
 | `control-sampling-interval` | Foundation | `50`, `100`, and `200 ms` actual intervals |
 | `control-load-disturbance` | Foundation | plant-side `0.2` bias event |
 | `control-saturation-antiwindup` | Foundation | BackCalculation and Combined recovery |

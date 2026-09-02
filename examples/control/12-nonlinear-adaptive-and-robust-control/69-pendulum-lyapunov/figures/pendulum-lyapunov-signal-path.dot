@@ -1,0 +1,29 @@
+// Title: Inverted-pendulum feedback and Lyapunov-certificate path
+// Description: Measured angle and angular rate enter local state feedback, requested torque passes through a two-sided limit into the nonlinear pendulum, and the same states feed the Lyapunov certificate.
+digraph lesson_signal_path {
+  graph [rankdir=LR, bgcolor="transparent", pad="0.25", nodesep="0.45", ranksep="0.65", splines=ortho];
+  node [shape=box, style="rounded,filled", fillcolor="#f8fafc", color="#2563eb", fontcolor="#0f172a", fontname="Arial", fontsize=12, margin="0.16,0.10"];
+  edge [color="#475569", fontcolor="#334155", fontname="Arial", fontsize=10, penwidth=1.6, arrowsize=0.75];
+  S [label="Upright angle setpoint", shape=box];
+  E [label="Angle error", shape=box];
+  A [label="Measured absolute angle", shape=box];
+  R [label="Measured angular rate", shape=box];
+  C [label="Local state feedback", shape=box];
+  Q [label="Requested motor torque", shape=box];
+  L [label="Two-sided torque limit", shape=box];
+  U [label="Applied motor torque", shape=box];
+  P [label="Nonlinear inverted pendulum", shape=box];
+  V [label="Lyapunov certificate", shape=box];
+  S -> E;
+  A -> E;
+  R -> C;
+  E -> C;
+  C -> Q;
+  Q -> L;
+  L -> U;
+  U -> P;
+  P -> A;
+  P -> R;
+  E -> V;
+  R -> V;
+}

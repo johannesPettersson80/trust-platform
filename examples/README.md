@@ -2,6 +2,16 @@
 
 This directory is the runnable example catalog for truST.
 
+It is also the only maintained source for projects bundled by the VS Code
+**Start from example** gallery. `examples/catalog.json` declares those copyable
+projects; the extension build generates `editors/vscode/media/examples/` from
+this directory. Do not edit the generated package copy.
+
+Bundled projects use the explicit non-secret token `trust-example-token` so
+their runtime configurations validate and run locally. Replace it with a
+deployment-managed credential before exposing a runtime beyond the example
+environment.
+
 The canonical public navigation is the docs-site examples section:
 
 - `docs/public/examples/index.md`
@@ -44,6 +54,7 @@ code /path/to/trust-platform
 
 | Category | Start Here | What You Learn | Typical Time |
 |---|---|---|---|
+| Control engineering | `examples/control/README.md` | feedback, modelling, PID, loop engineering, digital control, and modern control | 25-45 min per lesson |
 | Tutorials | `examples/tutorials/README.md` | language basics, testing, bootstrap, deploy, networking, simulation, safety, HMI, CI/CD, observability | 60-360 min |
 | Test and debug | `examples/memory_marker_counter/README.md` | runtime/process-image mental model and debugger confirmation | 20-30 min |
 | HMI | `examples/tutorials/12_hmi_pid_process_dashboard/README.md` | HMI pages, bindings, live refresh | 35-55 min |
@@ -69,23 +80,24 @@ This is the detailed repo-level progression. The public docs page
 goal; keep the two aligned at the category level.
 
 1. `examples/tutorials/README.md`
-2. `examples/tutorials/12_hmi_pid_process_dashboard/README.md`
-3. `examples/memory_marker_counter/README.md`
-4. `examples/plcopen_motion_single_axis_demo/README.md`
-5. `examples/plant_demo/README.md`
-6. `examples/filling_line/README.md`
-7. `examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md`
-8. `examples/tutorials/17_io_backends_and_multi_driver/README.md`
-9. `examples/communication/README.md`
-10. `examples/tutorials/18_simulation_toml_fault_injection/README.md`
-11. `examples/tutorials/19_safety_commissioning/README.md`
-12. `examples/tutorials/14_deploy_and_rollback/README.md`
-13. `examples/tutorials/16_secure_remote_access/README.md`
-14. `examples/tutorials/15_multi_plc_discovery_mesh/README.md`
-15. `examples/runtime_cloud/README.md`
-16. `examples/tutorials/20_hmi_write_enablement/README.md`
-17. `examples/tutorials/21_ci_cd_project_pipeline/README.md`
-18. `examples/tutorials/22_neovim_zed_workflow/README.md`
+2. `examples/control/README.md`
+3. `examples/tutorials/12_hmi_pid_process_dashboard/README.md`
+4. `examples/memory_marker_counter/README.md`
+5. `examples/plcopen_motion_single_axis_demo/README.md`
+6. `examples/plant_demo/README.md`
+7. `examples/filling_line/README.md`
+8. `examples/tutorials/13_project_bootstrap_zero_to_first_app/README.md`
+9. `examples/tutorials/17_io_backends_and_multi_driver/README.md`
+10. `examples/communication/README.md`
+11. `examples/tutorials/18_simulation_toml_fault_injection/README.md`
+12. `examples/tutorials/19_safety_commissioning/README.md`
+13. `examples/tutorials/14_deploy_and_rollback/README.md`
+14. `examples/tutorials/16_secure_remote_access/README.md`
+15. `examples/tutorials/15_multi_plc_discovery_mesh/README.md`
+16. `examples/runtime_cloud/README.md`
+17. `examples/tutorials/20_hmi_write_enablement/README.md`
+18. `examples/tutorials/21_ci_cd_project_pipeline/README.md`
+19. `examples/tutorials/22_neovim_zed_workflow/README.md`
 19. `examples/tutorials/23_observability_historian_prometheus/README.md`
 20. Choose specialization:
    - Interop: `examples/plcopen_xml_st_complete/README.md`

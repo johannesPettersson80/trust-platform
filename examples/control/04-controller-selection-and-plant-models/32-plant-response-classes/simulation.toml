@@ -1,0 +1,81 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 1600
+plant_step_ms = 100
+
+[[plants]]
+id = "self-regulating-heated-vessel"
+model = "first_order"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [50.0]
+
+[plants.parameters]
+gain = 0.2
+time_constant_s = 3.0
+input_bias = 20.0
+output_bias = 50.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 20.0
+
+[[plants]]
+id = "integrating-buffer-tank"
+model = "integrator"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8"]
+initial_state = [50.0]
+
+[plants.parameters]
+gain = 0.1
+input_bias = 0.0
+output_bias = 0.0
+
+[plants.actuator]
+minimum = -20.0
+maximum = 20.0
+initial_applied = 0.0
+
+[[plants]]
+id = "delayed-conveyor-oven"
+model = "first_order_dead_time"
+command_sources = ["%QL16"]
+feedback_targets = ["%IL16"]
+initial_state = [80.0]
+
+[plants.parameters]
+gain = 0.25
+time_constant_s = 2.0
+dead_time_s = 4.0
+initial_delayed_input = 20.0
+input_bias = 20.0
+output_bias = 80.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 20.0
+
+[[plants]]
+id = "oscillatory-flexible-drive"
+model = "second_order"
+command_sources = ["%QL24"]
+feedback_targets = ["%IL24"]
+initial_state = [0.0, 0.0]
+
+[plants.parameters]
+gain = 1.0
+natural_frequency_rad_s = 1.0
+damping_ratio = 0.2
+input_bias = 0.0
+output_bias = 0.0
+
+[plants.actuator]
+minimum = -2.0
+maximum = 2.0
+initial_applied = 0.0

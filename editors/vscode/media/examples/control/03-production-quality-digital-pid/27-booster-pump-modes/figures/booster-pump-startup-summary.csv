@@ -1,0 +1,6 @@
+case,actual_valve_percent,first_request_percent,filtered_pressure_bar,decision
+zero-state baseline,40.0,10.000000000000,0.198347107438,reject artificial startup state
+measured state,20.0,20.000000000000,4.000000000000,accept
+measured state,40.0,40.000000000000,6.000000000000,accept
+measured state,70.0,70.000000000000,9.000000000000,accept
+simulated equilibrium,40.0,40.000000000000,6.000000000000,finite bounded plant confirmation

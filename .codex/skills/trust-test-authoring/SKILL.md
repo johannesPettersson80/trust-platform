@@ -5,6 +5,11 @@ description: Use for every trust-platform behavior change, bug fix, refactor, ma
 
 # truST Test Authoring
 
+For a regression discovered only in a platform-specific CI compile or warning-deny lane, preserve
+the failed CI command and log as the pre-fix baseline, then add or identify a focused executable
+gate that runs the same target and flags. The corresponding cross-target command must pass after
+the fix; host-only tests do not close that behavior slice.
+
 Use this skill before changing product behavior or native test ownership. The
 detailed historical program documents live under
 `docs/internal/testing/checklists/plc-verification-program/`.

@@ -1,0 +1,308 @@
+{
+  "schemaVersion": 1,
+  "id": "control-capstone-conveyor-oven",
+  "name": "Select delay compensation for a conveyor oven",
+  "revision": "sha256:curriculum-loop-81",
+  "projectId": "project:control-capstone-conveyor-oven",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Robust ordinary PI, measured-load feedforward, Smith prediction, and deterministic measured-feedback fallback",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-81",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX80.0",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.TemperatureSetpoint",
+      "address": "%ML200",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 20,
+        "maximum": 50
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.OrdinaryMeasuredTemperature",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 15,
+        "maximum": 60
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.OrdinaryRequestedHeater",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "feedforward-product-temperature",
+        "channel": "feedforward-product-temperature",
+        "role": "state",
+        "symbol": "P1.FeedforwardMeasuredTemperature",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 15,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "integrated-product-temperature",
+        "channel": "integrated-product-temperature",
+        "role": "state",
+        "symbol": "P1.IntegratedMeasuredTemperature",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 15,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "feedforward-requested-heater-power",
+        "channel": "feedforward-requested-heater-power",
+        "role": "state",
+        "symbol": "P1.FeedforwardRequestedHeater",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "integrated-requested-heater-power",
+        "channel": "integrated-requested-heater-power",
+        "role": "state",
+        "symbol": "P1.IntegratedRequestedHeater",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "ordinary-applied-heater-power",
+        "channel": "ordinary-applied-heater-power",
+        "role": "state",
+        "symbol": "P1.OrdinaryAppliedHeater",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "feedforward-applied-heater-power",
+        "channel": "feedforward-applied-heater-power",
+        "role": "state",
+        "symbol": "P1.FeedforwardAppliedHeater",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "integrated-applied-heater-power",
+        "channel": "integrated-applied-heater-power",
+        "role": "state",
+        "symbol": "P1.IntegratedAppliedHeater",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "feedforward-contribution",
+        "channel": "feedforward-contribution",
+        "role": "state",
+        "symbol": "P1.FeedforwardContribution",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "integrated-feedforward-contribution",
+        "channel": "integrated-feedforward-contribution",
+        "role": "state",
+        "symbol": "P1.IntegratedFeedforwardContribution",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "predicted-current-product-temperature",
+        "channel": "predicted-current-product-temperature",
+        "role": "state",
+        "symbol": "P1.IntegratedPredictedTemperature",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 15,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "delay-free-model-output",
+        "channel": "delay-free-model-output",
+        "role": "state",
+        "symbol": "P1.IntegratedDelayFreeModel",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 15,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "delayed-model-output",
+        "channel": "delayed-model-output",
+        "role": "state",
+        "symbol": "P1.IntegratedDelayedModel",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 15,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "model-correction",
+        "channel": "model-correction",
+        "role": "state",
+        "symbol": "P1.IntegratedModelCorrection",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": -5,
+          "maximum": 5
+        }
+      },
+      {
+        "id": "predictor-history-complete",
+        "channel": "predictor-history-complete",
+        "role": "quality",
+        "symbol": "P1.PredictorHistoryComplete",
+        "address": "%MX72.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "predictor-active",
+        "channel": "predictor-active",
+        "role": "state",
+        "symbol": "P1.PredictorActive",
+        "address": "%MX72.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "measured-feedback-fallback",
+        "channel": "measured-feedback-fallback",
+        "role": "state",
+        "symbol": "P1.PredictorFallback",
+        "address": "%MX72.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "controller-revision",
+        "channel": "controller-revision",
+        "role": "state",
+        "symbol": "P1.ControllerRevision",
+        "address": "%MD76",
+        "iecType": "DINT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "equivalent_ordinary_feedforward_and_integrated_delayed_ovens",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "setpoint_step",
+    "amplitude": 15,
+    "durationSeconds": 180,
+    "seed": 20260829
+  }
+}

@@ -28,6 +28,92 @@ export interface QualifiedTuningComparison {
   attempts: readonly TuningAttempt[];
 }
 
+export interface TuningMethodDescription {
+  method: TuningMethod;
+  title: string;
+  status: "Feasible" | "Unavailable";
+  applied: false;
+  convention: "Parallel Control.PID";
+  assumptions: readonly string[];
+  equations: readonly string[];
+  units: { plantGain: string; proportionalGain: string; integralGain: string; derivativeGain: string };
+  inputs: readonly { name: string; value: number | string; unit: string }[];
+  result?: {
+    proportionalGain: number;
+    integralGain: number;
+    derivativeGain: 0;
+    integralTimeSeconds: number;
+    gainMarginDb: number;
+    phaseMarginDegrees: number;
+  };
+  reason?: string;
+}
+
+/** Describes the exact qualified formula and its domain without applying the result. */
+export function describeTuningMethod(
+  model: IdentifiedModel,
+  method: TuningMethod,
+  objective: TuningObjective,
+  plantInputUnit: string,
+  plantOutputUnit: string
+): TuningMethodDescription {
+  const title = method === "SIMC" ? "SIMC PI (Skogestad 2003)" : "AMIGO PI (Åström and Hägglund 2004)";
+  const integrating = model.kind === "integrating";
+  const assumptions = method === "SIMC" && integrating
+    ? ["Accepted monotone integrating model with positive rate gain and resolved positive effective delay.",
+      "The response choice selects lambda; limits and acceptance requirements do not change."]
+    : method === "SIMC"
+      ? ["Accepted stable monotone positive-gain first-order or FOPDT model.",
+      "The response choice selects lambda; limits and acceptance requirements do not change."]
+    : ["Accepted stable monotone positive-gain FOPDT model with resolved positive dead time.",
+      "The qualified domain is 0 < L/T <= 1; Response changes ranking, not the published coefficients."];
+  const equations = method === "SIMC" && integrating
+    ? ["Kp = 1 / (Kprime (lambda + L))", "Ti = 4 (lambda + L)", "Ki = Kp / Ti", "Kd = 0"]
+    : method === "SIMC"
+      ? ["Kp = T / (K (lambda + L))", "Ti = min(T, 4 (lambda + L))", "Ki = Kp / Ti", "Kd = 0"]
+    : ["Kp = 0.15/K + (0.35 - LT/(L+T)^2) T/(KL)",
+      "Ti = 0.35L + 13LT^2/(T^2 + 12LT + 7L^2)", "Ki = Kp / Ti", "Kd = 0"];
+  const units = {
+    plantGain: integrating
+      ? `${plantOutputUnit}/(${plantInputUnit}·s)`
+      : `${plantOutputUnit}/${plantInputUnit}`,
+    proportionalGain: `${plantInputUnit}/${plantOutputUnit}`,
+    integralGain: `${plantInputUnit}/(${plantOutputUnit}·s)`,
+    derivativeGain: `(${plantInputUnit}·s)/${plantOutputUnit}`,
+  };
+  const base = { method, title, applied: false as const, convention: "Parallel Control.PID" as const,
+    assumptions, equations, units };
+  try {
+    const result = tuneController(model, { method, objective });
+    const ti = result.controller.tiSeconds!;
+    const inputs: Array<{ name: string; value: number | string; unit: string }> = [
+      { name: integrating ? "Kprime" : "K", value: model.gain, unit: units.plantGain },
+      { name: "L", value: model.deadTimeSeconds ?? 0, unit: "s" },
+      { name: "Objective", value: objective, unit: "selection" },
+    ];
+    if (!integrating) inputs.splice(1, 0,
+      { name: "T", value: model.timeConstantSeconds!, unit: "s" });
+    if (result.closedLoopTimeSeconds !== undefined) {
+      inputs.push({ name: "lambda", value: result.closedLoopTimeSeconds, unit: "s" });
+    }
+    return { ...base, status: "Feasible", inputs, result: {
+      proportionalGain: result.controller.kp,
+      integralGain: rounded(result.controller.kp / ti),
+      derivativeGain: 0,
+      integralTimeSeconds: ti,
+      gainMarginDb: result.frequency.gainMarginDb,
+      phaseMarginDegrees: result.frequency.phaseMarginDegrees,
+    } };
+  } catch (error) {
+    return { ...base, status: "Unavailable", inputs: [
+      { name: integrating ? "Kprime" : "K", value: model.gain, unit: units.plantGain },
+      ...(!integrating ? [{ name: "T", value: model.timeConstantSeconds ?? "Unavailable", unit: "s" }] : []),
+      { name: "L", value: model.deadTimeSeconds ?? 0, unit: "s" },
+      { name: "Objective", value: objective, unit: "selection" },
+    ], reason: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 export function frequencyResponse(_model: IdentifiedModel): FrequencyResult {
   return loopFrequency(_model, 1, Number.POSITIVE_INFINITY);
 }
@@ -37,20 +123,26 @@ export function tuneController(
   options: { method: TuningMethod; objective: TuningObjective }
 ): TuningResult {
   validateTuningModel(model, options.method);
-  if (model.kind !== "first_order" && model.kind !== "first_order_dead_time") {
+  const integrating = model.kind === "integrating";
+  if (!integrating && model.kind !== "first_order" && model.kind !== "first_order_dead_time") {
     throw new Error(`${options.method} PI tuning requires a stable first-order model.`);
   }
-  const tau = model.timeConstantSeconds!;
   const delay = model.deadTimeSeconds ?? 0;
   let kp: number;
   let tiSeconds: number;
   let closedLoopTimeSeconds: number | undefined;
   if (options.method === "SIMC") {
-    const fastest = Math.max(delay, tau / 3);
+    const tau = model.timeConstantSeconds;
+    const fastest = integrating ? delay : Math.max(delay, tau! / 3);
     closedLoopTimeSeconds = fastest * (options.objective === "fast" ? 1 : options.objective === "balanced" ? 2 : 4);
-    kp = tau / (model.gain * (closedLoopTimeSeconds + delay));
-    tiSeconds = Math.min(tau, 4 * (closedLoopTimeSeconds + delay));
+    kp = integrating
+      ? 1 / (model.gain * (closedLoopTimeSeconds + delay))
+      : tau! / (model.gain * (closedLoopTimeSeconds + delay));
+    tiSeconds = integrating
+      ? 4 * (closedLoopTimeSeconds + delay)
+      : Math.min(tau!, 4 * (closedLoopTimeSeconds + delay));
   } else {
+    const tau = model.timeConstantSeconds!;
     const sum = delay + tau;
     kp = 0.15 / model.gain
       + (0.35 - delay * tau / (sum * sum)) * tau / (model.gain * delay);
@@ -89,12 +181,17 @@ export function compareQualifiedTunings(
 
 function loopFrequency(model: IdentifiedModel, kp: number, tiSeconds: number): FrequencyResult {
   validateModel(model);
-  const baseTau = model.timeConstantSeconds ?? model.secondTimeConstantSeconds ?? 1;
+  const baseTau = model.timeConstantSeconds ?? model.secondTimeConstantSeconds ??
+    Math.max(model.deadTimeSeconds ?? 0, 1);
   const points: FrequencyPoint[] = [];
   for (let index = 0; index < 80; index += 1) {
     const frequency = (1e-3 / baseTau) * Math.pow(1e6, index / 79);
     let magnitude = Math.abs(model.gain);
     let phase = model.gain < 0 ? -180 : 0;
+    if (model.kind === "integrating") {
+      magnitude /= frequency;
+      phase -= 90;
+    }
     for (const tau of [model.timeConstantSeconds, model.secondTimeConstantSeconds]) {
       if (tau !== undefined) { magnitude /= Math.sqrt(1 + (frequency * tau) ** 2); phase -= Math.atan(frequency * tau) * 180 / Math.PI; }
     }
@@ -132,6 +229,10 @@ function validateTuningModel(model: IdentifiedModel, method: TuningMethod): void
   }
   const delay = model.deadTimeSeconds ?? 0;
   if (!Number.isFinite(delay) || delay < 0) throw new Error("Model dead time must be finite and non-negative.");
+  if (model.kind === "integrating") {
+    if (method === "AMIGO") throw new Error("AMIGO is unavailable for integrating models.");
+    if (delay <= 0) throw new Error("SIMC integrating PI requires resolved positive effective delay.");
+  }
   if (method === "AMIGO") {
     if (delay <= 0) throw new Error("AMIGO requires resolved positive dead time.");
     const tau = model.timeConstantSeconds;

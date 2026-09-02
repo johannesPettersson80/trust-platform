@@ -35,6 +35,7 @@ package "PlantSystem" {
   component "Command and actuator effects" as actuator
   component "Nominal model" as model
   component "Parameter, state, output,\nand measurement uncertainty" as uncertainty
+  component "Model-validity bounds\ninput + state + output" as validity
   component "Preallocated checkpoint\nfailed-substep rollback" as checkpoint
 }
 
@@ -59,8 +60,11 @@ simulation --> plant : elapsed simulation time
 events --> plant : due actions before substep
 plant --> actuator : command uncertainty first
 actuator --> model : applied process input
+actuator --> validity : check applied input
 uncertainty --> model : effective parameters
 model --> uncertainty : state and ideal output
+uncertainty --> validity : check completed state + ideal output
+validity --> checkpoint : fail outside local model region
 uncertainty --> plant : completed measurement
 plant --> checkpoint : save before substep
 checkpoint --> plant : restore on fault
@@ -88,6 +92,7 @@ Each substep commits atomically.
 Random streams derive from master seed,
 plant ID, and uncertainty ID.
 Execution buffers are allocated at activation.
+Validity faults roll back; bounds are not safety interlocks.
 end note
 
 @enduml

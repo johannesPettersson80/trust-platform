@@ -60,6 +60,34 @@ suite("Control Studio command", () => {
       .filter((tab) => tab.label === "Control Studio · Tank level");
     assert.strictEqual(tabs.length, 1, "retrying one loop request must reveal, not duplicate, the editor");
   });
+
+  test("promotes an existing plant handoff to its configured loop in the same runtime", async () => {
+    const loopDefinition = configuredLoop();
+    const handoff = {
+      schemaVersion: 1,
+      handoffId: "command-test-promote",
+      projectId: loopDefinition.projectId,
+      runtimeId: loopDefinition.runtimeId,
+      plantId: "tank",
+      savedConfigurationRevision: "sha256:saved",
+      source: "Simulation",
+      requestedContext: { mode: "Monitor", selection: "plant_summary" },
+    };
+    await vscode.commands.executeCommand("trust-lsp.controlStudio.open", handoff);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vscode.commands.executeCommand("trust-lsp.controlStudio.open", {
+      schemaVersion: 1,
+      source: "ConfiguredLoop",
+      scope: { projectId: loopDefinition.projectId, runtimeId: loopDefinition.runtimeId },
+      loopDefinition,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const configuredTabs = vscode.window.tabGroups.all.flatMap((group) => group.tabs)
+      .filter((tab) => tab.label === "Control Studio · Tank level");
+    assert.strictEqual(configuredTabs.length, 1,
+      "a configured loop must replace the unbound handoff surface even when their scope is identical");
+  });
 });
 
 function configuredLoop() {

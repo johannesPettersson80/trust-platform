@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 4,
+  "id": "control-conveyor-oven-feedforward",
+  "title": "Compensate measured conveyor-speed disturbances",
+  "level": "Advanced",
+  "sequence": 53,
+  "equipment": "continuous conveyor",
+  "physicalPurpose": "Act before measured production-speed changes disturb product temperature while retaining feedback trim and actuator constraints.",
+  "principalTechnique": "Static and dynamic measured-disturbance feedforward with PI trim",
+  "objective": "Use measured conveyor speed to design static and dynamic feedforward, compare both with feedback-only proportional-integral control, and decide whether early compensation justifies its actuator movement and dependence on a plant model.",
+  "prerequisites": ["control-automatic-tuning-sequence"],
+  "nextLesson": "control-reactor-cascade",
+  "signals": [
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX136.2" },
+    { "role": "quality", "name": "Conveyor-speed validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX136.0" },
+    { "role": "disturbance", "name": "Actual conveyor speed", "unit": "1", "minimum": 0.5, "maximum": 2.5, "resolution": 0.01, "binding": "%ML96" },
+    { "role": "state", "name": "Measured conveyor speed", "unit": "1", "minimum": 0.5, "maximum": 2.5, "resolution": 0.01, "binding": "%ML104" },
+    { "role": "state", "name": "Dynamic feedforward scale", "unit": "1", "minimum": 0.5, "maximum": 1.5, "resolution": 0.01, "binding": "%ML112" },
+    { "role": "state", "name": "Static feedforward", "unit": "%", "minimum": -30, "maximum": 30, "resolution": 0.01, "binding": "%ML120" },
+    { "role": "state", "name": "Dynamic feedforward", "unit": "%", "minimum": -30, "maximum": 30, "resolution": 0.01, "binding": "%ML128" },
+    { "role": "SP", "name": "Product-temperature setpoint", "unit": "degC", "minimum": 90, "maximum": 145, "resolution": 0.01, "binding": "%ML88" },
+    { "role": "PV", "name": "Feedback-only product temperature", "unit": "degC", "minimum": 90, "maximum": 145, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "state", "name": "Static-feedforward product temperature", "unit": "degC", "minimum": 90, "maximum": 145, "resolution": 0.01, "binding": "%IL8" },
+    { "role": "state", "name": "Dynamic-feedforward product temperature", "unit": "degC", "minimum": 90, "maximum": 145, "resolution": 0.01, "binding": "%IL16" },
+    { "role": "MV", "name": "Feedback-only heater request", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
+    { "role": "state", "name": "Static-feedforward heater request", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL16" },
+    { "role": "state", "name": "Dynamic-feedforward heater request", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL32" }
+  ],
+  "plant": {
+    "modelId": "three_equivalent_two_path_conveyor_ovens",
+    "executable": "simulation.toml",
+    "parameters": [
+      { "name": "heater_path_gain", "value": 2, "unit": "degC/%" },
+      { "name": "heater_path_time_constant", "value": 10, "unit": "s" },
+      { "name": "speed_path_gain", "value": -20, "unit": "degC" },
+      { "name": "speed_path_time_constant", "value": 4, "unit": "s" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "heaterPathTemperatureContributionDegC": 140, "speedPathTemperatureContributionDegC": -20 },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Conveyor-speed validity": 1,
+      "Actual conveyor speed": 1,
+      "Measured conveyor speed": 1,
+      "Dynamic feedforward scale": 1,
+      "Static feedforward": 0,
+      "Dynamic feedforward": 0,
+      "Product-temperature setpoint": 120,
+      "Feedback-only product temperature": 120,
+      "Static-feedforward product temperature": 120,
+      "Dynamic-feedforward product temperature": 120,
+      "Feedback-only heater request": 70,
+      "Static-feedforward heater request": 70,
+      "Dynamic-feedforward heater request": 70
+    },
+    "validityRange": [
+      { "signal": "Actual conveyor speed", "minimum": 0.5, "maximum": 2.5, "unit": "1" },
+      { "signal": "Measured conveyor speed", "minimum": 0.5, "maximum": 2.5, "unit": "1" },
+      { "signal": "Feedback-only product temperature", "minimum": 90, "maximum": 145, "unit": "degC" },
+      { "signal": "Static-feedforward product temperature", "minimum": 90, "maximum": 145, "unit": "degC" },
+      { "signal": "Dynamic-feedforward product temperature", "minimum": 90, "maximum": 145, "unit": "degC" },
+      { "signal": "Feedback-only heater request", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Static-feedforward heater request", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Dynamic-feedforward heater request", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "simplifications": [
+      "Local linear heater and conveyor-speed paths around one production rate",
+      "No transport delay beyond the two declared first-order path states",
+      "Ideal speed measurement in the nominal run and explicit invalid-quality fallback",
+      "Three deterministic equivalent ovens isolate only the feedforward structure",
+      "Simulation-only I/O and evidence"
+    ]
+  },
+  "baseline": {
+    "executableId": "ConveyorOven.FeedbackOnlyPI",
+    "settings": { "kp": 0.8, "ki": 0.08, "biasPercent": 70, "feedforwardPercent": 0 },
+    "limitation": "Feedback-only PI cannot act at the speed event because product temperature has not changed yet."
+  },
+  "change": {
+    "executableId": "ConveyorOven.StaticAndDynamicFeedforward",
+    "settings": { "staticGainPercentPerSpeed": 10, "dynamicLeadPercentPerSpeed": 25, "dynamicLagPercentPerSpeed": 15, "disturbanceTimeConstantSeconds": 4, "mismatchScale": 0.8 },
+    "decision": "Accept feedforward only when equivalent runs reduce qualified temperature error without saturation and invalid speed data visibly removes feedforward authority."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Actual conveyor speed",
+    "baseline": 1,
+    "amplitude": 0,
+    "durationSeconds": 90.1,
+    "settlingSeconds": 30,
+    "disturbances": ["Actual and measured conveyor speed change from 1.0 to 2.0 at 30.0 s", "A separate run changes only dynamic feedforward scale from 1.0 to 0.8", "A separate invalid-data run retains the physical speed change while disabling feedforward authority"],
+    "seed": 20260829,
+    "restorationValue": 1,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    { "metric": "static_event_iae_improvement", "signal": "Static-feedforward product temperature", "window": "30 through 60 s static IAE minus feedback-only IAE", "comparator": "<", "limit": 0, "unit": "degC*s", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "dynamic_event_iae_improvement", "signal": "Dynamic-feedforward product temperature", "window": "30 through 60 s dynamic IAE minus static IAE", "comparator": "<", "limit": 0, "unit": "degC*s", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "nominal_dynamic_feedforward_peak", "signal": "Dynamic feedforward", "window": "30 through 30.2 s", "comparator": "==", "limit": 25, "unit": "%", "tolerance": 0.2, "evidenceClass": "simulation" },
+    { "metric": "nominal_dynamic_feedforward_final", "signal": "Dynamic feedforward", "window": "89 through 90 s", "comparator": "==", "limit": 10, "unit": "%", "tolerance": 0.05, "evidenceClass": "simulation" },
+    { "metric": "mismatch_final_mean_absolute_error", "signal": "Dynamic-feedforward product temperature", "window": "85 through 90 s after settling qualification", "comparator": "<=", "limit": 0.1, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Feedback-only heater request", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Static-feedforward heater request", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Dynamic-feedforward heater request", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Feedback-only product temperature", "minimum": 90, "maximum": 145, "unit": "degC" },
+      { "signal": "Static-feedforward product temperature", "minimum": 90, "maximum": 145, "unit": "degC" },
+      { "signal": "Dynamic-feedforward product temperature", "minimum": 90, "maximum": 145, "unit": "degC" }
+    ],
+    "abortPredicates": ["Any required signal is nonfinite, stale, forced, or has invalid quality", "Any heater request leaves 0 through 100 percent", "Any temperature leaves 90 through 145 degC", "Actual or measured speed leaves the reviewed local range", "Runtime freshness or plant identity is lost"],
+    "safeMv": 70,
+    "restorationMode": "Restore speed to 1.0, feedforward scale to 1.0 and heater authority to the reviewed 70-percent operating value; verify observed temperature and command before another run.",
+    "physicalApprovalRole": "authorised oven controls engineer and responsible production operator",
+    "simulationOnlyRestrictions": ["No physical oven is excited or commissioned", "Simulation path cancellation is not physical model validation", "Physical feedforward requires reviewed sensors, path models, limits, interlocks and explicit experiment approval"]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-53--feedforward-control-conveyor-oven",
+    "nativeTest": "control_curriculum_feedforward_compensates_measured_oven_speed_before_feedback_error",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_industrial_structures control_curriculum_feedforward_compensates_measured_oven_speed_before_feedback_error -- --exact --nocapture",
+    "projectPath": "examples/control/09-industrial-control-structures/53-conveyor-oven-feedforward",
+    "runArtifactFields": ["projectIdentity", "loopIdentity", "plantIdentities", "controllerIdentities", "evidenceClass", "sampleTime", "seed", "actualSpeed", "measuredSpeed", "speedValidity", "setpoint", "processValues", "heaterRequests", "appliedHeaterValues", "staticFeedforward", "dynamicFeedforward", "dynamicScale", "pathModels", "event", "limits", "abortState", "restorationState", "metricDefinitions", "metrics", "settlingQualification"],
+    "renderedJourneyId": "control-conveyor-oven-feedforward"
+  },
+  "video": {
+    "viewerOutcome": "Design feedforward from two measured paths, compare static and dynamic compensation, and explain why feedback and constraints remain necessary.",
+    "requiredVisibleEvidence": ["three equivalent ovens", "measured speed and quality", "feedback-only, static and dynamic temperature traces", "feedforward traces", "requested and applied heater values", "path equations and worked predictions", "defined event metrics", "0.8-scale mismatch", "invalid-data fallback", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Three equivalent continuous conveyor ovens expose separate heater and measured production-speed paths around a 120-degC operating point.",
+    "reason": "The previous qualified feedback workflow still showed load error because feedback cannot act until its process value changes; measured speed is available earlier.",
+    "theory": ["Feedback reacts to temperature error while feedforward predicts temperature change from measured conveyor speed.", "Static feedforward cancels steady path gain; dynamic feedforward also compensates the different path time constants.", "Feedforward enters Control.PID before its limits and anti-windup, retains PI trim, and loses authority when disturbance data are invalid."],
+    "workedPrediction": "A speed step from 1.0 to 2.0 requests no immediate feedback correction, 10 percentage points of static feedforward, and 25 percentage points of initial dynamic feedforward decaying to 10.",
+    "practicalPreparation": ["Verify Simulation evidence, three equivalent plant and controller identities, SP/PV/MV units, actual and measured speed, quality, 0.1-s timing, limits and operating point.", "Define and record event IAE, peak deviation, applied-heater movement and settling rules before revealing the traces."],
+    "baseline": "Run feedback-only PI through the identical speed disturbance and retain the temperature error it cannot prevent.",
+    "change": "Compare static gain compensation and dynamic gain-and-timing compensation, then change only the dynamic scale to 0.8 and separately invalidate measured speed.",
+    "comparison": "Hold every plant, controller, event, timing, limit and metric window equal while changing only feedforward structure or declared scale.",
+    "validation": "Require finite bounded unsaturated runs, ordered nominal event IAE, predicted feedforward endpoints, PI recovery under mismatch and visible feedback-only fallback for invalid speed.",
+    "explanation": "Dynamic feedforward moves farther initially because the heater path is slower than the disturbance path; feedback removes residual error when the model is imperfect.",
+    "transfer": "Use feedforward for an early measured disturbance; use the next cascade lesson when the useful early signal is instead a faster controlled variable with its own inner loop."
+  }
+}

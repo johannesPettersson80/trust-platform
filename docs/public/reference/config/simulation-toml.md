@@ -17,7 +17,7 @@ max_plant_substeps_per_cycle = 10000
 plant_trace_capacity = 1000
 
 [[plants]]
-id = "paper-fopdt"
+id = "reference-fopdt"
 model = "first_order_dead_time"
 command_sources = ["%QL0"]
 feedback_targets = ["%IL0"]
@@ -33,6 +33,15 @@ minimum = 0.0
 maximum = 100.0
 rate_up_per_s = 10.0
 rate_down_per_s = 10.0
+
+[plants.validity]
+input_minimum = [0.0]
+input_maximum = [100.0]
+state_minimum = [-10.0]
+state_maximum = [110.0]
+output_minimum = [-10.0]
+output_maximum = [110.0]
+out_of_range = "fault"
 
 [[plants.uncertainties]]
 id = "sensor-noise"
@@ -99,8 +108,11 @@ output policy.
 Each enabled plant reads numeric PLC outputs after a scan, advances only on its
 fixed simulation-time step, and queues numeric PLC inputs for the next
 pre-cycle boundary. Supported models are `static_gain`, `first_order`,
-`first_order_dead_time`, `integrator`, `second_order`, `state_space`, and
-`piecewise_linear`.
+`first_order_dead_time`, `integrator`, `gravity_tank`, `piecewise_linear`,
+`robot_joint`, `second_order`, and `state_space`. Optional
+`[plants.validity]` input, state, and output bounds fault and roll back the
+complete substep when a local model leaves its declared engineering region;
+they are simulation evidence, not a physical safety interlock.
 
 The complete field tables, model equations, actuator ordering, uncertainty
 generators, random algorithm, plant events, validation rules, and numeric

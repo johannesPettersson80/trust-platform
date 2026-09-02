@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 4,
+  "id": "control-model-based-tuning",
+  "title": "Choose model-qualified PI response targets",
+  "level": "Advanced",
+  "sequence": 44,
+  "equipment": "Recirculating water heater, buffer tank, and continuous belt dryer",
+  "physicalPurpose": "Choose PI speed and robustness deliberately for self-regulating and integrating industrial processes.",
+  "principalTechnique": "SIMC response-target PI tuning",
+  "objective": "Calculate and validate Fast, Balanced, and Robust PI candidates from eligible models while keeping every candidate unapplied.",
+  "prerequisites": ["control-relay-autotuning"],
+  "nextLesson": "control-crane-routh-stability",
+  "signals": [
+    { "role": "state", "name": "Experiment authority", "unit": "bool", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.1" },
+    { "role": "SP", "name": "Heater temperature setpoint", "unit": "degC", "minimum": 15, "maximum": 35, "resolution": 0.01, "binding": "%ML0" },
+    { "role": "SP", "name": "Tank level setpoint", "unit": "%", "minimum": 20, "maximum": 80, "resolution": 0.01, "binding": "%ML8" },
+    { "role": "SP", "name": "Dryer dryness setpoint", "unit": "%", "minimum": 20, "maximum": 70, "resolution": 0.01, "binding": "%ML16" },
+    { "role": "MV", "name": "Heater applied power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
+    { "role": "MV", "name": "Tank applied inlet valve", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL8" },
+    { "role": "MV", "name": "Dryer applied heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL16" },
+    { "role": "PV", "name": "Heater temperature", "unit": "degC", "minimum": 0, "maximum": 60, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "PV", "name": "Tank level", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%IL8" },
+    { "role": "PV", "name": "Dryer dryness", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%IL16" }
+  ],
+  "plant": {
+    "modelId": "three_process_simc_training_rig",
+    "executable": "simulation.toml",
+    "parameters": [
+      { "name": "heater_gain", "value": 0.2, "unit": "degC/%" },
+      { "name": "heater_time_constant", "value": 5, "unit": "s" },
+      { "name": "heater_dead_time", "value": 1, "unit": "s" },
+      { "name": "tank_rate_gain", "value": 0.05, "unit": "1/s" },
+      { "name": "tank_effective_dead_time", "value": 0.5, "unit": "s" },
+      { "name": "dryer_gain", "value": 0.4, "unit": "1" },
+      { "name": "dryer_time_constant", "value": 20, "unit": "s" },
+      { "name": "dryer_dead_time", "value": 8, "unit": "s" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "heaterTemperatureDegC": 20, "tankLevelPercent": 50, "dryerDrynessPercent": 40 },
+    "seed": 20260829,
+    "operatingPoint": { "Heater applied power": 20, "Tank applied inlet valve": 50, "Dryer applied heater command": 30, "Heater temperature": 20, "Tank level": 50, "Dryer dryness": 40 },
+    "validityRange": [
+      { "signal": "Heater temperature", "minimum": 0, "maximum": 60, "unit": "degC" },
+      { "signal": "Tank level", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Dryer dryness", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Heater applied power", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Tank applied inlet valve", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Dryer applied heater command", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "simplifications": ["Independent single-input single-output plants", "Locally linear models", "Declared deterministic sensor noise", "Tank valve lag reduced to an effective delay for tuning", "Simulation-only I/O"]
+  },
+  "baseline": {
+    "executableId": "Control.PID.RelayCandidate",
+    "settings": { "evidence": "one critical point", "application": false },
+    "limitation": "A critical-point estimate does not expose a deliberate closed-loop speed-versus-robustness target or distinguish self-regulating from integrating tuning equations."
+  },
+  "change": {
+    "executableId": "Control.PID.ModelQualifiedSIMC",
+    "settings": { "targets": ["Fast", "Balanced", "Robust"], "nominalPlant": true, "gainVariationPercent": 20, "delayVariationPercent": 50 },
+    "decision": "Retain all model-qualified candidates and validation evidence for review; do not select or apply a winner in the PLC program.",
+    "applied": false
+  },
+  "experiment": { "kind": "observation", "signal": "Experiment authority", "baseline": 0, "amplitude": 0, "durationSeconds": 220.1, "settlingSeconds": 10, "disturbances": ["heater heat-loss step at 100 s", "tank outlet-flow step at 100 s", "dryer load-moisture step at 100 s", "deterministic sensor noise"], "seed": 20260829, "restorationValue": 0 },
+  "acceptance": [
+    { "metric": "heater_final_window_absolute_error", "signal": "Heater temperature", "window": "210 s through 220 s after settling qualification", "comparator": "<=", "limit": 0.25, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "tank_final_window_absolute_error", "signal": "Tank level", "window": "210 s through 220 s after settling qualification", "comparator": "<=", "limit": 0.25, "unit": "%", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "dryer_final_window_absolute_error", "signal": "Dryer dryness", "window": "210 s through 220 s after settling qualification", "comparator": "<=", "limit": 0.25, "unit": "%", "tolerance": 0.01, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Heater applied power", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Tank applied inlet valve", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Dryer applied heater command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Tank level", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "abortPredicates": ["Any required signal is missing, stale, forced, nonfinite, or has bad quality", "Any process value or applied output leaves its declared hard limit", "The model identity, sample interval, event schedule, or seed differs from the reviewed experiment"],
+    "safeMv": 0,
+    "restorationMode": "Restore the heater setpoint to 20 degC; the program restores the linked tank and dryer setpoints to 50 and 40 percent before another candidate",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": ["This lesson cannot authorise physical excitation or parameter application", "Physical use requires independent topology, model, hazard, limit, interlock, and rollback review plus explicit immediate approval"]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-44--lambdaimc-and-simc-tuning-heater-tank-and-dryer",
+    "nativeTest": "control_curriculum_simc_targets_are_model_qualified_and_remain_unapplied",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_tuning_progression control_curriculum_simc_targets_are_model_qualified_and_remain_unapplied -- --exact --nocapture",
+    "projectPath": "examples/control/06-pid-tuning-methods/44-model-based-tuning",
+    "runArtifactFields": ["plantIdentity", "modelStructure", "modelParameters", "responseTarget", "controllerParameters", "requestedOutput", "appliedOutput", "samples", "riseTime", "settlingState", "finalWindowError", "appliedOutputTravel", "gainVariation", "delayVariation", "candidateState", "seed", "evidenceClass"],
+    "renderedJourneyId": "control-model-based-tuning"
+  },
+  "video": { "viewerOutcome": "Calculate and validate transparent PI response targets for self-regulating and integrating processes without silently applying gains.", "requiredVisibleEvidence": ["three simulated plants", "model eligibility", "Fast Balanced Robust targets", "worked arithmetic", "requested and applied outputs", "nominal response", "gain variation", "delay variation", "unapplied state", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "learning": {
+    "context": "Three independent simulated industrial plants execute the same shipped PI controller against different model classes.",
+    "reason": "A feedback-relay estimate does not provide a deliberate response-speed target or the correct integrating-process tuning equation.",
+    "theory": ["Desired closed-loop time controls the speed-versus-robustness tradeoff.", "Self-regulating gain is a steady output-to-input ratio, while integrating rate gain is output change per input per second.", "SIMC produces transparent PI parameters from an eligible model and is not model-predictive control."],
+    "workedPrediction": "Calculate Fast, Balanced, and Robust Kp, Ti, and parallel Ki for the heater, tank, and dryer before running any candidate.",
+    "practicalPreparation": ["Verify Simulation evidence, plant identity, model class, parameter units, operating points, signal quality, sample interval, limits, events, seed, and candidate state.", "Declare response and robustness measures before validation."],
+    "baseline": "The relay lesson provides one critical point but no explicit model-based response target.",
+    "change": "Calculate model-eligible SIMC PI candidates for three declared response targets.",
+    "comparison": "Change only the response target while holding each plant, initial state, event schedule, sampling, limits, and seed constant.",
+    "validation": "Compare nominal, 20-percent gain increase, and 50-percent effective-delay increase; classify invalid runs before ranking measures.",
+    "explanation": "A larger response target lowers feedback gain and provides more tolerance to lag and delay, while the integrating tank requires rate-gain equations.",
+    "transfer": "Retain qualified candidates as unapplied evidence; Lesson 45 adds explicit stability analysis."
+  }
+}

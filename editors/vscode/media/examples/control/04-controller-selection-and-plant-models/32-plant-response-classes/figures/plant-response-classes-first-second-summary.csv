@@ -1,0 +1,5 @@
+response_id,first_second_observation,classification_status,still_plausible_classes,learner_commitment,reveal_status
+A,small rise without enough history to prove settling,ambiguous,self-regulating|integrating|delayed,,not_revealed
+B,small continuing rise without enough history to prove integration,ambiguous,self-regulating|integrating,,not_revealed
+C,no visible movement in the first second,ambiguous,dead time|zero gain|bad signal,,not_revealed
+D,early rise without enough history to prove repeated crossings,ambiguous,self-regulating|oscillatory,,not_revealed

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "control-model-based-tuning",
+  "name": "Model-qualified PI response targets",
+  "revision": "sha256:bf7d950ddfcc0e5528bddefa0bce59350698b36687358434398f36a939360034",
+  "projectId": "project:control-model-based-tuning",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.HeaterController",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:61c9f37c10dba8678d68ff0858cf06add0138359159c2dce7cc91342be4b815e",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX96.0",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": { "symbol": "P1.HeaterSetpoint", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 0, "maximum": 60 } },
+    "processVariable": { "symbol": "P1.HeaterTemperature", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 0, "maximum": 60 } },
+    "manipulatedVariable": { "symbol": "P1.HeaterApplied", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+    "additional": [
+      { "id": "experiment-authority", "channel": "experiment-authority", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX96.1", "iecType": "BOOL", "direction": "write", "unit": "bool", "range": { "minimum": 0, "maximum": 1 } },
+      { "id": "tank-sp", "channel": "tank", "role": "SP", "symbol": "P1.TankSetpoint", "address": "%ML8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "tank-pv", "channel": "tank", "role": "PV", "symbol": "P1.TankLevel", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "tank-mv", "channel": "tank", "role": "MV", "symbol": "P1.TankApplied", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "dryer-sp", "channel": "dryer", "role": "SP", "symbol": "P1.DryerSetpoint", "address": "%ML16", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "dryer-pv", "channel": "dryer", "role": "PV", "symbol": "P1.DryerDryness", "address": "%IL16", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "dryer-mv", "channel": "dryer", "role": "MV", "symbol": "P1.DryerApplied", "address": "%QL16", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } }
+    ]
+  },
+  "limits": { "outputMinimum": 0, "outputMaximum": 100 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "three_process_simc_training_rig",
+  "operatingPoint": "heater 20 degC, tank 50 percent, dryer 40 percent",
+  "experiment": { "execution": "project-scripted", "kind": "observation", "activationSignal": "P1.ExperimentEnabled", "amplitude": 0, "durationSeconds": 220.1, "restorationValue": 0, "seed": 20260829 }
+}

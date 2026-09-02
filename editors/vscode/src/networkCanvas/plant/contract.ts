@@ -121,10 +121,12 @@ const STATUS_PLANT_FIELDS = new Set([
 ]);
 
 const ACTUATOR_FIELDS = new Set([
+  "position",
   "applied",
   "saturation_active",
   "slew_limit_active",
   "deadband_active",
+  "stiction_active",
   "stuck",
 ]);
 
@@ -226,10 +228,12 @@ function actuatorStatus(value: unknown): boolean {
     actuator &&
       hasOnlyFields(actuator, ACTUATOR_FIELDS) &&
       Object.keys(actuator).length === ACTUATOR_FIELDS.size &&
+      finiteNumber(actuator.position) &&
       finiteNumber(actuator.applied) &&
       typeof actuator.saturation_active === "boolean" &&
       typeof actuator.slew_limit_active === "boolean" &&
       typeof actuator.deadband_active === "boolean" &&
+      typeof actuator.stiction_active === "boolean" &&
       typeof actuator.stuck === "boolean"
   );
 }

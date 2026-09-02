@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-excitation-methods",
+  "name": "Plant-matched excitation methods",
+  "revision": "sha256:curriculum-loop-38",
+  "projectId": "project:control-excitation-methods",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "ExcitationMethodExperiment", "design": "project", "revision": "sha256:excitation-method-experiment", "action": "direct", "taskPeriodMs": 100 },
+  "signals": {
+    "processVariable": { "symbol": "P1.ServoPosition", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "rad", "range": { "minimum": -0.35, "maximum": 0.35 } },
+    "manipulatedVariable": { "symbol": "P1.ServoRequestedTorque", "address": "%ML16", "iecType": "LREAL", "direction": "write", "unit": "N m", "range": { "minimum": -0.2, "maximum": 0.2 } },
+    "actuator": { "symbol": "P1.ServoAppliedTorque", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "N m", "range": { "minimum": -0.2, "maximum": 0.2 } },
+    "additional": [
+      { "id": "heater-pv", "channel": "heater", "role": "PV", "symbol": "P1.HeaterTemperature", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 20, "maximum": 30 } },
+      { "id": "heater-request", "channel": "heater", "role": "state", "symbol": "P1.HeaterRequestedCommand", "address": "%ML8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "heater-applied", "channel": "heater", "role": "actuator", "symbol": "P1.HeaterAppliedCommand", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "chirp-frequency", "channel": "servo", "role": "state", "symbol": "P1.InstantFrequencyHz", "address": "%ML24", "iecType": "LREAL", "direction": "read", "unit": "Hz", "range": { "minimum": 0, "maximum": 2 } }
+    ]
+  },
+  "limits": { "outputMinimum": -0.2, "outputMaximum": 0.2 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "heater_and_flexible_servo_excitation",
+  "operatingPoint": "Servo torque 0 N m",
+  "experiment": { "execution": "control-studio", "kind": "multisine", "amplitude": 0.1, "durationSeconds": 30, "seed": 20260829 }
+}

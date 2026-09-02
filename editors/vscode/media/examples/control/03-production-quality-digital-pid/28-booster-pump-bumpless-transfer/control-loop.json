@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "id": "control-booster-pump-bumpless-transfer",
+  "name": "Transfer booster-pump authority without an avoidable valve step",
+  "revision": "sha256:1b7d7bcd9ae6994eff41bcf835f02db9fab092d813eab5b520d5f5d993aee64f",
+  "projectId": "project:control-booster-pump-bumpless-transfer",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:d87915c0a67098927ecee8b1a7249927e0bf8f983cea8b8b95440913a99c418d",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX48.1",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 2,
+        "maximum": 10
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 0,
+        "maximum": 12
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ValveCommand",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "external-applied-valve-output",
+        "channel": "external-applied-valve-output",
+        "role": "state",
+        "symbol": "P1.ExternalOutput",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "tracking-input",
+        "channel": "tracking-input",
+        "role": "state",
+        "symbol": "P1.TrackingOutput",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "manual-station-output",
+        "channel": "manual-station-output",
+        "role": "state",
+        "symbol": "P1.ManualOutput",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "requested-authority",
+        "channel": "requested-authority",
+        "role": "state",
+        "symbol": "P1.RequestedAuthority",
+        "address": "%MW50",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": -1,
+          "maximum": 5
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "booster-pump-pressure",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 10,
+    "seed": 20260829
+  }
+}

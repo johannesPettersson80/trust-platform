@@ -9,20 +9,24 @@ import {
 
 export type PlantStartingPoint =
   | "tank"
+  | "gravity_drained_tank"
   | "temperature"
   | "motor_speed"
   | "mechanical_position"
+  | "robot_joint"
   | "static_scaling"
   | "nonlinear_characteristic"
   | "custom_state_space";
 
 export type PlantModelKind =
   | "integrator"
+  | "gravity_tank"
   | "first_order_dead_time"
   | "first_order"
   | "second_order"
   | "static_gain"
   | "piecewise_linear"
+  | "robot_joint"
   | "state_space";
 
 export type PlantParameterValue = number | number[] | number[][];
@@ -33,6 +37,9 @@ export type PlantActuatorSettings = Partial<Record<
   | "rate_up_per_s"
   | "rate_down_per_s"
   | "deadband"
+  | "stiction_band"
+  | "slip_jump"
+  | "characteristic_exponent"
   | "lag_s"
   | "initial_applied",
   number
@@ -53,6 +60,9 @@ export const PLANT_ACTUATOR_FIELDS = [
   actuatorField("rate_up_per_s", "Rising rate per second", "Maximum opening speed", "Positive slew-rate limit", "output units per second", "A smaller value makes increasing actuator movement slower; zero prevents upward movement."),
   actuatorField("rate_down_per_s", "Falling rate per second", "Maximum closing speed", "Negative slew-rate limit", "output units per second", "A smaller value makes decreasing actuator movement slower; zero prevents downward movement."),
   actuatorField("deadband", "Deadband", "Ignored command movement", "Actuator deadband", "command units", "A larger value ignores a wider band of small command changes."),
+  actuatorField("stiction_band", "Stiction band", "Breakaway movement", "Static-friction band", "command units", "A larger value makes the actuator hold until command and position differ further."),
+  actuatorField("slip_jump", "Slip jump", "Breakaway jump", "Slip-jump magnitude", "output units", "This is the first bounded position movement after static friction breaks."),
+  actuatorField("characteristic_exponent", "Installed characteristic", "Position-to-process curve", "Installed characteristic exponent", "ratio", "One is linear; values above one reduce process effect at low travel, while values below one increase it."),
   actuatorField("lag_s", "Actuator lag (s)", "Actuator response speed", "Actuator time constant", "seconds", "A larger value makes the applied actuator output respond more slowly."),
   actuatorField("initial_applied", "Initial applied value", "Starting actuator output", "Initial applied output", "output units", "This is the actuator output held at simulation start before command dynamics advance."),
 ] as const;
@@ -68,6 +78,8 @@ export function validatePlantActuator(value: PlantActuatorSettings): PlantDynami
     ["rate_up_per_s", "Rising rate"],
     ["rate_down_per_s", "Falling rate"],
     ["deadband", "Deadband"],
+    ["stiction_band", "Stiction band"],
+    ["slip_jump", "Slip jump"],
     ["lag_s", "Actuator lag"],
   ] as const) {
     if (value[key] !== undefined && value[key]! < 0) {
@@ -82,6 +94,22 @@ export function validatePlantActuator(value: PlantActuatorSettings): PlantDynami
       (value.maximum !== undefined && value.initial_applied > value.maximum))
   ) {
     issues.push({ field: "initial_applied", message: "Initial applied value must be within minimum and maximum." });
+  }
+  if (
+    value.stiction_band !== undefined &&
+    value.slip_jump !== undefined &&
+    value.slip_jump > value.stiction_band
+  ) {
+    issues.push({ field: "slip_jump", message: "Slip jump must not exceed the stiction band." });
+  }
+  if (value.characteristic_exponent !== undefined && value.characteristic_exponent <= 0) {
+    issues.push({ field: "characteristic_exponent", message: "Installed characteristic exponent must be greater than 0." });
+  } else if (
+    value.characteristic_exponent !== undefined &&
+    value.characteristic_exponent !== 1 &&
+    (value.minimum === undefined || value.maximum === undefined || value.minimum >= value.maximum)
+  ) {
+    issues.push({ field: "characteristic_exponent", message: "A nonlinear installed characteristic requires finite minimum and maximum values with minimum below maximum." });
   }
   return issues;
 }
@@ -150,6 +178,19 @@ const DYNAMICS_FIELDS: Readonly<Record<PlantModelKind, readonly PlantDynamicsFie
     dynamicsField("state_minimum", "Minimum state", "number", "Lowest stored value", "Lower integrator clamp", "state units", "When set, the accumulated state cannot fall below this value; empty means unbounded.", true),
     dynamicsField("state_maximum", "Maximum state", "number", "Highest stored value", "Upper integrator clamp", "state units", "When set, the accumulated state cannot rise above this value; empty means unbounded.", true),
     INITIAL_STATE("Initial stored value"),
+  ],
+  gravity_tank: [
+    dynamicsField("area_m2", "Tank area (m²)", "number", "Tank cross-section", "Cross-sectional area", "m²", "A larger area makes the level change more slowly for the same flow."),
+    dynamicsField("outflow_coefficient_m2_sqrt_m_per_s", "Outlet coefficient", "number", "Outlet size", "Square-root discharge coefficient", "m²√m/s", "A larger coefficient drains the tank faster, especially at higher level."),
+    INITIAL_STATE("Initial level"),
+  ],
+  robot_joint: [
+    dynamicsField("inertia_kg_m2", "Joint inertia (kg·m²)", "number", "Resistance to acceleration", "Rotational inertia", "kg·m²", "A larger inertia reduces angular acceleration for the same net torque."),
+    dynamicsField("gravity_torque_nm", "Gravity torque coefficient (N·m)", "number", "Gravity load", "Maximum gravity torque", "N·m", "This sets how strongly joint angle changes the gravity load."),
+    dynamicsField("viscous_friction_nm_s_per_rad", "Viscous friction", "number", "Speed-dependent drag", "Viscous friction coefficient", "N·m·s/rad", "A larger value opposes angular speed more strongly."),
+    dynamicsField("coulomb_friction_nm", "Coulomb friction (N·m)", "number", "Dry friction", "Coulomb friction torque", "N·m", "This opposes motion with nearly constant torque away from zero speed."),
+    dynamicsField("friction_smoothing_rad_s", "Friction smoothing (rad/s)", "number", "Zero-speed transition", "Coulomb smoothing speed", "rad/s", "A smaller value makes the friction reversal sharper around zero speed."),
+    INITIAL_STATE("Initial angle and speed"),
   ],
   second_order: [
     GAIN(),
@@ -352,6 +393,20 @@ export const PLANT_STARTING_POINTS: readonly PlantStartingPointDescriptor[] = [
       "It cannot settle by itself or reproduce leakage unless those effects are added.",
   },
   {
+    id: "gravity_drained_tank",
+    label: "Gravity-drained tank",
+    model: "gravity_tank",
+    parameters: {
+      area_m2: 2,
+      outflow_coefficient_m2_sqrt_m_per_s: 0.5,
+    },
+    initialState: [4],
+    whyReasonable:
+      "A physical mass balance and square-root outlet flow reproduce the level-dependent tank speed.",
+    limitation:
+      "It assumes a constant tank area and free discharge, without pump curves, pipe storage, or overflow.",
+  },
+  {
     id: "temperature",
     label: "Temperature or slow process",
     model: "first_order_dead_time",
@@ -396,6 +451,23 @@ export const PLANT_STARTING_POINTS: readonly PlantStartingPointDescriptor[] = [
       "Two states represent inertia and damping, including oscillatory response.",
     limitation:
       "It cannot reproduce backlash, friction, hard stops, or other nonlinear mechanics.",
+  },
+  {
+    id: "robot_joint",
+    label: "Gravity-loaded robot joint",
+    model: "robot_joint",
+    parameters: {
+      inertia_kg_m2: 2,
+      gravity_torque_nm: 4,
+      viscous_friction_nm_s_per_rad: 0.2,
+      coulomb_friction_nm: 0.1,
+      friction_smoothing_rad_s: 0.01,
+    },
+    initialState: [0.5, 0],
+    whyReasonable:
+      "The joint equation retains inertia, angle-dependent gravity, speed drag, and dry friction.",
+    limitation:
+      "It represents one rigid joint and smooths friction near zero speed; it omits gearbox elasticity and contact.",
   },
   {
     id: "static_scaling",

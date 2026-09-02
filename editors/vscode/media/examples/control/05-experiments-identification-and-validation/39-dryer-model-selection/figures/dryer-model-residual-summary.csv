@@ -1,0 +1,5 @@
+candidate,parameters,validation_rmse_degC,delay_window_bias_degC,restoration_error_degC,decision
+first_order,K=0.42;T=18.0;L=0,0.163485525966,-0.223278116195,,rejected_delay_bias
+FOPDT,K=0.40;T=12.0;L=4.0,0.050835718046,-0.000369581300,,selected
+second_order,K=0.40;wn=0.14;zeta=1.10,0.072932578844,,,rejected_no_material_improvement
+integrating,rate=0.012,,, 1.200000000000,rejected_no_finite_equilibrium

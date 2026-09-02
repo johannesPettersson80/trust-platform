@@ -1,0 +1,5 @@
+plant,architecture,iae_bar_s,maximum_departure_bar,applied_movement_pp,normal_violation_bar_s,verdict
+nominal,feedback,23.698252451,0.483338140,59.301632301,0.000000000,baseline
+nominal,PI-plus-feedforward,7.716404842,0.281810895,63.242123685,0.000000000,selected-unapplied
+uncertainty,feedback,28.622239964,0.534441672,164.059112388,0.169078356,baseline
+uncertainty,PI-plus-feedforward,16.745779724,0.358596621,165.425432191,0.000000000,selected-unapplied

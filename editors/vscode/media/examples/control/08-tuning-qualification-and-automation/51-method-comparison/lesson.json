@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 4,
+  "id": "control-tuning-method-comparison",
+  "title": "Compare PI tuning methods without inventing a winner",
+  "level": "Advanced",
+  "sequence": 51,
+  "equipment": "Recirculating water heater, integrating buffer tank, and continuous belt dryer",
+  "physicalPurpose": "Choose controller settings from method eligibility, common validation evidence, and explicit engineering preferences instead of a formula name or one attractive metric.",
+  "principalTechnique": "Qualified SIMC and AMIGO PI comparison with Pareto trade-offs",
+  "objective": "Use accepted models of three real industrial processes to decide which PI tuning methods are eligible, validate every real candidate under the same conditions, and conclude whether one candidate, several trade-off candidates, or no acceptable candidate meets the requirements.",
+  "prerequisites": ["control-position-z-plane-sampling"],
+  "nextLesson": "control-automatic-tuning-sequence",
+  "signals": [
+    { "role": "state", "name": "Experiment enable", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.0" },
+    { "role": "quality", "name": "Tank AMIGO eligible", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.1" },
+    { "role": "SP", "name": "Heater temperature setpoint", "unit": "degC", "minimum": 15, "maximum": 35, "resolution": 0.01, "binding": "%ML0" },
+    { "role": "SP", "name": "Tank level setpoint", "unit": "%", "minimum": 20, "maximum": 80, "resolution": 0.01, "binding": "%ML8" },
+    { "role": "SP", "name": "Dryer dryness setpoint", "unit": "%", "minimum": 20, "maximum": 70, "resolution": 0.01, "binding": "%ML16" },
+    { "role": "state", "name": "Heater SIMC requested power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML128" },
+    { "role": "state", "name": "Heater AMIGO requested power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML136" },
+    { "role": "state", "name": "Tank SIMC requested inlet valve", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML144" },
+    { "role": "state", "name": "Dryer SIMC requested heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML152" },
+    { "role": "state", "name": "Dryer AMIGO requested heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML160" },
+    { "role": "MV", "name": "Heater SIMC applied power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
+    { "role": "MV", "name": "Heater AMIGO applied power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL8" },
+    { "role": "MV", "name": "Tank SIMC applied inlet valve", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL16" },
+    { "role": "MV", "name": "Dryer SIMC applied heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL24" },
+    { "role": "MV", "name": "Dryer AMIGO applied heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL32" },
+    { "role": "PV", "name": "Heater SIMC temperature", "unit": "degC", "minimum": 0, "maximum": 60, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "PV", "name": "Heater AMIGO temperature", "unit": "degC", "minimum": 0, "maximum": 60, "resolution": 0.01, "binding": "%IL8" },
+    { "role": "PV", "name": "Tank SIMC level", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%IL16" },
+    { "role": "PV", "name": "Dryer SIMC dryness", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%IL24" },
+    { "role": "PV", "name": "Dryer AMIGO dryness", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%IL32" }
+  ],
+  "plant": {
+    "modelId": "five_equivalent_tuning_method_validation_copies",
+    "executable": "simulation.toml",
+    "parameters": [
+      { "name": "heater_gain", "value": 0.2, "unit": "degC/%" },
+      { "name": "heater_time_constant", "value": 5, "unit": "s" },
+      { "name": "heater_dead_time", "value": 1, "unit": "s" },
+      { "name": "tank_rate_gain", "value": 0.05, "unit": "1/s" },
+      { "name": "tank_effective_delay", "value": 0.5, "unit": "s" },
+      { "name": "dryer_gain", "value": 0.4, "unit": "1" },
+      { "name": "dryer_time_constant", "value": 20, "unit": "s" },
+      { "name": "dryer_dead_time", "value": 8, "unit": "s" },
+      { "name": "sensor_interference_amplitude", "value": 0.02, "unit": "1" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "heaterTemperatureDegC": 20, "tankLevelPercent": 50, "dryerDrynessPercent": 40 },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Experiment enable": 0,
+      "Tank AMIGO eligible": 0,
+      "Heater temperature setpoint": 20,
+      "Tank level setpoint": 50,
+      "Dryer dryness setpoint": 40,
+      "Heater SIMC applied power": 20,
+      "Heater AMIGO applied power": 20,
+      "Tank SIMC applied inlet valve": 50,
+      "Dryer SIMC applied heater command": 30,
+      "Dryer AMIGO applied heater command": 30,
+      "Heater SIMC temperature": 20,
+      "Heater AMIGO temperature": 20,
+      "Tank SIMC level": 50,
+      "Dryer SIMC dryness": 40,
+      "Dryer AMIGO dryness": 40
+    },
+    "validityRange": [
+      { "signal": "Heater SIMC temperature", "minimum": 0, "maximum": 60, "unit": "degC" },
+      { "signal": "Heater AMIGO temperature", "minimum": 0, "maximum": 60, "unit": "degC" },
+      { "signal": "Tank SIMC level", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Dryer SIMC dryness", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Dryer AMIGO dryness", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Heater SIMC applied power", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Heater AMIGO applied power", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Tank SIMC applied inlet valve", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Dryer SIMC applied heater command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Dryer AMIGO applied heater command", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "simplifications": [
+      "Independent plant copies isolate the tuning-method change",
+      "Locally linear accepted models within the declared operating regions",
+      "Equal deterministic sinusoidal sensor interference on equivalent copies",
+      "The tank valve lag is represented by the effective delay qualified in Lesson 44",
+      "Simulation-only I/O"
+    ]
+  },
+  "baseline": {
+    "executableId": "ControlStudio.BalancedSIMCCandidates",
+    "settings": { "method": "SIMC", "responseTarget": "Balanced", "candidateCount": 3, "application": false },
+    "limitation": "One qualified method does not show whether another eligible published method offers a different response, robustness, or actuator-use trade-off."
+  },
+  "change": {
+    "executableId": "ControlStudio.QualifiedSIMCAndAMIGOComparison",
+    "settings": { "methods": ["SIMC", "AMIGO"], "commonValidationPlan": true, "paretoFrontier": true, "hiddenScore": false },
+    "decision": "Retain eligibility, unavailability reasons, raw measures, failed requirements, and Pareto trade-offs without inventing a universal winner.",
+    "applied": false
+  },
+  "methods": {
+    "heater": {
+      "SIMC": { "status": "Feasible", "kp": 5.769230769, "tiSeconds": 5, "ki": 1.153846154 },
+      "AMIGO": { "status": "Feasible", "kp": 6.027777778, "tiSeconds": 3.882608696, "ki": 1.552507154 }
+    },
+    "tank": {
+      "SIMC": { "status": "Feasible", "kp": 13.333333333, "tiSeconds": 6, "ki": 2.222222222 },
+      "AMIGO": { "status": "Unavailable", "reason": "AMIGO PI is unavailable for an integrating model because it requires finite steady plant gain and time constant." }
+    },
+    "dryer": {
+      "SIMC": { "status": "Feasible", "kp": 2.083333333, "tiSeconds": 20, "ki": 0.104166667 },
+      "AMIGO": { "status": "Feasible", "kp": 1.286989796, "tiSeconds": 17.828901734, "ki": 0.07218559 }
+    }
+  },
+  "experiment": {
+    "kind": "setpoint_step",
+    "signal": "Heater temperature setpoint",
+    "baseline": 20,
+    "amplitude": 5,
+    "durationSeconds": 220,
+    "settlingSeconds": 10,
+    "disturbances": [
+      "A minus-1-degC heater equilibrium shift at 100 s",
+      "A plus-1-percent tank outlet-flow-equivalent shift at 100 s",
+      "A minus-2-percent dryer equilibrium shift at 100 s",
+      "Equal deterministic 0.02-unit sinusoidal sensor interference",
+      "Separate bounded plant-gain and delay validation cases in Control Studio"
+    ],
+    "seed": 20260829,
+    "restorationValue": 20
+  },
+  "acceptance": [
+    { "metric": "heater_simc_final_mean_absolute_error", "signal": "Heater SIMC temperature", "window": "210 through 220 s after settling qualification", "comparator": "<=", "limit": 0.25, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "heater_amigo_final_mean_absolute_error", "signal": "Heater AMIGO temperature", "window": "210 through 220 s after settling qualification", "comparator": "<=", "limit": 0.25, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "tank_simc_final_mean_absolute_error", "signal": "Tank SIMC level", "window": "210 through 220 s after settling qualification", "comparator": "<=", "limit": 0.25, "unit": "%", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "tank_simc_peak_level_above_setpoint", "signal": "Tank SIMC level", "window": "10 through 100 s before the load event", "comparator": "<=", "limit": 0.8, "unit": "%", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "dryer_simc_final_mean_absolute_error", "signal": "Dryer SIMC dryness", "window": "210 through 220 s after settling qualification", "comparator": "<=", "limit": 0.25, "unit": "%", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "dryer_amigo_final_mean_absolute_error", "signal": "Dryer AMIGO dryness", "window": "210 through 220 s after settling qualification", "comparator": "<=", "limit": 0.25, "unit": "%", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "heater_amigo_error_improvement", "signal": "Heater AMIGO temperature", "window": "10 through 220 s using common sampled IAE", "comparator": "<", "limit": 0, "unit": "degC*s", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "heater_amigo_movement_cost", "signal": "Heater AMIGO applied power", "window": "10 through 220 s cumulative total variation minus heater SIMC total variation", "comparator": ">", "limit": 0, "unit": "pp", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "dryer_amigo_error_cost", "signal": "Dryer AMIGO dryness", "window": "10 through 220 s using common sampled IAE", "comparator": ">", "limit": 0, "unit": "%", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "dryer_amigo_movement_improvement", "signal": "Dryer AMIGO applied heater command", "window": "10 through 220 s cumulative total variation minus dryer SIMC total variation", "comparator": "<", "limit": 0, "unit": "pp", "tolerance": 0.01, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Heater SIMC applied power", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Heater AMIGO applied power", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Tank SIMC applied inlet valve", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Dryer SIMC applied heater command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Dryer AMIGO applied heater command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Tank SIMC level", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "abortPredicates": [
+      "Any required signal is missing, stale, forced, nonfinite, or has bad quality",
+      "Any process value or applied output leaves its declared hard limit",
+      "Any plant, model revision, controller convention, initial state, sample interval, event, seed, limit, metric window, or uncertainty case differs between compared methods",
+      "A physical-plant target or Apply action is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Disable the experiment and restart every simulated copy at its declared operating point before another candidate or variation.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical excitation or gain application",
+      "Physical use requires independent topology, model, hazard, operating-window, interlock, personnel, abort, rollback, and immediate approval review"
+    ]
+  },
+  "workflowStages": ["Monitor", "Test", "Tune", "Validate"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-51--tuning-method-comparison-heater-tank-and-dryer",
+    "nativeTest": "control_curriculum_tuning_methods_separate_eligibility_from_tradeoffs",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_tuning_methods control_curriculum_tuning_methods_separate_eligibility_from_tradeoffs -- --exact --nocapture",
+    "projectPath": "examples/control/08-tuning-qualification-and-automation/51-method-comparison",
+    "runArtifactFields": ["plantIdentity", "modelIdentity", "modelRevision", "modelClass", "method", "methodDomain", "eligibilityStatus", "unavailableReason", "controllerConvention", "controllerParameters", "candidateState", "initialState", "sampleTimes", "setpoint", "processValue", "requestedOutput", "appliedOutput", "events", "limits", "noise", "seed", "iae", "ise", "itae", "overshoot", "settlingStatus", "finalWindowError", "appliedOutputTravel", "maximumOutputRate", "saturationDuration", "noiseOutputRms", "gainMargin", "phaseMargin", "delayMargin", "maximumSensitivity", "maximumComplementarySensitivity", "variationResults", "requirements", "paretoFrontier", "decision", "evidenceClass"],
+    "renderedJourneyId": "control-tuning-method-comparison"
+  },
+  "video": {
+    "viewerOutcome": "Separate tuning-method eligibility, candidate feasibility, and engineering preference while comparing real PI candidates without a hidden winner.",
+    "requiredVisibleEvidence": ["three real process classes", "five executable controller and plant copies", "tank AMIGO unavailable reason", "SIMC and AMIGO formulas", "requested and applied outputs", "common validation plan", "raw time and actuator measures", "Bode margins", "sensitivity peaks", "failed requirements", "Pareto trade-offs", "unapplied state", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Equivalent simulated water-heater and dryer copies compare Balanced SIMC and AMIGO PI; the integrating tank executes only its eligible SIMC candidate.",
+    "reason": "A response target inside one tuning method does not resolve conflicting gains returned by another qualified method for the same accepted model.",
+    "theory": [
+      "Method-domain eligibility determines whether a candidate may be created.",
+      "IAE, ISE, ITAE, transient, actuator, margin, and sensitivity measures expose different engineering costs.",
+      "Mandatory feasibility precedes Pareto preference, and an unavailable method is not ranked as a failed controller."
+    ],
+    "workedPrediction": "Calculate both heater and dryer candidate gains, calculate the tank SIMC gains, predict the tank AMIGO unavailable result, and predict the direction of each error-versus-actuator trade-off before running.",
+    "practicalPreparation": [
+      "Verify Simulation evidence, plant and model revisions, classes, units, quality, operating points, timing, limits, seed, events, methods, formulas, and unapplied state.",
+      "Declare common scenarios, raw metric equations, windows, validity rules, mandatory requirements, Pareto preference measures, and abort criteria before validation."
+    ],
+    "baseline": "Balanced SIMC supplies three qualified PI candidates but does not establish whether another eligible method offers a useful trade-off.",
+    "change": "Add AMIGO only where its model domain is satisfied and compare every real candidate with the unchanged validation plan.",
+    "comparison": "Change only method-derived Kp and Ki while retaining every plant, controller, timing, limit, event, noise, uncertainty, and calculation condition.",
+    "validation": "Classify availability and feasibility before preference; retain raw measures, requirements, margins, sensitivity peaks, and Pareto outcomes with no silent application.",
+    "explanation": "Method aggressiveness depends on plant parameters and delay ratio; one candidate may improve error while worsening actuator use or robustness, and an integrating model can make a method unavailable.",
+    "transfer": "Use eligibility, common validation, and explicit preference as separate decisions; Lesson 52 may automate the sequence only while keeping every decision inspectable and every candidate unapplied."
+  }
+}

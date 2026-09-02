@@ -1,0 +1,27 @@
+// Title: Building-HVAC predictive-control signal path
+// Description: Weather, occupancy, tariff, and measured zone temperatures enter a three-step optimizer that commands both zone heaters, with bounded PI fallback taking authority when optimization is infeasible or invalid.
+digraph lesson_signal_path {
+  graph [rankdir=LR, bgcolor="transparent", pad="0.25", nodesep="0.45", ranksep="0.65", splines=ortho];
+  node [shape=box, style="rounded,filled", fillcolor="#f8fafc", color="#2563eb", fontcolor="#0f172a", fontname="Arial", fontsize=12, margin="0.16,0.10"];
+  edge [color="#475569", fontcolor="#334155", fontname="Arial", fontsize=10, penwidth=1.6, arrowsize=0.75];
+  W [label="Weather forecast", shape=box];
+  O [label="Three-step optimizer", shape=box];
+  C [label="Occupancy forecast", shape=box];
+  P [label="Tariff forecast", shape=box];
+  T [label="Measured zone temperatures", shape=box];
+  H1 [label="Zone-one heater", shape=box];
+  H2 [label="Zone-two heater", shape=box];
+  Z [label="Coupled office zones", shape=box];
+  F [label="Bounded PI fallback", shape=box];
+  W -> O;
+  C -> O;
+  P -> O;
+  T -> O;
+  O -> H1;
+  O -> H2;
+  H1 -> Z;
+  H2 -> Z;
+  Z -> T;
+  F -> H1 [label="infeasible or invalid", style=dashed];
+  F -> H2 [label="infeasible or invalid", style=dashed];
+}

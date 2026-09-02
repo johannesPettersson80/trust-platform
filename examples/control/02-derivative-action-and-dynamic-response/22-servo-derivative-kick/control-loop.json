@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "id": "control-servo-derivative-kick",
+  "name": "Derivative kick and setpoint weighting",
+  "revision": "sha256:d7b0b5969c0c0d02d772c992b298f687c07b6b07c417b0961e69f0c0819116cb",
+  "projectId": "project:control-servo-derivative-kick",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:a9a67aa36d4030bc6523b324668b53d9c184ef230fff08808bc1098b553da87c",
+    "action": "direct",
+    "taskPeriodMs": 20,
+    "modeSignal": "%MX32.0",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML24",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rad",
+      "range": {
+        "minimum": -2,
+        "maximum": 2
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.Position",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rad",
+      "range": {
+        "minimum": -4,
+        "maximum": 4
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.AppliedTorque",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "N m",
+      "range": {
+        "minimum": -10,
+        "maximum": 10
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority-enabled",
+        "channel": "experiment-authority-enabled",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX32.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": { "minimum": 0, "maximum": 1 }
+      },
+      {
+        "id": "requested-motor-torque",
+        "channel": "requested-motor-torque",
+        "role": "state",
+        "symbol": "P1.RequestedTorque",
+        "address": "%ML0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m",
+        "range": {
+          "minimum": -100,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "measured-table-velocity",
+        "channel": "measured-table-velocity",
+        "role": "state",
+        "symbol": "P1.Velocity",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": -10,
+    "outputMaximum": 10
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 20
+  },
+  "plantId": "payload-loaded-servo-positioning-table",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 15.02,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX32.1",
+      "activeValue": true,
+      "restorationValue": false
+    },
+    "seed": 20260828
+  }
+}

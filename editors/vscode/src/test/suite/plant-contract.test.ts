@@ -158,10 +158,12 @@ suite("Plant service contract decoder", () => {
           published_feedback: [1.38],
           actuators: [
             {
+              position: 2.0,
               applied: 1.8,
               saturation_active: false,
               slew_limit_active: true,
               deadband_active: false,
+              stiction_active: true,
               stuck: false,
             },
           ],

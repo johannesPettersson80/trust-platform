@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "id": "control-measurement-noise",
+  "name": "Pump-pressure measurement filtering",
+  "revision": "sha256:ed6e5afd2b8edec33cb5d8308ae133417ce1b84c78e74aa17f4806184b3c7965",
+  "projectId": "project:control-measurement-noise",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:98db65a51aa2c4efd8c1cbd43be08075c324d88c0e277c76181c212e8f109bfe",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX16.0"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": -5,
+        "maximum": 5
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.FilteredValue",
+      "address": "%ML8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": -5,
+        "maximum": 5
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ManipulatedValue",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": -10,
+        "maximum": 10
+      }
+    },
+    "additional": [
+      {
+        "id": "raw-pressure-transmitter-value",
+        "channel": "raw-pressure-transmitter-value",
+        "role": "PV",
+        "symbol": "P1.ProcessValue",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "bar",
+        "range": {
+          "minimum": -5,
+          "maximum": 5
+        }
+      },
+      {
+        "id": "simulator-only-true-pressure",
+        "channel": "simulator-only-true-pressure",
+        "role": "state",
+        "symbol": "P1.SimulatorTruePressure",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "bar",
+        "range": {
+          "minimum": -5,
+          "maximum": 5
+        }
+      },
+      {
+        "id": "manual-recycle-valve-trim-request",
+        "channel": "manual-recycle-valve-trim-request",
+        "role": "state",
+        "symbol": "P1.ManualOutput",
+        "address": "%ML72",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "filter-selection",
+        "channel": "filter-selection",
+        "role": "state",
+        "symbol": "P1.FilterSelection",
+        "address": "%MW40",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX88.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": -10,
+    "outputMaximum": 10
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "first_order_dead_time_with_measurement_noise_and_truth_reference",
+  "operatingPoint": "PV 0, MV 0",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 40.1,
+    "seed": 20260824,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX88.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
+}

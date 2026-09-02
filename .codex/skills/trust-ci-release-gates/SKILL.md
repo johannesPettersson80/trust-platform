@@ -20,6 +20,25 @@ gate wiring, artifact evidence, and release enforcement.
 
 ## Core workflow
 
+Before candidate preparation, enumerate the required GitHub jobs and their exact commands from the
+current workflows. Do not treat a broad host command as a substitute for a platform-specific job.
+For every runtime candidate, preparation must run and record
+`./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross` before Clippy;
+the guard must list `remote_cross_target_warnings` as a required artifact command. If the command is
+missing, skipped, or fails, the candidate cannot be pushed.
+Every candidate must also run `bash scripts/supply_chain_gate.sh` as
+`remote_supply_chain` before Clippy. CI must call that same script rather than
+duplicating its commands. Advisory and yanked-package data are live inputs: a
+passing older artifact cannot substitute for this exact-candidate check.
+Every candidate must run `bash scripts/architecture_safety_gate.sh` as
+`remote_architecture_safety` before Clippy. The GitHub Architecture Safety job
+must call the same script, including its AST safety checks and full-map
+architecture doctor. `verification_report_gate --strict --smoke`, Clippy, and
+`just test-all` do not substitute for this command.
+When Docs Captures paths are present in the candidate diff, preparation must also run and record
+`python3 -m unittest scripts.tests.test_capture_lifecycle -v` as
+`remote_docs_capture_lifecycle`. Do not infer coverage from the VS Code npm suite.
+
 ### Release-candidate state machine
 
 For integration, release, `main`, or any branch whose workspace version differs from
@@ -35,6 +54,9 @@ push-and-repair attempts.
 
    Preparation records complete-diff planning and catalog staleness as advisory
    maintenance. Its strict report command runs only the report-boundary smoke;
+   failed artifact output labels those maintenance records `ADVISORY`, never
+   `FAILED`; only required candidate-integrity commands receive the `FAILED`
+   label.
    exhaustive recursive verification-tooling self-tests remain scheduled/manual
    maintenance. Required acceptance remains bootstrap parity, a clean exact
    candidate and base, diff integrity, the strict smoke, a successful
@@ -57,9 +79,17 @@ push-and-repair attempts.
    return to focused tests, refreeze, and prepare one new candidate.
 4. Merge only through `check-merge --pr <number> --execute`; it requires the validated exact head,
    a clean merge state, and every check green.
-5. After main CI and the annotated tag/Release workflow, run `verify-release`; completion requires
+5. After main CI and the annotated tag/Release workflow, run `verify-release --candidate-head
+   <reviewed-head> --branch <candidate-branch>`; completion requires
    the final main SHA, annotated tag, successful Release workflow, GitHub Latest, verified assets
    and checksums, and the expected VS Code Marketplace target versions.
+6. `verify-release` then runs `audit-post-merge` with that exact candidate head and branch. The
+   audit must fail closed when the candidate is not contained by current main, a candidate
+   worktree is dirty, or a named candidate branch no longer points at the exact reviewed head. It
+   must report clean candidate worktrees, prunable candidate worktree registrations, and exact
+   local/remote branches as explicit cleanup targets without deleting them. Remove only those
+   reviewed targets, fetch/prune, and rerun the audit until it reports no stale candidate state. A
+   release handoff is incomplete without this final clean result.
 
 Stop after a second red candidate or two elapsed hours without merge readiness. Report the full
 blocker ledger and obtain a new decision instead of continuing an unbounded push/wait/fix loop.
@@ -150,11 +180,32 @@ Prevent known Windows-only regressions in `trust-lsp` tests:
   - `just clippy`
   - `just test-all`
   - `cd editors/vscode && npm run lint && npm run compile`
-- Keep exact-candidate disk use bounded: set `CARGO_INCREMENTAL=0` for the
-  candidate's Rust-producing VS Code, Clippy, and test commands, and reclaim
-  only the validated task-owned `CARGO_TARGET_DIR` between Clippy and
+- Keep exact-candidate disk use bounded: set `CARGO_INCREMENTAL=0` and set both
+  `RUSTC_WRAPPER` and `CARGO_BUILD_RUSTC_WRAPPER` to the pass-through
+  `/usr/bin/env` wrapper for the candidate's Rust-producing VS Code, Clippy, and
+  test commands. An empty value does not override the repository Cargo config;
+  the explicit pass-through matches uncached CI behavior. Cargo can still
+  propagate the repository-configured `sccache` name into native build scripts,
+  so install the skill's reviewed `compiler_passthrough.sh` as a task-owned
+  executable named `sccache` and prepend it to `PATH`. That pass-through must
+  cover both Rust and native compiler invocations without writing cache
+  artifacts. Pin `CC=cc` and
+  `CXX=c++` as the native compiler identities. Set
+  `CARGO_BUILD_JOBS=1` for the cold `just test-all` run to bound concurrent
+  linker space, and set `TMPDIR` to a directory inside the validated task-owned
+  target so a constrained system `/tmp` cannot interrupt the proof.
+  Reclaim only that validated `CARGO_TARGET_DIR` between Clippy and
   `just test-all`. Never apply that cleanup to a repository, home directory,
   shared cache, unrelated target, or unresolved path.
+  Every Cargo-producing exact-candidate command must run through
+  `scripts/with_cargo_target_lease.sh`; reclamation must use
+  `scripts/remove_cargo_target_if_idle.sh`. Never use a direct or globbed
+  `rm -rf` for a target on the shared builder. A leased target returns exit 75
+  from cleanup and must be left intact.
+- Before creating the exact-candidate target, fail closed unless the builder has
+  at least 80 GiB available under `$HOME`. Report both `$HOME` and `/tmp`
+  filesystem state in that preflight. The floor must be enforced by the
+  release-candidate guard, not left as a remembered manual step.
 - Use `scripts/verification_report_gate.py --strict --smoke` for pull requests
   and exact-candidate preparation. Run the exhaustive recursive verification
   tooling and its historical self-tests only from the scheduled/manual

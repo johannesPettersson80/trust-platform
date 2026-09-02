@@ -1,0 +1,38 @@
+[simulation]
+enabled = true
+seed = 20260828
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2500
+plant_step_ms = 20
+
+[[plants]]
+id = "geared-positioning-table"
+model = "robot_joint"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0.0, 0.0]
+
+[plants.parameters]
+inertia_kg_m2 = 1.0
+gravity_torque_nm = 4.0
+viscous_friction_nm_s_per_rad = 1.0
+coulomb_friction_nm = 0.8
+friction_smoothing_rad_s = 0.01
+
+[plants.actuator]
+minimum = -2.5
+maximum = 2.5
+rate_up_per_s = 20.0
+rate_down_per_s = 20.0
+deadband = 0.2
+stiction_band = 0.5
+slip_jump = 0.1
+
+[[plants.uncertainties]]
+id = "gear-clearance"
+target = "process_output"
+channel = 0
+mode = "replace"
+generator = "backlash"
+width = 0.05

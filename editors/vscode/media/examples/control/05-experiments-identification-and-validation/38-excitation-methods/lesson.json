@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 4,
+  "id": "control-excitation-methods",
+  "title": "Match excitation to heater and flexible-drive dynamics",
+  "level": "Practitioner",
+  "sequence": 38,
+  "equipment": "Slow water heater and resonant flexible-drive servo test stand",
+  "physicalPurpose": "Select bounded input waveforms that expose the required plant dynamics above noise without violating the operating region.",
+  "principalTechnique": "Plant-matched experiment excitation",
+  "objective": "Select and validate informative excitation for a slow thermal process and a lightly damped mechanical process.",
+  "prerequisites": ["control-safe-heat-exchanger-experiment"],
+  "nextLesson": "control-dryer-model-selection",
+  "signals": [
+    { "role": "state", "name": "Plant selection", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MW0" },
+    { "role": "state", "name": "Method selection", "unit": "1", "minimum": 1, "maximum": 6, "resolution": 1, "binding": "%MW2" },
+    { "role": "PV", "name": "Heater temperature", "unit": "degC", "minimum": 20, "maximum": 30, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "MV", "name": "Heater requested command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML8" },
+    { "role": "MV", "name": "Heater applied command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL0" },
+    { "role": "PV", "name": "Servo shaft position", "unit": "rad", "minimum": -0.35, "maximum": 0.35, "resolution": 0.001, "binding": "%IL8" },
+    { "role": "MV", "name": "Servo requested torque", "unit": "N m", "minimum": -0.2, "maximum": 0.2, "resolution": 0.001, "binding": "%ML16" },
+    { "role": "MV", "name": "Servo applied torque", "unit": "N m", "minimum": -0.2, "maximum": 0.2, "resolution": 0.001, "binding": "%QL8" },
+    { "role": "state", "name": "Instantaneous chirp frequency", "unit": "Hz", "minimum": 0, "maximum": 2, "resolution": 0.001, "binding": "%ML24" }
+  ],
+  "plant": {
+    "modelId": "paired_heater_and_flexible_drive",
+    "executable": "simulation.toml#plants",
+    "parameters": [
+      { "name": "heater_gain", "value": 0.2, "unit": "degC/%" },
+      { "name": "heater_time_constant", "value": 5, "unit": "s" },
+      { "name": "heater_dead_time", "value": 1, "unit": "s" },
+      { "name": "heater_noise_rms", "value": 0.02, "unit": "degC" },
+      { "name": "servo_gain", "value": 0.4, "unit": "rad/(N m)" },
+      { "name": "servo_natural_frequency", "value": 6, "unit": "rad/s" },
+      { "name": "servo_damping_ratio", "value": 0.08, "unit": "1" },
+      { "name": "servo_noise_rms", "value": 0.001, "unit": "rad" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "heaterTemperatureDegC": 24, "heaterDelayedCommandPercent": 20, "servoPositionRad": 0, "servoVelocityRadPerSecond": 0 },
+    "seed": 20260829,
+    "operatingPoint": { "Plant selection": 0, "Method selection": 1, "Heater temperature": 24, "Heater requested command": 20, "Heater applied command": 20, "Servo shaft position": 0, "Servo requested torque": 0, "Servo applied torque": 0, "Instantaneous chirp frequency": 0 },
+    "validityRange": [
+      { "signal": "Heater temperature", "minimum": 20, "maximum": 30, "unit": "degC" },
+      { "signal": "Heater applied command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Servo shaft position", "minimum": -0.35, "maximum": 0.35, "unit": "rad" },
+      { "signal": "Servo applied torque", "minimum": -0.2, "maximum": 0.2, "unit": "N m" }
+    ],
+    "simplifications": ["Independent local linear heater and flexible-drive models", "Fixed deterministic measurement-noise levels", "No heater cooling actuator, thermal load change, servo friction, backlash, saturation dynamics, or structural nonlinearity", "Simulation-only I/O"]
+  },
+  "baseline": { "executableId": "Excitation.OneStepForEveryPlant", "settings": { "heaterBaselinePercent": 20, "servoBaselineNewtonMetres": 0 }, "limitation": "One sustained low-frequency input does not expose every time scale or resonant mode efficiently." },
+  "change": { "executableId": "Excitation.PlantMatchedWaveform", "settings": { "methods": ["step", "pulse", "doublet", "relay-rejected", "prbs", "chirp"], "heaterPrbsDwellSeconds": 2.5, "servoPrbsDwellSeconds": 0.3, "chirpBandHz": [0.2, 2] }, "decision": "Choose waveform, amplitude, duration, dwell, and frequency band from the plant dynamics and intended model parameters." },
+  "experiment": { "kind": "multisine", "signal": "Servo applied torque", "baseline": 0, "amplitude": 0.1, "durationSeconds": 30, "settlingSeconds": 5, "disturbances": ["Deterministic measurement noise"], "seed": 20260829, "restorationValue": 0 },
+  "acceptance": [
+    { "metric": "heater_step_output_span", "signal": "Heater temperature", "window": "complete 30 s step run", "comparator": ">=", "limit": 0.9, "unit": "degC", "tolerance": 0.02, "evidenceClass": "simulation" },
+    { "metric": "heater_chirp_output_span", "signal": "Heater temperature", "window": "complete 30 s chirp run", "comparator": "<=", "limit": 0.6, "unit": "degC", "tolerance": 0.02, "evidenceClass": "simulation" },
+    { "metric": "servo_doublet_signed_area", "signal": "Servo applied torque", "window": "complete 30 s doublet run", "comparator": "<=", "limit": 0.01, "unit": "N m s", "tolerance": 0.0001, "evidenceClass": "simulation" },
+    { "metric": "servo_chirp_peak_frequency", "signal": "Instantaneous chirp frequency", "window": "largest absolute shaft-position sample during chirp", "comparator": ">=", "limit": 0.8, "unit": "Hz", "tolerance": 0.15, "evidenceClass": "simulation" },
+    { "metric": "servo_position_limit", "signal": "Servo shaft position", "window": "all qualified excitation samples", "comparator": "<=", "limit": 0.35, "unit": "rad", "tolerance": 0.001, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [{ "signal": "Heater applied command", "minimum": 0, "maximum": 100, "unit": "%" }, { "signal": "Servo applied torque", "minimum": -0.2, "maximum": 0.2, "unit": "N m" }, { "signal": "Servo shaft position", "minimum": -0.35, "maximum": 0.35, "unit": "rad" }],
+    "abortPredicates": ["Any required value is nonfinite", "Measurement quality is invalid", "Applied input or plant output leaves its declared bound", "The selected waveform differs from the reviewed timing", "An undeclared disturbance becomes active"],
+    "safeMv": 0,
+    "restorationMode": "Restore heater command to 20 percent and servo torque to zero",
+    "physicalApprovalRole": "authorised controls engineer and equipment owner",
+    "simulationOnlyRestrictions": ["The project cannot authorise physical heater or servo excitation", "Physical excitation requires reviewed energy, motion, travel, interlock, personnel, and emergency-stop boundaries plus immediate approval"]
+  },
+  "workflowStages": ["Monitor", "Test", "Validate"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-38--excitation-methods-water-heater-and-flexible-drive-servo",
+    "nativeTest": "control_curriculum_excitation_methods_match_heater_and_flexible_drive_dynamics",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_modelling_progression control_curriculum_excitation_methods_match_heater_and_flexible_drive_dynamics -- --exact --nocapture",
+    "projectPath": "examples/control/05-experiments-identification-and-validation/38-excitation-methods",
+    "runArtifactFields": ["time", "plant", "method", "requestedInput", "appliedInput", "output", "frequency", "noise", "limits", "qualification", "reasonCode", "seed", "evidenceClass"],
+    "renderedJourneyId": "control-excitation-methods"
+  },
+  "video": { "viewerOutcome": "Choose and validate step, pulse, doublet, PRBS, or chirp excitation from plant dynamics rather than waveform popularity.", "requiredVisibleEvidence": ["method-shape table", "heater step and chirp traces", "heater and servo PRBS dwell", "servo doublet area", "servo chirp peak", "relay rejection", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "learning": {
+    "context": "A one-sided slow water heater and a bidirectional resonant servo need different bounded test inputs.",
+    "reason": "The safe step from Lesson 37 is strong at low frequency but does not efficiently expose every relevant dynamic.",
+    "theory": ["Step, pulse, doublet, relay, PRBS, and chirp have different offset, return, sign, and frequency-content properties.", "Persistent excitation depends on candidate-model order and plant bandwidth, not sample count alone.", "Signal-to-noise ratio, operating-region validity, and safety constraints must be qualified together."],
+    "workedPrediction": "Predict heater SNR 50 for a 5-point step, servo resonance near 0.95 Hz, zero doublet area, and relay rejection reason 4.",
+    "practicalPreparation": ["Verify plant, method, baseline, requested and applied input, output, noise, sample interval, bounds, dwell or sweep band, seed, and Simulation evidence.", "Classify each waveform and record the plant-specific prediction before Start."],
+    "baseline": "Run the low-frequency heater step and explain which information it reveals and which servo information it does not target.",
+    "change": "Compare pulse, doublet, plant-specific PRBS, and chirp while holding each plant's initial state, amplitude, duration, noise, limits, and seed constant.",
+    "comparison": "Calculate input total variation, signed area, output span, return error, heater information ratio, and servo peak frequency only for qualified runs.",
+    "validation": "Require the measured 1.065/0.274 degC heater spans, 2.5/0.3 s PRBS dwell, zero doublet area, 1.091 Hz servo peak, bounded inputs and outputs, and fail-closed relay reason 4.",
+    "explanation": "Thermal lag attenuates rapid input while stored elastic energy amplifies input near the servo's flexible mode.",
+    "transfer": "Lesson 39 uses qualified excitation data to decide which candidate model structure predicts independent observations."
+  }
+}

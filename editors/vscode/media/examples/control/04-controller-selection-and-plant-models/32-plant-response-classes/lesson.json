@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 4,
+  "id": "control-plant-response-classes",
+  "title": "Classify four physical plant responses before modelling",
+  "level": "Practitioner",
+  "sequence": 32,
+  "equipment": "Modular skid with heated vessel, buffer tank, conveyor oven, and flexible drive",
+  "physicalPurpose": "Distinguish self-regulating, integrating, delayed, and oscillatory dynamics from bounded open-loop evidence before choosing a model or controller.",
+  "principalTechnique": "Physical-unit open-loop response classification",
+  "objective": "Apply one normalized bounded experiment to four physical modules and classify each response from measured signatures without fitting a model.",
+  "prerequisites": ["control-controller-selection"],
+  "nextLesson": "control-tank-heater-conservation",
+  "signals": [
+    { "role": "state", "name": "Normalized experiment command", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 0.01, "binding": "%ML0" },
+    { "role": "MV", "name": "Vessel heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL0" },
+    { "role": "PV", "name": "Vessel temperature", "unit": "degC", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "MV", "name": "Tank net-inflow trim", "unit": "%", "minimum": -20, "maximum": 20, "resolution": 0.1, "binding": "%QL8" },
+    { "role": "PV", "name": "Tank level", "unit": "cm", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%IL8" },
+    { "role": "MV", "name": "Oven heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL16" },
+    { "role": "PV", "name": "Oven product temperature", "unit": "degC", "minimum": 0, "maximum": 150, "resolution": 0.01, "binding": "%IL16" },
+    { "role": "MV", "name": "Drive torque", "unit": "N m", "minimum": -2, "maximum": 2, "resolution": 0.01, "binding": "%QL24" },
+    { "role": "PV", "name": "Drive position", "unit": "rad", "minimum": -5, "maximum": 5, "resolution": 0.001, "binding": "%IL24" }
+  ],
+  "plant": {
+    "modelId": "multi_plant_response_classes",
+    "executable": "simulation.toml#plants",
+    "parameters": [
+      { "name": "vessel_gain", "value": 0.2, "unit": "degC/%" },
+      { "name": "vessel_time_constant", "value": 3, "unit": "s" },
+      { "name": "tank_integrating_gain", "value": 0.1, "unit": "cm/(%*s)" },
+      { "name": "oven_gain", "value": 0.25, "unit": "degC/%" },
+      { "name": "oven_delay", "value": 4, "unit": "s" },
+      { "name": "drive_static_gain", "value": 1, "unit": "rad/(N m)" },
+      { "name": "drive_natural_frequency", "value": 1, "unit": "rad/s" },
+      { "name": "drive_damping_ratio", "value": 0.2, "unit": "1" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "vesselTemperatureDegC": 50, "tankLevelCm": 50, "ovenTemperatureDegC": 80, "drivePositionRad": 0 },
+    "seed": 20260829,
+    "operatingPoint": { "Normalized experiment command": 0, "Vessel heater command": 20, "Vessel temperature": 50, "Tank net-inflow trim": 0, "Tank level": 50, "Oven heater command": 20, "Oven product temperature": 80, "Drive torque": 0, "Drive position": 0 },
+    "validityRange": [
+      { "signal": "Normalized experiment command", "minimum": 0, "maximum": 1, "unit": "1" },
+      { "signal": "Vessel heater command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Vessel temperature", "minimum": 0, "maximum": 100, "unit": "degC" },
+      { "signal": "Tank net-inflow trim", "minimum": -20, "maximum": 20, "unit": "%" },
+      { "signal": "Tank level", "minimum": 0, "maximum": 100, "unit": "cm" },
+      { "signal": "Oven heater command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Oven product temperature", "minimum": 0, "maximum": 150, "unit": "degC" },
+      { "signal": "Drive torque", "minimum": -2, "maximum": 2, "unit": "N m" },
+      { "signal": "Drive position", "minimum": -5, "maximum": 5, "unit": "rad" }
+    ],
+    "simplifications": [
+      "Each module isolates one dominant signature; real equipment can combine regulation, integration, delay, and oscillation.",
+      "The common normalized experiment command is mapped to different physical actuator units and is not plotted as a substitute for those commands.",
+      "No controller, model fit, or configured model label is used to produce the learner's classification."
+    ]
+  },
+  "baseline": {
+    "executableId": "PlantClasses.ShortAmbiguousView",
+    "settings": { "observationSeconds": 1, "normalizedStep": 1 },
+    "limitation": "A short view makes slow, delayed, and integrating traces appear compatible with the same low-gain stable process assumption."
+  },
+  "change": {
+    "executableId": "PlantClasses.TwelveSecondPhysicalTest",
+    "settings": { "observationSeconds": 12, "sampleTimeSeconds": 0.1, "normalizedStep": 1 },
+    "decision": "Observe long enough to measure equilibrium tendency, continuing slope, response delay, overshoot, and crossings before fitting or tuning."
+  },
+  "experiment": {
+    "kind": "mv_step",
+    "signal": "Normalized experiment command",
+    "baseline": 0,
+    "amplitude": 1,
+    "durationSeconds": 12,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    { "metric": "vessel_final_temperature", "signal": "Vessel temperature", "window": "at 12 s", "comparator": ">=", "limit": 53.83, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "vessel_late_slope_magnitude", "signal": "Vessel temperature", "window": "10 to 12 s", "comparator": "<=", "limit": 0.08, "unit": "degC/s", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "tank_late_slope", "signal": "Tank level", "window": "10 to 12 s", "comparator": ">=", "limit": 0.97, "unit": "cm/s", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "oven_response_delay", "signal": "Oven product temperature", "window": "0 to first change above 0.01 degC", "comparator": ">=", "limit": 3.9, "unit": "s", "tolerance": 0.1, "evidenceClass": "simulation" },
+    { "metric": "drive_peak_position", "signal": "Drive position", "window": "0 to 12 s", "comparator": ">=", "limit": 1.4, "unit": "rad", "tolerance": 0.01, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Vessel temperature", "minimum": 0, "maximum": 100, "unit": "degC" },
+      { "signal": "Tank level", "minimum": 0, "maximum": 100, "unit": "cm" },
+      { "signal": "Oven product temperature", "minimum": 0, "maximum": 150, "unit": "degC" },
+      { "signal": "Drive position", "minimum": -5, "maximum": 5, "unit": "rad" }
+    ],
+    "abortPredicates": ["Any command or PV is nonfinite or outside its hard limit", "Normalized command leaves 0 through 1", "Physical command mapping differs between compared runs", "A feedback controller is active during the open-loop experiment"],
+    "safeMv": 0,
+    "restorationMode": "Return normalized experiment command to zero and restore all four initial operating points",
+    "physicalApprovalRole": "authorised process and machinery controls engineer",
+    "simulationOnlyRestrictions": ["The combined open-loop run is simulation-only. A physical test requires a separately reviewed safe step, duration, abort boundary, and authority for each plant."]
+  },
+  "workflowStages": ["Monitor", "Test", "Validate"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-32--static-and-dynamic-plant-behavior-modular-process-skid",
+    "nativeTest": "control_curriculum_classifies_four_physical_plant_responses_before_modelling",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_selection control_curriculum_classifies_four_physical_plant_responses_before_modelling -- --exact --nocapture",
+    "projectPath": "examples/control/04-controller-selection-and-plant-models/32-plant-response-classes",
+    "runArtifactFields": ["time", "normalizedExperiment", "physicalCommands", "physicalPVs", "operatingPoints", "firstResponseTime", "lateSlope", "steadyValueEligible", "overshoot", "crossingCount", "learnerClassification", "revealedModelClass", "evidenceClass"],
+    "renderedJourneyId": "control-plant-response-classes"
+  },
+  "video": {
+    "viewerOutcome": "Classify four physical plant responses from open-loop signatures before selecting a model or controller.",
+    "requiredVisibleEvidence": ["physical command mapping", "four physical-unit plots", "hidden labels during classification", "late slopes", "four-second delay", "drive overshoot and crossings", "simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "A modular training skid contains a heated vessel, buffer tank, conveyor oven, and flexible drive whose early trends can look deceptively similar.",
+    "reason": "Lesson 31 assumed known plant classes. An unfamiliar loop must be classified from sufficient evidence before model or controller selection.",
+    "theory": [
+      "Self-regulating output approaches a finite equilibrium; integrating output retains slope; delayed output initially remains unchanged; oscillatory output crosses its eventual value as stored energy exchanges.",
+      "Operating point, physical scaling, control direction, observation duration, sensor resolution, and excitation are part of the classification evidence.",
+      "Late slope, first response time, overshoot, and crossing count distinguish classes more reliably than one final sample.",
+      "Real plants may combine signatures, so an isolated teaching classification is a starting hypothesis rather than universal truth."
+    ],
+    "workedPrediction": "The vessel predicts 54 degC equilibrium and 53.93 degC at 12 s; the tank predicts 62 cm with 1 cm/s slope; the oven predicts 4 s delay and 84.91 degC at 12 s; the drive predicts 52.7 percent overshoot around 1 rad.",
+    "practicalPreparation": ["Verify open-loop Manual authority, initial operating points, normalized-to-physical scaling, units, limits, quality, 100 ms sampling, 12 s duration, aborts, and simulation label.", "Sketch four physical responses and state observable classification criteria before applying the step; hide configured model labels."],
+    "baseline": "Inspect only the first second and record which traces remain ambiguous.",
+    "change": "Run the full 12-second bounded step once, retain exact commands and PVs, classify each trace, and reveal labels only after committing the decision.",
+    "comparison": "Compare response delay, late slope, steady-value eligibility, overshoot, and crossing count in real units. Do not compare unlike PV amplitudes as if normalization removed their physics.",
+    "validation": "Require a finite vessel equilibrium tendency, tank slope near 1 cm/s, oven delay at least 3.9 s, drive peak at least 1.4 rad, and at least two drive crossings.",
+    "explanation": "The four signatures arise from loss-balanced energy, accumulated mass, transport delay, and exchanged mechanical energy respectively.",
+    "transfer": "Lesson 33 derives heater and tank behavior from conservation laws so their observed signatures become explainable predictions."
+  }
+}

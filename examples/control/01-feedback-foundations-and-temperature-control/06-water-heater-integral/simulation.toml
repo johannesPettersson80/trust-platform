@@ -1,0 +1,32 @@
+[simulation]
+enabled = true
+seed = 20260828
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2000
+plant_step_ms = 100
+
+[[plants]]
+id = "recirculating-water-heater"
+model = "first_order_dead_time"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [20.0]
+
+[plants.parameters]
+gain = 0.2
+time_constant_s = 5.0
+dead_time_s = 1.0
+initial_delayed_input = 0.0
+output_bias = 20.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+
+[[plant_events]]
+at_ms = 60000
+plant = "recirculating-water-heater"
+kind = "set_parameter"
+parameter = "output_bias"
+value = 17.0

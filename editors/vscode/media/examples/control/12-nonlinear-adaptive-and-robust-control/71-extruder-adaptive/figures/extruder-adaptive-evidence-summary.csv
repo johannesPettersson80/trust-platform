@@ -1,0 +1,5 @@
+architecture,grade_b_iae_bar_s,cumulative_output_movement_pp,saturation_s
+fixed,158.457087329,1430.466553578,2.800
+scheduled,134.650777298,1457.901789323,2.900
+adaptive,109.791695320,1468.397196364,3.000
+adaptive_gain_estimate_rmse,0.073495665,,

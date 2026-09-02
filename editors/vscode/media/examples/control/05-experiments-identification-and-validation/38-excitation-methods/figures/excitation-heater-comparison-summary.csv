@@ -1,0 +1,6 @@
+method,eligible,output_span_degC,prbs_transitions,reject_reason
+step,true,1.065008492258,,0
+pulse,true,,,0
+PRBS,true,,5,0
+chirp,true,0.273532299323,,0
+relay,false,,,4

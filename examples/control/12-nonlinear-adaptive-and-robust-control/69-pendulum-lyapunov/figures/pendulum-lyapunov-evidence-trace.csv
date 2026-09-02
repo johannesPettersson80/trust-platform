@@ -1,0 +1,34 @@
+panel,series,point,x,y,x_unit,y_unit
+Initial Lyapunov value,Initial V,1,1.000000000000,0.001666666667,case,V
+Initial Lyapunov value,Initial V,2,2.000000000000,0.001666666667,case,V
+Initial Lyapunov value,Initial V,3,3.000000000000,0.006666666667,case,V
+Initial Lyapunov value,Initial V,4,4.000000000000,0.006666666667,case,V
+Initial Lyapunov value,Initial V,5,5.000000000000,0.015000000000,case,V
+Initial Lyapunov value,Initial V,6,6.000000000000,0.015000000000,case,V
+Initial Lyapunov value,Initial V,7,7.000000000000,0.020416666667,case,V
+Initial Lyapunov value,Initial V,8,8.000000000000,0.020416666667,case,V
+Initial Lyapunov value,Initial V,9,9.000000000000,0.041666666667,case,V
+Initial Lyapunov value,Initial V,10,10.000000000000,0.041666666667,case,V
+Initial Lyapunov value,Initial V,11,11.000000000000,0.426666666667,case,V
+Initial Lyapunov value,Certificate rho,1,1.000000000000,0.025000000000,case,V
+Initial Lyapunov value,Certificate rho,2,2.000000000000,0.025000000000,case,V
+Initial Lyapunov value,Certificate rho,3,3.000000000000,0.025000000000,case,V
+Initial Lyapunov value,Certificate rho,4,4.000000000000,0.025000000000,case,V
+Initial Lyapunov value,Certificate rho,5,5.000000000000,0.025000000000,case,V
+Initial Lyapunov value,Certificate rho,6,6.000000000000,0.025000000000,case,V
+Initial Lyapunov value,Certificate rho,7,7.000000000000,0.025000000000,case,V
+Initial Lyapunov value,Certificate rho,8,8.000000000000,0.025000000000,case,V
+Initial Lyapunov value,Certificate rho,9,9.000000000000,0.025000000000,case,V
+Initial Lyapunov value,Certificate rho,10,10.000000000000,0.025000000000,case,V
+Initial Lyapunov value,Certificate rho,11,11.000000000000,0.025000000000,case,V
+Peak applied torque,Applied torque,1,1.000000000000,0.200000000000,case,N m
+Peak applied torque,Applied torque,2,2.000000000000,0.200000000000,case,N m
+Peak applied torque,Applied torque,3,3.000000000000,0.400000000000,case,N m
+Peak applied torque,Applied torque,4,4.000000000000,0.400000000000,case,N m
+Peak applied torque,Applied torque,5,5.000000000000,0.300000000000,case,N m
+Peak applied torque,Applied torque,6,6.000000000000,0.300000000000,case,N m
+Peak applied torque,Applied torque,7,7.000000000000,0.700000000000,case,N m
+Peak applied torque,Applied torque,8,8.000000000000,0.700000000000,case,N m
+Peak applied torque,Applied torque,9,9.000000000000,1.000000000000,case,N m
+Peak applied torque,Applied torque,10,10.000000000000,1.000000000000,case,N m
+Peak applied torque,Applied torque,11,11.000000000000,2.000000000000,case,N m

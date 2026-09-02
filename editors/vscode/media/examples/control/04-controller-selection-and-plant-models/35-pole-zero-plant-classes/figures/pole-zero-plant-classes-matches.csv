@@ -1,0 +1,7 @@
+map_id,poles_per_s,zeros_per_s,predicted_signature,committed_match,revealed_equipment,accepted
+A,-0.2,none,monotonic settling,heated vessel,heated vessel,true
+B,0,none,continuing ramp,storage tank,storage tank,true
+C,-0.2+j0.9798;-0.2-j0.9798,none,ringing decay,flexible drive,flexible drive,true
+D,-0.1;-1+j4;-1-j4,none,fast swing with slow tail,overhead crane,overhead crane,true
+E,+0.4,none,unstable growth to abort,magnetic bearing,magnetic bearing,true
+F,-0.05;-0.5,+0.0625,inverse response then positive settling,boiler drum,boiler drum,true

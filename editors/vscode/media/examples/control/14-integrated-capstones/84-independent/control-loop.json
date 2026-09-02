@@ -1,0 +1,420 @@
+{
+  "schemaVersion": 1,
+  "id": "control-capstone-independent",
+  "name": "Defend an independent compressed-air control-system recommendation",
+  "revision": "sha256:curriculum-loop-84",
+  "projectId": "project:control-capstone-independent",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Requirements-led architecture selection, independent modelling, PI tuning, measured-demand feedforward, robustness and abnormal validation",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-84",
+    "action": "direct",
+    "taskPeriodMs": 1000,
+    "modeSignal": "%MX8.0",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.PressureSetpoint",
+      "address": "%ML16",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 6,
+        "maximum": 8
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.FeedbackPressure",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 6,
+        "maximum": 8
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ManualFeedbackRequest",
+      "address": "%ML32",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "operating-mode",
+        "channel": "operating-mode",
+        "role": "state",
+        "symbol": "P1.OperatingMode",
+        "address": "%MD0",
+        "iecType": "DINT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 3
+        }
+      },
+      {
+        "id": "control-enabled",
+        "channel": "control-enabled",
+        "role": "state",
+        "symbol": "P1.Enabled",
+        "address": "%MX8.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "pressure-quality-good",
+        "channel": "pressure-quality-good",
+        "role": "quality",
+        "symbol": "P1.PressureQualityGood",
+        "address": "%MX8.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "demand-quality-good",
+        "channel": "demand-quality-good",
+        "role": "quality",
+        "symbol": "P1.DemandQualityGood",
+        "address": "%MX8.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "delivery-quality-good",
+        "channel": "delivery-quality-good",
+        "role": "quality",
+        "symbol": "P1.DeliveryQualityGood",
+        "address": "%MX8.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "compressor-available",
+        "channel": "compressor-available",
+        "role": "quality",
+        "symbol": "P1.CompressorAvailable",
+        "address": "%MX8.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "feedforward-qualified",
+        "channel": "feedforward-qualified",
+        "role": "quality",
+        "symbol": "P1.FeedforwardQualified",
+        "address": "%MX8.5",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "tracking-active",
+        "channel": "tracking-active",
+        "role": "state",
+        "symbol": "P1.TrackingActive",
+        "address": "%MX8.6",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "authority-fault-active",
+        "channel": "authority-fault-active",
+        "role": "state",
+        "symbol": "P1.FaultActive",
+        "address": "%MX8.7",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "controller-timing-valid",
+        "channel": "controller-timing-valid",
+        "role": "quality",
+        "symbol": "P1.TimingValid",
+        "address": "%MX9.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "measured-plant-air-demand",
+        "channel": "measured-plant-air-demand",
+        "role": "disturbance",
+        "symbol": "P1.MeasuredDemand",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "manual-integrated-plant-request",
+        "channel": "manual-integrated-plant-request",
+        "role": "MV",
+        "symbol": "P1.ManualIntegratedRequest",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "feedback-pi-requested-delivery",
+        "channel": "feedback-pi-requested-delivery",
+        "role": "MV",
+        "symbol": "P1.FeedbackRequested",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "integrated-feedback-contribution",
+        "channel": "integrated-feedback-contribution",
+        "role": "state",
+        "symbol": "P1.IntegratedFeedback",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "integrated-feedforward-contribution",
+        "channel": "integrated-feedforward-contribution",
+        "role": "state",
+        "symbol": "P1.IntegratedFeedforward",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -50,
+          "maximum": 50
+        }
+      },
+      {
+        "id": "integrated-requested-delivery",
+        "channel": "integrated-requested-delivery",
+        "role": "MV",
+        "symbol": "P1.IntegratedRequested",
+        "address": "%ML72",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "controller-revision",
+        "channel": "controller-revision",
+        "role": "state",
+        "symbol": "P1.ControllerRevision",
+        "address": "%MD96",
+        "iecType": "DINT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1000
+        }
+      },
+      {
+        "id": "measured-controller-interval",
+        "channel": "measured-controller-interval",
+        "role": "state",
+        "symbol": "P1.CycleTime",
+        "address": "%ML104",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0.8,
+          "maximum": 1.2
+        }
+      },
+      {
+        "id": "feedback-pi-applied-request",
+        "channel": "feedback-pi-applied-request",
+        "role": "MV",
+        "symbol": "P1.FeedbackApplied",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "feedback-plant-applied-demand",
+        "channel": "feedback-plant-applied-demand",
+        "role": "disturbance",
+        "symbol": "P1.FeedbackPlantDemand",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "integrated-applied-request",
+        "channel": "integrated-applied-request",
+        "role": "MV",
+        "symbol": "P1.IntegratedApplied",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "integrated-plant-applied-demand",
+        "channel": "integrated-plant-applied-demand",
+        "role": "disturbance",
+        "symbol": "P1.IntegratedPlantDemand",
+        "address": "%QL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "feedback-plant-actual-delivery",
+        "channel": "feedback-plant-actual-delivery",
+        "role": "state",
+        "symbol": "P1.FeedbackActualDelivery",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "integrated-plant-header-pressure",
+        "channel": "integrated-plant-header-pressure",
+        "role": "PV",
+        "symbol": "P1.IntegratedPressure",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "bar",
+        "range": {
+          "minimum": 6,
+          "maximum": 8
+        }
+      },
+      {
+        "id": "integrated-plant-actual-delivery",
+        "channel": "integrated-plant-actual-delivery",
+        "role": "state",
+        "symbol": "P1.IntegratedActualDelivery",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 1000
+  },
+  "plantId": "compressed_air_receiver_reference_nominal",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "load_step",
+    "amplitude": 15,
+    "durationSeconds": 300,
+    "seed": 20260829
+  }
+}

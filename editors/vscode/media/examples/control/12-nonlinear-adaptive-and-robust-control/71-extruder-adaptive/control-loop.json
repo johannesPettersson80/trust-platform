@@ -1,0 +1,392 @@
+{
+  "schemaVersion": 1,
+  "id": "control-extruder-adaptive",
+  "name": "Supervise adaptive pressure control on a polymer extruder",
+  "revision": "sha256:curriculum-loop-71",
+  "projectId": "project:control-extruder-adaptive",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Two-parameter recursive least squares with persistent-excitation, projection, confidence, fallback and recovery supervision",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-71",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX6.0",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.PressureSetpoint",
+      "address": "%ML8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.DiePressure",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 0,
+        "maximum": 90
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ScrewSpeedRequested",
+      "address": "%ML128",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "requested-architecture",
+        "channel": "requested-architecture",
+        "role": "state",
+        "symbol": "P1.RequestedArchitecture",
+        "address": "%MW0",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "active-architecture",
+        "channel": "active-architecture",
+        "role": "state",
+        "symbol": "P1.ActiveArchitecture",
+        "address": "%MW2",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "resin-grade",
+        "channel": "resin-grade",
+        "role": "disturbance",
+        "symbol": "P1.ResinGrade",
+        "address": "%MW4",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "control-enabled",
+        "channel": "control-enabled",
+        "role": "state",
+        "symbol": "P1.Enabled",
+        "address": "%MX6.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "adaptation-requested",
+        "channel": "adaptation-requested",
+        "role": "state",
+        "symbol": "P1.AdaptationRequested",
+        "address": "%MX6.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "pressure-data-healthy",
+        "channel": "pressure-data-healthy",
+        "role": "quality",
+        "symbol": "P1.DataHealthy",
+        "address": "%MX6.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "identification-probe-enabled",
+        "channel": "identification-probe-enabled",
+        "role": "state",
+        "symbol": "P1.ProbeEnabled",
+        "address": "%MX6.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "adaptation-active",
+        "channel": "adaptation-active",
+        "role": "state",
+        "symbol": "P1.AdaptationActive",
+        "address": "%MX7.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "estimate-frozen",
+        "channel": "estimate-frozen",
+        "role": "state",
+        "symbol": "P1.EstimateFrozen",
+        "address": "%MX7.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "persistent-excitation",
+        "channel": "persistent-excitation",
+        "role": "quality",
+        "symbol": "P1.PersistentExcitation",
+        "address": "%MX7.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "estimate-qualified",
+        "channel": "estimate-qualified",
+        "role": "quality",
+        "symbol": "P1.EstimateQualified",
+        "address": "%MX7.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "scheduled-fallback-active",
+        "channel": "scheduled-fallback-active",
+        "role": "state",
+        "symbol": "P1.FallbackActive",
+        "address": "%MX7.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "projection-active",
+        "channel": "projection-active",
+        "role": "state",
+        "symbol": "P1.ProjectionActive",
+        "address": "%MX7.5",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "output-saturated",
+        "channel": "output-saturated",
+        "role": "state",
+        "symbol": "P1.OutputSaturated",
+        "address": "%MX7.6",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "estimated-process-gain",
+        "channel": "estimated-process-gain",
+        "role": "state",
+        "symbol": "P1.EstimatedGain",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "bar/%",
+        "range": {
+          "minimum": 0.5,
+          "maximum": 1.5
+        }
+      },
+      {
+        "id": "estimated-pressure-bias",
+        "channel": "estimated-pressure-bias",
+        "role": "state",
+        "symbol": "P1.EstimatedBias",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "bar",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "covariance-trace",
+        "channel": "covariance-trace",
+        "role": "state",
+        "symbol": "P1.CovarianceTrace",
+        "address": "%ML80",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "information-determinant",
+        "channel": "information-determinant",
+        "role": "state",
+        "symbol": "P1.InformationDeterminant",
+        "address": "%ML88",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "estimator-innovation",
+        "channel": "estimator-innovation",
+        "role": "state",
+        "symbol": "P1.Innovation",
+        "address": "%ML96",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": -2,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "active-proportional-gain",
+        "channel": "active-proportional-gain",
+        "role": "state",
+        "symbol": "P1.ActiveProportionalGain",
+        "address": "%ML104",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%/bar",
+        "range": {
+          "minimum": 0,
+          "maximum": 5
+        }
+      },
+      {
+        "id": "active-integral-gain",
+        "channel": "active-integral-gain",
+        "role": "state",
+        "symbol": "P1.ActiveIntegralGain",
+        "address": "%ML112",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%/(bar*s)",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "identification-probe",
+        "channel": "identification-probe",
+        "role": "state",
+        "symbol": "P1.Probe",
+        "address": "%ML120",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "applied-screw-speed",
+        "channel": "applied-screw-speed",
+        "role": "MV",
+        "symbol": "P1.ScrewSpeedApplied",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "polymer_extruder_continuous_gain_drift",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "setpoint_step",
+    "amplitude": 10,
+    "durationSeconds": 120,
+    "seed": 20260829
+  }
+}

@@ -1,0 +1,7 @@
+case,status,rms_error_kg_s,response_s,mean_gain,estimate_movement_kg_s,innovation_mean_kg_s,innovation_rms_kg_s,nis_mean,lag1
+fixed_filter,baseline,0.596001,3.100,,78.129296,,,,
+kalman_nominal,qualified,0.330262,1.400,0.109545,44.339620,0.007182,1.820020,0.983203,-0.148969
+sensor_overtrust,diagnostic_tradeoff,0.888355,2.800,0.428965,182.622694,,,,
+sensor_distrust,diagnostic_tradeoff,0.132686,1.500,0.037786,17.533402,,,,
+load_cell_bias,rejected_bias_model,,,,,0.496997,,1.056503,
+invalid_covariance,fixed_fallback,,,,,,,,

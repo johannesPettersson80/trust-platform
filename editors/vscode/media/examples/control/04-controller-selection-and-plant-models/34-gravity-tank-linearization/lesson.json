@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 4,
+  "id": "control-gravity-tank-linearization",
+  "title": "Linearize a gravity-drained tank",
+  "level": "Practitioner",
+  "sequence": 34,
+  "equipment": "Gravity-drained water tank with variable-speed inlet pump",
+  "physicalPurpose": "Derive and validate local transfer functions for a nonlinear gravity-drained tank.",
+  "principalTechnique": "Operating-point linearization and first-order transfer functions",
+  "objective": "Derive a first-order transfer function for a gravity-drained tank at three operating points and use executable error evidence to decide where each local model is valid.",
+  "prerequisites": ["control-tank-heater-conservation"],
+  "nextLesson": "control-pole-zero-plant-classes",
+  "signals": [
+    { "role": "state", "name": "Inlet-flow deviation", "unit": "m3/s", "minimum": 0, "maximum": 0.005, "resolution": 0.000001, "binding": "%ML0" },
+    { "role": "MV", "name": "Low-tank inlet flow", "unit": "m3/s", "minimum": 0, "maximum": 0.03, "resolution": 0.000001, "binding": "%QL0" },
+    { "role": "PV", "name": "Low-tank level", "unit": "m", "minimum": 0, "maximum": 1.0, "resolution": 0.0001, "binding": "%IL0" },
+    { "role": "MV", "name": "Middle-tank inlet flow", "unit": "m3/s", "minimum": 0, "maximum": 0.03, "resolution": 0.000001, "binding": "%QL8" },
+    { "role": "PV", "name": "Middle-tank level", "unit": "m", "minimum": 0, "maximum": 1.0, "resolution": 0.0001, "binding": "%IL8" },
+    { "role": "MV", "name": "High-tank inlet flow", "unit": "m3/s", "minimum": 0, "maximum": 0.03, "resolution": 0.000001, "binding": "%QL16" },
+    { "role": "PV", "name": "High-tank level", "unit": "m", "minimum": 0, "maximum": 1.2, "resolution": 0.0001, "binding": "%IL16" }
+  ],
+  "plant": {
+    "modelId": "three_gravity_tanks_and_local_tangent_models",
+    "executable": "simulation.toml#plants",
+    "parameters": [
+      { "name": "tank_area", "value": 0.5, "unit": "m2" },
+      { "name": "outlet_coefficient", "value": 0.02, "unit": "m2*sqrt(m)/s" },
+      { "name": "low_local_gain", "value": 50, "unit": "m/(m3/s)" },
+      { "name": "middle_local_gain", "value": 70.710678, "unit": "m/(m3/s)" },
+      { "name": "high_local_gain", "value": 90, "unit": "m/(m3/s)" },
+      { "name": "low_time_constant", "value": 25, "unit": "s" },
+      { "name": "middle_time_constant", "value": 35.355339, "unit": "s" },
+      { "name": "high_time_constant", "value": 45, "unit": "s" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "lowLevelMetres": 0.25, "middleLevelMetres": 0.5, "highLevelMetres": 0.81 },
+    "seed": 20260829,
+    "operatingPoint": { "Inlet-flow deviation": 0, "Low-tank inlet flow": 0.01, "Low-tank level": 0.25, "Middle-tank inlet flow": 0.0141421356, "Middle-tank level": 0.5, "High-tank inlet flow": 0.018, "High-tank level": 0.81 },
+    "validityRange": [
+      { "signal": "Inlet-flow deviation", "minimum": 0, "maximum": 0.001, "unit": "m3/s" },
+      { "signal": "Low-tank level", "minimum": 0.25, "maximum": 0.305, "unit": "m" },
+      { "signal": "Middle-tank level", "minimum": 0.5, "maximum": 0.575, "unit": "m" },
+      { "signal": "High-tank level", "minimum": 0.81, "maximum": 0.905, "unit": "m" }
+    ],
+    "simplifications": ["Constant tank area, liquid properties, and outlet coefficient", "No pump, sensor, overflow, transport-delay, or disturbance dynamics", "Local models use a 100 ms forward-Euler teaching realization of the analytically derived tangent equations"]
+  },
+  "baseline": { "executableId": "GravityTank.OneGlobalLinearModel", "settings": { "assumedOperatingPointMetres": 0.25 }, "limitation": "A tangent model derived at low level cannot represent the nonlinear tank over its complete operating range." },
+  "change": { "executableId": "GravityTank.ThreeValidatedLocalModels", "settings": { "operatingLevelsMetres": [0.25, 0.5, 0.81], "smallFlowStepM3PerSecond": 0.001, "largeFlowStepM3PerSecond": 0.005 }, "decision": "Use a local model only with its operating point, declared range, and validated error evidence." },
+  "experiment": { "kind": "mv_step", "signal": "Inlet-flow deviation", "baseline": 0, "amplitude": 0.001, "durationSeconds": 300, "settlingSeconds": 0, "disturbances": [], "seed": 20260829, "restorationValue": 0 },
+  "acceptance": [
+    { "metric": "low_small_step_local_error", "signal": "Low-tank level", "window": "at 300 s after late-slope qualification", "comparator": "<=", "limit": 0.30, "unit": "cm", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "middle_small_step_local_error", "signal": "Middle-tank level", "window": "at 300 s after late-slope qualification", "comparator": "<=", "limit": 0.30, "unit": "cm", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "high_small_step_local_error", "signal": "High-tank level", "window": "at 300 s after late-slope qualification", "comparator": "<=", "limit": 0.30, "unit": "cm", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "low_large_step_extrapolation_error", "signal": "Low-tank level", "window": "at 300 s after late-slope qualification", "comparator": ">=", "limit": 5, "unit": "cm", "tolerance": 0.01, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [{ "signal": "Low-tank level", "minimum": 0, "maximum": 1, "unit": "m" }, { "signal": "Middle-tank level", "minimum": 0, "maximum": 1, "unit": "m" }, { "signal": "High-tank level", "minimum": 0, "maximum": 1.2, "unit": "m" }],
+    "abortPredicates": ["Any flow or level is nonfinite", "A level leaves its hard limit", "The sample interval or physical parameters differ from the prediction", "Unexpected feedback authority is active"],
+    "safeMv": 0,
+    "restorationMode": "Return flow deviation to zero and restore all three declared equilibria",
+    "physicalApprovalRole": "authorised process controls engineer",
+    "simulationOnlyRestrictions": ["Physical tank tests require reviewed pump, outlet, overflow, low-level, containment, and emergency procedures plus immediate approval."]
+  },
+  "workflowStages": ["Monitor", "Test", "Validate"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-34--linearization-and-transfer-functions-gravity-tank",
+    "nativeTest": "control_curriculum_gravity_tank_linearization_is_local_and_unit_consistent",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_modelling_progression control_curriculum_gravity_tank_linearization_is_local_and_unit_consistent -- --exact --nocapture",
+    "projectPath": "examples/control/04-controller-selection-and-plant-models/34-gravity-tank-linearization",
+    "runArtifactFields": ["time", "flowDeviation", "physicalLevels", "localLevels", "operatingPoints", "gains", "timeConstants", "poles", "predictionErrors", "validityDecision", "evidenceClass"],
+    "renderedJourneyId": "control-gravity-tank-linearization"
+  },
+  "video": { "viewerOutcome": "Derive and validate a local transfer function without mistaking it for a global plant model.", "requiredVisibleEvidence": ["physical balance", "tangent derivation", "three operating-point table", "physical-versus-local traces", "large-step validity failure", "simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "learning": {
+    "context": "A pumped tank drains through a fixed gravity outlet whose flow changes with the square root of level.",
+    "reason": "The constant-outlet integrator from Lesson 33 cannot predict level-dependent equilibrium and response speed.",
+    "theory": ["Linearization replaces a nonlinear relation by its tangent around a declared equilibrium.", "Deviation variables and a zero-initial-deviation Laplace representation produce a local first-order transfer function.", "Gain, time constant, and pole vary with operating level; the model has no finite zero or dead time."],
+    "workedPrediction": "At 0.25, 0.50, and 0.81 m, calculate the three equilibrium flows, gains, time constants, poles, and small-step level changes before running.",
+    "practicalPreparation": ["Verify operating points, units, parameters, 100 ms sampling, quality, limits, open-loop authority, and Simulation evidence class.", "Declare the 0.30 cm small-step error limit and label the large step outside validity before viewing results."],
+    "baseline": "Apply the low-level tangent assumption globally and explain why the square-root outlet invalidates it.",
+    "change": "Run three derived local models beside three nonlinear tanks, then execute a separately restored large-step boundary case.",
+    "comparison": "Compare synchronized nonlinear and local-model levels only after checking units, operating points, and settling eligibility.",
+    "validation": "Require all small-step final errors below 0.30 cm and retain the greater-than-5 cm large-step divergence as validity-boundary evidence.",
+    "explanation": "The tangent slope changes with level, producing increasing local gain and time constant at higher operating points.",
+    "transfer": "Lesson 35 generalizes pole-zero interpretation across real plant classes before controller design."
+  }
+}

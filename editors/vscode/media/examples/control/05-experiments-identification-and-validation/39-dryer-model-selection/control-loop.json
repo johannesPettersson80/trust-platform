@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-dryer-model-selection",
+  "name": "Dryer model selection",
+  "revision": "sha256:curriculum-loop-39",
+  "projectId": "project:control-dryer-model-selection",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "DryerIdentificationExperiment", "design": "project", "revision": "sha256:dryer-identification-experiment", "action": "direct", "taskPeriodMs": 100 },
+  "signals": {
+    "processVariable": { "symbol": "P1.ProcessValue", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 75, "maximum": 90 } },
+    "manipulatedVariable": { "symbol": "P1.ExperimentInput", "address": "%ML0", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": 20, "maximum": 50 } },
+    "actuator": { "symbol": "P1.ManipulatedValue", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 20, "maximum": 50 } }
+  },
+  "limits": { "outputMinimum": 20, "outputMaximum": 50 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "dryer_model_selection",
+  "operatingPoint": "30 percent heater demand",
+  "experiment": { "execution": "control-studio", "kind": "mv_step", "amplitude": 10, "durationSeconds": 90, "seed": 20260829 }
+}

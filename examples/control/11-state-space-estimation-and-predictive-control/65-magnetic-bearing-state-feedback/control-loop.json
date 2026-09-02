@@ -1,0 +1,280 @@
+{
+  "schemaVersion": 1,
+  "id": "control-magnetic-bearing-state-feedback",
+  "name": "Place bearing modes and observe motor load",
+  "revision": "sha256:curriculum-loop-65",
+  "projectId": "project:control-magnetic-bearing-state-feedback",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "State-feedback pole placement, reference gain, and Luenberger observation",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-65",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX120.3",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.BearingSetpoint",
+      "address": "%ML8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "mm",
+      "range": {
+        "minimum": -0.2,
+        "maximum": 0.2
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.BearingDisplacement",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "mm",
+      "range": {
+        "minimum": -0.5,
+        "maximum": 0.5
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.BearingCurrentRequested",
+      "address": "%ML24",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "A",
+      "range": {
+        "minimum": -4,
+        "maximum": 4
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "authority",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX120.3",
+        "iecType": "BOOL",
+        "direction": "write",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "bearing-controller-enabled",
+        "channel": "bearing-controller-enabled",
+        "role": "state",
+        "symbol": "P1.BearingEnabled",
+        "address": "%MX120.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "motor-controller-enabled",
+        "channel": "motor-controller-enabled",
+        "role": "state",
+        "symbol": "P1.MotorEnabled",
+        "address": "%MX120.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "motor-observer-enabled",
+        "channel": "motor-observer-enabled",
+        "role": "state",
+        "symbol": "P1.MotorObserverEnabled",
+        "address": "%MX120.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "bearing-feedback-architecture",
+        "channel": "bearing-feedback-architecture",
+        "role": "state",
+        "symbol": "P1.BearingArchitecture",
+        "address": "%MW0",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "motor-speed-reference",
+        "channel": "motor-speed-reference",
+        "role": "SP",
+        "symbol": "P1.MotorSetpoint",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -1.5,
+          "maximum": 1.5
+        }
+      },
+      {
+        "id": "requested-motor-torque",
+        "channel": "requested-motor-torque",
+        "role": "MV",
+        "symbol": "P1.MotorTorqueRequested",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m",
+        "range": {
+          "minimum": -6,
+          "maximum": 6
+        }
+      },
+      {
+        "id": "estimated-motor-speed",
+        "channel": "estimated-motor-speed",
+        "role": "state",
+        "symbol": "P1.EstimatedMotorSpeed",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -2,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "estimated-motor-load-torque",
+        "channel": "estimated-motor-load-torque",
+        "role": "state",
+        "symbol": "P1.EstimatedLoadTorque",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m",
+        "range": {
+          "minimum": -2,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "motor-speed-innovation",
+        "channel": "motor-speed-innovation",
+        "role": "state",
+        "symbol": "P1.MotorInnovation",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -2,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "applied-bearing-current",
+        "channel": "applied-bearing-current",
+        "role": "MV",
+        "symbol": "P1.BearingCurrentApplied",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "A",
+        "range": {
+          "minimum": -2,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "applied-motor-torque",
+        "channel": "applied-motor-torque",
+        "role": "MV",
+        "symbol": "P1.MotorTorqueApplied",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m",
+        "range": {
+          "minimum": -3,
+          "maximum": 3
+        }
+      },
+      {
+        "id": "bearing-velocity",
+        "channel": "bearing-velocity",
+        "role": "state",
+        "symbol": "P1.BearingVelocity",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "mm/s",
+        "range": {
+          "minimum": -2,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "measured-motor-speed",
+        "channel": "measured-motor-speed",
+        "role": "PV",
+        "symbol": "P1.MotorSpeed",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -2,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "simulation-truth-motor-load-torque",
+        "channel": "simulation-truth-motor-load-torque",
+        "role": "state",
+        "symbol": "P1.MotorLoadTruth",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m",
+        "range": {
+          "minimum": -2,
+          "maximum": 2
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": -4,
+    "outputMaximum": 4
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "bearing_and_loaded_motor_state_space_training_benches",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 200.1,
+    "seed": 20260829
+  }
+}

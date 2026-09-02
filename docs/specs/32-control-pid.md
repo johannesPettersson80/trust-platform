@@ -4,7 +4,7 @@ This specification defines the first truST implementation of the combined-form
 PID controller and signal filter described in *A Practical Guide to PID
 Controller Implementation*, version 3, 15 July 2026.
 
-The implementation establishes the paper-compatible baseline before any
+The implementation establishes the reference baseline before any
 correction, safety extension, automatic tuning, model identification, or
 alternative public controller design is introduced.
 
@@ -793,4 +793,4 @@ are not implemented by Listings 3 through 5:
 - cascade, ratio, split-range, Smith-predictor, or actuator blocks.
 
 Each addition or correction requires its own written specification and native
-test after this paper-compatible baseline has passing native conformance tests.
+test after this reference baseline has passing native conformance tests.

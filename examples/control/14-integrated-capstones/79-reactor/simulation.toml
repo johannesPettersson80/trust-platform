@@ -1,0 +1,43 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 4000
+plant_step_ms = 100
+
+[[plants]]
+id = "feedback-only-jacketed-reactor"
+name = "Feedback-only cascade jacketed stirred reactor"
+description = "Local jacket and vessel energy balances with measured feed load retained but not used for feedforward."
+model = "state_space"
+command_sources = ["%QL0", "%QL8", "%QL16"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0.0, 0.0]
+initial_input = [50.0, 0.0, 0.0]
+input_offset = [-50.0, 0.0, 0.0]
+output_offset = [80.0, 80.0]
+
+[plants.parameters]
+a = [[-0.5, 0.0], [0.09523809523809523, -0.08333333333333333]]
+b = [[0.08, -0.08, 0.0], [0.0, 0.0, -0.05]]
+c = [[0.0, 1.0], [1.0, 0.0]]
+d = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
+
+[[plants]]
+id = "integrated-jacketed-reactor"
+name = "Integrated cascade and feedforward jacketed stirred reactor"
+description = "Equivalent local plant used to isolate qualified measured-load feedforward within the same tracked authority architecture."
+model = "state_space"
+command_sources = ["%QL24", "%QL32", "%QL40"]
+feedback_targets = ["%IL16", "%IL24"]
+initial_state = [0.0, 0.0]
+initial_input = [50.0, 0.0, 0.0]
+input_offset = [-50.0, 0.0, 0.0]
+output_offset = [80.0, 80.0]
+
+[plants.parameters]
+a = [[-0.5, 0.0], [0.09523809523809523, -0.08333333333333333]]
+b = [[0.08, -0.08, 0.0], [0.0, 0.0, -0.05]]
+c = [[0.0, 1.0], [1.0, 0.0]]
+d = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]

@@ -30,6 +30,22 @@ const DESCRIPTORS: Readonly<Record<string, PlantModelDescriptor>> = {
     kind: "integrator", productName: "Integrator", purpose: "Accumulation without self-balancing",
     states: 1, inputs: 1, outputs: 1,
   },
+  gravity_tank: {
+    kind: "gravity_tank",
+    productName: "Gravity-drained tank",
+    purpose: "Nonlinear level from inlet and square-root outlet flow",
+    states: 1,
+    inputs: 1,
+    outputs: 1,
+  },
+  robot_joint: {
+    kind: "robot_joint",
+    productName: "Gravity-loaded robot joint",
+    purpose: "Nonlinear angle, speed, gravity, and friction dynamics",
+    states: 2,
+    inputs: 1,
+    outputs: 2,
+  },
   second_order: {
     kind: "second_order", productName: "Second order", purpose: "Oscillation or resonance with damping",
     states: 2, inputs: 1, outputs: 1,

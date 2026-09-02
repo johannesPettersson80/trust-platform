@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "id": "control-cold-storage-on-off",
+  "name": "Cold-storage ON/OFF control",
+  "revision": "sha256:422bc6c7a286de31f6788cadef0ed0ea82cacf479aee852a0ecf19f48bb461bd",
+  "projectId": "project:control-cold-storage-on-off",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "ColdStorageOnOff",
+    "design": "project",
+    "revision": "sha256:2cd093e94e78fd9a3396ff36b975653b03a48771cbbd4e1bb0bc10a8ec4ebd86",
+    "action": "reverse",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX16.0"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": -10,
+        "maximum": 10
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": -30,
+        "maximum": 20
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ManipulatedValue",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "door-open-indication",
+        "channel": "door-open-indication",
+        "role": "state",
+        "symbol": "P1.DoorOpenIndication",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "effective-surrounding-temperature",
+        "channel": "effective-surrounding-temperature",
+        "role": "disturbance",
+        "symbol": "P1.EffectiveSurroundings",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": -10,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "switch-count",
+        "channel": "switch-count",
+        "role": "state",
+        "symbol": "P1.SwitchCount",
+        "address": "%MD24",
+        "iecType": "DINT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 10000
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "first_order",
+  "operatingPoint": "PV 4, MV 0",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 120,
+    "seed": 20260828,
+    "activation": {
+      "symbol": "P1.AutoMode",
+      "address": "%MX16.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
+}

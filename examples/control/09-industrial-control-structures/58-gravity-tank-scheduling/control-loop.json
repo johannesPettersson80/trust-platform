@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "id": "control-gravity-tank-scheduling",
+  "name": "Schedule PI control across a gravity tank's operating range",
+  "revision": "sha256:curriculum-loop-58",
+  "projectId": "project:control-gravity-tank-scheduling",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Validated local models with atomic interpolation or hysteretically selected tracked PIs",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-58",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX272.0",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.LevelSetpoint",
+      "address": "%ML216",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m",
+      "range": {
+        "minimum": 0.3,
+        "maximum": 0.8
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.FixedLevel",
+      "address": "%IL136",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m",
+      "range": {
+        "minimum": 0.2,
+        "maximum": 0.9
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.FixedPumpRequest",
+      "address": "%QL152",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m3/s",
+      "range": {
+        "minimum": 0,
+        "maximum": 0.06
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority-0",
+        "channel": "experiment-authority",
+        "role": "authority",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX89.2",
+        "iecType": "BOOL",
+        "direction": "write",
+        "unit": "1",
+        "range": { "minimum": 0, "maximum": 1 }
+      },
+      {
+        "id": "scheduling-availability-1",
+        "channel": "scheduling-availability",
+        "role": "quality",
+        "symbol": "P1.SchedulingAvailable",
+        "address": "%MX89.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "filtered-scheduling-level-2",
+        "channel": "filtered-scheduling-level",
+        "role": "state",
+        "symbol": "P1.FilteredSchedulingLevel",
+        "address": "%ML224",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0.3,
+          "maximum": 0.8
+        }
+      },
+      {
+        "id": "interpolation-fraction-3",
+        "channel": "interpolation-fraction",
+        "role": "state",
+        "symbol": "P1.InterpolationFraction",
+        "address": "%ML232",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "active-proportional-gain-4",
+        "channel": "active-proportional-gain",
+        "role": "state",
+        "symbol": "P1.ActiveKp",
+        "address": "%ML240",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "(m3/s)/m",
+        "range": {
+          "minimum": 0.099,
+          "maximum": 0.101
+        }
+      },
+      {
+        "id": "active-integral-gain-5",
+        "channel": "active-integral-gain",
+        "role": "state",
+        "symbol": "P1.ActiveKi",
+        "address": "%ML248",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "(m3/s)/(m*s)",
+        "range": {
+          "minimum": 0.0028,
+          "maximum": 0.00456
+        }
+      },
+      {
+        "id": "parallel-active-region-6",
+        "channel": "parallel-active-region",
+        "role": "state",
+        "symbol": "P1.ParallelRegionValue",
+        "address": "%ML256",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "parallel-region-transition-count-7",
+        "channel": "parallel-region-transition-count",
+        "role": "state",
+        "symbol": "P1.ParallelTransitionCount",
+        "address": "%ML264",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 4
+        }
+      },
+      {
+        "id": "interpolated-pi-liquid-level-8",
+        "channel": "interpolated-pi-liquid-level",
+        "role": "state",
+        "symbol": "P1.InterpolatedLevel",
+        "address": "%IL144",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0.2,
+          "maximum": 0.9
+        }
+      },
+      {
+        "id": "parallel-pi-liquid-level-9",
+        "channel": "parallel-pi-liquid-level",
+        "role": "state",
+        "symbol": "P1.ParallelLevel",
+        "address": "%IL152",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0.2,
+          "maximum": 0.9
+        }
+      },
+      {
+        "id": "interpolated-pi-pump-flow-request-10",
+        "channel": "interpolated-pi-pump-flow-request",
+        "role": "state",
+        "symbol": "P1.InterpolatedPumpRequest",
+        "address": "%QL160",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m3/s",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.06
+        }
+      },
+      {
+        "id": "parallel-pi-pump-flow-request-11",
+        "channel": "parallel-pi-pump-flow-request",
+        "role": "state",
+        "symbol": "P1.ParallelPumpRequest",
+        "address": "%QL168",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m3/s",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.06
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 0.06
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "three_equivalent_nonlinear_gravity_tanks",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 420.1,
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX89.2", "activeValue": true, "inactiveValue": false }
+  }
+}

@@ -1,0 +1,8 @@
+# Simulated I/O so the project runs with no hardware or brokers, on any machine.
+[io]
+driver = "simulated"
+params = {}
+
+[[io.safe_state]]
+address = "%QX2.0"
+value = "FALSE"

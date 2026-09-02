@@ -26,6 +26,11 @@ description: Enforce trust-platform release hygiene for user-visible changes. Us
    - Ensure tutorials, examples, specs, and coverage docs reflect shipped behavior.
 
 5. Validate.
+   - Inventory the current pull-request workflow jobs and exact command shapes before candidate
+     preparation. For runtime changes, require the exact-SHA artifact's
+     `remote_cross_target_warnings` record from
+     `./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross`; Linux
+     Clippy or tests alone are not Windows proof.
    - In trust-platform checkouts on a Raspberry Pi or other slow local host, use the remote builder for broad/full validation first, especially `just test-all`.
    - Ask before starting expensive local commands such as workspace `cargo test`, `cargo test -p trust-runtime ...`, local `just test`, local `just clippy`, or local `just test-all`.
    - Cheap local checks are allowed when narrowly scoped.
@@ -34,6 +39,9 @@ description: Enforce trust-platform release hygiene for user-visible changes. Us
    - If the candidate changes `editors/vscode/**`, `scripts/captures/**`, capture assets, or the
      capture workflow, require a successful `Docs Captures` pull-request run on the exact candidate
      SHA before merge. A post-merge capture failure is not candidate proof.
+   - Before pushing such a candidate, require the exact-SHA artifact to record
+     `python3 -m unittest scripts.tests.test_capture_lifecycle -v` as
+     `remote_docs_capture_lifecycle`.
 
 6. Preflight the first push.
    - Record `git remote get-url origin`, `git remote get-url --push origin`, and

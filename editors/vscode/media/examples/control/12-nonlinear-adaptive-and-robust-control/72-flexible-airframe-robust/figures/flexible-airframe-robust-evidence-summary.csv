@@ -1,0 +1,3 @@
+design,worst_iae_g_s,worst_peak_g,worst_movement_pp,saturation_s,gamma,maximum_pole_radius
+nominal,10.075696164,1.678692632,1228.147604278,9.300,1050.043548258,1.008103805
+robust,0.085632408,0.078969786,4.057215527,0.000,0.833288913,0.976057046

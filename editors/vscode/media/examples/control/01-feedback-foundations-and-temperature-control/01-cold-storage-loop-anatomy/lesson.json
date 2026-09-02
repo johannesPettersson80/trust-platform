@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 4,
+  "id": "control-cold-storage-loop-anatomy",
+  "title": "Understand a control loop in a cold-storage room",
+  "level": "Foundation",
+  "sequence": 1,
+  "equipment": "Cold-storage room refrigeration",
+  "physicalPurpose": "Keep stored food within a safe temperature region despite heat entering through the walls and an opened door.",
+  "principalTechnique": "Control-loop anatomy and bounded manual observation",
+  "objective": "Identify every part of a control loop and use one bounded manual experiment to determine the direction and delay of a cold room's temperature response.",
+  "prerequisites": [],
+  "nextLesson": "control-cold-storage-on-off",
+  "signals": [
+    { "role": "SP", "name": "Desired cold-room temperature", "unit": "degC", "minimum": -10, "maximum": 10, "resolution": 0.1, "binding": "%ML0" },
+    { "role": "PV", "name": "Cold-room air temperature", "unit": "degC", "minimum": -30, "maximum": 20, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "MV", "name": "Operator manual demand", "unit": "%", "minimum": 0, "maximum": 150, "resolution": 0.1, "binding": "%ML8" },
+    { "role": "state", "name": "Applied compressor demand", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL0" },
+    { "role": "state", "name": "Door-open indication", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%IL8" },
+    { "role": "disturbance", "name": "Effective surrounding temperature", "unit": "degC", "minimum": 4, "maximum": 6, "resolution": 0.1, "binding": "%IL16" }
+  ],
+  "plant": {
+    "modelId": "first_order",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      { "name": "gain", "value": -0.05, "unit": "degC/%" },
+      { "name": "time_constant", "value": 20, "unit": "s" },
+      { "name": "output_bias", "value": 4, "unit": "degC" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "coldRoomTemperature": 4 },
+    "seed": 20260828,
+    "operatingPoint": { "PV": 4, "MV": 0 },
+    "validityRange": [
+      { "signal": "Cold-room air temperature", "minimum": -30, "maximum": 20, "unit": "degC" },
+      { "signal": "Applied compressor demand", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "simplifications": [
+      "The room air and stored product are represented by one well-mixed thermal state.",
+      "The compressor has an immediate bounded cooling demand; refrigeration pressures and electrical starting dynamics are outside this introductory model.",
+      "The door opening changes the thermal equilibrium rather than modelling airflow and humidity separately."
+    ]
+  },
+  "baseline": {
+    "executableId": "ColdStorageManualObservation",
+    "settings": { "manualDemandPercent": 0 },
+    "limitation": "Watching temperature without changing compressor demand reveals the process but cannot regulate it."
+  },
+  "change": {
+    "executableId": "ColdStorageManualObservation",
+    "settings": { "requestedManualDemandPercent": 150, "expectedAppliedDemandPercent": 100, "coolingDurationSeconds": 20, "doorOpenAtSeconds": 60, "doorClosedAtSeconds": 90, "recordingDurationSeconds": 120 },
+    "decision": "Apply one bounded cooling interval, return the compressor demand to its safe zero state, then observe the scheduled door disturbance without automatic correction."
+  },
+  "experiment": {
+    "kind": "mv_step",
+    "signal": "Operator manual demand",
+    "baseline": 0,
+    "amplitude": 150,
+    "durationSeconds": 20,
+    "settlingSeconds": 0,
+    "disturbances": ["The door opens at 60 s and closes at 90 s while effective surroundings change from 4 to 6 degC and back"],
+    "seed": 20260828,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    { "metric": "manual_output_minimum", "signal": "Applied compressor demand", "window": "complete run", "comparator": ">=", "limit": 0, "unit": "%", "tolerance": 0, "evidenceClass": "simulation" },
+    { "metric": "manual_output_maximum", "signal": "Applied compressor demand", "window": "complete run", "comparator": "<=", "limit": 100, "unit": "%", "tolerance": 0, "evidenceClass": "simulation" },
+    { "metric": "cooling_endpoint", "signal": "Cold-room air temperature", "window": "sample at 20 s immediately before restoration", "comparator": "<=", "limit": 1.5, "unit": "degC", "tolerance": 0.05, "evidenceClass": "simulation" },
+    { "metric": "recovery_change", "signal": "Cold-room air temperature", "window": "sample at 40 s minus the cooling endpoint at 20 s", "comparator": ">=", "limit": 1.5, "unit": "degC", "tolerance": 0.05, "evidenceClass": "simulation" },
+    { "metric": "door_load_rise", "signal": "Cold-room air temperature", "window": "sample at 89.9 s minus sample at 59.9 s", "comparator": ">=", "limit": 1.5, "unit": "degC", "tolerance": 0.05, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Cold-room air temperature", "minimum": -10, "maximum": 10, "unit": "degC" },
+      { "signal": "Applied compressor demand", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "abortPredicates": [
+      "PV or MV is nonfinite",
+      "PV leaves the declared -10 to 10 degC lesson abort range",
+      "the applied MV leaves the 0 to 100 percent range"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Manual demand returned to 0%",
+    "physicalApprovalRole": "authorised refrigeration controls engineer",
+    "simulationOnlyRestrictions": [
+      "The thermal response is simulation evidence and shall not be presented as compressor or food-safety validation."
+    ]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-1--understand-a-control-loop-cold-storage-room",
+    "nativeTest": "control_curriculum_cold_storage_loop_anatomy_bounds_manual_actuation_and_exposes_thermal_response",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_foundations control_curriculum_cold_storage_loop_anatomy_bounds_manual_actuation_and_exposes_thermal_response -- --exact --nocapture",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/01-cold-storage-loop-anatomy",
+    "runArtifactFields": ["SP", "PV", "requestedMV", "appliedMV", "doorOpen", "effectiveSurroundings", "sampleTime", "seed", "limits", "restoration", "evidenceClass"],
+    "renderedJourneyId": "control-cold-storage-loop-anatomy"
+  },
+  "video": {
+    "viewerOutcome": "Identify SP, PV, MV, sensor, actuator, process, disturbance, feedback direction, safe state, and the separate safety boundary.",
+    "requiredVisibleEvidence": ["loop elements", "SP/PV/MV with units", "bounded manual demand", "door indication", "effective surroundings", "delayed temperature response", "uncontrolled door-load rise", "safe restoration", "simulation evidence label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "A cold-storage room gains heat from its surroundings while a compressor removes heat when commanded.",
+    "reason": "A learner must know what each signal and physical component means before selecting a controller.",
+    "theory": [
+      "A setpoint is the desired temperature, the process value is the measured temperature, and the manipulated variable is the applied compressor demand.",
+      "The room and stored product form the process, the temperature sensor measures PV, and the refrigeration compressor is the actuator.",
+      "For refrigeration, increasing MV lowers PV, so the plant has reverse process direction even though the controller in later lessons must increase cooling when PV is too high.",
+      "A control limit is not an independent safety system; physical food protection and compressor protection require separately engineered safeguards."
+    ],
+    "workedPrediction": "With the room initially at 4.00 degC, a 150% request must be limited to a 100% applied compressor command and PV must fall gradually. With manual demand restored to 0%, the 60 to 90 s door load must then make PV rise toward the 6.0 degC effective surroundings.",
+    "practicalPreparation": [
+      "Name the process, sensor, actuator, SP, PV, requested and applied MV, door indication, effective surroundings, units, -10 to 10 degC lesson abort range, and 0% safe MV.",
+      "Predict the sign and delay of the temperature response before commanding the compressor.",
+      "Confirm that this is simulation evidence and that the run restores manual demand to 0%."
+    ],
+    "baseline": "Observe PV with manual compressor demand at 0% and explain why observation alone cannot hold a desired temperature.",
+    "change": "Use Control Studio to request 150% for 20 s, verify that the applied command is limited to 100%, and confirm restoration to 0%. Then restart from the same initial state and observe the uncontrolled 60 to 90 s door disturbance through 120 s.",
+    "comparison": "Compare predicted and measured response direction, response delay, requested versus applied MV, and the uncontrolled temperature rise during the observed door load.",
+    "validation": "Confirm finite signals, 0 to 100% applied MV, the declared door and surroundings transitions, visible cooling and door-load responses, and restoration to 0%.",
+    "explanation": "Identify every loop element and explain why this bounded manual experiment characterises direction and observes a disturbance but does not regulate temperature.",
+    "transfer": "Repeat the same 60 to 90 s door disturbance with automatic ON/OFF feedback in Lesson 2 and compare it with this retained manual drift."
+  }
+}

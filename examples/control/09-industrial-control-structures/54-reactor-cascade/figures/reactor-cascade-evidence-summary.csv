@@ -1,0 +1,7 @@
+case,status,inner_settling_s,event_iae_degC_s,peak_deviation_degC,valve_travel_pp,secondary_setpoint_min_degC,secondary_setpoint_max_degC,valve_saturation_duration_s,authority,secondary_tracking_error_degC,valve_tracking_error_pp,restoration_bump_pp,abort,restoration
+direct_pi,qualified,,35.467561,2.440745,8.547178,,,0.000,automatic,,,,false,qualified
+commissioned_cascade,qualified,,5.191989,0.382386,7.843266,70.000000,70.472304,0.000,automatic,,,,false,qualified
+slow_inner_cascade,rejected,,110.143783,4.224803,9.064157,,,0.000,automatic,,,,false,qualified
+inner_fast_settling,qualified,3.100000,,,,,,,commissioning,,,,false,qualified
+inner_slow_settling,rejected,inf,,,,,,,commissioning,,,,false,qualified
+authority_loss,qualified,,,,,,,,tracking,0.000000000,0.000000000,0.201428,false,qualified

@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "id": "control-independent-heater-model-validation",
+  "name": "Independent water-heater model validation",
+  "revision": "sha256:161bed3b1218f722a39ae3680ab1c0923254e635cd32c32f45ad7980eb9c05bd",
+  "projectId": "project:control-independent-heater-model-validation",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:56c62a519fd647e30ee1dccb2a42591ca4e873cf1fa9408eade55eae9ec6e26a",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX16.3",
+    "modeWhenTrue": "Manual"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 40
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 40
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ExperimentInput",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "actuator": {
+      "symbol": "P1.ManipulatedValue",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "test-authority",
+        "channel": "test-authority",
+        "role": "state",
+        "symbol": "P1.TestAuthorityEnabled",
+        "address": "%MX16.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "safety-abort",
+        "channel": "safety-abort",
+        "role": "state",
+        "symbol": "P1.SafetyAbort",
+        "address": "%MX16.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "input-validity",
+        "channel": "input-validity",
+        "role": "quality",
+        "symbol": "P1.InputsValid",
+        "address": "%MX16.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "first_order_dead_time_with_unmodelled_load_event",
+  "operatingPoint": "PV 30, MV 20",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 60.1,
+    "seed": 20260827,
+    "activation": {
+      "symbol": "P1.TestAuthorityEnabled",
+      "address": "%MX16.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
+}

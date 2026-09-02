@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 4,
+  "id": "control-automatic-tuning-sequence",
+  "title": "Audit a complete Automatic Tune sequence",
+  "level": "Advanced",
+  "sequence": 52,
+  "equipment": "Recirculating electric water heater with independent candidate-validation copy",
+  "physicalPurpose": "Automate the evidence and decision sequence without concealing failure, promoting Simulation evidence, or applying gains.",
+  "principalTechnique": "Inspectable Test-Identify-Tune-Validate orchestration",
+  "objective": "Run and audit Automatic Tune for a recirculating water heater, explain why each stage passes or stops, recover from the taught failures, and export one validated but unapplied controller recommendation.",
+  "prerequisites": ["control-tuning-method-comparison"],
+  "nextLesson": "control-conveyor-oven-feedforward",
+  "signals": [
+    { "role": "state", "name": "Experiment enable", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.0" },
+    { "role": "SP", "name": "Water-temperature setpoint", "unit": "degC", "minimum": 15, "maximum": 35, "resolution": 0.01, "binding": "%ML0" },
+    { "role": "state", "name": "Current requested heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML128" },
+    { "role": "state", "name": "Candidate requested heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML136" },
+    { "role": "MV", "name": "Current applied heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
+    { "role": "MV", "name": "Candidate applied heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL8" },
+    { "role": "PV", "name": "Current water temperature", "unit": "degC", "minimum": 0, "maximum": 60, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "PV", "name": "Candidate water temperature", "unit": "degC", "minimum": 0, "maximum": 60, "resolution": 0.01, "binding": "%IL8" }
+  ],
+  "plant": {
+    "modelId": "two_equivalent_automatic_tune_heater_copies",
+    "executable": "simulation.toml",
+    "parameters": [
+      { "name": "plant_gain", "value": 0.2, "unit": "degC/%" },
+      { "name": "time_constant", "value": 5, "unit": "s" },
+      { "name": "dead_time", "value": 1, "unit": "s" },
+      { "name": "sensor_interference_amplitude", "value": 0.02, "unit": "degC" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "waterTemperatureDegC": 20, "heaterPowerPercent": 20 },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Experiment enable": 0,
+      "Water-temperature setpoint": 20,
+      "Current requested heater power": 20,
+      "Candidate requested heater power": 20,
+      "Current applied heater power": 20,
+      "Candidate applied heater power": 20,
+      "Current water temperature": 20,
+      "Candidate water temperature": 20
+    },
+    "validityRange": [
+      { "signal": "Water-temperature setpoint", "minimum": 15, "maximum": 35, "unit": "degC" },
+      { "signal": "Current water temperature", "minimum": 0, "maximum": 60, "unit": "degC" },
+      { "signal": "Candidate water temperature", "minimum": 0, "maximum": 60, "unit": "degC" },
+      { "signal": "Current applied heater power", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Candidate applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "simplifications": [
+      "The saved simulated FOPDT configuration is exact model evidence",
+      "The candidate drives an independent copy and does not replace the running controller",
+      "Equivalent deterministic sensor interference and load events",
+      "Local linear operating region and one-sided ideal heater inside declared limits",
+      "Simulation-only I/O"
+    ]
+  },
+  "baseline": {
+    "executableId": "WaterHeater.ConfirmedRobustPI",
+    "settings": { "method": "SIMC", "objective": "Robust", "kp": 3.260869565, "ki": 0.652173913, "controllerRevision": "confirmed-current" },
+    "limitation": "A manually reviewed controller does not yet prove that the complete automatic evidence, candidate, failure, and recovery sequence is inspectable and fail-closed."
+  },
+  "change": {
+    "executableId": "ControlStudio.AutomaticTuneBalancedSimulation",
+    "settings": { "stages": ["Test", "Identify", "Tune", "Validate"], "objective": "Balanced", "exactModelReuse": true, "excitationCount": 0, "resultAuthority": "export-only" },
+    "decision": "Accept the workflow only when every stage and failure remains inspectable, the recommendation is validated, and the running controller revision remains unchanged.",
+    "applied": false
+  },
+  "automaticPlan": {
+    "source": "Simulation",
+    "evidence": "Exact saved simulation model",
+    "confirmationCount": 1,
+    "excitationCount": 0,
+    "modelStructures": ["first_order_dead_time"],
+    "controllerStructures": ["P", "PI", "PD", "PID"],
+    "methods": ["SIMC", "AMIGO", "Constrained comparison"],
+    "selectionRule": {
+      "materialBenefitPercent": 10,
+      "deterministicMethodOrder": ["SIMC", "AMIGO", "Constrained P", "Constrained PI", "Constrained PD", "Constrained PID"]
+    },
+    "validationScenarios": ["setpoint", "load disturbance", "measurement noise", "bounded model variation"],
+    "result": "unapplied candidate"
+  },
+  "failureScenarios": [
+    { "name": "missing selected plant", "failedStage": "Test", "completedStages": [], "recovery": "save the selected simulated plant configuration" },
+    { "name": "invalid or unsupported saved model", "failedStage": "Identify", "completedStages": ["Test"], "recovery": "correct parameters or collect and identify supported data" },
+    { "name": "unsafe requested excitation", "failedStage": "Test", "completedStages": [], "recovery": "review signal, bound, duration, topology, stops, and restoration" },
+    { "name": "poor or insufficient observed data", "failedStage": "Identify", "completedStages": ["Test"], "recovery": "design a more informative bounded experiment" },
+    { "name": "no applicable tuning method", "failedStage": "Tune", "completedStages": ["Test", "Identify"], "recovery": "review model domain and controller design route" },
+    { "name": "no acceptable controller", "failedStage": "Validate", "completedStages": ["Test", "Identify", "Tune"], "recovery": "review failed requirements without weakening them" },
+    { "name": "user or automatic abort", "failedStage": "Test", "completedStages": [], "recovery": "prove restoration before another plan" },
+    { "name": "restoration failure", "failedStage": "Test", "completedStages": [], "recovery": "remain stopped and require explicit operator recovery" }
+  ],
+  "experiment": {
+    "kind": "setpoint_step",
+    "signal": "Water-temperature setpoint",
+    "baseline": 20,
+    "amplitude": 5,
+    "durationSeconds": 220,
+    "settlingSeconds": 10,
+    "disturbances": ["A minus-1-degC equilibrium-temperature load at 100 s", "Equal deterministic 0.02-degC sensor interference", "Model-predicted setpoint, load, noise, and bounded-variation validation"],
+    "seed": 20260829,
+    "restorationValue": 20
+  },
+  "acceptance": [
+    { "metric": "current_final_mean_absolute_error", "signal": "Current water temperature", "window": "210 through 220 s after settling qualification", "comparator": "<=", "limit": 0.25, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "candidate_final_mean_absolute_error", "signal": "Candidate water temperature", "window": "210 through 220 s after settling qualification", "comparator": "<=", "limit": 0.25, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "candidate_iae_improvement", "signal": "Candidate water temperature", "window": "10 through 220 s candidate IAE minus current IAE", "comparator": "<", "limit": 0, "unit": "degC*s", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "candidate_movement_cost", "signal": "Candidate applied heater power", "window": "10 through 220 s candidate total variation minus current total variation", "comparator": ">", "limit": 0, "unit": "pp", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "active_controller_revision_changes", "signal": "Experiment enable", "window": "complete success and failure journeys", "comparator": "==", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Current applied heater power", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Candidate applied heater power", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Current water temperature", "minimum": 0, "maximum": 60, "unit": "degC" },
+      { "signal": "Candidate water temperature", "minimum": 0, "maximum": 60, "unit": "degC" }
+    ],
+    "abortPredicates": [
+      "Any required identity, revision, unit, quality, freshness, model parameter, sample, limit, event, seed, requirement, or restoration state is missing or inconsistent",
+      "Any process value or applied output leaves its hard limit",
+      "Any unplanned, enlarged, repeated, stale, or physical action is requested",
+      "The active controller revision changes before a separate authorised Apply review"
+    ],
+    "safeMv": 20,
+    "restorationMode": "Stop the bounded experiment, restore the reviewed 20-degC setpoint and 20-percent heater command, and verify observed mode, output, temperature, and restoration state before another plan.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible water-heater operator",
+    "simulationOnlyRestrictions": [
+      "No physical excitation, application, or rollback is performed",
+      "Exact Simulation configuration evidence cannot be promoted to recorded or physical evidence",
+      "Physical actions require independent topology and hazard review plus explicit immediate approval for each exact action"
+    ]
+  },
+  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-52--complete-automatic-tuning-recirculating-water-heater",
+    "nativeTest": "control_curriculum_automatic_tune_validates_without_replacing_the_running_heater",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_tuning_methods control_curriculum_automatic_tune_validates_without_replacing_the_running_heater -- --exact --nocapture",
+    "projectPath": "examples/control/08-tuning-qualification-and-automation/52-automatic-water-heater",
+    "runArtifactFields": ["projectIdentity", "loopIdentity", "plantIdentity", "modelIdentity", "controllerIdentity", "revisions", "plan", "evidenceReuse", "evidenceClass", "approval", "excitation", "stageOrder", "completedStages", "failedStage", "failureReason", "recovery", "model", "modelEvidence", "attempts", "requirements", "validationConditions", "currentController", "candidate", "setpoint", "processValue", "requestedOutput", "appliedOutput", "samples", "metrics", "margins", "abortState", "stopReason", "restorationState", "activeControllerRevisionBefore", "activeControllerRevisionAfter", "applied"],
+    "renderedJourneyId": "control-automatic-tuning-sequence"
+  },
+  "video": {
+    "viewerOutcome": "Audit Automatic Tune from plan through validated export and diagnose every failure without allowing silent excitation or application.",
+    "requiredVisibleEvidence": ["running Robust PI", "exact Simulation model reuse", "zero-excitation plan", "single confirmation", "four ordered stages", "model evidence", "all candidate attempts", "common validation requirements", "current and candidate plots", "failure-stage retention", "abort and restoration", "unapplied export", "unchanged controller revision", "physical approval boundary"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "A confirmed Robust heater PI remains active while an independent simulated copy validates the Balanced recommendation.",
+    "reason": "The learner now understands each tuning decision and can judge whether automation sequences it transparently and safely.",
+    "theory": ["Automatic Tune orchestrates existing Test, Identify, Tune, and Validate services.", "Exact Simulation configuration may be reused without pretending it was identified from observed plant data.", "Every failure stops at its owning stage, retains valid evidence, and leaves application separately authorised."],
+    "workedPrediction": "Predict zero excitation, the four-stage sequence, accepted FOPDT parameters, Balanced SIMC Kp 5.769 and Ti 5.000 s, about 13.5 s settling, and an unapplied result.",
+    "practicalPreparation": ["Verify source, identities, revisions, units, quality, operating point, mode, limits, current controller, plan, reuse decision, methods, structures, requirements, restoration, and export-only authority.", "Record expected stage and recovery for each success and failure case before confirmation."],
+    "baseline": "The confirmed Robust PI is safe and valid but the automatic evidence and failure sequence is not yet demonstrated.",
+    "change": "Confirm one exact-simulation Automatic Tune plan and separately exercise each deterministic failure and recovery branch.",
+    "comparison": "Compare running and candidate controllers with one immutable validation record, then compare planned versus executed orchestration states and unchanged controller revision.",
+    "validation": "Require exact stage order, zero excitation, formula and requirement agreement, fail-closed branches, observed restoration, unapplied export, and unchanged active revision.",
+    "explanation": "The exact-simulation path is short because accepted configuration evidence is reusable; unknown or physical plants still require bounded approved experiments and independent model validation.",
+    "transfer": "Use automation to reproduce visible engineering decisions, never to conceal uncertainty, promote evidence, weaken requirements, or grant itself authority to act."
+  }
+}

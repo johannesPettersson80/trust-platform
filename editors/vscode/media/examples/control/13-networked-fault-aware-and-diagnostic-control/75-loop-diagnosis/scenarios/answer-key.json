@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "simulation",
+  "revealPolicy": "Reveal only after the learner records a diagnosis, competing hypothesis, discriminating test, and next action.",
+  "cases": [
+    {"file":"case-0.toml","diagnosis":"Healthy","remedy":"Continue monitoring","injectedBehavior":"Nominal qualified steam path and eligible diagnostic signals."},
+    {"file":"case-1.toml","diagnosis":"Poor tuning","remedy":"Run a controlled retuning comparison","injectedBehavior":"The commissioned gains are aggressive for the delay-dominant local path."},
+    {"file":"case-2.toml","diagnosis":"Valve stiction","remedy":"Inspect the valve or perform an approved travel test","injectedBehavior":"Matched actuator paths use a 5 percentage-point stiction band and a 2 percentage-point slip jump."},
+    {"file":"case-3.toml","diagnosis":"Primary flow-transmitter drift","remedy":"Verify or calibrate the instrument","injectedBehavior":"Deterministic seeded random-walk drift affects only the primary measurement after 10 seconds."},
+    {"file":"case-4.toml","diagnosis":"Actuator saturation or unavailable capacity","remedy":"Review capacity and operating demand","injectedBehavior":"The reduced-capacity path delivers at most 50 t/h at a fully open valve."},
+    {"file":"case-5.toml","diagnosis":"Measured upstream disturbance","remedy":"Investigate the disturbance source","injectedBehavior":"Header pressure falls before both qualified flow measurements respond."},
+    {"file":"case-6.toml","diagnosis":"Interaction from an adjacent steam user","remedy":"Run an interaction study and review coordination","injectedBehavior":"The adjacent valve leads the header and local flow response on three events."},
+    {"file":"case-7.toml","diagnosis":"Operating-region model or schedule mismatch","remedy":"Revalidate the local model and schedule boundary","injectedBehavior":"Plant gain changes at the declared region transition at 20 seconds.","operatingRegionTransitionSeconds":20}
+  ]
+}

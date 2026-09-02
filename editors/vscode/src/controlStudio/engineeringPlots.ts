@@ -1,6 +1,7 @@
 import { updateControlPid, type ControlPidCandidate, type ControlPidState } from "./controllerCandidate";
 import type { IdentifiedModel } from "./identification";
 import type { FrequencyPoint } from "./tuning";
+import { rootLocus } from "./numerics";
 
 export interface EngineeringTimePoint {
   timeSeconds: number;
@@ -17,6 +18,31 @@ export interface EngineeringPlotEvidence {
   candidateOpenLoopBode: readonly FrequencyPoint[];
   gainMarginDb: number;
   phaseMarginDegrees: number;
+  nichols: readonly { frequencyRadPerSecond: number; phaseDegrees: number; magnitudeDb: number }[];
+  nyquist: readonly { frequencyRadPerSecond: number; real: number; imaginary: number }[];
+  sensitivity: readonly {
+    frequencyRadPerSecond: number;
+    sensitivityMagnitudeDb: number;
+    complementarySensitivityMagnitudeDb: number;
+    controlSensitivityMagnitudeDb: number;
+  }[];
+  rootLocus: { status: "qualified"; branches: readonly {
+    gain: number; poles: readonly { real: number; imaginary: number }[];
+  }[] } | { status: "unavailable"; reason: string; branches: readonly [] };
+  requirements: readonly {
+    name: string;
+    plot: "response" | "bode" | "sensitivity" | "constraints";
+    status: "Pass" | "Fail" | "Inconclusive";
+    value: number | "unbounded";
+    limit: number;
+    unit: string;
+    direction: "maximum" | "minimum";
+  }[];
+  uncertainty: {
+    status: "evaluated" | "not-evaluated";
+    method: string;
+    points: readonly { timeSeconds: number; lower: number; nominal: number; upper: number }[];
+  };
 }
 
 export type EngineeringPlotMessageEvidence = Omit<EngineeringPlotEvidence, "gainMarginDb"> & {
@@ -58,8 +84,11 @@ export function buildEngineeringPlotEvidence(
   const candidateOpenLoopBode: FrequencyPoint[] = [];
   const baseTime = Math.max(1e-6, model.timeConstantSeconds ?? model.secondTimeConstantSeconds ?? 1);
   const delay = model.deadTimeSeconds ?? 0;
-  const minimumFrequency = 1e-3 / baseTime;
-  const maximumFrequency = Math.max(1e3 / baseTime, delay > 0 ? 4 * Math.PI / delay : 0);
+  // Show the frequencies that explain the controller decision. Extending a
+  // dead-time model through many rotations hides crossover and margins in an
+  // otherwise technically valid but unusable plot.
+  const minimumFrequency = 1e-2 / baseTime;
+  const maximumFrequency = Math.max(10 / baseTime, delay > 0 ? 2 * Math.PI / delay : 0);
   const decades = Math.log10(maximumFrequency / minimumFrequency);
   const frequencyPoints = Math.min(2_000, Math.max(100, Math.ceil(decades * 40) + 1));
   for (let index = 0; index < frequencyPoints; index += 1) {
@@ -73,8 +102,19 @@ export function buildEngineeringPlotEvidence(
   const unwrappedPlant = unwrapPhase(plantBode);
   const unwrappedOpenLoop = unwrapPhase(candidateOpenLoopBode);
   const margins = stabilityMargins(unwrappedOpenLoop, delay);
+  const nichols = unwrappedOpenLoop.map((item) => ({ ...item }));
+  const positiveNyquist = unwrappedOpenLoop.map(frequencyPointToComplex);
+  const nyquist = [
+    ...positiveNyquist.slice().reverse().map((point) => ({ ...point, imaginary: -point.imaginary })),
+    ...positiveNyquist.slice(1),
+  ];
+  const sensitivity = unwrappedOpenLoop.map((item) => sensitivityPoint(item, candidate));
+  const locus = buildRootLocus(model, candidate);
+  const uncertainty = buildUncertaintyEnvelope(model, candidate, timeResponse, cycleTime);
+  const requirements = graphicalRequirements(timeResponse, margins, sensitivity);
   return { evidence: "Model-predicted", timeResponse, plantBode: unwrappedPlant,
-    candidateOpenLoopBode: unwrappedOpenLoop, ...margins };
+    candidateOpenLoopBode: unwrappedOpenLoop, nichols, nyquist, sensitivity,
+    rootLocus: locus, requirements, uncertainty, ...margins };
 }
 
 interface Complex { re: number; im: number }
@@ -206,4 +246,173 @@ function divide(left: Complex, right: Complex): Complex {
 }
 function interpolate(start: number, end: number, fraction: number): number {
   return start + (end - start) * fraction;
+}
+
+function frequencyPointToComplex(point: FrequencyPoint): {
+  frequencyRadPerSecond: number; real: number; imaginary: number;
+} {
+  const magnitude = 10 ** (point.magnitudeDb / 20);
+  const phase = point.phaseDegrees * Math.PI / 180;
+  return { frequencyRadPerSecond: point.frequencyRadPerSecond,
+    real: magnitude * Math.cos(phase), imaginary: magnitude * Math.sin(phase) };
+}
+
+function sensitivityPoint(point: FrequencyPoint, candidate: ControlPidCandidate) {
+  const loop = frequencyPointToComplex(point);
+  const onePlusLoop = { re: 1 + loop.real, im: loop.imaginary };
+  const sensitivity = divide({ re: 1, im: 0 }, onePlusLoop);
+  const complementary = divide({ re: loop.real, im: loop.imaginary }, onePlusLoop);
+  const control = multiply(controllerFrequency(candidate, point.frequencyRadPerSecond), sensitivity);
+  return {
+    frequencyRadPerSecond: point.frequencyRadPerSecond,
+    sensitivityMagnitudeDb: magnitudeDb(sensitivity),
+    complementarySensitivityMagnitudeDb: magnitudeDb(complementary),
+    controlSensitivityMagnitudeDb: magnitudeDb(control),
+  };
+}
+
+function magnitudeDb(value: Complex): number {
+  return 20 * Math.log10(Math.max(Number.MIN_VALUE, Math.hypot(value.re, value.im)));
+}
+
+function buildRootLocus(model: IdentifiedModel, candidate: ControlPidCandidate): EngineeringPlotEvidence["rootLocus"] {
+  try {
+    const plant = plantPolynomial(model);
+    const controller = controllerPolynomial(candidate);
+    const numerator = convolve(plant.numerator, controller.numerator);
+    const denominator = convolve(plant.denominator, controller.denominator);
+    const gains = [0, ...Array.from({ length: 61 }, (_, index) => 10 ** (-3 + index * 0.1))];
+    const result = rootLocus({ numerator, denominator, delaySeconds: 0 }, gains) as {
+      status: string; reason?: string;
+      branches?: readonly { gain: number; poles: readonly { real: number; imaginary: number }[] }[];
+    };
+    return result.status === "qualified" && result.branches
+      ? { status: "qualified", branches: result.branches }
+      : { status: "unavailable", reason: result.reason ?? "The root locus could not be qualified.", branches: [] };
+  } catch (error) {
+    return { status: "unavailable", reason: error instanceof Error ? error.message : String(error), branches: [] };
+  }
+}
+
+function plantPolynomial(model: IdentifiedModel): { numerator: number[]; denominator: number[] } {
+  let numerator = [model.gain];
+  let denominator = model.kind === "integrating" ? [1, 0] : [1];
+  for (const time of [model.timeConstantSeconds, model.secondTimeConstantSeconds]) {
+    if (time !== undefined) denominator = convolve(denominator, [time, 1]);
+  }
+  const delay = model.deadTimeSeconds ?? 0;
+  if (delay > 0) {
+    // A first-order Padé term keeps the delay visible in classical design
+    // without pretending that an omitted delay has no stability effect.
+    numerator = convolve(numerator, [-delay / 2, 1]);
+    denominator = convolve(denominator, [delay / 2, 1]);
+  }
+  return { numerator, denominator };
+}
+
+function controllerPolynomial(candidate: ControlPidCandidate): { numerator: number[]; denominator: number[] } {
+  const p = candidate.parameters;
+  if (p.integralGain !== 0) {
+    return { numerator: trimLeadingZeros([p.derivativeGain, p.proportionalGain, p.integralGain]),
+      denominator: [1, 0] };
+  }
+  return { numerator: trimLeadingZeros([p.derivativeGain, p.proportionalGain]), denominator: [1] };
+}
+
+function trimLeadingZeros(values: number[]): number[] {
+  const first = values.findIndex((value) => Math.abs(value) > 1e-15);
+  if (first < 0) throw new Error("The controller has no finite non-zero gain for root-locus analysis.");
+  return values.slice(first);
+}
+
+function convolve(left: readonly number[], right: readonly number[]): number[] {
+  const result = Array(left.length + right.length - 1).fill(0) as number[];
+  left.forEach((a, leftIndex) => right.forEach((b, rightIndex) => {
+    result[leftIndex + rightIndex] += a * b;
+  }));
+  return result;
+}
+
+function buildUncertaintyEnvelope(
+  model: IdentifiedModel,
+  candidate: ControlPidCandidate,
+  nominal: readonly EngineeringTimePoint[],
+  cycleTime: number
+): EngineeringPlotEvidence["uncertainty"] {
+  const models = uncertaintyCornerModels(model);
+  if (models.length === 0) return { status: "not-evaluated", method: "Not evaluated", points: [] };
+  const traces = models.map((variant) => {
+    const state = simulationState(variant, candidate, cycleTime);
+    return nominal.map(() => advance(state, variant, candidate, cycleTime).pv);
+  });
+  return {
+    status: "evaluated",
+    method: model.uncertainty?.method ?? "declared model set",
+    points: nominal.map((point, index) => {
+      const values = [point.candidatePv, ...traces.map((trace) => trace[index])];
+      return { timeSeconds: point.timeSeconds, lower: Math.min(...values),
+        nominal: point.candidatePv, upper: Math.max(...values) };
+    }),
+  };
+}
+
+function uncertaintyCornerModels(model: IdentifiedModel): IdentifiedModel[] {
+  const uncertainty = model.uncertainty;
+  if (!uncertainty) return [];
+  const fields = [
+    ["gain", uncertainty.gain],
+    ["timeConstantSeconds", uncertainty.timeConstantSeconds],
+    ["secondTimeConstantSeconds", uncertainty.secondTimeConstantSeconds],
+    ["deadTimeSeconds", uncertainty.deadTimeSeconds],
+  ] as const;
+  let variants: IdentifiedModel[] = [{ ...model }];
+  for (const [field, interval] of fields) {
+    if (!interval) continue;
+    variants = variants.flatMap((variant) => [interval.minimum, interval.maximum]
+      .map((value) => ({ ...variant, [field]: value })));
+  }
+  return variants.slice(0, 16);
+}
+
+function graphicalRequirements(
+  time: readonly EngineeringTimePoint[],
+  margins: { gainMarginDb: number; phaseMarginDegrees: number },
+  sensitivity: EngineeringPlotEvidence["sensitivity"]
+): EngineeringPlotEvidence["requirements"] {
+  const current = responseMetrics(time.map((point) => ({ time: point.timeSeconds, pv: point.currentPv })));
+  const candidate = responseMetrics(time.map((point) => ({ time: point.timeSeconds, pv: point.candidatePv })));
+  const maximumOutput = Math.max(...time.map((point) => Math.abs(point.candidateMv)));
+  const maximumSensitivity = Math.max(...sensitivity.map((point) => 10 ** (point.sensitivityMagnitudeDb / 20)));
+  return [
+    requirement("Overshoot", "response", candidate.overshootPercent, Math.max(10, current.overshootPercent), "%", "maximum"),
+    requirement("Settling time", "response", candidate.settlingSeconds, current.settlingSeconds, "s", "maximum"),
+    requirement("Gain margin", "bode", margins.gainMarginDb, 6, "dB", "minimum"),
+    requirement("Phase margin", "bode", margins.phaseMarginDegrees, 30, "°", "minimum"),
+    requirement("Peak sensitivity", "sensitivity", maximumSensitivity, 2, "ratio", "maximum"),
+    requirement("Controller output", "constraints", maximumOutput, 100, "%", "maximum"),
+  ];
+}
+
+function responseMetrics(points: readonly { time: number; pv: number }[]): {
+  overshootPercent: number; settlingSeconds: number;
+} {
+  const overshootPercent = Math.max(0, (Math.max(...points.map((point) => point.pv)) - 1) * 100);
+  let lastOutside = -1;
+  points.forEach((point, index) => { if (Math.abs(point.pv - 1) > 0.02) lastOutside = index; });
+  return { overshootPercent,
+    settlingSeconds: lastOutside < points.length - 1 ? points[Math.max(0, lastOutside + 1)].time : Number.POSITIVE_INFINITY };
+}
+
+function requirement(
+  name: string,
+  plot: EngineeringPlotEvidence["requirements"][number]["plot"],
+  value: number,
+  limit: number,
+  unit: string,
+  direction: "maximum" | "minimum"
+): EngineeringPlotEvidence["requirements"][number] {
+  const valid = Number.isFinite(value) || value === Number.POSITIVE_INFINITY;
+  const passed = valid && (direction === "maximum" ? value <= limit : value >= limit);
+  return { name, plot, status: !valid ? "Inconclusive" : passed ? "Pass" : "Fail",
+    value: value === Number.POSITIVE_INFINITY ? "unbounded" : value, limit, unit, direction };
 }

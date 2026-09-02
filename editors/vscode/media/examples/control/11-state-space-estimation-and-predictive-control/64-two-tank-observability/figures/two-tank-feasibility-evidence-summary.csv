@@ -1,0 +1,5 @@
+layout,status,controllability_rank,observability_rank,condition_number,first_response_s,peak_tank1_cm,peak_tank2_cm,restoration_error_cm
+upstream_pump,qualified,2,,33.416742,0.100,3.972913,2.805425,0.012269
+downstream_bypass,rejected_for_full_state_control,1,,,0.000,0.000000,4.908055,0.004515
+downstream_sensor,qualified,,2,33.386715,,,,,
+upstream_sensor,rejected_for_full_state_observation,,1,,,,,

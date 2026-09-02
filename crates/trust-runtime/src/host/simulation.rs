@@ -195,10 +195,12 @@ pub struct PlantStatus {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ActuatorStatus {
+    pub position: f64,
     pub applied: f64,
     pub saturation_active: bool,
     pub slew_limit_active: bool,
     pub deadband_active: bool,
+    pub stiction_active: bool,
     pub stuck: bool,
 }
 

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-relay-autotuning",
+  "name": "Heat-exchanger feedback-relay experiment",
+  "revision": "sha256:083343ab8ad1bab010f9d60116197bf95c0cc6a0c64908d527168ff23e55a8f7",
+  "projectId": "project:control-relay-autotuning",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "FeedbackRelayExperiment",
+    "design": "project",
+    "revision": "sha256:050cc7976d8375257aae41c7c47bbc1bd3e1c42a993e79a848be7060ff6b75f5",
+    "action": "direct",
+    "taskPeriodMs": 100
+  },
+  "signals": {
+    "processVariable": { "symbol": "P1.QualifiedTemperature", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 40, "maximum": 60 } },
+    "manipulatedVariable": { "symbol": "P1.RelayAmplitude", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 20 } },
+    "actuator": { "symbol": "P1.QualifiedRelayApplied", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+    "additional": [
+      { "id": "experiment-authority", "channel": "experiment-authority", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX8.0", "iecType": "BOOL", "direction": "write", "unit": "bool", "range": { "minimum": 0, "maximum": 1 } },
+      { "id": "weak-relay-pv", "channel": "weak-relay", "role": "PV", "symbol": "P1.RejectedTemperature", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 40, "maximum": 60 } },
+      { "id": "weak-relay-actuator", "channel": "weak-relay", "role": "actuator", "symbol": "P1.RejectedRelayApplied", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } }
+    ]
+  },
+  "limits": { "outputMinimum": 0, "outputMaximum": 20 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "two_independent_plate_heat_exchanger_feedback_relay_copies",
+  "operatingPoint": "50 degC at 20 percent valve position",
+  "experiment": { "execution": "project-scripted", "kind": "observation", "activationSignal": "P1.ExperimentEnabled", "amplitude": 0, "durationSeconds": 180.1, "restorationValue": 0, "seed": 20260829 }
+}

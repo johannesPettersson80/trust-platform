@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "id": "control-water-heater-p",
+  "name": "Water-heater proportional control",
+  "revision": "sha256:bcdc279c0b904e9623721ef0c44d85cdaadc5ff1dd1807dc105b37d69b908080",
+  "projectId": "project:control-water-heater-p",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:93a4bf17ecd28c20305bd1f75ec54313d032a815c3d7842aff34fc02f3ab0e94",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX16.0"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 15,
+        "maximum": 60
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ManipulatedValue",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "proportional-gain",
+        "channel": "proportional-gain",
+        "role": "state",
+        "symbol": "P1.ProportionalGain",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%/degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 1000
+        }
+      },
+      {
+        "id": "requested-heater-power",
+        "channel": "requested-heater-power",
+        "role": "state",
+        "symbol": "P1.RequestedManipulatedValue",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -4000,
+          "maximum": 4000
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "first_order_dead_time",
+  "operatingPoint": "PV 20, MV 0",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 120,
+    "seed": 20260824,
+    "activation": {
+      "symbol": "P1.AutoMode",
+      "address": "%MX16.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
+}

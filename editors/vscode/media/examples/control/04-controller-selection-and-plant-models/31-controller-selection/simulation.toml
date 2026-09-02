@@ -1,0 +1,84 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 1800
+plant_step_ms = 100
+
+[[plants]]
+id = "cold-storage-room"
+model = "first_order"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [4.0]
+
+[plants.parameters]
+gain = -0.05
+time_constant_s = 20.0
+output_bias = 4.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+
+[[plants]]
+id = "recirculating-water-heater"
+model = "first_order_dead_time"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8"]
+initial_state = [20.0]
+
+[plants.parameters]
+gain = 0.2
+time_constant_s = 5.0
+dead_time_s = 1.0
+initial_delayed_input = 0.0
+output_bias = 20.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+
+[[plants]]
+id = "buffer-tank-level"
+model = "integrator"
+command_sources = ["%QL16"]
+feedback_targets = ["%IL16"]
+initial_state = [50.0]
+
+[plants.parameters]
+gain = 0.2
+input_bias = 20.0
+output_bias = 0.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 20.0
+
+[[plants]]
+id = "loaded-positioning-table"
+model = "robot_joint"
+command_sources = ["%QL24"]
+feedback_targets = ["%IL24", "%IL32"]
+initial_state = [0.0, 0.0]
+
+[plants.parameters]
+inertia_kg_m2 = 1.0
+gravity_torque_nm = 4.0
+viscous_friction_nm_s_per_rad = 1.0
+coulomb_friction_nm = 0.0
+friction_smoothing_rad_s = 0.01
+
+[plants.actuator]
+minimum = -10.0
+maximum = 10.0
+initial_applied = 4.0
+
+[[plant_events]]
+at_ms = 60000
+plant = "recirculating-water-heater"
+kind = "set_parameter"
+parameter = "output_bias"
+value = 17.0

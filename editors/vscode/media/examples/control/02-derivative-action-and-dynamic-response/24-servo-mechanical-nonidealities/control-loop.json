@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "id": "control-servo-mechanical-nonidealities",
+  "name": "Diagnose mechanical nonidealities before retuning a servo",
+  "revision": "sha256:c976fda8b01ad80797331b9ab8632d7daa11c987fd43f610297acd418ad81ace",
+  "projectId": "project:control-servo-mechanical-nonidealities",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:c1c48feae5583b67336f5e56559b2d568cdd4dac37082c4dc3756bfd879e9913",
+    "action": "direct",
+    "taskPeriodMs": 20,
+    "modeSignal": "%MX16.0",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.TargetPosition",
+      "address": "%ML40",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rad",
+      "range": {
+        "minimum": -2,
+        "maximum": 2
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.LoadPosition",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rad",
+      "range": {
+        "minimum": -4,
+        "maximum": 4
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.RequestedTorque",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "N m",
+      "range": {
+        "minimum": -50,
+        "maximum": 50
+      }
+    },
+    "additional": [
+      {
+        "id": "profiled-position",
+        "channel": "profiled-position",
+        "role": "state",
+        "symbol": "P1.ProfiledPosition",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad",
+        "range": {
+          "minimum": -2,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "profiled-velocity",
+        "channel": "profiled-velocity",
+        "role": "state",
+        "symbol": "P1.ProfiledVelocity",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -0.5,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "motor-side-velocity",
+        "channel": "motor-side-velocity",
+        "role": "state",
+        "symbol": "P1.MotorVelocity",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": -50,
+    "outputMaximum": 50
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 20
+  },
+  "plantId": "geared-positioning-table",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "setpoint_step",
+    "amplitude": -1,
+    "durationSeconds": 20,
+    "seed": 20260828
+  }
+}

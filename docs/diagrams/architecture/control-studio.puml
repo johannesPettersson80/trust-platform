@@ -13,7 +13,7 @@ package "VS Code webview" {
 
 package "VS Code extension host" {
   component "Control Studio panel\nstrict loop-scoped messages" as panel
-  component "Loop monitor" as monitor
+  component "Loop monitor\nclosed-loop SP/PV/MV or\nopen-loop input/output\n+ typed auxiliary signals" as monitor
   component "Experiment client" as experiment
   component "Identify / tune / validate\npure functions" as analysis
   component "Runtime lifecycle" as lifecycle
@@ -24,6 +24,7 @@ package "VS Code extension host" {
 package "Existing runtime" {
   component "Debug/runtime control server" as control
   component "One process-image\nsnapshot stream" as process_image
+  component "Project-owned lesson sequence\nexisting BOOL authority" as project_sequence
   component "Existing SimulationController" as simulation
   component "Control.PID instance" as pid
 }
@@ -39,8 +40,11 @@ monitor --> lifecycle
 experiment --> lifecycle
 lifecycle --> client : active endpoint + token
 client --> control : existing request transport
-control --> process_image
-process_image --> monitor : SP / PV / MV snapshot
+control --> process_image : bounded writes + restoration
+control --> project_sequence : enable / restore only
+project_sequence --> process_image : existing synchronized scenario
+process_image --> control : fresh PV drives relay thresholds
+process_image --> monitor : one synchronized declared primary + auxiliary snapshot
 process_image --> pid
 simulation --> process_image : pre/post scan I/O
 
@@ -52,8 +56,18 @@ end note
 
 note bottom of experiment
 The runtime owns start, abort, timeout and restore.
+Relay plans carry PV thresholds, not a timed trajectory;
+the runtime changes output only from fresh measured PV.
+Project-scripted plans write only their declared BOOL authority;
+the lesson remains the sole owner of its process excitation.
 Reload recovery polls the same experiment identity;
 it never starts a second excitation.
+end note
+
+note bottom of monitor
+The loop binding declares closed-loop or open-loop topology.
+Open-loop lessons omit SP and error instead of synthesizing either;
+both topologies reuse this monitor and process-image stream.
 end note
 
 note bottom of control

@@ -1,0 +1,10 @@
+panel,series,point,x,y,x_unit,y_unit
+Temperature integrated absolute error,Absolute error,1,0.000000000000,158.670000000000,architecture index,degC*s
+Temperature integrated absolute error,Absolute error,2,1.000000000000,146.720000000000,architecture index,degC*s
+Temperature integrated absolute error,Absolute error,3,2.000000000000,221.570000000000,architecture index,degC*s
+Applied-heater movement,Movement,1,0.000000000000,18.740000000000,architecture index,percentage points
+Applied-heater movement,Movement,2,1.000000000000,160.000000000000,architecture index,percentage points
+Applied-heater movement,Movement,3,2.000000000000,80.000000000000,architecture index,percentage points
+Operating cost,Tariff-weighted heating,1,0.000000000000,46624.000000000000,architecture index,cost-percent-s
+Operating cost,Tariff-weighted heating,2,1.000000000000,46200.000000000000,architecture index,cost-percent-s
+Operating cost,Tariff-weighted heating,3,2.000000000000,45660.000000000000,architecture index,cost-percent-s

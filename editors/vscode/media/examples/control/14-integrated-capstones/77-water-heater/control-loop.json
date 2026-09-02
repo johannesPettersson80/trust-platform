@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 1,
+  "id": "control-capstone-water-heater",
+  "name": "Commission a recirculating water-heater PI loop",
+  "revision": "sha256:curriculum-loop-77",
+  "projectId": "project:control-capstone-water-heater",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Model-qualified PI structure and tuning decision",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-77",
+    "action": "direct",
+    "taskPeriodMs": 100
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.TemperatureSetpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 20,
+        "maximum": 45
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.PTemperature",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.PApplied",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "historical-pi-temperature",
+        "channel": "historical-pi-temperature",
+        "role": "PV",
+        "symbol": "P1.HistoricalTemperature",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "robust-pi-temperature",
+        "channel": "robust-pi-temperature",
+        "role": "PV",
+        "symbol": "P1.CurrentTemperature",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "balanced-pi-temperature",
+        "channel": "balanced-pi-temperature",
+        "role": "PV",
+        "symbol": "P1.CandidateTemperature",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "historical-pi-applied-heater-power",
+        "channel": "historical-pi-applied-heater-power",
+        "role": "MV",
+        "symbol": "P1.HistoricalApplied",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "robust-pi-applied-heater-power",
+        "channel": "robust-pi-applied-heater-power",
+        "role": "MV",
+        "symbol": "P1.CurrentApplied",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "balanced-pi-applied-heater-power",
+        "channel": "balanced-pi-applied-heater-power",
+        "role": "MV",
+        "symbol": "P1.CandidateApplied",
+        "address": "%QL24",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "temperature-quality-good",
+        "channel": "temperature-quality-good",
+        "role": "quality",
+        "symbol": "P1.TemperatureQualityGood",
+        "address": "%MX96.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "controller-revision",
+        "channel": "controller-revision",
+        "role": "state",
+        "symbol": "P1.ControllerRevision",
+        "address": "%MD24",
+        "iecType": "DINT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "four_equivalent_recirculating_water_heaters",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 220,
+    "seed": 20260829
+  }
+}

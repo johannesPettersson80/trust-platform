@@ -1,0 +1,31 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+plant_step_ms = 5
+
+[[plants]]
+id = "nominal-p-loop"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0"]
+initial_state = [0.0, 0.0]
+
+[plants.parameters]
+a = [[0.0, 1.0], [-16.0, -0.64]]
+b = [[0.0, 0.0], [1.6, 16.0]]
+c = [[1.0, 0.0]]
+d = [[0.0, 0.0]]
+
+[[plants]]
+id = "nominal-robust-loop"
+model = "state_space"
+command_sources = ["%QL16", "%QL24"]
+feedback_targets = ["%IL8"]
+initial_state = [0.0, 0.0]
+
+[plants.parameters]
+a = [[0.0, 1.0], [-16.0, -0.64]]
+b = [[0.0, 0.0], [1.6, 16.0]]
+c = [[1.0, 0.0]]
+d = [[0.0, 0.0]]

@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 4,
+  "id": "control-rate-limit",
+  "title": "Motor-operated heating-valve rate limitation",
+  "level": "Foundation",
+  "sequence": 9,
+  "equipment": "Motor-operated hot-water control valve and heating-coil flow transmitter",
+  "physicalPurpose": "Regulate heating-water flow without commanding valve travel faster than its asymmetric geared actuator can move.",
+  "principalTechnique": "Configured-interval asymmetric slew limitation with reproducible requested and applied position retention",
+  "objective": "Distinguish amplitude and rate constraints, calculate the admissible position interval per sample, and prove how actuator travel limits achievable loop response.",
+  "prerequisites": ["control-water-heater-saturation"],
+  "nextLesson": "control-saturation-antiwindup",
+  "signals": [
+    { "role": "SP", "name": "Heating-water flow setpoint", "unit": "L/min", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML0" },
+    { "role": "PV", "name": "Measured heating-water flow", "unit": "L/min", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "MV", "name": "Requested valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%ML8" },
+    { "role": "MV", "name": "Applied valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%QL0" },
+    { "role": "state", "name": "Measured valve travel rate", "unit": "%/s", "minimum": -0.5, "maximum": 1.5, "resolution": 0.001, "binding": "%ML16" },
+    { "role": "state", "name": "Maximum valve opening rate", "unit": "%/s", "minimum": 0, "maximum": 10, "resolution": 0.001, "binding": "%ML24" },
+    { "role": "state", "name": "Maximum valve closing rate", "unit": "%/s", "minimum": 0, "maximum": 10, "resolution": 0.001, "binding": "%ML32" },
+    { "role": "state", "name": "Configured controller task interval", "unit": "s", "minimum": 0.001, "maximum": 10, "resolution": 0.001, "binding": "%ML40" },
+    { "role": "state", "name": "Previous valve position used for update", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%ML48" },
+    { "role": "state", "name": "Lowest admissible valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%ML56" },
+    { "role": "state", "name": "Highest admissible valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%ML64" },
+    { "role": "state", "name": "Automatic mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX72.0" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX80.0" },
+    { "role": "disturbance", "name": "Upstream supply pressure", "unit": "bar", "minimum": 0, "maximum": 10, "resolution": 0.01, "binding": "simulation.toml#plants[0].parameters.gain" }
+  ],
+  "plant": {
+    "modelId": "first_order_dead_time",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      { "name": "gain", "value": 1, "unit": "L/min/%" },
+      { "name": "time_constant", "value": 1, "unit": "s" },
+      { "name": "dead_time", "value": 0.5, "unit": "s" },
+      { "name": "opening_rate", "value": 1.5, "unit": "%/s" },
+      { "name": "closing_rate", "value": 0.5, "unit": "%/s" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "flow": 0, "valvePosition": 0 },
+    "seed": 20260824,
+    "operatingPoint": { "PV": 0, "MV": 0 },
+    "validityRange": [
+      { "signal": "Measured heating-water flow", "minimum": 0, "maximum": 100, "unit": "L/min" },
+      { "signal": "Applied valve position", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "simplifications": ["Supply pressure is constant and absorbed into the local flow gain.", "Valve position to flow is locally linear and represented by one FOPDT state.", "Stiction, backlash, cavitation, valve authority and motor-current limits are omitted."]
+  },
+  "baseline": {
+    "executableId": "Control.PID.UnrestrictedValveRequest",
+    "settings": { "proportionalGain": 0.667, "integralGain": 0.667, "outputMinimum": 0, "outputMaximum": 100 },
+    "limitation": "The in-range PID position request can change faster than the geared valve can physically travel."
+  },
+  "change": {
+    "executableId": "HeatingValve.ConfiguredIntervalAsymmetricRateLimit",
+    "settings": { "openingRate": 1.5, "closingRate": 0.5, "cycleTimeSeconds": 0.1, "outputMinimum": 0, "outputMaximum": 100 },
+    "decision": "Retain requested position and constrain applied position to the asymmetric interval calculated from the previous position used by the update and a task interval synchronized across ST and runtime configuration."
+  },
+  "experiment": {
+    "kind": "setpoint_step",
+    "signal": "Heating-water flow setpoint",
+    "baseline": 0,
+    "amplitude": 10,
+    "durationSeconds": 90.1,
+    "settlingSeconds": 15,
+    "disturbances": ["Upstream supply pressure is held constant so valve travel is the only changed cause"],
+    "seed": 20260824,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    { "metric": "maximum_opening_rate", "signal": "Measured valve travel rate", "window": "0 to 15 s", "comparator": "<=", "limit": 1.5, "unit": "%/s", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "observed_opening_rate", "signal": "Measured valve travel rate", "window": "0 to 15 s", "comparator": ">=", "limit": 1.4, "unit": "%/s", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "maximum_closing_rate", "signal": "Measured valve travel rate", "window": "15 to 40 s", "comparator": ">=", "limit": -0.5, "unit": "%/s", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "observed_closing_rate", "signal": "Measured valve travel rate", "window": "15 to 40 s", "comparator": "<=", "limit": -0.4, "unit": "%/s", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "maximum_requested_applied_gap", "signal": "Requested valve position", "window": "complete run", "comparator": ">=", "limit": 1, "unit": "%", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "flow_at_five_seconds", "signal": "Measured heating-water flow", "window": "5 s sample", "comparator": "<", "limit": 6, "unit": "L/min", "tolerance": 0.01, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [{ "signal": "Measured heating-water flow", "minimum": 0, "maximum": 100, "unit": "L/min" }, { "signal": "Applied valve position", "minimum": 0, "maximum": 100, "unit": "%" }, { "signal": "Measured valve travel rate", "minimum": -0.5, "maximum": 1.5, "unit": "%/s" }],
+    "abortPredicates": ["SP, PV, requested position, applied position or travel rate is nonfinite", "Applied valve position leaves 0 to 100 percent", "Measured opening or closing rate exceeds its declared limit", "Configured task interval is nonpositive or inconsistent with the ST and runtime schedule"],
+    "safeMv": 0,
+    "restorationMode": "Return flow SP to zero without resetting state, wait until applied valve position reaches zero, then select Manual with zero requested and applied position",
+    "physicalApprovalRole": "authorised heating-water controls engineer",
+    "simulationOnlyRestrictions": ["Physical valve rates, fail position, pressure limits and interlocks require independent review and immediate approval before operation."]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-9--rate-limitation-motor-operated-heating-valve",
+    "nativeTest": "control_curriculum_heating_valve_retains_a_bounded_asymmetric_rate_experiment",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heating_valve_rate_evidence control_curriculum_heating_valve_retains_a_bounded_asymmetric_rate_experiment -- --exact --nocapture",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/09-rate-limit",
+    "runArtifactFields": ["runId", "phase", "time", "SP", "PV", "MV_requested", "MV_applied", "MV_previous_used", "r_measured", "r_open", "r_close", "MV_low", "MV_high", "configured_dt", "controllerParameters", "plantParameters", "sampleTime", "seed", "limits", "mode", "abortState", "safeRestoration", "validity", "conclusion", "evidenceClass"],
+    "renderedJourneyId": "control-rate-limit"
+  },
+  "video": {
+    "viewerOutcome": "Calculate an asymmetric per-sample valve interval, verify travel rates from data, and explain why actuator speed limits achievable loop response.",
+    "requiredVisibleEvidence": ["admissible interval equations", "0.15 percent opening increment", "0.05 percent closing increment", "requested/applied overlay", "measured travel rate", "flow-response delay", "Simulation evidence label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 8 showed unavailable demand outside an actuator's amplitude range; an in-range motor-valve position can also be unavailable within the current sample because movement takes time.",
+    "reason": "Rate limitation protects the actuator and changes achievable PV response, so requested and applied position must be retained separately before diagnosing or tuning the loop.",
+    "theory": ["Amplitude limits bound position, while slew limits bound change in position per unit time.", "For the configured task interval dt, the admissible interval is previousApplied - closingRate*dt through previousApplied + openingRate*dt, intersected with the amplitude range.", "Opening and closing rates may differ because actuator mechanics and process safety are directional.", "Measured travel rate is currentApplied minus the previous position used by the update, divided by configured dt; this deterministic lesson requires the ST task, runtime cycle and configured dt to remain synchronized."],
+    "workedPrediction": "At dt 0.1 s, 1.5 percent/s allows a 0.15 percent opening increment and 0.5 percent/s allows a 0.05 percent closing increment. A 10 percent move needs at least 6.67 s opening and 20 s closing.",
+    "practicalPreparation": ["Inspect the named heating valve, flow transmitter, supply-pressure disturbance, signal units, operating point, limits and closed-valve safe state.", "Calculate both per-sample increments and predict the requested/applied traces before approving the bounded simulation step."],
+    "baseline": "Retain the unrestricted PID position request as the idealised actuator baseline and record its initial change.",
+    "change": "Apply the asymmetric configured-interval limiter to valve position while keeping the same controller, plant, setpoint sequence, amplitude range and seed.",
+    "comparison": "Overlay requested and applied position, measure positive and negative slopes, and compare the early flow response under equivalent conditions.",
+    "validation": "Verify 1.5 percent/s opening and 0.5 percent/s closing bounds and observed motion, a requested/applied gap of at least 1 percent, PV below 6 L/min at 5 s, finite signals and 0 to 100 percent applied position.",
+    "explanation": "Explain that the controller calculation is not a physical trajectory and that the slower applied trajectory, rather than inadequate gain, bounds early flow response.",
+    "transfer": "For another deterministically scheduled actuator, synchronize the limiter interval with the ST and runtime task configuration, retain the previous position actually used by each update, verify slopes from recordings and keep actuator dynamics distinct from plant dynamics. Lesson 14 adds measured elapsed time and jitter."
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 4,
+  "id": "control-tank-heater-conservation",
+  "title": "Derive tank and heater models from conservation laws",
+  "level": "Practitioner",
+  "sequence": 33,
+  "equipment": "Constant-area buffer tank and electrically heated vessel",
+  "physicalPurpose": "Explain integrating and self-regulating responses by deriving mass-volume and energy balances with physical units.",
+  "principalTechnique": "First-principles conservation-law modelling",
+  "objective": "Derive an executable buffer tank and heated vessel model from conservation laws, predict their responses with units, and decide whether the simulator agrees.",
+  "prerequisites": ["control-plant-response-classes"],
+  "nextLesson": "control-gravity-tank-linearization",
+  "signals": [
+    { "role": "state", "name": "Tank inlet flow", "unit": "L/s", "minimum": 0, "maximum": 20, "resolution": 0.01, "binding": "%ML0" },
+    { "role": "state", "name": "Tank outlet flow", "unit": "L/s", "minimum": 0, "maximum": 20, "resolution": 0.01, "binding": "%ML8" },
+    { "role": "MV", "name": "Tank net-flow command", "unit": "L/s", "minimum": -20, "maximum": 20, "resolution": 0.01, "binding": "%QL0" },
+    { "role": "PV", "name": "Tank level", "unit": "cm", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "state", "name": "Heater command request", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML16" },
+    { "role": "MV", "name": "Heater applied command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL8" },
+    { "role": "PV", "name": "Heater temperature", "unit": "degC", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%IL8" }
+  ],
+  "plant": {
+    "modelId": "tank_and_heater_conservation",
+    "executable": "simulation.toml#plants",
+    "parameters": [
+      { "name": "tank_area", "value": 0.5, "unit": "m2" },
+      { "name": "tank_integrating_gain", "value": 0.2, "unit": "cm/L" },
+      { "name": "heater_thermal_capacitance", "value": 50, "unit": "kJ/degC" },
+      { "name": "heater_heat_loss_coefficient", "value": 10, "unit": "kW/degC" },
+      { "name": "heater_full_scale_power", "value": 200, "unit": "kW" },
+      { "name": "heater_static_gain", "value": 0.2, "unit": "degC/%" },
+      { "name": "heater_time_constant", "value": 5, "unit": "s" },
+      { "name": "heater_delay", "value": 1, "unit": "s" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "tankLevelCm": 50, "heaterTemperatureDegC": 20 },
+    "seed": 20260829,
+    "operatingPoint": { "Tank inlet flow": 12, "Tank outlet flow": 10, "Tank net-flow command": 2, "Tank level": 50, "Heater command request": 20, "Heater applied command": 20, "Heater temperature": 20 },
+    "validityRange": [
+      { "signal": "Tank inlet flow", "minimum": 0, "maximum": 20, "unit": "L/s" },
+      { "signal": "Tank outlet flow", "minimum": 0, "maximum": 20, "unit": "L/s" },
+      { "signal": "Tank level", "minimum": 0, "maximum": 100, "unit": "cm" },
+      { "signal": "Heater applied command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Heater temperature", "minimum": 0, "maximum": 100, "unit": "degC" }
+    ],
+    "simplifications": [
+      "The tank has constant area, constant density, no overflow, and independently prescribed inlet and outlet flows.",
+      "The vessel is perfectly mixed with constant thermal capacitance and linear heat loss in the declared operating region.",
+      "Sensor dynamics, evaporation, temperature-dependent properties, nonlinear gravity outflow, and unmeasured disturbances are absent."
+    ]
+  },
+  "baseline": {
+    "executableId": "Conservation.ResponseLabelsOnly",
+    "settings": { "evidenceSource": "Lesson 32 physical response traces" },
+    "limitation": "Integrating and self-regulating labels describe curve shapes but do not explain their physical causes or parameter dependence."
+  },
+  "change": {
+    "executableId": "Conservation.DerivePredictValidate",
+    "settings": { "tankAreaSquareMetres": 0.5, "inletLitresPerSecond": 12, "outletLitresPerSecond": 10, "heaterCommandPercent": 20, "durationSeconds": 30 },
+    "decision": "Accept each model only when its unit-consistent first-principles prediction matches the independent simulator response within declared tolerances."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Tank net-flow command",
+    "baseline": 0,
+    "amplitude": 2,
+    "durationSeconds": 30,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    { "metric": "tank_level_rate", "signal": "Tank level", "window": "28.0 to 29.9 s", "comparator": ">=", "limit": 0.39, "unit": "cm/s", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "tank_level_at_20_seconds", "signal": "Tank level", "window": "at 20.0 s", "comparator": ">=", "limit": 57.95, "unit": "cm", "tolerance": 0.05, "evidenceClass": "simulation" },
+    { "metric": "heater_temperature_at_six_seconds", "signal": "Heater temperature", "window": "at 6.0 s", "comparator": ">=", "limit": 22.448, "unit": "degC", "tolerance": 0.08, "evidenceClass": "simulation" },
+    { "metric": "heater_final_temperature", "signal": "Heater temperature", "window": "at 30.0 s after late-slope qualification", "comparator": ">=", "limit": 23.97, "unit": "degC", "tolerance": 0.03, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Tank level", "minimum": 0, "maximum": 100, "unit": "cm" },
+      { "signal": "Heater temperature", "minimum": 0, "maximum": 100, "unit": "degC" }
+    ],
+    "abortPredicates": ["Any command or process value is nonfinite", "Tank level leaves 0 through 100 cm", "Heater temperature leaves 0 through 100 degC", "The monitored model parameters or sample interval differ from the prediction"],
+    "safeMv": 0,
+    "restorationMode": "Return tank net flow and heater command to zero, then restore both declared initial states",
+    "physicalApprovalRole": "authorised process controls engineer",
+    "simulationOnlyRestrictions": ["This combined workshop is simulation-only. Physical flow and heater tests require separate reviewed topology, limits, operating procedures, and immediate approval."]
+  },
+  "workflowStages": ["Monitor", "Test", "Validate"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-33--conservation-law-models-tank-and-heater",
+    "nativeTest": "control_curriculum_conservation_balances_predict_tank_and_heater",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_selection control_curriculum_conservation_balances_predict_tank_and_heater -- --exact --nocapture",
+    "projectPath": "examples/control/04-controller-selection-and-plant-models/33-tank-heater-conservation",
+    "runArtifactFields": ["time", "tankFlows", "tankLevel", "tankPrediction", "heaterCommand", "heaterTemperature", "heaterPrediction", "units", "quality", "modelParameters", "evidenceClass"],
+    "renderedJourneyId": "control-tank-heater-conservation"
+  },
+  "video": {
+    "viewerOutcome": "Derive, predict, and validate an integrating tank and self-regulating heater from conservation laws.",
+    "requiredVisibleEvidence": ["words-before-equations derivation", "unit conversion", "recorded predictions", "tank and heater traces", "equal-flow case", "simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "A constant-area buffer tank stores liquid and a well-mixed electrically heated vessel stores thermal energy.",
+    "reason": "Response-class labels from Lesson 32 do not explain the physical causes or parameter dependence of integration and self-regulation.",
+    "theory": [
+      "Accumulation equals total rate entering minus total rate leaving; the stored quantity becomes a state needed to predict future behavior.",
+      "Tank level follows a volume balance, while vessel temperature follows an energy balance between heating power and temperature-dependent heat loss.",
+      "Equilibrium means zero accumulation; unit consistency and declared assumptions are prerequisites for a meaningful model."
+    ],
+    "workedPrediction": "The tank predicts 0.4 cm/s and 58 cm at 20 s; equal flows predict zero slope. The heater predicts 40 kW, 24 degC equilibrium, 5 s time constant, and 22.53 degC at 6 s.",
+    "practicalPreparation": ["Verify plant identities, units, initial states, parameters, quality, 100 ms sampling, limits, aborts, and Simulation evidence class.", "Write every numerical prediction and its assumptions before starting the run."],
+    "baseline": "Use Lesson 32 response labels without a causal physical model and identify what they cannot predict.",
+    "change": "Derive both balances, run the declared unequal-flow and heater case, restore the tank, then run the equal-flow equilibrium case.",
+    "comparison": "Compare measured late slope, 20-second level, equal-flow drift, six-second heater temperature, final equilibrium, and late slope against declared predictions and windows.",
+    "validation": "Require 0.4 cm/s tank slope, 58 cm at 20 s, negligible equal-flow drift, 22.53 degC at 6 s, and qualified convergence toward 24 degC.",
+    "explanation": "Net flow continuously changes stored liquid, while increasing heat loss balances fixed heater power and creates a finite thermal equilibrium.",
+    "transfer": "Lesson 34 replaces prescribed outlet flow with nonlinear gravity outflow and derives a local linear model around an operating point."
+  }
+}

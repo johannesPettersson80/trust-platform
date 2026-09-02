@@ -96,7 +96,9 @@ fn plant_capabilities_reports_the_closed_runtime_surface() {
             "first_order",
             "first_order_dead_time",
             "integrator",
+            "gravity_tank",
             "piecewise_linear",
+            "robot_joint",
             "second_order",
             "state_space"
         ]))
@@ -258,6 +260,20 @@ time_constant_s = 5.0
     assert_eq!(plants[0].get("state"), Some(&json!([0.0])));
     assert_eq!(plants[0].get("command"), Some(&json!([0.0])));
     assert_eq!(plants[0].get("measured_feedback"), Some(&json!([0.0])));
+    assert_eq!(
+        plants[0]
+            .pointer("/actuators/0/position")
+            .and_then(serde_json::Value::as_f64),
+        Some(0.0),
+        "runtime status must expose physical actuator position separately from the mapped process input"
+    );
+    assert_eq!(
+        plants[0]
+            .pointer("/actuators/0/stiction_active")
+            .and_then(serde_json::Value::as_bool),
+        Some(false),
+        "runtime status must distinguish friction hold from an external stuck fault"
+    );
     assert_eq!(plants[0].get("step_ns").and_then(serde_json::Value::as_str), Some("10000000"));
     assert_eq!(
         plants[0]

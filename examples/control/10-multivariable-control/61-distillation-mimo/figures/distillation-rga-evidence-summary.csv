@@ -1,0 +1,5 @@
+quantity,value_11,value_12,value_21,value_22,status
+steady_gain,0.799872,-0.397300,-0.296218,0.697944,identified
+response_time_s,20.000000,34.600000,39.200000,29.900000,identified
+relative_gain,1.267120,-0.267120,-0.267120,1.267120,diagonal_pairing_qualified
+determinant,0.440579,,,,nonsingular

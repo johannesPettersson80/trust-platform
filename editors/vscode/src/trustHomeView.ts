@@ -45,6 +45,7 @@ import {
 } from "./managedRuntimeSession";
 import type { ManagedRuntime } from "./localRuntimeModel";
 import { getWorkspaceProjectState } from "./workspaceProject";
+import { controlStudioRequestForWorkspace } from "./controlStudio/projectLoop";
 
 // The ONE truST sidebar (WebviewView `trust.home`). It keeps one fixed layout:
 //   • No project open  → Examples-first onboarding; no transport controls.
@@ -312,6 +313,17 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
         return;
       case "navDevices":
         await vscode.commands.executeCommand("trust-lsp.networkCanvas.open");
+        return;
+      case "navControlStudio":
+        {
+          const resolution = await controlStudioRequestForWorkspace(getSelectedRuntimeId());
+          if (resolution.kind !== "accepted") {
+            void vscode.window.showWarningMessage(resolution.reason);
+            return;
+          }
+          const request = resolution.request;
+          await vscode.commands.executeCommand("trust-lsp.controlStudio.open", request);
+        }
         return;
       case "navLibraries":
         await vscode.commands.executeCommand("trust-lsp.libraries.open");
@@ -869,11 +881,13 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       <nav class="nav" aria-label="truST destinations disabled until a project is open">
         <button class="nav-button" disabled><span class="nav-icon">▤</span><span>Devices &amp; Connections</span></button>
         <div class="disabled-reason">Open a project to use this.</div>
-        <button class="nav-button" disabled><span class="nav-icon">▦</span><span>Libraries</span></button>
+        <button class="nav-button" disabled><span class="nav-icon codicon codicon-graph-line" aria-hidden="true"></span><span>Control Studio</span></button>
         <div class="disabled-reason">Open a project to use this.</div>
         <button class="nav-button" disabled><span class="nav-icon">◉</span><span>Live Values</span></button>
         <div class="disabled-reason">Start a project to watch values.</div>
         <button class="nav-button" disabled><span class="nav-icon">▭</span><span>Create HMI</span></button>
+        <div class="disabled-reason">Open a project to use this.</div>
+        <button class="nav-button" disabled><span class="nav-icon">▦</span><span>Libraries</span></button>
         <div class="disabled-reason">Open a project to use this.</div>
       </nav>
 	  </section>
@@ -911,9 +925,10 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 
       <nav class="nav" aria-label="truST destinations">
         <button class="nav-button" id="navDevices"><span class="nav-icon">▤</span><span>Devices &amp; Connections</span></button>
-        <button class="nav-button" id="navLibraries"><span class="nav-icon">▦</span><span>Libraries</span></button>
+        <button class="nav-button" id="navControlStudio"><span class="nav-icon codicon codicon-graph-line" aria-hidden="true"></span><span>Control Studio</span></button>
         <button class="nav-button" id="navLiveValues"><span class="nav-icon">◉</span><span>Live Values</span></button>
         <button class="nav-button" id="navHmi"><span class="nav-icon">▭</span><span id="navHmiLabel">HMI</span></button>
+        <button class="nav-button" id="navLibraries"><span class="nav-icon">▦</span><span>Libraries</span></button>
       </nav>
 	  </section>
 	<script nonce="${nonce}">
@@ -1006,6 +1021,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 	  document.getElementById("openProject").addEventListener("click", post("openProject"));
 	  document.getElementById("startExample").addEventListener("click", post("startExample"));
 	  document.getElementById("navDevices").addEventListener("click", post("navDevices"));
+	  document.getElementById("navControlStudio").addEventListener("click", post("navControlStudio"));
 	  document.getElementById("navLibraries").addEventListener("click", post("navLibraries"));
 	  document.getElementById("navLiveValues").addEventListener("click", post("navLiveValues"));
 	  document.getElementById("navHmi").addEventListener("click", post("navHmi"));

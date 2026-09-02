@@ -36,7 +36,11 @@ BASE_REQUIRED_COMMANDS = (
     "diff_check",
     "strict_gate",
     "remote_exact_head",
+    "remote_disk_preflight",
     "remote_fmt",
+    "remote_cross_target_warnings",
+    "remote_supply_chain",
+    "remote_architecture_safety",
     "remote_clippy",
     "remote_reclaim_before_test_all",
     "remote_test_all",
@@ -134,7 +138,10 @@ def changed_paths_sha256(repo: Path, base: str, head: str) -> str:
 
 def required_command_ids(*, vscode_changed: bool) -> tuple[str, ...]:
     if vscode_changed:
-        return BASE_REQUIRED_COMMANDS + ("remote_vscode",)
+        return BASE_REQUIRED_COMMANDS + (
+            "remote_docs_capture_lifecycle",
+            "remote_vscode",
+        )
     return BASE_REQUIRED_COMMANDS
 
 
@@ -516,7 +523,16 @@ def parser() -> argparse.ArgumentParser:
     merge_parser.set_defaults(handler=check_merge)
 
     release_parser = subparsers.add_parser("verify-release")
+    release_parser.add_argument("--candidate-head", required=True)
+    release_parser.add_argument("--branch", required=True)
+    release_parser.add_argument("--main-ref", default="origin/main")
     release_parser.set_defaults(handler=verify_release_command)
+
+    cleanup_parser = subparsers.add_parser("audit-post-merge")
+    cleanup_parser.add_argument("--candidate-head", required=True)
+    cleanup_parser.add_argument("--branch", required=True)
+    cleanup_parser.add_argument("--main-ref", default="origin/main")
+    cleanup_parser.set_defaults(handler=audit_post_merge_command)
     return result
 
 
@@ -529,7 +545,18 @@ def prepare_command(args: argparse.Namespace) -> int:
 def verify_release_command(args: argparse.Namespace) -> int:
     from release_candidate_release import verify_release
 
-    return verify_release(args)
+    release_result = verify_release(args)
+    if release_result != 0:
+        return release_result
+    from release_candidate_cleanup import audit_post_merge
+
+    return audit_post_merge(args)
+
+
+def audit_post_merge_command(args: argparse.Namespace) -> int:
+    from release_candidate_cleanup import audit_post_merge
+
+    return audit_post_merge(args)
 
 
 def check_push_command(args: argparse.Namespace) -> int:

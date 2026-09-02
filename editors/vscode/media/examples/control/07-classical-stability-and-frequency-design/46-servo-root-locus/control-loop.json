@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "control-servo-root-locus",
+  "name": "Positioning-servo root-locus comparison",
+  "revision": "sha256:curriculum-loop-46",
+  "projectId": "project:control-servo-root-locus",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "LeadCompensatorComparison", "design": "project", "revision": "sha256:curriculum-controller-46", "action": "direct", "taskPeriodMs": 10 },
+  "signals": {
+    "setpoint": { "symbol": "P1.ProportionalSetpoint", "address": "%ML16", "iecType": "LREAL", "direction": "read", "unit": "mm", "range": { "minimum": -5, "maximum": 5 } },
+    "processVariable": { "symbol": "P1.ProportionalPosition", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "mm", "range": { "minimum": -5, "maximum": 5 } },
+    "manipulatedVariable": { "symbol": "P1.ProportionalApplied", "address": "%QL0", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": -100, "maximum": 100 } },
+    "additional": [
+      { "id": "lead-sp", "channel": "lead", "role": "SP", "symbol": "P1.LeadSetpoint", "address": "%ML24", "iecType": "LREAL", "direction": "read", "unit": "mm", "range": { "minimum": -5, "maximum": 5 } },
+      { "id": "lead-pv", "channel": "lead", "role": "PV", "symbol": "P1.LeadPosition", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "mm", "range": { "minimum": -5, "maximum": 5 } },
+      { "id": "lead-mv", "channel": "lead", "role": "MV", "symbol": "P1.LeadApplied", "address": "%QL8", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": -100, "maximum": 100 } }
+    ]
+  },
+  "limits": { "outputMinimum": -100, "outputMaximum": 100 },
+  "observedSampleTiming": { "nominalPeriodMs": 10 },
+  "plantId": "positioning_servo_root_locus_pair",
+  "experiment": { "execution": "project-scripted", "kind": "observation", "amplitude": 0, "durationSeconds": 8, "seed": 20260829, "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX96.0", "iecType": "BOOL", "direction": "write" } }
+}

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "control-controller-selection",
+  "name": "Minimum sufficient controller selection",
+  "revision": "sha256:curriculum-loop-31",
+  "projectId": "project:control-controller-selection",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "ControllerSelectionWorkshop", "design": "project", "revision": "sha256:controller-selection-workshop", "action": "direct", "taskPeriodMs": 100 },
+  "signals": {
+    "setpoint": { "symbol": "P1.ColdRoomSetpoint", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": -5, "maximum": 10 } },
+    "processVariable": { "symbol": "P1.ColdRoomTemperature", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": -10, "maximum": 20 } },
+    "manipulatedVariable": { "symbol": "P1.ColdRoomCompressor", "address": "%QL0", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+    "additional": [
+      { "id": "experiment-authority-enabled", "channel": "experiment-authority-enabled", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX88.0", "iecType": "BOOL", "direction": "read", "unit": "1", "range": { "minimum": 0, "maximum": 1 } },
+      { "id": "heater-sp", "channel": "heater", "role": "SP", "symbol": "P1.HeaterSetpoint", "address": "%ML8", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 20, "maximum": 40 } },
+      { "id": "heater-pv", "channel": "heater", "role": "PV", "symbol": "P1.HeaterTemperature", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 0, "maximum": 60 } },
+      { "id": "heater-mv", "channel": "heater", "role": "MV", "symbol": "P1.HeaterPower", "address": "%QL8", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "tank-sp", "channel": "tank", "role": "SP", "symbol": "P1.TankSetpoint", "address": "%ML16", "iecType": "LREAL", "direction": "read", "unit": "cm", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "tank-pv", "channel": "tank", "role": "PV", "symbol": "P1.TankLevel", "address": "%IL16", "iecType": "LREAL", "direction": "read", "unit": "cm", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "tank-mv", "channel": "tank", "role": "MV", "symbol": "P1.TankPump", "address": "%QL16", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "table-sp", "channel": "table", "role": "SP", "symbol": "P1.TableSetpoint", "address": "%ML24", "iecType": "LREAL", "direction": "read", "unit": "rad", "range": { "minimum": -4, "maximum": 4 } },
+      { "id": "table-pv", "channel": "table", "role": "PV", "symbol": "P1.TablePosition", "address": "%IL24", "iecType": "LREAL", "direction": "read", "unit": "rad", "range": { "minimum": -4, "maximum": 4 } },
+      { "id": "table-mv", "channel": "table", "role": "MV", "symbol": "P1.TableTorque", "address": "%QL24", "iecType": "LREAL", "direction": "write", "unit": "N m", "range": { "minimum": -10, "maximum": 10 } },
+      { "id": "cold-room-structure", "channel": "selection", "role": "state", "symbol": "P1.ColdRoomStructure", "address": "%MW80", "iecType": "INT", "direction": "read", "unit": "1", "range": { "minimum": 0, "maximum": 6 } }
+    ]
+  },
+  "limits": { "outputMinimum": 0, "outputMaximum": 100 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "multi_plant_selection_workshop",
+  "operatingPoint": "Four independent loops at their declared initial states",
+  "experiment": { "execution": "project-scripted", "kind": "observation", "amplitude": 0, "durationSeconds": 120.1, "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX88.0", "activeValue": true, "restorationValue": false }, "seed": 20260829 }
+}

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-pole-zero-plant-classes",
+  "name": "Pole-zero plant classes",
+  "revision": "sha256:curriculum-loop-35",
+  "projectId": "project:control-pole-zero-plant-classes",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "PoleZeroClassExperiment", "design": "project", "revision": "sha256:pole-zero-class-experiment", "action": "direct", "taskPeriodMs": 100 },
+  "signals": {
+    "processVariable": { "symbol": "P1.HeaterTemperature", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 0, "maximum": 100 } },
+    "manipulatedVariable": { "symbol": "P1.ExperimentInput", "address": "%ML0", "iecType": "LREAL", "direction": "write", "unit": "1", "range": { "minimum": 0, "maximum": 1 } },
+    "additional": [
+      { "id": "heater-command", "channel": "heater", "role": "actuator", "symbol": "P1.HeaterCommand", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "tank-level", "channel": "tank", "role": "PV", "symbol": "P1.TankLevel", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "cm", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "tank-flow", "channel": "tank", "role": "actuator", "symbol": "P1.TankNetFlow", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "L/s", "range": { "minimum": -5, "maximum": 5 } },
+      { "id": "drive-position", "channel": "drive", "role": "PV", "symbol": "P1.DrivePosition", "address": "%IL16", "iecType": "LREAL", "direction": "read", "unit": "rad", "range": { "minimum": -5, "maximum": 5 } },
+      { "id": "drive-torque", "channel": "drive", "role": "actuator", "symbol": "P1.DriveTorque", "address": "%QL16", "iecType": "LREAL", "direction": "read", "unit": "N m", "range": { "minimum": -2, "maximum": 2 } },
+      { "id": "crane-position", "channel": "crane", "role": "PV", "symbol": "P1.CranePayloadPosition", "address": "%IL24", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": -2, "maximum": 2 } },
+      { "id": "crane-force", "channel": "crane", "role": "actuator", "symbol": "P1.CraneForce", "address": "%QL24", "iecType": "LREAL", "direction": "read", "unit": "N", "range": { "minimum": -2, "maximum": 2 } },
+      { "id": "bearing-displacement", "channel": "bearing", "role": "PV", "symbol": "P1.BearingDisplacement", "address": "%IL32", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": -0.01, "maximum": 0.01 } },
+      { "id": "bearing-force", "channel": "bearing", "role": "actuator", "symbol": "P1.BearingForce", "address": "%QL32", "iecType": "LREAL", "direction": "read", "unit": "N", "range": { "minimum": -0.001, "maximum": 0.001 } },
+      { "id": "boiler-level", "channel": "boiler", "role": "PV", "symbol": "P1.BoilerDrumLevel", "address": "%IL40", "iecType": "LREAL", "direction": "read", "unit": "cm", "range": { "minimum": -2, "maximum": 2 } },
+      { "id": "boiler-feedwater", "channel": "boiler", "role": "actuator", "symbol": "P1.BoilerFeedwater", "address": "%QL40", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": -2, "maximum": 2 } }
+    ]
+  },
+  "limits": { "outputMinimum": 0, "outputMaximum": 1 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "six_pole_zero_plant_classes",
+  "operatingPoint": "Normalized experiment input 0",
+  "experiment": { "execution": "control-studio", "kind": "mv_step", "amplitude": 1, "durationSeconds": 30, "seed": 20260829 }
+}

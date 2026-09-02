@@ -1,0 +1,81 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 4000
+plant_step_ms = 100
+
+[[plants]]
+id = "heated-vessel-stable-real-pole"
+model = "first_order"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [20.0]
+[plants.parameters]
+gain = 0.2
+time_constant_s = 5.0
+input_bias = 0.0
+output_bias = 20.0
+
+[[plants]]
+id = "storage-tank-origin-pole"
+model = "integrator"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8"]
+initial_state = [50.0]
+[plants.parameters]
+gain = 0.2
+input_bias = 0.0
+output_bias = 0.0
+
+[[plants]]
+id = "flexible-drive-complex-poles"
+model = "second_order"
+command_sources = ["%QL16"]
+feedback_targets = ["%IL16"]
+initial_state = [0.0, 0.0]
+[plants.parameters]
+gain = 1.0
+natural_frequency_rad_s = 1.0
+damping_ratio = 0.2
+input_bias = 0.0
+output_bias = 0.0
+
+[[plants]]
+id = "overhead-crane-dominant-slow-pole"
+model = "state_space"
+command_sources = ["%QL24"]
+feedback_targets = ["%IL24"]
+initial_state = [0.0, 0.0, 0.0]
+[plants.parameters]
+# Denominator: (s+0.1)*((s+1)^2+16).
+a = [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [-1.7, -17.2, -2.1]]
+b = [[0.0], [0.0], [1.0]]
+c = [[1.7, 0.0, 0.0]]
+d = [[0.0]]
+
+[[plants]]
+id = "open-loop-magnetic-bearing-unstable-pole"
+model = "state_space"
+command_sources = ["%QL32"]
+feedback_targets = ["%IL32"]
+initial_state = [0.0]
+[plants.parameters]
+a = [[0.4]]
+b = [[1.0]]
+c = [[1.0]]
+d = [[0.0]]
+
+[[plants]]
+id = "boiler-drum-right-half-plane-zero"
+model = "state_space"
+command_sources = ["%QL40"]
+feedback_targets = ["%IL40"]
+initial_state = [0.0, 0.0]
+[plants.parameters]
+# G(s)=(-0.4*s+0.025)/((s+0.05)*(s+0.5)); zero=+0.0625.
+a = [[-0.05, 0.0], [0.0, -0.5]]
+b = [[0.05], [0.5]]
+c = [[2.0, -1.0]]
+d = [[0.0]]

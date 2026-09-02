@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 4,
+  "id": "control-blending-ratio",
+  "title": "Hold a two-stream blending ratio",
+  "level": "Advanced",
+  "sequence": 55,
+  "equipment": "liquid blending skid",
+  "physicalPurpose": "Move additive demand with production flow before downstream composition error develops.",
+  "principalTechnique": "Wild-stream ratio station with analyser PI trim and low-flow authority",
+  "objective": "Configure a blending ratio station, make additive demand follow a valid production-flow change immediately, use downstream composition feedback only as trim, and remove ratio authority safely when wild-flow data are invalid or below the controllable range.",
+  "prerequisites": ["control-reactor-cascade"],
+  "nextLesson": "control-reactor-split-range",
+  "signals": [
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX160.1" },
+    { "role": "quality", "name": "Wild-flow validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX88.2" },
+    { "role": "state", "name": "Ratio authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX88.3" },
+    { "role": "SP", "name": "Blend-ratio setpoint", "unit": "1", "minimum": 0.1, "maximum": 0.5, "resolution": 0.001, "binding": "%ML120" },
+    { "role": "disturbance", "name": "Actual wild-stream flow", "unit": "L/min", "minimum": 0, "maximum": 160, "resolution": 0.01, "binding": "%ML128" },
+    { "role": "state", "name": "Measured wild-stream flow", "unit": "L/min", "minimum": 0, "maximum": 160, "resolution": 0.01, "binding": "%ML136" },
+    { "role": "state", "name": "Untrimmed ratio demand", "unit": "L/min", "minimum": 0, "maximum": 60, "resolution": 0.01, "binding": "%ML144" },
+    { "role": "state", "name": "Composition feedback trim", "unit": "L/min", "minimum": -30, "maximum": 30, "resolution": 0.01, "binding": "%ML152" },
+    { "role": "PV", "name": "Feedback-only blend ratio", "unit": "1", "minimum": 0.1, "maximum": 0.5, "resolution": 0.0001, "binding": "%IL48" },
+    { "role": "state", "name": "Ratio-controlled blend ratio", "unit": "1", "minimum": 0.1, "maximum": 0.5, "resolution": 0.0001, "binding": "%IL56" },
+    { "role": "MV", "name": "Feedback-only additive request", "unit": "L/min", "minimum": 0, "maximum": 60, "resolution": 0.01, "binding": "%QL48" },
+    { "role": "state", "name": "Ratio-controlled additive request", "unit": "L/min", "minimum": 0, "maximum": 60, "resolution": 0.01, "binding": "%QL64" }
+  ],
+  "plant": {
+    "modelId": "two_equivalent_local_blending_skids",
+    "executable": "simulation.toml",
+    "parameters": [
+      { "name": "mixing_analyser_time_constant", "value": 2, "unit": "s" },
+      { "name": "additive_sensitivity", "value": 0.01, "unit": "1" },
+      { "name": "wild_flow_sensitivity", "value": -0.003, "unit": "1" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "blendRatio": 0.30, "additiveFlowLMin": 30, "wildFlowLMin": 100 },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Blend-ratio setpoint": 0.30,
+      "Actual wild-stream flow": 100,
+      "Measured wild-stream flow": 100,
+      "Untrimmed ratio demand": 30,
+      "Composition feedback trim": 0,
+      "Feedback-only blend ratio": 0.30,
+      "Ratio-controlled blend ratio": 0.30,
+      "Feedback-only additive request": 30,
+      "Ratio-controlled additive request": 30
+    },
+    "validityRange": [
+      { "signal": "Actual wild-stream flow", "minimum": 80, "maximum": 130, "unit": "L/min" },
+      { "signal": "Measured wild-stream flow", "minimum": 10, "maximum": 160, "unit": "L/min" },
+      { "signal": "Feedback-only blend ratio", "minimum": 0.1, "maximum": 0.5, "unit": "1" },
+      { "signal": "Ratio-controlled blend ratio", "minimum": 0.1, "maximum": 0.5, "unit": "1" }
+    ],
+    "simplifications": [
+      "Local material-balance linearisation around 100 L/min wild flow and ratio 0.30",
+      "One two-second state combines mixing transport and analyser lag",
+      "The low-flow case proves authority fallback only and is outside the local composition model",
+      "Two deterministic equivalent plants isolate ratio feedforward from identical PI trim",
+      "Simulation-only I/O and evidence"
+    ]
+  },
+  "baseline": {
+    "executableId": "Blender.CompositionFeedbackOnly",
+    "settings": { "kpLMinPerRatio": 50, "kiLMinPerRatioSecond": 10, "initialAdditiveFlowLMin": 30 },
+    "limitation": "Downstream composition feedback cannot move additive flow until mixing lag has produced a measured ratio error."
+  },
+  "change": {
+    "executableId": "Blender.RatioPlusTrim",
+    "settings": { "ratioSetpoint": 0.30, "minimumWildFlowLMin": 10, "maximumWildFlowLMin": 160, "safeAdditiveFlowLMin": 0, "feedbackTrimKp": 50, "feedbackTrimKi": 10 },
+    "decision": "Use ratio authority only with valid scaled wild-flow data above the reviewed minimum, and retain analyser PI as bounded trim rather than a substitute for meter validity."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Actual wild-stream flow",
+    "baseline": 100,
+    "amplitude": 0,
+    "durationSeconds": 90.1,
+    "settlingSeconds": 30,
+    "disturbances": ["Actual and measured wild flow change from 100 to 120 L/min at 30.0 s", "A separate restored run changes only measured wild flow to 125 L/min", "Separate fallback runs invalidate wild-flow quality or request 5 L/min"],
+    "seed": 20260829,
+    "restorationValue": 100,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    { "metric": "first_scan_ratio_demand", "signal": "Untrimmed ratio demand", "window": "first controller scan after 30.0-s production event", "comparator": "==", "limit": 36, "unit": "L/min", "tolerance": 0.05, "evidenceClass": "simulation" },
+    { "metric": "nominal_ratio_event_iae_ratio", "signal": "Ratio-controlled blend ratio", "window": "30 through 60 s ratio-plus-trim IAE divided by feedback-only IAE", "comparator": "<", "limit": 0.35, "unit": "1", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "biased_final_mean_absolute_error", "signal": "Ratio-controlled blend ratio", "window": "80 through 90 s after settling qualification in the +5-L/min meter-bias run", "comparator": "<", "limit": 0.002, "unit": "1", "tolerance": 0.0001, "evidenceClass": "simulation" },
+    { "metric": "biased_final_trim", "signal": "Composition feedback trim", "window": "80 through 90 s in the +5-L/min meter-bias run", "comparator": "==", "limit": -1.5, "unit": "L/min", "tolerance": 0.2, "evidenceClass": "simulation" },
+    { "metric": "safe_fallback_request", "signal": "Ratio-controlled additive request", "window": "all samples after invalid quality or below-minimum wild flow", "comparator": "==", "limit": 0, "unit": "L/min", "tolerance": 0, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Feedback-only additive request", "minimum": 0, "maximum": 60, "unit": "L/min" },
+      { "signal": "Ratio-controlled additive request", "minimum": 0, "maximum": 60, "unit": "L/min" },
+      { "signal": "Feedback-only blend ratio", "minimum": 0.1, "maximum": 0.5, "unit": "1" },
+      { "signal": "Ratio-controlled blend ratio", "minimum": 0.1, "maximum": 0.5, "unit": "1" }
+    ],
+    "abortPredicates": ["Any required signal is nonfinite, stale, forced, badly scaled, or has invalid quality", "Any additive request leaves 0 through 60 L/min", "Blend ratio leaves 0.10 through 0.50 during a qualified local-model run", "Plant identity, ratio authority, or restoration state is lost"],
+    "safeMv": 0,
+    "restorationMode": "Track additive request at zero while ratio authority is unavailable; restore valid 100-L/min wild flow and prove measurements and valve state before returning to automatic ratio control.",
+    "physicalApprovalRole": "authorised blending-skid controls engineer and responsible process operator",
+    "simulationOnlyRestrictions": ["No physical dosing valve or production flow is operated", "Low-flow composition traces are not valid evidence for the local model", "Physical ratio control requires reviewed meter scaling, valve rangeability, interlocks, safe state and explicit experiment approval"]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-55--ratio-control-blending-skid",
+    "nativeTest": "control_curriculum_ratio_station_moves_with_wild_flow_and_fails_safe_at_low_flow",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_industrial_structures control_curriculum_ratio_station_moves_with_wild_flow_and_fails_safe_at_low_flow -- --exact --nocapture",
+    "projectPath": "examples/control/09-industrial-control-structures/55-blending-ratio",
+    "runArtifactFields": ["projectIdentity", "plantIdentities", "controllerIdentities", "evidenceClass", "sampleTime", "seed", "ratioSetpoint", "actualWildFlow", "measuredWildFlow", "wildFlowValidity", "ratioAuthority", "ratioDemand", "compositionTrim", "blendRatios", "requestedAdditiveFlows", "appliedAdditiveFlows", "limits", "abortState", "restorationState", "metricDefinitions", "metrics", "settlingQualification"],
+    "renderedJourneyId": "control-blending-ratio"
+  },
+  "video": {
+    "viewerOutcome": "Configure a wild-stream ratio station with analyser trim and explain its scaling, low-flow and measurement-quality boundaries.",
+    "requiredVisibleEvidence": ["two equivalent blending skids", "actual and measured wild flow", "quality and ratio authority", "ratio setpoint and both measured ratios", "untrimmed demand and PI trim", "requested and applied additive flows", "nominal production event", "+5-L/min meter bias", "low-flow and invalid-quality fallback", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "A base-liquid wild stream establishes production rate while a separate additive valve controls the material-flow ratio measured after a two-second mixing and analyser lag.",
+    "reason": "Unlike the nested reactor variables in the preceding cascade lesson, blender quality depends on two flows remaining proportional while one changes independently.",
+    "theory": ["Ratio demand is ratio setpoint times valid measured wild flow; analyser PI supplies only bounded additive-flow trim.", "A local material-balance model explains the two input sensitivities and its own invalidity near zero flow.", "Bad quality or wild flow outside 10 through 160 L/min removes ratio authority and tracks the reviewed zero-flow safe request."],
+    "workedPrediction": "A 100-to-120-L/min wild-flow step changes untrimmed additive demand from 30 to 36 L/min immediately; a +5-L/min meter bias creates 1.5 L/min excess demand for analyser trim to remove.",
+    "practicalPreparation": ["Verify Simulation evidence, both plants and controllers, engineering units, meter scaling, quality, ratio authority, limits, sample time and operating point.", "Define event IAE, peak deviation, additive-flow movement, final-window eligibility and fallback status before revealing results."],
+    "baseline": "Run identical composition PI without ratio demand and retain the downstream error that appears before feedback can respond.",
+    "change": "Add valid measured-wild-flow ratio demand ahead of the same PI trim, then separately introduce meter bias, invalid quality and below-minimum flow.",
+    "comparison": "Hold plant, state, tuning, physical event, timing, limits, seed and metric windows equal while changing only ratio authority or the declared measurement property.",
+    "validation": "Require immediate 36-L/min demand, less than 35 percent of feedback-only event IAE, analyser recovery from modest meter bias, and zero tracked request with no quality claim under invalid or low flow.",
+    "explanation": "Material-flow feedforward acts before mixed product reaches the analyser; feedback repairs modest mismatch but cannot validate a missing, badly scaled or physically singular wild-flow measurement.",
+    "transfer": "Use ratio control for proportional streams; the next lesson coordinates heating and cooling final elements across one controller output range."
+  }
+}

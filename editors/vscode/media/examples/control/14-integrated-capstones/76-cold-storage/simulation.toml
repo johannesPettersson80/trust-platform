@@ -1,0 +1,55 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 4000
+plant_step_ms = 100
+
+[[plants]]
+id = "cold-storage-room"
+model = "first_order"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [2.0]
+[plants.parameters]
+gain = -0.05
+time_constant_s = 20.0
+output_bias = 4.0
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 0.0
+[[plants.uncertainties]]
+id = "qualified-temperature-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+standard_deviation = 0.03
+
+[[plants]]
+id = "compressor-running-feedback"
+model = "static_gain"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL8"]
+[plants.parameters]
+gain = 1.0
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 0.0
+
+[[plant_events]]
+at_ms = 60000
+plant = "cold-storage-room"
+kind = "set_parameter"
+parameter = "output_bias"
+value = 6.0
+
+[[plant_events]]
+at_ms = 90000
+plant = "cold-storage-room"
+kind = "set_parameter"
+parameter = "output_bias"
+value = 4.0

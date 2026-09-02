@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 4,
+  "id": "control-pole-zero-plant-classes",
+  "title": "Predict six plant responses from poles and zeros",
+  "level": "Practitioner",
+  "sequence": 35,
+  "equipment": "Heated vessel, storage tank, flexible drive, overhead crane, magnetic bearing, and boiler drum",
+  "physicalPurpose": "Relate stable, integrating, oscillatory, unstable, dominant, and inverse-response behavior to pole-zero structure.",
+  "principalTechnique": "Pole-zero interpretation and response matching",
+  "objective": "Predict and justify six qualitative open-loop responses from pole-zero locations and validate each match against executable evidence.",
+  "prerequisites": ["control-gravity-tank-linearization"],
+  "nextLesson": "control-two-tank-state-space",
+  "signals": [
+    { "role": "state", "name": "Experiment authority", "unit": "bool", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.1" },
+    { "role": "state", "name": "Normalized experiment", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 0.01, "binding": "%ML0" },
+    { "role": "MV", "name": "Heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL0" },
+    { "role": "PV", "name": "Heater temperature", "unit": "degC", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "MV", "name": "Tank net flow", "unit": "L/s", "minimum": -5, "maximum": 5, "resolution": 0.01, "binding": "%QL8" },
+    { "role": "PV", "name": "Tank level", "unit": "cm", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%IL8" },
+    { "role": "MV", "name": "Drive torque", "unit": "N m", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%QL16" },
+    { "role": "PV", "name": "Drive position", "unit": "rad", "minimum": -5, "maximum": 5, "resolution": 0.001, "binding": "%IL16" },
+    { "role": "MV", "name": "Crane force", "unit": "N", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%QL24" },
+    { "role": "PV", "name": "Crane payload position", "unit": "m", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%IL24" },
+    { "role": "MV", "name": "Bearing force", "unit": "N", "minimum": -0.001, "maximum": 0.001, "resolution": 0.000001, "binding": "%QL32" },
+    { "role": "PV", "name": "Bearing displacement", "unit": "m", "minimum": -0.01, "maximum": 0.01, "resolution": 0.000001, "binding": "%IL32" },
+    { "role": "MV", "name": "Boiler feedwater change", "unit": "%", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%QL40" },
+    { "role": "PV", "name": "Boiler drum-level change", "unit": "cm", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%IL40" }
+  ],
+  "plant": {
+    "modelId": "six_pole_zero_plant_classes",
+    "executable": "simulation.toml#plants",
+    "parameters": [
+      { "name": "heater_pole", "value": -0.2, "unit": "1/s" },
+      { "name": "tank_pole", "value": 0, "unit": "1/s" },
+      { "name": "drive_natural_frequency", "value": 1, "unit": "rad/s" },
+      { "name": "drive_damping_ratio", "value": 0.2, "unit": "1" },
+      { "name": "crane_dominant_pole", "value": -0.1, "unit": "1/s" },
+      { "name": "bearing_unstable_pole", "value": 0.4, "unit": "1/s" },
+      { "name": "boiler_slow_pole", "value": -0.05, "unit": "1/s" },
+      { "name": "boiler_fast_pole", "value": -0.5, "unit": "1/s" },
+      { "name": "boiler_rhp_zero", "value": 0.0625, "unit": "1/s" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "heaterTemperatureDegC": 20, "tankLevelCm": 50, "drivePositionRad": 0, "cranePositionM": 0, "bearingDisplacementM": 0, "boilerDrumLevelCm": 0 },
+    "seed": 20260829,
+    "operatingPoint": { "Normalized experiment": 0, "Heater command": 0, "Heater temperature": 20, "Tank net flow": 0, "Tank level": 50, "Drive torque": 0, "Drive position": 0, "Crane force": 0, "Crane payload position": 0, "Bearing force": 0, "Bearing displacement": 0, "Boiler feedwater change": 0, "Boiler drum-level change": 0 },
+    "validityRange": [
+      { "signal": "Normalized experiment", "minimum": 0, "maximum": 1, "unit": "1" },
+      { "signal": "Bearing displacement", "minimum": -0.01, "maximum": 0.01, "unit": "m" },
+      { "signal": "Heater temperature", "minimum": 0, "maximum": 100, "unit": "degC" },
+      { "signal": "Tank level", "minimum": 0, "maximum": 100, "unit": "cm" }
+    ],
+    "simplifications": ["Each module isolates one declared pole-zero signature around a local operating point.", "The common normalized request is converted to different physical inputs and never replaces their units.", "No feedback controller, compensator, artificial cancellation, or hidden stabilizing loop is active."]
+  },
+  "baseline": { "executableId": "PoleZero.CoefficientsWithoutInterpretation", "settings": { "labelsHidden": true }, "limitation": "Transfer-function coefficients do not by themselves teach which observable response signature follows from each mode." },
+  "change": { "executableId": "PoleZero.PredictMatchReveal", "settings": { "stableRunSeconds": 30, "bearingAbortMetres": 0.01 }, "decision": "Accept each map-to-response match only when the learner predicts and cites an observable causal signature." },
+  "experiment": { "kind": "observation", "signal": "Experiment authority", "baseline": 0, "amplitude": 0, "durationSeconds": 30.1, "settlingSeconds": 0, "disturbances": [], "seed": 20260829, "restorationValue": 0 },
+  "acceptance": [
+    { "metric": "heater_five_second_fraction", "signal": "Heater temperature", "window": "at 5.0 s", "comparator": ">=", "limit": 0.60, "unit": "1", "tolerance": 0.03, "evidenceClass": "simulation" },
+    { "metric": "tank_late_slope", "signal": "Tank level", "window": "20 to 30 s", "comparator": ">=", "limit": 0.19, "unit": "cm/s", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "drive_peak", "signal": "Drive position", "window": "0 to 30 s", "comparator": ">=", "limit": 1.45, "unit": "rad", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "bearing_abort_time", "signal": "Bearing displacement", "window": "0 to 10 s", "comparator": "<=", "limit": 10, "unit": "s", "tolerance": 0.1, "evidenceClass": "simulation" },
+    { "metric": "boiler_inverse_minimum", "signal": "Boiler drum-level change", "window": "0 to 30 s", "comparator": "<=", "limit": -0.2, "unit": "cm", "tolerance": 0.01, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [{ "signal": "Bearing displacement", "minimum": -0.01, "maximum": 0.01, "unit": "m" }, { "signal": "Tank level", "minimum": 0, "maximum": 100, "unit": "cm" }, { "signal": "Heater temperature", "minimum": 0, "maximum": 100, "unit": "degC" }],
+    "abortPredicates": ["Bearing displacement reaches 0.010 m magnitude", "Any input or output is nonfinite", "Any process output leaves its declared hard limit", "Unexpected feedback authority is active"],
+    "safeMv": 0,
+    "restorationMode": "Stop the experiment, set all six input deviations to zero, and restore all declared initial states",
+    "physicalApprovalRole": "authorised process and machinery controls engineer",
+    "simulationOnlyRestrictions": ["The six-plant workshop is simulation-only. Each physical plant requires its own reviewed excitation, topology, limits, aborts, and immediate approval."]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-35--poles-zeros-and-real-plant-classes",
+    "nativeTest": "control_curriculum_pole_zero_maps_predict_six_real_plant_responses",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_modelling_progression control_curriculum_pole_zero_maps_predict_six_real_plant_responses -- --exact --nocapture",
+    "projectPath": "examples/control/04-controller-selection-and-plant-models/35-pole-zero-plant-classes",
+    "runArtifactFields": ["time", "physicalInputs", "physicalOutputs", "poleZeroMap", "mapParameters", "predictedSignature", "measuredMetrics", "learnerMatch", "abortState", "evidenceClass"],
+    "renderedJourneyId": "control-pole-zero-plant-classes"
+  },
+  "video": { "viewerOutcome": "Predict and justify six real plant responses from pole-zero structure.", "requiredVisibleEvidence": ["six physical inputs and outputs", "unlabeled pole-zero maps", "prediction worksheet", "five-plant response comparison", "separate bearing abort", "match reveal", "simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "learning": {
+    "context": "Six physical equipment classes isolate stable, integrating, oscillatory, dominant, unstable, and inverse-response signatures.",
+    "reason": "Lesson 34 showed one transfer function; pole-zero interpretation makes its qualitative implications transferable to unfamiliar plants.",
+    "theory": ["Pole location predicts natural modes, while zeros shape how the chosen input appears at the chosen output.", "Left-half-plane, origin, right-half-plane, and complex-conjugate poles imply decay, integration, growth, and oscillation respectively.", "A right-half-plane zero creates inverse response and fragile pole-zero cancellation must not be used to hide uncertain modes."],
+    "workedPrediction": "Mark each declared pole and zero, then predict monotonic rise, ramp, ringing, slow tail, unstable growth, or immediate wrong-direction motion before viewing traces.",
+    "practicalPreparation": ["Verify physical scaling, units, quality, initial points, 100 ms sampling, limits, open-loop authority, and Simulation evidence.", "Define every observable signature and the separate 10 mm magnetic-bearing abort before starting."],
+    "baseline": "Inspect coefficient lists without a reusable interpretation and state why they do not support a justified plant match.",
+    "change": "Predict from hidden pole-zero maps, execute the five bounded plants, execute the unstable bearing separately, commit matches, then reveal identities.",
+    "comparison": "Use monotonicity, late slope, overshoot, crossings, dominant-tail rate, unstable growth, inverse minimum, and first-response time with explicit validity rules.",
+    "validation": "Require both map structure and executable response evidence for every accepted match; mark settling-dependent metrics invalid for tank and bearing.",
+    "explanation": "Reconcile each trace with its natural modes and input-output zeros, including the difference between inverse response and delay.",
+    "transfer": "Lesson 36 introduces state space because input-output transfer functions can hide internal stored quantities."
+  }
+}

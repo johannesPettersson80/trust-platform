@@ -152,10 +152,12 @@ fn status_json(plant: &crate::simulation::PlantStatus) -> Value {
         .iter()
         .map(|actuator| {
             json!({
+                "position": actuator.position,
                 "applied": actuator.applied,
                 "saturation_active": actuator.saturation_active,
                 "slew_limit_active": actuator.slew_limit_active,
                 "deadband_active": actuator.deadband_active,
+                "stiction_active": actuator.stiction_active,
                 "stuck": actuator.stuck,
             })
         })

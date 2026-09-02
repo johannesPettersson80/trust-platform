@@ -1,0 +1,61 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2400
+plant_step_ms = 100
+
+[[plants]]
+id = "direct-reactor"
+name = "Direct-PI jacketed reactor"
+description = "Local jacket and product energy balances around 70 and 80 degC."
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0.0, 0.0]
+initial_input = [50.0, 0.0]
+input_offset = [-50.0, 0.0]
+output_offset = [80.0, 70.0]
+
+[plants.parameters]
+a = [[-0.5, 0.0], [0.09523809523809523, -0.08333333333333333]]
+b = [[0.7, 0.5], [0.0, 0.0]]
+c = [[0.0, 1.0], [1.0, 0.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]
+
+[[plants]]
+id = "commissioned-cascade-reactor"
+name = "Commissioned-cascade jacketed reactor"
+description = "Equivalent reactor with a fast jacket-temperature inner loop."
+model = "state_space"
+command_sources = ["%QL16", "%QL24"]
+feedback_targets = ["%IL16", "%IL24"]
+initial_state = [0.0, 0.0]
+initial_input = [50.0, 0.0]
+input_offset = [-50.0, 0.0]
+output_offset = [80.0, 70.0]
+
+[plants.parameters]
+a = [[-0.5, 0.0], [0.09523809523809523, -0.08333333333333333]]
+b = [[0.7, 0.5], [0.0, 0.0]]
+c = [[0.0, 1.0], [1.0, 0.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]
+
+[[plants]]
+id = "slow-cascade-reactor"
+name = "Slow-inner-loop jacketed reactor"
+description = "Equivalent reactor with intentionally inadequate jacket-loop tuning."
+model = "state_space"
+command_sources = ["%QL32", "%QL40"]
+feedback_targets = ["%IL32", "%IL40"]
+initial_state = [0.0, 0.0]
+initial_input = [50.0, 0.0]
+input_offset = [-50.0, 0.0]
+output_offset = [80.0, 70.0]
+
+[plants.parameters]
+a = [[-0.5, 0.0], [0.09523809523809523, -0.08333333333333333]]
+b = [[0.7, 0.5], [0.0, 0.0]]
+c = [[0.0, 1.0], [1.0, 0.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]

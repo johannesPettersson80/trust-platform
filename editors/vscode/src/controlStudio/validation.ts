@@ -4,8 +4,24 @@ import { buildEngineeringPlotEvidence } from "./engineeringPlots";
 import { formatEngineeringNumber } from "./chartContract";
 
 export interface ValidationScenario { kind: "setpoint" | "disturbance" | "noise"; amplitude: number }
+export interface ValidationScenarioConditions {
+  kind: ValidationScenario["kind"];
+  event: { affectedSignal: "SP" | "Load disturbance" | "PV"; atSeconds: number; amplitude: number };
+  disturbanceTrajectory: readonly { atSeconds: number; value: number }[];
+  noiseAmplitude: number;
+}
+export interface ValidationConditions {
+  initialCondition: { processValue: number; firstLagState: number; delayedInput: number;
+    controller: ControlPidState };
+  sampleTimesSeconds: readonly number[];
+  durationSeconds: number;
+  noise: { generator: "xorshift32-uniform"; seed: number };
+  limits: { outputMinimum: number; outputMaximum: number; rateMinimum: number; rateMaximum: number };
+  variationFractions: readonly number[];
+  scenarios: readonly ValidationScenarioConditions[];
+}
 export type ValidationEvidence = "Model-predicted" | "Simulation-observed" | "Recorded" | "Physical-observed";
-export interface ValidationRequirement { name: string; status: "Pass" | "Fail" | "Not evaluated" | "Inconclusive"; value?: number; limit?: number; unit: string; source?: ValidationEvidence; reason: string }
+export interface ValidationRequirement { name: string; status: "Pass" | "Fail" | "Inconclusive"; value?: number; limit?: number; unit: string; source?: ValidationEvidence; reason: string }
 export interface ValidationRequirementRow extends Omit<ValidationRequirement, "value" | "limit"> {
   value?: number | "unbounded";
   limit?: number | "unbounded";
@@ -13,6 +29,7 @@ export interface ValidationRequirementRow extends Omit<ValidationRequirement, "v
 export interface ValidationResult {
   evidence: ValidationEvidence;
   applied: false;
+  conditions: ValidationConditions;
   current: { scenarios: readonly ValidationScenario[] };
   candidate: { scenarios: readonly ValidationScenario[] };
   requirements: readonly ValidationRequirement[];
@@ -63,7 +80,7 @@ export function compareControlPidCandidates(
   current: ControlPidCandidate,
   candidate: ControlPidCandidate,
   options: { evidence: ValidationEvidence; scenarios: readonly ValidationScenario[];
-    variationFractions: readonly number[]; processUnit?: string; outputUnit?: string }
+    variationFractions: readonly number[]; processUnit?: string; outputUnit?: string; noiseSeed?: number }
 ): ValidationResult {
   if (!model.stable || !Number.isFinite(model.gain) || model.gain === 0) {
     throw new Error("Validation requires a finite stable plant model.");
@@ -72,8 +89,11 @@ export function compareControlPidCandidates(
   if (!options.variationFractions.every((value) => Number.isFinite(value) && value > -0.9 && value < 2)) {
     throw new Error("Validation variation fractions must be finite and bounded.");
   }
-  const currentMetrics = aggregate(model, current, options.scenarios);
-  const candidateMetrics = aggregate(model, candidate, options.scenarios);
+  const limits = commonLimits(current, candidate);
+  const conditions = buildValidationConditions(model, options.scenarios, options.variationFractions,
+    limits, options.noiseSeed ?? 20260828);
+  const currentMetrics = aggregate(model, current, conditions);
+  const candidateMetrics = aggregate(model, candidate, conditions);
   const variedModels = options.variationFractions.map((fraction) => ({ ...model,
     gain: model.gain * (1 + fraction),
     ...(model.timeConstantSeconds === undefined ? {} :
@@ -81,10 +101,13 @@ export function compareControlPidCandidates(
     ...(model.secondTimeConstantSeconds === undefined ? {} :
       { secondTimeConstantSeconds: model.secondTimeConstantSeconds * (1 + fraction) }),
   }));
-  const currentVariations = variedModels.map((varied) =>
-    aggregate(varied, current, [{ kind: "setpoint", amplitude: 1 }]));
-  const candidateVariations = variedModels.map((varied) =>
-    aggregate(varied, candidate, [{ kind: "setpoint", amplitude: 1 }]));
+  const variationConditions = variedModels.map((varied, index) => buildValidationConditions(
+    varied, [{ kind: "setpoint", amplitude: 1 }], [options.variationFractions[index]], limits,
+    conditions.noise.seed));
+  const currentVariations = variedModels.map((varied, index) =>
+    aggregate(varied, current, variationConditions[index]));
+  const candidateVariations = variedModels.map((varied, index) =>
+    aggregate(varied, candidate, variationConditions[index]));
   const source = options.evidence;
   const outputUnit = options.outputUnit?.trim() || "engineering unit";
   const requirements: ValidationRequirement[] = [
@@ -106,12 +129,12 @@ export function compareControlPidCandidates(
       "The response must recover from saturation within one quarter of the validation horizon."),
   ];
   if (options.scenarios.some((scenario) => scenario.kind === "noise")) {
+    const outputSpan = candidate.parameters.outputMaximum - candidate.parameters.outputMinimum;
     requirements.push(measuredRequirement("Noise response", candidateMetrics.noiseMvRms,
-      Math.max((candidate.parameters.outputMaximum - candidate.parameters.outputMinimum) * 1e-9,
-        currentMetrics.noiseMvRms * 1.2), `${outputUnit} RMS`, source,
-      "Candidate noise-driven output activity must not materially exceed the current controller."));
+      Math.max(outputSpan * 0.001, currentMetrics.noiseMvRms * 1.2), `${outputUnit} RMS`, source,
+      "Candidate noise-driven output activity must remain within 120 percent of the current controller or 0.1 percent of the configured output span, whichever limit is larger."));
   } else {
-    requirements.push(notEvaluated("Noise response", `${outputUnit} RMS`, source,
+    requirements.push(inconclusive("Noise response", `${outputUnit} RMS`, source,
       "No bounded noise scenario was selected."));
   }
 
@@ -125,20 +148,93 @@ export function compareControlPidCandidates(
     );
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    requirements.push(notEvaluated("Gain margin", "dB", source, reason),
-      notEvaluated("Phase margin", "degree", source, reason));
+    requirements.push(inconclusive("Gain margin", "dB", source, reason),
+      inconclusive("Phase margin", "degree", source, reason));
   }
   const variationStable = candidateVariations.every((variation) => variation.stable);
   requirements.push({ name: "Bounded variation stability", status: variationStable ? "Pass" : "Fail",
     value: variationStable ? 1 : 0, limit: 1, unit: "boolean", source,
     reason: "Every declared bounded model variation must remain finite and bounded." });
-  return { evidence: source, applied: false,
+  return { evidence: source, applied: false, conditions,
     current: { scenarios: options.scenarios.map((scenario) => ({ ...scenario })) },
     candidate: { scenarios: options.scenarios.map((scenario) => ({ ...scenario })) }, requirements,
     metrics: {
       current: performanceMetrics(currentMetrics, currentVariations),
       candidate: performanceMetrics(candidateMetrics, candidateVariations),
     } };
+}
+
+type ValidationModelTiming = {
+  timeConstantSeconds?: number;
+  secondTimeConstantSeconds?: number;
+  deadTimeSeconds?: number;
+};
+
+function commonLimits(current: ControlPidCandidate, candidate: ControlPidCandidate): ValidationConditions["limits"] {
+  const from = (value: ControlPidCandidate): ValidationConditions["limits"] => ({
+    outputMinimum: value.parameters.outputMinimum, outputMaximum: value.parameters.outputMaximum,
+    rateMinimum: value.parameters.rateMinimum, rateMaximum: value.parameters.rateMaximum,
+  });
+  const currentLimits = from(current);
+  const candidateLimits = from(candidate);
+  if (JSON.stringify(currentLimits) !== JSON.stringify(candidateLimits)) {
+    throw new Error("Validation requires identical current and candidate output and rate limits.");
+  }
+  if (!Object.values(currentLimits).every(Number.isFinite) ||
+      currentLimits.outputMinimum >= currentLimits.outputMaximum ||
+      currentLimits.rateMinimum > currentLimits.rateMaximum) {
+    throw new Error("Validation requires finite ordered output and rate limits.");
+  }
+  return currentLimits;
+}
+
+function buildValidationConditions(
+  model: ValidationModelTiming,
+  scenarios: readonly ValidationScenario[],
+  variationFractions: readonly number[],
+  limits: ValidationConditions["limits"],
+  noiseSeed: number
+): ValidationConditions {
+  const firstTime = model.timeConstantSeconds ?? 1;
+  const secondTime = model.secondTimeConstantSeconds ?? 0;
+  const deadTime = model.deadTimeSeconds ?? 0;
+  if (![firstTime, secondTime, deadTime].every(Number.isFinite) || firstTime <= 0 ||
+      secondTime < 0 || deadTime < 0) {
+    throw new Error("Validation requires finite nonnegative model timing and a positive primary time constant.");
+  }
+  if (!Number.isSafeInteger(noiseSeed) || noiseSeed <= 0 || noiseSeed > 0xffff_ffff) {
+    throw new Error("Validation noise seed must be a positive 32-bit integer.");
+  }
+  if (!scenarios.every((scenario) => Number.isFinite(scenario.amplitude) &&
+      (scenario.kind !== "noise" || scenario.amplitude >= 0))) {
+    throw new Error("Validation scenario amplitudes must be finite and noise amplitude must be nonnegative.");
+  }
+  const nominalHorizon = Math.max(20, 12 * (firstTime + secondTime + deadTime));
+  const sampleInterval = Math.min(0.02, firstTime / 100);
+  const sampleCount = Math.ceil(nominalHorizon / sampleInterval) + 1;
+  const sampleTimesSeconds = Array.from({ length: sampleCount }, (_, index) =>
+    rounded(index * sampleInterval));
+  const durationSeconds = sampleTimesSeconds[sampleTimesSeconds.length - 1];
+  const saturatedOutput = Math.max(limits.outputMinimum, Math.min(limits.outputMaximum, 0));
+  return {
+    initialCondition: { processValue: 0, firstLagState: 0, delayedInput: 0, controller: {
+      setpoint: 0, setpointRate: 0, processValue: 0, processValueRate: 0, feedForward: 0,
+      nominalOutput: saturatedOutput, saturatedOutput,
+    } },
+    sampleTimesSeconds, durationSeconds,
+    noise: { generator: "xorshift32-uniform", seed: noiseSeed },
+    limits: { ...limits },
+    variationFractions: [...variationFractions],
+    scenarios: scenarios.map((scenario) => ({
+      kind: scenario.kind,
+      event: { affectedSignal: scenario.kind === "setpoint" ? "SP" :
+        scenario.kind === "disturbance" ? "Load disturbance" : "PV",
+        atSeconds: 0, amplitude: scenario.amplitude },
+      disturbanceTrajectory: [{ atSeconds: 0,
+        value: scenario.kind === "disturbance" ? scenario.amplitude : 0 }],
+      noiseAmplitude: scenario.kind === "noise" ? scenario.amplitude : 0,
+    })),
+  };
 }
 
 interface ScenarioMetrics {
@@ -159,8 +255,9 @@ interface ScenarioMetrics {
 }
 
 function aggregate(model: IdentifiedModel, candidate: ControlPidCandidate,
-  scenarios: readonly ValidationScenario[]): ScenarioMetrics {
-  const results = scenarios.map((scenario) => simulateExact(model, candidate, scenario));
+  conditions: ValidationConditions): ScenarioMetrics {
+  const results = conditions.scenarios.map((scenario) =>
+    simulateExact(model, candidate, scenario, conditions));
   return {
     settlingTimeSeconds: Math.max(...results.map((item) => item.settlingTimeSeconds)),
     overshootPercent: Math.max(...results.map((item) => item.overshootPercent)),
@@ -180,24 +277,32 @@ function aggregate(model: IdentifiedModel, candidate: ControlPidCandidate,
 }
 
 function simulateExact(model: IdentifiedModel, candidate: ControlPidCandidate,
-  scenario: ValidationScenario): ScenarioMetrics {
+  scenario: ValidationScenarioConditions, conditions: ValidationConditions): ScenarioMetrics {
   const firstTime = model.timeConstantSeconds ?? 1;
   const secondTime = model.secondTimeConstantSeconds;
-  const horizon = Math.max(20, 12 * (firstTime + (secondTime ?? 0) + (model.deadTimeSeconds ?? 0)));
-  const dt = Math.min(0.02, firstTime / 100);
-  const delay = Array(Math.max(1, Math.round((model.deadTimeSeconds ?? 0) / dt)) + 1).fill(0) as number[];
-  let state: ControlPidState = { setpoint: 0, setpointRate: 0, processValue: 0, processValueRate: 0,
-    feedForward: 0, nominalOutput: 0, saturatedOutput: Math.max(0, candidate.parameters.outputMinimum) };
-  let pv = 0; let firstLag = 0; let peak = 0; let lastOutside = horizon; let lastSaturated = -1;
+  const horizon = conditions.durationSeconds;
+  const dt = conditions.sampleTimesSeconds[1] - conditions.sampleTimesSeconds[0];
+  const delay = Array(Math.max(1, Math.round((model.deadTimeSeconds ?? 0) / dt)) + 1)
+    .fill(conditions.initialCondition.delayedInput) as number[];
+  let state: ControlPidState = { ...conditions.initialCondition.controller };
+  let pv = conditions.initialCondition.processValue;
+  let firstLag = conditions.initialCondition.firstLagState;
+  let peak = pv; let lastOutside = horizon; let lastSaturated = -1;
   let minimumMv = Number.POSITIVE_INFINITY; let maximumMv = Number.NEGATIVE_INFINITY;
   let maximumMvRate = 0; let previousMv = state.saturatedOutput; let noiseMvSquared = 0; let noiseCount = 0;
   let iae = 0; let ise = 0; let itae = 0; let mvMovement = 0; let peakAbsoluteMv = 0;
   let stable = true;
-  const target = scenario.kind === "setpoint" ? scenario.amplitude : 1;
-  for (let step = 0; step <= Math.ceil(horizon / dt); step += 1) {
-    const time = step * dt;
-    const measurementNoise = scenario.kind === "noise" ? scenario.amplitude * Math.sin(2 * Math.PI * 0.7 * time) : 0;
-    const result = updateControlPid(candidate.parameters, state, { setpoint: target,
+  let noiseState = conditions.noise.seed >>> 0;
+  const parameters = { ...candidate.parameters, ...conditions.limits };
+  const target = scenario.kind === "setpoint" ? scenario.event.amplitude : 1;
+  for (const time of conditions.sampleTimesSeconds) {
+    noiseState ^= noiseState << 13;
+    noiseState ^= noiseState >>> 17;
+    noiseState ^= noiseState << 5;
+    noiseState >>>= 0;
+    const measurementNoise = scenario.kind === "noise" && time >= scenario.event.atSeconds
+      ? scenario.noiseAmplitude * (2 * noiseState / 0x1_0000_0000 - 1) : 0;
+    const result = updateControlPid(parameters, state, { setpoint: target,
       processValue: pv + measurementNoise, feedForward: 0, manualOutput: 0, trackingOutput: 0,
       mode: "Auto", cycleTime: dt });
     state = result.state;
@@ -211,8 +316,8 @@ function simulateExact(model: IdentifiedModel, candidate: ControlPidCandidate,
     peakAbsoluteMv = Math.max(peakAbsoluteMv, Math.abs(mv));
     minimumMv = Math.min(minimumMv, mv); maximumMv = Math.max(maximumMv, mv);
     maximumMvRate = Math.max(maximumMvRate, Math.abs(mvIncrement) / dt); previousMv = mv;
-    if (Math.abs(mv - candidate.parameters.outputMinimum) < 1e-9 ||
-        Math.abs(mv - candidate.parameters.outputMaximum) < 1e-9) lastSaturated = time;
+    if (Math.abs(mv - conditions.limits.outputMinimum) < 1e-9 ||
+        Math.abs(mv - conditions.limits.outputMaximum) < 1e-9) lastSaturated = time;
     // After the startup transient, output increments are the actuator activity
     // caused by the deterministic measurement-noise excitation. Measuring the
     // saturation error here would incorrectly report zero for unsaturated loops.
@@ -221,7 +326,7 @@ function simulateExact(model: IdentifiedModel, candidate: ControlPidCandidate,
       noiseCount += 1;
     }
     delay.push(mv);
-    const disturbance = scenario.kind === "disturbance" ? scenario.amplitude : 0;
+    const disturbance = trajectoryValue(scenario.disturbanceTrajectory, time);
     const plantInput = (delay.shift() ?? 0) + disturbance;
     if (model.kind === "integrating") pv += dt * model.gain * plantInput;
     else if (secondTime !== undefined) {
@@ -250,6 +355,18 @@ function simulateExact(model: IdentifiedModel, candidate: ControlPidCandidate,
     horizonSeconds: horizon,
     stable,
   };
+}
+
+function trajectoryValue(
+  trajectory: readonly { atSeconds: number; value: number }[],
+  timeSeconds: number
+): number {
+  let value = 0;
+  for (const point of trajectory) {
+    if (point.atSeconds > timeSeconds) break;
+    value = point.value;
+  }
+  return value;
 }
 
 function performanceMetrics(
@@ -281,8 +398,8 @@ function lowerBoundRequirement(name: string, value: number, limit: number, unit:
   if (!Number.isFinite(value)) return { name, status: "Inconclusive", unit, source, reason };
   return { name, status: value >= limit ? "Pass" : "Fail", value: rounded(value), limit, unit, source, reason };
 }
-function notEvaluated(name: string, unit: string, source: ValidationEvidence, reason: string): ValidationRequirement {
-  return { name, status: "Not evaluated", unit, source, reason };
+function inconclusive(name: string, unit: string, source: ValidationEvidence, reason: string): ValidationRequirement {
+  return { name, status: "Inconclusive", unit, source, reason };
 }
 export function compareControllers(
   model: { gain: number; timeConstantSeconds: number; deadTimeSeconds: number },
@@ -294,8 +411,10 @@ export function compareControllers(
     current.tiSeconds, candidate.kp, candidate.tiSeconds]) {
     if (!Number.isFinite(value)) throw new Error("Validation inputs must be finite.");
   }
-  const currentMetrics = simulate(model, current);
-  const candidateMetrics = simulate(model, candidate);
+  const conditions = buildValidationConditions(model, scenarios, [0],
+    { outputMinimum: 0, outputMaximum: 100, rateMinimum: -100, rateMaximum: 100 }, 20260828);
+  const currentMetrics = simulate(model, current, conditions);
+  const candidateMetrics = simulate(model, candidate, conditions);
   const requirements: ValidationRequirement[] = [
     requirement("Settling time", candidateMetrics.settling, currentMetrics.settling, "s", "Candidate must not settle slower than current."),
     requirement("Overshoot", candidateMetrics.overshoot, Math.max(10, currentMetrics.overshoot), "%", "Overshoot must remain bounded."),
@@ -303,19 +422,20 @@ export function compareControllers(
     requirement("Control output", candidateMetrics.peakOutput, 100, "%", "Predicted output must remain inside configured limits."),
   ];
   return {
-    evidence: "Model-predicted", applied: false,
+    evidence: "Model-predicted", applied: false, conditions,
     current: { scenarios: scenarios.map((scenario) => ({ ...scenario })) },
     candidate: { scenarios: scenarios.map((scenario) => ({ ...scenario })) },
     requirements,
   };
 }
 
-function simulate(model: { gain: number; timeConstantSeconds: number; deadTimeSeconds: number }, controller: { kp: number; tiSeconds: number }) {
-  const dt = Math.min(0.02, model.timeConstantSeconds / 100);
-  const horizon = Math.max(20, 12 * (model.timeConstantSeconds + model.deadTimeSeconds));
+function simulate(model: { gain: number; timeConstantSeconds: number; deadTimeSeconds: number },
+  controller: { kp: number; tiSeconds: number }, conditions: ValidationConditions) {
+  const dt = conditions.sampleTimesSeconds[1] - conditions.sampleTimesSeconds[0];
+  const horizon = conditions.durationSeconds;
   const delay = Array(Math.max(1, Math.round(model.deadTimeSeconds / dt)) + 1).fill(0) as number[];
   let pv = 0; let integral = 0; let peak = 0; let peakOutput = 0; let lastOutside = horizon;
-  for (let index = 0; index <= horizon / dt; index += 1) {
+  for (let index = 0; index < conditions.sampleTimesSeconds.length; index += 1) {
     const error = 1 - pv;
     integral += error * dt;
     const output = Math.max(0, Math.min(100, controller.kp * (error + integral / controller.tiSeconds)));
@@ -323,7 +443,7 @@ function simulate(model: { gain: number; timeConstantSeconds: number; deadTimeSe
     delay.push(output);
     pv += dt * (model.gain * (delay.shift() ?? 0) - pv) / model.timeConstantSeconds;
     peak = Math.max(peak, pv);
-    if (Math.abs(error) > 0.02) lastOutside = index * dt;
+    if (Math.abs(error) > 0.02) lastOutside = conditions.sampleTimesSeconds[index];
   }
   return { settling: Math.min(horizon, lastOutside + dt), overshoot: Math.max(0, peak - 1) * 100,
     error: Math.abs(1 - pv), peakOutput };

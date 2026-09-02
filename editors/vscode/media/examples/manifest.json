@@ -5,7 +5,10 @@
     "description": "Minimal runnable project. Press Start to simulate with no hardware.",
     "path": "empty-simulator",
     "hardware": "none",
-    "tags": ["starter", "simulator"]
+    "tags": [
+      "starter",
+      "simulator"
+    ]
   },
   {
     "id": "conveyor",
@@ -13,7 +16,10 @@
     "description": "Small program with live values you can watch in the simulator.",
     "path": "conveyor",
     "hardware": "none",
-    "tags": ["demo", "simulator"]
+    "tags": [
+      "demo",
+      "simulator"
+    ]
   },
   {
     "id": "twincat-ads",
@@ -21,7 +27,11 @@
     "description": "Beckhoff ADS starter. Simulates now; connect the PLC later.",
     "path": "twincat-ads",
     "hardware": "twincat",
-    "tags": ["ads", "beckhoff", "fieldbus"]
+    "tags": [
+      "ads",
+      "beckhoff",
+      "fieldbus"
+    ]
   },
   {
     "id": "raspberry-pi",
@@ -29,7 +39,11 @@
     "description": "Pi EtherCAT/GPIO starter. Simulates now; connect I/O later.",
     "path": "raspberry-pi",
     "hardware": "raspberrypi",
-    "tags": ["raspberrypi", "ethercat", "gpio"]
+    "tags": [
+      "raspberrypi",
+      "ethercat",
+      "gpio"
+    ]
   },
   {
     "id": "hmi-starter",
@@ -37,7 +51,10 @@
     "description": "Includes an HMI so Open HMI works immediately - no hardware.",
     "path": "hmi-starter",
     "hardware": "none",
-    "tags": ["hmi", "simulator"]
+    "tags": [
+      "hmi",
+      "simulator"
+    ]
   },
   {
     "id": "plcopen-motion-single-axis",
@@ -45,22 +62,1063 @@
     "description": "Single-axis motion starter. Runs in the simulator.",
     "path": "plcopen-motion-single-axis",
     "hardware": "none",
-    "tags": ["motion", "library", "simulator"]
+    "tags": [
+      "motion",
+      "library",
+      "simulator"
+    ]
   },
-  {"id":"control-nominal-fopdt","title":"Control · Nominal FOPDT","description":"Reproduce the paper PI loop and learn the SP, PV and MV signals.","path":"control-nominal-fopdt","hardware":"none","tags":["control","foundation","simulator"]},
-  {"id":"control-sampling-interval","title":"Control · Sampling interval","description":"Compare the same PI loop at 50, 100 and 200 ms actual cycle times.","path":"control-sampling-interval","hardware":"none","tags":["control","foundation","simulator"]},
-  {"id":"control-load-disturbance","title":"Control · Load disturbance","description":"Reject a plant-side bias event without changing the controller input.","path":"control-load-disturbance","hardware":"none","tags":["control","foundation","simulator"]},
-  {"id":"control-saturation-antiwindup","title":"Control · Saturation and anti-windup","description":"Compare BackCalculation and Combined recovery after output saturation.","path":"control-saturation-antiwindup","hardware":"none","tags":["control","foundation","simulator"]},
-  {"id":"control-measurement-noise","title":"Control · Measurement noise","description":"Compare raw and separately filtered PV using the same deterministic seed.","path":"control-measurement-noise","hardware":"none","tags":["control","foundation","simulator"]},
-  {"id":"control-rate-limit","title":"Control · Actuator rate limit","description":"See how a one-unit-per-second actuator limit bounds response speed.","path":"control-rate-limit","hardware":"none","tags":["control","foundation","simulator"]},
-  {"id":"control-integrating-plant","title":"Control · Integrating plant","description":"Use proportional control where the plant already provides integration.","path":"control-integrating-plant","hardware":"none","tags":["control","practitioner","simulator"]},
-  {"id":"control-underdamped-pid","title":"Control · Underdamped PID","description":"Damp an oscillatory second-order plant and examine noise sensitivity.","path":"control-underdamped-pid","hardware":"none","tags":["control","practitioner","simulator"]},
-  {"id":"control-delay-dominant","title":"Control · Delay-dominant process","description":"Explore why additional PI aggressiveness cannot remove process delay.","path":"control-delay-dominant","hardware":"none","tags":["control","practitioner","simulator"]},
-  {"id":"control-nonlinear-actuator","title":"Control · Nonlinear actuator","description":"Combine saturation, slew, lag and deadband on one bounded actuator.","path":"control-nonlinear-actuator","hardware":"none","tags":["control","practitioner","simulator"]},
-  {"id":"control-bounded-variation","title":"Control · Bounded plant variation","description":"Validate one fixed PI across four declared FOPDT variations.","path":"control-bounded-variation","hardware":"none","tags":["control","practitioner","simulator"]},
-  {"id":"control-open-loop-unstable","title":"Control · Open-loop unstable plant","description":"Stabilize a declared unstable state-space process and inspect constraints.","path":"control-open-loop-unstable","hardware":"none","tags":["control","advanced","simulator"]},
-  {"id":"control-scheduled-gain","title":"Control · Scheduled gain change","description":"Keep a fixed controller while plant gain changes from 0.6 to 1.4.","path":"control-scheduled-gain","hardware":"none","tags":["control","advanced","simulator"]},
-  {"id":"control-severe-jitter","title":"Control · Severe scan jitter","description":"Use each actual PLC interval under a deterministic jitter sequence.","path":"control-severe-jitter","hardware":"none","tags":["control","advanced","simulator"]},
-  {"id":"control-coupled-two-loop","title":"Control · Coupled two-loop plant","description":"Observe interaction between two independent PI-controlled loops.","path":"control-coupled-two-loop","hardware":"none","tags":["control","advanced","simulator"]},
-  {"id":"control-evidence-integrity","title":"Control · Evidence integrity","description":"Find an overlapping LREAL process-image address and correct it safely.","path":"control-evidence-integrity","hardware":"none","tags":["control","advanced","simulator"]}
+  {
+    "id": "control-cold-storage-loop-anatomy",
+    "title": "Control · Cold-storage loop anatomy",
+    "description": "Identify SP, PV, MV, process, sensor, actuator, disturbance, direction, limits, and safe state before automatic control.",
+    "path": "control/01-feedback-foundations-and-temperature-control/01-cold-storage-loop-anatomy",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-cold-storage-on-off",
+    "title": "Control · Cold-storage thermostat",
+    "description": "Run one switching threshold and observe why noisy crossings cause damaging compressor chatter.",
+    "path": "control/01-feedback-foundations-and-temperature-control/02-cold-storage-on-off",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-cold-storage-hysteresis-dwell",
+    "title": "Control · Cold-storage hysteresis and dwell",
+    "description": "Reduce starts with retained thresholds and enforce minimum compressor on/off times.",
+    "path": "control/01-feedback-foundations-and-temperature-control/03-cold-storage-hysteresis-dwell",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-water-heater-p",
+    "title": "Control · Water heater P",
+    "description": "See why P control leaves temperature offset in a recirculating heater.",
+    "path": "control/01-feedback-foundations-and-temperature-control/04-water-heater-p",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-water-heater-bias",
+    "title": "Control · Water-heater operating-point bias",
+    "description": "Calculate nominal holding power, remove nominal P offset, and expose the remaining changed-load error.",
+    "path": "control/01-feedback-foundations-and-temperature-control/05-water-heater-bias",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-water-heater-integral",
+    "title": "Control · Water-heater integral action",
+    "description": "Watch accumulated error remove a constant offset and expose the slower integral-only response.",
+    "path": "control/01-feedback-foundations-and-temperature-control/06-water-heater-integral",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-water-heater-pi",
+    "title": "Control · Water-heater PI",
+    "description": "Combine proportional and integral action, compare P/I/PI, and expose output saturation.",
+    "path": "control/01-feedback-foundations-and-temperature-control/07-water-heater-pi",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-water-heater-saturation",
+    "title": "Control · Water-heater amplitude saturation",
+    "description": "Separate requested and applied heater power, calculate saturation error, and expose integral windup.",
+    "path": "control/01-feedback-foundations-and-temperature-control/08-water-heater-saturation",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-rate-limit",
+    "title": "Control · Motor-operated heating-valve rate limitation",
+    "description": "Calculate asymmetric actual-dt travel limits and compare requested with applied valve position.",
+    "path": "control/01-feedback-foundations-and-temperature-control/09-rate-limit",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-saturation-antiwindup",
+    "title": "Control · Batch-vessel anti-windup strategies",
+    "description": "Compare no protection, signal clamping, back calculation, and combined anti-windup on one vessel.",
+    "path": "control/01-feedback-foundations-and-temperature-control/10-saturation-antiwindup",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-reactor-servo-regulatory",
+    "title": "Control · Reactor servo and regulatory objectives",
+    "description": "Prove that one unchanged PI can pass load rejection while failing setpoint overshoot.",
+    "path": "control/01-feedback-foundations-and-temperature-control/11-reactor-servo-regulatory",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-reactor-setpoint-weighting",
+    "title": "Control · Reactor proportional setpoint weighting",
+    "description": "Reduce servo overshoot with b while preserving true-error integral action and the regulatory path.",
+    "path": "control/01-feedback-foundations-and-temperature-control/12-reactor-setpoint-weighting",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-measurement-noise",
+    "title": "Control · Pump-pressure noise",
+    "description": "Reduce vibration-driven valve activity without losing pressure control.",
+    "path": "control/01-feedback-foundations-and-temperature-control/13-measurement-noise",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-sampling-interval",
+    "title": "Control · Conveyor-oven timing",
+    "description": "Compare oven PI at 50, 100, and 200 ms actual cycle intervals.",
+    "path": "control/01-feedback-foundations-and-temperature-control/14-sampling-interval",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-water-heater-energy-balance",
+    "title": "Control · Water-heater energy balance",
+    "description": "Derive heater gain, time constant, equilibrium, and validity from physical energy conservation.",
+    "path": "control/01-feedback-foundations-and-temperature-control/15-water-heater-energy-balance",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modelling",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-heater-step-identification",
+    "title": "Control · Heater step identification",
+    "description": "Recover FOPDT gain, time constant, and delay from a bounded heater test.",
+    "path": "control/01-feedback-foundations-and-temperature-control/16-heater-step-identification",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modelling",
+      "simulator",
+      "identification"
+    ]
+  },
+  {
+    "id": "control-independent-heater-model-validation",
+    "title": "Control · Independent heater validation",
+    "description": "Validate the frozen heater model on a new step and restrict its unmodelled load behavior.",
+    "path": "control/01-feedback-foundations-and-temperature-control/17-independent-model-validation",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modelling",
+      "simulator",
+      "validation"
+    ]
+  },
+  {
+    "id": "control-nominal-fopdt",
+    "title": "Validated-model Lambda/IMC PI tuning",
+    "description": "Use the validated model with Lambda/IMC to tune and validate a heater PI controller.",
+    "path": "control/01-feedback-foundations-and-temperature-control/18-nominal-fopdt",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-servo-position-p",
+    "title": "Control · Position-table P control",
+    "description": "Tune proportional stiffness and observe the speed, accuracy, damping, and torque trade-off on an industrial positioning table.",
+    "path": "control/02-derivative-action-and-dynamic-response/19-servo-position-p",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "motion",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-servo-position-pd",
+    "title": "Control · Position-table PD control",
+    "description": "Add measured velocity damping while preserving proportional stiffness and exposing constant-load offset.",
+    "path": "control/02-derivative-action-and-dynamic-response/20-servo-position-pd",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "motion",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-loaded-position-pid",
+    "title": "Control · Loaded position-table PID",
+    "description": "Add integral torque to remove a constant payload error while retaining damping and bounded drive effort.",
+    "path": "control/02-derivative-action-and-dynamic-response/21-underdamped-pid",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "practitioner",
+      "motion",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-servo-derivative-kick",
+    "title": "Control · Derivative kick and setpoint weighting",
+    "description": "Expose requested torque kick and move derivative action from setpoint error to measured position.",
+    "path": "control/02-derivative-action-and-dynamic-response/22-servo-derivative-kick",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "motion",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-servo-filtered-derivative",
+    "title": "Control · Filtered derivative for an encoder servo",
+    "description": "Choose derivative filtering from measured encoder-noise attenuation, added lag, tracking, and torque activity.",
+    "path": "control/02-derivative-action-and-dynamic-response/23-servo-filtered-derivative",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "motion",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-servo-mechanical-nonidealities",
+    "title": "Control · Diagnose servo mechanical nonidealities",
+    "description": "Distinguish trajectory limits, drive constraints, friction, deadband, backlash, and stiction before retuning.",
+    "path": "control/02-derivative-action-and-dynamic-response/24-servo-mechanical-nonidealities",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "motion",
+      "simulation",
+      "diagnostics"
+    ]
+  },
+  {
+    "id": "control-servo-digital-realization",
+    "title": "Control · Digital PID realization",
+    "description": "Execute Euler and Tustin controllers at multiple sample intervals and expose hold, quantization, aliasing, and delay.",
+    "path": "control/02-derivative-action-and-dynamic-response/25-servo-digital-realization",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "motion",
+      "digital-control",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-pid-forms",
+    "title": "Control · Positional and incremental PID realization",
+    "description": "Verify why one production PID uses positional form for P or PD and incremental form for PI or PID.",
+    "path": "control/03-production-quality-digital-pid/26-pid-forms",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "digital-control",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-booster-pump-modes",
+    "title": "Control · Safe booster-pump initialization",
+    "description": "Initialize pressure-filter and PID histories from the running pump before granting automatic authority.",
+    "path": "control/03-production-quality-digital-pid/27-booster-pump-modes",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "pid",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-booster-pump-bumpless-transfer",
+    "title": "Control · Bumpless booster-pump handover",
+    "description": "Align an inactive pressure controller with applied valve output before transferring authority.",
+    "path": "control/03-production-quality-digital-pid/28-booster-pump-bumpless-transfer",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "pid",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-booster-pump-atomic-update",
+    "title": "Control · Atomic booster-pump PID updates",
+    "description": "Apply one coherent PID revision and keep feedforward inside the authoritative constraint path.",
+    "path": "control/03-production-quality-digital-pid/29-booster-pump-atomic-update",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "pid",
+      "simulator",
+      "commissioning"
+    ]
+  },
+  {
+    "id": "control-booster-pump-invalid-data",
+    "title": "Control · Invalid pump data and safe recovery",
+    "description": "Reject invalid controller scans, latch the first cause, and restore authority through qualified recovery.",
+    "path": "control/03-production-quality-digital-pid/30-booster-pump-invalid-data",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "pid",
+      "simulator",
+      "safety"
+    ]
+  },
+  {
+    "id": "control-controller-selection",
+    "title": "Control · Minimum-sufficient controller selection",
+    "description": "Select ON/OFF, P, PI, or PID from plant, actuator, disturbance, and requirement evidence.",
+    "path": "control/04-controller-selection-and-plant-models/31-controller-selection",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "foundation",
+      "controller-selection",
+      "simulator",
+      "pid"
+    ]
+  },
+  {
+    "id": "control-plant-response-classes",
+    "title": "Control · Physical plant-response classification",
+    "description": "Classify self-regulating, integrating, delayed, and oscillatory physical responses before modelling.",
+    "path": "control/04-controller-selection-and-plant-models/32-plant-response-classes",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modelling",
+      "simulator",
+      "plant-classification"
+    ]
+  },
+  {
+    "id": "control-tank-heater-conservation",
+    "title": "Control · Tank and heater conservation models",
+    "description": "Derive integrating tank and self-regulating heater behavior from unit-consistent conservation laws.",
+    "path": "control/04-controller-selection-and-plant-models/33-tank-heater-conservation",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modelling",
+      "simulator",
+      "first-principles"
+    ]
+  },
+  {
+    "id": "control-gravity-tank-linearization",
+    "title": "Control · Gravity-tank linearization",
+    "description": "Derive and validate local tangent models for a nonlinear gravity-drained tank.",
+    "path": "control/04-controller-selection-and-plant-models/34-gravity-tank-linearization",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modelling",
+      "simulator",
+      "linearization"
+    ]
+  },
+  {
+    "id": "control-pole-zero-plant-classes",
+    "title": "Control · Pole-zero plant-response workshop",
+    "description": "Predict and match six real plant responses from stable, integrating, oscillatory, unstable, dominant, and inverse-response structures.",
+    "path": "control/04-controller-selection-and-plant-models/35-pole-zero-plant-classes",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modelling",
+      "simulator",
+      "pole-zero"
+    ]
+  },
+  {
+    "id": "control-two-tank-state-space",
+    "title": "Control · Interconnected-tank state space",
+    "description": "Build a physical state-space model and reveal different futures hidden behind identical downstream readings.",
+    "path": "control/04-controller-selection-and-plant-models/36-two-tank-state-space",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modelling",
+      "simulator",
+      "state-space"
+    ]
+  },
+  {
+    "id": "control-safe-heat-exchanger-experiment",
+    "title": "Control · Safe heat-exchanger experiment",
+    "description": "Review, execute, abort, and restore a bounded plate-heat-exchanger experiment before accepting identification data.",
+    "path": "control/05-experiments-identification-and-validation/37-safe-heat-exchanger-experiment",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modelling",
+      "simulator",
+      "experiment-design"
+    ]
+  },
+  {
+    "id": "control-excitation-methods",
+    "title": "Control · Plant-matched excitation methods",
+    "description": "Compare step, pulse, doublet, PRBS, and chirp on a slow heater and resonant servo, with fail-closed relay selection.",
+    "path": "control/05-experiments-identification-and-validation/38-excitation-methods",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modelling",
+      "simulator",
+      "excitation"
+    ]
+  },
+  {
+    "id": "control-dryer-model-selection",
+    "title": "Control · Conveyor-dryer model selection",
+    "description": "Fit four candidate structures and select FOPDT from residuals and independent prediction rather than training error.",
+    "path": "control/05-experiments-identification-and-validation/39-dryer-model-selection",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modelling",
+      "simulator",
+      "identification"
+    ]
+  },
+  {
+    "id": "control-poor-excitation",
+    "title": "Control · Heat-exchanger data identifiability",
+    "description": "Reject weak and feedback-correlated records before ordinary open-loop model fitting.",
+    "path": "control/05-experiments-identification-and-validation/40-poor-excitation",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modelling",
+      "simulator",
+      "identification"
+    ]
+  },
+  {
+    "id": "control-independent-model-validation",
+    "title": "Control · Independent heat-exchanger model validation",
+    "description": "Accept, restrict, or reject a frozen model on independent amplitude, disturbance, and operating-point evidence.",
+    "path": "control/05-experiments-identification-and-validation/41-heat-exchanger-validation-uncertainty",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modelling",
+      "simulator",
+      "validation"
+    ]
+  },
+  {
+    "id": "control-manual-historical-tuning",
+    "title": "Control · Manual and historical heat-exchanger tuning",
+    "description": "Tune PI deliberately and expose the speed-versus-valve-use cost of a historical critical-cycle rule.",
+    "path": "control/06-pid-tuning-methods/42-heat-exchanger-tuning-methods",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "practitioner",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-relay-autotuning",
+    "title": "Control · Qualified feedback-relay autotuning",
+    "description": "Estimate one critical point from a bounded feedback relay and reject an uninformative record.",
+    "path": "control/06-pid-tuning-methods/43-relay-autotuning",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "practitioner",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-model-based-tuning",
+    "title": "Control · Model-qualified PI tuning",
+    "description": "Choose and validate Fast, Balanced, and Robust PI response targets for a heater, integrating tank, and dryer.",
+    "path": "control/06-pid-tuning-methods/44-model-based-tuning",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "practitioner",
+      "simulator",
+      "tuning"
+    ]
+  },
+  {
+    "id": "control-crane-routh-stability",
+    "title": "Control · Overhead-crane Routh stability",
+    "description": "Derive the complete proportional-gain stability interval and confirm stable, marginal, and unstable crane responses.",
+    "path": "control/07-classical-stability-and-frequency-design/45-crane-routh-stability",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "classical-analysis",
+      "simulator",
+      "stability"
+    ]
+  },
+  {
+    "id": "control-servo-root-locus",
+    "title": "Control · Positioning-servo root locus",
+    "description": "Prove why gain alone misses the motion requirements and design a validated lead compensator.",
+    "path": "control/07-classical-stability-and-frequency-design/46-servo-root-locus",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "classical-analysis",
+      "simulator",
+      "root-locus"
+    ]
+  },
+  {
+    "id": "control-flexible-drive-bode",
+    "title": "Control · Flexible-drive Bode analysis",
+    "description": "Measure flexible-shaft resonance and compare qualified unshaped and resonance-shaped margins.",
+    "path": "control/07-classical-stability-and-frequency-design/47-flexible-drive-bode",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "classical-analysis",
+      "simulator",
+      "bode"
+    ]
+  },
+  {
+    "id": "control-delayed-thermal-nyquist",
+    "title": "Control · Delayed-oven Nyquist stability",
+    "description": "Count complete Nyquist encirclements where wrapped phase hides delayed-loop instability.",
+    "path": "control/07-classical-stability-and-frequency-design/48-delayed-thermal-nyquist",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "classical-analysis",
+      "simulator",
+      "nyquist"
+    ]
+  },
+  {
+    "id": "control-motor-sensitivity-loop-shaping",
+    "title": "Control · Precision-drive sensitivity and loop shaping",
+    "description": "Balance load rejection, encoder noise, robustness, bandwidth, and torque effort on one executable precision drive.",
+    "path": "control/07-classical-stability-and-frequency-design/49-motor-sensitivity",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "classical-analysis",
+      "simulator",
+      "sensitivity"
+    ]
+  },
+  {
+    "id": "control-position-z-plane-sampling",
+    "title": "Control · Sampled positioning stability",
+    "description": "Expose and recover a coarse sampled-axis instability using the exact hold model and z-plane poles.",
+    "path": "control/07-classical-stability-and-frequency-design/50-position-z-plane",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "classical-analysis",
+      "simulator",
+      "z-plane"
+    ]
+  },
+  {
+    "id": "control-tuning-method-comparison",
+    "title": "Control · Qualified PI tuning-method comparison",
+    "description": "Compare eligible SIMC and AMIGO PI candidates on heater, tank, and dryer plants without inventing a winner.",
+    "path": "control/08-tuning-qualification-and-automation/51-method-comparison",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "tuning",
+      "simulator",
+      "pareto"
+    ]
+  },
+  {
+    "id": "control-automatic-tuning-sequence",
+    "title": "Control · Complete Automatic Tune sequence",
+    "description": "Audit Test, Identify, Tune, Validate, failure recovery, and an unapplied water-heater recommendation.",
+    "path": "control/08-tuning-qualification-and-automation/52-automatic-water-heater",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "tuning",
+      "simulator",
+      "automatic-tune"
+    ]
+  },
+  {
+    "id": "control-conveyor-oven-feedforward",
+    "title": "Control · Conveyor-oven feedforward",
+    "description": "Act on measured line speed before oven temperature changes.",
+    "path": "control/09-industrial-control-structures/53-conveyor-oven-feedforward",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "practitioner",
+      "simulator",
+      "feedforward"
+    ]
+  },
+  {
+    "id": "control-reactor-cascade",
+    "title": "Control · Reactor cascade",
+    "description": "Reject jacket disturbances with a faster inner temperature loop.",
+    "path": "control/09-industrial-control-structures/54-reactor-cascade",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "practitioner",
+      "simulator",
+      "cascade"
+    ]
+  },
+  {
+    "id": "control-blending-ratio",
+    "title": "Control · Blending ratio",
+    "description": "Preserve composition as total production flow changes.",
+    "path": "control/09-industrial-control-structures/55-blending-ratio",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "practitioner",
+      "simulator",
+      "ratio"
+    ]
+  },
+  {
+    "id": "control-reactor-split-range",
+    "title": "Control · Coordinate reactor heating and cooling",
+    "description": "Compare dead-zone, overlap and installed-gain-characterized heating/cooling mappings and select a bounded, mutually exclusive neutral crossover.",
+    "path": "control/09-industrial-control-structures/56-reactor-split-range",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "industrial-control-structures",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-compressor-override",
+    "title": "Control · Compressor override",
+    "description": "Protect minimum-flow margin with recycle-valve selector control.",
+    "path": "control/09-industrial-control-structures/57-compressor-override",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "advanced",
+      "simulator",
+      "override"
+    ]
+  },
+  {
+    "id": "control-gravity-tank-scheduling",
+    "title": "Control · Gravity-tank scheduling",
+    "description": "Schedule qualified PI gains across low, middle, and high levels.",
+    "path": "control/09-industrial-control-structures/58-gravity-tank-scheduling",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "advanced",
+      "simulator",
+      "gain-scheduling"
+    ]
+  },
+  {
+    "id": "control-heated-air-duct-smith",
+    "title": "Control · Heated-air duct predictor",
+    "description": "Compensate transport delay in an industrial heated-air duct.",
+    "path": "control/09-industrial-control-structures/59-heated-air-duct-smith",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "advanced",
+      "simulator",
+      "smith-predictor"
+    ]
+  },
+  {
+    "id": "control-valve-stiction",
+    "title": "Control · Control-valve stiction diagnosis",
+    "description": "Installed characteristic and valve diagnosis on control-valve flow bench.",
+    "path": "control/09-industrial-control-structures/60-valve-stiction",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "practitioner",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-distillation-mimo",
+    "title": "Control · Distillation centralized MIMO control",
+    "description": "Centralised MIMO control and singular values on binary distillation column.",
+    "path": "control/10-multivariable-control/61-distillation-mimo",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modern",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-distillation-decoupling",
+    "title": "Control · Compare direct, static, and dynamic distillation control",
+    "description": "Commission the paired PI loops and select direct, static, or realizable dynamic decoupling from equivalent nominal and model-mismatch evidence.",
+    "path": "control/10-multivariable-control/62-distillation-decoupling",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "multivariable-control",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-distillation-robustness",
+    "title": "Control · Select a robust distillation control architecture",
+    "description": "Evaluate direct PI, static decoupling, and centralized direction-preserving constraint coordination against common nominal, interaction, and infeasibility evidence.",
+    "path": "control/10-multivariable-control/63-distillation-robustness",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "multivariable-control",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-two-tank-observability",
+    "title": "Control · Two-tank observability",
+    "description": "Observability and detectability on coupled two-tank process.",
+    "path": "control/11-state-space-estimation-and-predictive-control/64-two-tank-observability",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modern",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-magnetic-bearing-state-feedback",
+    "title": "Control · Magnetic-bearing state feedback",
+    "description": "State-feedback pole placement on magnetic-bearing position rig.",
+    "path": "control/11-state-space-estimation-and-predictive-control/65-magnetic-bearing-state-feedback",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modern",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-weigh-feeder-kalman",
+    "title": "Control · Weigh-feeder Kalman estimation",
+    "description": "Kalman state estimation on noisy weigh-belt feeder.",
+    "path": "control/11-state-space-estimation-and-predictive-control/66-weigh-feeder-kalman",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modern",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-suspension-lqr",
+    "title": "Control · Active-suspension LQR",
+    "description": "Linear-quadratic regulation on quarter-car active suspension.",
+    "path": "control/11-state-space-estimation-and-predictive-control/67-suspension-lqr",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modern",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-building-hvac-mpc",
+    "title": "Control · Building HVAC predictive control",
+    "description": "Model-predictive control on multi-zone building hvac.",
+    "path": "control/11-state-space-estimation-and-predictive-control/68-building-hvac-mpc",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modern",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-pendulum-lyapunov",
+    "title": "Control · Pendulum Lyapunov analysis",
+    "description": "Lyapunov stability analysis on inverted-pendulum laboratory rig.",
+    "path": "control/12-nonlinear-adaptive-and-robust-control/69-pendulum-lyapunov",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modern",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-robot-joint-nonlinear",
+    "title": "Control · Robot-joint nonlinear feedback",
+    "description": "Nonlinear feedback design on industrial robot joint.",
+    "path": "control/12-nonlinear-adaptive-and-robust-control/70-robot-joint-nonlinear",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modern",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-extruder-adaptive",
+    "title": "Control · Extruder bounded adaptation",
+    "description": "Bounded supervised adaptive control on polymer-extruder pressure loop.",
+    "path": "control/12-nonlinear-adaptive-and-robust-control/71-extruder-adaptive",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modern",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-flexible-airframe-robust",
+    "title": "Control · Flexible-airframe robust control",
+    "description": "Test robust stability and performance on a flexible-airframe rig.",
+    "path": "control/12-nonlinear-adaptive-and-robust-control/72-flexible-airframe-robust",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modern",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-networked-pumping",
+    "title": "Control · Networked pumping coordination",
+    "description": "Networked coordination and local fallback on distributed water-pumping stations.",
+    "path": "control/13-networked-fault-aware-and-diagnostic-control/73-networked-pumping",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "modern",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-pumping-fault-aware",
+    "title": "Control · Isolate multirate pumping faults and recover deliberately",
+    "description": "Detect the declared sensor and actuator faults, isolate only supported causes, choose degraded or safe operation, and restore automatic control through explicit qualified authority.",
+    "path": "control/13-networked-fault-aware-and-diagnostic-control/74-pumping-fault-aware",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "fault-aware-control",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-loop-diagnosis",
+    "title": "Control · Diagnose a steam-flow loop before retuning",
+    "description": "Diagnose eight blinded steam-loop records and select the next evidence-producing action without treating retuning as the default remedy.",
+    "path": "control/13-networked-fault-aware-and-diagnostic-control/75-loop-diagnosis",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "practitioner",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-capstone-cold-storage",
+    "title": "Control · Commission a walk-in cold-storage thermostat",
+    "description": "Select and validate the simplest discrete controller that maintains the qualified product-temperature band without short-cycling the compressor.",
+    "path": "control/14-integrated-capstones/76-cold-storage",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "beginner-capstone",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-capstone-water-heater",
+    "title": "Control · Commission a recirculating water-heater PI loop",
+    "description": "Derive, identify, validate, tune, and abnormally qualify one unapplied PI recommendation for a continuously modulated recirculating water heater.",
+    "path": "control/14-integrated-capstones/77-water-heater",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "process-control-capstone",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-capstone-servo",
+    "title": "Control · Commission a flexible rotary indexing servo",
+    "description": "Select and qualify the minimum P, PD, or PID structure that positions a flexible payload under load, noise, drive limits, model variation, and the implemented sample-and-delay behavior.",
+    "path": "control/14-integrated-capstones/78-servo",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "motion-control-capstone",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-capstone-reactor",
+    "title": "Control · Commission one tracked jacketed-reactor architecture",
+    "description": "Commission one maintainable reactor-temperature architecture across inner-loop startup, production, measured feed load, protection takeover, degradation, manual operation, and controlled shutdown.",
+    "path": "control/14-integrated-capstones/79-reactor",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "industrial-control-capstone",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-capstone-gravity-tank",
+    "title": "Control · Commission full-range control of a gravity-drained tank",
+    "description": "Prove the limitation of one fixed PI, qualify three local tank models, and validate one tracked gain-scheduled PI across the complete operating envelope without applying revision 80.",
+    "path": "control/14-integrated-capstones/80-gravity-tank",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "nonlinear-control-capstone",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-capstone-conveyor-oven",
+    "title": "Control · Select delay compensation for a conveyor oven",
+    "description": "Identify and validate the delayed oven, qualify ordinary PI, feedforward, and Smith candidates from time and frequency evidence, then retain an unapplied architecture that survives declared mismatch and fallback tests.",
+    "path": "control/14-integrated-capstones/81-conveyor-oven",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "delay-control-capstone",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-capstone-distillation",
+    "title": "Control · Commission a multivariable distillation control architecture",
+    "description": "Identify all four local paths and select an unapplied direct, statically decoupled, or centrally constrained architecture from common nominal, interaction, constraint, and abnormal evidence.",
+    "path": "control/14-integrated-capstones/82-distillation-column",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "integrated-capstone",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-capstone-building-hvac",
+    "title": "Control · Decide whether predictive building control earns its complexity",
+    "description": "Qualify the model and load estimator, screen the strongest eligible conventional baseline, execute all 729 constrained predictive sequences, and decide whether MPC improves the building enough to justify its additional actuator and lifecycle cost.",
+    "path": "control/14-integrated-capstones/83-building-hvac",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "integrated-predictive-control-capstone",
+      "simulator"
+    ]
+  },
+  {
+    "id": "control-capstone-independent",
+    "title": "Control · Defend an independent compressed-air control-system recommendation",
+    "description": "Commission and defend the simplest unapplied controller satisfying the compressed-air reference requirements, then apply the same evidence discipline to a learner-selected platform-supported plant.",
+    "path": "control/14-integrated-capstones/84-independent",
+    "hardware": "none",
+    "tags": [
+      "control",
+      "independent-engineering-capstone",
+      "simulator"
+    ]
+  }
 ]

@@ -1,7 +1,7 @@
 # Control System Engineering with Control.PID
 
 This report records what was learned while implementing and evaluating the
-paper-compatible truST `Control.PID`, explains the engineering decisions behind
+truST `Control.PID`, explains the engineering decisions behind
 it, and defines a practical route from a simulated plant to a well-specified,
 tuned, validated, and safely commissioned control loop.
 
@@ -34,7 +34,7 @@ not controller defects.
 
 The most important product conclusion is therefore:
 
-> Keep `Control.PID` small and paper-compatible. Improve the complete control
+> Keep `Control.PID` small and stable. Improve the complete control
 > engineering workflow around it rather than adding identification, tuning,
 > monitoring, scheduling, prediction, or multivariable behavior inside the PID
 > function block.
@@ -461,11 +461,14 @@ Every lesson should use the same progression:
 9. **Explain:** state why the accepted candidate passed and alternatives lost.
 10. **Export:** retain configuration, complete trace, metrics, and conclusion.
 
-### Proposed lesson catalog
+### Benchmark evidence retained inside the implemented curriculum
+
+The following original benchmark cases remain executable evidence inside the
+larger 35-lesson course. They are no longer the complete teaching catalog.
 
 | Lesson | Main concept | Learner experiment | Expected insight |
 | --- | --- | --- | --- |
-| Paper FOPDT reference | Closed-loop fundamentals | Compare open loop and Lambda PI unit steps | A well-damped PI removes offset and trades speed for robustness |
+| Water-heater FOPDT reference | Closed-loop fundamentals | Compare open loop and Lambda PI unit steps | A well-damped PI removes offset and trades speed for robustness |
 | Bounded plant variation | Robustness | Run the same gains over four gain/time/delay variants | One pass does not establish a robustness envelope |
 | Sample interval | Discrete execution | Compare `50`, `100`, and `200 ms` | Actual sampling affects increments, derivatives, limits, and fidelity |
 | Severe scan jitter | Actual elapsed time | Run the repeated `20–180 ms` sequence | Passing actual `CycleTime` preserves the declared response |
@@ -482,20 +485,36 @@ Every lesson should use the same progression:
 | Coupled two-loop plant | Loop interaction | Step each setpoint separately and together | Independent PIDs work for weak coupling; stronger interaction needs analysis |
 | Evidence integrity | Test validity | Intentionally overlap `%IL0` and `%IL1`, then correct to `%IL8` | Invalid I/O mapping can look like an unstable controller |
 
-### Learning levels
+### Implemented learning levels
 
-**Foundation:** paper FOPDT, sample interval, load disturbance, saturation, and
-noise. Learners identify SP, PV, MV, offset, overshoot, settling, and limits.
+**Foundation, Lessons 1–7:** feedback vocabulary, P offset, integral action,
+actual sampling, disturbance rejection, saturation/anti-windup, measurement
+filtering, and actuator rate limits.
 
-**Practitioner:** integrating, underdamped, delay-dominant, nonlinear actuator,
-and bounded variation. Learners select structure and justify tuning tradeoffs.
+**Plant modelling, Lessons 8–16:** response classification; mass-balance and
+differential-equation derivation; bounded FOPDT identification; first-order,
+FOPDT, second-order, and SOPDT model selection; excitation and data quality;
+independent validation, residuals, uncertainty, and extrapolation; nonlinear
+operating points and local linear models; transfer functions, poles, zeros,
+Bode plots, resonance, bandwidth, and margins; and MIMO gain matrices, pairing,
+and RGA. Every topic is tied to a runnable industrial simulation project and a
+worked calculation in its README.
 
-**Advanced:** unstable plant, scheduled gain, severe jitter, and coupled loops.
-Learners separate stabilization, robustness, timing, and interaction problems.
+**Practitioner, Lessons 17–26:** controller-structure selection, derivative
+damping, delay-aware tuning, actuator-aware validation, robustness envelopes,
+feedforward, cascade, Manual/Track/Auto handover, complete commissioning, and
+ratio control.
 
-**Research:** compare identification and tuning algorithms using retained raw
-traces, uncertainty ensembles, independent numerical oracles, and reproducible
-reports.
+**Advanced, Lessons 27–35:** unstable processes, detecting and implementing
+gain scheduling, severe timing jitter, coupled-loop interaction, static
+decoupling, Smith prediction, evidence integrity, and constraint override.
+
+The sequence is complete for the declared industrial PID and low-order plant-
+modelling scope. Research use compares algorithms with retained raw traces,
+independent oracles, uncertainty ensembles, and reproducible reports. MPC,
+observers/state estimation, optimal and robust synthesis, nonlinear-control
+design, SIS, machinery protection, and plant-specific regulation remain
+explicit specialist curricula rather than hidden claims of this course.
 
 ### Documentation generated from evidence
 
@@ -622,7 +641,7 @@ address.
 
 ## 11. What should not be changed now
 
-The current evidence does not justify changing the paper-compatible PID
+The current evidence does not justify changing the `Control.PID`
 equations, adding a hidden derivative filter, merging all controller structures
 into separate duplicate blocks, embedding identification or tuning inside the
 function block, or treating two coupled PID instances as proof for arbitrary
@@ -634,7 +653,7 @@ engineering environment around it becomes richer.
 ## 12. Results of the next implementation stage
 
 The recommended sequence has now been implemented around the unchanged
-paper-compatible `Control.PID`:
+`Control.PID`:
 
 - Control Studio saves complete versioned run revisions, reopens and compares
   them, and exports typed JSON plus full-precision signal CSV without changing
@@ -664,8 +683,8 @@ unapplied until the separate review and apply action.
 
 ## 13. Current limitations
 
-- Saved Control Studio results retain raw samples, but the full sixteen-project
-  qualification campaign currently records method status and native benchmark
+- Saved Control Studio results retain raw samples, but the full 35-project
+  curriculum currently records method status and native benchmark
   summaries rather than checking every campaign trace into the repository.
 - The stability margins are model-predicted, not measured physical frequency
   responses.
@@ -675,7 +694,7 @@ unapplied until the separate review and apply action.
   multivariable controller.
 - No physical plant was operated for this evaluation.
 - Nonfinite input, stale-data, disabled/fault mode, and safe-output policy are
-  outside the paper-compatible PID baseline.
+  outside the `Control.PID` baseline.
 - Gain scheduling, Smith prediction, and dynamic decoupling remain proposed
   composable components until separately specified and proven.
 - The first bounded structure comparison is deliberately small and

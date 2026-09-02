@@ -1,0 +1,4 @@
+policy,invalid_packets_accepted,pressure_iae_bar_s,peak_pressure_error_bar,command_travel_pp
+naive,6,3.250756178,0.353918747,550.000000000
+protected,0,0.000000000,0.000000000,0.000000000
+delay_budget_s,0.470000000,delay_margin_s,0.854766231,delay_reserve_s,0.384766231

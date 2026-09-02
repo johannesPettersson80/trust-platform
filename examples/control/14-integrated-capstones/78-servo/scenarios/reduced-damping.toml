@@ -1,0 +1,32 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 12000
+plant_step_ms = 10
+
+[[plants]]
+id = "indexing-table-pid-reduced-damping"
+name = "Flexible indexing table with reduced shaft damping"
+description = "Selected PID validation copy with shaft damping reduced from 0.5 to 0.25 N m s per radian."
+model = "state_space"
+command_sources = ["%QL32", "%QL40"]
+feedback_targets = ["%IL48", "%IL56", "%IL64"]
+initial_state = [0.0, 0.0, 0.0, 0.0]
+
+[plants.parameters]
+a = [[0.0, 1.0, 0.0, 0.0], [-100.0, -2.25, 100.0, 1.25], [0.0, 0.0, 0.0, 1.0], [25.0, 0.3125, -25.0, -0.6875]]
+b = [[0.0, 0.0], [5.0, 0.0], [0.0, 0.0], [0.0, -1.25]]
+c = [[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+d = [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
+
+[[plants.uncertainties]]
+id = "reduced-damping-encoder-interference"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "sine"
+amplitude = 0.002
+frequency_hz = 20.0
+phase_rad = 0.0

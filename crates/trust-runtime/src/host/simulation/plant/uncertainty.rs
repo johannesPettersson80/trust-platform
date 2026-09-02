@@ -48,6 +48,9 @@ enum Generator {
         minimum: f64,
         maximum: f64,
     },
+    Backlash {
+        width: f64,
+    },
     NormalApproxWhite {
         mean: f64,
         standard_deviation: f64,
@@ -122,6 +125,7 @@ pub(super) struct UncertaintySection {
     frequency_hz: Option<f64>,
     phase_rad: Option<f64>,
     bias: Option<f64>,
+    width: Option<f64>,
 }
 
 impl UncertaintySection {
@@ -294,6 +298,21 @@ impl UncertaintySection {
                     return invalid("clip minimum must not exceed maximum");
                 }
                 Generator::Clip { minimum, maximum }
+            }
+            "backlash" => {
+                if target != Target::ProcessOutput || mode != Mode::Replace {
+                    return invalid("backlash requires process_output target and replace mode");
+                }
+                let width = finite(
+                    "uncertainty.width",
+                    self.width.ok_or_else(|| {
+                        RuntimeError::InvalidConfig("backlash requires uncertainty.width".into())
+                    })?,
+                )?;
+                if width <= 0.0 {
+                    return invalid("uncertainty.width must be > 0");
+                }
+                Generator::Backlash { width }
             }
             "normal_approx_white" => Generator::NormalApproxWhite {
                 mean: finite("uncertainty.mean", self.mean.unwrap_or(0.0))?,
@@ -534,11 +553,13 @@ impl UncertaintyState {
     }
 
     pub(super) fn initialize_process_output(&mut self, channel: usize, value: f64) {
-        if self.config.target == Target::ProcessOutput
-            && self.config.channel == channel
-            && self.config.mode == Mode::Hold
-        {
-            self.held_value = Some(value);
+        if self.config.target == Target::ProcessOutput && self.config.channel == channel {
+            if self.config.mode == Mode::Hold {
+                self.held_value = Some(value);
+            }
+            if matches!(self.config.generator, Generator::Backlash { .. }) {
+                self.generated_state = value;
+            }
         }
     }
 
@@ -617,6 +638,11 @@ impl UncertaintyState {
             });
         }
         if !active {
+            if matches!(self.config.generator, Generator::Backlash { .. }) {
+                // Following the input while disabled prevents stale clearance
+                // from producing an artificial jump when the effect starts.
+                self.generated_state = value;
+            }
             return Ok(value);
         }
         if matches!(
@@ -643,6 +669,13 @@ impl UncertaintyState {
             }
             Generator::Quantise { quantum } => (value / quantum).round_ties_even() * quantum,
             Generator::Clip { minimum, maximum } => value.clamp(minimum, maximum),
+            Generator::Backlash { width } => {
+                let half_width = 0.5 * width;
+                self.generated_state = self
+                    .generated_state
+                    .clamp(value - half_width, value + half_width);
+                self.generated_state
+            }
             Generator::NormalApproxWhite {
                 mean,
                 standard_deviation,
@@ -738,6 +771,7 @@ impl UncertaintyState {
             }
             Generator::Quantise { quantum } => (value / quantum).round_ties_even() * quantum,
             Generator::Clip { minimum, maximum } => value.clamp(minimum, maximum),
+            Generator::Backlash { .. } => return value,
             Generator::NormalApproxWhite {
                 mean,
                 standard_deviation,

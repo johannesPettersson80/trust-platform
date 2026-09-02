@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "id": "control-booster-pump-invalid-data",
+  "name": "Reject invalid pump data and recover authority deliberately",
+  "revision": "sha256:093f3ebb6260a98186971a5466db5deefc5db44ec638534501fb784775b2881d",
+  "projectId": "project:control-booster-pump-invalid-data",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:ffb65549aae20f6f372b115ca021e484c5ff8d3a19cc95c3da34578c4e7a7398",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX65.6",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 0,
+        "maximum": 12
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 0,
+        "maximum": 12
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ValveCommand",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "sensor-age",
+        "channel": "sensor-age",
+        "role": "quality",
+        "symbol": "P1.SensorAgeSeconds",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "measured-cycle-time",
+        "channel": "measured-cycle-time",
+        "role": "state",
+        "symbol": "P1.MeasuredCycleTime",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "fault-code",
+        "channel": "fault-code",
+        "role": "state",
+        "symbol": "P1.FaultCode",
+        "address": "%MW66",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 5
+        }
+      },
+      {
+        "id": "recovery-valid-count",
+        "channel": "recovery-valid-count",
+        "role": "state",
+        "symbol": "P1.RecoveryValidCount",
+        "address": "%MW70",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 3
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "booster-pump-pressure",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 10,
+    "seed": 20260829
+  }
+}

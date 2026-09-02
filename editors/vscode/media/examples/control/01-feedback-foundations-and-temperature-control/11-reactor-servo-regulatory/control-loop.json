@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "id": "control-reactor-servo-regulatory",
+  "name": "Reactor servo and regulatory objectives",
+  "revision": "sha256:52c482d0c5475f8de10bbeee3626637c315c693f84d628e70cd02c9884b99cc9",
+  "projectId": "project:control-reactor-servo-regulatory",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:864ce433e251061f8b9dd6adf566ff5d60c9438afde55c05dbb10b59cf398da6",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX72.0"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 65,
+        "maximum": 95
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 60,
+        "maximum": 100
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ManipulatedValue",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "manual-jacket-valve-demand",
+        "channel": "manual-jacket-valve-demand",
+        "role": "state",
+        "symbol": "P1.ManualOutput",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "selected-objective",
+        "channel": "selected-objective",
+        "role": "state",
+        "symbol": "P1.SelectedObjective",
+        "address": "%MW64",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "first_order_dead_time",
+  "operatingPoint": "PV 80, MV 50",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 56.5,
+    "seed": 20260827,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX80.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
+}

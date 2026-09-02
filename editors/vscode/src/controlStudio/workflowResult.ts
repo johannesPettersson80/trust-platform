@@ -1,6 +1,7 @@
 import type { ControlPidCandidate } from "./controllerCandidate";
 import type { IdentifiedModel, ModelFitEvidence } from "./identification";
 import type { ValidationResult } from "./validation";
+import { decodeControlChartSession, type ControlChartSession } from "./chartContract";
 
 export interface WorkflowResultSample {
   elapsedSeconds: number;
@@ -11,7 +12,8 @@ export interface WorkflowResultSample {
   loopRevision: string;
   sp: number | null;
   pv: number | null;
-  mv: number | null;
+  requestedMv: number | null;
+  appliedMv: number | null;
   units: { sp: string; pv: string; mv: string };
   quality: "good" | "forced" | "bad";
   freshnessMs: number;
@@ -23,7 +25,7 @@ export interface WorkflowResultSample {
 }
 
 export interface ControlStudioWorkflowResult {
-  schemaVersion: 2;
+  schemaVersion: 3;
   resultId: string;
   resultRevision: number;
   createdAt: string;
@@ -44,6 +46,7 @@ export interface ControlStudioWorkflowResult {
   tuningComparison?: WorkflowTuningComparison;
   experiment?: WorkflowExperimentContext;
   plant?: WorkflowPlantContext;
+  chartSession?: ControlChartSession;
   evidence: { observation: "Observed"; model: "Not evaluated" | "Exact simulation model" |
     "Identified from simulation data" | "Identified from physical data" | "Model-predicted" };
   conclusion: string;
@@ -65,16 +68,25 @@ export interface WorkflowTuningComparison {
 }
 
 export interface WorkflowExperimentContext {
-  kind: "observation" | "setpoint_step" | "output_step";
+  kind: "observation" | "setpoint_step" | "load_step" | "mv_step" | "mv_pulse" |
+    "relay" | "prbs" | "multisine" | "output_step";
+  affectedSignal?: string;
+  address?: string;
   requestedValue: number;
   appliedValue: number;
+  durationMs?: number;
+  intervalMs?: number;
+  seed?: number;
+  frequenciesHz?: readonly number[];
+  trajectory?: readonly { atMs: number; value: number }[];
+  stopConditions?: readonly string[];
   minimum: number;
   maximum: number;
   approval: string;
-  status: "completed" | "aborted" | "failed";
+  status: "completed" | "aborted" | "failed" | "failed_to_restore";
   stopReason: string;
   aborted: boolean;
-  restoration: { value: number; status: "confirmed" | "failed" | "not_required" };
+  restoration: { value: number; status: "confirmed" | "failed" | "not_required"; reason?: string };
 }
 
 export interface WorkflowPlantContext {
@@ -95,13 +107,13 @@ export function createWorkflowResult(
   input: Omit<ControlStudioWorkflowResult, "schemaVersion" | "createdAt">,
   createdAt: string
 ): ControlStudioWorkflowResult {
-  const decoded = decodeWorkflowResult({ schemaVersion: 2, createdAt, ...input });
+  const decoded = decodeWorkflowResult({ schemaVersion: 3, createdAt, ...input });
   if (!decoded) throw new Error("Control Studio workflow result is incomplete or invalid.");
   return decoded;
 }
 
 export function decodeWorkflowResult(value: unknown): ControlStudioWorkflowResult | undefined {
-  if (!record(value) || containsSecretKey(value) || value.schemaVersion !== 2 ||
+  if (!record(value) || containsSecretKey(value) || value.schemaVersion !== 3 ||
       !nonempty(value.resultId) || !positiveInteger(value.resultRevision) || !nonempty(value.projectId) ||
       typeof value.createdAt !== "string" || !Number.isFinite(Date.parse(value.createdAt)) ||
       (value.source !== "Simulation" && value.source !== "Physical") || !record(value.loop) ||
@@ -121,6 +133,9 @@ export function decodeWorkflowResult(value: unknown): ControlStudioWorkflowResul
       (value.tuningComparison !== undefined && !tuningComparison(value.tuningComparison)) ||
       (value.experiment !== undefined && !experimentContext(value.experiment)) ||
       (value.plant !== undefined && (!plantContext(value.plant) || value.plant.source !== value.source)) ||
+      (value.chartSession !== undefined && !decodeControlChartSession(
+        value.chartSession, `${value.loop.id}:${value.loop.revision}`
+      )) ||
       !nonempty(value.conclusion)) return undefined;
   if (!recordingMatchesResult(value)) return undefined;
   return cloneJson(value) as unknown as ControlStudioWorkflowResult;
@@ -143,13 +158,14 @@ function tuningComparison(value: unknown): boolean {
 }
 
 export function exportSamplesCsv(samples: readonly WorkflowResultSample[]): string {
-  const header = ["elapsed_seconds", "observed_at_ms", "actual_cycle_seconds", "sp", "pv", "mv",
+  const header = ["elapsed_seconds", "observed_at_ms", "actual_cycle_seconds", "sp", "pv",
+    "requested_mv", "applied_mv",
     "sp_unit", "pv_unit", "mv_unit", "quality", "freshness_ms", "controller_mode",
     "safety_state", "output_minimum", "output_maximum", "rate_down_per_second",
     "rate_up_per_second", "source", "events"];
   return [header.join(","), ...samples.map((sample) => [
     sample.elapsedSeconds, sample.observedAtMs, sample.actualCycleSeconds,
-    sample.sp ?? "", sample.pv ?? "", sample.mv ?? "",
+    sample.sp ?? "", sample.pv ?? "", sample.requestedMv ?? "", sample.appliedMv ?? "",
     sample.units.sp, sample.units.pv, sample.units.mv, sample.quality, sample.freshnessMs,
     sample.controllerMode, sample.safetyState, sample.outputLimits.minimum, sample.outputLimits.maximum,
     sample.rateLimits.downPerSecond ?? "", sample.rateLimits.upPerSecond ?? "", sample.source,
@@ -206,26 +222,45 @@ export function workflowExperimentContext(
   terminalValue: unknown
 ): WorkflowExperimentContext | undefined {
   if (!record(planValue) || !record(terminalValue) ||
-      !["setpoint_step", "output_step"].includes(String(planValue.kind)) ||
-      ![planValue.to, planValue.minimum, planValue.maximum, planValue.restorationValue].every(finite) ||
-      !["completed", "aborted", "failed"].includes(String(terminalValue.status)) ||
+      !["observation", "setpoint_step", "load_step", "mv_step", "mv_pulse", "relay", "prbs", "multisine", "output_step"]
+        .includes(String(planValue.kind)) ||
+      ![planValue.minimum, planValue.maximum].every(finite) ||
+      ![planValue.to, planValue.restorationValue].every(finiteOrBoolean) ||
+      !["completed", "aborted", "failed", "failed_to_restore"].includes(String(terminalValue.status)) ||
       !nonempty(terminalValue.stop_reason) || !nonempty(terminalValue.restoration)) return undefined;
   const source = planValue.source === "physical" ? "physical" : planValue.source === "simulation" ? "simulation" : undefined;
   if (!source) return undefined;
   const restorationStatus = terminalValue.restoration === "restored"
     ? "confirmed"
     : terminalValue.restoration === "not_required" ? "not_required" : "failed";
+  const richPlan = nonempty(planValue.affectedSignal) && nonempty(planValue.address) &&
+    Number.isSafeInteger(planValue.durationMs) && (planValue.durationMs as number) > 0 &&
+    trajectory(planValue.trajectory) && stringList(planValue.stopConditions);
   return {
-    kind: planValue.kind as "setpoint_step" | "output_step",
-    requestedValue: planValue.to as number,
-    appliedValue: finite(terminalValue.applied_value) ? terminalValue.applied_value : planValue.to as number,
+    kind: (planValue.kind === "project_sequence" ? "observation" : planValue.kind) as WorkflowExperimentContext["kind"],
+    ...(richPlan ? {
+      affectedSignal: planValue.affectedSignal as string,
+      address: planValue.address as string,
+      durationMs: planValue.durationMs as number,
+      ...(finite(planValue.intervalMs) ? { intervalMs: planValue.intervalMs } : {}),
+      ...(Number.isSafeInteger(planValue.seed) ? { seed: planValue.seed as number } : {}),
+      ...(positiveFiniteList(planValue.frequenciesHz) ? { frequenciesHz: planValue.frequenciesHz } : {}),
+      trajectory: cloneJson(planValue.trajectory) as Array<{ atMs: number; value: number }>,
+      stopConditions: [...planValue.stopConditions as string[]],
+    } : {}),
+    requestedValue: numericExperimentValue(planValue.to),
+    appliedValue: finite(terminalValue.applied_value) ? terminalValue.applied_value : numericExperimentValue(planValue.to),
     minimum: planValue.minimum as number,
     maximum: planValue.maximum as number,
     approval: source === "physical" ? "Explicit physical approval after topology review" : "Simulation confirmation",
-    status: terminalValue.status as "completed" | "aborted" | "failed",
+    status: terminalValue.status as WorkflowExperimentContext["status"],
     stopReason: terminalValue.stop_reason,
     aborted: terminalValue.status === "aborted",
-    restoration: { value: planValue.restorationValue as number, status: restorationStatus },
+    restoration: {
+      value: numericExperimentValue(planValue.restorationValue),
+      status: restorationStatus,
+      ...(nonempty(terminalValue.restoration_reason) ? { reason: terminalValue.restoration_reason } : {}),
+    },
   };
 }
 
@@ -384,7 +419,8 @@ function workflowSample(value: unknown): boolean {
     finite(value.actualCycleSeconds) && value.actualCycleSeconds > 0 &&
     Number.isInteger(value.scan) && (value.scan as number) >= 0 &&
     (value.source === "Simulation" || value.source === "Physical") && revision(value.loopRevision) &&
-    nullableFinite(value.sp) && nullableFinite(value.pv) && nullableFinite(value.mv) && record(value.units) &&
+    nullableFinite(value.sp) && nullableFinite(value.pv) && nullableFinite(value.requestedMv) &&
+    nullableFinite(value.appliedMv) && record(value.units) &&
     [value.units.sp, value.units.pv, value.units.mv].every(nonempty) &&
     ["good", "forced", "bad"].includes(String(value.quality)) && finite(value.freshnessMs) && value.freshnessMs >= 0 &&
     ["Auto", "Manual", "Track", "Unavailable"].includes(String(value.controllerMode)) &&
@@ -405,12 +441,39 @@ function evidence(value: unknown): boolean {
 }
 
 function experimentContext(value: unknown): value is WorkflowExperimentContext {
-  return record(value) && ["observation", "setpoint_step", "output_step"].includes(String(value.kind)) &&
+  return record(value) &&
+    ["observation", "setpoint_step", "load_step", "mv_step", "mv_pulse", "relay", "prbs", "multisine", "output_step"]
+      .includes(String(value.kind)) &&
     finite(value.requestedValue) && finite(value.appliedValue) && finite(value.minimum) &&
     finite(value.maximum) && value.minimum <= value.maximum && nonempty(value.approval) &&
-    ["completed", "aborted", "failed"].includes(String(value.status)) && nonempty(value.stopReason) &&
+    ["completed", "aborted", "failed", "failed_to_restore"].includes(String(value.status)) && nonempty(value.stopReason) &&
     typeof value.aborted === "boolean" && record(value.restoration) && finite(value.restoration.value) &&
-    ["confirmed", "failed", "not_required"].includes(String(value.restoration.status));
+    ["confirmed", "failed", "not_required"].includes(String(value.restoration.status)) &&
+    (value.restoration.reason === undefined || nonempty(value.restoration.reason)) &&
+    ((value.affectedSignal === undefined && value.address === undefined && value.durationMs === undefined &&
+      value.trajectory === undefined && value.stopConditions === undefined) ||
+      (nonempty(value.affectedSignal) && nonempty(value.address) && Number.isSafeInteger(value.durationMs) &&
+        (value.durationMs as number) > 0 && trajectory(value.trajectory) && stringList(value.stopConditions))) &&
+    (value.intervalMs === undefined || (finite(value.intervalMs) && value.intervalMs > 0)) &&
+    (value.seed === undefined || (typeof value.seed === "number" && Number.isSafeInteger(value.seed) &&
+      value.seed > 0 && value.seed <= 0xffff_ffff)) &&
+    (value.frequenciesHz === undefined || positiveFiniteList(value.frequenciesHz));
+}
+
+function trajectory(value: unknown): value is Array<{ atMs: number; value: number }> {
+  if (!Array.isArray(value) || value.length > 10_000) return false;
+  let previous = -1;
+  return value.every((point) => {
+    const atMs = record(point) && typeof point.atMs === "number" ? point.atMs : Number.NaN;
+    if (!record(point) || Object.keys(point).sort().join(",") !== "atMs,value" ||
+        !Number.isSafeInteger(atMs) || atMs < 0 || atMs <= previous || !finite(point.value)) return false;
+    previous = atMs;
+    return true;
+  });
+}
+
+function positiveFiniteList(value: unknown): value is number[] {
+  return Array.isArray(value) && value.length <= 64 && value.every((item) => finite(item) && item > 0);
 }
 
 function plantContext(value: unknown): value is WorkflowPlantContext {
@@ -501,5 +564,11 @@ function record(value: unknown): value is Record<string, unknown> {
 function nonempty(value: unknown): value is string { return typeof value === "string" && value.trim().length > 0; }
 function revision(value: unknown): value is string { return nonempty(value) && value.startsWith("sha256:"); }
 function finite(value: unknown): value is number { return typeof value === "number" && Number.isFinite(value); }
+function finiteOrBoolean(value: unknown): value is number | boolean {
+  return typeof value === "boolean" || finite(value);
+}
+function numericExperimentValue(value: unknown): number {
+  return typeof value === "boolean" ? Number(value) : value as number;
+}
 function positiveInteger(value: unknown): value is number { return Number.isInteger(value) && (value as number) > 0; }
 function nullableFinite(value: unknown): boolean { return value === null || finite(value); }

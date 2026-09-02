@@ -49,7 +49,7 @@ suite("Control Studio validation, apply, rollback, and export", () => {
       scenarios
     );
     assert.deepStrictEqual(result.current.scenarios, result.candidate.scenarios);
-    assert.ok(result.requirements.every((item) => ["Pass", "Fail", "Not evaluated", "Inconclusive"].includes(item.status)));
+    assert.ok(result.requirements.every((item) => ["Pass", "Fail", "Inconclusive"].includes(item.status)));
     assert.strictEqual(result.evidence, "Model-predicted");
     assert.strictEqual(result.applied, false);
   });
@@ -73,6 +73,39 @@ suite("Control Studio validation, apply, rollback, and export", () => {
     );
     assert.strictEqual(result.evidence, "Model-predicted");
     assert.deepStrictEqual(result.current.scenarios, result.candidate.scenarios);
+    const conditions = (result as unknown as { conditions?: {
+      initialCondition: { processValue: number; firstLagState: number; delayedInput: number;
+        controller: Record<string, number> };
+      sampleTimesSeconds: readonly number[];
+      durationSeconds: number;
+      noise: { generator: string; seed: number };
+      limits: Record<string, number>;
+      variationFractions: readonly number[];
+      scenarios: readonly { kind: string; event: { affectedSignal: string; atSeconds: number;
+        amplitude: number }; disturbanceTrajectory: readonly { atSeconds: number; value: number }[];
+        noiseAmplitude: number }[];
+    } }).conditions;
+    assert.ok(conditions, "one retained validation-conditions record is missing");
+    assert.deepStrictEqual(conditions.initialCondition, {
+      processValue: 0, firstLagState: 0, delayedInput: 0,
+      controller: { setpoint: 0, setpointRate: 0, processValue: 0, processValueRate: 0,
+        feedForward: 0, nominalOutput: 0, saturatedOutput: 0 },
+    });
+    assert.strictEqual(conditions.sampleTimesSeconds.length, 2701);
+    assert.strictEqual(conditions.sampleTimesSeconds[0], 0);
+    assert.strictEqual(conditions.sampleTimesSeconds[conditions.sampleTimesSeconds.length - 1], 54);
+    assert.strictEqual(conditions.durationSeconds, 54);
+    assert.deepStrictEqual(conditions.noise, { generator: "xorshift32-uniform", seed: 20260828 });
+    assert.deepStrictEqual(conditions.limits, { outputMinimum: 0, outputMaximum: 100,
+      rateMinimum: -100, rateMaximum: 100 });
+    assert.deepStrictEqual(conditions.variationFractions, [-0.2, 0, 0.2]);
+    assert.deepStrictEqual(conditions.scenarios.map((item) => ({ kind: item.kind,
+      signal: item.event.affectedSignal, eventAmplitude: item.event.amplitude,
+      disturbance: item.disturbanceTrajectory[0]?.value, noiseAmplitude: item.noiseAmplitude })), [
+      { kind: "setpoint", signal: "SP", eventAmplitude: 1, disturbance: 0, noiseAmplitude: 0 },
+      { kind: "disturbance", signal: "Load disturbance", eventAmplitude: 0.2, disturbance: 0.2, noiseAmplitude: 0 },
+      { kind: "noise", signal: "PV", eventAmplitude: 0.02, disturbance: 0, noiseAmplitude: 0.02 },
+    ]);
     for (const name of ["Settling time", "Overshoot", "Steady-state error", "MV excursion",
       "MV rate", "Saturation recovery", "Noise response", "Gain margin", "Phase margin",
       "Bounded variation stability"]) {
@@ -80,7 +113,7 @@ suite("Control Studio validation, apply, rollback, and export", () => {
       assert.ok(requirement, `missing ${name}`);
       assert.strictEqual(requirement.source, "Model-predicted");
       assert.ok(requirement!.unit.length > 0 && requirement!.reason.length > 0);
-      assert.ok(["Pass", "Fail", "Not evaluated", "Inconclusive"].includes(requirement!.status));
+      assert.ok(["Pass", "Fail", "Inconclusive"].includes(requirement!.status));
     }
     assert.strictEqual(result.applied, false);
     assert.strictEqual(result.requirements.find((item) => item.name === "MV excursion")?.unit, "%");
@@ -101,7 +134,9 @@ suite("Control Studio validation, apply, rollback, and export", () => {
     );
     assert.strictEqual(result.evidence, "Simulation-observed");
     assert.ok(result.requirements.every((item) => item.source === "Simulation-observed"));
-    assert.ok(result.requirements.find((item) => item.name === "Noise response")?.status === "Not evaluated");
+    const noise = result.requirements.find((item) => item.name === "Noise response");
+    assert.strictEqual(noise?.status, "Inconclusive");
+    assert.match(noise?.reason ?? "", /no bounded noise scenario/i);
   });
 
   test("measures noise-driven MV activity instead of saturation error", () => {
@@ -173,11 +208,27 @@ suite("Control Studio validation, apply, rollback, and export", () => {
 
   test("exports reproducible results without secrets and preserves raw samples", () => {
     const raw = completeSavedRun("run-export", 1).recording.rawSamples;
-    assert.match(exportSamplesCsv(raw), /^elapsed_seconds,observed_at_ms,actual_cycle_seconds,sp,pv,mv/);
+    assert.match(exportSamplesCsv(raw),
+      /^elapsed_seconds,observed_at_ms,actual_cycle_seconds,sp,pv,requested_mv,applied_mv/);
     const exported = exportWorkflowJson({ source: "Simulation", rawSamples: raw, candidate: { kp: 1 }, authToken: "secret" });
     assert.match(exported, /"source": "Simulation"/);
     assert.doesNotMatch(exported, /secret|authToken/);
     assert.strictEqual(raw.length, 1);
+  });
+
+  test("retains requested and applied output separately without inventing a request", () => {
+    const result = completeSavedRun("run-output-path", 1) as unknown as Record<string, unknown>;
+    const recording = result.recording as { rawSamples: Array<Record<string, unknown>> };
+    const sample = recording.rawSamples[0];
+    delete sample.mv;
+    sample.requestedMv = null;
+    sample.appliedMv = 12.5;
+    result.schemaVersion = 3;
+
+    assert.deepStrictEqual(decodeWorkflowResult(result), result,
+      "the saved result must preserve a missing request separately from observed applied output");
+    assert.match(exportSamplesCsv(recording.rawSamples as never),
+      /^elapsed_seconds,observed_at_ms,actual_cycle_seconds,sp,pv,requested_mv,applied_mv/);
   });
 
   test("round-trips one reproducible workflow result while retaining raw samples", () => {
@@ -186,7 +237,7 @@ suite("Control Studio validation, apply, rollback, and export", () => {
       outputMinimum: 0, outputMaximum: 100, rateMinimum: -20, rateMaximum: 20,
       trackingTime: 4, antiWindup: "BackCalculation" };
     const rawSamples = [{ elapsedSeconds: 0, observedAtMs: 1000, scan: 1, source: "Simulation" as const,
-      loopRevision: "sha256:loop-1", sp: 1, pv: 0, mv: 0,
+      loopRevision: "sha256:loop-1", sp: 1, pv: 0, requestedMv: null, appliedMv: 0,
       units: { sp: "%", pv: "%", mv: "%" }, quality: "good" as const,
       actualCycleSeconds: 0.1, freshnessMs: 0, controllerMode: "Auto" as const,
       outputLimits: { minimum: 0, maximum: 100 }, rateLimits: {}, safetyState: "Unavailable",
@@ -208,7 +259,7 @@ suite("Control Studio validation, apply, rollback, and export", () => {
     assert.deepStrictEqual(decoded, result);
     assert.strictEqual(decoded?.recording.rawSamples[0].pv, 0, "saving must not alias or rewrite the raw recording");
     assert.doesNotMatch(exportWorkflowJson(result), /authToken|secret/);
-    assert.strictEqual(decodeWorkflowResult({ ...result, schemaVersion: 3 }), undefined);
+    assert.strictEqual(decodeWorkflowResult({ ...result, schemaVersion: 4 }), undefined);
   });
 
   test("round-trips a retained constrained proportional recommendation", () => {
@@ -283,12 +334,12 @@ suite("Control Studio validation, apply, rollback, and export", () => {
       units: { sp: "%", pv: "%", mv: "%" },
       recording: { rawSamples: [
         { elapsedSeconds: 0, observedAtMs: 1000, actualCycleSeconds: 0.1, scan: 1, source: "Simulation",
-          loopRevision: "sha256:loop-1", sp: 1, pv: 0, mv: 0,
+          loopRevision: "sha256:loop-1", sp: 1, pv: 0, requestedMv: null, appliedMv: 0,
           units: { sp: "%", pv: "%", mv: "%" }, quality: "good", freshnessMs: 0,
           controllerMode: "Auto", outputLimits: { minimum: 0, maximum: 100 }, rateLimits: {},
           safetyState: "Unavailable", events: ["recording_started"] },
         { elapsedSeconds: 0.1, observedAtMs: 1100, actualCycleSeconds: 0.1, scan: 2, source: "Simulation",
-          loopRevision: "sha256:loop-1", sp: 1, pv: 0.1, mv: 0.2,
+          loopRevision: "sha256:loop-1", sp: 1, pv: 0.1, requestedMv: 0.25, appliedMv: 0.2,
           units: { sp: "%", pv: "%", mv: "%" }, quality: "good", freshnessMs: 0,
           controllerMode: "Auto", outputLimits: { minimum: 0, maximum: 100 }, rateLimits: {},
           safetyState: "Unavailable", events: ["recording_stopped"] },
@@ -325,7 +376,8 @@ suite("Control Studio validation, apply, rollback, and export", () => {
       units: { sp: "%", pv: "%", mv: "%" },
       recording: { rawSamples: [{
         elapsedSeconds: 0, observedAtMs: 1000, actualCycleSeconds: 0.1, scan: 1,
-        source: "Simulation", loopRevision: "sha256:loop-1", sp: 1, pv: 0, mv: 0,
+        source: "Simulation", loopRevision: "sha256:loop-1", sp: 1, pv: 0,
+        requestedMv: null, appliedMv: 0,
         units: { sp: "%", pv: "%", mv: "%" }, quality: "good", freshnessMs: 0,
         controllerMode: "Auto", outputLimits: { minimum: 0, maximum: 100 },
         rateLimits: { downPerSecond: 20, upPerSecond: 20 }, safetyState: "Unavailable",
@@ -335,12 +387,13 @@ suite("Control Studio validation, apply, rollback, and export", () => {
       conclusion: "Recording retained for later identification.",
     }, "2026-08-26T12:00:00.000Z");
 
-    assert.strictEqual(result.schemaVersion, 2);
+    assert.strictEqual(result.schemaVersion, 3);
     assert.strictEqual(result.resultId, "run-20260826-1");
     assert.strictEqual(result.resultRevision, 3);
     assert.deepStrictEqual((result.recording as { rawSamples: unknown[] }).rawSamples, [{
       elapsedSeconds: 0, observedAtMs: 1000, actualCycleSeconds: 0.1, scan: 1,
-      source: "Simulation", loopRevision: "sha256:loop-1", sp: 1, pv: 0, mv: 0,
+      source: "Simulation", loopRevision: "sha256:loop-1", sp: 1, pv: 0,
+      requestedMv: null, appliedMv: 0,
       units: { sp: "%", pv: "%", mv: "%" }, quality: "good", freshnessMs: 0,
       controllerMode: "Auto", outputLimits: { minimum: 0, maximum: 100 },
       rateLimits: { downPerSecond: 20, upPerSecond: 20 }, safetyState: "Unavailable",
@@ -390,13 +443,14 @@ suite("Control Studio validation, apply, rollback, and export", () => {
     const sample = completeSavedRun("run-csv", 1).recording.rawSamples[0];
     const csv = exportSamplesCsv([sample]);
     assert.strictEqual(csv.split("\n")[0], [
-      "elapsed_seconds", "observed_at_ms", "actual_cycle_seconds", "sp", "pv", "mv",
+      "elapsed_seconds", "observed_at_ms", "actual_cycle_seconds", "sp", "pv",
+      "requested_mv", "applied_mv",
       "sp_unit", "pv_unit", "mv_unit", "quality", "freshness_ms", "controller_mode",
       "safety_state", "output_minimum", "output_maximum", "rate_down_per_second",
       "rate_up_per_second", "source", "events",
     ].join(","));
     const cells = csv.split("\n")[1].split(",");
-    assert.deepStrictEqual(cells.slice(2, 7), ["0.1", "1", "0", "0", "%"],
+    assert.deepStrictEqual(cells.slice(2, 8), ["0.1", "1", "0", "", "0", "%"],
       "CSV must retain the actual interval and full-precision signal values");
     assert.deepStrictEqual(cells.slice(-2), ["Simulation", "recording_started"]);
   });
@@ -442,13 +496,20 @@ suite("Control Studio validation, apply, rollback, and export", () => {
     assert.strictEqual(typeof module.workflowExperimentContext, "function");
     assert.strictEqual(typeof module.workflowSimulationPlantContext, "function");
     assert.deepStrictEqual(module.workflowExperimentContext?.({
-      source: "simulation", kind: "setpoint_step", from: 20, to: 25,
-      minimum: 0, maximum: 100, restorationValue: 20,
-    }, { status: "aborted", stop_reason: "user_abort", restoration: "restored" }), {
-      kind: "setpoint_step", requestedValue: 25, appliedValue: 25,
+      source: "simulation", kind: "prbs", affectedSignal: "ValveMV", address: "%QL0",
+      from: 20, to: 25, minimum: 0, maximum: 100, restorationValue: 20,
+      durationMs: 10_000, intervalMs: 500, seed: 7,
+      trajectory: [{ atMs: 0, value: 25 }, { atMs: 500, value: 15 }],
+      stopConditions: ["Abort", "10 s timeout", "Stale runtime data"],
+    }, { status: "failed_to_restore", stop_reason: "signal_forced", restoration: "failed",
+      restoration_reason: "confirmation_timeout", applied_value: 25 }), {
+      kind: "prbs", affectedSignal: "ValveMV", address: "%QL0",
+      requestedValue: 25, appliedValue: 25, durationMs: 10_000, intervalMs: 500, seed: 7,
+      trajectory: [{ atMs: 0, value: 25 }, { atMs: 500, value: 15 }],
+      stopConditions: ["Abort", "10 s timeout", "Stale runtime data"],
       minimum: 0, maximum: 100, approval: "Simulation confirmation",
-      status: "aborted", stopReason: "user_abort", aborted: true,
-      restoration: { value: 20, status: "confirmed" },
+      status: "failed_to_restore", stopReason: "signal_forced", aborted: false,
+      restoration: { value: 20, status: "failed", reason: "confirmation_timeout" },
     });
     assert.deepStrictEqual(module.workflowSimulationPlantContext?.({
       configuration_revision: "sha256:plant-1",
@@ -580,6 +641,37 @@ suite("Control Studio validation, apply, rollback, and export", () => {
     assert.strictEqual(decodeWorkflowResultCommand({ ...base, expectedLoopRevision: "sha256:stale",
       kind: "control-studio.result.save" }, scope), undefined);
   });
+
+  test("saves and restores the complete evidence-bound chart session", () => {
+    const result = completeSavedRun("run-session", 1);
+    const chartSession = {
+      schemaVersion: 1 as const,
+      boundary: "loop:tank:sha256:loop-1",
+      activeStage: "Tune" as const,
+      selectedPlots: { Monitor: "response", Tune: "bode", Validate: "requirements" },
+      selectedSignals: ["sp", "pv", "mv"],
+      window: [10, 60] as [number, number],
+      expanded: true,
+      candidateRevision: 2,
+      pinnedCandidateRevisions: [1],
+    };
+    const restored = decodeWorkflowResult({ ...result, chartSession }) as unknown as {
+      chartSession?: unknown;
+    } | undefined;
+    assert.deepStrictEqual(restored?.chartSession, chartSession);
+    assert.strictEqual(decodeWorkflowResult({ ...result, chartSession: {
+      ...chartSession, boundary: "loop:other:sha256:loop-1",
+    } }), undefined);
+
+    const scope = { projectId: "project", editorSessionId: "editor", loopId: "loop", loopRevision: "sha256:loop" };
+    const command = decodeWorkflowResultCommand({ schemaVersion: 1, kind: "control-studio.result.save",
+      messageId: "message", projectId: "project", editorSessionId: "editor", loopId: "loop",
+      expectedLoopRevision: "sha256:loop", payload: { session: {
+        ...chartSession, boundary: "loop:sha256:loop",
+      } } }, scope) as unknown as { action?: string; session?: unknown } | undefined;
+    assert.strictEqual(command?.action, "save");
+    assert.deepStrictEqual(command?.session, { ...chartSession, boundary: "loop:sha256:loop" });
+  });
 });
 
 function completeSavedRun(resultId: string, resultRevision: number) {
@@ -591,7 +683,8 @@ function completeSavedRun(resultId: string, resultRevision: number) {
     units: { sp: "%", pv: "%", mv: "%" },
     recording: { rawSamples: [{ elapsedSeconds: 0, observedAtMs: 1000,
       actualCycleSeconds: 0.1, scan: 1, source: "Simulation", loopRevision: "sha256:loop-1",
-      sp: 1, pv: 0, mv: 0, units: { sp: "%", pv: "%", mv: "%" }, quality: "good",
+      sp: 1, pv: 0, requestedMv: null, appliedMv: 0,
+      units: { sp: "%", pv: "%", mv: "%" }, quality: "good",
       freshnessMs: 0, controllerMode: "Auto", outputLimits: { minimum: 0, maximum: 100 },
       rateLimits: {}, safetyState: "Unavailable", events: ["recording_started"] }],
       selectedIntervals: [] },

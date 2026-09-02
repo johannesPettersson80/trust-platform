@@ -1,0 +1,98 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 4800
+plant_step_ms = 100
+
+[[plants]]
+id = "heat-exchanger-local-holdout"
+model = "first_order_dead_time"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [50.0]
+
+[plants.parameters]
+gain = 0.5
+time_constant_s = 20.0
+dead_time_s = 3.0
+initial_delayed_input = 20.0
+output_bias = 40.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 20.0
+
+[[plants.uncertainties]]
+id = "local-holdout-temperature-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+mean = 0.0
+standard_deviation = 0.15
+
+[[plants]]
+id = "heat-exchanger-cold-flow-holdout"
+model = "first_order_dead_time"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8"]
+initial_state = [50.0]
+
+[plants.parameters]
+gain = 0.5
+time_constant_s = 20.0
+dead_time_s = 3.0
+initial_delayed_input = 20.0
+output_bias = 40.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 20.0
+
+[[plants.uncertainties]]
+id = "cold-flow-temperature-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+mean = 0.0
+standard_deviation = 0.15
+
+[[plants]]
+id = "heat-exchanger-high-flow-holdout"
+model = "first_order_dead_time"
+command_sources = ["%QL16"]
+feedback_targets = ["%IL16"]
+initial_state = [50.0]
+
+[plants.parameters]
+gain = 0.25
+time_constant_s = 20.0
+dead_time_s = 3.0
+initial_delayed_input = 20.0
+output_bias = 45.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 20.0
+
+[[plants.uncertainties]]
+id = "high-flow-temperature-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+mean = 0.0
+standard_deviation = 0.15
+
+[[plant_events]]
+at_ms = 90000
+plant = "heat-exchanger-cold-flow-holdout"
+kind = "set_parameter"
+parameter = "output_bias"
+value = 38.0

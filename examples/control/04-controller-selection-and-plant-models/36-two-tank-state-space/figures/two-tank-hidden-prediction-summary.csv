@@ -1,0 +1,2 @@
+prediction_id,visible_case_a_downstream_cm,visible_case_b_downstream_cm,learner_commitment,learner_reason,reveal_status
+A_vs_B,0.000000,0.000000,,,not_revealed

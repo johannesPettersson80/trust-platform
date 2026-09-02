@@ -1,0 +1,4 @@
+method,eligible,signed_area_N_m_s,prbs_transitions,resonance_peak_hz,resonance_peak_rad,reject_reason
+doublet,true,-0.000000000000,,,,0
+PRBS,true,,45,,,0
+chirp,true,,,1.091000000000,0.180336697127,0

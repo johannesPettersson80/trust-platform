@@ -6,13 +6,29 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.64`
+- Rewrite all 84 control lessons around the reviewed water-heater saturation
+  teaching flow: a named equipment problem, a distinct learner-facing need,
+  words and prediction before implementation, one non-duplicated Control
+  Studio procedure with explicit checks/decisions/recovery, progressively
+  revealed evidence, left-aligned equations, preview-safe SVG diagrams, and
+  syntax-highlighted Structured Text.
+- Control Studio can now start and safely restore project-scripted curriculum
+  experiments through one typed Boolean lesson authority without injecting a
+  duplicate process excitation.
+- All 84 control lessons now provide lesson-specific Control Studio steps with
+  explicit operating-point checks, experiment values, decisions, visible
+  completion evidence, and recovery actions. Correct non-overlapping process
+  image mappings also let the affected saturation, rate-limit, motion, and
+  multivariable lessons retain their declared automatic mode at runtime.
+
+Target release: `v0.24.65`
 
 ### Added
 
 - Add deterministic simulation plant models for controller verification,
-  including static, first-order, FOPDT, integrator, second-order, state-space,
-  and piecewise-linear processes; scalar and MIMO typed process-image bindings;
+  including static, first-order, FOPDT, integrator, gravity-tank, robot-joint,
+  second-order, state-space, and piecewise-linear processes; scalar and MIMO
+  typed process-image bindings; enforced local-model validity bounds;
   actuator nonidealities; seeded uncertainty and dropout faults; scheduled
   plant events; bounded status/trace capture; atomic feedback publication;
   failed-substep rollback; physical-I/O activation protection; and a native
@@ -23,7 +39,19 @@ Target release: `v0.24.64`
   Control Studio journeys covering configuration, monitoring, bounded tests,
   identification, tuning, validation, Automatic Tune, recovery, and explicit
   physical-plant approval boundaries.
-- Add the reusable `Control` Structured Text library with the paper-compatible
+- Add a runtime-bound heater step-identification lesson that teaches the real
+  Control Studio Monitor, Test, Identify, Tune, and Validate workflow with a
+  bounded manual-output experiment, independent validation data, explicit
+  restoration, and an unapplied controller candidate. Control Studio now keeps
+  signal choices across workflow navigation, shows retained recording events
+  after reopening a result, frames identification fits in engineering units,
+  and opens Bode plots on a useful dynamics and crossover range.
+- Replace the Control Studio plot-tools disclosure with one direct, responsive
+  analysis workspace for time response, identification, Bode, root-locus,
+  Nyquist, Nichols, sensitivity, requirements, and typed MIMO evidence. Add
+  unit-safe signal layouts, linked graphical candidate editing, bounded
+  undo/redo and pinning, and evidence-bound chart-session restoration.
+- Add the reusable `Control` Structured Text library with the specified
   combined-form `PID` controller, independent first-/second-order `LowPass`
   filter, normative specification, native equation and seven-scenario
   conformance tests, and an executed closed-loop performance benchmark for
@@ -35,13 +63,270 @@ Target release: `v0.24.64`
   explains the design choices, results, tuning workflow, limitations, and
   improvement program.
 - Extend the existing Control Studio workflow with reproducible saved-run
-  revisions, sixteen executable control-engineering lessons, independently
+  revisions whose raw samples distinguish requested from applied manipulated
+  output without inventing unavailable requests, eighty-four executable
+  control-engineering lessons, and production-style lesson source organization
+  in which `Main` owns I/O, safety, and composition while substantial stateful
+  algorithms use dedicated, pedagogically commented function blocks and typed
+  records; independently
   qualified SIMC and AMIGO PI formulas, bounded P/PI/PD/PID candidate
   comparison, common performance and actuator metrics, deterministic
   rejection reasons, and an explicit unapplied recommendation and review flow.
+  Relay experiments now switch from fresh measured process feedback and a
+  retained hysteresis band instead of replaying a timed square wave, while
+  preserving the existing bounded abort and restoration path. SIMC tuning now
+  also handles eligible integrating models with rate-gain equations and ships
+  an executable heater, buffer-tank, and dryer lesson that compares unapplied
+  Fast, Balanced, and Robust candidates under gain and delay variation. The
+  classical-analysis sequence now begins with an executable overhead-crane
+  Routh-Hurwitz lesson that proves `0 < K < 6` and confirms stable, marginal,
+  and unstable cases against three equivalent simulated plants and an
+  independent numerical-root oracle. The following positioning-servo lesson
+  now derives an uncompensated root locus, proves why gain alone misses the
+  motion requirements, and validates a full-transfer-function lead design
+  against an equivalent executable servo without current saturation. The
+  flexible-drive lesson then measures low-, resonant-, and high-frequency
+  response on three equivalent executable plants and compares unshaped and
+  resonance-shaped Bode margins without silently applying either candidate.
+  The delayed-conveyor-oven lesson follows with complete Nyquist contours,
+  qualified encirclement counting, and time-domain confirmation of stable and
+  unstable loops, including a long-delay case that wrapped phase misclassifies.
+  The precision-drive lesson then evaluates loop, sensitivity, complementary-
+  sensitivity, load-disturbance, and control-sensitivity paths on one common
+  grid and confirms the shaped controller's robustness/noise improvements and
+  slower load-recovery cost on equivalent executable motor copies. The sampled
+  positioning lesson then proves the exact hold, sampling-zero, aliasing, and
+  one-cycle-delay model in the z-plane, safely exposes unchanged gains becoming
+  unstable at a coarse interval, and validates a corrected digital design. The
+  following tuning-method lesson separates method eligibility from candidate
+  feasibility and engineering preference by comparing qualified SIMC and AMIGO
+  PI settings on equivalent heater and dryer plants, retaining AMIGO as
+  explicitly unavailable for the integrating tank, and exposing time,
+  actuator, margin, delay-margin, bandwidth, sensitivity, and Pareto evidence
+  without applying or embedding a winner. The next lesson audits the complete
+  exact-Simulation Automatic Tune route on a recirculating water heater,
+  retaining the Test, Identify, Tune, and Validate decisions, failure and
+  recovery boundaries, unchanged running controller, independent validation
+  copy, and explicitly unapplied recommendation. The following conveyor-oven
+  lesson now derives static and dynamic measured-speed feedforward from
+  separate heater and disturbance paths, executes three equivalent ovens,
+  qualifies settled versus not-settled results, and proves model-mismatch and
+  invalid-signal fallback without removing PI trim or actuator constraints.
+  The jacketed-reactor lesson then commissions the valve-facing temperature
+  loop before closing the product-temperature loop, compares direct PI with
+  fast and deliberately slow cascade structures on equivalent plants, and
+  proves time-scale separation, earlier disturbance detection, tracking, and
+  bounded valve authority from executable evidence. The following blending-
+  skid lesson derives a wild-stream ratio station from material flow, compares
+  it with identical composition-feedback trim on separate two-input plants,
+  and proves prompt production-rate compensation, meter-bias recovery, and
+  tracked low-flow or invalid-quality fallback. The split-range reactor lesson
+  then compares explicit dead-zone and overlap failures with a mutually
+  exclusive installed-gain-characterized heating/cooling mapper, including
+  neutral crossover, utility-throughput, and authority-loss evidence. The
+  compressor lesson then compares normal-only, untracked, and externally
+  tracked high-selector override on equivalent plants, proving constraint
+  priority, inactive-integral consequences, hysteretic takeover/release, and
+  explicit invalid-margin fallback without claiming anti-surge protection. The
+  gravity-tank lesson then derives and validates three local nonlinear operating
+  regions, comparing a conservative fixed PI with atomic interpolation and
+  hysteretically selected PIs whose compensated external tracking preserves
+  live setpoint history and bumpless region transfer. The following long-
+  conveyor lesson qualifies an ordinary PI boundary before applying Smith
+  prediction, then proves nominal rise-time benefit, moderate model-mismatch
+  degradation and deterministic measured-feedback fallback under severe
+  mismatch. The following cooling-water flow-bench lesson characterizes a
+  fixed-head equal-percentage valve approximation and then uses requested
+  position, measured stem position, process flow, and repeated reversal
+  evidence to distinguish healthy motion, command deadband, and mechanical
+  stiction before recommending maintenance instead of an unjustified retune.
+  The next binary-distillation lesson replaces a premature centralized-control
+  summary with two independently restored open-loop interaction tests, derives
+  all four signed steady-state gains and the Relative Gain Array from executed
+  evidence, and selects the eligible diagonal pairing while leaving controller
+  and decoupler design to the following lesson. That next lesson runs the same
+  two PI tunings through direct, static-inverse, and proper dynamic cross-filter
+  mappings, compares common servo and feed-disturbance records, and deliberately
+  rejects the nominal dynamic design under declared cross-path mismatch when
+  its small extra cross improvement does not justify its higher error.
+  The following robustness lesson then evaluates nominal and stronger-
+  interaction column models by singular direction and multivariable
+  sensitivity, selects static decoupling over an equivalent centralized
+  coordinator in the feasible envelope, and retains a jointly limited
+  `+2/+2` request as explicitly infeasible instead of presenting reduced error
+  as successful control. The following interconnected-tank lesson checks
+  hardware feasibility before controller design: independently calculated
+  controllability and observability ranks are matched to executed upstream-
+  pump, downstream-bypass, downstream-sensor, and hidden-state records, while
+  simulator truth channels remain explicitly unavailable as installed sensors.
+  The next state-space lesson then combines a magnetic-bearing pole-placement
+  bench with a loaded-conveyor-motor observer: executable evidence distinguishes
+  a nonsettling position-only baseline from measured-state feedback, removes
+  nominal zero-load speed bias, and deliberately shows unmodelled damping being
+  absorbed into an incorrect physical-load estimate despite accurate speed.
+  The weigh-belt lesson that follows implements an uncertainty-weighted scalar
+  Kalman estimator beside a fixed filter, qualifies covariance and innovation
+  calculations against executed noisy feeder records, isolates a paired
+  load-cell-bias fault, and rejects invalid covariance through a finite fallback
+  without exposing Simulation truth to the estimator. The active-suspension
+  lesson then derives four independently qualified LQR designs from explicit
+  state/effort costs, compares them with pole placement on common physical
+  measures, and combines the balanced design with a position-only Kalman
+  estimate. Executed nominal, doubled-noise, and model-mismatch records retain
+  the force-energy, motion, estimator-error, and increased actuator-movement
+  tradeoffs instead of presenting LQG as universally optimal. The two-zone
+  building lesson then executes a three-step, 729-candidate finite-grid MPC on
+  every interval, qualifies its first move and objective against an independent
+  oracle, compares it with bounded PI on a common weather/occupancy/tariff
+  schedule, and distinguishes completed infeasibility, invalid configuration,
+  bounded fallback, and recovery without presenting a precomputed policy as an
+  optimizer. The nonlinear inverted-pendulum lesson that follows replaces its
+  former linear trace with the shipped sine-gravity plant, derives a bounded
+  quadratic Lyapunov sublevel set, verifies eight certified trajectories
+  against an independent Runge–Kutta oracle, and keeps recovered outside and
+  saturated trajectories explicitly separate from certificate evidence. The
+  gravity-loaded robot-joint lesson then compares fixed PID, gain-scheduled PID
+  and feedback linearisation over common nominal and heavy-payload trajectories,
+  qualifies local interpolation and nonlinear cancellation independently,
+  preserves motor-command margin, exposes the predicted model-mismatch offset,
+  and falls back deterministically when the cancellation model is ineligible.
+  The polymer-extruder lesson then compares fixed, recipe-scheduled, and
+  supervised adaptive PI on common drifting-process records, qualifies a
+  bounded two-parameter recursive-least-squares estimator against an
+  independent scan oracle, separates persistent excitation from explicit
+  experiment authorization, freezes unsupported learning, applies scheduled
+  fallback, and proves projection, corrupt-data safe output, and bounded
+  recovery without hiding actuator or nonsettling costs. The flexible-wing
+  ground-test lesson then rejects an unstable aggressive nominal controller
+  and qualifies a sampled filtered-PD candidate over 27 structured uncertainty
+  cases and a declared multiplicative residual envelope, retaining the
+  sensitivity, robustness, actuator-effort, time-response, data-quality, and
+  bounded-claim evidence instead of extrapolating it to flight certification.
+  The remote pumping lesson then calculates delay margin and a conservative
+  latency budget, compares arrival-order command retention with locally timed
+  bounded ownership on paired header plants, and proves stale, reordered,
+  poor-quality, unsynchronized, excessive-uncertainty and future-dated packet
+  rejection with tracked local-PI fallback and explicitly approved recovery.
+  The fault-aware pumping lesson then coordinates two fast pressure
+  transmitters, slow reservoir level and independent drive feedback; qualifies
+  model-assisted sensor isolation, justified single-sensor degradation,
+  critical safe states, actuator mismatch, acknowledgement, healthy-time
+  qualification and rate-limited approved restoration against one deterministic
+  multirate fault record. The blinded steam-distribution casebook that follows
+  keeps diagnosis outside the controller and distinguishes a qualified healthy
+  baseline, poor tuning, valve stiction, transmitter drift, unavailable
+  capacity, upstream disturbance, loop interaction, and model/schedule
+  mismatch from synchronized requested-demand, measured-stem, reference-meter,
+  disturbance, operating-region, and timing evidence before any retuning.
+  The first integrated capstone then asks the learner to commission a walk-in
+  cold room without a prescribed winner, comparing single-threshold,
+  hysteresis-only, and hysteresis-plus-dwell candidates on the same noisy door-
+  load record and validating measured compressor state, equipment-owned
+  restart readiness, invalid-quality latching, manual recovery, and discrete
+  output without hiding a continuous controller. The recirculating-water-heater
+  capstone then joins physical modelling, independent FOPDT identification,
+  minimum controller-structure selection, Robust and Balanced PI comparison,
+  uncertainty and abnormal validation, and rollback planning into one
+  executable commissioning decision while leaving the recommended revision
+  explicitly unapplied. The flexible-indexing-table capstone then combines
+  two-inertia mechanics, P/PD/PID structure selection, derivative filtering,
+  root-locus and Bode/sensitivity qualification, exact sampled execution,
+  encoder noise, torque limits and model variation; it retains the qualified
+  `10 ms` filtered PID while rejecting unchanged delayed `100 ms` execution and
+  leaves revision `78` unapplied. The jacketed-reactor capstone then commissions
+  its utility-facing loop before production, combines cascade, qualified
+  measured-load feedforward, mutually exclusive steam/cooling split range,
+  tracked high-temperature override, modes and deterministic degraded handling,
+  and compares the integrated architecture against an equivalent feedback-only
+  reactor while leaving revision `79` unapplied.
+  The gravity-tank capstone then derives and independently qualifies three local
+  square-root-outflow models, measures the regional limitation of a conservative
+  fixed PI, validates one atomically interpolated retained PI across the full
+  level envelope, and proves schedule boundaries, requested/applied pump flow,
+  tracking, degraded authority and rollback while leaving revision `80`
+  unapplied. The conveyor-oven capstone then combines independently qualified
+  FOPDT, Bode, complete-contour Nyquist and delay-margin evidence with measured-
+  load feedforward, Smith prediction, model-mismatch fallback, modes and heater
+  authority; executable evidence rejects the aggressive ordinary candidate,
+  selects a `6 s` Smith design, and leaves revision `81` unapplied. The binary-
+  distillation capstone then joins restored four-path identification, unused
+  simultaneous validation, RGA pairing, static decoupling, singular-direction
+  robustness, sensitivity, constraint feasibility, invalid-mapping fallback
+  and operating modes into one architecture decision, selecting static
+  decoupling for the normal envelope while leaving revision `82` unapplied. The
+  two-zone building capstone then qualifies an additive thermal-load estimator,
+  rejects cascade without a measured fast inner variable, and compares strong
+  incremental PI with Balanced and actuator-conservative finite-grid MPC under
+  the same forecasts and constraints. Executable evidence retains PI as the
+  application recommendation because both predictive candidates exceed the
+  declared actuator-movement ratio, while revision `83` remains unapplied. The
+  independent capstone then provides an executable compressed-air reference
+  without prescribing its winning family: it derives and validates receiver
+  and compressor dynamics, screens simple and advanced architectures, proves
+  PI stability and robustness, and selects PI plus qualified measured-demand
+  feedforward from common normal, uncertainty, actuator and abnormal evidence
+  while leaving revision `84` unapplied.
+- Add composable Smith prediction, PID gain scheduling, and static two-by-two
+  decoupling to the Control library with native conformance tests and tuned
+  heated-air-duct, gravity-tank, and climate-chamber projects. Organize all 35
+  control projects as a cumulative real-equipment curriculum. The added
+  plant-modelling strand teaches response classification, conservation-law
+  models, bounded identification, model-order selection, excitation and data
+  quality, independent validation and residuals, local linearisation,
+  frequency response, and MIMO gain/RGA analysis before P-to-PI offset removal,
+  feedforward, cascade, bumpless handover, commissioning, ratio, and constraint
+  override, while preserving stable gallery identities.
 
 ### Changed
 
+- Refine Control Studio into one readable direct analysis surface with
+  coordinated Bode magnitude and phase navigation, exact graphical gain entry
+  and live margins, full-width plots below compact live values, visible wrapped
+  controls at 200 percent zoom, restrained VS Code-themed chart chrome, export
+  of the currently visible plot, and pixel-verified MIMO rendering evidence.
+- Expose Control Studio as a permanent truST sidebar destination immediately
+  below Devices & Connections. The destination is visibly disabled with a
+  reason until a project is open, while configured simulated plants retain
+  their direct context-preserving Control Studio handoff. Runnable projects
+  can provide an explicit `control-loop.json`; the water-heater proportional
+  lesson now uses it so the sidebar opens its live SP, PV, and MV instead of an
+  unbound workspace.
+- Define the Control Studio chart workspace as a large, discoverable
+  engineering surface with visible plot and signal selection, unit-safe
+  multi-channel lanes, explicit advanced-plot prerequisites, MIMO matrix/RGA/
+  singular-value views, professional time/frequency/stability plots, expanded
+  mode, direct graphical controller tuning, linked candidate analysis,
+  graphical requirements, pinned design comparison, evidence-bound session
+  restoration, uncertainty envelopes, undo/redo, and precise responsive and
+  accessibility acceptance criteria.
+- Render lesson equations with VS Code and GitHub's native Markdown math,
+  including conventional fractions, indices, vectors, and matrices, while
+  preserving the curriculum's words-before-symbols and accessible prose rules.
+- Replace the draft control-engineering curriculum specification and its
+  premature implementation checklist with an 84-lesson causal learning program
+  and specification-derived implementation checklist. The program teaches
+  required theory before each real-equipment practical, carries one observed
+  limitation into the next technique, and progresses through production PID,
+  modelling, identification, classical analysis, industrial structures, MIMO,
+  state-space, predictive, nonlinear, adaptive, robust, networked, diagnostic,
+  and capstone work. The reviewed water-heater proportional-control lesson now
+  defines the reusable course-wide conformance pattern: words and physical
+  meaning before notation, executable predictions, actual Structured Text,
+  precisely defined and validity-qualified measures, retained evidence, and a
+  causal handoff from one lesson's observed limitation to the next.
+- Make `examples/` the single maintained source for bundled projects, generate
+  the VS Code example package from its canonical catalog, and replace the flat
+  control list with 84 ordered lessons plus topic links that make the rest of
+  the tutorial and example catalog discoverable. The control examples README
+  now provides the complete linked course map, stating the real equipment,
+  theory, Control Studio stages, and practical skill for every lesson. Every
+  canonical lesson directory now begins with its zero-padded course number and
+  lives in one of 14 consecutive learner modules, so filesystem browsing
+  preserves the same learning order as Control Studio. Separate README indexes
+  let engineers find lessons by technique, plant behavior, and workflow without
+  imposing a second technical taxonomy on the folder tree.
+  Canonical bundled projects now use an explicit non-secret local example token
+  so every shipped `runtime.toml` passes the runtime configuration validator.
 - Specify runtime clock dispatch name/error identity and deterministic LSP
   diagnostic-override collision precedence, including canonical-key priority
   and alias-only lexical ordering.
@@ -85,6 +370,11 @@ Target release: `v0.24.64`
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
 ### Fixed
+
+- Keep the real Control Studio response chart visible at a usable height, use
+  the declared manipulated-variable engineering range, disable plot and
+  workflow actions until their evidence exists, prevent limit labels from
+  covering traces, and treat an empty saved-result history as a neutral state.
 
 - Resolve typed enum literals through the active namespace and `USING` scope,
   allowing imported declarations such as `PIDMode#Manual` to type-check across

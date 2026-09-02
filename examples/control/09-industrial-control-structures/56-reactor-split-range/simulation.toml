@@ -1,0 +1,58 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2400
+plant_step_ms = 100
+
+[[plants]]
+id = "dead-zone-reactor"
+name = "Four-point dead-zone split-range reactor"
+description = "Local heating and cooling jacket dynamics around 80 degC."
+model = "state_space"
+command_sources = ["%QL80", "%QL88"]
+feedback_targets = ["%IL64"]
+initial_state = [0.0]
+initial_input = [0.0, 0.0]
+output_offset = [80.0]
+
+[plants.parameters]
+a = [[-0.05]]
+b = [[0.04, -0.06]]
+c = [[1.0]]
+d = [[0.0, 0.0]]
+
+[[plants]]
+id = "overlap-reactor"
+name = "Four-point overlap split-range reactor"
+description = "Equivalent jacket exposing simultaneous utility consumption near neutral."
+model = "state_space"
+command_sources = ["%QL96", "%QL104"]
+feedback_targets = ["%IL72"]
+initial_state = [0.0]
+initial_input = [0.0, 0.0]
+output_offset = [80.0]
+
+[plants.parameters]
+a = [[-0.05]]
+b = [[0.04, -0.06]]
+c = [[1.0]]
+d = [[0.0, 0.0]]
+
+[[plants]]
+id = "characterized-reactor"
+name = "Installed-gain-characterized split-range reactor"
+description = "Equivalent jacket with mutually exclusive valves and balanced local authority."
+model = "state_space"
+command_sources = ["%QL112", "%QL120"]
+feedback_targets = ["%IL80"]
+initial_state = [0.0]
+initial_input = [0.0, 0.0]
+output_offset = [80.0]
+
+[plants.parameters]
+a = [[-0.05]]
+b = [[0.04, -0.06]]
+c = [[1.0]]
+d = [[0.0, 0.0]]

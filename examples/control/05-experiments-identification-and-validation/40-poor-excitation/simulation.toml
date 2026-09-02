@@ -1,0 +1,91 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 3600
+plant_step_ms = 100
+
+[[plants]]
+id = "heat-exchanger-poor-open-loop"
+model = "first_order_dead_time"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [50.0]
+
+[plants.parameters]
+gain = 0.5
+time_constant_s = 20.0
+dead_time_s = 3.0
+initial_delayed_input = 20.0
+output_bias = 40.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 20.0
+
+[[plants.uncertainties]]
+id = "poor-temperature-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+mean = 0.0
+standard_deviation = 0.15
+
+[[plants]]
+id = "heat-exchanger-qualified-open-loop"
+model = "first_order_dead_time"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8"]
+initial_state = [50.0]
+
+[plants.parameters]
+gain = 0.5
+time_constant_s = 20.0
+dead_time_s = 3.0
+initial_delayed_input = 20.0
+output_bias = 40.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 20.0
+
+[[plants.uncertainties]]
+id = "qualified-temperature-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+mean = 0.0
+standard_deviation = 0.15
+
+[[plants]]
+id = "heat-exchanger-ordinary-feedback"
+model = "first_order_dead_time"
+command_sources = ["%QL16"]
+feedback_targets = ["%IL16"]
+initial_state = [50.0]
+
+[plants.parameters]
+gain = 0.5
+time_constant_s = 20.0
+dead_time_s = 3.0
+initial_delayed_input = 20.0
+output_bias = 40.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 20.0
+
+[[plants.uncertainties]]
+id = "feedback-temperature-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+mean = 0.0
+standard_deviation = 0.15

@@ -1,0 +1,43 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 4000
+plant_step_ms = 100
+
+[[plants]]
+id = "interconnected-tanks-inlet-step"
+model = "state_space"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0.0, 0.0]
+[plants.parameters]
+a = [[-0.5, 0.0], [0.5, -0.2]]
+b = [[1.0], [0.0]]
+c = [[1.0, 0.0], [0.0, 1.0]]
+d = [[0.0], [0.0]]
+
+[[plants]]
+id = "interconnected-tanks-empty-hidden-case"
+model = "state_space"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL16", "%IL24"]
+initial_state = [0.0, 0.0]
+[plants.parameters]
+a = [[-0.5, 0.0], [0.5, -0.2]]
+b = [[1.0], [0.0]]
+c = [[1.0, 0.0], [0.0, 1.0]]
+d = [[0.0], [0.0]]
+
+[[plants]]
+id = "interconnected-tanks-upstream-charged-hidden-case"
+model = "state_space"
+command_sources = ["%QL16"]
+feedback_targets = ["%IL32", "%IL40"]
+initial_state = [0.2, 0.0]
+[plants.parameters]
+a = [[-0.5, 0.0], [0.5, -0.2]]
+b = [[1.0], [0.0]]
+c = [[1.0, 0.0], [0.0, 1.0]]
+d = [[0.0], [0.0]]

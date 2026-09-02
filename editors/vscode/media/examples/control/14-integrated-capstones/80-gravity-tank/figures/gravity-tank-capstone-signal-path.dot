@@ -1,0 +1,36 @@
+// Title: Gravity-tank gain-scheduling comparison path
+// Description: A quality and envelope check feeds fixed and scheduled controller paths, their requested flows are independently limited, and equivalent nonlinear tanks return measured levels for comparison.
+digraph lesson_signal_path {
+  graph [rankdir=LR, bgcolor="transparent", pad="0.25", nodesep="0.45", ranksep="0.65", splines=ortho];
+  node [shape=box, style="rounded,filled", fillcolor="#f8fafc", color="#2563eb", fontcolor="#0f172a", fontname="Arial", fontsize=12, margin="0.16,0.10"];
+  edge [color="#475569", fontcolor="#334155", fontname="Arial", fontsize=10, penwidth=1.6, arrowsize=0.75];
+  SP [label="Requested level", shape=box];
+  Q [label="Quality and envelope check", shape=box];
+  FIXED [label="Fixed high-level PI", shape=box];
+  RHO [label="Filtered scheduling level", shape=box];
+  SCHED [label="Three validated local records", shape=box];
+  PID [label="One retained scheduled PI", shape=box];
+  RF [label="Fixed requested pump flow", shape=box];
+  RS [label="Scheduled requested pump flow", shape=box];
+  AF [label="Fixed applied pump flow", shape=box];
+  AS [label="Scheduled applied pump flow", shape=box];
+  TF [label="Nonlinear gravity tank", shape=box];
+  TS [label="Equivalent nonlinear gravity tank", shape=box];
+  PVF [label="Fixed measured level", shape=box];
+  PVS [label="Scheduled measured level", shape=box];
+  SP -> Q;
+  Q -> FIXED;
+  Q -> RHO;
+  RHO -> SCHED;
+  SCHED -> PID;
+  FIXED -> RF;
+  PID -> RS;
+  RF -> AF;
+  RS -> AS;
+  AF -> TF;
+  AS -> TS;
+  TF -> PVF;
+  TS -> PVS;
+  PVF -> FIXED;
+  PVS -> PID;
+}

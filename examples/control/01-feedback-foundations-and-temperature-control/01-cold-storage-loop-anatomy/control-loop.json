@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-cold-storage-loop-anatomy",
+  "name": "Understand a control loop in a cold-storage room",
+  "revision": "sha256:0a0cb2c41ce380dbaa641fee60f18ef8dfc83c161ba0d31d56fc484a8e64275a",
+  "projectId": "project:control-cold-storage-loop-anatomy",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "ManualLoopObservation",
+    "design": "project",
+    "revision": "sha256:5b76ba27224fe13ada4e3bd25bcb38e31ae20771a5814b49d42e217bb4e2b150",
+    "action": "reverse",
+    "taskPeriodMs": 100
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": -30,
+        "maximum": 20
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ManualDemand",
+      "address": "%ML8",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 150
+      }
+    },
+    "actuator": {
+      "symbol": "P1.ManipulatedValue",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "desired-cold-room-temperature",
+        "channel": "cold-room-temperature",
+        "role": "SP",
+        "symbol": "P1.Setpoint",
+        "address": "%ML0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "door-open-indication",
+        "channel": "door-open-indication",
+        "role": "state",
+        "symbol": "P1.DoorOpenIndication",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "effective-surrounding-temperature",
+        "channel": "effective-surrounding-temperature",
+        "role": "disturbance",
+        "symbol": "P1.EffectiveSurroundings",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 4,
+          "maximum": 6
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 150
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "first_order",
+  "operatingPoint": "PV 4, MV 0",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "mv_step",
+    "amplitude": 150,
+    "durationSeconds": 20,
+    "seed": 20260828
+  }
+}

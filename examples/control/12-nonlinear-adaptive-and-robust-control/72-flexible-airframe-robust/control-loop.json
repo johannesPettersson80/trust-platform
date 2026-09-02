@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-flexible-airframe-robust",
+  "name": "Qualify robust load alleviation on a flexible-wing test rig",
+  "revision": "sha256:curriculum-loop-72",
+  "projectId": "project:control-flexible-airframe-robust",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Sampled mixed-sensitivity loop shaping with structured and multiplicative uncertainty",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-72",
+    "action": "direct",
+    "taskPeriodMs": 20,
+    "modeSignal": "%MX64.2",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.NominalBending",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "g",
+      "range": {
+        "minimum": -1,
+        "maximum": 1
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.NominalRequested",
+      "address": "%ML72",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": -100,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "authority",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX64.2",
+        "iecType": "BOOL",
+        "direction": "write",
+        "unit": "1",
+        "range": { "minimum": 0, "maximum": 1 }
+      },
+      {
+        "id": "controller-enabled",
+        "channel": "controller-enabled",
+        "role": "state",
+        "symbol": "P1.ControllerEnabled",
+        "address": "%MX64.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "bending-data-healthy",
+        "channel": "bending-data-healthy",
+        "role": "quality",
+        "symbol": "P1.DataHealthy",
+        "address": "%MX64.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "nominal-surface-saturated",
+        "channel": "nominal-surface-saturated",
+        "role": "state",
+        "symbol": "P1.NominalSaturated",
+        "address": "%MX65.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "robust-surface-saturated",
+        "channel": "robust-surface-saturated",
+        "role": "state",
+        "symbol": "P1.RobustSaturated",
+        "address": "%MX65.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "robust-loop-wing-root-bending",
+        "channel": "robust-loop-wing-root-bending",
+        "role": "PV",
+        "symbol": "P1.RobustBending",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "g",
+        "range": {
+          "minimum": -1,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "gust-equivalent-load",
+        "channel": "gust-equivalent-load",
+        "role": "disturbance",
+        "symbol": "P1.GustLoad",
+        "address": "%ML96",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "g",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.1
+        }
+      },
+      {
+        "id": "filtered-robust-loop-bending",
+        "channel": "filtered-robust-loop-bending",
+        "role": "state",
+        "symbol": "P1.FilteredRobustBending",
+        "address": "%ML88",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "g",
+        "range": {
+          "minimum": -1,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "nominal-applied-surface-position",
+        "channel": "nominal-applied-surface-position",
+        "role": "MV",
+        "symbol": "P1.NominalApplied",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -15,
+          "maximum": 15
+        }
+      },
+      {
+        "id": "robust-requested-surface-position",
+        "channel": "robust-requested-surface-position",
+        "role": "MV",
+        "symbol": "P1.RobustRequested",
+        "address": "%ML80",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -100,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "robust-applied-surface-position",
+        "channel": "robust-applied-surface-position",
+        "role": "MV",
+        "symbol": "P1.RobustApplied",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -15,
+          "maximum": 15
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": -100,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 20
+  },
+  "plantId": "flexible_wing_uncertainty_grid",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 25.1,
+    "seed": 20260829
+  }
+}

@@ -36,6 +36,15 @@ package, or end-to-end evidence.
 - The loop engineering surface MUST be named `Control Studio`; its command
   title is `Open Control Studio`. It is a full editor surface and MUST NOT be
   embedded in Live Values or the Devices & Connections inspector.
+- The truST sidebar MUST expose the project destinations in this order:
+  `Devices & Connections`, `Control Studio`, `Live Values`, `HMI`, and
+  `Libraries`. Control Studio is a permanent first-class destination, not a
+  command-palette-only feature. With no open project it remains visible but
+  disabled and explains `Open a project to use this.`
+- Activating the sidebar destination with an open project MUST invoke the same
+  `Open Control Studio` command used by contextual plant and loop handoffs.
+  Contextual `Open in Control Studio` actions MUST remain available because
+  they preserve the selected plant or loop identity.
 - Palette-visible commands MUST use the common truST category and MUST NOT
   embed a `Structured Text:` prefix in the title.
 - The namespace refactor MUST be named `Move Structured Text Namespace`. It

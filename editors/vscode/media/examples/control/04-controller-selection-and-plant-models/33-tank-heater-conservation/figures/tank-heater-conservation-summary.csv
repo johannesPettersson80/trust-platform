@@ -1,0 +1,6 @@
+case,accepted,decision_measure,measured_value,unit
+tank net flow,true,late-window level rate,0.400000000000,cm/s
+tank net flow,true,level at 20 seconds,58.000000000000,cm
+tank equal flow,true,level drift,0.000000000000,cm
+heater,true,temperature at delay plus one time constant,22.528482235314,degC
+heater,true,final temperature,23.987889781018,degC

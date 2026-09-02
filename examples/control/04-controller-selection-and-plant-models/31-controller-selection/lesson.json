@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 4,
+  "id": "control-controller-selection",
+  "title": "Select the minimum sufficient controller for four real loops",
+  "level": "Practitioner",
+  "sequence": 31,
+  "equipment": "Cold room, recirculating water heater, buffer tank, and loaded positioning table",
+  "physicalPurpose": "Match controller structure to plant physics, actuator capability, disturbance class, and quantified requirements instead of selecting PID by default.",
+  "principalTechnique": "Requirements-driven minimum-sufficient controller selection",
+  "objective": "Select and defend ON/OFF, P, PI, or PID for four different real loops and prove each choice on executable plants.",
+  "prerequisites": ["control-booster-pump-invalid-data"],
+  "nextLesson": "control-plant-response-classes",
+  "signals": [
+    { "role": "SP", "name": "Cold-room temperature setpoint", "unit": "degC", "minimum": -5, "maximum": 10, "resolution": 0.01, "binding": "%ML0" },
+    { "role": "PV", "name": "Cold-room temperature", "unit": "degC", "minimum": -10, "maximum": 20, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "MV", "name": "Compressor command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 100, "binding": "%QL0" },
+    { "role": "SP", "name": "Heater temperature setpoint", "unit": "degC", "minimum": 20, "maximum": 40, "resolution": 0.01, "binding": "%ML8" },
+    { "role": "PV", "name": "Heater temperature", "unit": "degC", "minimum": 0, "maximum": 60, "resolution": 0.01, "binding": "%IL8" },
+    { "role": "MV", "name": "Heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL8" },
+    { "role": "SP", "name": "Tank level setpoint", "unit": "cm", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML16" },
+    { "role": "PV", "name": "Tank level", "unit": "cm", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%IL16" },
+    { "role": "MV", "name": "Tank inlet-pump command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL16" },
+    { "role": "SP", "name": "Table position setpoint", "unit": "rad", "minimum": -4, "maximum": 4, "resolution": 0.001, "binding": "%ML24" },
+    { "role": "PV", "name": "Table position", "unit": "rad", "minimum": -4, "maximum": 4, "resolution": 0.001, "binding": "%IL24" },
+    { "role": "MV", "name": "Table motor torque", "unit": "N m", "minimum": -10, "maximum": 10, "resolution": 0.01, "binding": "%QL24" },
+    { "role": "state", "name": "Selected controller structure", "unit": "1", "minimum": 1, "maximum": 5, "resolution": 1, "binding": "%MW80" }
+    ,{ "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX88.0" }
+  ],
+  "plant": {
+    "modelId": "multi_plant_selection_workshop",
+    "executable": "simulation.toml#plants",
+    "parameters": [
+      { "name": "cold_room_time_constant", "value": 20, "unit": "s" },
+      { "name": "heater_gain", "value": 0.2, "unit": "degC/%" },
+      { "name": "tank_integrating_gain", "value": 0.2, "unit": "cm" },
+      { "name": "table_inertia", "value": 1, "unit": "kg m2" },
+      { "name": "table_gravity_torque_coefficient", "value": 4, "unit": "N m" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "coldRoomTemperatureDegC": 4, "heaterTemperatureDegC": 20, "tankLevelCm": 50, "tablePositionRad": 0 },
+    "seed": 20260829,
+    "operatingPoint": { "Cold-room temperature": 4, "Compressor command": 0, "Heater temperature": 20, "Heater power": 0, "Tank level": 50, "Tank inlet-pump command": 20, "Table position": 0, "Table motor torque": 0 },
+    "validityRange": [
+      { "signal": "Cold-room temperature", "minimum": -10, "maximum": 20, "unit": "degC" },
+      { "signal": "Compressor command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Heater temperature", "minimum": 0, "maximum": 60, "unit": "degC" },
+      { "signal": "Heater power", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Tank level", "minimum": 0, "maximum": 100, "unit": "cm" },
+      { "signal": "Tank inlet-pump command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Table position", "minimum": -4, "maximum": 4, "unit": "rad" },
+      { "signal": "Table motor torque", "minimum": -10, "maximum": 10, "unit": "N m" }
+    ],
+    "simplifications": [
+      "The four loops run together for comparison but do not physically interact.",
+      "The tank selection assumes known constant outflow represented by the 20 percent equilibrium bias; an unknown changed outflow is outside this P-control decision.",
+      "Structure codes record engineering decisions for this declared worksheet and are not an automatic controller-selection algorithm."
+    ]
+  },
+  "baseline": {
+    "executableId": "ControllerSelection.PidByDefault",
+    "settings": { "candidate": "PID for every loop" },
+    "limitation": "PID cannot be realized by the binary compressor and adds unjustified dynamic state or noise sensitivity to loops whose requirements are met by simpler structures."
+  },
+  "change": {
+    "executableId": "ControllerSelection.MinimumSufficient",
+    "settings": { "coldRoom": "ON/OFF", "heater": "PI", "tank": "P", "positioningTable": "PID" },
+    "decision": "Require every candidate to pass all declared requirements, then choose the eligible structure with the fewest justified dynamic mechanisms."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 120.1,
+    "settlingSeconds": 100,
+    "disturbances": ["Native comparison applies heater ambient-equivalent bias change from 20 to 17 degC at 60 s", "Table gravity is 4*sin(theta) N m"],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    { "metric": "cold_room_lower_band_tolerance", "signal": "Cold-room temperature", "window": "100 to 120 s", "comparator": ">=", "limit": 1.35, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "cold_room_upper_band_tolerance", "signal": "Cold-room temperature", "window": "100 to 120 s", "comparator": "<=", "limit": 2.65, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "heater_final_window_error", "signal": "Heater temperature", "window": "100 to 120 s after heat-loss event", "comparator": "<=", "limit": 0.1, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "tank_final_window_error", "signal": "Tank level", "window": "100 to 120 s", "comparator": "<=", "limit": 0.05, "unit": "cm", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "table_final_window_error", "signal": "Table position", "window": "100 to 120 s under 4 N m load", "comparator": "<=", "limit": 0.02, "unit": "rad", "tolerance": 0.001, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Cold-room temperature", "minimum": -10, "maximum": 20, "unit": "degC" },
+      { "signal": "Compressor command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Heater temperature", "minimum": 0, "maximum": 60, "unit": "degC" },
+      { "signal": "Heater power", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Tank level", "minimum": 0, "maximum": 100, "unit": "cm" },
+      { "signal": "Tank inlet-pump command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Table position", "minimum": -4, "maximum": 4, "unit": "rad" },
+      { "signal": "Table motor torque", "minimum": -10, "maximum": 10, "unit": "N m" }
+    ],
+    "abortPredicates": ["Any signal is nonfinite or outside its hard limit", "Compressor output is not exactly 0 or 100 percent", "Compressor dwell is below 5 seconds", "A candidate is accepted after failing a declared requirement"],
+    "safeMv": 0,
+    "restorationMode": "Stop experiment, return every loop to its lesson-specific safe Manual state, and restore initial conditions",
+    "physicalApprovalRole": "authorised controls engineer for all represented equipment",
+    "simulationOnlyRestrictions": ["The shared four-plant experiment is simulation evidence. Each physical loop requires independent topology, safety, authority, and experiment approval."]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-31--select-a-controller-cold-room-heater-tank-and-positioning-table",
+    "nativeTest": "control_curriculum_selects_the_minimum_sufficient_structure_for_four_real_loops",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_selection control_curriculum_selects_the_minimum_sufficient_structure_for_four_real_loops -- --exact --nocapture",
+    "projectPath": "examples/control/04-controller-selection-and-plant-models/31-controller-selection",
+    "runArtifactFields": ["time", "plantId", "requirements", "candidateStructure", "eligible", "rejectionReason", "selectedStructure", "SP", "PV", "MV_requested", "MV_applied", "limits", "quality", "metrics", "evidenceClass"],
+    "renderedJourneyId": "control-controller-selection"
+  },
+  "video": {
+    "viewerOutcome": "Choose the simplest eligible controller for a binary thermal loop, self-regulating thermal loop, integrating inventory loop, and loaded motion loop.",
+    "requiredVisibleEvidence": ["requirements worksheet", "four structure decisions", "four synchronized plant plots", "rejected structures and reasons", "final-window metrics", "simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Four common loops have different actuator capabilities, plant dynamics, disturbances, and performance requirements.",
+    "reason": "The learner knows each controller structure but needs to select from evidence rather than always applying the most complex one.",
+    "theory": [
+      "A candidate is eligible only if it satisfies every accuracy, dynamic, actuator, disturbance, noise, and safety requirement with margin.",
+      "The minimum sufficient controller is the eligible structure with the fewest justified dynamic mechanisms and retained states.",
+      "Binary actuation favors protected ON/OFF control; a self-regulating process needing zero load offset commonly needs PI; an integrating plant can supply setpoint integration; a loaded oscillatory motion plant can require PID.",
+      "Every selection is conditional on the declared requirement and operating boundary. A changed disturbance or actuator can change the correct structure."
+    ],
+    "workedPrediction": "The cold room cycles at 1.5/2.5 degC with 5 s dwell. The heater needs 50 percent at 30 degC. The tank's P closed-loop time constant is 2.5 s around 20 percent bias. PD on the loaded table predicts 0.2 rad equilibrium error, while PID can retain 4 N m at zero error.",
+    "practicalPreparation": ["Write each controlled-variable, actuator, setpoint, disturbance, accuracy, dynamic, noise, constraint, and safety requirement before selecting a structure.", "In Control Studio verify all four SP/PV/MV sets, selected codes, enabled terms, limits, state, quality, event timing, and simulation label."],
+    "baseline": "Apply the rejected rule 'PID everywhere' and identify the actuator mismatch or unnecessary mechanisms before running it.",
+    "change": "Run ON/OFF, PI, biased P, and PID on the four executable plants under their declared events, then change one worksheet requirement at a time without silently changing the plant.",
+    "comparison": "Compare requirement coverage first. Use mechanism and retained-state count only to choose among candidates that passed every requirement.",
+    "validation": "Require protected cold-room cycling, heater error at most 0.10 degC after the load event, tank error at most 0.05 cm, table error at most 0.02 rad, and no limit or validity violation.",
+    "explanation": "The selected structures differ because the physical plants and required outcomes differ. Feature count is not control quality.",
+    "transfer": "Use the worksheet on unfamiliar loops only after classifying their response. Lesson 32 teaches those plant response classes."
+  }
+}

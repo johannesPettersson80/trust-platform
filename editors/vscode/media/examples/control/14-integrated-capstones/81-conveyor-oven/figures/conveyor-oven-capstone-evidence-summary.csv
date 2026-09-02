@@ -1,0 +1,6 @@
+metric,ordinary,improved,unit,decision
+setpoint_iae,525.808110998,425.245314475,degC*s,Smith-selected
+regulatory_iae,52.254387150,17.799914042,degC*s,feedforward-selected
+phase_margin,61.351452024,32.700264786,deg,aggressive-rejected
+delay_margin,34.264327574,,s,ordinary-qualified
+severe_fallback_scans,1119,,count,fallback-required

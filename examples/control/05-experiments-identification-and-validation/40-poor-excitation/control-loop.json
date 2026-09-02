@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-poor-excitation",
+  "name": "Excitation and identifiability qualification",
+  "revision": "sha256:curriculum-loop-40",
+  "projectId": "project:control-poor-excitation",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "ExcitationQualificationExperiment", "design": "project", "revision": "sha256:excitation-qualification-experiment", "action": "direct", "taskPeriodMs": 100 },
+  "signals": {
+    "processVariable": { "symbol": "P1.QualifiedTemperature", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 40, "maximum": 60 } },
+    "manipulatedVariable": { "symbol": "P1.QualifiedRequested", "address": "%ML8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+    "actuator": { "symbol": "P1.QualifiedApplied", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+    "additional": [
+      { "id": "experiment-authority", "channel": "experiment-authority", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX64.0", "iecType": "BOOL", "direction": "write", "unit": "bool", "range": { "minimum": 0, "maximum": 1 } },
+      { "id": "poor-request", "channel": "poor", "role": "state", "symbol": "P1.PoorRequested", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "poor-applied", "channel": "poor", "role": "actuator", "symbol": "P1.PoorApplied", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "poor-pv", "channel": "poor", "role": "PV", "symbol": "P1.PoorTemperature", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 40, "maximum": 60 } },
+      { "id": "feedback-request", "channel": "feedback", "role": "state", "symbol": "P1.ClosedRequested", "address": "%ML16", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "feedback-applied", "channel": "feedback", "role": "actuator", "symbol": "P1.ClosedApplied", "address": "%QL16", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "feedback-pv", "channel": "feedback", "role": "PV", "symbol": "P1.ClosedTemperature", "address": "%IL16", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 40, "maximum": 60 } }
+    ]
+  },
+  "limits": { "outputMinimum": 0, "outputMaximum": 100 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "heat_exchanger_excitation_qualification",
+  "operatingPoint": "20 percent valve",
+  "experiment": { "execution": "project-scripted", "kind": "observation", "activationSignal": "P1.ExperimentEnabled", "amplitude": 0, "durationSeconds": 70.1, "restorationValue": 0, "seed": 20260829 }
+}

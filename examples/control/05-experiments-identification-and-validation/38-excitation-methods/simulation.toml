@@ -1,0 +1,61 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2400
+plant_step_ms = 100
+
+[[plants]]
+id = "water-heater"
+model = "first_order_dead_time"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [24.0]
+
+[plants.parameters]
+gain = 0.2
+time_constant_s = 5.0
+dead_time_s = 1.0
+initial_delayed_input = 20.0
+output_bias = 20.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 20.0
+
+[[plants.uncertainties]]
+id = "heater-temperature-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+mean = 0.0
+standard_deviation = 0.02
+
+[[plants]]
+id = "flexible-drive"
+model = "second_order"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8"]
+initial_state = [0.0, 0.0]
+
+[plants.parameters]
+gain = 0.4
+natural_frequency_rad_s = 6.0
+damping_ratio = 0.08
+
+[plants.actuator]
+minimum = -0.2
+maximum = 0.2
+initial_applied = 0.0
+
+[[plants.uncertainties]]
+id = "servo-position-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+mean = 0.0
+standard_deviation = 0.001

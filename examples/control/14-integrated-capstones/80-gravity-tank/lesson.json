@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 4,
+  "id": "control-capstone-gravity-tank",
+  "title": "Commission full-range control of a gravity-drained tank",
+  "level": "Modern",
+  "sequence": 80,
+  "equipment": "Vented gravity-drained water tank with variable-speed inlet pump",
+  "principalTechnique": "Validated local models and atomically interpolated PI gain scheduling",
+  "prerequisites": ["control-capstone-reactor"],
+  "objective": "Prove the limitation of one fixed PI, qualify three local tank models, and validate one tracked gain-scheduled PI across the complete operating envelope without applying revision 80.",
+  "nextLesson": "control-capstone-conveyor-oven",
+  "physicalPurpose": "Maintain liquid level consistently while square-root gravity outflow changes plant gain and response time with operating level.",
+  "signals": [
+    {"role":"authority","name":"Experiment authority","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX240.3"},
+    {"role":"safety","name":"Safety abort","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX240.4"},
+    {"role":"quality","name":"Experiment inputs valid","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX240.5"},
+    {"role":"SP","name":"Requested liquid level","unit":"m","minimum":0.30,"maximum":0.80,"resolution":0.001,"binding":"%ML200"},
+    {"role":"PV","name":"Fixed-PI measured level","unit":"m","minimum":0.20,"maximum":0.90,"resolution":0.001,"binding":"%IL0"},
+    {"role":"state","name":"Scheduled-PI measured level","unit":"m","minimum":0.20,"maximum":0.90,"resolution":0.001,"binding":"%IL8"},
+    {"role":"MV","name":"Fixed-PI requested pump flow","unit":"m3/s","minimum":0,"maximum":0.060,"resolution":0.00001,"binding":"%ML0"},
+    {"role":"state","name":"Scheduled-PI requested pump flow","unit":"m3/s","minimum":0,"maximum":0.060,"resolution":0.00001,"binding":"%ML8"},
+    {"role":"state","name":"Fixed-PI applied pump flow","unit":"m3/s","minimum":0,"maximum":0.060,"resolution":0.00001,"binding":"%QL0"},
+    {"role":"state","name":"Scheduled-PI applied pump flow","unit":"m3/s","minimum":0,"maximum":0.060,"resolution":0.00001,"binding":"%QL8"},
+    {"role":"state","name":"Filtered scheduling level","unit":"m","minimum":0.30,"maximum":0.80,"resolution":0.001,"binding":"%ML16"},
+    {"role":"state","name":"Interpolation fraction","unit":"1","minimum":0,"maximum":1,"resolution":0.001,"binding":"%ML24"},
+    {"role":"state","name":"Active proportional gain","unit":"(m3/s)/m","minimum":0.099,"maximum":0.101,"resolution":0.001,"binding":"%ML32"},
+    {"role":"state","name":"Active integral gain","unit":"(m3/s)/(m*s)","minimum":0.00280,"maximum":0.00456,"resolution":0.00001,"binding":"%ML40"},
+    {"role":"quality","name":"Scheduled record valid","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX48.2"},
+    {"role":"state","name":"Scheduled record clamped","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX48.3"},
+    {"role":"state","name":"Controller revision","unit":"1","minimum":0,"maximum":2147483647,"resolution":1,"binding":"%MD52"}
+  ],
+  "plant": {
+    "modelId": "equivalent_fixed_and_scheduled_nonlinear_gravity_tanks",
+    "executable": "simulation.toml",
+    "parameters": [
+      {"name":"tank_area","value":1.0,"unit":"m2"},
+      {"name":"outlet_coefficient","value":0.050,"unit":"m2*sqrt(m)/s"},
+      {"name":"pump_minimum","value":0,"unit":"m3/s"},
+      {"name":"pump_maximum","value":0.060,"unit":"m3/s"},
+      {"name":"level_noise_standard_deviation","value":0.0005,"unit":"m"},
+      {"name":"controller_interval","value":100,"unit":"ms"}
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {"Fixed-PI measured level":0.30,"Scheduled-PI measured level":0.30},
+    "seed": 20260829,
+    "operatingPoint": {"Requested liquid level":0.30,"Fixed-PI measured level":0.30,"Scheduled-PI measured level":0.30,"Fixed-PI applied pump flow":0.027386127875,"Scheduled-PI applied pump flow":0.027386127875,"Controller revision":80},
+    "validityRange": [
+      {"signal":"Requested liquid level","minimum":0.30,"maximum":0.80,"unit":"m"},
+      {"signal":"Fixed-PI measured level","minimum":0.20,"maximum":0.90,"unit":"m"},
+      {"signal":"Scheduled-PI measured level","minimum":0.20,"maximum":0.90,"unit":"m"},
+      {"signal":"Fixed-PI applied pump flow","minimum":0,"maximum":0.060,"unit":"m3/s"},
+      {"signal":"Scheduled-PI applied pump flow","minimum":0,"maximum":0.060,"unit":"m3/s"}
+    ],
+    "simplifications": [
+      "The vertical tank has constant area, is well mixed, and drains through one fixed square-root gravity outlet.",
+      "The ideal variable-speed pump follows bounded applied flow without pump-curve, inlet-pressure, drive, valve, or pipe dynamics.",
+      "The three tangent models are local approximations and do not replace the nonlinear balance globally.",
+      "Overflow, cavitation, foam, density changes, sensor lag, independent trips, and functional safety are outside the model.",
+      "All executable results are Simulation evidence and do not authorize a physical pump."
+    ]
+  },
+  "baseline": {
+    "executableId": "GravityTankCapstone.FixedHighLevelPI",
+    "settings": {"proportionalGain":0.100,"integralGain":0.00280,"pumpMinimum":0,"pumpMaximum":0.060,"rateLimit":0.005},
+    "limitation": "The conservative high-level integral gain is unnecessarily slow in the low-level region."
+  },
+  "change": {
+    "executableId": "GravityTankCapstone.AtomicInterpolatedPI",
+    "settings": {"levelsMetres":[0.30,0.55,0.80],"proportionalGains":[0.100,0.100,0.100],"integralGains":[0.00456,0.00337,0.00280],"filterSeconds":2.0,"activeRevision":80,"application":"unapplied"},
+    "decision": "Accept scheduling only when all local models and the scheduling variable are qualified, the common full-range requirements improve, and boundaries plus authority transitions remain deterministic and bumpless."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 420.1,
+    "settlingSeconds": 30,
+    "disturbances": [
+      "Request 0.55 m at 30 seconds, 0.80 m at 120 seconds, 0.55 m at 240 seconds, and 0.30 m at 330 seconds.",
+      "Identify separately restored local models at 0.30, 0.55, and 0.80 m using bounded pump pulses and unused validation records.",
+      "Exercise deterministic sensor noise at interpolation points, invalid level quality, invalid schedule, unavailable pump, Manual tracking and return, an out-of-envelope request, ControlledStop, restoration, and rollback."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activation": {"symbol":"P1.ExperimentEnabled","address":"%MX240.3","activeValue":true,"inactiveValue":false}
+  },
+  "acceptance": [
+    {"metric":"scheduled_worst_regional_iae","signal":"Scheduled-PI measured level","window":"worst of four eligible transitions from 30 through 420 seconds","comparator":"<","limit":11.0,"unit":"m*s","tolerance":0.0001,"evidenceClass":"simulation"},
+    {"metric":"scheduled_maximum_level_departure","signal":"Scheduled-PI measured level","window":"complete eligible nominal sequence","comparator":"<=","limit":0.30,"unit":"m","tolerance":0.001,"evidenceClass":"simulation"},
+    {"metric":"maximum_applied_pump_flow","signal":"Scheduled-PI applied pump flow","window":"complete run","comparator":"<=","limit":0.060,"unit":"m3/s","tolerance":0,"evidenceClass":"simulation"},
+    {"metric":"active_revision_changes","signal":"Controller revision","window":"complete campaign","comparator":"==","limit":0,"unit":"1","tolerance":0,"evidenceClass":"simulation"}
+  ],
+  "safety": {
+    "hardLimits": [
+      {"signal":"Fixed-PI measured level","minimum":0.20,"maximum":0.90,"unit":"m"},
+      {"signal":"Scheduled-PI measured level","minimum":0.20,"maximum":0.90,"unit":"m"},
+      {"signal":"Fixed-PI applied pump flow","minimum":0,"maximum":0.060,"unit":"m3/s"},
+      {"signal":"Scheduled-PI applied pump flow","minimum":0,"maximum":0.060,"unit":"m3/s"}
+    ],
+    "abortPredicates": [
+      "Required level, setpoint, flow, quality, availability, scheduling, mode, or timing data are nonfinite, stale, invalid, or outside the declared envelope.",
+      "Measured level leaves 0.20 through 0.90 m or requested/applied pump flow leaves 0 through 0.060 m3/s.",
+      "The scheduled record is invalid, clamped, mixed, or used outside its validated local-model envelope.",
+      "The selected pump is unavailable, tracking disagrees with applied flow, or authority return exceeds 0.0005 m3/s.",
+      "Revision 80 changes without separate explicit application approval.",
+      "Simulation evidence is presented as overflow, dry-running, pump-protection, functional-safety, or physical commissioning evidence."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Close the simulated pump, restore qualified level and scheduling data plus pump availability, align the inactive controller to measured applied flow, restore the tank inside the validated envelope, then explicitly re-enter Automatic.",
+    "physicalApprovalRole": "authorised process-control engineer with tank, pump, piping, electrical, operations, environmental, and functional-safety owners",
+    "simulationOnlyRestrictions": [
+      "Do not operate a physical tank, pump, valve, or drain from this lesson.",
+      "Physical experiments require independently reviewed overflow, dry-run, capacity, isolation, topology, limits, excitation, abort, restoration, approval, and rollback immediately before action.",
+      "Applying revision 80 requires separate explicit approval and a rollback-ready commissioning window."
+    ]
+  },
+  "workflowStages": ["Monitor","Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-80--nonlinear-capstone-gravity-drained-tank",
+    "nativeTest": "control_curriculum_gravity_tank_capstone_qualifies_full_range_schedule",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_gravity_tank_capstone control_curriculum_gravity_tank_capstone_qualifies_full_range_schedule -- --exact --nocapture",
+    "projectPath": "examples/control/14-integrated-capstones/80-gravity-tank",
+    "runArtifactFields": ["projectIdentity","plantIdentities","controllerRevision","evidenceClass","physicalBalance","identificationRecords","validationRecords","localModelUncertainty","validityRegions","sampleTime","seed","mode","quality","pumpAvailability","SP","PV","requestedPumpFlow","appliedPumpFlow","schedulingVariable","filteredSchedulingLevel","interpolationInterval","interpolationFraction","activeParameters","scheduleValidity","tracking","fault","limits","events","settling","regionalIAE","worstRegionalIAE","maximumDeparture","pumpTotalVariation","parameterJump","authorityReturnBump","selectedArchitecture","applicationState","rollback","limitations"],
+    "renderedJourneyId": "curriculum-capstone-gravity-tank-commissioning"
+  },
+  "video": {
+    "viewerOutcome": "Commission and defend one full-range level strategy from nonlinear balance through local-model scheduling and tracked recovery.",
+    "requiredVisibleEvidence": ["tank balance","three local models","independent validation","fixed limitation","atomic schedule","requested and applied pump flow","full-range responses","parameter interpolation","manual tracking","invalid quality and availability","unapplied revision","Simulation boundary"],
+    "durationClass": "extended",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Two equivalent vented tanks receive bounded one-sided inlet-pump flow and drain through the same nonlinear square-root gravity outlet.",
+    "reason": "A fixed PI qualified high in the tank is measured to be unnecessarily slow low in the tank because local gain and response time change with level.",
+    "theory": [
+      "Mass conservation and square-root outflow produce operating-point-dependent local first-order dynamics.",
+      "Local identification and independent validation establish where each tangent model may support a controller design.",
+      "A qualified requested level schedules one complete interpolated parameter record for a retained PI state.",
+      "Requested and applied pump flow, authority tracking, schedule validity, and physical limits remain separate."
+    ],
+    "workedPrediction": "At 0.30, 0.55, and 0.80 m, equilibrium flows are 0.02739, 0.03708, and 0.04472 m3/s; local gains and time constants are 21.91, 29.66, and 35.78 in their declared units.",
+    "practicalPreparation": ["Declare equipment, nonlinear balance, units, schedule envelope, quality, pump authority, modes, limits, aborts, rollback, and Simulation evidence class.","Predict fixed and scheduled regional behavior before running the common record."],
+    "baseline": "Run the conservative high-level fixed PI through the complete low-middle-high-middle-low sequence and retain its regional limitation.",
+    "change": "Change only the integral gain through one filtered, atomically applied schedule built from three accepted local models.",
+    "comparison": "Classify evidence eligibility before comparing regional IAE, departure, pump movement, parameter continuity, authority return, limits, and faults.",
+    "validation": "Validate the nominal range, deterministic noise, local-model uncertainty, invalid quality and schedule, unavailable pump, Manual return, out-of-envelope rejection, ControlledStop, restoration, and unchanged revision.",
+    "explanation": "Trace operating level through nonlinear outflow, local dynamics, qualified scheduling, retained PI state, requested flow, applied pump authority, level response, and recovery.",
+    "transfer": "Lesson 81 retains local-model discipline but introduces transport delay that can consume stability margin even when gains are locally appropriate."
+  }
+}

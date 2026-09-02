@@ -1,0 +1,2 @@
+[project]
+include_paths = ["src", "libraries/control/src"]

@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 4,
+  "id": "control-sampling-interval",
+  "title": "Conveyor-oven sampling, jitter, and missed scans",
+  "level": "Modelling",
+  "sequence": 14,
+  "equipment": "Conveyor drying oven, product-zone temperature sensor, heater power stage, and belt-speed measurement",
+  "physicalPurpose": "Hold product-zone temperature while proving how actual PLC execution timing changes a digital PI response and when timing must become a safe fault.",
+  "principalTechnique": "Measured elapsed time with an explicit valid timing envelope",
+  "objective": "Configure and validate measured elapsed time for a simulated conveyor-oven temperature loop; predict its effect on time-scaled PI calculations, compare equivalent fixed and jittered runs, and prove that a missed scan latches safe zero trim until reviewed reset and explicit automatic re-enable.",
+  "prerequisites": ["control-measurement-noise"],
+  "nextLesson": "control-water-heater-energy-balance",
+  "signals": [
+    { "role": "SP", "name": "Product-zone temperature-deviation setpoint", "unit": "degC", "minimum": -5, "maximum": 5, "resolution": 0.01, "binding": "%ML0" },
+    { "role": "PV", "name": "Product-zone temperature deviation", "unit": "degC", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%IL0" },
+    { "role": "state", "name": "Requested heater-power trim", "unit": "pp", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%ML32" },
+    { "role": "MV", "name": "Applied and held heater-power trim", "unit": "pp", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%QL0" },
+    { "role": "disturbance", "name": "Belt speed", "unit": "m/s", "minimum": 0, "maximum": 2, "resolution": 0.01, "binding": "%IL16" },
+    { "role": "state", "name": "Actual cycle time", "unit": "s", "minimum": 0, "maximum": 1, "resolution": 0.001, "binding": "%ML8" },
+    { "role": "state", "name": "Controller cycle time", "unit": "s", "minimum": 0, "maximum": 1, "resolution": 0.001, "binding": "%ML24" },
+    { "role": "state", "name": "Automatic enable", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX64.0" },
+    { "role": "state", "name": "Use actual cycle time", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX64.1" },
+    { "role": "state", "name": "Timing valid", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX64.2" },
+    { "role": "state", "name": "Timing fault latched", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX64.3" },
+    { "role": "state", "name": "Reset timing fault", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX64.4" },
+    { "role": "state", "name": "Timing experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX80.0" },
+    { "role": "state", "name": "Selected timing case", "unit": "1", "minimum": 0, "maximum": 4, "resolution": 1, "binding": "%MW72" }
+  ],
+  "plant": {
+    "modelId": "first_order_dead_time",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      { "name": "gain", "value": 1, "unit": "degC/%" },
+      { "name": "time_constant", "value": 1, "unit": "s" },
+      { "name": "dead_time", "value": 0.5, "unit": "s" },
+      { "name": "belt_speed", "value": 0.5, "unit": "m/s" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "temperatureDeviation": 0, "heaterTrim": 0 },
+    "seed": 20260824,
+    "operatingPoint": { "PV": 0, "MV": 0, "Belt speed": 0.5 },
+    "validityRange": [
+      { "signal": "Product-zone temperature deviation", "minimum": -10, "maximum": 10, "unit": "degC" },
+      { "signal": "Applied and held heater-power trim", "minimum": -10, "maximum": 10, "unit": "pp" },
+      { "signal": "Belt speed", "minimum": 0, "maximum": 2, "unit": "m/s" },
+      { "signal": "Actual cycle time", "minimum": 0.000001, "maximum": 0.25, "unit": "s" }
+    ],
+    "simplifications": ["The oven is one local FOPDT temperature-deviation model around 120 degC.", "Belt speed remains 0.5 m/s so timing is the only changed quantity.", "Spatial gradients, moisture dynamics, radiation, sensor filtering, scheduler causality, and pre-sampling aliasing sources are omitted."]
+  },
+  "baseline": {
+    "executableId": "Control.PID.PI.NominalTime",
+    "settings": { "useActualCycleTime": false, "actualCycleTimeSeconds": 0.2, "controllerCycleTimeSeconds": 0.1, "proportionalGain": 0.667, "integralGain": 0.667, "derivativeGain": 0 },
+    "limitation": "A hard-coded nominal interval applies half the intended integral increment during a 200 ms scan."
+  },
+  "change": {
+    "executableId": "Control.PID.PI.MeasuredTime",
+    "settings": { "useActualCycleTime": true, "intervalsMilliseconds": [50, 100, 200], "jitterPatternMilliseconds": [20, 180, 50, 150, 100], "maximumCycleTimeMilliseconds": 250 },
+    "decision": "Pass measured elapsed time inside 0 < dt <= 250 ms; outside that envelope, latch the timing fault, do not update PID state, command zero trim, and require valid Manual reset plus separate automatic re-enable."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Timing experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "eventTimeSeconds": 0,
+    "durationSeconds": 30.6,
+    "settlingSeconds": 8,
+    "disturbances": ["Belt speed remains 0.5 m/s", "Repeat at 50, 100, and 200 ms and with 20/180/50/150/100 ms deterministic timing", "Request separate 300 ms and 0 ms fault cases", "Restore valid timing, explicitly reset in Manual, then issue a separate automatic enable"],
+    "seed": 20260824,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    { "metric": "first_integral_increment_50_ms", "signal": "Applied and held heater-power trim", "window": "first 50 ms update", "comparator": "==", "limit": 0.03335, "unit": "pp", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "first_integral_increment_100_ms", "signal": "Applied and held heater-power trim", "window": "first 100 ms update", "comparator": "==", "limit": 0.0667, "unit": "pp", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "first_integral_increment_200_ms", "signal": "Applied and held heater-power trim", "window": "first 200 ms update", "comparator": "==", "limit": 0.1334, "unit": "pp", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "overshoot", "signal": "Product-zone temperature deviation", "window": "every accepted run", "comparator": "<=", "limit": 20, "unit": "%", "tolerance": 0.1, "evidenceClass": "simulation" },
+    { "metric": "settling_time", "signal": "Product-zone temperature deviation", "window": "every accepted run", "comparator": "<=", "limit": 8, "unit": "s", "tolerance": 0.1, "evidenceClass": "simulation" },
+    { "metric": "maximum_timing_use_error", "signal": "Controller cycle time", "window": "maximum absolute difference from Actual cycle time over complete run", "comparator": "<=", "limit": 0.000000000001, "unit": "s", "tolerance": 0, "evidenceClass": "simulation" },
+    { "metric": "final_window_absolute_mean_error", "signal": "Product-zone temperature deviation", "window": "sample-interval-weighted physical time 25.0 through 30.0 s after settling qualification", "comparator": "<=", "limit": 0.02, "unit": "degC", "tolerance": 0.001, "evidenceClass": "simulation" },
+    { "metric": "invalid_timing_output", "signal": "Applied and held heater-power trim", "window": "300 ms and 0 ms cases plus valid-but-latched state", "comparator": "==", "limit": 0, "unit": "pp", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "belt_speed", "signal": "Belt speed", "window": "complete run", "comparator": "==", "limit": 0.5, "unit": "m/s", "tolerance": 0.000000001, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [{ "signal": "Product-zone temperature deviation", "minimum": -10, "maximum": 10, "unit": "degC" }, { "signal": "Applied and held heater-power trim", "minimum": -10, "maximum": 10, "unit": "pp" }, { "signal": "Actual cycle time", "minimum": 0.000001, "maximum": 0.25, "unit": "s" }],
+    "abortPredicates": ["PV, MV, or elapsed time is nonfinite", "elapsed time is nonpositive or exceeds 0.25 s", "PV or MV leaves its hard limit", "selected and observed interval disagree"],
+    "safeMv": 0,
+    "restorationMode": "Latched zero trim; valid timing and explicit reset in Manual followed by a separate automatic enable",
+    "physicalApprovalRole": "authorised oven controls engineer",
+    "simulationOnlyRestrictions": ["Simulation timing evidence does not authorise changing a production task period; physical changes require scheduler, topology, and process review plus immediate approval."]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-14--sampling-jitter-and-missed-scans-conveyor-drying-oven",
+    "nativeTest": "control_curriculum_sampling_timing_contract",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_sampling_timing_contract -- --nocapture",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/14-sampling-interval",
+    "runArtifactFields": ["caseId", "timestamp", "actualCycleTime", "nominalCycleTime", "controllerCycleTime", "jitter", "timingValid", "timingFaultLatched", "automaticEnable", "resetRequested", "SP", "PV", "requestedMV", "appliedMV", "beltSpeed", "firstIntegralContribution", "timingUseError", "overshoot", "settlingTime", "finalWindowError", "requestedTravel", "appliedTravel", "controllerRevision", "plantRevision", "seed", "limits", "evidenceClass"],
+    "renderedJourneyId": "control-sampling-interval"
+  },
+  "video": {
+    "viewerOutcome": "Explain digital sampling limits, use measured elapsed time correctly, and reject missed or invalid scans safely.",
+    "requiredVisibleEvidence": ["sampling and hold diagram", "50/100/200 ms calculations", "actual and controller timing traces", "nominal versus measured first increment", "jitter sequence", "300/0 ms safe fault", "Simulation evidence label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Measurement filtering cannot correct the fact that a PLC controller observes and updates a continuous oven only at discrete, imperfect intervals.",
+    "reason": "Integral, derivative, rate-limit, and model updates all depend on elapsed time; nominal timing is wrong under jitter, while unbounded elapsed time is unsafe.",
+    "theory": ["Sampling observes a continuous signal at discrete times and a zero-order hold keeps MV constant between updates, adding effective delay.", "Sampling frequency is 1/dt and Nyquist frequency is half of it; content above Nyquist aliases and measured-dt arithmetic cannot restore it.", "PI integral increment is Ki times error times dt, numerical derivative divides a sample difference by dt, and a rate limit permits rate times dt movement.", "Measured dt preserves time scaling only inside a positive reviewed envelope; a missed scan must become an explicit fault rather than an ordinary update."],
+    "workedPrediction": "For Ki=0.667 %/(degC*s) and 1 degC error, first integral increments are 0.03335%, 0.0667%, and 0.1334% at 50, 100, and 200 ms; a nominal 100 ms value during a real 200 ms scan applies only half the intended increment.",
+    "practicalPreparation": ["Inspect the oven, sensor, power stage, belt speed, timing mode, actual/controller dt, validity, signals, units, limits, and safe state.", "Calculate integral increments, sampling and Nyquist frequencies, and any rate-times-dt movement before running fresh equivalent cases."],
+    "baseline": "Run a 200 ms actual scan while the controller deliberately uses nominal 100 ms and retain the incorrect 0.0667-percentage-point first contribution as ineligible counter-evidence.",
+    "change": "Use measured elapsed time for 50, 100, and 200 ms and deterministic jitter, then prove latched zero, valid Manual reset, and separate automatic re-enable after invalid 300 and 0 ms cases.",
+    "comparison": "Compare first increments, equal-duration SP/PV/MV traces, timing traces, overshoot, settling, final error, bounds, and fault state without changing plant or gains.",
+    "validation": "Require exact calculated contributions, zero timing-use error in measured mode, qualified fixed and jittered responses, and a latched zero-output fault with reviewed reset and separate automatic re-enable outside 0 < dt <= 0.25 s.",
+    "explanation": "Measured dt preserves time-scaled arithmetic but does not make slow sampling equivalent to fast sampling or remove hold delay and aliasing.",
+    "transfer": "For another loop, obtain real timestamps, identify every time-scaled calculation, calculate sampling limits, define a maximum safe interval, compare equal experiments, and prove deterministic fault behavior."
+  }
+}

@@ -1,0 +1,236 @@
+{
+  "schemaVersion": 1,
+  "id": "control-capstone-reactor",
+  "name": "Commission one tracked jacketed-reactor architecture",
+  "revision": "sha256:curriculum-loop-79",
+  "projectId": "project:control-capstone-reactor",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Coordinated cascade, feedforward, split-range, override, tracking, and mode control",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-79",
+    "action": "direct",
+    "taskPeriodMs": 100
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.ReactorSetpoint",
+      "address": "%ML200",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 70,
+        "maximum": 84
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.FeedbackReactorTemperature",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 86
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.FeedbackHeatingApplied",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "integrated-reactor-temperature",
+        "channel": "integrated-reactor-temperature",
+        "role": "PV",
+        "symbol": "P1.IntegratedReactorTemperature",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 86
+        }
+      },
+      {
+        "id": "feedback-only-jacket-temperature",
+        "channel": "feedback-only-jacket-temperature",
+        "role": "state",
+        "symbol": "P1.FeedbackJacketTemperature",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "integrated-jacket-temperature",
+        "channel": "integrated-jacket-temperature",
+        "role": "state",
+        "symbol": "P1.IntegratedJacketTemperature",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "feedback-only-applied-cooling-valve",
+        "channel": "feedback-only-applied-cooling-valve",
+        "role": "MV",
+        "symbol": "P1.FeedbackCoolingApplied",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "integrated-applied-steam-valve",
+        "channel": "integrated-applied-steam-valve",
+        "role": "MV",
+        "symbol": "P1.IntegratedHeatingApplied",
+        "address": "%QL24",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "integrated-applied-cooling-valve",
+        "channel": "integrated-applied-cooling-valve",
+        "role": "MV",
+        "symbol": "P1.IntegratedCoolingApplied",
+        "address": "%QL32",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "integrated-feedforward-contribution",
+        "channel": "integrated-feedforward-contribution",
+        "role": "state",
+        "symbol": "P1.IntegratedFeedforward",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "integrated-selected-utility-demand",
+        "channel": "integrated-selected-utility-demand",
+        "role": "state",
+        "symbol": "P1.IntegratedSelectedDemand",
+        "address": "%ML88",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -100,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "feed-load-quality-good",
+        "channel": "feed-load-quality-good",
+        "role": "quality",
+        "symbol": "P1.FeedLoadQualityGood",
+        "address": "%MX240.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "reactor-temperature-quality-good",
+        "channel": "reactor-temperature-quality-good",
+        "role": "quality",
+        "symbol": "P1.ReactorQualityGood",
+        "address": "%MX240.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "architecture-revision",
+        "channel": "architecture-revision",
+        "role": "state",
+        "symbol": "P1.ArchitectureRevision",
+        "address": "%MD120",
+        "iecType": "DINT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      {
+        "id": "controller-automatic",
+        "channel": "controller-automatic",
+        "role": "state",
+        "symbol": "P1.ControllerAuto",
+        "address": "%MX124.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "equivalent_feedback_and_integrated_jacketed_reactors",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 150,
+    "seed": 20260829
+  }
+}

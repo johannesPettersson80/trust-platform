@@ -1,0 +1,26 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2400
+plant_step_ms = 100
+
+[[plants]]
+id = "plate-heat-exchanger"
+model = "first_order_dead_time"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [50.0]
+
+[plants.parameters]
+gain = 0.5
+time_constant_s = 20.0
+dead_time_s = 3.0
+initial_delayed_input = 60.0
+output_bias = 20.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 60.0

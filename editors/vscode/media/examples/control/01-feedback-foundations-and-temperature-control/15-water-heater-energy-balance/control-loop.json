@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "id": "control-water-heater-energy-balance",
+  "name": "Water-heater energy balance",
+  "revision": "sha256:0854ec3902c648e071cb8b5ef055ed050b6d5ea9b10f34a0caa13737483031fc",
+  "projectId": "project:control-water-heater-energy-balance",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "WaterHeaterEnergyBalance",
+    "design": "project",
+    "revision": "sha256:801c121ee253d82621db7dbf5eb49fced3f4601509668ea424da59b8d7871bac",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX20.3",
+    "modeWhenTrue": "Manual"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.PredictedEquilibrium",
+      "address": "%ML16",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.RequestedHeaterPower",
+      "address": "%ML32",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": -1000,
+        "maximum": 1000
+      }
+    },
+    "actuator": {
+      "symbol": "P1.AppliedHeaterPower",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "derived-static-gain",
+        "channel": "derived-static-gain",
+        "role": "state",
+        "symbol": "P1.StaticGain",
+        "address": "%ML0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC/%",
+        "range": {
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "derived-time-constant",
+        "channel": "derived-time-constant",
+        "role": "state",
+        "symbol": "P1.TimeConstant",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 1000
+        }
+      },
+      {
+        "id": "model-validity",
+        "channel": "model-validity",
+        "role": "state",
+        "symbol": "P1.ModelValid",
+        "address": "%MX20.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": { "minimum": 0, "maximum": 1 }
+      },
+      {
+        "id": "input-validity",
+        "channel": "input-validity",
+        "role": "state",
+        "symbol": "P1.InputsValid",
+        "address": "%MX20.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": { "minimum": 0, "maximum": 1 }
+      },
+      {
+        "id": "test-authority",
+        "channel": "test-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX20.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": { "minimum": 0, "maximum": 1 }
+      },
+      {
+        "id": "manual-mode",
+        "channel": "manual-mode",
+        "role": "state",
+        "symbol": "P1.ManualMode",
+        "address": "%MX20.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": { "minimum": 0, "maximum": 1 }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "first_order_dead_time_from_energy_balance",
+  "operatingPoint": "PV 20, MV 0",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 30.1,
+    "seed": 20260824,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX20.2",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
+}

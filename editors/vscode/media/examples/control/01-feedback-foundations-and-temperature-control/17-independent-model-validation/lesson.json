@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 4,
+  "id": "control-independent-heater-model-validation",
+  "title": "Independent water-heater model validation",
+  "level": "Modelling",
+  "sequence": 17,
+  "equipment": "Electric recirculating water heater, outlet-temperature sensor, heater power stage, and cold-flow load",
+  "physicalPurpose": "Determine whether the frozen identified heater model predicts new command and load behavior before it supports tuning.",
+  "principalTechnique": "Independent holdout validation, residual diagnosis, and explicit model restriction",
+  "objective": "Use new data without refitting to accept the local command model, restrict its disturbance purpose, and retain uncertainty, residuals, range, and verdict.",
+  "prerequisites": ["control-heater-step-identification"],
+  "nextLesson": "control-nominal-fopdt",
+  "signals": [
+    { "role": "state", "name": "Frozen-model predicted outlet temperature", "unit": "degC", "minimum": 0, "maximum": 40, "resolution": 0.01, "binding": "Control Studio validation artifact.predictedPV" },
+    { "role": "SP", "name": "Validation outlet-temperature setpoint", "unit": "degC", "minimum": 0, "maximum": 40, "resolution": 0.01, "binding": "%ML8" },
+    { "role": "PV", "name": "Measured outlet-water temperature", "unit": "degC", "minimum": 0, "maximum": 40, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "MV", "name": "Requested heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML0" },
+    { "role": "MV", "name": "Applied heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
+    { "role": "state", "name": "Test authority enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.0" },
+    { "role": "state", "name": "Safety abort active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.1" },
+    { "role": "quality", "name": "Input validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.2" },
+    { "role": "state", "name": "Manual mode active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.3" },
+    { "role": "disturbance", "name": "Cold-flow equilibrium-temperature load", "unit": "degC", "minimum": -3, "maximum": 0, "resolution": 0.01, "binding": "simulation.toml#plant_events[0]" },
+    { "role": "state", "name": "Prediction residual", "unit": "degC", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "Control Studio validation artifact" }
+  ],
+  "plant": {
+    "modelId": "first_order_dead_time_with_unmodelled_load_event",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      { "name": "configured_truth_gain", "value": 0.2, "unit": "degC/%" },
+      { "name": "configured_truth_time_constant", "value": 5, "unit": "s" },
+      { "name": "configured_truth_dead_time", "value": 1, "unit": "s" },
+      { "name": "cold_flow_equilibrium_shift", "value": -1, "unit": "degC" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "outletTemperature": 30, "heaterPower": 20 },
+    "seed": 20260827,
+    "operatingPoint": { "PV": 30, "MV": 20 },
+    "validityRange": [{ "signal": "Measured outlet-water temperature", "minimum": 30, "maximum": 31, "unit": "degC" }, { "signal": "Applied heater power", "minimum": 20, "maximum": 25, "unit": "%" }],
+    "simplifications": ["The frozen FOPDT candidate models only heater-command to temperature behavior at fixed flow.", "The cold-flow event is intentionally absent from the candidate model.", "Deterministic data isolate model-purpose mismatch from measurement noise.", "Other nonlinearities, changing efficiency, sensor dynamics, and faults are omitted."]
+  },
+  "baseline": {
+    "executableId": "ControlStudio.EstimationFitReview",
+    "settings": { "estimationRun": "lesson-16-20-to-30-percent", "parametersFrozen": true },
+    "limitation": "Low error on the recording used to estimate parameters cannot establish prediction on unseen amplitude or disturbance data."
+  },
+  "change": {
+    "executableId": "ControlStudio.IndependentValidation",
+    "settings": { "validationStepFromPercent": 20, "validationStepToPercent": 25, "loadEventAtSeconds": 30, "coldFlowEquilibriumShiftDegC": -1, "refitAllowed": false },
+    "decision": "Accept fixed-flow command response when its independent RMSE passes, but restrict load prediction when post-load residual bias fails."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Test authority enabled",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 60.1,
+    "settlingSeconds": 0,
+    "disturbances": ["At 30 s, cold flow lowers the no-heat equilibrium by 1 degC"],
+    "seed": 20260827,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    { "metric": "fixed_flow_validation_RMSE", "signal": "Prediction residual", "window": "11 to 29 s", "comparator": "<=", "limit": 0.03, "unit": "degC", "tolerance": 0.001, "evidenceClass": "model" },
+    { "metric": "post_load_residual_bias_magnitude", "signal": "Prediction residual", "window": "50 to 60 s", "comparator": ">=", "limit": 0.9, "unit": "degC", "tolerance": 0.01, "evidenceClass": "model" },
+    { "metric": "post_load_residual_bias_magnitude", "signal": "Prediction residual", "window": "50 to 60 s", "comparator": "<=", "limit": 1.1, "unit": "degC", "tolerance": 0.01, "evidenceClass": "model" },
+    { "metric": "validation_step_amplitude", "signal": "Applied heater power", "window": "complete run", "comparator": "==", "limit": 5, "unit": "pp", "tolerance": 0.000000001, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [{ "signal": "Measured outlet-water temperature", "minimum": 0, "maximum": 40, "unit": "degC" }, { "signal": "Applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }],
+    "abortPredicates": ["PV, MV, prediction, residual, or timestamp is nonfinite", "quality is bad or timing has a gap", "frozen parameters are changed", "validation samples equal estimation samples", "PV exceeds 40 degC or MV leaves its limit"],
+    "safeMv": 0,
+    "restorationMode": "Manual at 20 percent after the run, then 0 percent on safety abort",
+    "physicalApprovalRole": "authorised heater controls engineer",
+    "simulationOnlyRestrictions": ["A Simulation validation verdict cannot be presented as physical evidence.", "The accepted purpose is fixed-flow heater-command response only; load prediction remains unqualified."]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-17--independent-model-validation-same-water-heater",
+    "nativeTest": "control_curriculum_heater_validation_accepts_new_step_but_restricts_unmodelled_load",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_modelling_progression control_curriculum_heater_validation_accepts_new_step_but_restricts_unmodelled_load -- --exact --nocapture",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/17-independent-model-validation",
+    "runArtifactFields": ["estimationRunId", "validationRunId", "frozenModel", "parameterIntervals", "rawValidationSamples", "requestedMV", "appliedMV", "predictedPV", "predictionEnvelope", "residuals", "fixedFlowRmse", "postLoadBias", "residualLagOneCorrelation", "testAuthority", "manualMode", "abort", "restoration", "verdict", "acceptedPurpose", "validityRange", "warnings", "seed", "evidenceClass"],
+    "renderedJourneyId": "control-independent-heater-model-validation"
+  },
+  "video": {
+    "viewerOutcome": "Validate a frozen model on genuinely new data and issue a useful restricted verdict when an unmodelled disturbance is exposed.",
+    "requiredVisibleEvidence": ["distinct estimation and validation run IDs", "frozen model and intervals", "20 to 25 percent validation step", "cold-flow event", "measured/predicted/envelope overlay", "residual and interval metrics", "restricted verdict and purpose", "Simulation provenance"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "The Lesson 16 FOPDT preview explains one estimation run but has not predicted a different amplitude or load event.",
+    "reason": "Only immutable data excluded from fitting can reveal generalization error and define the model's supported purpose and range.",
+    "theory": ["Estimation data determine parameters; validation data test a frozen model and must not be reused for refitting.", "Residual is measured minus predicted PV; RMSE, bias, drift, oscillation, and introductory autocorrelation reveal different mismatch patterns.", "Uncertainty intervals and prediction envelopes express finite evidence, while acceptance tolerances must be declared before seeing results.", "A model may be accepted, restricted, or rejected; interpolation within tested conditions does not justify extrapolation to omitted disturbances or operating points."],
+    "workedPrediction": "The exact frozen model predicts 30.9993 degC for a new 20 to 25 percent step and about 30.639 degC at 6 s; an omitted -1 degC load later produces about -1 degC residual bias.",
+    "practicalPreparation": ["Verify different immutable run identity, frozen parameters, provenance, signals, units, quality, timing, limits, safe state, and predeclared tolerances.", "Predict both the fixed-flow response and the sign and magnitude of residual after the omitted load before recording."],
+    "baseline": "Show the same-recording estimation fit and explain why its low residual is insufficient evidence.",
+    "change": "Write one reviewed Boolean Test authority; let the project own the 20-percent baseline, 25-percent step, and 20-percent restoration; then evaluate the frozen model unchanged across the separate cold-flow event.",
+    "comparison": "Compare estimation and validation errors, measured/predicted/envelope traces, fixed-flow residuals, and post-load bias without refitting.",
+    "validation": "Accept fixed-flow command response at RMSE at most 0.03 degC and restrict load prediction when residual bias magnitude is 0.9 to 1.1 degC.",
+    "explanation": "The smaller step confirms local command prediction; structured load residual proves the disturbance path is missing rather than random noise.",
+    "transfer": "Freeze, reserve, predict, measure, diagnose residuals, declare a purpose/range verdict, and carry that restriction into every later tuning or design action."
+  }
+}

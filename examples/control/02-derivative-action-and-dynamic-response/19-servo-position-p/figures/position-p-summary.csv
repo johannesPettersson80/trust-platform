@@ -1,0 +1,3 @@
+gain_nm_per_rad,rise_time_s,overshoot_rad,peak_applied_torque_nm,decision
+2.0,1.300000000000,0.313371271510,2.000000000000,slower lower-effort baseline
+8.0,0.560000000000,0.595806218458,8.000000000000,faster but insufficiently damped

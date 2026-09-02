@@ -1,0 +1,9 @@
+case,diagnosis,remedy
+Healthy,Healthy,ContinueMonitoring
+PoorTuning,PoorTuning,ControlledRetuningTest
+Stiction,Stiction,ValveInspection
+SensorDrift,SensorDrift,InstrumentVerification
+Saturation,Saturation,CapacityReview
+UpstreamDisturbance,UpstreamDisturbance,DisturbanceInvestigation
+Interaction,Interaction,InteractionStudy
+ModelScheduleMismatch,ModelScheduleMismatch,ModelScheduleValidation

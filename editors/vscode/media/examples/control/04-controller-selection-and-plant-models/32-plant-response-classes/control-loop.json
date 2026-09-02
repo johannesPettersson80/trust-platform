@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-plant-response-classes",
+  "name": "Open-loop plant response classes",
+  "revision": "sha256:curriculum-loop-32",
+  "projectId": "project:control-plant-response-classes",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "OpenLoopPlantClassExperiment", "design": "project", "revision": "sha256:plant-class-experiment", "action": "direct", "taskPeriodMs": 100 },
+  "signals": {
+    "processVariable": { "symbol": "P1.HeaterTemperature", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 0, "maximum": 100 } },
+    "manipulatedVariable": { "symbol": "P1.ExperimentInput", "address": "%ML0", "iecType": "LREAL", "direction": "write", "unit": "1", "range": { "minimum": 0, "maximum": 1 } },
+    "additional": [
+      { "id": "vessel-heater", "channel": "vessel", "role": "actuator", "symbol": "P1.HeaterCommand", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "tank-level", "channel": "tank", "role": "PV", "symbol": "P1.TankLevel", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "cm", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "tank-flow", "channel": "tank", "role": "actuator", "symbol": "P1.TankInflowTrim", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": -20, "maximum": 20 } },
+      { "id": "oven-temperature", "channel": "oven", "role": "PV", "symbol": "P1.OvenTemperature", "address": "%IL16", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 0, "maximum": 150 } },
+      { "id": "oven-heater", "channel": "oven", "role": "actuator", "symbol": "P1.OvenCommand", "address": "%QL16", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "drive-position", "channel": "drive", "role": "PV", "symbol": "P1.DrivePosition", "address": "%IL24", "iecType": "LREAL", "direction": "read", "unit": "rad", "range": { "minimum": -5, "maximum": 5 } },
+      { "id": "drive-torque", "channel": "drive", "role": "actuator", "symbol": "P1.DriveTorque", "address": "%QL24", "iecType": "LREAL", "direction": "read", "unit": "N m", "range": { "minimum": -2, "maximum": 2 } }
+    ]
+  },
+  "limits": { "outputMinimum": 0, "outputMaximum": 1 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "multi_plant_response_classes",
+  "operatingPoint": "Normalized experiment input 0",
+  "experiment": { "execution": "control-studio", "kind": "mv_step", "amplitude": 1, "durationSeconds": 12, "seed": 20260829 }
+}

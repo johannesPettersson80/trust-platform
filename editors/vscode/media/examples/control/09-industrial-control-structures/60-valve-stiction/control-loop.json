@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "id": "control-valve-stiction",
+  "name": "Characterize a cooling-water valve and diagnose stiction",
+  "revision": "sha256:curriculum-loop-60",
+  "projectId": "project:control-valve-stiction",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Installed-valve characterization and position-feedback stiction diagnosis",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-60",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX91.0",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.FlowSetpoint",
+      "address": "%ML336",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m3/h",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.HealthyFlow",
+      "address": "%IL168",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m3/h",
+      "range": {
+        "minimum": 0,
+        "maximum": 105
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ManualDemand",
+      "address": "%ML328",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "automatic-mode-1",
+        "channel": "automatic-mode",
+        "role": "state",
+        "symbol": "P1.AutoMode",
+        "address": "%MX91.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "deadband-measured-flow-2",
+        "channel": "deadband-measured-flow",
+        "role": "PV",
+        "symbol": "P1.DeadbandFlow",
+        "address": "%IL176",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m3/h",
+        "range": {
+          "minimum": 0,
+          "maximum": 105
+        }
+      },
+      {
+        "id": "stiction-measured-flow-3",
+        "channel": "stiction-measured-flow",
+        "role": "PV",
+        "symbol": "P1.StictionFlow",
+        "address": "%IL184",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m3/h",
+        "range": {
+          "minimum": 0,
+          "maximum": 105
+        }
+      },
+      {
+        "id": "healthy-requested-valve-position-4",
+        "channel": "healthy-requested-valve-position",
+        "role": "MV",
+        "symbol": "P1.HealthyRequest",
+        "address": "%QL184",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "deadband-requested-valve-position-5",
+        "channel": "deadband-requested-valve-position",
+        "role": "MV",
+        "symbol": "P1.DeadbandRequest",
+        "address": "%QL192",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "stiction-requested-valve-position-6",
+        "channel": "stiction-requested-valve-position",
+        "role": "MV",
+        "symbol": "P1.StictionRequest",
+        "address": "%QL200",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "three_nonlinear_installed_valve_flow_benches",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "mv_step",
+    "amplitude": 5.5,
+    "durationSeconds": 180,
+    "seed": 20260829
+  }
+}

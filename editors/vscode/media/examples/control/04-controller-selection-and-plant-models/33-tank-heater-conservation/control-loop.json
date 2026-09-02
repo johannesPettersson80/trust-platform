@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-tank-heater-conservation",
+  "name": "Tank and heater conservation models",
+  "revision": "sha256:curriculum-loop-33",
+  "projectId": "project:control-tank-heater-conservation",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "ConservationModelExperiment", "design": "project", "revision": "sha256:conservation-model-experiment", "action": "direct", "taskPeriodMs": 100 },
+  "signals": {
+    "processVariable": { "symbol": "P1.TankLevel", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "cm", "range": { "minimum": 0, "maximum": 100 } },
+    "manipulatedVariable": { "symbol": "P1.TankNetFlowCommand", "address": "%QL0", "iecType": "LREAL", "direction": "write", "unit": "L/s", "range": { "minimum": -20, "maximum": 20 } },
+    "additional": [
+      { "id": "tank-inlet", "channel": "tank-inlet-flow", "role": "state", "symbol": "P1.TankInletFlow", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "L/s", "range": { "minimum": 0, "maximum": 20 } },
+      { "id": "tank-outlet", "channel": "tank-outlet-flow", "role": "state", "symbol": "P1.TankOutletFlow", "address": "%ML8", "iecType": "LREAL", "direction": "read", "unit": "L/s", "range": { "minimum": 0, "maximum": 20 } },
+      { "id": "heater-request", "channel": "heater", "role": "state", "symbol": "P1.HeaterCommandRequest", "address": "%ML16", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "heater-applied", "channel": "heater", "role": "actuator", "symbol": "P1.HeaterAppliedCommand", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "heater-temperature", "channel": "heater", "role": "PV", "symbol": "P1.HeaterTemperature", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 0, "maximum": 100 } }
+    ]
+  },
+  "limits": { "outputMinimum": -20, "outputMaximum": 20 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "tank_and_heater_conservation",
+  "operatingPoint": "Declared initial tank and heater states",
+  "experiment": { "execution": "project-scripted", "kind": "observation", "amplitude": 0, "durationSeconds": 30, "seed": 20260829 }
+}

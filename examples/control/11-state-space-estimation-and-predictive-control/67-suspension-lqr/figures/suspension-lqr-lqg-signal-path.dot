@@ -1,0 +1,24 @@
+// Title: Active-suspension LQR and LQG signal path
+// Description: Road acceleration and applied hydraulic force drive the suspension body mode; full simulation state feeds LQR while a noisy position sensor feeds a Kalman estimate used by the position-only LQG controller.
+digraph lesson_signal_path {
+  graph [rankdir=LR, bgcolor="transparent", pad="0.25", nodesep="0.45", ranksep="0.65", splines=ortho];
+  node [shape=box, style="rounded,filled", fillcolor="#f8fafc", color="#2563eb", fontcolor="#0f172a", fontname="Arial", fontsize=12, margin="0.16,0.10"];
+  edge [color="#475569", fontcolor="#334155", fontname="Arial", fontsize=10, penwidth=1.6, arrowsize=0.75];
+  D [label="Road-equivalent acceleration", shape=box];
+  P [label="Active-suspension body mode", shape=box];
+  U [label="Applied hydraulic force", shape=box];
+  T [label="Clean state\\nSimulation truth", shape=box];
+  S [label="Noisy position sensor", shape=box];
+  F [label="Full-state LQR", shape=box];
+  E [label="Kalman state estimate", shape=box];
+  G [label="Position-only LQG", shape=box];
+  D -> P;
+  U -> P;
+  P -> T;
+  P -> S;
+  T -> F;
+  S -> E;
+  E -> G;
+  F -> U;
+  G -> U;
+}

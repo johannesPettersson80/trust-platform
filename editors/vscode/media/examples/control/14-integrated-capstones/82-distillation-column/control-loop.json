@@ -1,0 +1,406 @@
+{
+  "schemaVersion": 1,
+  "id": "control-capstone-distillation",
+  "name": "Commission a multivariable distillation control architecture",
+  "revision": "sha256:curriculum-loop-82",
+  "projectId": "project:control-capstone-distillation",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Four-path identification, RGA pairing, decoupling, directional robustness, feasibility, and architecture selection",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-82",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX116.0",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.OverheadSetpoint",
+      "address": "%ML32",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "pp",
+      "range": {
+        "minimum": -4,
+        "maximum": 4
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.OverheadProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "pp",
+      "range": {
+        "minimum": -6,
+        "maximum": 6
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.RefluxRequested",
+      "address": "%ML72",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "pp",
+      "range": {
+        "minimum": -16,
+        "maximum": 16
+      }
+    },
+    "additional": [
+      {
+        "id": "operating-mode",
+        "channel": "operating-mode",
+        "role": "state",
+        "symbol": "P1.OperatingMode",
+        "address": "%MD16",
+        "iecType": "DINT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 3
+        }
+      },
+      {
+        "id": "control-architecture-request",
+        "channel": "control-architecture-request",
+        "role": "state",
+        "symbol": "P1.ArchitectureRequested",
+        "address": "%MW20",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "active-control-architecture",
+        "channel": "active-control-architecture",
+        "role": "state",
+        "symbol": "P1.ArchitectureActive",
+        "address": "%MW22",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "composition-quality-good",
+        "channel": "composition-quality-good",
+        "role": "quality",
+        "symbol": "P1.QualityGood",
+        "address": "%MX24.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "reflux-valve-available",
+        "channel": "reflux-valve-available",
+        "role": "state",
+        "symbol": "P1.RefluxAvailable",
+        "address": "%MX24.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "reboiler-valve-available",
+        "channel": "reboiler-valve-available",
+        "role": "state",
+        "symbol": "P1.ReboilerAvailable",
+        "address": "%MX24.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "architecture-qualified",
+        "channel": "architecture-qualified",
+        "role": "state",
+        "symbol": "P1.ArchitectureQualified",
+        "address": "%MX24.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "bottoms-purity-setpoint",
+        "channel": "bottoms-purity-setpoint",
+        "role": "SP",
+        "symbol": "P1.BottomsSetpoint",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "pp",
+        "range": {
+          "minimum": -4,
+          "maximum": 4
+        }
+      },
+      {
+        "id": "feed-composition-disturbance-request",
+        "channel": "feed-composition-disturbance-request",
+        "role": "disturbance",
+        "symbol": "P1.FeedDisturbanceRequested",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "pp",
+        "range": {
+          "minimum": -3,
+          "maximum": 3
+        }
+      },
+      {
+        "id": "virtual-overhead-correction",
+        "channel": "virtual-overhead-correction",
+        "role": "state",
+        "symbol": "P1.VirtualOverheadCorrection",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "pp",
+        "range": {
+          "minimum": -8,
+          "maximum": 8
+        }
+      },
+      {
+        "id": "virtual-bottoms-correction",
+        "channel": "virtual-bottoms-correction",
+        "role": "state",
+        "symbol": "P1.VirtualBottomsCorrection",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "pp",
+        "range": {
+          "minimum": -8,
+          "maximum": 8
+        }
+      },
+      {
+        "id": "requested-reboiler-steam-change",
+        "channel": "requested-reboiler-steam-change",
+        "role": "MV",
+        "symbol": "P1.ReboilerRequested",
+        "address": "%ML80",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "pp",
+        "range": {
+          "minimum": -16,
+          "maximum": 16
+        }
+      },
+      {
+        "id": "centralized-common-scale",
+        "channel": "centralized-common-scale",
+        "role": "state",
+        "symbol": "P1.CommonScale",
+        "address": "%ML88",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "manual-reflux-change",
+        "channel": "manual-reflux-change",
+        "role": "MV",
+        "symbol": "P1.ManualReflux",
+        "address": "%ML96",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "pp",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "manual-reboiler-steam-change",
+        "channel": "manual-reboiler-steam-change",
+        "role": "MV",
+        "symbol": "P1.ManualReboiler",
+        "address": "%ML104",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "pp",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "applied-reflux-change",
+        "channel": "applied-reflux-change",
+        "role": "MV",
+        "symbol": "P1.RefluxApplied",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "pp",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "applied-reboiler-steam-change",
+        "channel": "applied-reboiler-steam-change",
+        "role": "MV",
+        "symbol": "P1.ReboilerApplied",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "pp",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "applied-feed-composition-disturbance",
+        "channel": "applied-feed-composition-disturbance",
+        "role": "disturbance",
+        "symbol": "P1.FeedDisturbanceApplied",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "pp",
+        "range": {
+          "minimum": -3,
+          "maximum": 3
+        }
+      },
+      {
+        "id": "bottoms-heavy-product-purity-deviation",
+        "channel": "bottoms-heavy-product-purity-deviation",
+        "role": "PV",
+        "symbol": "P1.BottomsProcessValue",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "pp",
+        "range": {
+          "minimum": -6,
+          "maximum": 6
+        }
+      },
+      {
+        "id": "static-decoupler-qualified",
+        "channel": "static-decoupler-qualified",
+        "role": "state",
+        "symbol": "P1.StaticQualified",
+        "address": "%MX24.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "physical-input-saturation-active",
+        "channel": "physical-input-saturation-active",
+        "role": "state",
+        "symbol": "P1.Saturated",
+        "address": "%MX24.5",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "tracking-active",
+        "channel": "tracking-active",
+        "role": "state",
+        "symbol": "P1.TrackingActive",
+        "address": "%MX24.6",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "fault-active",
+        "channel": "fault-active",
+        "role": "state",
+        "symbol": "P1.FaultActive",
+        "address": "%MX24.7",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "controller-revision",
+        "channel": "controller-revision",
+        "role": "state",
+        "symbol": "P1.ControllerRevision",
+        "address": "%MD112",
+        "iecType": "DINT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 999
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": -16,
+    "outputMaximum": 16
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "local_binary_distillation_nominal_and_strong_interaction_set",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "setpoint_step",
+    "amplitude": 1,
+    "durationSeconds": 720,
+    "seed": 20260829
+  }
+}

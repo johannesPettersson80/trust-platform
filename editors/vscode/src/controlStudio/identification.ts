@@ -1,4 +1,10 @@
-export type ModelKind = "integrating" | "first_order" | "first_order_dead_time" | "second_order" | "second_order_dead_time";
+import {
+  identifyLowOrderModels,
+  type LowOrderModelFit,
+  type ParameterInterval,
+} from "./numerics";
+
+export type ModelKind = "static_gain" | "integrating" | "first_order" | "first_order_dead_time" | "second_order" | "second_order_dead_time";
 
 export interface IdentificationSample {
   timeSeconds: number;
@@ -7,6 +13,8 @@ export interface IdentificationSample {
   quality: "good" | "uncertain" | "bad";
   inputUnit?: string;
   outputUnit?: string;
+  clipped?: boolean;
+  saturated?: boolean;
 }
 
 export interface ExcludedInterval { startSeconds: number; endSeconds: number }
@@ -19,6 +27,27 @@ export interface QualifiedIdentificationData {
   inputUnit: string;
   outputUnit: string;
   sampleTimeSeconds: number;
+  suitableForDesign: boolean;
+  metrics: IdentificationQualificationMetrics;
+}
+
+export interface IdentificationQualificationMetrics {
+  rawSampleCount: number;
+  retainedSampleCount: number;
+  durationSeconds: number;
+  medianSampleTimeSeconds: number;
+  maximumSampleTimeDeviationPercent: number;
+  gapCount: number;
+  rejectedQualitySampleCount: number;
+  clippedSampleCount: number;
+  saturationSampleCount: number;
+  baselineDriftPerSecond: number;
+  inputSpan: number;
+  outputSpan: number;
+  signalToNoiseDb: number;
+  excitation: "step" | "insufficient";
+  coherence: "Not evaluated for time-domain excitation";
+  independentValidationAvailable: boolean;
 }
 
 export interface IdentifiedModel {
@@ -28,6 +57,17 @@ export interface IdentifiedModel {
   secondTimeConstantSeconds?: number;
   deadTimeSeconds?: number;
   normalizedError: number;
+  normalizedEstimationError?: number;
+  normalizedValidationError?: number;
+  estimationResiduals?: readonly number[];
+  validationResiduals?: readonly number[];
+  uncertainty?: {
+    method: "grid-resolution-and-validation-residual" | "sample-resolution-envelope";
+    gain: ParameterInterval;
+    timeConstantSeconds?: ParameterInterval;
+    secondTimeConstantSeconds?: ParameterInterval;
+    deadTimeSeconds?: ParameterInterval;
+  };
   stable: boolean;
 }
 
@@ -35,6 +75,7 @@ export interface IdentificationResult {
   source: "Identified from simulation data" | "Identified from physical data";
   recommended: IdentifiedModel;
   models: readonly IdentifiedModel[];
+  partition?: "single-run" | "independent-runs";
 }
 
 export interface ModelFitPoint {
@@ -52,6 +93,202 @@ export interface ModelFitEvidence {
   delaySeconds: number;
   operatingRange: { inputMinimum: number; inputMaximum: number; outputMinimum: number; outputMaximum: number };
   warnings: readonly string[];
+}
+
+export interface IdentifiedModelPresentation {
+  equation: string;
+  units: { input: string; output: string; gain: string; time: "s" };
+  parameters: readonly { name: string; value: number; unit: string }[];
+  poles: readonly number[];
+  zeros: readonly number[];
+  delaySeconds: number;
+  uncertainty: { label: string; intervals?: IdentifiedModel["uncertainty"] };
+  estimation: { normalizedError?: number; residualLagOneCorrelation?: number };
+  validation: { normalizedError?: number; residualLagOneCorrelation?: number };
+  predictedResponse: ModelFitEvidence["points"];
+  validityRange: ModelFitEvidence["operatingRange"];
+  warnings: readonly string[];
+}
+
+export type IdentificationModelSelection = "automatic" | "integrating" | "first_order" |
+  "fopdt" | "second_order" | "sopdt";
+
+export interface IdentificationReviewInput {
+  estimation: readonly IdentificationSample[];
+  validation?: readonly IdentificationSample[];
+  excluded: readonly ExcludedInterval[];
+  source: "Simulation" | "Physical";
+  requestedKind: IdentificationModelSelection;
+}
+
+export type IdentificationReview =
+  | {
+      stage: "validation_required";
+      estimationQualification: QualifiedIdentificationData;
+      preview: IdentificationResult;
+      selected: IdentifiedModel;
+      fit: ModelFitEvidence;
+      estimation: readonly IdentificationSample[];
+      accepted: false;
+    }
+  | {
+      stage: "acceptance_required";
+      estimationQualification: QualifiedIdentificationData;
+      validationQualification: QualifiedIdentificationData;
+      result: IdentificationResult;
+      selected: IdentifiedModel;
+      fit: ModelFitEvidence;
+      estimation: readonly IdentificationSample[];
+      validation: readonly IdentificationSample[];
+      accepted: false;
+    };
+
+export interface AcceptedIdentificationModel {
+  model: IdentifiedModel;
+  fit: ModelFitEvidence;
+  evidence: IdentificationResult["source"];
+  review: Extract<IdentificationReview, { stage: "acceptance_required" }>;
+}
+
+/** Keeps the estimation and validation recordings separate until the user accepts the model. */
+export class IdentificationWorkflow {
+  private qualified?: IdentificationReviewInput;
+  private estimation?: IdentificationReviewInput;
+  private pending?: Extract<IdentificationReview, { stage: "acceptance_required" }>;
+  private accepted?: AcceptedIdentificationModel;
+
+  get acceptedModel(): IdentifiedModel | undefined { return this.accepted?.model; }
+  get nextFitRole(): "estimation" | "validation" { return this.estimation ? "validation" : "estimation"; }
+
+  qualify(
+    samples: readonly IdentificationSample[],
+    excluded: readonly ExcludedInterval[],
+    source: "Simulation" | "Physical",
+    requestedKind: IdentificationModelSelection
+  ): QualifiedIdentificationData {
+    if (this.accepted) this.estimation = undefined;
+    const immutableSamples = samples.map((sample) => ({ ...sample }));
+    const immutableExcluded = excluded.map((interval) => ({ ...interval }));
+    const qualification = qualifyIdentificationData(immutableSamples, immutableExcluded);
+    this.qualified = qualification.suitable
+      ? { estimation: immutableSamples, excluded: immutableExcluded, source, requestedKind }
+      : undefined;
+    this.pending = undefined;
+    this.accepted = undefined;
+    return qualification;
+  }
+
+  fit(): IdentificationReview {
+    if (!this.qualified) throw new Error("Qualify a suitable recording before fitting a model.");
+    if (!this.estimation) {
+      const preview = prepareIdentificationReview(this.qualified);
+      this.estimation = {
+        ...this.qualified,
+        estimation: preview.estimation.map((sample) => ({ ...sample })),
+        excluded: this.qualified.excluded.map((interval) => ({ ...interval })),
+      };
+      return preview;
+    }
+    const review = prepareIdentificationReview({
+      estimation: this.estimation.estimation,
+      validation: this.qualified.estimation,
+      excluded: this.estimation.excluded,
+      source: this.estimation.source,
+      requestedKind: this.qualified.requestedKind,
+    });
+    if (review.stage !== "acceptance_required") throw new Error("Independent validation is required before acceptance.");
+    this.pending = review;
+    return review;
+  }
+
+  accept(): AcceptedIdentificationModel {
+    if (!this.pending) throw new Error("Independent validation and model review are required before acceptance.");
+    this.accepted = {
+      model: this.pending.selected,
+      fit: this.pending.fit,
+      evidence: this.pending.result.source,
+      review: this.pending,
+    };
+    return this.accepted;
+  }
+}
+
+/** Builds the same-run preview or the independently validated model review. */
+export function prepareIdentificationReview(input: IdentificationReviewInput): IdentificationReview {
+  const estimation = input.estimation.map((sample) => ({ ...sample }));
+  const estimationQualification = qualifyIdentificationData(estimation, input.excluded);
+  if (!estimationQualification.suitable) throw new Error(estimationQualification.reason);
+  if (input.validation === undefined) {
+    const preview = identifyPlant(estimation, input.excluded, input.source);
+    const selected = selectRequestedModel(preview, input.requestedKind);
+    return {
+      stage: "validation_required",
+      estimationQualification,
+      preview,
+      selected,
+      fit: modelFitEvidence(selected, estimationQualification.samples),
+      estimation,
+      accepted: false,
+    };
+  }
+  const validation = input.validation.map((sample) => ({ ...sample }));
+  if (sameRecording(estimation, validation)) {
+    throw new Error("A distinct immutable validation run is required before controller design.");
+  }
+  const validationQualification = qualifyIdentificationData(validation, [], true);
+  if (!validationQualification.suitable) {
+    throw new Error(`Independent validation: ${validationQualification.reason}`);
+  }
+  const result = identifyPlant(estimation, input.excluded, input.source, validation);
+  const selected = selectRequestedModel(result, input.requestedKind);
+  return {
+    stage: "acceptance_required",
+    estimationQualification,
+    validationQualification,
+    result,
+    selected,
+    fit: modelFitEvidence(selected, validationQualification.samples),
+    estimation,
+    validation,
+    accepted: false,
+  };
+}
+
+function selectRequestedModel(
+  result: IdentificationResult,
+  requested: IdentificationModelSelection
+): IdentifiedModel {
+  if (requested === "automatic") return result.recommended;
+  const kind = ({ integrating: "integrating", first_order: "first_order",
+    fopdt: "first_order_dead_time", second_order: "second_order",
+    sopdt: "second_order_dead_time" } as const)[requested];
+  const selected = result.models.find((model) => model.kind === kind);
+  if (!selected) throw new Error(`The ${requested} fitter is not available for this recording.`);
+  if (selected.normalizedValidationError !== undefined
+      && result.recommended.normalizedValidationError !== undefined) {
+    const adequacyLimit = Math.min(
+      0.35,
+      Math.max(0.03, result.recommended.normalizedValidationError * 1.25)
+    );
+    if (!Number.isFinite(selected.normalizedValidationError)
+        || selected.normalizedValidationError > adequacyLimit) {
+      throw new Error(
+        `The requested ${requested} model failed independent validation; choose another order or Automatic.`
+      );
+    }
+  }
+  return selected;
+}
+
+function sameRecording(
+  left: readonly IdentificationSample[],
+  right: readonly IdentificationSample[]
+): boolean {
+  return left.length === right.length && left.every((sample, index) => {
+    const other = right[index];
+    return sample.timeSeconds === other.timeSeconds && sample.input === other.input &&
+      sample.output === other.output && sample.quality === other.quality;
+  });
 }
 
 export function modelFitEvidence(
@@ -98,20 +335,92 @@ export function modelFitEvidence(
   };
 }
 
+/** Produces review evidence without implying statistical confidence not established by the fitter. */
+export function identifiedModelPresentation(
+  model: IdentifiedModel,
+  fit: ModelFitEvidence,
+  inputUnit: string,
+  outputUnit: string
+): IdentifiedModelPresentation {
+  const gainUnit = `${outputUnit}/${inputUnit}`;
+  const timeConstants = [model.timeConstantSeconds, model.secondTimeConstantSeconds]
+    .filter((value): value is number => typeof value === "number");
+  const poles = model.kind === "integrating" ? [0] : timeConstants.map((value) => -1 / value);
+  const delay = model.deadTimeSeconds ?? 0;
+  const denominator = timeConstants.length === 0 ? ""
+    : timeConstants.map((value) => `(${engineeringCoefficient(value)}s + 1)`).join("");
+  const delayTerm = delay > 0 ? ` e^(-${engineeringCoefficient(delay)}s)` : "";
+  const equation = model.kind === "integrating"
+    ? `G(s) = ${engineeringCoefficient(model.gain)}${delayTerm} / s`
+    : denominator ? `G(s) = ${engineeringCoefficient(model.gain)}${delayTerm} / ${denominator}`
+      : `G(s) = ${engineeringCoefficient(model.gain)}`;
+  return {
+    equation,
+    units: { input: inputUnit, output: outputUnit, gain: gainUnit, time: "s" },
+    parameters: [
+      { name: "Gain", value: model.gain, unit: gainUnit },
+      ...timeConstants.map((value, index) => ({ name: `Time constant ${index + 1}`, value, unit: "s" })),
+      { name: "Dead time", value: delay, unit: "s" },
+    ],
+    poles,
+    zeros: [],
+    delaySeconds: delay,
+    uncertainty: {
+      label: model.uncertainty?.method === "sample-resolution-envelope"
+        ? "Sample-resolution envelope from the estimation record; not statistical confidence"
+        : "Conservative search-resolution and held-out-residual interval",
+      ...(model.uncertainty ? { intervals: model.uncertainty } : {}),
+    },
+    estimation: {
+      normalizedError: model.normalizedEstimationError ?? model.normalizedError,
+      ...(model.estimationResiduals ? { residualLagOneCorrelation: lagOneCorrelation(model.estimationResiduals) } : {}),
+    },
+    validation: {
+      ...(model.normalizedValidationError === undefined ? {} : { normalizedError: model.normalizedValidationError }),
+      ...(model.validationResiduals ? { residualLagOneCorrelation: lagOneCorrelation(model.validationResiduals) } : {}),
+    },
+    predictedResponse: fit.points.map((point) => ({ ...point })),
+    validityRange: { ...fit.operatingRange },
+    warnings: [...fit.warnings],
+  };
+}
+
+function engineeringCoefficient(value: number): string {
+  return Number(value.toPrecision(6)).toString();
+}
+
+function lagOneCorrelation(values: readonly number[]): number {
+  if (values.length < 3 || !values.every(Number.isFinite)) return 0;
+  const left = values.slice(0, -1);
+  const right = values.slice(1);
+  const leftMean = mean(left);
+  const rightMean = mean(right);
+  const numerator = left.reduce((sum, value, index) => sum + (value - leftMean) * (right[index] - rightMean), 0);
+  const leftEnergy = left.reduce((sum, value) => sum + (value - leftMean) ** 2, 0);
+  const rightEnergy = right.reduce((sum, value) => sum + (value - rightMean) ** 2, 0);
+  const denominator = Math.sqrt(leftEnergy * rightEnergy);
+  return denominator > 0 ? numerator / denominator : 0;
+}
+
 export function qualifyIdentificationData(
   samples: readonly IdentificationSample[],
-  excluded: readonly ExcludedInterval[]
+  excluded: readonly ExcludedInterval[],
+  independentValidationAvailable = false
 ): QualifiedIdentificationData {
   const rawSamples = samples.map((sample) => ({ ...sample }));
   const usable = rawSamples.filter((sample) =>
     sample.quality === "good" && finiteSample(sample) &&
     !excluded.some((interval) => sample.timeSeconds >= interval.startSeconds && sample.timeSeconds <= interval.endSeconds));
+  const sampleTimeSeconds = medianIntervals(usable);
+  const metrics = qualificationMetrics(rawSamples, usable, sampleTimeSeconds, independentValidationAvailable);
   const base = {
     rawSamples,
     samples: usable,
     inputUnit: rawSamples.find((sample) => sample.inputUnit)?.inputUnit ?? "unit",
     outputUnit: rawSamples.find((sample) => sample.outputUnit)?.outputUnit ?? "unit",
-    sampleTimeSeconds: medianIntervals(usable),
+    sampleTimeSeconds,
+    suitableForDesign: false,
+    metrics,
   };
   if (usable.length < 20) return { ...base, suitable: false, reason: "At least 20 finite good samples are required." };
   if (!strictlyIncreasing(usable)) return { ...base, suitable: false, reason: "Sample times must be finite and strictly increasing." };
@@ -121,16 +430,81 @@ export function qualifyIdentificationData(
   if (span(usable.map((sample) => sample.output)) <= 1e-9) {
     return { ...base, suitable: false, reason: "Output response is too small to identify a model." };
   }
-  return { ...base, suitable: true };
+  return { ...base, suitable: true, suitableForDesign: independentValidationAvailable };
+}
+
+function qualificationMetrics(
+  raw: readonly IdentificationSample[],
+  usable: readonly IdentificationSample[],
+  sampleTimeSeconds: number,
+  independentValidationAvailable: boolean
+): IdentificationQualificationMetrics {
+  const intervals = usable.slice(1).map((sample, index) => sample.timeSeconds - usable[index].timeSeconds)
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const maximumDeviation = sampleTimeSeconds > 0 && intervals.length > 0
+    ? Math.max(...intervals.map((value) => Math.abs(value - sampleTimeSeconds))) / sampleTimeSeconds * 100
+    : 0;
+  const stepIndex = largestInputChange(usable);
+  const baseline = stepIndex > 1 ? usable.slice(0, stepIndex) : usable.slice(0, Math.max(2, Math.floor(usable.length / 5)));
+  const baselineDuration = baseline.length > 1
+    ? baseline[baseline.length - 1].timeSeconds - baseline[0].timeSeconds : 0;
+  const baselineDrift = baselineDuration > 0
+    ? (baseline[baseline.length - 1].output - baseline[0].output) / baselineDuration : 0;
+  const baselineDifferences = baseline.slice(1).map((sample, index) => sample.output - baseline[index].output);
+  const noiseRms = baselineDifferences.length > 0
+    ? Math.sqrt(mean(baselineDifferences.map((value) => value * value)) / 2) : 0;
+  const outputSpan = safeSpan(usable.map((sample) => sample.output));
+  const signalToNoiseDb = noiseRms > 1e-12 && outputSpan > 0
+    ? 20 * Math.log10(outputSpan / noiseRms) : outputSpan > 0 ? 300 : 0;
+  return {
+    rawSampleCount: raw.length,
+    retainedSampleCount: usable.length,
+    durationSeconds: usable.length > 1 ? usable[usable.length - 1].timeSeconds - usable[0].timeSeconds : 0,
+    medianSampleTimeSeconds: sampleTimeSeconds,
+    maximumSampleTimeDeviationPercent: maximumDeviation,
+    gapCount: sampleTimeSeconds > 0 ? intervals.filter((value) => value > sampleTimeSeconds * 1.5).length : 0,
+    rejectedQualitySampleCount: raw.filter((sample) => sample.quality !== "good").length,
+    clippedSampleCount: raw.filter((sample) => sample.clipped === true).length,
+    saturationSampleCount: raw.filter((sample) => sample.saturated === true).length,
+    baselineDriftPerSecond: baselineDrift,
+    inputSpan: safeSpan(usable.map((sample) => sample.input)),
+    outputSpan,
+    signalToNoiseDb,
+    excitation: stepIndex > 0 ? "step" : "insufficient",
+    coherence: "Not evaluated for time-domain excitation",
+    independentValidationAvailable,
+  };
 }
 
 export function identifyPlant(
   samples: readonly IdentificationSample[],
   excluded: readonly ExcludedInterval[] = [],
-  source: "Simulation" | "Physical" = "Simulation"
+  source: "Simulation" | "Physical" = "Simulation",
+  validationSamples?: readonly IdentificationSample[]
 ): IdentificationResult {
   const qualified = qualifyIdentificationData(samples, excluded);
   if (!qualified.suitable) throw new Error(qualified.reason);
+  if (validationSamples !== undefined) {
+    const validation = qualifyIdentificationData(validationSamples, []);
+    if (!validation.suitable) throw new Error(`Independent validation: ${validation.reason}`);
+    const fitted = identifyLowOrderModels(qualified.samples, validation.samples, {
+      allowedKinds: ["static_gain", "integrating", "first_order", "first_order_dead_time",
+        "second_order", "second_order_dead_time"],
+      absoluteTolerance: 1e-9,
+      minimumSamples: 20,
+      minimumInputSpan: 1e-9,
+      maximumNormalizedValidationError: 0.35,
+    });
+    if (fitted.status === "rejected") {
+      throw new Error(`No qualified low-order model: ${fitted.reason}.`);
+    }
+    return {
+      source: source === "Physical" ? "Identified from physical data" : "Identified from simulation data",
+      recommended: lowOrderModel(fitted.recommended),
+      models: fitted.models.map(lowOrderModel),
+      partition: "independent-runs",
+    };
+  }
   const values = qualified.samples;
   const stepIndex = largestInputChange(values);
   if (stepIndex < 2 || stepIndex >= values.length - 10) throw new Error("A bounded input step with pre- and post-step data is required.");
@@ -161,23 +535,96 @@ export function identifyPlant(
   for (const model of models) {
     model.normalizedError = modelError(model, values, stepIndex, input0, output0, inputChange, Math.abs(response));
   }
-  const finite = models.filter((model) => Number.isFinite(model.normalizedError) && model.stable);
-  const bestError = Math.min(...finite.map((model) => model.normalizedError));
-  const acceptable = finite.filter((model) => model.normalizedError <= Math.max(0.03, bestError * 1.25));
-  let recommended = (acceptable.length ? acceptable : finite)
-    .sort((left, right) => complexity(left.kind) - complexity(right.kind) || left.normalizedError - right.normalizedError)[0];
-  const firstOrder = models.find((model) => model.kind === "first_order")!;
-  const delayedFirstOrder = models.find((model) => model.kind === "first_order_dead_time")!;
-  // Add delay only when it is resolved by more than two samples and materially
-  // improves prediction; a marginal fit increase never wins by itself.
-  if (deadTime > 2 * dt && delayedFirstOrder.normalizedError < firstOrder.normalizedError * 0.98) {
-    recommended = delayedFirstOrder;
+  const beforeMinimum = Math.min(...before.map((sample) => sample.output));
+  const beforeMaximum = Math.max(...before.map((sample) => sample.output));
+  const afterMinimum = Math.min(...after.map((sample) => sample.output));
+  const afterMaximum = Math.max(...after.map((sample) => sample.output));
+  const endpointGains = [
+    (afterMinimum - beforeMaximum) / inputChange,
+    (afterMaximum - beforeMinimum) / inputChange,
+  ];
+  const gainMinimum = Math.min(...endpointGains, gain);
+  const gainMaximum = Math.max(...endpointGains, gain);
+  for (const model of models) {
+    // One estimation run cannot establish statistical confidence. Preserve
+    // only endpoint and sample-crossing resolution until validation exists.
+    model.uncertainty = {
+      method: "sample-resolution-envelope",
+      gain: {
+        minimum: Math.min(gainMinimum, model.gain),
+        maximum: Math.max(gainMaximum, model.gain),
+      },
+      ...(model.timeConstantSeconds === undefined ? {} : {
+        timeConstantSeconds: {
+          minimum: Math.max(dt, model.timeConstantSeconds - dt),
+          maximum: model.timeConstantSeconds + dt,
+        },
+      }),
+      ...(model.secondTimeConstantSeconds === undefined ? {} : {
+        secondTimeConstantSeconds: {
+          minimum: Math.max(dt, model.secondTimeConstantSeconds - dt),
+          maximum: model.secondTimeConstantSeconds + dt,
+        },
+      }),
+      ...(model.deadTimeSeconds === undefined ? {} : {
+        deadTimeSeconds: {
+          minimum: Math.max(0, model.deadTimeSeconds),
+          maximum: model.deadTimeSeconds + dt,
+        },
+      }),
+    };
   }
-  if (!recommended || recommended.normalizedError > 0.35 || horizon <= dt) {
+  const recommended = selectLowOrderModel(models, dt, deadTime);
+  if (horizon <= dt) {
     throw new Error("No acceptable stable low-order model could be identified from the retained data.");
   }
   return { source: source === "Physical" ? "Identified from physical data" : "Identified from simulation data",
-    recommended: { ...recommended }, models: models.map((model) => ({ ...model })) };
+    recommended: { ...recommended }, models: models.map((model) => ({ ...model })), partition: "single-run" };
+}
+
+export function selectLowOrderModel(
+  models: readonly IdentifiedModel[],
+  sampleTimeSeconds: number,
+  resolvedDeadTimeSeconds: number
+): IdentifiedModel {
+  const eligible = models.filter((model) =>
+    Number.isFinite(model.normalizedError) && model.stable && model.normalizedError <= 0.05);
+  let selected = [...eligible]
+    .sort((left, right) => complexity(left.kind) - complexity(right.kind)
+      || left.normalizedError - right.normalizedError)[0];
+  const firstOrder = eligible.find((model) => model.kind === "first_order");
+  const delayedFirstOrder = eligible.find((model) => model.kind === "first_order_dead_time");
+  // A resolved and materially useful delay is stronger evidence than the
+  // normal simplicity preference; otherwise the no-delay model remains easier
+  // to understand and maintain.
+  if (firstOrder && delayedFirstOrder
+    && resolvedDeadTimeSeconds > 2 * sampleTimeSeconds
+    && delayedFirstOrder.normalizedError < firstOrder.normalizedError * 0.98) {
+    selected = delayedFirstOrder;
+  }
+  if (!selected) {
+    throw new Error("No acceptable stable low-order model could be identified from the retained data.");
+  }
+  return selected;
+}
+
+function lowOrderModel(model: LowOrderModelFit): IdentifiedModel {
+  return {
+    kind: model.kind,
+    gain: model.gain,
+    ...(model.timeConstantSeconds === undefined ? {} : { timeConstantSeconds: model.timeConstantSeconds }),
+    ...(model.secondTimeConstantSeconds === undefined ? {} : {
+      secondTimeConstantSeconds: model.secondTimeConstantSeconds,
+    }),
+    ...(model.deadTimeSeconds === undefined ? {} : { deadTimeSeconds: model.deadTimeSeconds }),
+    normalizedError: model.normalizedValidationError,
+    normalizedEstimationError: model.normalizedEstimationError,
+    normalizedValidationError: model.normalizedValidationError,
+    estimationResiduals: model.estimationResiduals,
+    validationResiduals: model.validationResiduals,
+    uncertainty: model.uncertainty,
+    stable: true,
+  };
 }
 
 function candidate(kind: ModelKind, gain: number, tau?: number, tau2?: number, delay?: number): IdentifiedModel {
@@ -195,7 +642,10 @@ function modelError(model: IdentifiedModel, samples: readonly IdentificationSamp
   for (const sample of samples.slice(stepIndex)) {
     const time = Math.max(0, sample.timeSeconds - stepTime - (model.deadTimeSeconds ?? 0));
     const fraction = responseFraction(model, time);
-    const predicted = output0 + model.gain * (sample.input - input0 || inputChange) * fraction;
+    // The preview describes the retained excitation step. A bounded test may
+    // restore the actuator in its final sample; using that restoration as a
+    // second excitation would make the fitted step size and prediction disagree.
+    const predicted = output0 + model.gain * inputChange * fraction;
     squared += (sample.output - predicted) ** 2;
     count += 1;
   }
@@ -203,6 +653,7 @@ function modelError(model: IdentifiedModel, samples: readonly IdentificationSamp
 }
 
 function responseFraction(model: IdentifiedModel, time: number): number {
+  if (model.kind === "static_gain") return 1;
   if (model.kind === "integrating") return time;
   if (model.secondTimeConstantSeconds !== undefined) {
     const first = model.timeConstantSeconds ?? 1;
@@ -249,7 +700,9 @@ function medianIntervals(samples: readonly IdentificationSample[]): number {
   return intervals.length ? intervals[Math.floor(intervals.length / 2)] : 0;
 }
 function span(values: readonly number[]): number { return Math.max(...values) - Math.min(...values); }
+function safeSpan(values: readonly number[]): number { return values.length > 0 ? span(values) : 0; }
 function mean(values: readonly number[]): number { return values.reduce((sum, value) => sum + value, 0) / values.length; }
 function complexity(kind: ModelKind): number {
-  return ({ integrating: 1, first_order: 2, first_order_dead_time: 3, second_order: 3, second_order_dead_time: 4 })[kind];
+  return ({ static_gain: 1, integrating: 1, first_order: 2, first_order_dead_time: 3,
+    second_order: 3, second_order_dead_time: 4 })[kind];
 }

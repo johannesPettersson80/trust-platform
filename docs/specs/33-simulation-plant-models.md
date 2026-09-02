@@ -166,6 +166,9 @@ other final control elements without changing the controller program.
 | `rate_down_per_s` | nonnegative number | unbounded | Maximum falling slew rate. |
 | `rate_up_per_s` | nonnegative number | unbounded | Maximum rising slew rate. |
 | `deadband` | nonnegative number | `0` | Command movement ignored around the last accepted command. |
+| `stiction_band` | nonnegative number | `0` | Command-to-position difference required for friction breakaway. |
+| `slip_jump` | nonnegative number not greater than `stiction_band` | `0` | First applied movement when breakaway occurs. |
+| `characteristic_exponent` | positive finite number | `1` | Power-law installed characteristic from actuator position to applied process input. |
 | `lag_s` | nonnegative number | `0` | First-order actuator lag time constant. |
 | `initial_applied` | finite number | plant `initial_input[0]` | Initial actuator output. |
 
@@ -174,6 +177,29 @@ shall not exceed maximum. A zero rate means no movement in that direction; an
 omitted rate is unbounded. A zero lag means no lag.
 Supplying an actuator table for a model with more than one command source shall
 reject configuration.
+
+`deadband` and stiction are distinct. Deadband ignores a small change relative
+to the last accepted command. Stiction accepts the command but holds physical
+position until the difference from applied position exceeds `stiction_band`.
+At breakaway the position first advances by `slip_jump` toward the accepted
+command, bounded so it cannot pass that command. Subsequent substeps use the
+normal rate and lag path until the accepted position is reached; the actuator
+then sticks again. A zero stiction band disables this behavior. Scheduled
+`stick_actuator` remains an independent hard fault and always has priority.
+
+`characteristic_exponent` requires finite `minimum` and `maximum` with
+`minimum < maximum`. After position dynamics, normalized position is mapped to
+the process input by:
+
+```text
+z = (position - minimum) / (maximum - minimum)
+applied = minimum + (maximum - minimum) * z^characteristic_exponent
+```
+
+Exponent one is linear, values above one represent a valve that delivers less
+flow at low travel, and values below one represent quick opening. The map is a
+declared installed-characteristic approximation; it does not imply a valve
+sizing calculation.
 
 ### 3.5 Uncertainty effect
 
@@ -268,6 +294,35 @@ and random-stream state for that plant. It does not rewind global simulation
 time, analytic generator phase, active-time windows, processed events, or
 another plant.
 
+### 3.7 Model-validity boundary
+
+An optional `[plants.validity]` table declares the engineering region in which
+the configured model may be used. It is evidence metadata enforced by the
+simulator; it is not a physical interlock and shall never be presented as
+physical safety evidence.
+
+| Field | Type | Required | Purpose |
+|---|---|---:|---|
+| `input_minimum`, `input_maximum` | finite number arrays | paired | Inclusive bounds for applied process inputs. |
+| `state_minimum`, `state_maximum` | finite number arrays | paired | Inclusive bounds for model states after integration and state effects. |
+| `output_minimum`, `output_maximum` | finite number arrays | paired | Inclusive bounds for ideal process outputs after process-output effects and before sensor effects. |
+| `out_of_range` | `"fault"` | no | Deterministic action; the only first-version value is `fault`. |
+
+Each declared minimum/maximum pair shall contain exactly one value per owned
+channel, and every minimum shall be less than or equal to its maximum. Omitting
+a pair leaves that vector unbounded. Bounds use model engineering units: input
+bounds apply after command scaling, actuator behavior, and process-input
+effects; state bounds apply after nominal integration and state effects; output
+bounds apply after process-output effects but before sensor bias, noise,
+quantisation, dropout, and process-image output scaling.
+
+The configured initial input and initial state shall be inside their declared
+bounds. During execution, the first out-of-range value shall raise a
+plant-qualified simulation fault naming the validity vector, channel, value,
+and inclusive range. The complete substep shall roll back atomically and shall
+not publish partial feedback. The simulator shall not clamp an invalid model
+region into an apparently valid result.
+
 ## 4. Complete configuration example
 
 This example connects the paper's first-order-plus-dead-time process to an
@@ -284,7 +339,7 @@ plant_step_ms = 10
 max_plant_substeps_per_cycle = 10000
 
 [[plants]]
-id = "paper-fopdt"
+id = "reference-fopdt"
 model = "first_order_dead_time"
 command_sources = ["%QL0"]
 feedback_targets = ["%IL0"]
@@ -343,7 +398,7 @@ quantum = 0.001
 
 [[plant_events]]
 at_ms = 10000
-plant = "paper-fopdt"
+plant = "reference-fopdt"
 kind = "add_state"
 channel = 0
 value = -0.2
@@ -621,6 +676,59 @@ not performed.
 
 `initial_state` shall be absent or empty.
 
+### 7.8 `gravity_tank`
+
+`gravity_tank` represents a vented liquid tank whose outlet flow increases with
+the square root of liquid level. It is used where a single linear model would
+hide the operating-point dependence of level dynamics. It has one inlet-flow
+command, one level output, and one state `h` in metres.
+
+Parameters are positive finite tank cross-sectional area `area_m2` and
+nonnegative finite discharge coefficient `outflow_coefficient_m2_sqrt_m_per_s`.
+With inlet flow `q_in` in cubic metres per second, the model is:
+
+```text
+q_out = outflow_coefficient_m2_sqrt_m_per_s * sqrt(max(h, 0))
+dh/dt = (q_in - q_out) / area_m2
+y = h
+```
+
+State advances by classical fourth-order Runge-Kutta with a held inlet flow.
+Every derivative evaluation uses `max(h, 0)` inside the square root. The
+completed state is clamped to zero, so an empty tank cannot acquire a negative
+level. Negative inlet flow is permitted to represent a separately reviewed
+net withdrawal, but it cannot drive the retained level below zero. The model
+requires one finite initial state and one command and feedback channel.
+
+### 7.9 `robot_joint`
+
+`robot_joint` represents one rigid gravity-loaded rotary joint driven by motor
+torque. It exists for nonlinear-control experiments where a linear
+state-space approximation would erase configuration-dependent gravity and
+Coulomb friction. It has torque input `tau` in newton metres, angle and angular
+rate outputs, and state `[theta, omega]` in radians and radians per second.
+
+Parameters are positive finite inertia `inertia_kg_m2`, nonnegative finite
+gravity-torque coefficient `gravity_torque_nm`, viscous coefficient
+`viscous_friction_nm_s_per_rad`, Coulomb friction `coulomb_friction_nm`, and
+positive smoothing speed `friction_smoothing_rad_s`. The equations are:
+
+```text
+dtheta/dt = omega
+friction = viscous_friction_nm_s_per_rad * omega
+           + coulomb_friction_nm * tanh(omega / friction_smoothing_rad_s)
+domega/dt = (tau - gravity_torque_nm * sin(theta) - friction)
+            / inertia_kg_m2
+y = [theta, omega]
+```
+
+The smooth Coulomb term makes the deterministic fixed-step equation defined at
+zero velocity; it is a declared approximation, not a contact solver. State
+advances by classical fourth-order Runge-Kutta with held torque and parameters.
+The model requires one command, two feedback targets, and two finite initial
+states. Torque saturation belongs to the ordinary actuator configuration, not
+to a second controller-facing path.
+
 ## 8. Actuator behavior
 
 The actuator operates once per plant substep. It owns the last accepted command
@@ -633,13 +741,20 @@ For scalar command `u`, the order is:
    difference is less than or equal to `deadband`, retain the last accepted
    command; otherwise accept `u`.
 3. Clamp the accepted command to `[minimum, maximum]` when bounds exist.
-4. Limit movement from the previous applied value to
+4. If stiction is enabled and the actuator is not already sliding, hold applied
+   position while target displacement is at most `stiction_band`. When the
+   displacement exceeds the band, apply the bounded `slip_jump` and enter the
+   sliding state.
+5. Limit movement from the previous applied value to
    `[-rate_down_per_s*h, rate_up_per_s*h]` when rates exist.
-5. If `lag_s` is zero, use the slew-limited value. Otherwise apply the exact
+6. If `lag_s` is zero, use the slew-limited position. Otherwise apply the exact
    first-order update with coefficient `exp(-h/lag_s)`.
+7. Map completed actuator position through the installed characteristic to
+   obtain the process input.
 
-The actuator's applied output, saturation state, slew-limited state, deadband
-state, and stuck state shall be observable in simulation status.
+The actuator's physical position, applied process input, saturation state,
+slew-limited state, deadband state, stiction-hold state, and externally stuck
+state shall be observable in simulation status.
 
 ## 9. Sensor behavior
 
@@ -692,11 +807,33 @@ The first version supports these generators:
 | `random_walk` | nonnegative `diffusion_per_sqrt_s`, optional bounds | Accumulated approximate-normal drift. |
 | `quantise` | positive `quantum` | Quantised incoming value; valid only with `replace`. |
 | `clip` | `minimum`, `maximum` | Clipped incoming value; valid only with `replace`. |
+| `backlash` | positive `width` | Rate-independent kinematic play applied to the incoming process output; valid only for `process_output` with `replace`. |
 | `dropout` | nonnegative `rate_per_s`, duration fields, `dropout_policy`, and policy-dependent `replacement_value` | Stochastic sensor dropout. |
 
-For `quantise` and `clip`, the generator consumes the incoming value instead of
-producing an independent value. For all other generators, `mode` combines the
-generated value with the incoming value.
+For `quantise`, `clip`, and `backlash`, the generator consumes the incoming
+value instead of producing an independent value. For all other generators,
+`mode` combines the generated value with the incoming value.
+
+`backlash` is valid only for a `process_output` target with mode `replace`.
+Its positive `width` is the total input reversal needed to move from one
+engaged flank to the other. If the incoming ideal position is `x`, the
+published load-side position is `y`, and half the configured width is `b`, the
+deterministic play operator is:
+
+```text
+b = width / 2
+y[0] = x[0]
+y[k] = clamp(y[k-1], x[k] - b, x[k] + b)
+```
+
+The output therefore remains still after a reversal until the ideal position
+crosses the available clearance. While the effect is inactive, its retained
+position follows the incoming value so activation does not replay stale
+travel. Plant reset initializes it from the current initial process output.
+This is a reduced-order kinematic backlash model for diagnosis and controller
+experiments. It does not model tooth impact, compliance, motor/load inertias,
+contact force, wear, or lubrication, and evidence produced by it shall not be
+presented as a mechanical life or gearbox-design calculation.
 
 `dropout` is valid only for a `measurement` target and requires mode `replace`;
 its policy determines whether replacement, holding, or faulting occurs.

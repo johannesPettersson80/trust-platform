@@ -1,0 +1,9 @@
+title = "Overview"
+
+[[widget]]
+type = "label"
+text = "Tank level"
+
+[[widget]]
+type = "value"
+binding = "Main.level"

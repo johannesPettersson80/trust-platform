@@ -1,0 +1,8 @@
+event,time_s
+pressure_a_isolated,5.200
+ambiguous_pressure,12.000
+stale_level,15.600
+low_level,19.000
+stuck_actuator,23.000
+actuator_confirmed,23.000
+maximum_restoration_rate_percent_per_s,8.197848158

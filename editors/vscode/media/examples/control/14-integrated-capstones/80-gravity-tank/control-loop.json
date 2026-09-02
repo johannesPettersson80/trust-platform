@@ -1,0 +1,224 @@
+{
+  "schemaVersion": 1,
+  "id": "control-capstone-gravity-tank",
+  "name": "Commission full-range control of a gravity-drained tank",
+  "revision": "sha256:curriculum-loop-80",
+  "projectId": "project:control-capstone-gravity-tank",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Validated local models and atomically interpolated PI gain scheduling",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-80",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX56.0",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.LevelSetpoint",
+      "address": "%ML200",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m",
+      "range": {
+        "minimum": 0.3,
+        "maximum": 0.8
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.FixedMeasuredLevel",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m",
+      "range": {
+        "minimum": 0.2,
+        "maximum": 0.9
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.FixedRequestedPump",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "m3/s",
+      "range": {
+        "minimum": 0,
+        "maximum": 0.06
+      }
+    },
+    "additional": [
+      {
+        "id": "scheduled-pi-measured-level",
+        "channel": "scheduled-pi-measured-level",
+        "role": "state",
+        "symbol": "P1.ScheduledMeasuredLevel",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0.2,
+          "maximum": 0.9
+        }
+      },
+      {
+        "id": "scheduled-pi-requested-pump-flow",
+        "channel": "scheduled-pi-requested-pump-flow",
+        "role": "state",
+        "symbol": "P1.ScheduledRequestedPump",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m3/s",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.06
+        }
+      },
+      {
+        "id": "fixed-pi-applied-pump-flow",
+        "channel": "fixed-pi-applied-pump-flow",
+        "role": "state",
+        "symbol": "P1.FixedAppliedPump",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m3/s",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.06
+        }
+      },
+      {
+        "id": "scheduled-pi-applied-pump-flow",
+        "channel": "scheduled-pi-applied-pump-flow",
+        "role": "state",
+        "symbol": "P1.ScheduledAppliedPump",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m3/s",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.06
+        }
+      },
+      {
+        "id": "filtered-scheduling-level",
+        "channel": "filtered-scheduling-level",
+        "role": "state",
+        "symbol": "P1.ScheduledFilteredLevel",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0.3,
+          "maximum": 0.8
+        }
+      },
+      {
+        "id": "interpolation-fraction",
+        "channel": "interpolation-fraction",
+        "role": "state",
+        "symbol": "P1.ScheduledFraction",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "active-proportional-gain",
+        "channel": "active-proportional-gain",
+        "role": "state",
+        "symbol": "P1.ScheduledActiveKp",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "(m3/s)/m",
+        "range": {
+          "minimum": 0.099,
+          "maximum": 0.101
+        }
+      },
+      {
+        "id": "active-integral-gain",
+        "channel": "active-integral-gain",
+        "role": "state",
+        "symbol": "P1.ScheduledActiveKi",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "(m3/s)/(m*s)",
+        "range": {
+          "minimum": 0.0028,
+          "maximum": 0.00456
+        }
+      },
+      {
+        "id": "scheduled-record-valid",
+        "channel": "scheduled-record-valid",
+        "role": "quality",
+        "symbol": "P1.ScheduledScheduleValid",
+        "address": "%MX48.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "scheduled-record-clamped",
+        "channel": "scheduled-record-clamped",
+        "role": "state",
+        "symbol": "P1.ScheduledScheduleClamped",
+        "address": "%MX48.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "controller-revision",
+        "channel": "controller-revision",
+        "role": "state",
+        "symbol": "P1.ControllerRevision",
+        "address": "%MD52",
+        "iecType": "DINT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 0.06
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "equivalent_fixed_and_scheduled_nonlinear_gravity_tanks",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "setpoint_step",
+    "amplitude": 0.5,
+    "durationSeconds": 420,
+    "seed": 20260829
+  }
+}

@@ -1,0 +1,3 @@
+controller,derivative_gain_nm_s_per_rad,overshoot_rad,late_position_span_rad,decision
+P,0.0,0.595806218458,0.119873479908,insufficient damping
+PD,3.0,0.040406301388,0.000042944745,damped response

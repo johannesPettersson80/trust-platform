@@ -1,0 +1,4 @@
+candidate,tracking_iae_degc_s,load_iae_degc_s,final_mean_absolute_error_degc,overshoot_degc,setpoint_settling_seconds,mv_travel_percentage_points,saturation_seconds,decision
+empirical,6.075020633072,2.499546099042,0.000130262374,0.000000000000,13.600,23.999973559014,4.000,baseline
+lambda,5.492142981517,1.999319247034,0.000038480377,0.000000000000,12.400,23.999997512575,3.800,passes nominal comparison
+lambda_perturbed_noisy,,,0.000990296280,,,212.785367949774,3.600,passes uncertainty gates

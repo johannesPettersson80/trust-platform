@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 4,
+  "id": "control-reactor-setpoint-weighting",
+  "title": "Reactor proportional setpoint weighting",
+  "level": "Modelling",
+  "sequence": 12,
+  "equipment": "Jacketed stirred reactor, product-temperature transmitter, and jacket heating valve",
+  "physicalPurpose": "Reduce setpoint overshoot without weakening the already acceptable cold-feed disturbance rejection of the reactor PI loop.",
+  "principalTechnique": "Two-degree-of-freedom proportional setpoint weight with true-error integral action",
+  "objective": "Configure and compare proportional setpoint weights of one, one-half, and zero on the same jacketed-reactor PI loop; predict each controller's immediate valve response to a setpoint step; use retained servo and regulatory evidence to select the largest weight that satisfies the setpoint-overshoot requirement without changing the fixed-setpoint disturbance path; and explain why proportional setpoint weighting cannot remove measurement-noise transmission.",
+  "prerequisites": ["control-reactor-servo-regulatory"],
+  "nextLesson": "control-measurement-noise",
+  "signals": [
+    { "role": "SP", "name": "Reactor-temperature setpoint", "unit": "degC", "minimum": 65, "maximum": 95, "resolution": 0.1, "binding": "%ML0" },
+    { "role": "PV", "name": "Reactor product temperature", "unit": "degC", "minimum": 60, "maximum": 100, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "MV", "name": "Jacket heating-valve demand", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL0" },
+    { "role": "state", "name": "Proportional setpoint weight", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 0.01, "binding": "%ML8" },
+    { "role": "state", "name": "Manual heating-valve request", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML24" },
+    { "role": "state", "name": "Selected objective", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MW64" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX80.0" },
+    { "role": "disturbance", "name": "Cold-feed heat-load equivalent", "unit": "degC", "minimum": -10, "maximum": 10, "resolution": 0.1, "binding": "simulation.toml#plant_events[0]" }
+  ],
+  "plant": {
+    "modelId": "first_order_dead_time",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      { "name": "gain", "value": 0.25, "unit": "degC/%" },
+      { "name": "time_constant", "value": 12, "unit": "s" },
+      { "name": "dead_time", "value": 1.5, "unit": "s" },
+      { "name": "nominal_output_bias", "value": 67.5, "unit": "degC" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "reactorTemperature": 80, "valveDemand": 50 },
+    "seed": 20260827,
+    "operatingPoint": { "PV": 80, "MV": 50 },
+    "validityRange": [
+      { "signal": "Reactor product temperature", "minimum": 60, "maximum": 100, "unit": "degC" },
+      { "signal": "Jacket heating-valve demand", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "simplifications": ["The well-mixed reactor and jacket are represented by one local thermal state.", "The five-degree output-balance event is the equivalent thermal effect of colder feed.", "Reaction heat, composition dynamics, fouling, valve nonlinearity and independent trips are omitted."]
+  },
+  "baseline": {
+    "executableId": "Control.PID.ProportionalSetpointWeight1",
+    "settings": { "proportionalSetpointWeight": 1, "proportionalGain": 8, "integralGain": 2, "derivativeGain": 0, "biasPercent": 50, "antiWindup": "combined", "outputMinimumPercent": 0, "outputMaximumPercent": 100, "rateMinimumPercentagePointsPerSecond": -50, "rateMaximumPercentagePointsPerSecond": 50, "trackingTimeSeconds": 1, "cycleTimeSeconds": 0.1, "servoOvershootRequirementDegC": 1 },
+    "limitation": "Full proportional setpoint response produces 1.049 degC overshoot and fails the declared 1.0 degC servo requirement despite acceptable regulatory recovery."
+  },
+  "change": {
+    "executableId": "Control.PID.ProportionalSetpointWeightComparison",
+    "settings": { "candidateWeights": [1, 0.5, 0], "proportionalGain": 8, "integralGain": 2, "trueErrorIntegral": true },
+    "decision": "Change only proportional setpoint weight, restart after each initialization-only setting change, retain true-error integral action, and repeat both objective tests from fresh identical initial states."
+  },
+  "experiment": {
+    "kind": "setpoint_step",
+    "signal": "Reactor-temperature setpoint",
+    "baseline": 80,
+    "amplitude": 5,
+    "durationSeconds": 56.5,
+    "servoDurationSeconds": 55,
+    "regulatoryDurationSeconds": 120,
+    "settlingSeconds": 5,
+    "eventTimesSeconds": { "servoBoundary": 5, "servoFirstPostEvent": 5.1, "regulatoryBoundary": 60, "regulatoryFirstPostEvent": 60.1 },
+    "candidateWeights": [1, 0.5, 0],
+    "freshRunPerWeightAndObjective": true,
+    "disturbances": ["Each fixed-80 degC regulatory run applies the same cold-feed-equivalent event at 60.0 s"],
+    "seed": 20260827,
+    "restorationValue": 80,
+    "restoration": { "servoManualRequestTimeSeconds": 55.1, "regulatoryManualRequestTimeSeconds": 120.1, "manualOutputPercent": 0, "retainUntilAppliedOutputPercent": 0 }
+  },
+  "acceptance": [
+    { "metric": "servo_overshoot", "signal": "Reactor product temperature", "window": "5.1 through 55.0 s for every servo run", "comparator": "<=", "limit": 1, "unit": "degC", "tolerance": 0.01, "useUnroundedValue": true, "evidenceClass": "simulation" },
+    { "metric": "regulatory_excitation", "signal": "Reactor product temperature", "window": "60.1 through 120.0 s", "comparator": ">=", "limit": 1, "unit": "degC", "tolerance": 0.01, "useUnroundedValue": true, "evidenceClass": "simulation" },
+    { "metric": "regulatory_recovery", "signal": "Reactor product temperature", "window": "after 60.0 s through 120.0 s", "comparator": "<=", "limit": 40, "unit": "s", "tolerance": 0.1, "settlingBandDegC": 0.5, "settlingBandToleranceDegC": 0.01, "evidenceClass": "simulation" },
+    { "metric": "regulatory_final_window_absolute_error", "signal": "Reactor product temperature", "window": "mean from 110.1 through 120.0 s after qualified recovery", "comparator": "<=", "limit": 0.5, "unit": "degC", "tolerance": 0.001, "useUnroundedValue": true, "evidenceClass": "simulation" },
+    { "metric": "maximum_aligned_regulatory_pv_delta", "signal": "Reactor product temperature", "window": "60.0 through 120.0 s", "comparator": "<=", "limit": 0, "unit": "degC", "tolerance": 0.0000000001, "evidenceClass": "simulation" },
+    { "metric": "maximum_aligned_regulatory_mv_delta", "signal": "Jacket heating-valve demand", "window": "60.0 through 120.0 s", "comparator": "<=", "limit": 0, "unit": "pp", "tolerance": 0.0000000001, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [{ "signal": "Reactor product temperature", "minimum": 60, "maximum": 100, "unit": "degC" }, { "signal": "Jacket heating-valve demand", "minimum": 0, "maximum": 100, "unit": "%" }, { "signal": "Proportional setpoint weight", "minimum": 0, "maximum": 1, "unit": "1" }],
+    "abortPredicates": ["SP, PV, MV or b is nonfinite", "PV or MV leaves its hard limit", "b leaves 0 through 1", "Gains, true-error integral behavior, plant, initial state, limits, timing or seed differ between runs"],
+    "safeMv": 0,
+    "restorationMode": "At 55.1 s for servo or 120.1 s for regulatory, select Manual with a distinct zero-percent request and retain every rate-constrained update until the applied valve reaches zero",
+    "physicalApprovalRole": "authorised reactor controls engineer",
+    "simulationOnlyRestrictions": ["The setpoint and cold-feed-equivalent experiments are simulation evidence and do not authorise physical reactor actions."]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-12--proportional-setpoint-weighting-same-reactor",
+    "nativeTest": "lesson_12_executes_six_qualified_runs_and_selects_the_largest_eligible_weight",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_reactor_setpoint_weighting_contract lesson_12_executes_six_qualified_runs_and_selects_the_largest_eligible_weight -- --exact --nocapture",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/12-reactor-setpoint-weighting",
+    "runArtifactFields": ["runId", "objective", "proportionalSetpointWeight", "phase", "time", "event", "SP", "PV", "error", "manualOutput", "MV_applied", "disturbance", "mode", "controllerParameters", "plantParameters", "sampleTime", "seed", "limits", "abortState", "safeRestoration", "evidenceClass"],
+    "traceArtifact": "figures/setpoint-weighting-trace.csv",
+    "summaryArtifact": "figures/setpoint-weighting-summary.csv",
+    "generatedFigure": "figures/setpoint-weighting-response.svg",
+    "renderedJourneyId": "control-reactor-setpoint-weighting"
+  },
+  "video": {
+    "viewerOutcome": "Derive proportional setpoint weighting and prove that it reduces servo overshoot without weakening true-error integral or fixed-SP load rejection.",
+    "requiredVisibleEvidence": ["weighted P and true-error I equations", "40 20 0 percent predictions", "three servo overlays", "three identical regulatory overlays", "overshoot requirement table", "unchanged gains and model", "Simulation evidence label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 11's unchanged b=1 PI rejects the load acceptably but fails the 1.0 degC servo-overshoot requirement, so retuning would risk sacrificing a working regulatory path.",
+    "reason": "Weighting only the proportional setpoint contribution can reduce reference aggressiveness while preserving proportional feedback to PV and true-error integral action.",
+    "theory": ["The weighted proportional increment is Kp times b times the SP change minus the PV change, while the integral increment always uses the true error SP minus PV.", "b=1 gives full proportional setpoint response, b=0 removes proportional response to SP changes, and intermediate b trades servo speed and overshoot.", "With fixed SP, the weighted SP-change term is zero, so changing b does not alter the nominal disturbance path.", "Setpoint weighting is dimensionless and is not a measurement filter; it cannot solve sensor-noise transmission."],
+    "workedPrediction": "For Kp 8 and a 5 degC SP step, the immediate proportional setpoint contributions are 40 percent at b=1, 20 percent at b=0.5 and 0 percent at b=0; a 1 degC PV increase still contributes -8 percent for every b.",
+    "practicalPreparation": ["Recall the Lesson 11 requirements and inspect the same reactor, signals, disturbance, operating point, limits and safe state.", "Calculate all three proportional contributions, verify true-error integration and approve six fresh runs with identical gains, plant, timing, events, limits and seed."],
+    "baseline": "At b=1, establish 80 degC for 5 s, step to 85 degC and reproduce 1.049 degC overshoot; retain the separate fixed-SP load run.",
+    "change": "Repeat both fresh experiments at b=0.5 and b=0, changing only proportional setpoint weight.",
+    "comparison": "Compare 1.049, 0.882 and 0.807 degC servo overshoot, then overlay the three regulatory PV/MV traces and measure their maximum numerical difference.",
+    "validation": "Determine numerical validity first, then apply the common 1.0 degC servo-overshoot requirement with 0.01 degC tolerance, qualify regulatory recovery before calculating mean absolute error from 110.1 through 120.0 s, prove aligned PV and applied-MV disagreement no greater than 1e-10, and select the largest eligible weight only from complete equivalent evidence.",
+    "explanation": "Explain why the proportional SP kick changes, why feedback to PV and true-error integral do not, and why b=0.5 is the largest tested weight that satisfies the servo requirement without changing load rejection.",
+    "transfer": "For another loop with good regulatory but aggressive servo behavior, calculate candidate weighted P steps, compare equivalent fresh servo and load runs, and choose the largest b that meets servo requirements while preserving the regulatory trace."
+  }
+}

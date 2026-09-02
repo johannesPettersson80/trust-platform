@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 4,
+  "id": "control-delayed-thermal-nyquist",
+  "title": "Count delayed-oven stability with Nyquist",
+  "level": "Advanced",
+  "sequence": 48,
+  "equipment": "Continuous conveyor curing oven",
+  "physicalPurpose": "Determine whether transport-delayed proportional temperature loops are stable without trusting wrapped phase displays.",
+  "principalTechnique": "Nyquist encirclement and closed-loop pole counting",
+  "objective": "Use complete Nyquist contours to predict and verify stable and unstable delayed conveyor-oven loops.",
+  "prerequisites": ["control-flexible-drive-bode"],
+  "nextLesson": "control-motor-sensitivity-loop-shaping",
+  "signals": [
+    { "role": "state", "name": "Experiment enable", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.0" },
+    { "role": "quality", "name": "Short-delay abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX97.0" },
+    { "role": "quality", "name": "Medium-delay abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX97.1" },
+    { "role": "quality", "name": "Long-delay abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX97.2" },
+    { "role": "state", "name": "Short-delay requested heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%ML0" },
+    { "role": "state", "name": "Medium-delay requested heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%ML8" },
+    { "role": "state", "name": "Long-delay requested heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%ML16" },
+    { "role": "SP", "name": "Product-temperature setpoint", "unit": "degC", "minimum": 90, "maximum": 110, "resolution": 0.01, "binding": "%ML24" },
+    { "role": "MV", "name": "Short-delay applied heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%QL0" },
+    { "role": "MV", "name": "Medium-delay applied heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%QL8" },
+    { "role": "MV", "name": "Long-delay applied heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%QL16" },
+    { "role": "PV", "name": "Short-delay product temperature", "unit": "degC", "minimum": 90, "maximum": 110, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "PV", "name": "Medium-delay product temperature", "unit": "degC", "minimum": 90, "maximum": 110, "resolution": 0.01, "binding": "%IL8" },
+    { "role": "PV", "name": "Long-delay product temperature", "unit": "degC", "minimum": 90, "maximum": 110, "resolution": 0.01, "binding": "%IL16" }
+  ],
+  "plant": {
+    "modelId": "three_equivalent_conveyor_ovens_with_changed_transport_delay",
+    "executable": "simulation.toml",
+    "parameters": [
+      { "name": "thermal_gain", "value": 1, "unit": "degC/%" },
+      { "name": "thermal_time_constant", "value": 20, "unit": "s" },
+      { "name": "short_transport_delay", "value": 5, "unit": "s" },
+      { "name": "medium_transport_delay", "value": 25, "unit": "s" },
+      { "name": "long_transport_delay", "value": 60, "unit": "s" },
+      { "name": "holding_command", "value": 50, "unit": "%" },
+      { "name": "operating_temperature", "value": 100, "unit": "degC" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "productTemperatureDegreesCelsius": 100 },
+    "seed": 20260829,
+    "operatingPoint": { "Product-temperature setpoint": 100, "Short-delay applied heater command": 50, "Medium-delay applied heater command": 50, "Long-delay applied heater command": 50, "Short-delay product temperature": 100, "Medium-delay product temperature": 100, "Long-delay product temperature": 100 },
+    "validityRange": [
+      { "signal": "Product-temperature setpoint", "minimum": 90, "maximum": 110, "unit": "degC" },
+      { "signal": "Short-delay applied heater command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Medium-delay applied heater command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Long-delay applied heater command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Short-delay product temperature", "minimum": 90, "maximum": 110, "unit": "degC" },
+      { "signal": "Medium-delay product temperature", "minimum": 90, "maximum": 110, "unit": "degC" },
+      { "signal": "Long-delay product temperature", "minimum": 90, "maximum": 110, "unit": "degC" }
+    ],
+    "simplifications": ["One local first-order thermal mode", "Pure transport delay from heater effect to downstream sensor", "Fixed conveyor speed within each case", "Ideal heater response inside declared limits", "No spatial temperature profile, product variation, radiative nonlinearity, or protection model", "Simulation-only I/O"]
+  },
+  "baseline": {
+    "executableId": "ConveyorOven.WrappedBodePhase",
+    "settings": { "proportionalGainPercentPerDegreeCelsius": 2, "displayPhaseRangeDegrees": [-180, 180], "longDelaySeconds": 60 },
+    "limitation": "Wrapped crossover phase appears to provide 182.28 degrees margin although the 60-second-delay closed loop is unstable."
+  },
+  "change": {
+    "executableId": "ConveyorOven.CompleteNyquistContour",
+    "settings": { "minimumFrequencyRadiansPerSecond": 0.0001, "maximumFrequencyRadiansPerSecond": 10, "pointsPerDecade": 500, "contourTraversal": "negative-high-to-positive-high", "applicationState": "analysis-only" },
+    "decision": "Accept a stability verdict only when the complete contour is closed, clear of minus one, and its pole and encirclement counts agree with executable evidence."
+  },
+  "experiment": { "kind": "setpoint_step", "signal": "Product-temperature setpoint", "baseline": 100, "amplitude": 1, "durationSeconds": 600, "settlingSeconds": 0, "disturbances": [], "seed": 20260829, "restorationValue": 100 },
+  "acceptance": [
+    { "metric": "short_delay_late_equilibrium_deviation_envelope", "signal": "Short-delay product temperature", "window": "500 through 600 seconds relative to the independently predicted 100.667-degree-Celsius equilibrium", "comparator": "<=", "limit": 0.001, "unit": "degC", "tolerance": 0.0001, "evidenceClass": "simulation" },
+    { "metric": "medium_delay_late_to_early_equilibrium_envelope_ratio", "signal": "Medium-delay product temperature", "window": "late 500-through-600-second envelope divided by early 100-through-200-second envelope", "comparator": ">", "limit": 1.2, "unit": "1", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "long_delay_late_to_early_equilibrium_envelope_ratio", "signal": "Long-delay product temperature", "window": "late 500-through-600-second envelope divided by early 100-through-200-second envelope", "comparator": ">", "limit": 1.2, "unit": "1", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "medium_delay_closed_loop_right_half_plane_poles", "signal": "Medium-delay product temperature", "window": "complete qualified Nyquist contour", "comparator": "==", "limit": 2, "unit": "1", "tolerance": 0, "evidenceClass": "model" },
+    { "metric": "long_delay_closed_loop_right_half_plane_poles", "signal": "Long-delay product temperature", "window": "complete qualified Nyquist contour", "comparator": "==", "limit": 2, "unit": "1", "tolerance": 0, "evidenceClass": "model" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Short-delay applied heater command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Medium-delay applied heater command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Long-delay applied heater command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Short-delay product temperature", "minimum": 90, "maximum": 110, "unit": "degC" },
+      { "signal": "Medium-delay product temperature", "minimum": 90, "maximum": 110, "unit": "degC" },
+      { "signal": "Long-delay product temperature", "minimum": 90, "maximum": 110, "unit": "degC" }
+    ],
+    "abortPredicates": ["Any required signal is missing, stale, forced, nonfinite, or has bad quality", "Any product temperature leaves 90 through 110 degrees Celsius", "Requested or applied heater command reaches an undeclared condition", "Actual timing, model, controller, event, limit, or seed differs from the reviewed comparison"],
+    "safeMv": 50,
+    "restorationMode": "Abort the affected case to the 50-percent holding command, disable the experiment, restore the 100-degree-Celsius setpoint, and restart the simulated oven at its reviewed operating point",
+    "physicalApprovalRole": "authorised thermal-process engineer and responsible oven operator",
+    "simulationOnlyRestrictions": ["The lesson applies no new physical controller setting", "Simulation stability evidence cannot authorise a physical conveyor-oven experiment", "Physical work requires independent product, thermal, conveyor, sensor, topology, model, protection, interlock, abort, rollback, and immediate approval review"]
+  },
+  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-48--nyquist-stability-delayed-thermal-process",
+    "nativeTest": "control_curriculum_nyquist_count_predicts_delayed_oven_stability",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_classical control_curriculum_nyquist_count_predicts_delayed_oven_stability -- --exact --nocapture",
+    "projectPath": "examples/control/07-classical-stability-and-frequency-design/48-delayed-thermal-nyquist",
+    "runArtifactFields": ["plantIdentity", "modelRevision", "controllerRevision", "transportDelay", "sampleInterval", "setpoint", "predictedEquilibrium", "setpointError", "processValue", "requestedHeaterCommand", "appliedHeaterCommand", "positiveFrequencyPath", "negativeFrequencyPath", "contourTraversal", "wrappedPhase", "unwrappedPhase", "gainCrossover", "minimumDistanceToMinusOne", "encirclementsCounterClockwise", "openLoopRightHalfPlanePoles", "closedLoopRightHalfPlanePoles", "sweepBounds", "pointsPerDecade", "endpointMagnitude", "earlyEquilibriumDeviationEnvelope", "lateEquilibriumDeviationEnvelope", "limitContact", "aborted", "stopReason", "seed", "evidenceClass"],
+    "renderedJourneyId": "control-delayed-thermal-nyquist"
+  },
+  "video": { "viewerOutcome": "Count Nyquist encirclements with a declared sign convention and reject a wrapped-phase stability conclusion on a delayed thermal loop.", "requiredVisibleEvidence": ["conveyor oven and sensor distance", "three transport delays", "wrapped and unwrapped phase", "complete Nyquist contours", "minus-one point", "encirclement and pole-count table", "temperature-error envelopes", "abort state", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "learning": {
+    "context": "Three equivalent conveyor ovens differ only in transport delay from heater action to downstream temperature measurement.",
+    "reason": "Long delay creates complete phase rotations that a wrapped Bode phase display can hide.",
+    "theory": ["A Nyquist contour maps positive and negative frequency response into the complex plane.", "Signed encirclements of minus one combine with the open-loop unstable-pole count to infer closed-loop unstable poles.", "A valid contour needs declared traversal, closure, clearance, and pole-on-contour handling."],
+    "workedPrediction": "Calculate common crossover, unwrapped phases, signed encirclements, and stable or unstable pole counts for 5-, 25-, and 60-second delays before running.",
+    "practicalPreparation": ["Verify equivalent plants, delay identities, operating point, signals, units, quality, timing, limits, seed, aborts, restoration, and Simulation evidence.", "Declare sweep bounds, density, contour convention, clearance tolerance, time windows, and expected counts before testing."],
+    "baseline": "Show how the 60-second crossover phase wraps to a false apparent positive margin.",
+    "change": "Retain and interpret the complete Nyquist contour with one declared counter-clockwise convention.",
+    "comparison": "Change only transport delay and compare contour counts with equivalent executable temperature-error envelopes.",
+    "validation": "Require zero unstable poles and decay toward the predicted proportional equilibrium for 5 seconds, and two unstable poles plus growth or abort for both longer delays.",
+    "explanation": "Delay leaves magnitude unchanged but rotates the loop; complete encirclement counting preserves rotations hidden by wrapped phase.",
+    "transfer": "Nyquist proves stability count but not disturbance, noise, effort, or uncertainty propagation; Lesson 49 introduces sensitivity."
+  }
+}

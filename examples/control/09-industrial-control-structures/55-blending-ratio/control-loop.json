@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 1,
+  "id": "control-blending-ratio",
+  "name": "Hold a two-stream blending ratio",
+  "revision": "sha256:curriculum-loop-55",
+  "projectId": "project:control-blending-ratio",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Wild-stream ratio station with analyser PI trim and low-flow authority",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-55",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX160.0",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.RatioSetpoint",
+      "address": "%ML120",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "1",
+      "range": {
+        "minimum": 0.1,
+        "maximum": 0.5
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.FeedbackRatio",
+      "address": "%IL48",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "1",
+      "range": {
+        "minimum": 0.1,
+        "maximum": 0.5
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.FeedbackAdditiveRequest",
+      "address": "%QL48",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "L/min",
+      "range": {
+        "minimum": 0,
+        "maximum": 60
+      }
+    },
+    "additional": [
+      {
+        "id": "wild-flow-validity-1",
+        "channel": "wild-flow-validity",
+        "role": "quality",
+        "symbol": "P1.WildFlowValid",
+        "address": "%MX88.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "ratio-authority-2",
+        "channel": "ratio-authority",
+        "role": "state",
+        "symbol": "P1.RatioAuthority",
+        "address": "%MX88.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "actual-wild-stream-flow-3",
+        "channel": "actual-wild-stream-flow",
+        "role": "disturbance",
+        "symbol": "P1.ActualWildFlow",
+        "address": "%ML128",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "L/min",
+        "range": {
+          "minimum": 0,
+          "maximum": 160
+        }
+      },
+      {
+        "id": "measured-wild-stream-flow-4",
+        "channel": "measured-wild-stream-flow",
+        "role": "state",
+        "symbol": "P1.MeasuredWildFlow",
+        "address": "%ML136",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "L/min",
+        "range": {
+          "minimum": 0,
+          "maximum": 160
+        }
+      },
+      {
+        "id": "untrimmed-ratio-demand-5",
+        "channel": "untrimmed-ratio-demand",
+        "role": "state",
+        "symbol": "P1.RatioDemand",
+        "address": "%ML144",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "L/min",
+        "range": {
+          "minimum": 0,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "composition-feedback-trim-6",
+        "channel": "composition-feedback-trim",
+        "role": "state",
+        "symbol": "P1.RatioTrim",
+        "address": "%ML152",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "L/min",
+        "range": {
+          "minimum": -30,
+          "maximum": 30
+        }
+      },
+      {
+        "id": "ratio-controlled-blend-ratio-7",
+        "channel": "ratio-controlled-blend-ratio",
+        "role": "state",
+        "symbol": "P1.RatioControlledRatio",
+        "address": "%IL56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0.1,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "ratio-controlled-additive-request-8",
+        "channel": "ratio-controlled-additive-request",
+        "role": "state",
+        "symbol": "P1.RatioAdditiveRequest",
+        "address": "%QL64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "L/min",
+        "range": {
+          "minimum": 0,
+          "maximum": 60
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 60
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "two_equivalent_local_blending_skids",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 90.1,
+    "restorationValue": 100,
+    "seed": 20260829,
+    "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX160.1", "iecType": "BOOL", "direction": "write" }
+  }
+}

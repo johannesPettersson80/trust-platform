@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 4,
+  "id": "control-independent-model-validation",
+  "title": "Validate a heat-exchanger model on unseen conditions",
+  "level": "Advanced",
+  "sequence": 41,
+  "equipment": "Plate heat exchanger with local, cold-flow-load, and high-flow validation copies",
+  "physicalPurpose": "Bound the purpose and operating region of a frozen local model before it supports controller design.",
+  "principalTechnique": "Independent holdout validation, uncertainty coverage, residual diagnosis, and bounded model scope",
+  "objective": "Classify one frozen model as accepted, restricted, or rejected on independent amplitude, disturbance, and operating-point evidence.",
+  "prerequisites": ["control-poor-excitation"],
+  "nextLesson": "control-manual-historical-tuning",
+  "signals": [
+    { "role": "state", "name": "Local requested valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML0" },
+    { "role": "state", "name": "Load requested valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML8" },
+    { "role": "state", "name": "High-flow requested valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML16" },
+    { "role": "MV", "name": "Local applied valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL0" },
+    { "role": "MV", "name": "Load applied valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL8" },
+    { "role": "MV", "name": "High-flow applied valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL16" },
+    { "role": "PV", "name": "Local measured outlet temperature", "unit": "degC", "minimum": 45, "maximum": 56, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "PV", "name": "Load measured outlet temperature", "unit": "degC", "minimum": 45, "maximum": 56, "resolution": 0.01, "binding": "%IL8" },
+    { "role": "PV", "name": "High-flow measured outlet temperature", "unit": "degC", "minimum": 45, "maximum": 56, "resolution": 0.01, "binding": "%IL16" },
+    { "role": "disturbance", "name": "Cold-flow equilibrium-temperature load", "unit": "degC", "minimum": -2, "maximum": 0, "resolution": 0.01, "binding": "simulation.toml#plant_events[0]" },
+    { "role": "state", "name": "Frozen-model prediction residual", "unit": "degC", "minimum": -5, "maximum": 5, "resolution": 0.001, "binding": "Control Studio validation artifact" }
+  ],
+  "plant": {
+    "modelId": "three_plate_heat_exchanger_validation_conditions",
+    "executable": "simulation.toml#heat-exchanger-local-holdout",
+    "parameters": [
+      { "name": "frozen_local_gain", "value": 0.5, "unit": "degC/%" },
+      { "name": "frozen_local_time_constant", "value": 20, "unit": "s" },
+      { "name": "frozen_local_dead_time", "value": 3, "unit": "s" },
+      { "name": "gain_interval_lower", "value": 0.47, "unit": "degC/%" },
+      { "name": "gain_interval_upper", "value": 0.53, "unit": "degC/%" },
+      { "name": "high_flow_true_gain", "value": 0.25, "unit": "degC/%" },
+      { "name": "cold_flow_equilibrium_shift", "value": -2, "unit": "degC" },
+      { "name": "measurement_noise_rms", "value": 0.15, "unit": "degC" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "outletTemperatureDegC": 50, "delayedValvePositionPercent": 20 },
+    "seed": 20260829,
+    "operatingPoint": { "Local applied valve position": 20, "Load applied valve position": 20, "High-flow applied valve position": 20, "Local measured outlet temperature": 50, "Load measured outlet temperature": 50, "High-flow measured outlet temperature": 50 },
+    "validityRange": [
+      { "signal": "Local applied valve position", "minimum": 20, "maximum": 25, "unit": "%" },
+      { "signal": "Local measured outlet temperature", "minimum": 49, "maximum": 54, "unit": "degC" }
+    ],
+    "simplifications": ["Each record isolates one declared validation condition", "The frozen candidate has one gain, lag, and delay and no cold-flow input", "Parameter intervals and 0.30 degC measurement-noise allowance are frozen before validation", "Simulation-only I/O"]
+  },
+  "baseline": {
+    "executableId": "ControlStudio.EstimationFitReview",
+    "settings": { "estimationRun": "lesson-40-qualified-10-point-step", "parametersFrozen": true, "refitAllowed": false },
+    "limitation": "Estimation fit and interval width cannot establish prediction on unseen amplitude, disturbance, or operating-point data."
+  },
+  "change": {
+    "executableId": "ControlStudio.IndependentValidation",
+    "settings": { "validationStepPercentagePoints": 5, "loadEventSeconds": 90, "finalTimeSeconds": 160, "confidenceLevelPercent": 95 },
+    "decision": "Issue separate accepted, restricted, and rejected purpose-and-region verdicts without refitting or averaging incompatible windows."
+  },
+  "experiment": { "kind": "mv_step", "signal": "Local applied valve position", "baseline": 20, "amplitude": 5, "durationSeconds": 160, "settlingSeconds": 10, "disturbances": ["A minus-2-degC cold-flow equilibrium shift at 90 s on one copy", "A separate high-flow copy with 0.25 degC/% gain"], "seed": 20260829, "restorationValue": 20 },
+  "acceptance": [
+    { "metric": "local_validation_rmse", "signal": "Frozen-model prediction residual", "window": "20 to 80 s on local holdout", "comparator": "<=", "limit": 0.2, "unit": "degC", "tolerance": 0.005, "evidenceClass": "model" },
+    { "metric": "local_absolute_residual_bias", "signal": "Frozen-model prediction residual", "window": "20 to 80 s on local holdout", "comparator": "<=", "limit": 0.05, "unit": "degC", "tolerance": 0.005, "evidenceClass": "model" },
+    { "metric": "local_absolute_lag_one_residual_correlation", "signal": "Frozen-model prediction residual", "window": "20 to 80 s on local holdout", "comparator": "<=", "limit": 0.2, "unit": "1", "tolerance": 0.01, "evidenceClass": "model" },
+    { "metric": "local_uncertainty_envelope_coverage", "signal": "Local measured outlet temperature", "window": "20 to 80 s", "comparator": ">=", "limit": 0.9, "unit": "1", "tolerance": 0.01, "evidenceClass": "model" },
+    { "metric": "post_load_residual_bias_magnitude", "signal": "Frozen-model prediction residual", "window": "130 to 160 s on cold-flow holdout", "comparator": ">=", "limit": 1.8, "unit": "degC", "tolerance": 0.02, "evidenceClass": "model" },
+    { "metric": "post_load_residual_bias_magnitude", "signal": "Frozen-model prediction residual", "window": "130 to 160 s on cold-flow holdout", "comparator": "<=", "limit": 2.1, "unit": "degC", "tolerance": 0.02, "evidenceClass": "model" },
+    { "metric": "high_flow_residual_bias_magnitude", "signal": "Frozen-model prediction residual", "window": "130 to 160 s on high-flow holdout", "comparator": ">=", "limit": 0.9, "unit": "degC", "tolerance": 0.02, "evidenceClass": "model" },
+    { "metric": "high_flow_local_envelope_coverage", "signal": "High-flow measured outlet temperature", "window": "130 to 160 s", "comparator": "<=", "limit": 0.2, "unit": "1", "tolerance": 0.01, "evidenceClass": "model" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Local applied valve position", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Load applied valve position", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "High-flow applied valve position", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Local measured outlet temperature", "minimum": 45, "maximum": 56, "unit": "degC" }
+    ],
+    "abortPredicates": ["Any required sample, prediction, residual, or timestamp is nonfinite", "Quality is invalid or timing has a gap", "A frozen structure, parameter, interval, preprocessing rule, or threshold changes", "Validation samples equal estimation samples", "A valve clips or saturates or temperature leaves the declared region"],
+    "safeMv": 20,
+    "restorationMode": "Set ExperimentEnabled false and restore every simulated valve to 20 percent",
+    "physicalApprovalRole": "authorised process controls engineer and heat-exchanger operator",
+    "simulationOnlyRestrictions": ["Simulation validation cannot be presented as physical-plant evidence", "Physical validation requires independently reviewed topology, process hazards, conditions, roles, and immediate approval"]
+  },
+  "workflowStages": ["Monitor", "Test", "Identify", "Validate"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-41--independent-validation-and-uncertainty-heat-exchanger",
+    "nativeTest": "control_curriculum_heat_exchanger_validation_classifies_scope_and_uncertainty",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_modelling_progression control_curriculum_heat_exchanger_validation_classifies_scope_and_uncertainty -- --exact --nocapture",
+    "projectPath": "examples/control/05-experiments-identification-and-validation/41-heat-exchanger-validation-uncertainty",
+    "runArtifactFields": ["estimationRunId", "validationRunIds", "frozenModel", "parameterIntervals", "confidenceLevel", "rawSamples", "appliedInputs", "predictions", "predictionEnvelope", "residuals", "rmse", "bias", "lagOneCorrelation", "coverage", "verdict", "purpose", "validityRegion", "failedCriteria", "seed", "evidenceClass"],
+    "renderedJourneyId": "control-independent-model-validation"
+  },
+  "video": { "viewerOutcome": "Accept, restrict, or reject a frozen model from independent evidence and carry its supported scope into design.", "requiredVisibleEvidence": ["frozen model and intervals", "different estimation and validation IDs", "three holdout conditions", "common applied step", "cold-flow event", "measured and predicted traces", "uncertainty envelope", "residual diagnostics", "accepted restricted and rejected verdicts", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "learning": {
+    "context": "Three independent plate-heat-exchanger records test a frozen local FOPDT model under local, omitted-load, and high-flow conditions.",
+    "reason": "Qualified estimation data and low fit error do not prove prediction on unseen amplitudes, disturbances, or operating points.",
+    "theory": ["Immutable holdout data test a frozen model and cannot be reused to alter it.", "RMSE, bias, lag-one residual correlation, uncertainty-envelope width, and coverage expose different prediction failures.", "Confidence belongs to the interval procedure and does not turn a local estimate into global plant truth.", "Accepted, restricted, and rejected verdicts always name purpose and validity region."],
+    "workedPrediction": "Predict local 2.5 degC equilibrium and 1.58 degC one-time-constant movement, minus-2 degC load bias, and minus-1.25 degC high-flow bias.",
+    "practicalPreparation": ["Verify Simulation provenance, frozen model and intervals, distinct run identities, signals, units, quality, timing, limits, operating points, and restoration.", "Freeze predictions, windows, metrics, thresholds, and no-refit rule before enabling the holdout step."],
+    "baseline": "Review the Lesson 40 estimation fit and explain why same-record error is not independent validation.",
+    "change": "Apply one new 5-point input to three declared conditions and replay every applied input through the unchanged model and interval corners.",
+    "comparison": "Keep local, pre-load, post-load, and high-flow windows separate while comparing residual error, structure, and envelope coverage.",
+    "validation": "Accept local command prediction, restrict the model from cold-flow prediction, and reject it at the high-flow operating point using predeclared gates.",
+    "explanation": "Passing local evidence confirms interpolation; systematic load and high-flow residuals expose missing input structure and operating-point-dependent gain.",
+    "transfer": "Carry the accepted purpose, restrictions, rejected regions, uncertainty, and failed criteria into every later tuning or design decision."
+  }
+}

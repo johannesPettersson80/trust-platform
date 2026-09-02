@@ -1,6 +1,11 @@
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
 
-import { compactRevisionLabel, formatEngineeringNumber, pidEngineeringUnits } from "../chartContract";
+import {
+  compactRevisionLabel,
+  formatEngineeringNumber,
+  pidEngineeringUnits,
+  workflowResultStatusText,
+} from "../chartContract";
 import {
   validationRequirementRows,
   formatValidationRequirementValue,
@@ -62,6 +67,7 @@ function activate(button: HTMLButtonElement, focus: boolean): void {
     candidate.tabIndex = selected ? 0 : -1;
   }
   for (const pane of panes) pane.hidden = pane.dataset.workflowPane !== mode;
+  window.dispatchEvent(new CustomEvent("trust-control-studio-stage", { detail: { stage: mode } }));
   if (focus) button.focus();
 }
 
@@ -79,9 +85,40 @@ for (const button of buttons) {
   });
 }
 
+// A restored analysis session owns the active workflow stage as well as its
+// plot state. Route restoration through the same activation path as a click so
+// the stage tab, pane, and chart workspace cannot disagree.
+window.addEventListener("trust-control-studio-restore-stage", (event) => {
+  const stage = (event as CustomEvent<{ stage?: Mode }>).detail?.stage;
+  const button = buttons.find((candidate) => (candidate.textContent ?? "").trim() === stage);
+  if (button) activate(button, false);
+});
+
 document.querySelector("[data-control-studio-configure-plant]")?.addEventListener("click", () => post("control-studio.navigate-plant"));
 const recordStart = document.querySelector<HTMLButtonElement>("[data-control-studio-record-start]");
 const recordStop = document.querySelector<HTMLButtonElement>("[data-control-studio-record-stop]");
+function setWorkflowActionAvailability(update: {
+  recording?: boolean; model?: boolean; candidate?: boolean; result?: boolean;
+}): void {
+  if (update.recording !== undefined) {
+    const button = document.querySelector<HTMLButtonElement>("[data-identify-run]");
+    if (button) button.disabled = !update.recording;
+  }
+  if (update.model !== undefined) {
+    const button = document.querySelector<HTMLButtonElement>("[data-tune-generate]");
+    if (button) button.disabled = !update.model;
+  }
+  if (update.candidate !== undefined) {
+    const button = document.querySelector<HTMLButtonElement>("[data-validate-run]");
+    if (button) button.disabled = !update.candidate;
+  }
+  if (update.result !== undefined) {
+    for (const selector of ["[data-result-save]", "[data-result-export-csv]", "[data-result-export-json]"]) {
+      const button = document.querySelector<HTMLButtonElement>(selector);
+      if (button) button.disabled = !update.result;
+    }
+  }
+}
 recordStart?.addEventListener("click", () => {
   post("control-studio.recording.start");
   recordStart.disabled = true;
@@ -91,6 +128,7 @@ recordStop?.addEventListener("click", () => {
   post("control-studio.recording.stop");
   recordStop.disabled = true;
   if (recordStart) recordStart.disabled = false;
+  setWorkflowActionAvailability({ recording: true });
 });
 document.querySelector("[data-control-studio-automatic-tune]")?.addEventListener("click", () => {
   const plan = document.querySelector<HTMLElement>("[data-auto-tune-plan]");
@@ -120,7 +158,19 @@ document.querySelector("[data-identify-run]")?.addEventListener("click", () => {
     model: document.querySelector<HTMLSelectElement>("#identify-model")?.value ?? "automatic",
     ...(excludedIntervals.length > 0 ? { excludedIntervals } : {}),
   });
-  setText("[data-identify-state]", "Qualifying the retained recording and fitting low-order models…");
+  setText("[data-identify-state]", "Qualifying the retained recording…");
+  setHidden("[data-identify-fit]", true);
+  setHidden("[data-identify-accept]", true);
+});
+document.querySelector("[data-identify-fit]")?.addEventListener("click", () => {
+  post("control-studio.identify.fit");
+  setText("[data-identify-state]", "Fitting and checking the selected low-order model…");
+  setHidden("[data-identify-fit]", true);
+});
+document.querySelector("[data-identify-accept]")?.addEventListener("click", () => {
+  post("control-studio.identify.accept");
+  setText("[data-identify-state]", "Accepting the independently checked model…");
+  setHidden("[data-identify-accept]", true);
 });
 const tuneMethod = document.querySelector<HTMLSelectElement>("#tune-method");
 tuneMethod?.addEventListener("change", updateTuneMethod);
@@ -148,6 +198,12 @@ document.querySelector("[data-tune-generate]")?.addEventListener("click", () => 
   } else post("control-studio.tune.run", { method,
     objective: document.querySelector<HTMLSelectElement>("#tune-objective")?.value ?? "balanced" });
   setText("[data-tune-state]", "Generating and checking the controller candidate…");
+});
+window.addEventListener("trust-control-studio-design-edit", (event) => {
+  const settings = (event as CustomEvent<{ settings?: Record<string, unknown> }>).detail?.settings;
+  if (!settings) return;
+  post("control-studio.tune.run", { method: "Manual", settings });
+  setText("[data-tune-state]", "Updating the unapplied candidate and linked analysis…");
 });
 document.querySelector("[data-validate-run]")?.addEventListener("click", () => {
   post("control-studio.validate.run"); setText("[data-validate-state]", "Comparing current and candidate controllers…");
@@ -193,7 +249,11 @@ document.querySelector("[data-shared-application-rollback]")?.addEventListener("
   post("control-studio.candidate.rollback");
   setText("[data-shared-application-state]", "Rollback requested…");
 });
-document.querySelector("[data-result-save]")?.addEventListener("click", () => post("control-studio.result.save"));
+document.querySelector("[data-result-save]")?.addEventListener("click", () => {
+  let session: unknown;
+  try { session = JSON.parse(root?.dataset.controlChartSession ?? "null"); } catch { session = undefined; }
+  post("control-studio.result.save", session ? { session } : {});
+});
 document.querySelector("[data-result-export-csv]")?.addEventListener("click", () => post("control-studio.result.export-csv"));
 document.querySelector("[data-result-export-json]")?.addEventListener("click", () => post("control-studio.result.export-json"));
 const resultHistory = document.querySelector<HTMLSelectElement>("[data-result-history]");
@@ -252,10 +312,14 @@ window.addEventListener("message", (event: MessageEvent) => {
     const phase = String(message.phase ?? "failed");
     const activeRevision = compactRevisionLabel(String(payload?.activeRevision ??
       (phase === "applied" ? "new revision" : "previous revision")));
+    const observationSeconds = Number(payload?.observationSeconds);
+    const observationState = Number.isFinite(observationSeconds) && observationSeconds > 0
+      ? `${formatEngineeringNumber(observationSeconds, 3)} s bounded observation active`
+      : "observation duration unavailable";
     const sharedRollback = document.querySelector<HTMLButtonElement>("[data-shared-application-rollback]");
     if (sharedRollback) sharedRollback.hidden = phase !== "applied";
     setText("[data-shared-application-state]", phase === "failed" ? String(payload?.reason ?? "Application failed") :
-      phase === "applied" ? `Applied ${activeRevision} · bounded observation active` :
+      phase === "applied" ? `Applied ${activeRevision} · ${observationState}` :
       `Rolled back to ${activeRevision}`);
     setText("[data-control-studio-candidate-revision]", phase === "applied" ? "Applied" : "Unapplied");
     return;
@@ -268,11 +332,12 @@ window.addEventListener("message", (event: MessageEvent) => {
     if ((phase === "restored" || phase === "opened") && payload?.result && typeof payload.result === "object") {
       const result = payload.result as Record<string, unknown>;
       const candidate = result.candidate as Record<string, unknown> | undefined;
-      if (candidate) renderApplicationCandidate(candidate);
+      if (candidate) { renderApplicationCandidate(candidate); setWorkflowActionAvailability({ candidate: true }); }
       const model = result.model as Record<string, unknown> | undefined;
-      if (model) setText("[data-identify-state]", `Restored ${String(model.kind)} · gain ${formatEngineeringNumber(model.gain, 5)} · normalized error ${formatEngineeringNumber(model.normalizedError, 4)}`);
+      if (model) { setText("[data-identify-state]", `Restored ${String(model.kind)} · gain ${formatEngineeringNumber(model.gain, 5)} · normalized error ${formatEngineeringNumber(model.normalizedError, 4)}`); setWorkflowActionAvailability({ model: true }); }
       const validation = result.validation as Record<string, unknown> | undefined;
       if (validation && Array.isArray(validation.requirements)) {
+        setWorkflowActionAvailability({ result: true });
         const requirements = validationRequirementRows(validation.requirements as ValidationRequirement[]);
         renderValidationRequirements(requirements);
         setText("[data-validate-state]", `${String(result.conclusion ?? "Saved validation restored.")} ${requirements.map((item) => `${item.name}: ${item.status}`).join(" · ")}`);
@@ -295,7 +360,8 @@ window.addEventListener("message", (event: MessageEvent) => {
     } else if (phase === "exported") {
       renderExportResult(String(payload?.format ?? "Result"), String(payload?.path ?? ""));
     } else {
-      setText("[data-result-state]", String(payload?.reason ?? "The workflow result operation failed."));
+      const status = workflowResultStatusText(phase, payload?.reason);
+      if (status) setText("[data-result-state]", status);
     }
     return;
   }
@@ -304,11 +370,41 @@ window.addEventListener("message", (event: MessageEvent) => {
     const payload = message.payload as Record<string, unknown> | undefined;
     const stage = String(message.stage ?? "");
     const selector = stage === "identify" ? "[data-identify-state]" : stage === "tune" ? "[data-tune-state]" : "[data-validate-state]";
+    if (stage === "tune" && payload?.methodEvidence && typeof payload.methodEvidence === "object") {
+      renderTuningMethodEvidence(payload.methodEvidence as Record<string, unknown>);
+    }
     if (payload?.status !== "complete") setText(selector, String(payload?.reason ?? `${stage} failed`));
     else if (stage === "identify") {
-      const model = payload.model as Record<string, unknown>;
-      setText(selector, `${String(payload.source)} · ${String(model.kind)} · gain ${formatEngineeringNumber(model.gain, 5)} · normalized error ${formatEngineeringNumber(model.normalizedError, 4)}`);
-      markModeComplete("Identify");
+      const identifyPhase = String(payload.phase ?? "");
+      const estimationQualification = payload.estimationQualification as Record<string, unknown> | undefined;
+      const qualification = (payload.validationQualification as Record<string, unknown> | undefined) ??
+        (payload.qualification as Record<string, unknown> | undefined) ?? estimationQualification;
+      if (qualification) renderIdentificationQualification(qualification);
+      if (identifyPhase === "qualified") {
+        const nextFitRole = String(payload.nextFitRole ?? "estimation");
+        const fit = document.querySelector<HTMLButtonElement>("[data-identify-fit]");
+        if (fit) {
+          fit.textContent = nextFitRole === "validation" ? "Fit validation run" : "Fit estimation run";
+          fit.hidden = false;
+        }
+        setText(selector, nextFitRole === "validation"
+          ? "Validation recording qualified. Fit it against the retained estimation run."
+          : "Estimation recording qualified. Fit a preview, then record a distinct validation run.");
+      } else {
+        const model = payload.model as Record<string, unknown>;
+        renderIdentificationModel(model, payload.fit as Record<string, unknown> | undefined);
+        renderIdentificationPresentation(payload.presentation as Record<string, unknown> | undefined);
+        if (identifyPhase === "validation_required") {
+          setText(selector, `Preview only · ${String(model.kind)} · normalized estimation error ${formatEngineeringNumber(model.normalizedError, 4)}. Record and qualify a distinct validation run.`);
+        } else if (identifyPhase === "acceptance_required") {
+          setText(selector, `${String(payload.source)} · ${String(model.kind)} · validation error ${formatEngineeringNumber(model.normalizedValidationError, 4)}. Review the evidence before acceptance.`);
+          setHidden("[data-identify-accept]", false);
+        } else if (identifyPhase === "accepted") {
+          setText(selector, `Accepted for design · ${String(payload.source)} · ${String(model.kind)} · validation error ${formatEngineeringNumber(model.normalizedValidationError, 4)}`);
+          markModeComplete("Identify");
+          setWorkflowActionAvailability({ model: true });
+        }
+      }
     } else if (stage === "tune") {
       const candidate = payload.candidate as Record<string, unknown>;
       const settings = candidate.parameters as Record<string, unknown>;
@@ -317,6 +413,7 @@ window.addEventListener("message", (event: MessageEvent) => {
       renderApplicationCandidate(candidate);
       setText("[data-application-validation]", "Not validated");
       markModeComplete("Tune");
+      setWorkflowActionAvailability({ candidate: true });
     } else {
       const result = payload.result as Record<string, unknown>;
       const requirements = validationRequirementRows(result.requirements as ValidationRequirement[]);
@@ -327,6 +424,7 @@ window.addEventListener("message", (event: MessageEvent) => {
       if (review) review.hidden = !acceptable;
       setText("[data-application-validation]", acceptable ? "Required validation passed" : "Requirements not met");
       if (acceptable) markModeComplete("Validate");
+      setWorkflowActionAvailability({ result: true });
     }
     return;
   }
@@ -365,13 +463,23 @@ window.addEventListener("message", (event: MessageEvent) => {
   const frequency = result.frequency as Record<string, unknown> | undefined;
   setText("[data-auto-tune-gain-margin]", `${formatEngineeringNumber(frequency?.gainMarginDb, 2)} dB`);
   setText("[data-auto-tune-phase-margin]", `${formatEngineeringNumber(frequency?.phaseMarginDegrees, 1)}°`);
-  setText("[data-auto-tune-model]", result.modelEvidence);
+  const model = result.model as Record<string, unknown> | undefined;
+  const processUnit = root?.dataset.processUnit?.trim() || "normalized process";
+  const outputUnit = root?.dataset.outputUnit?.trim() || "normalized output";
+  setText("[data-auto-tune-model]", model
+    ? `${String(result.modelEvidence)} · K ${formatEngineeringNumber(model.gain, 4)} ${processUnit}/${outputUnit}` +
+      ` · T ${formatEngineeringNumber(model.timeConstantSeconds, 3)} s` +
+      ` · L ${formatEngineeringNumber(model.deadTimeSeconds, 3)} s`
+    : result.modelEvidence);
   setText("[data-auto-tune-rationale]", result.rationale);
   renderAutomaticTuneAttempts(result.attempts);
   if (result.parameters && typeof result.parameters === "object") {
     renderApplicationCandidate({ source: result.method, structure: result.structure, parameters: result.parameters });
   }
   setText("[data-application-validation]", result.validation);
+  setWorkflowActionAvailability({ model: true });
+  setWorkflowActionAvailability({ candidate: true });
+  setWorkflowActionAvailability({ result: true });
   const candidate = document.querySelector<HTMLElement>("[data-auto-tune-result]");
   if (candidate) candidate.hidden = false;
   for (const button of buttons) {
@@ -382,6 +490,123 @@ window.addEventListener("message", (event: MessageEvent) => {
   }
   showError();
 });
+
+function renderIdentificationQualification(value: Record<string, unknown>): void {
+  const metrics = value.metrics as Record<string, unknown> | undefined;
+  if (!metrics) return;
+  setHidden("[data-identify-qualification]", false);
+  setHidden("[data-identify-details]", false);
+  setText("[data-identify-samples]", `${String(metrics.retainedSampleCount)} / ${String(metrics.rawSampleCount)}`);
+  setText("[data-identify-duration]", `${formatEngineeringNumber(metrics.durationSeconds, 3)} s`);
+  setText("[data-identify-interval]", `${formatEngineeringNumber(metrics.medianSampleTimeSeconds, 4)} s`);
+  setText("[data-identify-snr]", `${formatEngineeringNumber(metrics.signalToNoiseDb, 2)} dB`);
+  replaceEvidenceRows("[data-identify-detail-rows]", [
+    ["Input / output units", `${String(value.inputUnit)} / ${String(value.outputUnit)}`],
+    ["Maximum interval deviation", `${formatEngineeringNumber(metrics.maximumSampleTimeDeviationPercent, 2)} %`],
+    ["Timing gaps", String(metrics.gapCount)],
+    ["Rejected quality samples", String(metrics.rejectedQualitySampleCount)],
+    ["Clipped / saturated", `${String(metrics.clippedSampleCount)} / ${String(metrics.saturationSampleCount)}`],
+    ["Baseline drift", `${formatEngineeringNumber(metrics.baselineDriftPerSecond, 5)} ${String(value.outputUnit)}/s`],
+    ["Input / output span", `${formatEngineeringNumber(metrics.inputSpan, 5)} ${String(value.inputUnit)} / ${formatEngineeringNumber(metrics.outputSpan, 5)} ${String(value.outputUnit)}`],
+    ["Excitation", String(metrics.excitation)],
+    ["Coherence", String(metrics.coherence)],
+    ["Independent validation", metrics.independentValidationAvailable === true ? "Available" : "Not yet available"],
+  ]);
+}
+
+function renderIdentificationModel(model: Record<string, unknown>, fit?: Record<string, unknown>): void {
+  setHidden("[data-identify-model-details]", false);
+  const range = fit?.operatingRange as Record<string, unknown> | undefined;
+  const warnings = Array.isArray(fit?.warnings) ? fit.warnings.map(String).join("; ") : "None";
+  replaceEvidenceRows("[data-identify-model-rows]", [
+    ["Structure", String(model.kind)],
+    ["Gain", formatEngineeringNumber(model.gain, 6)],
+    ["Time constants", [model.timeConstantSeconds, model.secondTimeConstantSeconds]
+      .filter((item) => typeof item === "number").map((item) => `${formatEngineeringNumber(item, 5)} s`).join(" / ") || "None"],
+    ["Dead time", `${formatEngineeringNumber(model.deadTimeSeconds ?? 0, 5)} s`],
+    ["Estimation error", formatEngineeringNumber(model.normalizedEstimationError ?? model.normalizedError, 5)],
+    ["Validation error", typeof model.normalizedValidationError === "number"
+      ? formatEngineeringNumber(model.normalizedValidationError, 5) : "Not evaluated"],
+    ["Validation RMSE", fit ? `${formatEngineeringNumber(fit.rootMeanSquareError, 5)} ${String(fit.outputUnit)}` : "Not evaluated"],
+    ["Operating range", range
+      ? `MV ${formatEngineeringNumber(range.inputMinimum, 5)}…${formatEngineeringNumber(range.inputMaximum, 5)}; PV ${formatEngineeringNumber(range.outputMinimum, 5)}…${formatEngineeringNumber(range.outputMaximum, 5)}`
+      : "Not evaluated"],
+    ["Stability", model.stable === true ? "Stable" : "Not stable"],
+    ["Warnings", warnings || "None"],
+  ]);
+}
+
+function renderIdentificationPresentation(presentation?: Record<string, unknown>): void {
+  if (!presentation) return;
+  const units = presentation.units as Record<string, unknown> | undefined;
+  const estimation = presentation.estimation as Record<string, unknown> | undefined;
+  const validation = presentation.validation as Record<string, unknown> | undefined;
+  const uncertainty = presentation.uncertainty as Record<string, unknown> | undefined;
+  const range = presentation.validityRange as Record<string, unknown> | undefined;
+  const warnings = Array.isArray(presentation.warnings) ? presentation.warnings.map(String).join("; ") : "None";
+  const poles = Array.isArray(presentation.poles)
+    ? presentation.poles.map((value) => formatEngineeringNumber(value, 6)).join(", ") : "Not evaluated";
+  const zeros = Array.isArray(presentation.zeros) && presentation.zeros.length > 0
+    ? presentation.zeros.map((value) => formatEngineeringNumber(value, 6)).join(", ") : "None";
+  const rows: Array<[string, string]> = [
+    ["Equation", String(presentation.equation)],
+    ["Input / output", `${String(units?.input)} / ${String(units?.output)}`],
+    ["Poles", poles || "None"],
+    ["Zeros", zeros],
+    ["Delay", `${formatEngineeringNumber(presentation.delaySeconds, 5)} s`],
+    ["Uncertainty", String(uncertainty?.label ?? "Not evaluated")],
+    ["Estimation residual correlation (lag 1)", typeof estimation?.residualLagOneCorrelation === "number"
+      ? formatEngineeringNumber(estimation.residualLagOneCorrelation, 4) : "Not evaluated"],
+    ["Validation residual correlation (lag 1)", typeof validation?.residualLagOneCorrelation === "number"
+      ? formatEngineeringNumber(validation.residualLagOneCorrelation, 4) : "Not evaluated"],
+    ["Validity range", range
+      ? `MV ${formatEngineeringNumber(range.inputMinimum, 5)}…${formatEngineeringNumber(range.inputMaximum, 5)}; PV ${formatEngineeringNumber(range.outputMinimum, 5)}…${formatEngineeringNumber(range.outputMaximum, 5)}`
+      : "Not evaluated"],
+    ["Warnings", warnings || "None"],
+  ];
+  replaceEvidenceRows("[data-identify-model-rows]", rows);
+}
+
+function renderTuningMethodEvidence(evidence: Record<string, unknown>): void {
+  const assumptions = Array.isArray(evidence.assumptions) ? evidence.assumptions.map(String).join(" ") : "Not declared";
+  const equations = Array.isArray(evidence.equations) ? evidence.equations.map(String).join("; ") : "Not declared";
+  const inputs = Array.isArray(evidence.inputs) ? evidence.inputs.filter((item): item is Record<string, unknown> =>
+    Boolean(item) && typeof item === "object" && !Array.isArray(item)).map((input) =>
+    `${String(input.name)} = ${typeof input.value === "number" ? formatEngineeringNumber(input.value, 6) : String(input.value)} ${String(input.unit)}`)
+    .join("; ") : "Not declared";
+  const result = evidence.result as Record<string, unknown> | undefined;
+  const units = evidence.units as Record<string, unknown> | undefined;
+  replaceEvidenceRows("[data-tune-method-rows]", [
+    ["Design method", String(evidence.title)],
+    ["Status", String(evidence.status)],
+    ["Convention", String(evidence.convention)],
+    ["Assumptions", assumptions],
+    ["Design inputs", inputs],
+    ["Equations", equations],
+    ["Result", result
+      ? `Kp ${formatEngineeringNumber(result.proportionalGain, 6)} ${String(units?.proportionalGain)}; ` +
+        `Ki ${formatEngineeringNumber(result.integralGain, 6)} ${String(units?.integralGain)}; ` +
+        `Kd ${formatEngineeringNumber(result.derivativeGain, 6)} ${String(units?.derivativeGain)}`
+      : "No candidate produced"],
+    ["Unavailable reason", String(evidence.reason ?? "Not applicable")],
+  ]);
+  setHidden("[data-tune-method-evidence]", false);
+}
+
+function replaceEvidenceRows(selector: string, rows: readonly (readonly [string, string])[]): void {
+  const host = document.querySelector<HTMLElement>(selector);
+  if (!host) return;
+  host.replaceChildren(...rows.map(([label, value]) => {
+    const row = document.createElement("tr");
+    const heading = document.createElement("th");
+    heading.scope = "row";
+    heading.textContent = label;
+    const cell = document.createElement("td");
+    cell.textContent = value;
+    row.append(heading, cell);
+    return row;
+  }));
+}
 
 function renderAutomaticTuneAttempts(value: unknown, selector = "[data-auto-tune-attempts]"): void {
   const host = document.querySelector<HTMLElement>(selector);
@@ -445,10 +670,10 @@ function renderExperimentResult(message: Record<string, unknown>): void {
       root.dataset.experimentPlanId = String(plan.id ?? "");
       root.dataset.experimentSource = String(plan.source ?? "");
     }
-    setText("[data-test-signal]", `${plan.affectedSignal} · ${formatEngineeringNumber(plan.from)} → ${formatEngineeringNumber(plan.to)} ${plan.unit}`);
+    setText("[data-test-signal]", `${plan.affectedSignal} · ${formatExperimentValue(plan.from)} → ${formatExperimentValue(plan.to)} ${plan.unit}`);
     setText("[data-test-bound]", `${formatEngineeringNumber(plan.minimum)}…${formatEngineeringNumber(plan.maximum)} ${plan.unit}`);
     setText("[data-test-timeout]", `${formatEngineeringNumber(Number(plan.durationMs) / 1_000)} s maximum`);
-    setText("[data-test-restoration]", `${formatEngineeringNumber(plan.restorationValue)} ${plan.unit}`);
+    setText("[data-test-restoration]", `${formatExperimentValue(plan.restorationValue)} ${plan.unit}`);
     setText("[data-test-stops]", `Stops on: ${(plan.stopConditions as unknown[]).join(", ")}`);
     setText("[data-test-state]", plan.source === "physical"
       ? "Physical test ready. Confirming will authorize this exact plan once."
@@ -473,6 +698,13 @@ function renderExperimentResult(message: Record<string, unknown>): void {
     if (review) review.disabled = true;
     return;
   }
+  if (phase === "restoring") {
+    setText("[data-test-state]",
+      `${String(payload?.status ?? "Stopped")} · ${String(payload?.stop_reason ?? "runtime stop")} · confirming restoration…`);
+    if (abort) abort.disabled = true;
+    if (review) review.disabled = true;
+    return;
+  }
   if (phase === "terminal") {
     setText("[data-test-state]",
       `${String(payload?.status ?? "Stopped")} · ${String(payload?.stop_reason ?? "runtime stop")} · restoration ${String(payload?.restoration ?? "unknown")}`);
@@ -486,6 +718,11 @@ function renderExperimentResult(message: Record<string, unknown>): void {
   if (review) review.disabled = false;
 }
 
+function formatExperimentValue(value: unknown): string {
+  if (typeof value === "boolean") return value ? "Enabled" : "Disabled";
+  return formatEngineeringNumber(Number(value));
+}
+
 function openAutomaticTune(): void {
   const plan = document.querySelector<HTMLElement>("[data-auto-tune-plan]");
   if (plan) plan.hidden = false;
@@ -494,6 +731,11 @@ function openAutomaticTune(): void {
 function setText(selector: string, value: unknown): void {
   const element = document.querySelector<HTMLElement>(selector);
   if (element) element.textContent = String(value ?? "—");
+}
+
+function setHidden(selector: string, hidden: boolean): void {
+  const element = document.querySelector<HTMLElement>(selector);
+  if (element) element.hidden = hidden;
 }
 
 function renderResultComparison(left: Record<string, unknown>, right: Record<string, unknown>): void {

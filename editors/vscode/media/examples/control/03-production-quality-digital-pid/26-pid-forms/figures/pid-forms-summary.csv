@@ -1,0 +1,4 @@
+case,kp_before,kp_after,output_before,output_after,decision
+positional P,4.0,8.0,2.000000000000,4.000000000000,valid positional realization
+rejected incremental P,4.0,8.0,1.000000000000,1.000000000000,reject arbitrary retained state
+incremental PI,4.0,8.0,30.240000000000,30.480000000000,retains output plus expected integral increment

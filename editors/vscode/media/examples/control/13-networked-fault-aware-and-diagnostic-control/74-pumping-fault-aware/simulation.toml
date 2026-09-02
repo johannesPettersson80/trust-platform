@@ -1,0 +1,119 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+plant_step_ms = 20
+
+[[plants]]
+id = "naive-pressure-a"
+model = "first_order"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [6.0]
+[plants.parameters]
+gain = 0.04
+time_constant_s = 4.0
+output_bias = 4.0
+
+[[plants]]
+id = "protected-pressure-a"
+model = "first_order"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8"]
+initial_state = [6.0]
+[plants.parameters]
+gain = 0.04
+time_constant_s = 4.0
+output_bias = 4.0
+
+[[plants]]
+id = "protected-pressure-b"
+model = "first_order"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL16"]
+initial_state = [6.0]
+[plants.parameters]
+gain = 0.04
+time_constant_s = 4.0
+output_bias = 4.0
+
+[[plants]]
+id = "protected-drive-feedback"
+model = "static_gain"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL24"]
+[plants.parameters]
+gain = 1.0
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 50.0
+
+[[plants]]
+id = "naive-physical-header"
+model = "first_order"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL40"]
+initial_state = [6.0]
+[plants.parameters]
+gain = 0.04
+time_constant_s = 4.0
+output_bias = 4.0
+
+[[plant_events]]
+at_ms = 5000
+plant = "naive-pressure-a"
+kind = "set_sensor_bias"
+channel = 0
+value = 1.0
+
+[[plant_events]]
+at_ms = 5000
+plant = "protected-pressure-a"
+kind = "set_sensor_bias"
+channel = 0
+value = 1.0
+
+[[plant_events]]
+at_ms = 10000
+plant = "naive-pressure-a"
+kind = "set_sensor_bias"
+channel = 0
+value = 0.0
+
+[[plant_events]]
+at_ms = 10000
+plant = "protected-pressure-a"
+kind = "set_sensor_bias"
+channel = 0
+value = 0.0
+
+[[plant_events]]
+at_ms = 22000
+plant = "protected-pressure-a"
+kind = "stick_actuator"
+
+[[plant_events]]
+at_ms = 22000
+plant = "protected-pressure-b"
+kind = "stick_actuator"
+
+[[plant_events]]
+at_ms = 22000
+plant = "protected-drive-feedback"
+kind = "stick_actuator"
+
+[[plant_events]]
+at_ms = 24000
+plant = "protected-pressure-a"
+kind = "release_actuator"
+
+[[plant_events]]
+at_ms = 24000
+plant = "protected-pressure-b"
+kind = "release_actuator"
+
+[[plant_events]]
+at_ms = 24000
+plant = "protected-drive-feedback"
+kind = "release_actuator"

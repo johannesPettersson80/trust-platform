@@ -4,6 +4,8 @@ import type { AutomaticTuneObjective, AutomaticTuneResult } from "./automaticTun
 import type { LoopMonitorSample } from "./loopMonitor";
 import type { ControlPidParameters } from "./controllerCandidate";
 import type { ExcludedInterval } from "./identification";
+import type { ControlExperimentKind } from "./experiment";
+import { decodeControlChartSession, type ControlChartSession } from "./chartContract";
 
 export interface ControlStudioEnvelope<T> {
   schemaVersion: 1;
@@ -69,7 +71,8 @@ export function decodeControllerApplicationCommand(value: unknown, expected: Loo
 }
 
 export type WorkflowResultCommand =
-  | { action: "save" | "export-csv" | "export-json"; messageId: string }
+  | { action: "save"; messageId: string; session?: ControlChartSession }
+  | { action: "export-csv" | "export-json"; messageId: string }
   | { action: "open"; messageId: string; resultRevision: number }
   | { action: "compare"; messageId: string; leftRevision: number; rightRevision: number };
 
@@ -83,6 +86,12 @@ export function decodeWorkflowResultCommand(value: unknown, expected: LoopMessag
     if (value.kind === "control-studio.result.save") return { action: "save", messageId: value.messageId };
     if (value.kind === "control-studio.result.export-csv") return { action: "export-csv", messageId: value.messageId };
     if (value.kind === "control-studio.result.export-json") return { action: "export-json", messageId: value.messageId };
+  }
+  if (value.kind === "control-studio.result.save" &&
+      Object.keys(value.payload).join(",") === "session") {
+    const session = decodeControlChartSession(value.payload.session,
+      `${expected.loopId}:${expected.loopRevision}`);
+    if (session) return { action: "save", messageId: value.messageId, session };
   }
   if (value.kind === "control-studio.result.open" &&
       Object.keys(value.payload).join(",") === "resultRevision" && positiveInteger(value.payload.resultRevision)) {
@@ -111,7 +120,8 @@ export function decodeLoopAutomaticTuneApprove(value: unknown, expected: LoopMes
 }
 
 export type EngineeringCommand =
-  | { action: "identify"; messageId: string; model: string; excludedIntervals?: readonly ExcludedInterval[] }
+  | { action: "identify-qualify"; messageId: string; model: string; excludedIntervals?: readonly ExcludedInterval[] }
+  | { action: "identify-fit" | "identify-accept"; messageId: string }
   | { action: "tune"; messageId: string; method: "SIMC" | "AMIGO"; objective: AutomaticTuneObjective }
   | { action: "tune-settings"; messageId: string; method: "Manual" | "Imported"; settings: ControlPidParameters }
   | { action: "validate"; messageId: string };
@@ -121,15 +131,21 @@ export function decodeEngineeringCommand(value: unknown, expected: LoopMessageSc
       value.schemaVersion !== 1 || !nonempty(value.messageId) || value.projectId !== expected.projectId ||
       value.editorSessionId !== expected.editorSessionId || value.loopId !== expected.loopId ||
       value.expectedLoopRevision !== expected.loopRevision) return undefined;
-  if (value.kind === "control-studio.identify.run" && Object.keys(value.payload).join(",") === "model" && nonempty(value.payload.model)) {
-    return { action: "identify", messageId: value.messageId, model: value.payload.model };
+  if (value.kind === "control-studio.identify.run" && Object.keys(value.payload).join(",") === "model" && identificationModel(value.payload.model)) {
+    return { action: "identify-qualify", messageId: value.messageId, model: value.payload.model };
   }
   if (value.kind === "control-studio.identify.run" &&
-      Object.keys(value.payload).sort().join(",") === "excludedIntervals,model" && nonempty(value.payload.model) &&
+      Object.keys(value.payload).sort().join(",") === "excludedIntervals,model" && identificationModel(value.payload.model) &&
       Array.isArray(value.payload.excludedIntervals) && value.payload.excludedIntervals.length <= 64 &&
       value.payload.excludedIntervals.every(excludedInterval)) {
-    return { action: "identify", messageId: value.messageId, model: value.payload.model,
+    return { action: "identify-qualify", messageId: value.messageId, model: value.payload.model,
       excludedIntervals: value.payload.excludedIntervals as ExcludedInterval[] };
+  }
+  if (value.kind === "control-studio.identify.fit" && Object.keys(value.payload).length === 0) {
+    return { action: "identify-fit", messageId: value.messageId };
+  }
+  if (value.kind === "control-studio.identify.accept" && Object.keys(value.payload).length === 0) {
+    return { action: "identify-accept", messageId: value.messageId };
   }
   if (value.kind === "control-studio.tune.run" && Object.keys(value.payload).sort().join(",") === "method,objective" &&
       (value.payload.method === "SIMC" || value.payload.method === "AMIGO") &&
@@ -146,6 +162,10 @@ export function decodeEngineeringCommand(value: unknown, expected: LoopMessageSc
     return { action: "validate", messageId: value.messageId };
   }
   return undefined;
+}
+
+function identificationModel(value: unknown): value is string {
+  return typeof value === "string" && ["automatic", "integrating", "first_order", "fopdt", "second_order", "sopdt"].includes(value);
 }
 
 function excludedInterval(value: unknown): boolean {
@@ -247,7 +267,7 @@ export type ControlExperimentCommand =
   | {
       action: "review";
       messageId: string;
-      kind: "setpoint_step" | "output_step";
+      kind: ControlExperimentKind;
       amplitude: number;
       durationSeconds: number;
       physicalTopologyReviewed: boolean;
@@ -270,7 +290,7 @@ export function decodeControlExperimentCommand(
   const payload = value.payload;
   if (value.kind === "control-studio.experiment.review" &&
       Object.keys(payload).sort().join(",") === "amplitude,durationSeconds,kind,physicalTopologyReviewed" &&
-      (payload.kind === "setpoint_step" || payload.kind === "output_step") &&
+      experimentKind(payload.kind) &&
       finite(payload.amplitude) && finite(payload.durationSeconds) &&
       typeof payload.physicalTopologyReviewed === "boolean") {
     return {
@@ -297,6 +317,13 @@ export function decodeControlExperimentCommand(
     return { action: "abort", messageId: value.messageId, experimentId: payload.experimentId };
   }
   return undefined;
+}
+
+function experimentKind(value: unknown): value is ControlExperimentKind {
+  return typeof value === "string" && [
+    "observation", "setpoint_step", "load_step", "mv_step", "mv_pulse",
+    "relay", "prbs", "multisine", "output_step",
+  ].includes(value);
 }
 
 export function plantMonitorEnvelope(
@@ -471,17 +498,27 @@ function loopMonitorSample(value: unknown): value is LoopMonitorSample {
     nonempty(value.controller.instance) && revision(value.controller.revision) &&
     ["Auto", "Manual", "Unavailable"].includes(String(value.controller.mode)) &&
     nonnegativeInteger(value.scan) && finite(value.observedAtMs) &&
-    monitorSignal(value.setpoint) && monitorSignal(value.processVariable) &&
-    monitorSignal(value.manipulatedVariable) && record(value.outputLimits) &&
+    (value.setpoint === undefined || monitorSignal(value.setpoint)) && monitorSignal(value.processVariable) &&
+    monitorSignal(value.manipulatedVariable) && auxiliaryMonitorSignals(value.additional) &&
+    record(value.outputLimits) &&
     finite(value.outputLimits.minimum) && finite(value.outputLimits.maximum) &&
     record(value.rateLimits) && ["minimum", "maximum", "none"].includes(String(value.saturation)) &&
     typeof value.recording === "boolean";
 }
 
+function auxiliaryMonitorSignals(value: unknown): boolean {
+  if (value === undefined) return true;
+  return Array.isArray(value) && value.length <= 256 && value.every((signal) =>
+    record(signal) && monitorSignal(signal) && nonempty(signal.id) && nonempty(signal.channel) &&
+    ["SP", "PV", "MV", "actuator", "disturbance", "state", "quality", "schedule"]
+      .includes(String(signal.role)) &&
+    Object.keys(signal).sort().join(",") === "address,channel,id,quality,role,symbol,unit,value");
+}
+
 function monitorSignal(value: unknown): boolean {
   return record(value) && nonempty(value.symbol) && nonempty(value.address) &&
     finite(value.value) && typeof value.unit === "string" &&
-    (value.quality === "good" || value.quality === "forced");
+    ["good", "forced", "uncertain", "stale", "bad"].includes(String(value.quality));
 }
 
 function record(value: unknown): value is Record<string, unknown> {

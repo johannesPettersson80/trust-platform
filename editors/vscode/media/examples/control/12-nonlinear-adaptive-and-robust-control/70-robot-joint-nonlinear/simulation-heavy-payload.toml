@@ -1,0 +1,23 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+plant_step_ms = 5
+
+[[plants]]
+id = "industrial-robot-joint"
+model = "robot_joint"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0,0]
+
+[plants.parameters]
+inertia_kg_m2 = 1.0
+gravity_torque_nm = 11.772
+viscous_friction_nm_s_per_rad = 0.2
+coulomb_friction_nm = 0.0
+friction_smoothing_rad_s = 0.01
+
+[plants.actuator]
+minimum = -30.0
+maximum = 30.0

@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 4,
+  "id": "control-booster-pump-atomic-update",
+  "title": "Apply PID changes atomically and keep feedforward inside constraints",
+  "level": "Practitioner",
+  "sequence": 29,
+  "equipment": "Variable-speed booster pump with recirculation valve",
+  "physicalPurpose": "Change an online pressure-controller configuration without exposing mixed parameters and ensure every contribution passes through the same actuator constraints.",
+  "principalTechnique": "Atomic PID configuration and constraint-aware signal ordering",
+  "objective": "Apply a complete PID configuration as one revision and distinguish the valid internal feedforward path from an invalid post-limit sum.",
+  "prerequisites": ["control-booster-pump-bumpless-transfer"],
+  "nextLesson": "control-booster-pump-invalid-data",
+  "signals": [
+    { "role": "SP", "name": "Discharge-pressure setpoint", "unit": "bar", "minimum": 2, "maximum": 10, "resolution": 0.01, "binding": "%ML0" },
+    { "role": "PV", "name": "Discharge pressure", "unit": "bar", "minimum": 0, "maximum": 12, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "MV", "name": "Applied valve command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL0" },
+    { "role": "state", "name": "Diagnostic nominal request", "unit": "%", "minimum": -1000, "maximum": 1000, "resolution": 0.1, "binding": "%ML80" },
+    { "role": "state", "name": "Feedforward contribution", "unit": "%", "minimum": -100, "maximum": 100, "resolution": 0.1, "binding": "%ML40" },
+    { "role": "state", "name": "Active proportional gain", "unit": "%/bar", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML56" },
+    { "role": "state", "name": "Active integral gain", "unit": "%/(bar*s)", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML64" },
+    { "role": "state", "name": "Active revision", "unit": "1", "minimum": 0, "maximum": 32767, "resolution": 1, "binding": "%MW112" }
+    ,{ "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX57.0" }
+  ],
+  "plant": {
+    "modelId": "first_order",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      { "name": "pressure_gain", "value": 0.1, "unit": "bar/%" },
+      { "name": "pressure_time_constant", "value": 2, "unit": "s" },
+      { "name": "initial_pressure", "value": 6, "unit": "bar" },
+      { "name": "initial_valve", "value": 40, "unit": "%" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "dischargePressureBar": 6, "appliedValvePercent": 40 },
+    "seed": 20260829,
+    "operatingPoint": { "Discharge-pressure setpoint": 6, "Discharge pressure": 6, "Applied valve command": 40, "Feedforward contribution": 0 },
+    "validityRange": [
+      { "signal": "Discharge pressure", "minimum": 0, "maximum": 12, "unit": "bar" },
+      { "signal": "Applied valve command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Feedforward contribution", "minimum": -100, "maximum": 100, "unit": "%" }
+    ],
+    "simplifications": [
+      "The unsafe sequential update is a simulation-only diagnostic and is not a supported configuration path.",
+      "The feedforward value is prescribed to expose signal ordering; disturbance modelling and feedforward design are deferred to Lesson 53.",
+      "The diagnostic nominal request mirrors this lesson's PI increment only and never participates in the plant-command path."
+    ]
+  },
+  "baseline": {
+    "executableId": "BoosterPump.MixedRevisionDiagnostic",
+    "settings": { "oldKp": 5, "oldKi": 1, "newKp": 15, "newKi": 3, "setpointStepBar": 1, "cycleTimeSeconds": 0.1 },
+    "limitation": "A sequential update exposes new proportional gain with old integral gain and produces a 15.1 percentage-point first increment that belongs to neither complete configuration."
+  },
+  "change": {
+    "executableId": "Control.PID.AtomicConfigurationAndFeedforward",
+    "settings": { "newKp": 15, "newKi": 3, "newTrackingTimeSeconds": 0.5, "feedforwardPercent": 20, "rateLimitPercentPerSecond": 20 },
+    "decision": "Assign the complete candidate record, call Configure once, and pass feedforward through PIDInput so the controller's anti-windup and output constraints remain authoritative."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 10.1,
+    "settlingSeconds": 0,
+    "disturbances": ["20 percent prescribed feedforward contribution in the ordering comparison"],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    { "metric": "atomic_first_update_increment", "signal": "Applied valve command", "window": "first 100 ms update with complete revision 1 and 1 bar setpoint step", "comparator": "<=", "limit": 15.300000001, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "mixed_first_update_increment", "signal": "Applied valve command", "window": "first 100 ms simulation-only mixed-revision update", "comparator": ">=", "limit": 15.099999999, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "constraint_aware_feedforward_output", "signal": "Applied valve command", "window": "first update after 20 percent feedforward from 40 percent applied output", "comparator": "<=", "limit": 42.000000001, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "rejected_external_sum", "signal": "Diagnostic nominal request", "window": "same feedforward update, calculation-only", "comparator": ">=", "limit": 59.999999999, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Discharge pressure", "minimum": 0, "maximum": 12, "unit": "bar" },
+      { "signal": "Applied valve command", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "abortPredicates": ["Any signal or candidate parameter is nonfinite", "Pressure or applied valve command leaves its hard limit", "A configuration record is incomplete or has not passed station-level validation", "A command path can bypass controller and actuator constraints"],
+    "safeMv": 30,
+    "restorationMode": "Station Disabled with 30 percent safe recirculation",
+    "physicalApprovalRole": "authorised pump-station control engineer",
+    "simulationOnlyRestrictions": ["Never reproduce the mixed-revision or external post-limit sum on physical equipment; physical online changes require validated parameters, reviewed topology, rollback, and explicit approval."]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-29--atomic-updates-and-signal-ordering-booster-pump-station",
+    "nativeTest": "control_curriculum_booster_pump_applies_atomic_parameters_and_orders_feedforward",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_pid_production control_curriculum_booster_pump_applies_atomic_parameters_and_orders_feedforward -- --exact --nocapture",
+    "projectPath": "examples/control/03-production-quality-digital-pid/29-booster-pump-atomic-update",
+    "runArtifactFields": ["scan", "SP", "PV", "candidateParameters", "activeParameters", "activeRevision", "configuredThisScan", "mixedRevision", "feedforward", "diagnosticRequestedOutput", "MV_applied", "rateBounds", "limitState", "evidenceClass"],
+    "renderedJourneyId": "control-booster-pump-atomic-update"
+  },
+  "video": {
+    "viewerOutcome": "Apply one coherent PID revision and verify that feedforward cannot bypass anti-windup or actuator constraints.",
+    "requiredVisibleEvidence": ["old, mixed, and new parameter records", "active revision at the update scan", "15.3 and 15.1 percentage-point increments", "42 percent constrained output", "60 percent rejected external sum", "simulation evidence label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "The booster-pump pressure controller remains online while an engineer prepares a new PID configuration and while a measured disturbance may contribute feedforward output.",
+    "reason": "Lesson 28 aligned controller state between authority owners, but a scan can still be wrong if it mixes parameter revisions or adds a contribution after constraints have executed.",
+    "theory": [
+      "A candidate configuration is the complete proposed PID record. The active configuration is the record used by the current controller scan. A revision identifies one complete record.",
+      "Atomic application exposes either the complete old record or complete new record to one update. A mixed record is invalid even if every individual value is numerically valid.",
+      "Feedback and feedforward combine inside Control.PID before anti-windup, amplitude limits, and rate limits. The rate interval begins at the previous applied output.",
+      "Requested and applied outputs are distinct engineering signals. A calculation added after the returned applied output bypasses controller state and limits and is rejected."
+    ],
+    "workedPrediction": "From 40 percent at 6 bar, new Kp 15 and Ki 3 produce a 15.3-point first increment for a 1 bar step; new Kp with old Ki produces 15.1. At zero error, 20 percent feedforward with a 20 percent-per-second limit over 0.1 seconds permits 42 percent from the previous 40, while a rejected post-limit sum is 60 percent.",
+    "practicalPreparation": ["Verify SP, PV, actual and applied valve values, candidate and active parameters, revision, configured-this-scan, feedforward, rate bounds, limit flags, and simulation label.", "Restore 6 bar and 40 percent. Keep plant, state, sample interval, limit, seed, and event timing equal across comparisons."],
+    "baseline": "Run the simulation-only sequential update for one scan so new proportional gain is combined with old integral gain, then reject the mixed revision.",
+    "change": "Restore, assign the complete candidate record and call Configure once before the controller update. Restore again and pass the prescribed feedforward through PIDInput rather than summing it after the returned output.",
+    "comparison": "Compare record coherence, first-update increment, applied-output rate, constraint state, and external-sum limit violation at exact scan boundaries.",
+    "validation": "Require every production update to expose a complete old or new record, reproduce 55.300 and 55.100 percent diagnostic outcomes, and apply 42.000 rather than the rejected 60.000 percent when the rate limit binds.",
+    "explanation": "Scan order and data ownership are part of the controller law. Atomic records prevent hybrid tuning, and one internal contribution path keeps state, anti-windup, and physical limits consistent.",
+    "transfer": "Use the same snapshot and ordering rule for online tuning, scheduling, selectors, and multiloop control. Lesson 30 next defines deterministic behavior when configuration, signal, or timing data are invalid."
+  }
+}

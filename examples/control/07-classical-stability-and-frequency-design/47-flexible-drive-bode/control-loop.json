@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-flexible-drive-bode",
+  "name": "Flexible-drive frequency-response experiment",
+  "revision": "sha256:curriculum-loop-47",
+  "projectId": "project:control-flexible-drive-bode",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "FrequencyProbeBank", "design": "project", "revision": "sha256:curriculum-controller-47", "action": "direct", "taskPeriodMs": 10 },
+  "signals": {
+    "processVariable": { "symbol": "P1.LowSpeed", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "rpm", "range": { "minimum": -500, "maximum": 500 } },
+    "manipulatedVariable": { "symbol": "P1.LowApplied", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": -100, "maximum": 100 } },
+    "additional": [
+      { "id": "resonant-pv", "channel": "resonant", "role": "PV", "symbol": "P1.ResonantSpeed", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "rpm", "range": { "minimum": -500, "maximum": 500 } },
+      { "id": "resonant-mv", "channel": "resonant", "role": "MV", "symbol": "P1.ResonantApplied", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": -100, "maximum": 100 } },
+      { "id": "high-pv", "channel": "high", "role": "PV", "symbol": "P1.HighSpeed", "address": "%IL16", "iecType": "LREAL", "direction": "read", "unit": "rpm", "range": { "minimum": -500, "maximum": 500 } },
+      { "id": "high-mv", "channel": "high", "role": "MV", "symbol": "P1.HighApplied", "address": "%QL16", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": -100, "maximum": 100 } }
+    ]
+  },
+  "limits": { "outputMinimum": -100, "outputMaximum": 100 },
+  "observedSampleTiming": { "nominalPeriodMs": 10 },
+  "plantId": "flexible_drive_frequency_probe_bank",
+  "experiment": { "execution": "project-scripted", "kind": "observation", "amplitude": 0, "durationSeconds": 120.1, "restorationValue": 0, "seed": 20260829, "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX96.0", "iecType": "BOOL", "direction": "write" } }
+}

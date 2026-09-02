@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-safe-heat-exchanger-experiment",
+  "name": "Safe heat-exchanger experiment",
+  "revision": "sha256:curriculum-loop-37",
+  "projectId": "project:control-safe-heat-exchanger-experiment",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "ReviewedHeatExchangerExperiment", "design": "project", "revision": "sha256:reviewed-heat-exchanger-experiment", "action": "direct", "taskPeriodMs": 100 },
+  "signals": {
+    "processVariable": { "symbol": "P1.ProcessValue", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 45, "maximum": 58 } },
+    "manipulatedVariable": { "symbol": "P1.RequestedValve", "address": "%ML32", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+    "actuator": { "symbol": "P1.AppliedValve", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+    "additional": [
+      { "id": "proposed-change", "channel": "review", "role": "state", "symbol": "P1.ProposedStep", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": -20, "maximum": 20 } },
+      { "id": "temperature-quality", "channel": "outlet", "role": "quality", "symbol": "P1.SignalQualityGood", "address": "%MX16.3", "iecType": "BOOL", "direction": "read", "unit": "1", "range": { "minimum": 0, "maximum": 1 } }
+    ]
+  },
+  "limits": { "outputMinimum": 0, "outputMaximum": 100 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "heat_exchanger_safe_experiment",
+  "operatingPoint": "60 percent steam valve",
+  "experiment": { "execution": "control-studio", "kind": "mv_step", "amplitude": 10, "durationSeconds": 63, "seed": 20260829 }
+}

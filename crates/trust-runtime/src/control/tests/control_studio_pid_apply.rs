@@ -84,3 +84,60 @@ fn physical_pid_apply_requires_separate_immediate_approval() {
     assert_eq!(response.error_code.as_deref(), Some("physical_approval_required"));
     assert!(state.debug.drain_var_writes().is_empty());
 }
+
+#[test]
+fn invalid_pid_parameter_record_is_rejected_without_a_partial_write() {
+    let state = pid_state();
+    let before = handle_request_value(
+        json!({"id": 8120, "type": "control.pid.status", "params": {
+            "instance_path": "Main.Controller"
+        }}),
+        &state,
+        None,
+    );
+    let before_result = before.result.as_ref().expect("initial status");
+    let revision = before_result["active_revision"]
+        .as_str()
+        .expect("active revision")
+        .to_string();
+    let proportional_gain = before_result["parameters"]["ProportionalGain"].clone();
+
+    let rejected = handle_request_value(
+        json!({"id": 8121, "type": "control.pid.apply", "params": {
+            "instance_path": "Main.Controller",
+            "source": "simulation",
+            "expected_revision": revision,
+            "parameters": {
+                "ProportionalGain": 2.0,
+                "UnknownParameter": 3.0
+            },
+            "physical_approved": false
+        }}),
+        &state,
+        None,
+    );
+    assert!(!rejected.ok);
+    assert_eq!(
+        rejected.error_code.as_deref(),
+        Some("invalid_controller_request")
+    );
+    assert!(
+        state.debug.drain_var_writes().is_empty(),
+        "an invalid record must not queue even its valid fields"
+    );
+
+    let after = handle_request_value(
+        json!({"id": 8122, "type": "control.pid.status", "params": {
+            "instance_path": "Main.Controller"
+        }}),
+        &state,
+        None,
+    );
+    let after_result = after.result.as_ref().expect("status after rejection");
+    assert_eq!(after_result["active_revision"], revision);
+    assert!(after_result["pending_revision"].is_null());
+    assert_eq!(
+        after_result["parameters"]["ProportionalGain"],
+        proportional_gain
+    );
+}

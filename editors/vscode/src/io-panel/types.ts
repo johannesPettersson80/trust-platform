@@ -7,6 +7,7 @@ export type IoEntry = {
   valueType?: string;
   value: string;
   forced?: boolean;
+  quality?: "good" | "uncertain" | "stale" | "bad";
 };
 
 export type IoState = {

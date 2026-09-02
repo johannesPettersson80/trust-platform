@@ -1,0 +1,8 @@
+[project]
+vendor_profile = "codesys"
+include_paths = ["src"]
+stdlib = "iec"
+
+[dependencies]
+PLCopenMotionSingleAxis = { path = "libraries/plcopen_motion", version = "0.1.0" }
+

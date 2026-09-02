@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "id": "control-water-heater-integral",
+  "name": "Water-heater integral action in isolation",
+  "revision": "sha256:7bcb1e679a80f87f08a9526c311cbfe50d5f3da186431f39117831e44cb2cac5",
+  "projectId": "project:control-water-heater-integral",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:02f770ddfe598f9665a1e9d3a90c95a1060fca0ae06fb564f159f0cdc01ccfa3",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX16.0"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 15,
+        "maximum": 60
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.AppliedHeaterPower",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "requested-heater-power",
+        "channel": "requested-heater-power",
+        "role": "state",
+        "symbol": "P1.RequestedHeaterPower",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -1000,
+          "maximum": 1000
+        }
+      },
+      {
+        "id": "integral-contribution",
+        "channel": "integral-contribution",
+        "role": "state",
+        "symbol": "P1.IntegralContribution",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "integral-gain",
+        "channel": "integral-gain",
+        "role": "state",
+        "symbol": "P1.IntegralGain",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%/(degC*s)",
+        "range": {
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "manual-heater-power",
+        "channel": "manual-heater-power",
+        "role": "state",
+        "symbol": "P1.ManualHeaterPower",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "measured-holding-output",
+        "channel": "measured-holding-output",
+        "role": "state",
+        "symbol": "P1.MeasuredHoldingOutput",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "first_order_dead_time",
+  "operatingPoint": "PV 35, MV 75",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 120,
+    "seed": 20260828,
+    "activation": {
+      "symbol": "P1.AutoMode",
+      "address": "%MX16.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
+}

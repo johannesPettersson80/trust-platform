@@ -1,0 +1,27 @@
+[simulation]
+enabled = true
+seed = 20260824
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2000
+plant_step_ms = 100
+
+[[plants]]
+id = "sampling-fopdt"
+model = "first_order_dead_time"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [0.0]
+
+[plants.parameters]
+gain = 1.0
+time_constant_s = 1.0
+dead_time_s = 0.5
+
+# Belt speed is held at the declared operating condition throughout the timing
+# comparison. LREAL process-image values use their IEEE-754 LWORD bits.
+[[disturbances]]
+at_ms = 0
+kind = "set"
+target = "%IL16"
+value = "0x3fe0000000000000"

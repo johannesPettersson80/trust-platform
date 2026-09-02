@@ -16,7 +16,332 @@ export interface ControlChartSample {
   events?: readonly ControlChartEvent[];
 }
 
+export interface ControlChartEventRow {
+  timeSeconds: number;
+  kind: ControlChartEvent["kind"] | "quality";
+  label: string;
+}
+
 export type ControlSaturationState = "minimum" | "maximum" | "none";
+export type ControlWorkflowStage = "Monitor" | "Test" | "Identify" | "Tune" | "Validate";
+
+export interface ControlPlotTab {
+  id: string;
+  available: boolean;
+  reason?: string;
+}
+
+export interface ControlPlotEvidence {
+  samples?: boolean;
+  recording?: boolean;
+  model?: boolean;
+  candidate?: boolean;
+  constraints?: boolean;
+  mimo?: boolean;
+}
+
+export interface MimoPlotEvidence {
+  schemaVersion: 1;
+  modelRevision: string;
+  evidenceRevision: string;
+  inputs: readonly { id: string; name: string; unit: string }[];
+  outputs: readonly { id: string; name: string; unit: string }[];
+  channelResponses: readonly {
+    inputId: string;
+    outputId: string;
+    points: readonly (readonly [timeSeconds: number, value: number])[];
+  }[];
+  relativeGainArray: readonly (readonly number[])[];
+  singularValues: readonly {
+    frequencyRadPerSecond: number;
+    values: readonly number[];
+  }[];
+}
+
+/** Rejects partial or ambiguously ordered multivariable evidence before rendering it. */
+export function decodeMimoPlotEvidence(value: unknown): MimoPlotEvidence | undefined {
+  if (!plainRecord(value) || value.schemaVersion !== 1 || !nonempty(value.modelRevision) ||
+      !nonempty(value.evidenceRevision) || !Array.isArray(value.inputs) || !Array.isArray(value.outputs) ||
+      value.inputs.length < 2 || value.outputs.length < 2 || value.inputs.length !== value.outputs.length ||
+      !value.inputs.every(namedChannel) || !value.outputs.every(namedChannel) ||
+      !uniqueIds(value.inputs) || !uniqueIds(value.outputs) || !Array.isArray(value.channelResponses) ||
+      !Array.isArray(value.relativeGainArray) || !Array.isArray(value.singularValues)) return undefined;
+  const inputs = value.inputs as Array<{ id: string }>;
+  const outputs = value.outputs as Array<{ id: string }>;
+  if (value.channelResponses.length !== inputs.length * outputs.length) return undefined;
+  const pairs = new Set<string>();
+  for (const response of value.channelResponses) {
+    if (!plainRecord(response) || !inputs.some((input) => input.id === response.inputId) ||
+        !outputs.some((output) => output.id === response.outputId) || !Array.isArray(response.points) ||
+        response.points.length === 0 || !response.points.every(finitePoint)) return undefined;
+    pairs.add(`${response.outputId}\u0000${response.inputId}`);
+  }
+  if (pairs.size !== inputs.length * outputs.length ||
+      !value.relativeGainArray.every((row) => Array.isArray(row) && row.length === inputs.length &&
+        row.every((item) => typeof item === "number" && Number.isFinite(item))) ||
+      value.relativeGainArray.length !== outputs.length ||
+      !value.singularValues.every((point) => plainRecord(point) && positiveFinite(point.frequencyRadPerSecond) &&
+        Array.isArray(point.values) && point.values.length === inputs.length &&
+        point.values.every((item) => typeof item === "number" && Number.isFinite(item) && item >= 0))) return undefined;
+  return copy(value) as unknown as MimoPlotEvidence;
+}
+
+const MODEL_REQUIRED = "Identify and accept a dynamic model first";
+const CANDIDATE_REQUIRED = "Generate or select a controller candidate first";
+
+/** Keeps every relevant plot discoverable while explaining missing evidence. */
+export function controlStagePlots(
+  stage: string,
+  evidence: ControlPlotEvidence
+): ControlPlotTab[] {
+  const available = (id: string): ControlPlotTab => ({ id, available: true });
+  const requires = (id: string, ready: boolean, reason: string): ControlPlotTab =>
+    ready ? available(id) : { id, available: false, reason };
+  switch (stage as ControlWorkflowStage) {
+    case "Monitor":
+      return [
+        // Response remains the stable landing plot while its own empty state
+        // explains that samples have not arrived yet.
+        available("response"),
+        available("signals"),
+        requires("events", Boolean(evidence.samples || evidence.recording),
+          "Start the runtime or open a retained recording first"),
+      ];
+    case "Test":
+      return [
+        requires("response", Boolean(evidence.samples), "Start the runtime to receive current samples"),
+        requires("experiment", Boolean(evidence.recording), "Record or run a bounded experiment first"),
+        requires("limits", Boolean(evidence.samples), "Start the runtime to evaluate configured limits"),
+      ];
+    case "Identify": {
+      const plots = [
+        requires("fit", Boolean(evidence.model), MODEL_REQUIRED),
+        requires("residuals", Boolean(evidence.model), MODEL_REQUIRED),
+        requires("validation-data", Boolean(evidence.model), MODEL_REQUIRED),
+        requires("poles-zeros", Boolean(evidence.model), MODEL_REQUIRED),
+      ];
+      if (evidence.mimo) {
+        plots.push(available("channel-responses"), available("rga"));
+      }
+      return plots;
+    }
+    case "Tune": {
+      const plots = [
+        requires("response", Boolean(evidence.candidate), CANDIDATE_REQUIRED),
+        requires("bode", Boolean(evidence.model), MODEL_REQUIRED),
+        requires("root-locus", Boolean(evidence.model), MODEL_REQUIRED),
+        requires("nyquist", Boolean(evidence.model), MODEL_REQUIRED),
+        requires("nichols", Boolean(evidence.candidate), CANDIDATE_REQUIRED),
+        requires("sensitivity", Boolean(evidence.candidate), CANDIDATE_REQUIRED),
+      ];
+      if (evidence.mimo) {
+        plots.push(requires("singular-values", Boolean(evidence.model), MODEL_REQUIRED));
+        plots.push(requires("interaction", Boolean(evidence.model), MODEL_REQUIRED));
+      }
+      return plots;
+    }
+    case "Validate":
+      return [
+        requires("requirements", Boolean(evidence.candidate), CANDIDATE_REQUIRED),
+        requires("response", Boolean(evidence.candidate), CANDIDATE_REQUIRED),
+        requires("robustness", Boolean(evidence.candidate), CANDIDATE_REQUIRED),
+        requires("constraints", Boolean(evidence.candidate && evidence.constraints),
+          evidence.candidate ? "Declare validation constraints first" : CANDIDATE_REQUIRED),
+      ];
+    default:
+      throw new Error(`Unknown Control Studio workflow stage: ${stage}`);
+  }
+}
+
+export function selectControlPlot(
+  tabs: readonly ControlPlotTab[],
+  selected?: string
+): string | undefined {
+  const retained = tabs.find((tab) => tab.id === selected && tab.available);
+  return retained?.id ?? tabs.find((tab) => tab.available)?.id ?? tabs[0]?.id;
+}
+
+/** Routes direct tabs onto the smallest shared plot surface that preserves their evidence. */
+export function controlPlotView(stage: string, plot: string): string {
+  if (stage === "Test" && (plot === "experiment" || plot === "limits")) return "response";
+  if ((stage === "Tune" || stage === "Validate") && plot === "response") return "engineering-response";
+  if (stage === "Validate" && (plot === "robustness" || plot === "constraints")) return "requirements";
+  return plot;
+}
+
+/** Direct chart tools operate only on a plot backed by current evidence. */
+export function directChartActionAvailability(plotAvailable: boolean): Record<string, boolean> {
+  return {
+    inspect: plotAvailable,
+    "zoom-out": plotAvailable,
+    "zoom-in": plotAvailable,
+    reset: plotAvailable,
+    expand: plotAvailable,
+    "export-figure": plotAvailable,
+  };
+}
+
+/** Keeps initial result-history synchronization neutral while preserving real failures. */
+export function workflowResultStatusText(phase: string, reason?: unknown): string | undefined {
+  if (phase === "history") return undefined;
+  if (phase !== "failed") return undefined;
+  return typeof reason === "string" && reason.trim()
+    ? reason
+    : "The workflow result operation failed.";
+}
+
+export interface ControlSignalLayoutGroup {
+  unit: string;
+  signalIds: string[];
+  axis: number;
+}
+
+export function controlSignalLayout(
+  signals: readonly { id: string; unit: string }[]
+): { mode: "axes" | "lanes"; groups: ControlSignalLayoutGroup[] } {
+  const groups: ControlSignalLayoutGroup[] = [];
+  for (const signal of signals) {
+    const unit = signal.unit.trim() || "engineering unit";
+    const group = groups.find((candidate) => candidate.unit === unit);
+    if (group) group.signalIds.push(signal.id);
+    else groups.push({ unit, signalIds: [signal.id], axis: 0 });
+  }
+  const mode = groups.length > 2 ? "lanes" as const : "axes" as const;
+  if (mode === "axes") groups.forEach((group, index) => { group.axis = index; });
+  return { mode, groups };
+}
+
+export interface DesignHistory<T> {
+  boundary: string;
+  past: T[];
+  current: T;
+  future: T[];
+  capacity: number;
+}
+
+export function createDesignHistory<T>(candidate: T, boundary: string, capacity = 50): DesignHistory<T> {
+  if (!boundary.trim()) throw new Error("A design history boundary is required.");
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 200) {
+    throw new Error("Design history capacity must be between 1 and 200.");
+  }
+  return { boundary, past: [], current: copy(candidate), future: [], capacity };
+}
+
+export function commitDesignEdit<T>(
+  history: DesignHistory<T>,
+  candidate: T,
+  boundary: string
+): DesignHistory<T> {
+  assertHistoryBoundary(history, boundary);
+  return {
+    ...history,
+    past: [...history.past, copy(history.current)].slice(-history.capacity),
+    current: copy(candidate),
+    future: [],
+  };
+}
+
+export function undoDesignEdit<T>(history: DesignHistory<T>, boundary: string): DesignHistory<T> {
+  assertHistoryBoundary(history, boundary);
+  if (history.past.length === 0) return copy(history);
+  return {
+    ...history,
+    past: history.past.slice(0, -1).map(copy),
+    current: copy(history.past[history.past.length - 1]),
+    future: [copy(history.current), ...history.future.map(copy)],
+  };
+}
+
+export function redoDesignEdit<T>(history: DesignHistory<T>, boundary: string): DesignHistory<T> {
+  assertHistoryBoundary(history, boundary);
+  if (history.future.length === 0) return copy(history);
+  return {
+    ...history,
+    past: [...history.past.map(copy), copy(history.current)].slice(-history.capacity),
+    current: copy(history.future[0]),
+    future: history.future.slice(1).map(copy),
+  };
+}
+
+export interface DesignComparisonContext {
+  modelRevision: string;
+  evidenceRevision: string;
+  method: string;
+}
+
+export interface PinnedDesign<T> {
+  candidate: T;
+  context: DesignComparisonContext;
+}
+
+export function pinComparableDesign<T>(
+  pins: readonly PinnedDesign<T>[],
+  candidate: T,
+  context: DesignComparisonContext
+): PinnedDesign<T>[] {
+  const first = pins[0]?.context;
+  if (first && first.modelRevision !== context.modelRevision) {
+    throw new Error("Cannot compare a design from an incompatible model revision.");
+  }
+  if (first && first.evidenceRevision !== context.evidenceRevision) {
+    throw new Error("Cannot compare a design from incompatible experiment evidence.");
+  }
+  if (first && first.method !== context.method) {
+    throw new Error("Cannot compare a design produced by an incompatible numerical method.");
+  }
+  return [...pins.map(copy), { candidate: copy(candidate), context: copy(context) }].slice(-3);
+}
+
+export interface ControlChartSession {
+  schemaVersion: 1;
+  boundary: string;
+  activeStage: ControlWorkflowStage;
+  selectedPlots: Partial<Record<ControlWorkflowStage, string>>;
+  selectedSignals: string[];
+  window: [number, number];
+  expanded: boolean;
+  candidateRevision?: number;
+  pinnedCandidateRevisions: number[];
+  pinnedDesigns?: readonly {
+    revision: number;
+    candidate: Record<string, unknown>;
+    context: DesignComparisonContext;
+  }[];
+}
+
+export function decodeControlChartSession(value: unknown, boundary: string): ControlChartSession | undefined {
+  if (!plainRecord(value) || value.schemaVersion !== 1 || value.boundary !== boundary ||
+      !CONTROL_STAGES.includes(value.activeStage as ControlWorkflowStage) || !plainRecord(value.selectedPlots) ||
+      !Object.entries(value.selectedPlots).every(([stage, plot]) =>
+        CONTROL_STAGES.includes(stage as ControlWorkflowStage) && typeof plot === "string" && plot.length > 0) ||
+      !Array.isArray(value.selectedSignals) || value.selectedSignals.length > 256 ||
+      !value.selectedSignals.every((signal) => typeof signal === "string" && signal.length > 0) ||
+      new Set(value.selectedSignals).size !== value.selectedSignals.length ||
+      !Array.isArray(value.window) || value.window.length !== 2 ||
+      !value.window.every((item) => typeof item === "number" && Number.isFinite(item)) ||
+      typeof value.expanded !== "boolean" ||
+      (value.candidateRevision !== undefined && !positiveInteger(value.candidateRevision)) ||
+      !Array.isArray(value.pinnedCandidateRevisions) || value.pinnedCandidateRevisions.length > 3 ||
+      !value.pinnedCandidateRevisions.every(positiveInteger) ||
+      (value.pinnedDesigns !== undefined && (!Array.isArray(value.pinnedDesigns) ||
+        value.pinnedDesigns.length > 3 || !value.pinnedDesigns.every((item) =>
+          plainRecord(item) && positiveInteger(item.revision) && plainRecord(item.candidate) &&
+          plainRecord(item.context) && typeof item.context.modelRevision === "string" &&
+          typeof item.context.evidenceRevision === "string" && typeof item.context.method === "string")))) {
+    return undefined;
+  }
+  const normalized = normalizeChartWindow(value.window[0] as number, value.window[1] as number);
+  if (normalized[0] !== value.window[0] || normalized[1] !== value.window[1]) return undefined;
+  return copy(value) as unknown as ControlChartSession;
+}
+
+const CONTROL_STAGES: readonly ControlWorkflowStage[] = ["Monitor", "Test", "Identify", "Tune", "Validate"];
+
+/** Converts configuration-safe unit spellings to compact engineering notation. */
+export function displayEngineeringUnit(unit: string): string {
+  const normalized = unit.trim();
+  return normalized === "degC" ? "°C" : normalized;
+}
 
 /** Units implied by the parallel-form Control.PID equations in Specification 32. */
 export function pidEngineeringUnits(processUnit: string, outputUnit: string): {
@@ -25,8 +350,8 @@ export function pidEngineeringUnits(processUnit: string, outputUnit: string): {
   derivative: string;
   output: string;
 } {
-  const process = processUnit.trim();
-  const output = outputUnit.trim();
+  const process = displayEngineeringUnit(processUnit);
+  const output = displayEngineeringUnit(outputUnit);
   if (!process || !output) {
     return {
       proportional: "normalized output/process",
@@ -48,8 +373,8 @@ export function controlChartAxisLabels(processUnit: string, outputUnit: string):
   output: string;
   description: string;
 } {
-  const process = processUnit.trim() || "engineering unit";
-  const output = outputUnit.trim() || "engineering unit";
+  const process = displayEngineeringUnit(processUnit) || "engineering unit";
+  const output = displayEngineeringUnit(outputUnit) || "engineering unit";
   return {
     process: `SP / PV (${process})`,
     output: `MV (${output})`,
@@ -65,10 +390,12 @@ export function controlChartAccessibleSummary(
 ): string {
   const origin = source.trim() || "Control loop";
   if (!sample) return `${origin} control-loop time plot. No current samples.`;
+  const process = displayEngineeringUnit(processUnit);
+  const output = displayEngineeringUnit(outputUnit);
   return `${origin} control-loop time plot. Current at ${formatEngineeringNumber(sample.elapsedSeconds)} s: ` +
-    `SP ${formatEngineeringNumber(sample.sp)} ${processUnit}, ` +
-    `PV ${formatEngineeringNumber(sample.pv)} ${processUnit}, ` +
-    `MV ${formatEngineeringNumber(sample.mv)} ${outputUnit}.`;
+    `SP ${formatEngineeringNumber(sample.sp)} ${process}, ` +
+    `PV ${formatEngineeringNumber(sample.pv)} ${process}, ` +
+    `MV ${formatEngineeringNumber(sample.mv)} ${output}.`;
 }
 
 /** Emits one marker when limiting starts or ends, never one per scan. */
@@ -83,6 +410,70 @@ export function controlChartSaturationEvent(
     };
   }
   return { kind: "limit", label: `Output entered ${current} saturation` };
+}
+
+/** Converts retained sample annotations into the chronological event log shown beside the plot. */
+export function controlChartEventRows(samples: readonly ControlChartSample[]): ControlChartEventRow[] {
+  const rows: Array<ControlChartEventRow & { order: number }> = [];
+  let previousQuality: SampleQuality | undefined;
+  for (const sample of samples) {
+    for (const event of sample.events ?? []) {
+      rows.push({
+        timeSeconds: sample.elapsedSeconds,
+        kind: event.kind,
+        label: readableEventLabel(event.label),
+        order: rows.length,
+      });
+    }
+    if (previousQuality !== undefined && sample.quality !== undefined && sample.quality !== previousQuality) {
+      rows.push({
+        timeSeconds: sample.elapsedSeconds,
+        kind: "quality",
+        label: `Data quality changed to ${sample.quality}`,
+        order: rows.length,
+      });
+    }
+    previousQuality = sample.quality ?? previousQuality;
+  }
+  return rows
+    .sort((left, right) => left.timeSeconds - right.timeSeconds || left.order - right.order)
+    .map(({ order: _order, ...row }) => row);
+}
+
+function readableEventLabel(label: string): string {
+  if (!/^[a-z0-9]+(?:_[a-z0-9]+)+$/u.test(label)) return label;
+  const words = label.split("_").join(" ");
+  return `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+}
+
+export function controlOutputLimitLines(minimum: number, maximum: number): Array<{ name: string; value: number }> {
+  if (!Number.isFinite(minimum) || !Number.isFinite(maximum) || minimum >= maximum) {
+    throw new Error("Output minimum must be finite and lower than output maximum.");
+  }
+  return [{ name: "Output minimum", value: minimum }, { name: "Output maximum", value: maximum }];
+}
+
+/** Keeps MV in the actuator's declared engineering scale even when current data occupy a small span. */
+export function controlOutputAxisRange(minimum: number, maximum: number): {
+  minimum: number;
+  maximum: number;
+} {
+  controlOutputLimitLines(minimum, maximum);
+  return { minimum, maximum };
+}
+
+/** Frames model-fit plots around the measured variation without clipping it or forcing zero. */
+export function identificationOutputAxisRange(values: readonly number[]): {
+  minimum: number;
+  maximum: number;
+} {
+  const finite = values.filter(Number.isFinite);
+  if (finite.length === 0) throw new Error("Identification output range requires finite values.");
+  const minimum = Math.min(...finite);
+  const maximum = Math.max(...finite);
+  const span = maximum - minimum;
+  const padding = span > 0 ? span * 0.08 : Math.max(Math.abs(minimum) * 0.01, 1e-6);
+  return { minimum: minimum - padding, maximum: maximum + padding };
 }
 
 export const CONTROL_CHART_SIGNALS = [
@@ -133,7 +524,9 @@ export function restoredControlChartSamples(samples: readonly {
   elapsedSeconds: number;
   sp: number | null;
   pv: number | null;
-  mv: number | null;
+  mv?: number | null;
+  requestedMv?: number | null;
+  appliedMv?: number | null;
   quality: "good" | "forced" | "bad";
   events: readonly string[];
 }[]): ControlChartSample[] {
@@ -141,7 +534,9 @@ export function restoredControlChartSamples(samples: readonly {
     elapsedSeconds: sample.elapsedSeconds,
     sp: sample.sp,
     pv: sample.pv,
-    mv: sample.mv,
+    // The chart represents what the actuator actually received. The optional
+    // request remains separate evidence and must not replace applied output.
+    mv: sample.appliedMv ?? sample.mv ?? null,
     quality: sample.quality === "good" ? "good" : "bad",
     events: sample.events.map((label) => ({ kind: "event" as const, label })),
   }));
@@ -234,6 +629,19 @@ export function compactRevisionLabel(value: string): string {
   return digest.length > 12 ? `${digest.slice(0, 8)}…` : digest;
 }
 
+/** Validates an exact graphical edit without mutating the last valid design. */
+export function parseGraphicalGain(
+  text: string,
+  minimum: number,
+  maximum: number
+): { ok: true; value: number } | { ok: false; reason: string } {
+  const value = Number(text);
+  if (!Number.isFinite(value) || value < minimum || value > maximum) {
+    return { ok: false, reason: `Enter a finite value from ${minimum} to ${maximum}.` };
+  }
+  return { ok: true, value };
+}
+
 function automaticFractionDigits(magnitude: number): number {
   if (magnitude >= 1_000) return 0;
   if (magnitude >= 100) return 1;
@@ -266,4 +674,44 @@ function csvText(value: string): string {
 
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function assertHistoryBoundary<T>(history: DesignHistory<T>, boundary: string): void {
+  if (history.boundary !== boundary) {
+    throw new Error("Design history boundary does not match the active loop and model.");
+  }
+}
+
+function copy<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function plainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function namedChannel(value: unknown): boolean {
+  return plainRecord(value) && nonempty(value.id) && nonempty(value.name) && nonempty(value.unit);
+}
+
+function uniqueIds(values: unknown[]): boolean {
+  const ids = values.map((value) => (value as { id: string }).id);
+  return new Set(ids).size === ids.length;
+}
+
+function finitePoint(value: unknown): boolean {
+  return Array.isArray(value) && value.length === 2 && value.every((item) =>
+    typeof item === "number" && Number.isFinite(item));
+}
+
+function nonempty(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function positiveFinite(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function positiveInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) > 0;
 }

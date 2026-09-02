@@ -197,6 +197,244 @@ fn static_and_piecewise_plants_match_their_maps() {
 }
 
 #[test]
+fn gravity_tank_matches_mass_balance_and_square_root_outflow() {
+    let equilibrium = run_scalar_plant(
+        "gravity_tank",
+        "area_m2 = 2.0\noutflow_coefficient_m2_sqrt_m_per_s = 0.5",
+        &[4.0],
+        1.0,
+        10,
+    );
+    assert!(
+        (equilibrium - 4.0).abs() <= 1e-12,
+        "one cubic metre per second must hold the four-metre equilibrium"
+    );
+
+    let draining = run_scalar_plant(
+        "gravity_tank",
+        "area_m2 = 2.0\noutflow_coefficient_m2_sqrt_m_per_s = 0.5",
+        &[4.0],
+        0.0,
+        10,
+    );
+    // Analytic zero-inlet solution: sqrt(h(t)) = sqrt(h0) - k*t/(2*A).
+    let expected = (2.0_f64 - 0.5 * 0.01 / 4.0).powi(2);
+    assert!(
+        (draining - expected).abs() <= 1e-10,
+        "expected {expected}, got {draining}"
+    );
+}
+
+#[test]
+fn robot_joint_matches_gravity_friction_and_inertia_oracle() {
+    let path = temp_simulation_path("robot-joint");
+    std::fs::write(
+        &path,
+        r#"
+[simulation]
+enabled = true
+plant_step_ms = 10
+
+[[plants]]
+id = "joint"
+model = "robot_joint"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0.5, 0.0]
+
+[plants.parameters]
+inertia_kg_m2 = 2.0
+gravity_torque_nm = 4.0
+viscous_friction_nm_s_per_rad = 0.2
+coulomb_friction_nm = 0.1
+friction_smoothing_rad_s = 0.01
+"#,
+    )
+    .expect("write robot-joint configuration");
+    let loaded = SimulationConfig::load(&path);
+    assert!(
+        loaded.is_ok(),
+        "robot-joint configuration must load: {loaded:?}"
+    );
+    let mut simulation = SimulationController::new(loaded.unwrap());
+    let mut runtime = Runtime::new();
+    let torque = IoAddress::parse("%QL0").unwrap();
+    let angle = IoAddress::parse("%IL0").unwrap();
+    let rate = IoAddress::parse("%IL8").unwrap();
+    runtime
+        .io_mut()
+        .bind_typed("torque", torque.clone(), TypeId::LREAL);
+    runtime
+        .io_mut()
+        .bind_typed("angle", angle.clone(), TypeId::LREAL);
+    runtime
+        .io_mut()
+        .bind_typed("rate", rate.clone(), TypeId::LREAL);
+    simulation
+        .apply_pre_cycle(Duration::ZERO, &mut runtime)
+        .unwrap();
+
+    write_lreal(&mut runtime, &torque, 4.0 * 0.5_f64.sin());
+    simulation
+        .apply_post_cycle(Duration::from_millis(10), &runtime)
+        .unwrap();
+    simulation
+        .apply_pre_cycle(Duration::from_millis(10), &mut runtime)
+        .unwrap();
+    assert!((read_lreal(&runtime, &angle) - 0.5).abs() <= 1e-12);
+    assert!(
+        read_lreal(&runtime, &rate).abs() <= 1e-12,
+        "gravity-compensating torque must retain equilibrium"
+    );
+
+    write_lreal(&mut runtime, &torque, 0.0);
+    simulation
+        .apply_post_cycle(Duration::from_millis(20), &runtime)
+        .unwrap();
+    simulation
+        .apply_pre_cycle(Duration::from_millis(20), &mut runtime)
+        .unwrap();
+    let derivative = |theta: f64, omega: f64| {
+        let friction = 0.2 * omega + 0.1 * (omega / 0.01).tanh();
+        (omega, (-4.0 * theta.sin() - friction) / 2.0)
+    };
+    let (k1t, k1w) = derivative(0.5, 0.0);
+    let (k2t, k2w) = derivative(0.5 + 0.005 * k1t, 0.005 * k1w);
+    let (k3t, k3w) = derivative(0.5 + 0.005 * k2t, 0.005 * k2w);
+    let (k4t, k4w) = derivative(0.5 + 0.01 * k3t, 0.01 * k3w);
+    let expected_angle = 0.5 + 0.01 * (k1t + 2.0 * k2t + 2.0 * k3t + k4t) / 6.0;
+    let expected_rate = 0.01 * (k1w + 2.0 * k2w + 2.0 * k3w + k4w) / 6.0;
+    assert!((read_lreal(&runtime, &angle) - expected_angle).abs() <= 1e-12);
+    assert!((read_lreal(&runtime, &rate) - expected_rate).abs() <= 1e-12);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn process_output_backlash_holds_then_follows_the_engaged_flank() {
+    let path = temp_simulation_path("backlash-play");
+    std::fs::write(
+        &path,
+        r#"
+[simulation]
+enabled = true
+plant_step_ms = 10
+
+[[plants]]
+id = "gearbox"
+model = "static_gain"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+
+[plants.parameters]
+gain = 1.0
+
+[[plants.uncertainties]]
+id = "gear-clearance"
+target = "process_output"
+channel = 0
+mode = "replace"
+generator = "backlash"
+width = 2.0
+"#,
+    )
+    .expect("write backlash configuration");
+
+    let loaded = SimulationConfig::load(&path);
+    assert!(
+        loaded.is_ok(),
+        "backlash configuration must load: {loaded:?}"
+    );
+    let mut simulation = SimulationController::new(loaded.unwrap());
+    let mut runtime = Runtime::new();
+    let command = IoAddress::parse("%QL0").unwrap();
+    let feedback = IoAddress::parse("%IL0").unwrap();
+    runtime
+        .io_mut()
+        .bind_typed("ideal_position", command.clone(), TypeId::LREAL);
+    runtime
+        .io_mut()
+        .bind_typed("load_position", feedback.clone(), TypeId::LREAL);
+    simulation
+        .apply_pre_cycle(Duration::ZERO, &mut runtime)
+        .unwrap();
+
+    let mut now_ms = 0;
+    let mut advance = |input: f64, simulation: &mut SimulationController, runtime: &mut Runtime| {
+        now_ms += 10;
+        write_lreal(runtime, &command, input);
+        simulation
+            .apply_post_cycle(Duration::from_millis(now_ms), runtime)
+            .unwrap();
+        simulation
+            .apply_pre_cycle(Duration::from_millis(now_ms), runtime)
+            .unwrap();
+        read_lreal(runtime, &feedback)
+    };
+
+    assert_eq!(advance(0.5, &mut simulation, &mut runtime), 0.0);
+    assert_eq!(advance(2.0, &mut simulation, &mut runtime), 1.0);
+    assert_eq!(advance(1.5, &mut simulation, &mut runtime), 1.0);
+    assert_eq!(advance(-0.5, &mut simulation, &mut runtime), 0.5);
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn backlash_rejects_the_wrong_boundary_and_nonpositive_width() {
+    for (name, target, mode, width, expected) in [
+        (
+            "backlash-measurement",
+            "measurement",
+            "replace",
+            0.05,
+            "backlash requires process_output target and replace mode",
+        ),
+        (
+            "backlash-zero-width",
+            "process_output",
+            "replace",
+            0.0,
+            "uncertainty.width must be > 0",
+        ),
+    ] {
+        let path = temp_simulation_path(name);
+        std::fs::write(
+            &path,
+            format!(
+                r#"
+[simulation]
+enabled = true
+
+[[plants]]
+id = "gearbox"
+model = "static_gain"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+
+[plants.parameters]
+gain = 1.0
+
+[[plants.uncertainties]]
+id = "gear-clearance"
+target = "{target}"
+channel = 0
+mode = "{mode}"
+generator = "backlash"
+width = {width}
+"#
+            ),
+        )
+        .expect("write invalid backlash configuration");
+        let error = SimulationConfig::load(&path).expect_err("invalid backlash must be rejected");
+        assert!(
+            error.to_string().contains(expected),
+            "expected '{expected}', got '{error}'"
+        );
+        let _ = std::fs::remove_file(path);
+    }
+}
+
+#[test]
 fn second_order_plant_uses_classical_rk4() {
     let actual = run_scalar_plant(
         "second_order",
@@ -584,6 +822,142 @@ initial_applied = 0.0
     assert!(
         (actual - 2.0).abs() <= 1e-12,
         "expected slew-limited 2, got {actual}"
+    );
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn actuator_stiction_holds_then_breaks_away_with_one_bounded_slip_jump() {
+    let path = temp_simulation_path("actuator-stiction");
+    std::fs::write(
+        &path,
+        r#"
+[simulation]
+enabled = true
+plant_step_ms = 100
+
+[[plants]]
+id = "valve"
+model = "static_gain"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+
+[plants.parameters]
+gain = 1.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+stiction_band = 5.0
+slip_jump = 2.0
+initial_applied = 0.0
+"#,
+    )
+    .expect("write stiction configuration");
+    let loaded = SimulationConfig::load(&path);
+    assert!(
+        loaded.is_ok(),
+        "stiction configuration must load: {loaded:?}"
+    );
+    let mut simulation = SimulationController::new(loaded.unwrap());
+    let mut runtime = Runtime::new();
+    let command = IoAddress::parse("%QL0").unwrap();
+    let feedback = IoAddress::parse("%IL0").unwrap();
+    runtime
+        .io_mut()
+        .bind_typed("command", command.clone(), TypeId::LREAL);
+    runtime
+        .io_mut()
+        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    simulation
+        .apply_pre_cycle(Duration::ZERO, &mut runtime)
+        .unwrap();
+
+    let mut step = |index: i64, value: f64| {
+        write_lreal(&mut runtime, &command, value);
+        let now = Duration::from_millis(index * 100);
+        simulation.apply_post_cycle(now, &runtime).unwrap();
+        simulation.apply_pre_cycle(now, &mut runtime).unwrap();
+        read_lreal(&runtime, &feedback)
+    };
+    assert_eq!(
+        step(1, 4.0),
+        0.0,
+        "sub-breakaway command must hold position"
+    );
+    assert_eq!(
+        step(2, 6.0),
+        2.0,
+        "breakaway must apply one declared slip jump"
+    );
+    assert_eq!(
+        step(3, 6.0),
+        6.0,
+        "sliding valve must then reach the accepted command"
+    );
+    assert_eq!(
+        step(4, 8.0),
+        6.0,
+        "the valve must stick again after motion ends"
+    );
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn actuator_installed_characteristic_maps_position_before_the_process() {
+    let path = temp_simulation_path("actuator-characteristic");
+    std::fs::write(
+        &path,
+        r#"
+[simulation]
+enabled = true
+plant_step_ms = 100
+
+[[plants]]
+id = "valve"
+model = "static_gain"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+
+[plants.parameters]
+gain = 1.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+characteristic_exponent = 2.0
+initial_applied = 0.0
+"#,
+    )
+    .expect("write installed-characteristic configuration");
+    let loaded = SimulationConfig::load(&path);
+    assert!(
+        loaded.is_ok(),
+        "installed characteristic must load: {loaded:?}"
+    );
+    let mut simulation = SimulationController::new(loaded.unwrap());
+    let mut runtime = Runtime::new();
+    let command = IoAddress::parse("%QL0").unwrap();
+    let feedback = IoAddress::parse("%IL0").unwrap();
+    runtime
+        .io_mut()
+        .bind_typed("command", command.clone(), TypeId::LREAL);
+    runtime
+        .io_mut()
+        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    simulation
+        .apply_pre_cycle(Duration::ZERO, &mut runtime)
+        .unwrap();
+    write_lreal(&mut runtime, &command, 50.0);
+    simulation
+        .apply_post_cycle(Duration::from_millis(100), &runtime)
+        .unwrap();
+    simulation
+        .apply_pre_cycle(Duration::from_millis(100), &mut runtime)
+        .unwrap();
+    assert!(
+        (read_lreal(&runtime, &feedback) - 25.0).abs() <= 1e-12,
+        "50% position with exponent 2 must apply 25% process input"
     );
     let _ = std::fs::remove_file(path);
 }
@@ -1814,7 +2188,7 @@ enabled = true
 plant_step_ms = 100
 
 [[plants]]
-id = "paper-fopdt"
+id = "reference-fopdt"
 model = "first_order_dead_time"
 command_sources = ["%QL0"]
 feedback_targets = ["%IL0"]
@@ -2074,6 +2448,77 @@ gain = 1.0
     .unwrap();
     let error = SimulationConfig::load(&path).expect_err("unknown plant field must reject config");
     assert!(error.to_string().contains("unknown field"), "{error}");
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn model_validity_bounds_fault_and_roll_back_the_complete_substep() {
+    let path = temp_simulation_path("model-validity");
+    std::fs::write(
+        &path,
+        r#"
+[simulation]
+enabled = true
+plant_step_ms = 100
+plant_trace_capacity = 4
+
+[[plants]]
+id = "local-model"
+model = "integrator"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [0.0]
+[plants.parameters]
+gain = 1.0
+[plants.validity]
+input_minimum = [-2.0]
+input_maximum = [2.0]
+state_minimum = [-0.15]
+state_maximum = [0.15]
+output_minimum = [-0.15]
+output_maximum = [0.15]
+out_of_range = "fault"
+"#,
+    )
+    .unwrap();
+
+    let config = SimulationConfig::load(&path).expect("validity bounds must load");
+    let mut simulation = SimulationController::new(config);
+    let mut runtime = Runtime::new();
+    let command = IoAddress::parse("%QL0").unwrap();
+    let feedback = IoAddress::parse("%IL0").unwrap();
+    runtime
+        .io_mut()
+        .bind_typed("command", command.clone(), TypeId::LREAL);
+    runtime
+        .io_mut()
+        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    simulation
+        .apply_pre_cycle(Duration::ZERO, &mut runtime)
+        .unwrap();
+
+    write_lreal(&mut runtime, &command, 1.0);
+    simulation
+        .apply_post_cycle(Duration::from_millis(100), &runtime)
+        .unwrap();
+    simulation
+        .apply_pre_cycle(Duration::from_millis(100), &mut runtime)
+        .unwrap();
+    assert_eq!(read_lreal(&runtime, &feedback), 0.1);
+
+    let error = simulation
+        .apply_post_cycle(Duration::from_millis(200), &runtime)
+        .expect_err("state outside its local model region must fault");
+    let message = error.to_string();
+    assert!(message.contains("local-model"), "{message}");
+    assert!(message.contains("validity state channel 0"), "{message}");
+    assert!(message.contains("[-0.15, 0.15]"), "{message}");
+    let status = &simulation.status().plants[0];
+    assert_eq!(status.simulated_time, Duration::from_millis(100));
+    assert_eq!(status.state, vec![0.1]);
+    assert_eq!(status.published_feedback, vec![0.1]);
+    assert_eq!(read_lreal(&runtime, &feedback), 0.1);
+    assert_eq!(simulation.trace_snapshot().rows.len(), 1);
     let _ = std::fs::remove_file(path);
 }
 

@@ -47,6 +47,17 @@ export function run(): Promise<void> {
   require("./runtime-shared-utils.test");
   require("./runtime-control-client.test");
   require("./control-engineering-fixtures.test");
+  require("./control-studio-numerics.test");
+  require("./control-lesson-schema.test");
+  require("./control-lesson-source-structure.test");
+  require("./control-curriculum-catalog.test");
+  require("./control-lesson-pid-production.test");
+  require("./control-lesson-selection-modelling.test");
+  require("./control-lesson-state-space.test");
+  require("./control-lesson-tuning-methods.test");
+  require("./control-lesson-industrial-structures.test");
+  require("./control-lesson-capstones.test");
+  require("./control-curriculum-readmes.test");
   require("./runtime-target.test");
   require("./network-canvas.test");
   require("./network-canvas-message-router.test");
@@ -66,6 +77,7 @@ export function run(): Promise<void> {
   require("./control-studio-identify-tune.test");
   require("./control-studio-validate-apply.test");
   require("./control-studio-chart.test");
+  require("./control-studio-sidebar.test");
   require("./control-studio-plant-monitor.test");
   require("./network-canvas-fleet-identity.test");
   require("./ads-status-summary.test");

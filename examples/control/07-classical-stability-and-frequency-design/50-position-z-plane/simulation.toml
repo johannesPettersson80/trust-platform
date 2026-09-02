@@ -1,0 +1,49 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2000
+plant_step_ms = 10
+
+[[plants]]
+id = "fine-sampled-positioning-table"
+name = "Positioning table with 10 ms controller updates"
+description = "Continuous table mechanics driven by a force held between fine controller samples."
+model = "state_space"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0.0, 0.0]
+[plants.parameters]
+a = [[0.0, 1.0], [0.0, -2.0]]
+b = [[0.0], [10.0]]
+c = [[1.0, 0.0], [0.0, 1.0]]
+d = [[0.0], [0.0]]
+
+[[plants]]
+id = "coarse-baseline-positioning-table"
+name = "Positioning table with unchanged gains at 100 ms"
+description = "Equivalent mechanics used to expose the unstable sampled implementation."
+model = "state_space"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL16", "%IL24"]
+initial_state = [0.0, 0.0]
+[plants.parameters]
+a = [[0.0, 1.0], [0.0, -2.0]]
+b = [[0.0], [10.0]]
+c = [[1.0, 0.0], [0.0, 1.0]]
+d = [[0.0], [0.0]]
+
+[[plants]]
+id = "corrected-coarse-positioning-table"
+name = "Positioning table with corrected 100 ms digital gains"
+description = "Equivalent mechanics used to validate the corrected discrete design."
+model = "state_space"
+command_sources = ["%QL16"]
+feedback_targets = ["%IL32", "%IL40"]
+initial_state = [0.0, 0.0]
+[plants.parameters]
+a = [[0.0, 1.0], [0.0, -2.0]]
+b = [[0.0], [10.0]]
+c = [[1.0, 0.0], [0.0, 1.0]]
+d = [[0.0], [0.0]]

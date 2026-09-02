@@ -1,0 +1,7 @@
+case,kp_percent_per_degC,ki_percent_per_degC_s,integral_time_s,settled,pv_range_degC,requested_range_pp,applied_range_pp,early_mean_absolute_error_degC,final_mean_absolute_error_degC,recovery_time_s,post_load_overshoot_degC,cumulative_applied_movement_pp,saturation_duration_s,simulation_criteria,eligible,selected,evidence_class
+biased_p,8.0,0.0,,true,0.000000,0.000000,0.000000,1.066759,1.153846,Not recovered,0.000000,9.243442,0.0,reference,false,false,simulation
+integral_only,0.0,0.5,,true,0.052045,0.073912,0.073912,1.617434,0.015674,25.5,0.156448,17.384782,0.0,reference,false,false,simulation
+pi_ki_0_5,8.0,0.5,16.0,true,0.055180,0.208829,0.208829,0.881478,0.131486,45.0,0.000000,14.600970,0.0,fail,false,false,simulation
+pi_ki_2,8.0,2.0,4.0,true,0.000000,0.000000,0.000000,0.490373,0.000000,10.9,0.000005,16.317362,0.0,pass,true,false,simulation
+pi_ki_4,8.0,4.0,2.0,true,0.000016,0.000154,0.000154,0.341886,0.000003,6.6,0.171653,26.109284,0.0,pass,true,true,simulation
+pi_ki_8,8.0,8.0,1.0,true,0.012729,0.240279,0.240279,0.378238,0.004114,17.8,0.508769,67.794402,0.7,fail,false,false,simulation

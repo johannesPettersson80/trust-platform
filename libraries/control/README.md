@@ -1,6 +1,6 @@
 # truST Control Library
 
-The Control library provides the paper-compatible combined-form PID controller
+The Control library provides a combined-form PID controller
 and its independent low-pass filter. It is intended for cyclic Structured Text
 applications that supply the actual elapsed cycle time on every update.
 

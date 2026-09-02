@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 4,
+  "id": "control-crane-routh-stability",
+  "title": "Prove an overhead-crane stability interval",
+  "level": "Advanced",
+  "sequence": 45,
+  "equipment": "Overhead travelling crane trolley with suspended load",
+  "physicalPurpose": "Establish the safe proportional-gain stability interval algebraically before hazardous time-domain trials.",
+  "principalTechnique": "Routh-Hurwitz stability criterion",
+  "objective": "Derive the complete gain interval and predict stable, marginal, and unstable crane responses before executable confirmation.",
+  "prerequisites": ["control-model-based-tuning"],
+  "nextLesson": "control-servo-root-locus",
+  "signals": [
+    { "role": "state", "name": "Experiment enable", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.0" },
+    { "role": "SP", "name": "Stable trolley setpoint", "unit": "m", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%ML24" },
+    { "role": "SP", "name": "Marginal trolley setpoint", "unit": "m", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%ML32" },
+    { "role": "SP", "name": "Unstable trolley setpoint", "unit": "m", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%ML40" },
+    { "role": "MV", "name": "Stable applied motor force", "unit": "%", "minimum": -100, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
+    { "role": "MV", "name": "Marginal applied motor force", "unit": "%", "minimum": -100, "maximum": 100, "resolution": 0.01, "binding": "%QL8" },
+    { "role": "MV", "name": "Unstable applied motor force", "unit": "%", "minimum": -100, "maximum": 100, "resolution": 0.01, "binding": "%QL16" },
+    { "role": "PV", "name": "Stable trolley position", "unit": "m", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%IL0" },
+    { "role": "PV", "name": "Marginal trolley position", "unit": "m", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%IL8" },
+    { "role": "PV", "name": "Unstable trolley position", "unit": "m", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%IL16" }
+  ],
+  "plant": {
+    "modelId": "three_equivalent_open_loop_crane_copies",
+    "executable": "simulation.toml",
+    "parameters": [
+      { "name": "squared_coefficient", "value": 2, "unit": "1/s" },
+      { "name": "linear_coefficient", "value": 3, "unit": "1/s" },
+      { "name": "initial_displacement", "value": 0.1, "unit": "m" },
+      { "name": "stable_gain", "value": 4, "unit": "%/m" },
+      { "name": "marginal_gain", "value": 6, "unit": "%/m" },
+      { "name": "unstable_gain", "value": 8, "unit": "%/m" }
+    ],
+    "sampleTimeSeconds": 0.01,
+    "initialState": { "trolleyPositionMetres": 0.1, "trolleyVelocityMetresPerSecond": 0, "dynamicAccelerationState": 0 },
+    "seed": 20260829,
+    "operatingPoint": { "Stable trolley setpoint": 0, "Marginal trolley setpoint": 0, "Unstable trolley setpoint": 0, "Stable applied motor force": 0, "Marginal applied motor force": 0, "Unstable applied motor force": 0, "Stable trolley position": 0.1, "Marginal trolley position": 0.1, "Unstable trolley position": 0.1 },
+    "validityRange": [
+      { "signal": "Stable trolley position", "minimum": -2, "maximum": 2, "unit": "m" },
+      { "signal": "Marginal trolley position", "minimum": -2, "maximum": 2, "unit": "m" },
+      { "signal": "Unstable trolley position", "minimum": -2, "maximum": 2, "unit": "m" },
+      { "signal": "Stable applied motor force", "minimum": -100, "maximum": 100, "unit": "%" },
+      { "signal": "Marginal applied motor force", "minimum": -100, "maximum": 100, "unit": "%" },
+      { "signal": "Unstable applied motor force", "minimum": -100, "maximum": 100, "unit": "%" }
+    ],
+    "simplifications": ["Local linear trolley and suspended-load dynamics", "Fixed load and rope length", "Ideal position sensing", "No structural flexibility or drive dynamics", "Simulation-only I/O"]
+  },
+  "baseline": {
+    "executableId": "Crane.FiniteTrialJudgement",
+    "settings": { "selectedGain": 4, "finiteDurationSeconds": 40 },
+    "limitation": "A finite response at selected gains cannot prove the complete stability interval or expose a weakly excited unstable mode."
+  },
+  "change": {
+    "executableId": "Crane.RouthHurwitzInterval",
+    "settings": { "polynomialCoefficients": [1, 2, 3, "K"], "predictedStableInterval": "0 < K < 6", "confirmationGains": [4, 6, 8] },
+    "decision": "Use the Routh first-column signs and independent numerical roots as authority; use equivalent time traces only as confirmation."
+  },
+  "experiment": { "kind": "observation", "signal": "Stable trolley position", "baseline": 0.1, "amplitude": 0, "durationSeconds": 40, "settlingSeconds": 0, "disturbances": ["Identical 0.1-metre initial displacement on each crane copy"], "seed": 20260829, "restorationValue": 0 },
+  "acceptance": [
+    { "metric": "stable_right_half_plane_poles", "signal": "Stable trolley position", "window": "Routh array and independent roots before run", "comparator": "==", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "model" },
+    { "metric": "marginal_imaginary_axis_poles", "signal": "Marginal trolley position", "window": "independent roots before run", "comparator": "==", "limit": 2, "unit": "1", "tolerance": 0, "evidenceClass": "model" },
+    { "metric": "unstable_right_half_plane_poles", "signal": "Unstable trolley position", "window": "Routh array and independent roots before run", "comparator": "==", "limit": 2, "unit": "1", "tolerance": 0, "evidenceClass": "model" },
+    { "metric": "stable_position_envelope_ratio", "signal": "Stable trolley position", "window": "30-40 s peak absolute position divided by 2-12 s peak", "comparator": "<", "limit": 0.25, "unit": "1", "tolerance": 0.01, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Stable applied motor force", "minimum": -100, "maximum": 100, "unit": "%" },
+      { "signal": "Marginal applied motor force", "minimum": -100, "maximum": 100, "unit": "%" },
+      { "signal": "Unstable applied motor force", "minimum": -100, "maximum": 100, "unit": "%" },
+      { "signal": "Stable trolley position", "minimum": -2, "maximum": 2, "unit": "m" },
+      { "signal": "Marginal trolley position", "minimum": -2, "maximum": 2, "unit": "m" },
+      { "signal": "Unstable trolley position", "minimum": -2, "maximum": 2, "unit": "m" }
+    ],
+    "abortPredicates": ["Any required signal is missing, stale, forced, nonfinite, or has bad quality", "An individual trolley reaches two metres absolute position", "An individual requested motor force exceeds 100 percent", "Model identity, initial state, timing, gain, or limit differs from the reviewed experiment"],
+    "safeMv": 0,
+    "restorationMode": "Disable the experiment, command zero motor force, and restart all three simulated models from the declared initial state",
+    "physicalApprovalRole": "authorised crane controls engineer and responsible lifting-equipment operator",
+    "simulationOnlyRestrictions": ["Never apply the marginal or unstable lesson gains to physical lifting equipment", "Physical validation requires independently reviewed mechanics, topology, model, limits, interlocks, procedure, authorised roles, and explicit immediate approval"]
+  },
+  "workflowStages": ["Monitor", "Test", "Tune", "Validate"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-45--closed-loop-poles-and-routh-hurwitz-overhead-crane",
+    "nativeTest": "control_curriculum_routh_range_predicts_crane_stable_marginal_and_unstable_runs",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_classical control_curriculum_routh_range_predicts_crane_stable_marginal_and_unstable_runs -- --exact --nocapture",
+    "projectPath": "examples/control/07-classical-stability-and-frequency-design/45-crane-routh-stability",
+    "runArtifactFields": ["plantIdentity", "polynomial", "gain", "routhRows", "firstColumn", "signChanges", "numericalRoots", "samples", "requestedForce", "appliedForce", "earlyEnvelope", "lateEnvelope", "envelopeRatio", "forceTravel", "limitContact", "stopReason", "restoration", "seed", "evidenceClass"],
+    "renderedJourneyId": "control-crane-routh-stability"
+  },
+  "video": { "viewerOutcome": "Derive a crane gain interval, classify the boundary, and use executable traces as confirmation rather than proof.", "requiredVisibleEvidence": ["crane model", "characteristic polynomial", "Routh array", "special-case treatment", "stable marginal unstable predictions", "three equivalent traces", "numerical roots", "abort state", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "learning": {
+    "context": "Three equivalent simulated overhead-crane copies expose natural responses at proportional gains 4, 6, and 8.",
+    "reason": "Selected finite tuning runs cannot establish a complete stability interval or safely search for instability.",
+    "theory": ["Closed-loop poles are natural response modes whose real parts determine decay, persistence, or growth.", "The Routh first-column sign changes count right-half-plane poles.", "Zero first elements and complete zero rows require explicit special-case treatment."],
+    "workedPrediction": "Derive 0 < K < 6 and predict stable K=4, marginal K=6, and two unstable poles at K=8 before enabling simulation.",
+    "practicalPreparation": ["Verify identical models, initial displacement, zero setpoint, units, quality, timing, limits, aborts, restoration, and Simulation evidence.", "Record the Routh table, numerical roots, and envelope criteria before the run."],
+    "baseline": "Finite time-domain inspection at selected gains cannot prove the full gain interval.",
+    "change": "Use Routh-Hurwitz and an independent root oracle before equivalent natural-response tests.",
+    "comparison": "Change only proportional gain while holding model, initial condition, timing, duration, limits, and seed equal.",
+    "validation": "Require algebra and roots to agree, then confirm decay, marginal persistence, and growth or safe abort in the executable plants.",
+    "explanation": "The sign of the s^1 first-column term changes at K=6, moving a pole pair from the left half-plane through the imaginary axis into the right half-plane.",
+    "transfer": "Routh proves an interval but not pole motion or acceptable damping; Lesson 46 introduces root locus."
+  }
+}

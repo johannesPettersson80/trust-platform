@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 4,
+  "id": "control-nominal-fopdt",
+  "title": "Validated-model Lambda/IMC PI tuning",
+  "level": "Modelling",
+  "sequence": 18,
+  "equipment": "Electric recirculating water heater, outlet-temperature sensor, heater power stage, and cold-flow load",
+  "physicalPurpose": "Produce and qualify a reproducible PI tuning for outlet temperature without silently applying gains.",
+  "principalTechnique": "Lambda/IMC PI calculation and common-plan tuning qualification",
+  "objective": "Choose a closed-loop response target, calculate PI gains from the validated FOPDT model, and compare them with empirical tuning under nominal and uncertain conditions.",
+  "prerequisites": ["control-independent-heater-model-validation"],
+  "nextLesson": "control-servo-position-p",
+  "signals": [
+    { "role": "SP", "name": "Outlet-temperature setpoint", "unit": "degC", "minimum": 15, "maximum": 60, "resolution": 0.1, "binding": "%ML0" },
+    { "role": "PV", "name": "Outlet-water temperature", "unit": "degC", "minimum": 0, "maximum": 80, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "MV", "name": "Requested heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML64" },
+    { "role": "MV", "name": "Applied heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
+    { "role": "state", "name": "Experiment authority enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX85.0" },
+    { "role": "state", "name": "Simulation run approval", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.1" },
+    { "role": "state", "name": "Generate candidate", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX84.1" },
+    { "role": "state", "name": "Validation passed", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX84.2" },
+    { "role": "state", "name": "Apply approved", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX84.3" },
+    { "role": "state", "name": "Rollback requested", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX84.4" },
+    { "role": "state", "name": "Safety abort active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.2" },
+    { "role": "quality", "name": "Input validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.3" },
+    { "role": "state", "name": "Manual mode active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.4" },
+    { "role": "disturbance", "name": "Cold-flow equilibrium-temperature load", "unit": "degC", "minimum": -0.4, "maximum": 0, "resolution": 0.01, "binding": "simulation.toml#plant_events[0]" },
+    { "role": "state", "name": "Tuning selection", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MW80" },
+    { "role": "state", "name": "Lambda response target", "unit": "s", "minimum": 0.1, "maximum": 100, "resolution": 0.1, "binding": "%ML32" }
+  ],
+  "plant": {
+    "modelId": "validated_local_first_order_dead_time",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [{ "name": "gain", "value": 0.2, "unit": "degC/%" }, { "name": "time_constant", "value": 5, "unit": "s" }, { "name": "dead_time", "value": 1, "unit": "s" }, { "name": "gain_validation_lower", "value": 0.19, "unit": "degC/%" }, { "name": "time_constant_validation_upper", "value": 6, "unit": "s" }, { "name": "dead_time_validation_upper", "value": 1.3, "unit": "s" }],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "outletTemperature": 30.2, "heaterPower": 20 },
+    "seed": 20260824,
+    "operatingPoint": { "PV": 30.2, "MV": 20 },
+    "validityRange": [{ "signal": "Outlet-water temperature", "minimum": 30, "maximum": 31, "unit": "degC" }, { "signal": "Applied heater power", "minimum": 20, "maximum": 25, "unit": "%" }],
+    "simplifications": ["One well-mixed local thermal state with fixed-flow command-model eligibility.", "The cold-flow event is a regulatory test outside the identified command model's predicted input path.", "The uncertainty case perturbs gain, time constant, delay, and measurement noise deterministically.", "Spatial, nonlinear, efficiency, and hardware-protection behavior are omitted."]
+  },
+  "baseline": {
+    "executableId": "Control.PID.PI.Empirical",
+    "settings": { "tuningSelection": 0, "proportionalGain": 4, "integralGain": 0.8, "derivativeGain": 0 },
+    "limitation": "The empirical tuning works but does not expose a reproducible model assumption or explicit robustness-speed target."
+  },
+  "change": {
+    "executableId": "Control.PID.PI.Lambda",
+    "settings": { "tuningSelection": 1, "method": "Lambda/IMC", "lambdaSeconds": 4, "proportionalGain": 5, "integralTimeSeconds": 5, "integralGain": 1, "derivativeGain": 0 },
+    "decision": "Calculate an unapplied candidate from frozen K/T/L and Lambda, then compare it against the empirical tuning with one common nominal and perturbed plan."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority enabled",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 120.1,
+    "settlingSeconds": 0,
+    "disturbances": ["Start at 30.2 degC and 20 percent heater power, then request 30.6 degC", "Cold-flow load lowers output bias from 30.2 to 29.8 degC at 60 s", "Perturbed case uses K=0.19, T=6, L=1.3 and 0.03 degC deterministic measurement noise"],
+    "seed": 20260824,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    { "metric": "model_based_tracking_IAE", "signal": "Outlet-water temperature", "window": "0 to 60 s", "comparator": "<=", "limit": 6.0, "unit": "degC*s", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "model_based_load_IAE", "signal": "Outlet-water temperature", "window": "60 to 120 s", "comparator": "<=", "limit": 2.4, "unit": "degC*s", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "tracking_IAE_improvement", "signal": "Outlet-water temperature", "window": "nominal candidates", "comparator": ">=", "limit": 2, "unit": "%", "tolerance": 0.1, "evidenceClass": "simulation" },
+    { "metric": "load_IAE_improvement", "signal": "Outlet-water temperature", "window": "nominal candidates", "comparator": ">=", "limit": 2, "unit": "%", "tolerance": 0.1, "evidenceClass": "simulation" },
+    { "metric": "perturbed_noisy_final_error", "signal": "Outlet-water temperature", "window": "last 10 s", "comparator": "<=", "limit": 0.2, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "perturbed_noisy_MV_travel", "signal": "Applied heater power", "window": "complete run", "comparator": "<=", "limit": 300, "unit": "%", "tolerance": 1, "evidenceClass": "simulation" },
+    { "metric": "manipulated_value_maximum", "signal": "Applied heater power", "window": "every approved qualification run", "comparator": "<=", "limit": 25, "unit": "%", "tolerance": 0.001, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [{ "signal": "Outlet-water temperature", "minimum": 0, "maximum": 80, "unit": "degC" }, { "signal": "Applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }],
+    "abortPredicates": ["SP, PV, MV, model parameter, Lambda, or calculated gain is nonfinite", "model or tuning input is outside its declared engineering bounds", "requirements are infeasible inside actuator or model-validity limits", "PV or MV leaves its hard limit", "approved qualification PV or MV leaves the accepted local model range", "candidate, plant, event, seed, timing, or axes differ without declaration"],
+    "safeMv": 0,
+    "restorationMode": "Manual with 0 percent heater power",
+    "physicalApprovalRole": "authorised heater controls engineer",
+    "simulationOnlyRestrictions": ["Simulation qualification does not prove physical performance or extend the fixed-flow model purpose.", "Generate and validate candidates without applying; physical action requires topology review and immediate approval."]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-18--model-based-pi-tuning-same-water-heater",
+    "nativeTest": "control_curriculum_lambda_pi_improves_declared_response_and_survives_model_error",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_modelling_progression control_curriculum_lambda_pi_improves_declared_response_and_survives_model_error -- --exact --nocapture",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/18-nominal-fopdt",
+    "runArtifactFields": ["acceptedModelId", "modelProvenance", "validityRestriction", "parameterIntervals", "lambda", "equations", "calculatedCandidate", "empiricalCandidate", "SP", "PV", "requestedMV", "appliedMV", "runApproval", "manualMode", "abort", "restoration", "trackingIae", "loadIae", "finalError", "mvTravel", "saturation", "perturbations", "noiseSeed", "limits", "verdict", "appliedState", "evidenceClass"],
+    "renderedJourneyId": "control-nominal-fopdt"
+  },
+  "video": {
+    "viewerOutcome": "Calculate a Lambda PI from a validated model and qualify its speed, robustness, and actuator trade-offs against the existing empirical tuning.",
+    "requiredVisibleEvidence": ["accepted restricted model", "Lambda choice and dimensional calculation", "empirical and calculated candidates", "equal nominal SP/PV/MV overlays", "IAE comparison", "perturbed noisy validation", "MV travel and limits", "unapplied recommendation"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "The heater has an empirical PI baseline and a validated fixed-flow FOPDT command model with explicit uncertainty and purpose restriction.",
+    "reason": "Model-based tuning makes the response target and calculation reproducible, but still requires common-plan qualification against uncertainty, noise, disturbances, and limits.",
+    "theory": ["Lambda is a desired closed-loop response time: smaller values usually increase speed and gains while reducing robustness to delay, noise, and model error.", "For this FOPDT PI rule, Kp=T/[K(lambda+L)], Ti=min[T,4(lambda+L)], and Ki=Kp/Ti with explicit engineering units.", "Only independently validated model purposes and ranges are eligible, and parameter intervals define representative perturbation cases.", "A candidate is a recommendation until explicit Apply approval; calculation never establishes performance by itself."],
+    "workedPrediction": "K=0.2 degC/%, T=5 s, L=1 s, and lambda=4 s give Kp=5 %/degC, Ti=5 s, and Ki=1 %/(degC*s), compared with empirical Kp=4 and Ki=0.8.",
+    "practicalPreparation": ["Inspect model identity, provenance, restriction, parameter intervals, signals, units, operating point, timing, limits, safe state, and unapplied status.", "Declare nominal and perturbed requirements, calculate the candidate by hand, and freeze equal experiments before running."],
+    "baseline": "Run empirical Kp=4 and Ki=0.8 on the nominal setpoint and cold-flow plan and retain complete evidence.",
+    "change": "Use one reviewed ExperimentEnabled authority to make the project generate, validate, apply, run, and then roll back Kp=5 and Ki=1 from the frozen model and lambda=4 s.",
+    "comparison": "Compare equal-axis time responses, tracking and load IAE, final error, saturation, and MV travel; then repeat the selected candidate with declared K/T/L/noise perturbations.",
+    "validation": "Require at least 2 percent IAE improvement, perturbed final error at most 0.2 degC, finite signals, bounded MV, visible activity, and deterministic rejection of invalid or infeasible inputs.",
+    "explanation": "The explicit target explains the faster response and higher actuator activity; passing remains local Simulation evidence rather than universal or physical proof.",
+    "transfer": "For another eligible process, validate first, choose a response target from requirements and uncertainty, calculate with units, compare on one plan, perturb the model, retain all trade-offs, and require explicit Apply approval."
+  }
+}

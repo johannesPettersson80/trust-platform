@@ -1,0 +1,9 @@
+plant,accepted,decision_measure,measured_value,unit
+heater,true,five-second response fraction,0.632120558829,fraction
+integrating tank,true,late slope,0.200000000000,cm/s
+flexible drive,true,peak,1.526610849953,rad
+flexible drive,true,steady-value crossings,9,count
+overhead crane,true,dominant-tail ratio,0.606530660222,ratio
+magnetic bearing,false,abort time,9.300000000000,s
+boiler drum,true,inverse-response minimum,-0.505241518446,level unit
+boiler drum,true,final response,0.553739985602,level unit

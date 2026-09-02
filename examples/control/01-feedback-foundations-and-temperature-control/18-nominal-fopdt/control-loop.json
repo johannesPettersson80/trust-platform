@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "id": "control-nominal-fopdt",
+  "name": "Validated-model Lambda/IMC PI tuning",
+  "revision": "sha256:516c3f4df69531590f63871523fb9797796684f7f3312d7fa116ac2a05603800",
+  "projectId": "project:control-nominal-fopdt",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:7b69ac3480ab0fdb0b57d09234817d61e34731aeeeec3dcb99dbf291df5f8197",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX16.0"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 15,
+        "maximum": 60
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ManipulatedValue",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority-enabled",
+        "channel": "experiment-authority-enabled",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX85.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "requested-heater-power",
+        "channel": "requested-heater-power",
+        "role": "state",
+        "symbol": "P1.RequestedManipulatedValue",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "input-validity",
+        "channel": "input-validity",
+        "role": "quality",
+        "symbol": "P1.InputsValid",
+        "address": "%MX16.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "tuning-selection",
+        "channel": "tuning-selection",
+        "role": "state",
+        "symbol": "P1.TuningSelection",
+        "address": "%MW80",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "lambda-response-target",
+        "channel": "lambda-response-target",
+        "role": "state",
+        "symbol": "P1.Lambda",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0.1,
+          "maximum": 100
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "validated_local_first_order_dead_time",
+  "operatingPoint": "PV 30.2, MV 20",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 120.1,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX85.0",
+      "activeValue": true,
+      "restorationValue": false
+    },
+    "seed": 20260824
+  }
+}

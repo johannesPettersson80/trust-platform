@@ -1,0 +1,6 @@
+metric,value,unit,window,decision
+fixed_flow_rmse,0.004760468625,degC,11.0-29.0 s,pass
+fixed_flow_lag_one_correlation,0.998622706535,1,11.0-29.0 s,diagnostic
+post_load_residual_bias,-0.991545354034,degC,50.0-60.0 s,restrict cold-flow prediction
+fixed_flow_command_model,1,1,20-25 percent and 30-31 degC,accepted
+cold_flow_prediction,0,1,omitted disturbance path,restricted

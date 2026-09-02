@@ -1,0 +1,4 @@
+architecture,worst_normal_final_error_pp,worst_cross_peak_pp,constraint_final_error_pp,minimum_constraint_scale,verdict
+direct,0.172812515,0.189103248,1.027470147,1.000000000,reject-coupling
+static-decoupling,0.076655332,0.075193283,0.417445299,1.000000000,selected-normal-envelope
+central-coordination,0.076655332,0.075193283,0.274694740,0.843582532,no-material-benefit

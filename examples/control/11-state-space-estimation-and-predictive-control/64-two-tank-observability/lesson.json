@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 4,
+  "id": "control-two-tank-observability",
+  "title": "Check two-tank actuator and sensor feasibility",
+  "level": "Modern",
+  "sequence": 64,
+  "equipment": "Interconnected water-treatment buffer tanks",
+  "physicalPurpose": "Verify that proposed pump and level-sensor locations can move and reveal both tank states before controller or observer design.",
+  "principalTechnique": "Controllability, observability, stabilisability, and detectability",
+  "objective": "Calculate and execute the reachable and visible state directions for normal and deliberately deficient pump/sensor layouts, then accept or reject each hardware layout before design.",
+  "prerequisites": ["control-distillation-robustness"],
+  "nextLesson": "control-magnetic-bearing-state-feedback",
+  "signals": [
+    { "role": "authority", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX32.0" },
+    { "role": "state", "name": "Actuator layout", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MW0" },
+    { "role": "state", "name": "Sensor layout", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MW2" },
+    { "role": "MV", "name": "Requested pump-flow change", "unit": "L/min", "minimum": -2, "maximum": 2, "resolution": 0.01, "binding": "%ML8" },
+    { "role": "PV", "name": "Selected level measurement", "unit": "cm", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%ML16" },
+    { "role": "MV", "name": "Applied selected flow", "unit": "L/min", "minimum": -2, "maximum": 2, "resolution": 0.01, "binding": "%ML24" },
+    { "role": "MV", "name": "Applied upstream-pump flow", "unit": "L/min", "minimum": -2, "maximum": 2, "resolution": 0.01, "binding": "%QL0" },
+    { "role": "MV", "name": "Applied bypass-pump flow", "unit": "L/min", "minimum": -2, "maximum": 2, "resolution": 0.01, "binding": "%QL8" },
+    { "role": "state", "name": "Simulation truth Tank-1 level deviation", "unit": "cm", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%IL0" },
+    { "role": "state", "name": "Simulation truth Tank-2 level deviation", "unit": "cm", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%IL8" }
+  ],
+  "plant": {
+    "modelId": "interconnected_buffer_tanks_two_actuator_truth_outputs",
+    "executable": "simulation.toml",
+    "parameters": [
+      { "name": "tank_1_loss_rate", "value": 0.05, "unit": "1/s" },
+      { "name": "tank_1_to_tank_2_rate", "value": 0.03, "unit": "1/s" },
+      { "name": "tank_2_loss_rate", "value": 0.04, "unit": "1/s" },
+      { "name": "direct_pump_level_rate", "value": 0.2, "unit": "cm/s" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "tank1LevelDeviation": 0, "tank2LevelDeviation": 0 },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Requested pump-flow change": 0,
+      "Applied upstream-pump flow": 0,
+      "Applied bypass-pump flow": 0,
+      "Selected level measurement": 0,
+      "Simulation truth Tank-1 level deviation": 0,
+      "Simulation truth Tank-2 level deviation": 0
+    },
+    "validityRange": [
+      { "signal": "Requested pump-flow change", "minimum": -2, "maximum": 2, "unit": "L/min" },
+      { "signal": "Applied upstream-pump flow", "minimum": -2, "maximum": 2, "unit": "L/min" },
+      { "signal": "Applied bypass-pump flow", "minimum": -2, "maximum": 2, "unit": "L/min" },
+      { "signal": "Selected level measurement", "minimum": -10, "maximum": 10, "unit": "cm" },
+      { "signal": "Simulation truth Tank-1 level deviation", "minimum": -10, "maximum": 10, "unit": "cm" },
+      { "signal": "Simulation truth Tank-2 level deviation", "minimum": -10, "maximum": 10, "unit": "cm" }
+    ],
+    "simplifications": [
+      "The local linear state model represents level deviations around one qualified operating point, not overflow, empty tanks, nonlinear valve laws, or pump curves.",
+      "Two independent command channels make actuator placement executable; only the selected layout receives the bounded request.",
+      "Both true states are published only as Simulation validation channels and are not equivalent to installed physical sensors.",
+      "No controller or observer runs in this lesson; feasibility is checked before design.",
+      "Simulation evidence does not qualify a physical tank, pump, bypass, or transmitter layout."
+    ]
+  },
+  "baseline": {
+    "executableId": "TwoTank.UncheckedHardwareLayout",
+    "settings": { "actuatorLayout": 1, "sensorLayout": 1 },
+    "limitation": "A downstream bypass cannot move Tank 1 and an upstream-only transmitter cannot reveal a downstream-only initial deviation."
+  },
+  "change": {
+    "executableId": "TwoTank.FeasibilityQualifiedLayout",
+    "settings": { "actuatorLayout": 0, "sensorLayout": 0, "upstreamPump": true, "downstreamTransmitter": true },
+    "decision": "Accept full-state controller/observer design only for a layout whose independent matrices and executed movement/measurement evidence agree."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 300.1,
+    "settlingSeconds": 10,
+    "disturbances": [
+      "Compare upstream-pump and downstream-bypass +1 L/min records from the same zero state.",
+      "Run a +5 cm Tank-1 initial deviation with downstream sensing and zero flow.",
+      "Run a +5 cm Tank-2 initial deviation with upstream-only sensing and zero flow."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX32.0", "activeValue": true, "inactiveValue": false }
+  },
+  "acceptance": [
+    { "metric": "upstream_layout_controllability_rank", "signal": "Actuator layout", "window": "independent two-state controllability calculation", "comparator": "==", "limit": 2, "unit": "1", "tolerance": 0, "evidenceClass": "model" },
+    { "metric": "downstream_sensor_observability_rank", "signal": "Sensor layout", "window": "independent two-state observability calculation", "comparator": "==", "limit": 2, "unit": "1", "tolerance": 0, "evidenceClass": "model" },
+    { "metric": "upstream_pump_first_second_slope", "signal": "Simulation truth Tank-1 level deviation", "window": "first 1 second after the +1 L/min event", "comparator": ">=", "limit": 0.18, "unit": "cm/s", "tolerance": 0.001, "evidenceClass": "simulation" },
+    { "metric": "bypass_upstream_peak", "signal": "Simulation truth Tank-1 level deviation", "window": "complete downstream-bypass step record", "comparator": "<=", "limit": 0.001, "unit": "cm", "tolerance": 0.0001, "evidenceClass": "simulation" },
+    { "metric": "downstream_sensor_upstream_state_response", "signal": "Selected level measurement", "window": "complete +5 cm Tank-1 initial-state record", "comparator": ">=", "limit": 0.1, "unit": "cm", "tolerance": 0.001, "evidenceClass": "simulation" },
+    { "metric": "upstream_sensor_hidden_downstream_response", "signal": "Selected level measurement", "window": "complete +5 cm Tank-2 initial-state record", "comparator": "<=", "limit": 0.001, "unit": "cm", "tolerance": 0.0001, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Requested pump-flow change", "minimum": -2, "maximum": 2, "unit": "L/min" },
+      { "signal": "Applied upstream-pump flow", "minimum": -2, "maximum": 2, "unit": "L/min" },
+      { "signal": "Applied bypass-pump flow", "minimum": -2, "maximum": 2, "unit": "L/min" },
+      { "signal": "Simulation truth Tank-1 level deviation", "minimum": -10, "maximum": 10, "unit": "cm" },
+      { "signal": "Simulation truth Tank-2 level deviation", "minimum": -10, "maximum": 10, "unit": "cm" }
+    ],
+    "abortPredicates": [
+      "Any required signal is nonfinite, stale, forced, invalid, missing, or bound to the wrong tank model.",
+      "Requested or applied flow leaves -2 through +2 L/min or either truth level leaves -10 through +10 cm.",
+      "The selected measurement disagrees with its selected truth channel by more than 0.001 cm.",
+      "Actuator or sensor layout, initial state, timing, seed, limits, event, or restoration differs across compared records."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Return the manual flow request to zero, verify both applied pump channels are zero and both truth-level deviations restore inside the declared band before starting a freshly initialized record.",
+    "physicalApprovalRole": "authorised process controls engineer with the responsible water-treatment operations and process-safety owners",
+    "simulationOnlyRestrictions": [
+      "Simulation truth levels are validation channels, not proof that equivalent physical transmitters exist.",
+      "No physical pump, bypass valve, tank, or level transmitter is operated.",
+      "Physical use requires reviewed topology, calibrated instrumentation, overflow/dry-run limits, isolation/restoration, and explicit immediate approval."
+    ]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-64--controllability-and-observability-interconnected-tanks",
+    "nativeTest": "control_curriculum_two_tank_feasibility_proves_reachable_and_hidden_states",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_two_tank_feasibility control_curriculum_two_tank_feasibility_proves_reachable_and_hidden_states -- --exact --nocapture",
+    "projectPath": "examples/control/11-state-space-estimation-and-predictive-control/64-two-tank-observability",
+    "runArtifactFields": ["projectIdentity", "plantIdentity", "evidenceClass", "sampleTime", "seed", "actuatorLayout", "sensorLayout", "stateMatrix", "inputMatrix", "outputMatrix", "eigenvalues", "controllabilityMatrix", "observabilityMatrix", "rank", "conditionNumber", "requestedFlow", "appliedFlows", "selectedMeasurement", "truthLevels", "initialState", "limits", "abortState", "restorationState", "metrics", "eligibility", "layoutDecision"],
+    "renderedJourneyId": "control-two-tank-observability"
+  },
+  "video": {
+    "viewerOutcome": "Check whether real actuator and sensor placement can move and reveal all states before attempting controller or observer design.",
+    "requiredVisibleEvidence": ["two interconnected tanks", "normal and deficient actuator layouts", "normal and deficient sensor layouts", "A B C matrices", "modes", "controllability and observability matrices", "rank and conditioning", "manual flow step", "selected measurement", "Simulation-only truth channels", "layout decision", "physical boundary"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "A two-tank water-treatment buffer can place its inlet pump or maintenance bypass at different hydraulic locations and install a level transmitter on either tank.",
+    "reason": "State-space equations do not prove that installed hardware can move or reveal every internal mode.",
+    "theory": ["Controllability matrix rank measures independent actuator-driven state directions.", "Observability matrix rank measures independent state information in measurement history.", "Stabilisability and detectability allow only stable unreachable or hidden modes.", "Simulation truth channels validate the lesson but are not installed sensors."],
+    "workedPrediction": "The upstream pump and downstream sensor each produce rank two; the downstream bypass and upstream-only sensor each produce rank one with physically observable missing directions.",
+    "practicalPreparation": ["Verify Manual authority, layouts, requested/applied flow, selected sensor, truth-channel labels, timing, limits, and restoration.", "Calculate matrices, ranks, conditioning, and modes before running the corresponding hardware layout."],
+    "baseline": "Attempt design using an unchecked downstream bypass and upstream-only sensor layout.",
+    "change": "Qualify the upstream inlet pump and downstream level transmitter before design.",
+    "comparison": "Use equivalent pump steps and separate initial-state records to reproduce reachable and hidden directions.",
+    "validation": "Accept rank and layout claims only when independent calculations agree with executable physical movement and selected measurement.",
+    "explanation": "One-way hydraulic coupling carries upstream state information downstream but does not let downstream injection or sensing affect or reveal Tank 1 in reverse.",
+    "transfer": "Check actual hardware feasibility first; Lesson 65 designs feedback and estimation only after these structural requirements pass."
+  }
+}

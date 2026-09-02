@@ -37,7 +37,7 @@ Product authority:
 - [x] `CENEXT-003` Produce a short ownership map showing which existing type and
   module owns recording, run result, export, persistence, tuning candidate, and
   rendered history. Resolve duplication before adding fields.
-- [x] `CENEXT-004` Confirm that the paper-compatible `Control.PID` remains the
+- [x] `CENEXT-004` Confirm that `Control.PID` remains the
   unchanged execution baseline. Any proposed equation change requires its own
   later specification and native expected-red test.
 - [x] `CENEXT-005` Record the staged boundary: Phase 1 must be accepted before
@@ -245,7 +245,7 @@ Phase 1 acceptance evidence (2026-08-26):
 
 ### 2.2 Foundation lessons
 
-- [x] `CENEXT-056` Create the nominal paper FOPDT lesson: identify SP/PV/MV,
+- [x] `CENEXT-056` Create the nominal FOPDT lesson: identify SP/PV/MV,
   observe offset removal, and explain Lambda PI robustness versus speed.
 - [x] `CENEXT-057` Create the sampling lesson comparing `50`, `100`, and
   `200 ms`, including actual cycle-time effects.

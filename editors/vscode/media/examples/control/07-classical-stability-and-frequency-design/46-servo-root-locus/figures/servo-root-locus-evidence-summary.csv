@@ -1,0 +1,3 @@
+case,controller,poles,damping_ratio,overshoot_percent,settling_s,final_window_s,final_error_mm,peak_requested_current_percent,peak_applied_current_percent,applied_current_travel_pp,time_at_limit_s,saturated,stop_reason,requirements_pass,seed,applied,evidence_class
+gain_only,P,-1.0000+1.7321j|-1.0000-1.7321j,0.5000,16.7016,4.0600,7.01..8.00,0.000618,4.0000,4.0000,5.601597,0.000,false,duration,false,20260829,false,simulation
+lead_compensated,lead,-3.2350-1.1856j|-3.2350+1.1856j|-10.5300+0.0000j,0.9389,3.3521,1.3800,7.01..8.00,0.000000,50.0000,50.0000,55.760169,0.000,false,duration,true,20260829,false,simulation

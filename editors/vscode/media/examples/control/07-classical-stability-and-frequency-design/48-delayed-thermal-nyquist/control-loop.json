@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "control-delayed-thermal-nyquist",
+  "name": "Delayed-oven Nyquist comparison",
+  "revision": "sha256:curriculum-loop-48",
+  "projectId": "project:control-delayed-thermal-nyquist",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "DelayedThermalComparison", "design": "project", "revision": "sha256:curriculum-controller-48", "action": "direct", "taskPeriodMs": 100 },
+  "signals": {
+    "setpoint": { "symbol": "P1.Setpoint", "address": "%ML24", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 80, "maximum": 120 } },
+    "processVariable": { "symbol": "P1.ShortDelayTemperature", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 80, "maximum": 120 } },
+    "manipulatedVariable": { "symbol": "P1.ShortDelayApplied", "address": "%QL0", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+    "additional": [
+      { "id": "medium-pv", "channel": "medium-delay", "role": "PV", "symbol": "P1.MediumDelayTemperature", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 80, "maximum": 120 } },
+      { "id": "medium-mv", "channel": "medium-delay", "role": "MV", "symbol": "P1.MediumDelayApplied", "address": "%QL8", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "long-pv", "channel": "long-delay", "role": "PV", "symbol": "P1.LongDelayTemperature", "address": "%IL16", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 80, "maximum": 120 } },
+      { "id": "long-mv", "channel": "long-delay", "role": "MV", "symbol": "P1.LongDelayApplied", "address": "%QL16", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "short-abort", "channel": "short-delay", "role": "quality", "symbol": "P1.ShortDelayAborted", "address": "%MX97.0", "iecType": "BOOL", "direction": "read", "unit": "1", "range": { "minimum": 0, "maximum": 1 } },
+      { "id": "medium-abort", "channel": "medium-delay", "role": "quality", "symbol": "P1.MediumDelayAborted", "address": "%MX97.1", "iecType": "BOOL", "direction": "read", "unit": "1", "range": { "minimum": 0, "maximum": 1 } },
+      { "id": "long-abort", "channel": "long-delay", "role": "quality", "symbol": "P1.LongDelayAborted", "address": "%MX97.2", "iecType": "BOOL", "direction": "read", "unit": "1", "range": { "minimum": 0, "maximum": 1 } }
+    ]
+  },
+  "limits": { "outputMinimum": 0, "outputMaximum": 100 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "delayed_oven_three_delay_cases",
+  "experiment": { "execution": "project-scripted", "kind": "observation", "amplitude": 0, "durationSeconds": 600, "seed": 20260829, "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX96.0", "iecType": "BOOL", "direction": "write" } }
+}

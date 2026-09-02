@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "id": "control-water-heater-bias",
+  "name": "Water-heater operating-point bias",
+  "revision": "sha256:802ecfde59b26d9c2ebc9071e18bdccdf999b0fae3634490bb1d3d987c419938",
+  "projectId": "project:control-water-heater-bias",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:f6847026d05bd318db77adf60fe8d4c7f8824d354546dee58ebe233e42234c61",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX16.0"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 15,
+        "maximum": 60
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.AppliedHeaterPower",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "requested-heater-power",
+        "channel": "requested-heater-power",
+        "role": "state",
+        "symbol": "P1.RequestedHeaterPower",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -4000,
+          "maximum": 4000
+        }
+      },
+      {
+        "id": "operating-point-bias",
+        "channel": "operating-point-bias",
+        "role": "state",
+        "symbol": "P1.OperatingPointBias",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "proportional-gain",
+        "channel": "proportional-gain",
+        "role": "state",
+        "symbol": "P1.ProportionalGain",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%/degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "manual-heater-power",
+        "channel": "manual-heater-power",
+        "role": "state",
+        "symbol": "P1.ManualHeaterPower",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "first_order_dead_time",
+  "operatingPoint": "PV 35, MV 75",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 120,
+    "seed": 20260828,
+    "activation": {
+      "symbol": "P1.AutoMode",
+      "address": "%MX16.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
+}

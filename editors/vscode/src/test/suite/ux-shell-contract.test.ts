@@ -712,6 +712,90 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     );
   });
 
+  test("example gallery presents the control curriculum as an ordered learning path", () => {
+    const source = readSrc("examples.ts") + readSrc("examples/topics.ts");
+    for (const visibleContract of [
+      "Learning paths",
+      "Control engineering",
+      "84 practical lessons",
+      "Starter projects",
+      "Explore by topic",
+      "PLC tutorials",
+      "Connectivity",
+      "Libraries and motion",
+      "All examples and tutorials",
+      "Continue course",
+      "Browse all bundled projects",
+      "controlLessonPositionLabel(",
+      "No prerequisite",
+      "Previous lesson",
+      "Next lesson",
+      "Not yet available",
+      "Create project",
+    ]) {
+      assert.ok(
+        source.includes(visibleContract),
+        `the gallery must render '${visibleContract}' instead of burying the curriculum in a flat grid`
+      );
+    }
+    assert.ok(
+      source.includes('setAttribute("aria-label", "Course progress")') &&
+        source.includes('setAttribute("aria-current", "step")') &&
+        source.includes("completedLessonIds"),
+      "course position and persisted progress must be available to keyboard and assistive-technology users"
+    );
+    assert.ok(
+      source.includes("[hidden] { display: none !important; }"),
+      "browse-only controls must remain absent from course and lesson views"
+    );
+    assert.ok(
+      source.includes('case "openControlCurriculum"') &&
+        source.includes('case "openControlCourse"') &&
+        source.includes('case "openControlLesson"') &&
+        source.includes('case "openExamplesDocumentation"'),
+      "the existing gallery message boundary must own curriculum and documentation navigation"
+    );
+    assert.ok(
+      source.includes("lessonIsAvailable(example)") &&
+        source.includes("appendLessonAvailability(card, example)"),
+      "an incomplete lesson must remain navigable while project creation remains unavailable"
+    );
+  });
+
+  test("example bundle is generated from the canonical examples tree", () => {
+    const root = workspaceRoot();
+    const canonicalManifest = path.join(root, "examples", "catalog.json");
+    const packagedManifest = path.join(
+      extensionRoot(),
+      "media",
+      "examples",
+      "manifest.json"
+    );
+    assert.ok(
+      fs.existsSync(canonicalManifest),
+      "examples/catalog.json must be the maintained gallery catalog"
+    );
+    const canonical = fs.readFileSync(canonicalManifest, "utf8");
+    assert.strictEqual(
+      fs.readFileSync(packagedManifest, "utf8"),
+      canonical,
+      "the extension manifest must be generated verbatim from the canonical catalog"
+    );
+    const entries = JSON.parse(canonical) as Array<{ path: string }>;
+    for (const entry of entries) {
+      assert.ok(
+        fs.existsSync(path.join(root, "examples", entry.path)),
+        `canonical example is missing: ${entry.path}`
+      );
+    }
+    const scripts = loadPackageJson().scripts ?? {};
+    assert.ok(
+      scripts["build:examples"]?.includes("build-examples.js") &&
+        scripts.compile?.startsWith("npm run build:examples"),
+      "every extension build must regenerate examples before compiling"
+    );
+  });
+
   test("example gallery separates hardware requirements from category labels", () => {
     const source = readSrc("examples.ts");
     assert.ok(
@@ -731,7 +815,7 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
   });
 
   test("example copy keeps native prompts and exposes only an acceptance-runner prompt override", () => {
-    const source = readSrc("examples.ts");
+    const source = readSrc("examples/copy.ts");
     assert.ok(source.includes("showOpenDialog"), "normal users must still choose the destination through native VS Code UI");
     assert.ok(source.includes("showInputBox"), "normal users must still name the editable example copy through native VS Code UI");
     assert.ok(
@@ -749,6 +833,19 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
         `example '${item.id}' detail is too long for the first-run gallery card: ${item.detail.length} chars`
       );
     }
+  });
+
+  test("long gallery descriptions are shortened at a word boundary", () => {
+    const item = exampleQuickPickItems([{
+      id: "long-description",
+      title: "Long description",
+      description: "A deliberately long catalog description that should remain readable when it is displayed in the compact first-run gallery card.",
+      path: "long-description",
+      hardware: "none",
+    }])[0];
+    assert.ok(item.detail.length <= 80);
+    assert.ok(item.detail.endsWith("…"));
+    assert.ok(!item.detail.endsWith(" …"));
   });
 
   test("the PLCopen Motion starter is portable outside the repository", () => {
@@ -773,7 +870,7 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     );
   });
 
-  test("no secrets in example fixtures (no tokens/passwords/keys)", () => {
+  test("example fixtures contain no secrets beyond the reserved local example token", () => {
     const offenders: string[] = [];
     const walk = (dir: string) => {
       for (const name of fs.readdirSync(dir)) {
@@ -783,14 +880,21 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
           continue;
         }
         const text = fs.readFileSync(full, "utf8");
-        // A real secret has a non-empty value; `auth_token = ""` (empty default in runtime.toml) is fine.
-        if (/(auth_token|password|secret|api[_-]?key)\s*[:=]\s*["']?[^"'\s]/i.test(text)) {
+        const withoutReservedExampleToken = text.replace(
+          /auth_token\s*=\s*"trust-example-token"/g,
+          ""
+        );
+        if (/(auth_token|password|secret|api[_-]?key)\s*[:=]\s*["']?[^"'\s]/i.test(withoutReservedExampleToken)) {
           offenders.push(full);
         }
       }
     };
     walk(EXAMPLES_DIR);
-    assert.deepStrictEqual(offenders, [], "example fixtures must not contain secrets");
+    assert.deepStrictEqual(
+      offenders,
+      [],
+      "example fixtures may contain only the documented non-secret local example token"
+    );
   });
 });
 

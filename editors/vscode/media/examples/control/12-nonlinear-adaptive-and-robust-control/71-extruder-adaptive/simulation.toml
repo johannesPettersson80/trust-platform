@@ -1,0 +1,41 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+plant_step_ms = 20
+
+[[plants]]
+id = "polymer-extruder"
+model = "first_order"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [40.0]
+
+[plants.parameters]
+gain = 1.0
+time_constant_s = 5.0
+input_bias = 0.0
+output_bias = 0.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 40.0
+
+[[plants.uncertainties]]
+id = "continuous-viscosity-gain"
+target = "parameter"
+parameter = "gain"
+mode = "multiply"
+generator = "sine"
+amplitude = 0.15
+frequency_hz = 0.008333333333333333
+phase_rad = 0.0
+bias = 1.0
+
+[[plant_events]]
+at_ms = 60000
+plant = "polymer-extruder"
+kind = "set_parameter"
+parameter = "gain"
+value = 0.75

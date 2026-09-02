@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 4,
+  "id": "control-capstone-independent",
+  "title": "Defend an independent compressed-air control-system recommendation",
+  "level": "Modern",
+  "sequence": 84,
+  "equipment": "Factory compressed-air receiver supplied by one variable-speed compressor",
+  "physicalPurpose": "Maintain usable header pressure as plant air demand changes without exceeding compressor or pressure limits.",
+  "principalTechnique": "Requirements-led architecture selection, independent modelling, PI tuning, measured-demand feedforward, robustness and abnormal validation",
+  "objective": "Commission and defend the simplest unapplied controller satisfying the compressed-air reference requirements, then apply the same evidence discipline to a learner-selected platform-supported plant.",
+  "prerequisites": ["control-capstone-building-hvac"],
+  "nextLesson": null,
+  "signals": [
+    { "role": "state", "name": "Operating mode", "unit": "1", "minimum": 0, "maximum": 3, "resolution": 1, "binding": "%MD0" },
+    { "role": "state", "name": "Control enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.0" },
+    { "role": "quality", "name": "Pressure quality good", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.1" },
+    { "role": "quality", "name": "Demand quality good", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.2" },
+    { "role": "quality", "name": "Delivery quality good", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.3" },
+    { "role": "quality", "name": "Compressor available", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.4" },
+    { "role": "quality", "name": "Feedforward qualified", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.5" },
+    { "role": "state", "name": "Tracking active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.6" },
+    { "role": "state", "name": "Authority fault active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.7" },
+    { "role": "quality", "name": "Controller timing valid", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX9.1" },
+    { "role": "SP", "name": "Header pressure setpoint", "unit": "bar", "minimum": 6, "maximum": 8, "resolution": 0.01, "binding": "%ML16" },
+    { "role": "disturbance", "name": "Measured plant air demand", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML24" },
+    { "role": "MV", "name": "Manual feedback-plant request", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML32" },
+    { "role": "MV", "name": "Manual integrated-plant request", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML40" },
+    { "role": "MV", "name": "Feedback PI requested delivery", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML48" },
+    { "role": "state", "name": "Integrated feedback contribution", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML56" },
+    { "role": "state", "name": "Integrated feedforward contribution", "unit": "%", "minimum": -50, "maximum": 50, "resolution": 0.1, "binding": "%ML64" },
+    { "role": "MV", "name": "Integrated requested delivery", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML72" },
+    { "role": "state", "name": "Controller revision", "unit": "1", "minimum": 0, "maximum": 1000, "resolution": 1, "binding": "%MD96" },
+    { "role": "state", "name": "Measured controller interval", "unit": "s", "minimum": 0.8, "maximum": 1.2, "resolution": 0.001, "binding": "%ML104" },
+    { "role": "MV", "name": "Feedback PI applied request", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL0" },
+    { "role": "disturbance", "name": "Feedback-plant applied demand", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL8" },
+    { "role": "MV", "name": "Integrated applied request", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL16" },
+    { "role": "disturbance", "name": "Integrated-plant applied demand", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL24" },
+    { "role": "PV", "name": "Feedback-plant header pressure", "unit": "bar", "minimum": 6, "maximum": 8, "resolution": 0.001, "binding": "%IL0" },
+    { "role": "state", "name": "Feedback-plant actual delivery", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%IL8" },
+    { "role": "PV", "name": "Integrated-plant header pressure", "unit": "bar", "minimum": 6, "maximum": 8, "resolution": 0.001, "binding": "%IL16" },
+    { "role": "state", "name": "Integrated-plant actual delivery", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%IL24" }
+  ],
+  "plant": {
+    "modelId": "compressed_air_receiver_reference_nominal",
+    "executable": "simulation.toml",
+    "parameters": [
+      { "name": "receiver_rate_gain", "value": 0.005, "unit": "bar/%" },
+      { "name": "compressor_delivery_time_constant", "value": 5, "unit": "s" },
+      { "name": "controller_interval", "value": 1, "unit": "s" },
+      { "name": "normal_pressure_minimum", "value": 6.5, "unit": "bar" },
+      { "name": "normal_pressure_maximum", "value": 7.5, "unit": "bar" }
+    ],
+    "sampleTimeSeconds": 1,
+    "initialState": { "headerPressure": 7, "actualDelivery": 50, "appliedRequest": 50, "plantDemand": 50 },
+    "seed": 20260829,
+    "operatingPoint": { "Header pressure setpoint": 7, "Feedback-plant header pressure": 7, "Integrated-plant header pressure": 7, "Feedback-plant actual delivery": 50, "Integrated-plant actual delivery": 50, "Measured plant air demand": 50 },
+    "validityRange": [
+      { "signal": "Feedback-plant header pressure", "minimum": 6, "maximum": 8, "unit": "bar" },
+      { "signal": "Integrated-plant header pressure", "minimum": 6, "maximum": 8, "unit": "bar" },
+      { "signal": "Feedback-plant actual delivery", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Integrated-plant actual delivery", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "simplifications": [
+      "The local receiver model omits air temperature, moisture, piping modes, compressor staging and certified protection dynamics.",
+      "The delivery request represents the installed drive's internally controlled delivery target; the PLC does not replace the drive inner loop.",
+      "Demand is measured without delay in the nominal Simulation record and receives declared invalid and unmeasured-leak cases separately.",
+      "Simulation evidence does not qualify a physical compressor, receiver, relief valve, trip or factory air network."
+    ]
+  },
+  "baseline": {
+    "executableId": "CompressedAir.QualifiedFeedbackPi",
+    "settings": { "proportionalGain": 40, "integralGain": 1, "bias": 50, "feedforward": 0, "intervalSeconds": 1 },
+    "limitation": "Feedback PI reacts only after demand imbalance has changed header pressure."
+  },
+  "change": {
+    "executableId": "CompressedAir.PiWithMeasuredDemandFeedforward",
+    "settings": { "proportionalGain": 40, "integralGain": 1, "bias": 50, "feedforwardGain": 1, "intervalSeconds": 1 },
+    "decision": "Select PI plus measured-demand feedforward only if common normal, uncertainty, actuator, stability and abnormal evidence satisfies every predeclared requirement."
+  },
+  "experiment": {
+    "kind": "load_step",
+    "signal": "Measured plant air demand",
+    "baseline": 50,
+    "amplitude": 15,
+    "durationSeconds": 300,
+    "settlingSeconds": 120,
+    "disturbances": ["Demand changes from 50 to 65 percent at 60 seconds.", "Demand changes from 65 to 55 percent at 180 seconds.", "Repeat with eight-second delivery lag, reduced receiver rate gain and an unmeasured five-percent leak."],
+    "seed": 20260829,
+    "restorationValue": 50
+  },
+  "acceptance": [
+    { "metric": "normal_pressure_envelope_violation", "signal": "Integrated-plant header pressure", "window": "complete nominal 300-second record", "comparator": "==", "limit": 0, "unit": "bar*s", "tolerance": 0.001, "evidenceClass": "simulation" },
+    { "metric": "regulatory_iae_improvement", "signal": "Integrated-plant header pressure", "window": "60 through 300 seconds against equivalent feedback PI", "comparator": ">=", "limit": 30, "unit": "%", "tolerance": 0.1, "evidenceClass": "simulation" },
+    { "metric": "applied_movement_increase", "signal": "Integrated applied request", "window": "complete nominal 300-second record against equivalent feedback PI", "comparator": "<=", "limit": 25, "unit": "%", "tolerance": 0.1, "evidenceClass": "simulation" },
+    { "metric": "maximum_applied_request", "signal": "Integrated applied request", "window": "all nominal, uncertainty and abnormal records", "comparator": "<=", "limit": 100, "unit": "%", "tolerance": 0.001, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [
+      { "signal": "Feedback-plant header pressure", "minimum": 6, "maximum": 8, "unit": "bar" },
+      { "signal": "Integrated-plant header pressure", "minimum": 6, "maximum": 8, "unit": "bar" },
+      { "signal": "Feedback PI applied request", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Integrated applied request", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "abortPredicates": [
+      "Pressure, demand, delivery, mode, availability, interval, project, plant or evidence identity is invalid, stale, missing, forced or nonfinite.",
+      "Header pressure leaves 6.0 through 8.0 bar or an applied request leaves 0 through 100 percent or moves faster than 10 percentage points per second.",
+      "A comparison changes plant, initial state, demand record, interval, limits, controller settings or evidence class without declaration.",
+      "A controller is selected before stability, robustness, abnormal and rollback evidence is complete."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Restore qualified pressure, demand and delivery signals at 7 bar and 50 percent, remain in Safe, obtain a new reviewed run, then request explicit application approval.",
+    "physicalApprovalRole": "authorised compressed-air engineer with operations, mechanical, electrical, functional-safety and cybersecurity owners",
+    "simulationOnlyRestrictions": [
+      "The state-space receiver, perfect demand schedule and fault injections are Simulation evidence.",
+      "No physical compressor, receiver, relief valve, pressure trip or production air network is operated.",
+      "Physical work requires independently reviewed topology, protection ownership, bounded experiment approval, immediate action approval and rollback."
+    ]
+  },
+  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-84--independent-engineering-capstone",
+    "nativeTest": "control_curriculum_independent_capstone_defends_selected_architecture",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_independent_capstone control_curriculum_independent_capstone_defends_selected_architecture -- --exact --nocapture",
+    "projectPath": "examples/control/14-integrated-capstones/84-independent",
+    "runArtifactFields": ["projectIdentity", "plantIdentity", "evidenceClass", "requirements", "topology", "safetyOwnership", "sampleTime", "rawExperiments", "restoration", "identifiedModel", "uncertainty", "architectureScreen", "controllerSettings", "frequencyEvidence", "measurements", "disturbance", "requestedCommands", "appliedCommands", "actualDelivery", "metrics", "abnormalStates", "selectedRevision", "applicationState", "rollback", "limitations"],
+    "renderedJourneyId": "control-capstone-independent"
+  },
+  "video": {
+    "viewerOutcome": "Defend a complete requirements-led controller recommendation without being told which controller family must win.",
+    "requiredVisibleEvidence": ["compressed-air reference and learner-selection boundary", "requirements and safety ownership", "bounded tests and restoration", "identified receiver and compressor model", "architecture screening", "PI and feedforward comparison", "stability and robustness", "abnormal authority and recovery", "unapplied decision and rollback", "Simulation and physical boundary"],
+    "durationClass": "extended",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "A variable-speed compressor supplies a receiver while production air demand changes.",
+    "reason": "The final assessment must prove independent controller selection from plant requirements rather than reward reproduction of a prescribed advanced method.",
+    "theory": ["Flow imbalance integrates into receiver pressure.", "The installed drive owns the faster delivery inner loop.", "PI corrects unmeasured imbalance while qualified demand feedforward acts before pressure error.", "Architecture complexity is accepted only when common evidence proves a needed benefit."],
+    "workedPrediction": "At 7 bar with 50 percent delivery and demand, pressure rate is zero; a demand step to 65 percent initially produces -0.075 bar/s and qualified one-for-one feedforward requests 15 additional percentage points.",
+    "practicalPreparation": ["Declare requirements, topology, evidence class, safety ownership, limits and aborts before testing.", "Retain bounded request-pulse, demand-imbalance and unused validation records before tuning."],
+    "baseline": "Run qualified feedback PI on one reference plant under the common demand record.",
+    "change": "Add qualified measured-demand feedforward through the same PID, actuator, anti-windup and tracking boundary on an equivalent plant.",
+    "comparison": "Compare pressure, actuator, stability, robustness, abnormal and lifecycle evidence against requirements declared before the run.",
+    "validation": "Prove nominal and uncertainty performance, invalid-signal authority, modes, abort, recovery, unchanged revision and explicit unapplied state.",
+    "explanation": "Trace the selected architecture from physical imbalance through identification, design and independent evidence instead of selecting it by name.",
+    "transfer": "Produce and defend the same reproducible engineering report for the learner-selected platform-supported plant."
+  }
+}

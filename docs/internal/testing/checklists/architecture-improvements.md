@@ -39,7 +39,7 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
 - [x] `ARCH-PLCOPEN-01` Add a dedicated PLCopen motion architecture diagram describing the shipped ST public profiles, shared kernels, internal carriers, and deferred-feature guard coverage.
 - [x] `ARCH-PLCOPEN-02` Regenerate the PlantUML outputs and refresh `docs/diagrams/manifest.json` after adding the PLCopen motion architecture diagram.
 - [x] `ARCH-PLCOPEN-03` Extend the PLCopen motion architecture diagram for the shipped OOP facade package and document that it delegates to the classic motion kernels instead of owning duplicate motion state.
-- [x] `ARCH-CONTROL-PID-01` Keep the paper-compatible Control library behind two cohesive state owners: `Control.PID` owns the combined positional/incremental controller history and `Control.LowPass` owns independent filter history. SOLID/KISS/DRY acceptance: no duplicate P/PI/PD state machines, no hidden filter inside the controller, complete record-based configuration, and native tests use only the public surface. Evidence: `docs/diagrams/architecture/control-pid-library.puml`, `docs/specs/32-control-pid.md`, and the Section 7 native conformance fixture.
+- [x] `ARCH-CONTROL-PID-01` Keep the Control library behind two cohesive state owners: `Control.PID` owns the combined positional/incremental controller history and `Control.LowPass` owns independent filter history. SOLID/KISS/DRY acceptance: no duplicate P/PI/PD state machines, no hidden filter inside the controller, complete record-based configuration, and native tests use only the public surface. Evidence: `docs/diagrams/architecture/control-pid-library.puml`, `docs/specs/32-control-pid.md`, and the Section 7 native conformance fixture.
 - [x] `ARCH-CONTROL-PID-02` Route typed enum literal type names through the existing scope- and `USING`-aware HIR resolver instead of introducing a Control-specific lookup or a second type-resolution path, while preserving registered type identity when a value has the same name. Evidence: focused cross-file import and same-named-value enum regressions plus refreshed `docs/diagrams/hir/hir-semantics.puml`.
 - [x] `ARCH-CONTROL-PID-03` Regenerate PlantUML outputs, refresh `docs/diagrams/manifest.json`, and pass the remote diagram drift check for the Control PID and enum-resolution architecture updates. Evidence: remote `scripts/render_diagrams.sh` and `python scripts/check_diagram_drift.py` passed in the isolated validation checkout.
 - [x] `ARCH-VM-01` Add a dedicated bytecode VM execution architecture diagram that separates the production VM path from residual `EvalContext` / legacy-interpreter-only flows.
@@ -195,6 +195,13 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   simulation runtime starts. Evidence: native plant, failed-substep, atomic
   publication, bounded-history, and launcher safety tests plus the refreshed
   `simulation-plant-system.puml`.
+- [x] `ARCH-SIMPLANT-03` Keep local-model validity in one bounded owner between
+  actuator/state/output calculation and the existing transactional checkpoint;
+  out-of-range input, state, or ideal output faults without clamping or partial
+  publication. Evidence: the focused validity assertion red and paired green,
+  full 41-test plant suite, Specification 33 Section 3.7, and the refreshed
+  `simulation-plant-system.puml` source. Generated-diagram and manifest proof is
+  deferred to the frozen curriculum milestone gate.
 - [ ] `ARCH-PSUI-01` Split the oversized Devices & Connections React and host
   owners behind current behavior locks: graph shell, add workflow, drawer
   routing, refresh state, message routing, runtime requests, offline project
@@ -225,6 +232,23 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   owners with transport-independent domain types and one qualified numerical
   adapter. Evidence requires `control-studio.puml`, focused contract tests, and
   diagram drift checks.
+  - Feedback-relay correction (2026-08-29): the extension-owned experiment
+    planner now sends a typed PV threshold contract rather than manufacturing a
+    timed square-wave trajectory. The existing runtime experiment owner reads
+    the reviewed process-image binding, performs hysteresis switching under the
+    same lock as abort, and reuses the ordinary timeout/restoration state
+    machine. Focused extension and runtime red-green evidence is recorded in
+    curriculum row `CELP-053`; the row remains open for the complete Control
+    Studio ownership audit and regenerated diagram drift evidence.
+  - Open-loop curriculum correction (2026-09-01): the same loop-definition and
+    monitor owners now distinguish closed-loop SP/PV/MV from open-loop
+    input/output evidence. No setpoint, error metric, transport, or monitor is
+    synthesized for open-loop lessons. Focused loop-definition and monitor
+    red-green tests cover the boundary; rendered proof remains open.
+  - Project-scripted lesson activation (2026-09-01): the existing runtime
+    experiment service now grants and restores one typed Boolean lesson
+    authority. The lesson program remains the sole owner of its synchronized
+    scenario, so Control Studio does not inject a parallel excitation.
 - [ ] `ARCH-CSTUDIO-02` Keep experiment safety and controller apply as separate
   authority/state-machine owners; Automatic Tune only orchestrates the same
   Test, Identify, Tune, Validate, artifact, and apply services used manually.

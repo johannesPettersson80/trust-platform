@@ -29,13 +29,15 @@ mod status;
 mod uncertainty;
 #[path = "plant/validation.rs"]
 mod validation;
+#[path = "plant/validity.rs"]
+mod validity;
 
 use effects::{ActuatorConfig, ActuatorSection, ActuatorState};
 pub(super) use events::PlantEventSection;
 use events::{PlantEventAction, PlantEventConfig};
 use model::{
-    advance_fopdt, model_output_into, rk4_second_order, rk4_state_space, ModelWorkspace,
-    PlantModelConfig,
+    advance_fopdt, model_output_into, rk4_gravity_tank, rk4_robot_joint, rk4_second_order,
+    rk4_state_space, ModelWorkspace, PlantModelConfig,
 };
 use numeric_io::read_numeric;
 use status::TraceBuffer;
@@ -44,6 +46,7 @@ use validation::{
     apply_parameter_overrides, apply_parameter_uncertainties, channel_setting, checked_step,
     finite, invalid, model_supports_parameter, parse_addresses, valid_id,
 };
+use validity::{ValidityConfig, ValiditySection};
 
 const DEFAULT_STEP_MS: i64 = 10;
 const DEFAULT_MAX_SUBSTEPS: usize = 10_000;
@@ -53,7 +56,9 @@ pub(crate) const SUPPORTED_MODEL_KINDS: &[&str] = &[
     "first_order",
     "first_order_dead_time",
     "integrator",
+    "gravity_tank",
     "piecewise_linear",
+    "robot_joint",
     "second_order",
     "state_space",
 ];
@@ -92,6 +97,7 @@ pub struct PlantConfig {
     output_offset: Vec<f64>,
     actuators: Vec<ActuatorConfig>,
     uncertainties: Vec<UncertaintyConfig>,
+    validity: ValidityConfig,
     master_seed: u64,
     enabled: bool,
     events: Vec<PlantEventConfig>,
@@ -118,6 +124,7 @@ pub(super) struct PlantSection {
     actuator: Option<ActuatorSection>,
     #[serde(default)]
     uncertainties: Vec<UncertaintySection>,
+    validity: Option<ValiditySection>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -137,6 +144,13 @@ struct PlantParametersSection {
     d: Option<Vec<Vec<f64>>>,
     dead_time_s: Option<f64>,
     initial_delayed_input: Option<f64>,
+    area_m2: Option<f64>,
+    outflow_coefficient_m2_sqrt_m_per_s: Option<f64>,
+    inertia_kg_m2: Option<f64>,
+    gravity_torque_nm: Option<f64>,
+    viscous_friction_nm_s_per_rad: Option<f64>,
+    coulomb_friction_nm: Option<f64>,
+    friction_smoothing_rad_s: Option<f64>,
 }
 
 impl PlantParametersSection {
@@ -161,6 +175,14 @@ impl PlantParametersSection {
                 "output_bias",
             ],
             "state_space" => &["a", "b", "c", "d"],
+            "gravity_tank" => &["area_m2", "outflow_coefficient_m2_sqrt_m_per_s"],
+            "robot_joint" => &[
+                "inertia_kg_m2",
+                "gravity_torque_nm",
+                "viscous_friction_nm_s_per_rad",
+                "coulomb_friction_nm",
+                "friction_smoothing_rad_s",
+            ],
             _ => return Ok(()),
         };
         let present = [
@@ -183,6 +205,22 @@ impl PlantParametersSection {
             (
                 "initial_delayed_input",
                 self.initial_delayed_input.is_some(),
+            ),
+            ("area_m2", self.area_m2.is_some()),
+            (
+                "outflow_coefficient_m2_sqrt_m_per_s",
+                self.outflow_coefficient_m2_sqrt_m_per_s.is_some(),
+            ),
+            ("inertia_kg_m2", self.inertia_kg_m2.is_some()),
+            ("gravity_torque_nm", self.gravity_torque_nm.is_some()),
+            (
+                "viscous_friction_nm_s_per_rad",
+                self.viscous_friction_nm_s_per_rad.is_some(),
+            ),
+            ("coulomb_friction_nm", self.coulomb_friction_nm.is_some()),
+            (
+                "friction_smoothing_rad_s",
+                self.friction_smoothing_rad_s.is_some(),
             ),
         ];
         if let Some((field, _)) = present
@@ -417,6 +455,78 @@ impl PlantSection {
                     self.parameters.output_bias.unwrap_or(0.0),
                 )?,
             },
+            "gravity_tank" => {
+                let area_m2 = finite(
+                    "plants.parameters.area_m2",
+                    self.parameters.area_m2.ok_or_else(|| {
+                        RuntimeError::InvalidConfig("gravity_tank requires area_m2".into())
+                    })?,
+                )?;
+                let outflow_coefficient = finite(
+                    "plants.parameters.outflow_coefficient_m2_sqrt_m_per_s",
+                    self.parameters
+                        .outflow_coefficient_m2_sqrt_m_per_s
+                        .ok_or_else(|| {
+                            RuntimeError::InvalidConfig(
+                                "gravity_tank requires outflow_coefficient_m2_sqrt_m_per_s".into(),
+                            )
+                        })?,
+                )?;
+                if area_m2 <= 0.0 || outflow_coefficient < 0.0 {
+                    return invalid(
+                        "gravity_tank area must be > 0 and outflow coefficient must be >= 0",
+                    );
+                }
+                PlantModelConfig::GravityTank {
+                    area_m2,
+                    outflow_coefficient,
+                }
+            }
+            "robot_joint" => {
+                let inertia = finite(
+                    "plants.parameters.inertia_kg_m2",
+                    self.parameters.inertia_kg_m2.ok_or_else(|| {
+                        RuntimeError::InvalidConfig("robot_joint requires inertia_kg_m2".into())
+                    })?,
+                )?;
+                let gravity_torque = finite(
+                    "plants.parameters.gravity_torque_nm",
+                    self.parameters.gravity_torque_nm.unwrap_or(0.0),
+                )?;
+                let viscous_friction = finite(
+                    "plants.parameters.viscous_friction_nm_s_per_rad",
+                    self.parameters.viscous_friction_nm_s_per_rad.unwrap_or(0.0),
+                )?;
+                let coulomb_friction = finite(
+                    "plants.parameters.coulomb_friction_nm",
+                    self.parameters.coulomb_friction_nm.unwrap_or(0.0),
+                )?;
+                let friction_smoothing = finite(
+                    "plants.parameters.friction_smoothing_rad_s",
+                    self.parameters.friction_smoothing_rad_s.ok_or_else(|| {
+                        RuntimeError::InvalidConfig(
+                            "robot_joint requires friction_smoothing_rad_s".into(),
+                        )
+                    })?,
+                )?;
+                if inertia <= 0.0
+                    || gravity_torque < 0.0
+                    || viscous_friction < 0.0
+                    || coulomb_friction < 0.0
+                    || friction_smoothing <= 0.0
+                {
+                    return invalid(
+                        "robot_joint physical parameters are outside their valid domain",
+                    );
+                }
+                PlantModelConfig::RobotJoint {
+                    inertia,
+                    gravity_torque,
+                    viscous_friction,
+                    coulomb_friction,
+                    friction_smoothing,
+                }
+            }
             "piecewise_linear" => {
                 let input_points = self.parameters.input_points.ok_or_else(|| {
                     RuntimeError::InvalidConfig("piecewise_linear requires input_points".into())
@@ -508,19 +618,29 @@ impl PlantSection {
             }
             other => return invalid(format!("unsupported plant model '{other}'")),
         };
-        if !matches!(model, PlantModelConfig::StateSpace { .. })
-            && (command_count != 1 || feedback_count != 1)
-        {
-            return invalid(format!(
-                "plant model '{}' requires one command source and one feedback target",
-                self.model
-            ));
+        match &model {
+            PlantModelConfig::StateSpace { .. } => {}
+            PlantModelConfig::RobotJoint { .. } if command_count == 1 && feedback_count == 2 => {}
+            PlantModelConfig::RobotJoint { .. } => {
+                return invalid(
+                    "plant model 'robot_joint' requires one command and two feedback targets",
+                );
+            }
+            _ if command_count != 1 || feedback_count != 1 => {
+                return invalid(format!(
+                    "plant model '{}' requires one command source and one feedback target",
+                    self.model
+                ));
+            }
+            _ => {}
         }
         let expected_states = match &model {
             PlantModelConfig::StaticGain { .. } | PlantModelConfig::PiecewiseLinear { .. } => 0,
             PlantModelConfig::FirstOrder { .. }
             | PlantModelConfig::FirstOrderDeadTime { .. }
             | PlantModelConfig::Integrator { .. } => 1,
+            PlantModelConfig::GravityTank { .. } => 1,
+            PlantModelConfig::RobotJoint { .. } => 2,
             PlantModelConfig::SecondOrder { .. } => 2,
             PlantModelConfig::StateSpace { a, .. } => a.len(),
         };
@@ -570,6 +690,16 @@ impl PlantSection {
             };
             actuators.push(section.into_config(initial)?);
         }
+        let validity = self.validity.unwrap_or_default().into_config(
+            command_count,
+            state.len(),
+            feedback_count,
+        )?;
+        let initial_applied = actuators
+            .iter()
+            .map(ActuatorConfig::initial_applied)
+            .collect::<Vec<_>>();
+        validity.validate_initial(&initial_applied, &state)?;
         let uncertainties = self
             .uncertainties
             .into_iter()
@@ -599,6 +729,7 @@ impl PlantSection {
             output_offset,
             actuators,
             uncertainties,
+            validity,
             master_seed,
             enabled: self.enabled.unwrap_or(true),
             events: Vec::new(),

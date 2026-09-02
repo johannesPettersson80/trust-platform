@@ -1,9 +1,14 @@
 import type { IoEntry, IoState } from "../io-panel/types";
 import type { RuntimeLifecycleSnapshot } from "../runtimeLifecycle";
-import type { ControlLoopDefinition, ControlSignalBinding } from "./loopDefinition";
+import type {
+  ControlAuxiliarySignalBinding,
+  ControlAuxiliarySignalRole,
+  ControlLoopDefinition,
+  ControlSignalBinding,
+} from "./loopDefinition";
 
 export type ControlEvidenceSource = "Simulation" | "Physical";
-export type ControlSignalQuality = "good" | "forced";
+export type ControlSignalQuality = "good" | "forced" | "uncertain" | "stale" | "bad";
 
 export interface ControlMonitorSignal {
   symbol: string;
@@ -11,6 +16,12 @@ export interface ControlMonitorSignal {
   value: number;
   unit: string;
   quality: ControlSignalQuality;
+}
+
+export interface ControlMonitorAuxiliarySignal extends ControlMonitorSignal {
+  id: string;
+  channel: string;
+  role: ControlAuxiliarySignalRole;
 }
 
 export interface AvailableLoopSample {
@@ -25,9 +36,10 @@ export interface AvailableLoopSample {
   };
   scan: number;
   observedAtMs: number;
-  setpoint: ControlMonitorSignal;
+  setpoint?: ControlMonitorSignal;
   processVariable: ControlMonitorSignal;
   manipulatedVariable: ControlMonitorSignal;
+  additional?: readonly ControlMonitorAuxiliarySignal[];
   outputLimits: { minimum: number; maximum: number };
   rateLimits: { upPerSecond?: number; downPerSecond?: number };
   saturation: "minimum" | "maximum" | "none";
@@ -45,7 +57,7 @@ export type LoopMonitorSample = AvailableLoopSample | UnavailableLoopSample;
 
 export interface LoopHealthSummary {
   sampleCount: number;
-  meanAbsoluteError: number;
+  meanAbsoluteError: number | null;
   saturationSamples: number;
   timing: string;
 }
@@ -53,6 +65,13 @@ export interface LoopHealthSummary {
 interface MonitorOptions {
   staleAfterMs: number;
   recordingCapacity: number;
+}
+
+/** Keeps slow declared loops current without weakening the minimum live-loop guard. */
+export function controlLoopStaleAfterMs(
+  loop: Pick<ControlLoopDefinition, "observedSampleTiming">
+): number {
+  return Math.max(1_500, loop.observedSampleTiming.nominalPeriodMs * 5);
 }
 
 /** Projects one synchronized runtime scan; it never owns or polls a transport. */
@@ -89,7 +108,14 @@ export class ControlLoopMonitor {
     const source = evidenceSource(lifecycle);
     const scan = lifecycle.ioState.scan;
     if (!lifecycle.status.running || scan === undefined) {
+      if (!lifecycle.status.running) {
+        this.lastScan = undefined;
+        this.lastNewScanAtMs = undefined;
+      }
       return unavailable(source, loop.id, "Runtime is not producing scans");
+    }
+    if (this.lastScan !== undefined && scan < this.lastScan) {
+      return unavailable(source, loop.id, `Runtime scan moved backwards from ${this.lastScan} to ${scan}`);
     }
     if (scan !== this.lastScan) {
       this.lastScan = scan;
@@ -101,8 +127,11 @@ export class ControlLoopMonitor {
       return unavailable(source, loop.id, "Runtime scan is stale");
     }
 
-    const setpoint = readSignal(loop.signals.setpoint, lifecycle.ioState);
-    if (!setpoint) return unavailable(source, loop.id, missingReason("Setpoint", loop.signals.setpoint, scan));
+    const setpoint = loop.signals.setpoint
+      ? readSignal(loop.signals.setpoint, lifecycle.ioState) : undefined;
+    if (loop.signals.setpoint && !setpoint) {
+      return unavailable(source, loop.id, missingReason("Setpoint", loop.signals.setpoint, scan));
+    }
     const processVariable = readSignal(loop.signals.processVariable, lifecycle.ioState);
     if (!processVariable) {
       return unavailable(source, loop.id, missingReason("Process variable", loop.signals.processVariable, scan));
@@ -110,6 +139,12 @@ export class ControlLoopMonitor {
     const manipulatedVariable = readSignal(loop.signals.manipulatedVariable, lifecycle.ioState);
     if (!manipulatedVariable) {
       return unavailable(source, loop.id, missingReason("Manipulated variable", loop.signals.manipulatedVariable, scan));
+    }
+    const additional: ControlMonitorAuxiliarySignal[] = [];
+    for (const binding of loop.signals.additional ?? []) {
+      const signal = readAuxiliarySignal(binding, lifecycle.ioState);
+      if (!signal) return unavailable(source, loop.id, missingReason(binding.symbol, binding, scan));
+      additional.push(signal);
     }
 
     const sample: AvailableLoopSample = {
@@ -120,13 +155,14 @@ export class ControlLoopMonitor {
       controller: {
         instance: loop.controller.instance,
         revision: loop.controller.revision,
-        mode: readMode(loop.controller.modeSignal, lifecycle.ioState),
+        mode: readMode(loop.controller.modeSignal, loop.controller.modeWhenTrue ?? "Auto", lifecycle.ioState),
       },
       scan,
       observedAtMs,
-      setpoint,
+      ...(setpoint ? { setpoint } : {}),
       processVariable,
       manipulatedVariable,
+      ...(additional.length === 0 ? {} : { additional }),
       outputLimits: {
         minimum: loop.limits.outputMinimum,
         maximum: loop.limits.outputMaximum,
@@ -148,10 +184,11 @@ export class ControlLoopMonitor {
 }
 
 export function summarizeLoopHealth(samples: readonly AvailableLoopSample[]): LoopHealthSummary {
-  const meanAbsoluteError = samples.length === 0
-    ? 0
-    : samples.reduce((sum, sample) =>
-      sum + Math.abs(sample.setpoint.value - sample.processVariable.value), 0) / samples.length;
+  const errorSamples = samples.filter((sample) => sample.setpoint !== undefined);
+  const meanAbsoluteError = samples.length > 0 && errorSamples.length === samples.length
+    ? errorSamples.reduce((sum, sample) =>
+      sum + Math.abs(sample.setpoint!.value - sample.processVariable.value), 0) / errorSamples.length
+    : null;
   const timing = samples.length < 3
     ? `${numberWord(samples.length)} ${samples.length === 1 ? "sample is" : "samples are"} insufficient for oscillation or noise diagnostics.`
     : "Timing is available for descriptive analysis.";
@@ -166,24 +203,42 @@ export function summarizeLoopHealth(samples: readonly AvailableLoopSample[]): Lo
 function readSignal(binding: ControlSignalBinding, state: IoState): ControlMonitorSignal | undefined {
   const entry = entries(state).find((candidate) => candidate.address === binding.address);
   if (!entry) return undefined;
-  const value = Number(entry.value);
+  const value = numericIoValue(entry.value);
   if (!Number.isFinite(value)) return undefined;
   return {
     symbol: binding.symbol,
     address: binding.address,
     value,
     unit: binding.unit,
-    quality: entry.forced ? "forced" : "good",
+    quality: entry.forced ? "forced" : (entry.quality ?? "good"),
   };
 }
 
-function readMode(address: string | undefined, state: IoState): "Auto" | "Manual" | "Unavailable" {
+function readAuxiliarySignal(
+  binding: ControlAuxiliarySignalBinding,
+  state: IoState
+): ControlMonitorAuxiliarySignal | undefined {
+  const signal = readSignal(binding, state);
+  return signal ? { id: binding.id, channel: binding.channel, role: binding.role, ...signal } : undefined;
+}
+
+function numericIoValue(value: string): number {
+  if (value.trim().toUpperCase() === "TRUE") return 1;
+  if (value.trim().toUpperCase() === "FALSE") return 0;
+  return Number(value);
+}
+
+function readMode(
+  address: string | undefined,
+  modeWhenTrue: "Auto" | "Manual",
+  state: IoState
+): "Auto" | "Manual" | "Unavailable" {
   if (!address) return "Unavailable";
   const entry = entries(state).find((candidate) => candidate.address === address);
   if (!entry) return "Unavailable";
   const value = entry.value.trim().toUpperCase();
-  if (value === "TRUE" || value === "1") return "Auto";
-  if (value === "FALSE" || value === "0") return "Manual";
+  if (value === "TRUE" || value === "1") return modeWhenTrue;
+  if (value === "FALSE" || value === "0") return modeWhenTrue === "Auto" ? "Manual" : "Auto";
   return "Unavailable";
 }
 
@@ -213,9 +268,10 @@ function copySample(sample: AvailableLoopSample): AvailableLoopSample {
   return {
     ...sample,
     controller: { ...sample.controller },
-    setpoint: { ...sample.setpoint },
+    ...(sample.setpoint ? { setpoint: { ...sample.setpoint } } : {}),
     processVariable: { ...sample.processVariable },
     manipulatedVariable: { ...sample.manipulatedVariable },
+    ...(sample.additional ? { additional: sample.additional.map((signal) => ({ ...signal })) } : {}),
     outputLimits: { ...sample.outputLimits },
     rateLimits: { ...sample.rateLimits },
   };

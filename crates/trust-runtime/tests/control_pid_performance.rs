@@ -6,8 +6,8 @@ use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::Runtime;
 
-const PAPER_KP: f64 = 0.667;
-const PAPER_KI: f64 = 0.667;
+const REFERENCE_KP: f64 = 0.667;
+const REFERENCE_KI: f64 = 0.667;
 
 #[derive(Clone, Copy)]
 struct ControllerConfig {
@@ -27,8 +27,8 @@ struct ControllerConfig {
 impl Default for ControllerConfig {
     fn default() -> Self {
         Self {
-            kp: PAPER_KP,
-            ki: PAPER_KI,
+            kp: REFERENCE_KP,
+            ki: REFERENCE_KI,
             kd: 0.0,
             output_minimum: -1.0e100,
             output_maximum: 1.0e100,
@@ -176,7 +176,7 @@ seed = 42
 plant_step_ms = {step_ms}
 
 [[plants]]
-id = "paper-fopdt"
+id = "reference-fopdt"
 model = "first_order_dead_time"
 command_sources = ["%QL0"]
 feedback_targets = ["%IL0"]
@@ -428,7 +428,7 @@ fn pid_advanced_benchmark_recovers_from_a_scheduled_gain_change() {
 
 [[plant_events]]
 at_ms = 15000
-plant = "paper-fopdt"
+plant = "reference-fopdt"
 kind = "set_parameter"
 parameter = "gain"
 value = 1.4
@@ -591,7 +591,7 @@ initial_applied = 0.0
 }
 
 #[test]
-fn paper_pi_meets_nominal_robustness_and_sampling_gates() {
+fn pid_meets_nominal_robustness_and_sampling_gates() {
     let nominal = run_loop(
         "nominal",
         ControllerConfig::default(),
@@ -602,7 +602,7 @@ fn paper_pi_meets_nominal_robustness_and_sampling_gates() {
         fopdt_configuration(100, 1.0, 1.0, 0.5, ""),
     );
     let nominal_metrics = step_metrics(&nominal, 1.0);
-    eprintln!("nominal paper PI: {nominal_metrics:?}");
+    eprintln!("nominal PI: {nominal_metrics:?}");
     assert!(nominal_metrics.maximum_process_value.is_finite());
     assert!(nominal_metrics.maximum_output.is_finite());
     assert_stable(&nominal, 10.0);
@@ -687,7 +687,7 @@ fn qualified_formula_candidates_execute_through_public_control_pid() {
 }
 
 #[test]
-fn paper_pi_rejects_a_plant_side_load_disturbance() {
+fn pi_rejects_a_plant_side_load_disturbance() {
     let trace = run_loop(
         "load-disturbance",
         ControllerConfig::default(),
@@ -704,7 +704,7 @@ fn paper_pi_rejects_a_plant_side_load_disturbance() {
 
 [[plant_events]]
 at_ms = 10000
-plant = "paper-fopdt"
+plant = "reference-fopdt"
 kind = "set_parameter"
 parameter = "output_bias"
 value = 0.2
@@ -726,7 +726,7 @@ value = 0.2
 }
 
 #[test]
-fn paper_pid_recovers_from_saturation_and_respects_rate_limits() {
+fn pid_recovers_from_saturation_and_respects_rate_limits() {
     let setpoint_body =
         "IF Scan >= 10 AND Scan < 200 THEN Input.Setpoint := LREAL#4.5; ELSE Input.Setpoint := LREAL#0.0; END_IF;";
     for anti_windup in ["BackCalculation", "Combined"] {
@@ -844,17 +844,19 @@ standard_deviation = 0.02
 }
 
 #[test]
-fn nominal_paper_loop_has_adequate_model_predicted_stability_margins() {
+fn nominal_reference_loop_has_adequate_model_predicted_stability_margins() {
     let mut points = Vec::with_capacity(20_001);
     for index in 0..=20_000 {
         let log_frequency = -4.0 + 8.0 * index as f64 / 20_000.0;
         let frequency = 10.0_f64.powf(log_frequency);
-        let controller_magnitude = (PAPER_KP.powi(2) + (PAPER_KI / frequency).powi(2)).sqrt();
+        let controller_magnitude =
+            (REFERENCE_KP.powi(2) + (REFERENCE_KI / frequency).powi(2)).sqrt();
         let plant_magnitude = 1.0 / (1.0 + frequency.powi(2)).sqrt();
         let magnitude_db = 20.0 * (controller_magnitude * plant_magnitude).log10();
-        let phase_degrees =
-            (-f64::atan2(PAPER_KI / frequency, PAPER_KP) - frequency.atan() - 0.5 * frequency)
-                .to_degrees();
+        let phase_degrees = (-f64::atan2(REFERENCE_KI / frequency, REFERENCE_KP)
+            - frequency.atan()
+            - 0.5 * frequency)
+            .to_degrees();
         points.push((frequency, magnitude_db, phase_degrees));
     }
     let interpolate_crossing = |field: usize, target: f64| {
@@ -882,4 +884,60 @@ fn nominal_paper_loop_has_adequate_model_predicted_stability_margins() {
     );
     assert!(gain_margin >= 6.0);
     assert!(phase_margin >= 30.0);
+}
+
+#[test]
+fn control_water_heater_p_and_pi_show_integral_offset_removal() {
+    let plant = || {
+        scalar_plant_configuration(
+            100,
+            "recirculating-water-heater",
+            "first_order_dead_time",
+            "[20.0]",
+            "gain = 0.2\ntime_constant_s = 5.0\ndead_time_s = 1.0\ninitial_delayed_input = 0.0\noutput_bias = 20.0",
+            "",
+        )
+    };
+    let controller = |integral_gain| ControllerConfig {
+        kp: 4.0,
+        ki: integral_gain,
+        output_minimum: 0.0,
+        output_maximum: 100.0,
+        tracking_time: 1.0,
+        ..ControllerConfig::default()
+    };
+    let run = |name, integral_gain| {
+        run_loop(
+            name,
+            controller(integral_gain),
+            100,
+            1_200,
+            "Input.Setpoint := LREAL#35.0;",
+            |_| 35.0,
+            plant(),
+        )
+    };
+    let proportional = run("water-heater-p", 0.0);
+    let proportional_integral = run("water-heater-pi", 0.8);
+    let p_error = (35.0 - proportional.last().unwrap().process_value).abs();
+    let pi_error = (35.0 - proportional_integral.last().unwrap().process_value).abs();
+
+    eprintln!(
+        "water heater: p_final_error={p_error:.4} C, pi_final_error={pi_error:.4} C, p_mv={:.4} %, pi_mv={:.4} %",
+        proportional.last().unwrap().output,
+        proportional_integral.last().unwrap().output
+    );
+    assert_stable(&proportional, 120.0);
+    assert_stable(&proportional_integral, 120.0);
+    assert!(
+        p_error >= 5.0,
+        "P-only baseline must expose steady-state offset"
+    );
+    assert!(
+        pi_error <= 0.2,
+        "integral action must remove the heater offset"
+    );
+    assert!(proportional_integral
+        .iter()
+        .all(|sample| sample.output >= 0.0 && sample.output <= 100.0));
 }

@@ -28,6 +28,17 @@ pub(super) enum PlantModelConfig {
         input_bias: f64,
         output_bias: f64,
     },
+    GravityTank {
+        area_m2: f64,
+        outflow_coefficient: f64,
+    },
+    RobotJoint {
+        inertia: f64,
+        gravity_torque: f64,
+        viscous_friction: f64,
+        coulomb_friction: f64,
+        friction_smoothing: f64,
+    },
     PiecewiseLinear {
         input_points: Vec<f64>,
         output_points: Vec<f64>,
@@ -54,6 +65,8 @@ impl PlantModelConfig {
             Self::FirstOrder { .. } => "first_order",
             Self::FirstOrderDeadTime { .. } => "first_order_dead_time",
             Self::Integrator { .. } => "integrator",
+            Self::GravityTank { .. } => "gravity_tank",
+            Self::RobotJoint { .. } => "robot_joint",
             Self::PiecewiseLinear { .. } => "piecewise_linear",
             Self::SecondOrder { .. } => "second_order",
             Self::StateSpace { .. } => "state_space",
@@ -91,6 +104,41 @@ impl PlantModelConfig {
                 *gain = *source_gain;
                 *input_bias = *source_input_bias;
                 *output_bias = *source_output_bias;
+            }
+            (
+                Self::GravityTank {
+                    area_m2,
+                    outflow_coefficient,
+                },
+                Self::GravityTank {
+                    area_m2: source_area,
+                    outflow_coefficient: source_outflow,
+                },
+            ) => {
+                *area_m2 = *source_area;
+                *outflow_coefficient = *source_outflow;
+            }
+            (
+                Self::RobotJoint {
+                    inertia,
+                    gravity_torque,
+                    viscous_friction,
+                    coulomb_friction,
+                    friction_smoothing,
+                },
+                Self::RobotJoint {
+                    inertia: source_inertia,
+                    gravity_torque: source_gravity,
+                    viscous_friction: source_viscous,
+                    coulomb_friction: source_coulomb,
+                    friction_smoothing: source_smoothing,
+                },
+            ) => {
+                *inertia = *source_inertia;
+                *gravity_torque = *source_gravity;
+                *viscous_friction = *source_viscous;
+                *coulomb_friction = *source_coulomb;
+                *friction_smoothing = *source_smoothing;
             }
             (
                 Self::FirstOrder {
@@ -201,6 +249,11 @@ pub(super) fn model_output_into(
         PlantModelConfig::FirstOrder { .. } => outputs[0] = state[0],
         PlantModelConfig::FirstOrderDeadTime { .. } => outputs[0] = state[0],
         PlantModelConfig::Integrator { output_bias, .. } => outputs[0] = output_bias + state[0],
+        PlantModelConfig::GravityTank { .. } => outputs[0] = state[0],
+        PlantModelConfig::RobotJoint { .. } => {
+            outputs[0] = state[0];
+            outputs[1] = state[1];
+        }
         PlantModelConfig::PiecewiseLinear {
             input_points,
             output_points,
@@ -338,6 +391,51 @@ pub(super) fn rk4_state_space(
                 + workspace.k4[index])
             / 6.0;
     }
+}
+
+pub(super) fn rk4_gravity_tank(
+    level: &mut f64,
+    inlet_flow: f64,
+    h: f64,
+    area_m2: f64,
+    outflow_coefficient: f64,
+) {
+    let derivative =
+        |height: f64| (inlet_flow - outflow_coefficient * height.max(0.0).sqrt()) / area_m2;
+    let k1 = derivative(*level);
+    let k2 = derivative(*level + 0.5 * h * k1);
+    let k3 = derivative(*level + 0.5 * h * k2);
+    let k4 = derivative(*level + h * k3);
+    *level = (*level + h * (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0).max(0.0);
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn rk4_robot_joint(
+    state: &mut [f64],
+    torque: f64,
+    h: f64,
+    inertia: f64,
+    gravity_torque: f64,
+    viscous_friction: f64,
+    coulomb_friction: f64,
+    friction_smoothing: f64,
+) {
+    let derivative = |theta: f64, omega: f64| {
+        let friction =
+            viscous_friction * omega + coulomb_friction * (omega / friction_smoothing).tanh();
+        (
+            omega,
+            (torque - gravity_torque * theta.sin() - friction) / inertia,
+        )
+    };
+    let (k1_theta, k1_omega) = derivative(state[0], state[1]);
+    let (k2_theta, k2_omega) =
+        derivative(state[0] + 0.5 * h * k1_theta, state[1] + 0.5 * h * k1_omega);
+    let (k3_theta, k3_omega) =
+        derivative(state[0] + 0.5 * h * k2_theta, state[1] + 0.5 * h * k2_omega);
+    let (k4_theta, k4_omega) = derivative(state[0] + h * k3_theta, state[1] + h * k3_omega);
+    state[0] += h * (k1_theta + 2.0 * k2_theta + 2.0 * k3_theta + k4_theta) / 6.0;
+    state[1] += h * (k1_omega + 2.0 * k2_omega + 2.0 * k3_omega + k4_omega) / 6.0;
 }
 
 fn derivative_into(

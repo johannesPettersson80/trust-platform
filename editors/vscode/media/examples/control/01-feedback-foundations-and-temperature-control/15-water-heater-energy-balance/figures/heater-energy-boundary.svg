@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="360" viewBox="0 0 900 360" role="img" aria-labelledby="title desc">
+<title id="title">Water-heater energy boundary</title>
+<desc id="desc">A well-mixed water vessel stores thermal energy. Heater power enters from the left and ambient and recirculation heat loss leaves to the right.</desc>
+<style>
+  svg { color: #1f2937; background: #ffffff; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; forced-color-adjust: none; }
+  .panel { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.5; }
+  .grid { stroke: #d7dee8; stroke-width: 1; }
+  .axis { stroke: #64748b; stroke-width: 1.3; }
+  .actual { fill: none; stroke: #1473e6; stroke-width: 3; }
+  .model { fill: none; stroke: #d97706; stroke-width: 2.4; stroke-dasharray: 9 5; }
+  .request { fill: none; stroke: #7c3aed; stroke-width: 3; }
+  .applied { fill: none; stroke: #059669; stroke-width: 2.2; stroke-dasharray: 7 4; }
+  .reference { stroke: #475569; stroke-width: 1.4; stroke-dasharray: 5 5; }
+  .event { stroke: #b91c1c; stroke-width: 1.4; stroke-dasharray: 4 4; }
+  .label { fill: currentColor; font-size: 15px; }
+  .small { fill: currentColor; font-size: 13px; }
+  .muted { fill: #52606d; font-size: 13px; }
+  .title { fill: currentColor; font-size: 23px; font-weight: 650; }
+  .subtitle { fill: #52606d; font-size: 14px; }
+  .heading { fill: currentColor; font-size: 17px; font-weight: 650; }
+  .water { fill: #dbeafe; stroke: #1473e6; stroke-width: 2; }
+  .heat { stroke: #dc2626; stroke-width: 4; fill: none; marker-end: url(#arrow-red); }
+  .loss { stroke: #64748b; stroke-width: 3; fill: none; marker-end: url(#arrow-grey); }
+  .point { fill: #ffffff; stroke: #1473e6; stroke-width: 3; }
+  @media (prefers-color-scheme: dark) {
+    svg { color: #e5e7eb; background: #1e1e1e; }
+    .panel { fill: #252526; stroke: #6b7280; }
+    .grid { stroke: #3f4650; } .axis { stroke: #9ca3af; }
+    .muted, .subtitle { fill: #b8c0cc; } .water { fill: #173a5e; }
+    .point { fill: #1e1e1e; }
+  }
+  @media (forced-colors: active) {
+    svg { color: CanvasText; background: Canvas; }
+    .panel, .water { fill: Canvas; stroke: CanvasText; }
+    .grid, .axis, .reference, .event, .actual, .model, .request, .applied, .heat, .loss { stroke: CanvasText; }
+    .label, .small, .muted, .title, .subtitle, .heading { fill: CanvasText; }
+    .point { fill: Canvas; stroke: CanvasText; }
+  }
+</style>
+
+<defs>
+  <marker id="arrow-red" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#dc2626"/></marker>
+  <marker id="arrow-grey" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker>
+</defs>
+<text x="40" y="42" class="title">Water-heater energy boundary</text>
+<text x="40" y="68" class="subtitle">Explain the physical flows before writing the conservation equation</text>
+<rect x="330" y="105" width="250" height="180" rx="18" class="panel"/>
+<rect x="350" y="155" width="210" height="110" rx="10" class="water"/>
+<text x="455" y="190" text-anchor="middle" class="heading">Well-mixed water</text>
+<text x="455" y="218" text-anchor="middle" class="label">water temperature (T)</text>
+<text x="455" y="235" text-anchor="middle" class="small">stored energy</text>
+<text x="455" y="253" text-anchor="middle" class="small">thermal capacitance (C)</text>
+<path d="M120 195 H330" class="heat"/>
+<text x="120" y="150" class="heading">Electric heater</text>
+<text x="120" y="174" class="small">applied command (MV_applied)</text>
+<text x="150" y="218" class="small">heater heat input (Qin)</text>
+<path d="M580 195 H790" class="loss"/>
+<text x="630" y="150" class="heading">Surroundings + flow</text>
+<text x="630" y="174" class="small">ambient temperature (Tambient)</text>
+<text x="625" y="218" class="small">heat loss: H × (T - Tambient)</text>
+<text x="40" y="326" class="label">Stored-energy rate = heater power entering - heat leaving</text>
+<text x="860" y="326" text-anchor="end" class="muted">Explanatory diagram · not measured evidence</text>
+
+</svg>

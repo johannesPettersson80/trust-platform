@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-networked-pumping",
+  "name": "Qualify network ownership at a remote pumping station",
+  "revision": "sha256:curriculum-loop-73",
+  "projectId": "project:control-networked-pumping",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Timestamped bounded command ownership with local fallback",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-73",
+    "action": "direct",
+    "taskPeriodMs": 100
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.NaivePressure",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 0,
+        "maximum": 12
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.NaiveRequested",
+      "address": "%ML80",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "protected-header-pressure",
+        "channel": "protected-header-pressure",
+        "role": "PV",
+        "symbol": "P1.ProtectedPressure",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "bar",
+        "range": {
+          "minimum": 0,
+          "maximum": 12
+        }
+      },
+      {
+        "id": "naive-applied-pump-speed",
+        "channel": "naive-applied-pump-speed",
+        "role": "MV",
+        "symbol": "P1.NaiveApplied",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "protected-requested-pump-speed",
+        "channel": "protected-requested-pump-speed",
+        "role": "MV",
+        "symbol": "P1.ProtectedRequested",
+        "address": "%ML88",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "protected-applied-pump-speed",
+        "channel": "protected-applied-pump-speed",
+        "role": "MV",
+        "symbol": "P1.ProtectedApplied",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "delivered-remote-pump-demand",
+        "channel": "delivered-remote-pump-demand",
+        "role": "disturbance",
+        "symbol": "P1.RemoteDemand",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "locally-generated-station-time",
+        "channel": "locally-generated-station-time",
+        "role": "state",
+        "symbol": "P1.LocalTimeSeconds",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "remote-source-timestamp",
+        "channel": "remote-source-timestamp",
+        "role": "state",
+        "symbol": "P1.RemoteSourceTimeSeconds",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": -1,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "clock-uncertainty",
+        "channel": "clock-uncertainty",
+        "role": "state",
+        "symbol": "P1.ClockUncertaintySeconds",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "conservative-packet-age",
+        "channel": "conservative-packet-age",
+        "role": "state",
+        "symbol": "P1.ConservativeAgeSeconds",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": -1,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "remote-packet-sequence",
+        "channel": "remote-packet-sequence",
+        "role": "state",
+        "symbol": "P1.RemoteSequence",
+        "address": "%MD48",
+        "iecType": "DINT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      {
+        "id": "last-accepted-packet-sequence",
+        "channel": "last-accepted-packet-sequence",
+        "role": "state",
+        "symbol": "P1.LastAcceptedSequence",
+        "address": "%MD52",
+        "iecType": "DINT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      {
+        "id": "packet-rejection-reason",
+        "channel": "packet-rejection-reason",
+        "role": "state",
+        "symbol": "P1.RejectionReason",
+        "address": "%MW72",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 8
+        }
+      },
+      {
+        "id": "remote-signal-quality-good",
+        "channel": "remote-signal-quality-good",
+        "role": "quality",
+        "symbol": "P1.RemoteQualityGood",
+        "address": "%MX96.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "clock-synchronized",
+        "channel": "clock-synchronized",
+        "role": "quality",
+        "symbol": "P1.ClockSynchronized",
+        "address": "%MX96.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "communication-fault-latched",
+        "channel": "communication-fault-latched",
+        "role": "state",
+        "symbol": "P1.CommunicationFaultLatched",
+        "address": "%MX96.5",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "protected-remote-ownership",
+        "channel": "protected-remote-ownership",
+        "role": "state",
+        "symbol": "P1.ProtectedRemoteOwned",
+        "address": "%MX96.7",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "paired_remote_pumping_headers",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 25,
+    "seed": 20260829
+  }
+}

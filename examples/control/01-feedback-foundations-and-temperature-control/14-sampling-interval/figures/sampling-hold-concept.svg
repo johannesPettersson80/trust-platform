@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="360" viewBox="0 0 900 360">
+<style>svg{forced-color-adjust:none;background:#fff;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}.title{font-size:21px;font-weight:700;fill:#111827}.label{font-size:13px;fill:#374151}.small{font-size:11px;fill:#4b5563}.guide{stroke:#cbd5e1;stroke-width:1;stroke-dasharray:4 4}.axis{stroke:#6b7280;stroke-width:1.2}.continuous{fill:none;stroke:#2563eb;stroke-width:3}.held{fill:none;stroke:#d97706;stroke-width:3}.sample{fill:#2563eb;stroke:#fff;stroke-width:1.5}</style>
+<rect width="900" height="360" fill="#ffffff"/>
+<text x="55" y="38" class="title">Continuous oven temperature, samples, and held output</text>
+<text x="55" y="62" class="small">Explanatory timing diagram · not a measured response</text>
+<line x1="100" y1="245" x2="820" y2="245" class="axis"/>
+<line x1="100" y1="85" x2="100" y2="245" class="axis"/>
+<path d="M100 225 C185 220 235 195 300 175 S420 125 500 115 S650 95 820 92" class="continuous"/>
+<line x1="190" y1="82" x2="190" y2="292" class="guide"/>
+<circle cx="190" cy="205" r="5" class="sample"/>
+<line x1="330" y1="82" x2="330" y2="292" class="guide"/>
+<circle cx="330" cy="168" r="5" class="sample"/>
+<line x1="470" y1="82" x2="470" y2="292" class="guide"/>
+<circle cx="470" cy="132" r="5" class="sample"/>
+<line x1="610" y1="82" x2="610" y2="292" class="guide"/>
+<circle cx="610" cy="112" r="5" class="sample"/>
+<line x1="750" y1="82" x2="750" y2="292" class="guide"/>
+<circle cx="750" cy="102" r="5" class="sample"/>
+<path d="M100 310 H190 V285 H330 V260 H470 V236 H610 V220 H750 V208 H820" class="held"/>
+<text x="610" y="86" class="label" fill="#2563eb">continuous oven temperature</text>
+<text x="610" y="201" class="label" fill="#d97706">held heater output</text>
+<text x="190" y="338" class="small" text-anchor="middle">sample instants</text>
+<text x="585" y="338" class="small" text-anchor="middle">blue dots are sampled; orange output is held between updates</text>
+</svg>

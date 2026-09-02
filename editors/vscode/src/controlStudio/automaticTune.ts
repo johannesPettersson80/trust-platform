@@ -247,6 +247,16 @@ export function tuneSavedSimulationPlant(
     settlingTimeSeconds: requirementValue(selectedEvaluation.validation.requirements, "Settling time"),
   };
   const plot = buildEngineeringPlotEvidence(model, current, recommendation);
+  const selectedAttempt = attempts.find((item) => item.id === selectedEvaluation.id);
+  const lowerScoreAlternative = attempts
+    .filter((item) => item.status === "Feasible" && item.score !== undefined
+      && selectedAttempt?.score !== undefined && item.score < selectedAttempt.score)
+    .sort((left, right) => left.score! - right.score!)[0];
+  const selectionExplanation = lowerScoreAlternative && selectedAttempt?.score !== undefined
+    ? `${lowerScoreAlternative.method}'s raw score improves by ${Math.round(
+      (selectedAttempt.score - lowerScoreAlternative.score!) / selectedAttempt.score * 1_000
+    ) / 10} percent, below the 10 percent material-benefit threshold, so deterministic method order keeps ${selectedEvaluation.method}`
+    : `No alternative provides the 10 percent material benefit required to displace ${selectedEvaluation.method}`;
   return {
     applied: false,
     modelEvidence: "Exact simulation model",
@@ -257,7 +267,7 @@ export function tuneSavedSimulationPlant(
     validation: "Model-based validation · Pass",
     model: { kind: "first_order_dead_time", gain, timeConstantSeconds, deadTimeSeconds },
     metrics,
-    rationale: `${recommendation.structure} from ${selectedEvaluation.method} is the simplest passing candidate at its ranked objective score; ${attempts.filter((item) => item.status !== "Feasible").length} alternative(s) were retained with their rejection or availability reason.`,
+    rationale: `${recommendation.structure} from ${selectedEvaluation.method} is the simplest passing candidate. ${selectionExplanation}; ${attempts.filter((item) => item.status !== "Feasible").length} alternative(s) were retained with their rejection or availability reason.`,
     frequency: { points: plot.candidateOpenLoopBode, gainMarginDb: plot.gainMarginDb,
       phaseMarginDegrees: plot.phaseMarginDegrees },
     requirements: selectedEvaluation.validation.requirements,

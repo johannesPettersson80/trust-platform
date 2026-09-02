@@ -1,0 +1,51 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 5000
+plant_step_ms = 100
+
+[[plants]]
+id = "fixed-gravity-tank-capstone"
+name = "Fixed-PI gravity-drained tank"
+description = "Nonlinear vented tank using the conservative fixed high-level PI."
+model = "gravity_tank"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [0.30]
+initial_input = [0.027386127875]
+
+[plants.parameters]
+area_m2 = 1.0
+outflow_coefficient_m2_sqrt_m_per_s = 0.050
+
+[[plants.uncertainties]]
+id = "fixed-level-sensor-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+standard_deviation = 0.0005
+
+[[plants]]
+id = "scheduled-gravity-tank-capstone"
+name = "Scheduled-PI gravity-drained tank"
+description = "Equivalent nonlinear vented tank using one atomically scheduled retained PI."
+model = "gravity_tank"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8"]
+initial_state = [0.30]
+initial_input = [0.027386127875]
+
+[plants.parameters]
+area_m2 = 1.0
+outflow_coefficient_m2_sqrt_m_per_s = 0.050
+
+[[plants.uncertainties]]
+id = "scheduled-level-sensor-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+standard_deviation = 0.0005

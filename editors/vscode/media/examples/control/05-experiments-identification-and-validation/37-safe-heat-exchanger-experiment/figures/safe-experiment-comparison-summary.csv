@@ -1,0 +1,4 @@
+plan,step_pp,duration_s,predicted_final_degC,late_mean_degC,restored_degC,abort_reason,decision,evidence_class
+Plan A,10,63,55.000000,54.676212576310,50.099302561904,0,qualified,configured_simulation
+Plan B,25,63,62.500000,,,0,rejected_before_motion,configured_simulation
+Plan A bad quality,10,63,55.000000,,,1,aborted_not_identification_data,configured_simulation

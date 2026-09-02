@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-two-tank-state-space",
+  "name": "Two-tank state-space experiment",
+  "revision": "sha256:curriculum-loop-36",
+  "projectId": "project:control-two-tank-state-space",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "TwoTankStateSpaceExperiment", "design": "project", "revision": "sha256:two-tank-state-space-experiment", "action": "direct", "taskPeriodMs": 100 },
+  "signals": {
+    "processVariable": { "symbol": "P1.MainDownstreamLevel", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": 0, "maximum": 1 } },
+    "manipulatedVariable": { "symbol": "P1.RequestedPumpFlow", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "m3/s", "range": { "minimum": 0, "maximum": 0.2 } },
+    "additional": [
+      { "id": "experiment-authority", "channel": "experiment-authority", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX8.0", "iecType": "BOOL", "direction": "write", "unit": "bool", "range": { "minimum": 0, "maximum": 1 } },
+      { "id": "main-upstream", "channel": "main", "role": "PV", "symbol": "P1.MainUpstreamLevel", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": 0, "maximum": 1 } },
+      { "id": "main-pump", "channel": "main", "role": "actuator", "symbol": "P1.MainPumpFlow", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "m3/s", "range": { "minimum": 0, "maximum": 0.2 } },
+      { "id": "empty-downstream", "channel": "empty-initial-state", "role": "PV", "symbol": "P1.EmptyDownstreamLevel", "address": "%IL24", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": 0, "maximum": 1 } },
+      { "id": "charged-upstream", "channel": "charged-initial-state", "role": "state", "symbol": "P1.ChargedUpstreamLevel", "address": "%IL32", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": 0, "maximum": 1 } },
+      { "id": "charged-downstream", "channel": "charged-initial-state", "role": "PV", "symbol": "P1.ChargedDownstreamLevel", "address": "%IL40", "iecType": "LREAL", "direction": "read", "unit": "m", "range": { "minimum": 0, "maximum": 1 } }
+    ]
+  },
+  "limits": { "outputMinimum": 0, "outputMaximum": 0.2 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "interconnected_two_tank_state_space",
+  "operatingPoint": "Declared empty and charged initial states",
+  "experiment": { "execution": "project-scripted", "kind": "observation", "activationSignal": "P1.ExperimentEnabled", "amplitude": 0, "durationSeconds": 300.1, "restorationValue": 0, "seed": 20260829 }
+}

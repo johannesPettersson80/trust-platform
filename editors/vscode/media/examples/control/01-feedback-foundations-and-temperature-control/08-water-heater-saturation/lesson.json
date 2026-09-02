@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 4,
+  "id": "control-water-heater-saturation",
+  "title": "Water-heater amplitude saturation",
+  "level": "Foundation",
+  "sequence": 8,
+  "equipment": "Electric recirculating water heater with a 0 to 100 percent power stage",
+  "physicalPurpose": "Keep the applied heater command physically valid while revealing unavailable PI demand during an unreachable temperature request.",
+  "principalTechnique": "Requested-versus-applied manipulated-value observation and amplitude clamping",
+  "objective": "Use requested and applied heater power to determine whether a temperature is reachable, diagnose actuator saturation, and explain the resulting integral windup.",
+  "prerequisites": ["control-water-heater-pi"],
+  "nextLesson": "control-rate-limit",
+  "signals": [
+    { "role": "SP", "name": "Outlet-temperature setpoint", "unit": "degC", "minimum": 15, "maximum": 60, "resolution": 0.1, "binding": "%ML0" },
+    { "role": "PV", "name": "Outlet-water temperature", "unit": "degC", "minimum": 0, "maximum": 80, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "MV", "name": "Requested heater power", "unit": "%", "minimum": -1000000, "maximum": 1000000, "resolution": 0.01, "binding": "%ML8" },
+    { "role": "MV", "name": "Applied heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
+    { "role": "state", "name": "Saturation error", "unit": "pp", "minimum": -1000000, "maximum": 1000000, "resolution": 0.01, "binding": "%ML16" },
+    { "role": "state", "name": "Proportional gain", "unit": "%/degC", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML24" },
+    { "role": "state", "name": "Integral gain", "unit": "%/(degC*s)", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML32" },
+    { "role": "MV", "name": "Manual heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML40" },
+    { "role": "state", "name": "Proportional increment", "unit": "pp", "minimum": -1000, "maximum": 1000, "resolution": 0.01, "binding": "%ML48" },
+    { "role": "state", "name": "Integral increment", "unit": "pp", "minimum": -1000, "maximum": 1000, "resolution": 0.01, "binding": "%ML56" },
+    { "role": "state", "name": "Automatic mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX64.0" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX72.0" }
+  ],
+  "plant": {
+    "modelId": "first_order_dead_time",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      { "name": "gain", "value": 0.2, "unit": "degC/%" },
+      { "name": "time_constant", "value": 5, "unit": "s" },
+      { "name": "dead_time", "value": 1, "unit": "s" }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": { "outletTemperature": 20 },
+    "seed": 20260828,
+    "operatingPoint": { "PV": 35, "MV": 75 },
+    "validityRange": [
+      { "signal": "Outlet-water temperature", "minimum": 0, "maximum": 80, "unit": "degC" },
+      { "signal": "Applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
+    "simplifications": ["The recirculating volume is represented by one well-mixed thermal state.", "The power stage applies a hard amplitude clamp without its own dynamics.", "Element skin temperature, boiling, pump failure and independent safety trips are outside this simulation."]
+  },
+  "baseline": {
+    "executableId": "Control.PID.SelectedPIAtReachableSetpoint",
+    "settings": { "setpoint": 35, "proportionalGain": 8, "integralGain": 4, "manualHoldingOutput": 75, "appliedMinimum": 0, "appliedMaximum": 100 },
+    "limitation": "Lesson 7 measured a 159 percent preliminary request while the physical heater applied only 100 percent during its separate unreachable-setpoint exposure; the stored demand and recovery consequence still require diagnosis."
+  },
+  "change": {
+    "executableId": "Control.PID.PIWithExternalAmplitudeClamp",
+    "settings": { "unreachableSetpoint": 45, "restoreSetpoint": 35, "exposureSeconds": 10, "physicalOutputMinimum": 0, "physicalOutputMaximum": 100 },
+    "decision": "Retain the real PID request separately and clamp only the applied plant command so saturation and windup can be measured before anti-windup is introduced."
+  },
+  "experiment": {
+    "kind": "setpoint_step",
+    "signal": "Outlet-temperature setpoint",
+    "baseline": 35,
+    "amplitude": 10,
+    "durationSeconds": 95.1,
+    "settlingSeconds": 50,
+    "disturbances": [],
+    "seed": 20260828,
+    "restorationValue": 35,
+    "timing": { "manualHoldingEndsSeconds": 50, "baselineEndsSeconds": 55, "unreachableExposureEndsSeconds": 65, "safeRestorationSeconds": 95.1 }
+  },
+  "acceptance": [
+    { "metric": "applied_heater_minimum", "signal": "Applied heater power", "window": "complete run", "comparator": ">=", "limit": 0, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "applied_heater_maximum", "signal": "Applied heater power", "window": "complete run", "comparator": "<=", "limit": 100, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "peak_requested_heater_power", "signal": "Requested heater power", "window": "55.1 through 65.0 s", "comparator": ">", "limit": 150, "unit": "%", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "peak_saturation_error", "signal": "Saturation error", "window": "55.1 through 65.0 s", "comparator": ">", "limit": 50, "unit": "pp", "tolerance": 0.01, "evidenceClass": "simulation" },
+    { "metric": "time_at_upper_limit", "signal": "Applied heater power", "window": "55.1 through 65.0 s", "comparator": ">=", "limit": 9.5, "unit": "s", "tolerance": 0.1, "evidenceClass": "simulation" },
+    { "metric": "post_restore_upper_limit_time", "signal": "Applied heater power", "window": "after 65.0 s restoration", "comparator": ">=", "limit": 1, "unit": "s", "tolerance": 0.1, "evidenceClass": "simulation" },
+    { "metric": "safe_restoration_requested_output", "signal": "Requested heater power", "window": "95.1 s sample", "comparator": "==", "limit": 0, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "safe_restoration_applied_output", "signal": "Applied heater power", "window": "95.1 s sample", "comparator": "==", "limit": 0, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" }
+  ],
+  "safety": {
+    "hardLimits": [{ "signal": "Outlet-water temperature", "minimum": 0, "maximum": 80, "unit": "degC" }, { "signal": "Applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }],
+    "abortPredicates": ["PV, requested MV, applied MV or saturation error is nonfinite", "Applied MV leaves 0 to 100 percent"],
+    "safeMv": 0,
+    "restorationMode": "Manual with 0 percent heater power",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": ["The unreachable request and deliberately hidden limit are teaching experiments and are not approved for a physical heater."]
+  },
+  "workflowStages": ["Monitor", "Test"],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-8--amplitude-saturation-same-water-heater",
+    "nativeTest": "control_curriculum_water_heater_saturation_retains_windup_and_safe_recovery_evidence",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_water_heater_saturation_evidence control_curriculum_water_heater_saturation_retains_windup_and_safe_recovery_evidence -- --exact --nocapture",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/08-water-heater-saturation",
+    "runArtifactFields": ["phase", "SP", "PV", "error", "proportionalIncrement", "integralIncrement", "requestedMV", "appliedMV", "saturationError", "requiredSteadyMV", "reachabilityMargin", "timeAtLimit", "postRestoreSaturation", "recoveryTime", "controllerParameters", "plantParameters", "sampleTime", "seed", "limits", "mode", "evidenceClass"],
+    "renderedJourneyId": "control-water-heater-saturation"
+  },
+  "video": {
+    "viewerOutcome": "Distinguish requested and applied MV, calculate saturation error, and explain why an output clamp does not prevent integral windup.",
+    "requiredVisibleEvidence": ["clamp equation", "75 and 125 percent reachability calculations", "159 percent first-scan prediction", "requested and applied MV overlay", "saturation error", "time at limit", "post-restoration windup", "safe Manual restoration", "Simulation evidence label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "The selected Lesson 7 PI uses Kp 8 and Ki 4. Its separate 45 degC exposure measured a 159 percent preliminary request while the one-sided heater applied only 100 percent.",
+    "reason": "A clipped actuator trace hides how much output the controller requests and how much integral demand accumulates behind the physical limit, so it cannot explain delayed recovery by itself.",
+    "theory": ["The requested manipulated variable is the controller calculation before the physical actuator limit; the applied manipulated variable is the bounded command that actually drives the plant.", "The heater is one-sided and its physical power stage clamps requests into the 0 to 100 percent range.", "Saturation error is requested heater power minus applied heater power, so positive error means unavailable positive actuation under this lesson's sign convention.", "A target is reachable only when required steady heater power lies inside the physical range.", "Persistent PI error can increase the stored integral contribution while the externally clamped plant input cannot increase."],
+    "workedPrediction": "The 35 degC target requires 75 percent and has +25 percentage points reachability margin. The 45 degC target requires 125 percent and has -25 percentage points margin. From the 75 percent operating point, the first 10 degC step produces an 80 percentage-point proportional increment and 4 percentage-point integral increment, so requested power is 159 percent, applied power is 100 percent, and saturation error is 59 percentage points.",
+    "practicalPreparation": ["Inspect SP, PV, requested and applied heater power, saturation error, both PI increments, mode, units, quality, operating point, physical limit and Manual-zero safe state.", "Confirm deterministic Simulation evidence, establish 35 degC with 75 percent Manual power, and calculate both reachability cases before approving the bounded setpoint experiment."],
+    "baseline": "Use Kp 8 and Ki 4 at the qualified 35 degC, 75 percent operating point and confirm requested and applied heater power agree before saturation.",
+    "change": "Change only SP to 45 degC from 55.1 through 65.0 s, then restore 35 degC without resetting the controller or introducing the prior cold-water disturbance.",
+    "comparison": "Compare the qualified baseline, unreachable exposure, and achievable restoration using predeclared reachability, requested/applied, saturation-time, post-restoration-hold, recovery, and safe-restoration measures.",
+    "validation": "Verify the native trace remains finite and bounded, reproduces the 75 and 125 percent reachability calculations, records 426.05 percent peak request and 326.05 percentage points unavailable demand, remains at the upper limit for 10.0 s during exposure and 12.7 s after restoration, recovers in 25.1 s, and ends in Manual at zero requested and applied power.",
+    "explanation": "Explain that the clamp protects the power stage while the PID, deliberately unaware of the external limit, accumulates stored demand that must unwind after the setpoint becomes reachable again.",
+    "transfer": "For another actuator, state its direction and physical range, calculate reachability, retain requested and applied commands, define saturation-error sign and recovery measures, and do not infer integral windup from a clipped applied trace alone."
+  }
+}

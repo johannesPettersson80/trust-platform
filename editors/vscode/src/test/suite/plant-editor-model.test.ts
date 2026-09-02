@@ -1,6 +1,72 @@
 import * as assert from "assert";
 
 suite("Plant editor identity", () => {
+  test("edits the runtime gravity-tank model with physical parameter names and units", () => {
+    const model = require("../../networkCanvas/plant/editorModel") as {
+      plantDynamicsFields?: (kind: string) => Array<{ key: string; label: string; unit: string }>;
+    };
+    const descriptors = require("../../networkCanvas/plant/modelDescriptors") as {
+      plantModelDescriptor?: (kind: string) => { productName: string; purpose: string; states: number };
+    };
+
+    assert.deepStrictEqual(model.plantDynamicsFields?.("gravity_tank"), [
+      {
+        key: "area_m2", label: "Tank area (m²)", valueKind: "number",
+        plainTerm: "Tank cross-section", controlTerm: "Cross-sectional area", unit: "m²",
+        effect: "A larger area makes the level change more slowly for the same flow.",
+        storedKey: "parameters.area_m2", optional: false,
+      },
+      {
+        key: "outflow_coefficient_m2_sqrt_m_per_s", label: "Outlet coefficient", valueKind: "number",
+        plainTerm: "Outlet size", controlTerm: "Square-root discharge coefficient", unit: "m²√m/s",
+        effect: "A larger coefficient drains the tank faster, especially at higher level.",
+        storedKey: "parameters.outflow_coefficient_m2_sqrt_m_per_s", optional: false,
+      },
+      {
+        key: "initial_state", label: "Initial level", valueKind: "vector",
+        plainTerm: "Starting internal value", controlTerm: "Initial state vector", unit: "state units",
+        effect: "This is the model state at simulation start or reset.",
+        storedKey: "initial_state", optional: false,
+      },
+    ]);
+    assert.deepStrictEqual(descriptors.plantModelDescriptor?.("gravity_tank"), {
+      kind: "gravity_tank",
+      productName: "Gravity-drained tank",
+      purpose: "Nonlinear level from inlet and square-root outlet flow",
+      states: 1,
+      inputs: 1,
+      outputs: 1,
+    });
+  });
+
+  test("edits the runtime nonlinear robot-joint model without a teaching-only path", () => {
+    const model = require("../../networkCanvas/plant/editorModel") as {
+      plantDynamicsFields?: (kind: string) => Array<{ key: string }>;
+    };
+    const descriptors = require("../../networkCanvas/plant/modelDescriptors") as {
+      plantModelDescriptor?: (kind: string) => { productName: string; purpose: string; states: number; inputs: number; outputs: number };
+    };
+    assert.deepStrictEqual(
+      model.plantDynamicsFields?.("robot_joint")?.map((field) => field.key),
+      [
+        "inertia_kg_m2",
+        "gravity_torque_nm",
+        "viscous_friction_nm_s_per_rad",
+        "coulomb_friction_nm",
+        "friction_smoothing_rad_s",
+        "initial_state",
+      ]
+    );
+    assert.deepStrictEqual(descriptors.plantModelDescriptor?.("robot_joint"), {
+      kind: "robot_joint",
+      productName: "Gravity-loaded robot joint",
+      purpose: "Nonlinear angle, speed, gravity, and friction dynamics",
+      states: 2,
+      inputs: 1,
+      outputs: 2,
+    });
+  });
+
   test("describes, validates, and persists the scalar actuator settings", () => {
     const api = require("../../networkCanvas/plant/editorModel") as {
       PLANT_ACTUATOR_FIELDS?: Array<{ key: string; label: string }>;
@@ -13,6 +79,9 @@ suite("Plant editor identity", () => {
       "rate_up_per_s",
       "rate_down_per_s",
       "deadband",
+      "stiction_band",
+      "slip_jump",
+      "characteristic_exponent",
       "lag_s",
       "initial_applied",
     ]);
@@ -21,6 +90,15 @@ suite("Plant editor identity", () => {
     ]);
     assert.deepStrictEqual(api.validatePlantActuator?.({ rate_up_per_s: -1 }), [
       { field: "rate_up_per_s", message: "Rising rate must be 0 or greater." },
+    ]);
+    assert.deepStrictEqual(api.validatePlantActuator?.({ stiction_band: 3, slip_jump: 4 }), [
+      { field: "slip_jump", message: "Slip jump must not exceed the stiction band." },
+    ]);
+    assert.deepStrictEqual(api.validatePlantActuator?.({ characteristic_exponent: 0 }), [
+      { field: "characteristic_exponent", message: "Installed characteristic exponent must be greater than 0." },
+    ]);
+    assert.deepStrictEqual(api.validatePlantActuator?.({ characteristic_exponent: 2 }), [
+      { field: "characteristic_exponent", message: "A nonlinear installed characteristic requires finite minimum and maximum values with minimum below maximum." },
     ]);
     assert.deepStrictEqual(api.validatePlantActuator?.({ minimum: 0, maximum: 10, initial_applied: 11 }), [
       { field: "initial_applied", message: "Initial applied value must be within minimum and maximum." },
@@ -39,8 +117,8 @@ suite("Plant editor identity", () => {
     };
     assert.deepStrictEqual(api.plantCandidateFromEditorDraft?.({ ...base, actuator: {} })?.actuator, undefined);
     assert.deepStrictEqual(
-      api.plantCandidateFromEditorDraft?.({ ...base, actuator: { minimum: 0, maximum: 100 } })?.actuator,
-      { minimum: 0, maximum: 100 }
+      api.plantCandidateFromEditorDraft?.({ ...base, actuator: { minimum: 0, maximum: 100, characteristic_exponent: 2 } })?.actuator,
+      { minimum: 0, maximum: 100, characteristic_exponent: 2 }
     );
   });
 
@@ -236,7 +314,7 @@ suite("Plant editor identity", () => {
 });
 
 suite("Plant editor starting points", () => {
-  test("defines the six common starting points and their exact editable proposals", () => {
+  test("defines the eight common starting points and their exact editable proposals", () => {
     let api:
       | {
           PLANT_STARTING_POINTS?: ReadonlyArray<unknown>;
@@ -257,9 +335,11 @@ suite("Plant editor starting points", () => {
       })),
       [
         { id: "tank", label: "Tank or accumulated level", model: "integrator" },
+        { id: "gravity_drained_tank", label: "Gravity-drained tank", model: "gravity_tank" },
         { id: "temperature", label: "Temperature or slow process", model: "first_order_dead_time" },
         { id: "motor_speed", label: "Motor speed or first-order process", model: "first_order" },
         { id: "mechanical_position", label: "Mechanical position or resonant process", model: "second_order" },
+        { id: "robot_joint", label: "Gravity-loaded robot joint", model: "robot_joint" },
         { id: "static_scaling", label: "Static scaling", model: "static_gain" },
         { id: "nonlinear_characteristic", label: "Nonlinear characteristic", model: "piecewise_linear" },
       ]
@@ -273,6 +353,25 @@ suite("Plant editor starting points", () => {
         output_bias: 0,
       },
       initialState: [0],
+    });
+    assert.deepStrictEqual(api?.proposePlantStartingPoint?.("gravity_drained_tank"), {
+      model: "gravity_tank",
+      parameters: {
+        area_m2: 2,
+        outflow_coefficient_m2_sqrt_m_per_s: 0.5,
+      },
+      initialState: [4],
+    });
+    assert.deepStrictEqual(api?.proposePlantStartingPoint?.("robot_joint"), {
+      model: "robot_joint",
+      parameters: {
+        inertia_kg_m2: 2,
+        gravity_torque_nm: 4,
+        viscous_friction_nm_s_per_rad: 0.2,
+        coulomb_friction_nm: 0.1,
+        friction_smoothing_rad_s: 0.01,
+      },
+      initialState: [0.5, 0],
     });
     assert.deepStrictEqual(api?.proposePlantStartingPoint?.("temperature"), {
       model: "first_order_dead_time",
@@ -353,16 +452,19 @@ suite("Plant editor starting points", () => {
 
     assert.deepStrictEqual(Object.keys(help), [
       "tank",
+      "gravity_drained_tank",
       "temperature",
       "motor_speed",
       "mechanical_position",
+      "robot_joint",
       "static_scaling",
       "nonlinear_characteristic",
       "custom_state_space",
     ]);
     for (const [id, copy] of Object.entries(help)) {
       assert.ok(copy?.[0]?.length, `${id} must explain why the model is reasonable`);
-      assert.match(copy?.[1] ?? "", /cannot/i, `${id} must state what it cannot reproduce`);
+      assert.match(copy?.[1] ?? "", /cannot|without|omits/i,
+        `${id} must state what it cannot reproduce`);
     }
     assert.match(help.temperature?.[0] ?? "", /lag.*delay/i);
     assert.match(help.mechanical_position?.[0] ?? "", /inertia.*damping/i);
@@ -403,6 +505,38 @@ suite("Plant editor starting points", () => {
 });
 
 suite("Plant imperfection editor", () => {
+  test("configures backlash as a process-output play effect with positive width", () => {
+    const api = require("../../networkCanvas/plant/uncertaintyEditor") as any;
+    const valid = {
+      ...api.createPlantUncertainty(1),
+      id: "gear-clearance",
+      target: "process_output",
+      mode: "replace",
+      generator: "backlash",
+      width: 0.05,
+    };
+
+    assert.deepStrictEqual(api.plantUncertaintyGeneratorFields("backlash"), ["width"]);
+    assert.strictEqual(api.plantUncertaintyFieldLabel("width"), "Backlash width");
+    assert.deepStrictEqual(api.validatePlantUncertainties([valid], []), []);
+    assert.deepStrictEqual(api.persistedPlantUncertainties([valid]), [{
+      id: "gear-clearance",
+      target: "process_output",
+      mode: "replace",
+      generator: "backlash",
+      channel: 0,
+      start_s: 0,
+      width: 0.05,
+    }]);
+    assert.deepStrictEqual(api.validatePlantUncertainties([
+      { ...valid, target: "measurement" },
+      { ...valid, id: "zero-clearance", width: 0 },
+    ], []), [
+      { row: 0, field: "generator", message: "Backlash requires Process output and Replace mode." },
+      { row: 1, field: "width", message: "Backlash width must be greater than 0." },
+    ]);
+  });
+
   test("owns valid generator fields and preserves explicit row order in the saved candidate", () => {
     let api: any;
     try { api = require("../../networkCanvas/plant/uncertaintyEditor"); } catch { api = undefined; }

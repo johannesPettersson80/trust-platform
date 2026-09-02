@@ -190,6 +190,9 @@ impl PlantInstance {
                         )?;
                     }
                 }
+                self.config
+                    .validity
+                    .check_input(&self.config.id, &self.latest_applied_input)?;
                 if matches!(
                     self.config.model,
                     PlantModelConfig::FirstOrderDeadTime { .. }
@@ -249,6 +252,32 @@ impl PlantInstance {
                     } => {
                         self.state[0] += h * gain * (self.latest_applied_input[0] - input_bias);
                     }
+                    PlantModelConfig::GravityTank {
+                        area_m2,
+                        outflow_coefficient,
+                    } => rk4_gravity_tank(
+                        &mut self.state[0],
+                        self.latest_applied_input[0],
+                        h,
+                        *area_m2,
+                        *outflow_coefficient,
+                    ),
+                    PlantModelConfig::RobotJoint {
+                        inertia,
+                        gravity_torque,
+                        viscous_friction,
+                        coulomb_friction,
+                        friction_smoothing,
+                    } => rk4_robot_joint(
+                        &mut self.state,
+                        self.latest_applied_input[0],
+                        h,
+                        *inertia,
+                        *gravity_torque,
+                        *viscous_friction,
+                        *coulomb_friction,
+                        *friction_smoothing,
+                    ),
                     PlantModelConfig::SecondOrder {
                         gain,
                         natural_frequency,
@@ -280,6 +309,9 @@ impl PlantInstance {
                         *state = effect.apply_state(channel, *state, time_s, h)?;
                     }
                 }
+                self.config
+                    .validity
+                    .check_state(&self.config.id, &self.state)?;
                 model_output_into(
                     &self.effective_model,
                     &self.state,
@@ -292,6 +324,11 @@ impl PlantInstance {
                     for effect in &mut self.uncertainties {
                         *output = effect.apply_process_output(channel, *output, time_s, h)?;
                     }
+                }
+                self.config
+                    .validity
+                    .check_output(&self.config.id, &self.latest_measured_feedback)?;
+                for (channel, output) in self.latest_measured_feedback.iter_mut().enumerate() {
                     *output += self.sensor_bias[channel];
                     for effect in &mut self.uncertainties {
                         *output = effect.apply_measurement(channel, *output, time_s, h)?;
