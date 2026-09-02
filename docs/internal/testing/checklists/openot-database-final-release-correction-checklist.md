@@ -159,3 +159,32 @@ on one frozen replacement commit.
 - [ ] Commit and prepare one clean exact-SHA artifact, push once, request/read
   the exact-head automatic review, and merge/release only after every check is
   green.
+
+## 10. Fresh shutdown target and exact-label teardown correction
+
+- [x] Preserve the complete exact-head GitHub ledger for `33f3c0407`: all 24
+  checks completed with no failures; exact-head security review found no
+  security issue.
+- [x] Record both exact-head code-review findings: shutdown can freeze an older
+  buffered-poll head, and state-file presence can widen cleanup to predictable
+  unlabelled Docker names.
+- [x] Specify a fresh non-consuming producer-head shutdown snapshot and forbid
+  name-based cleanup fallback even when the state marker matches.
+- [x] Add focused tests before production changes for a buffered two-record
+  poll followed by a third pre-shutdown record, and for empty exact-label
+  discovery with matching state and unlabelled predictable names.
+- [x] Capture honest assertion red against untouched `33f3c0407`: shutdown
+  stored 2 of 3 unique records, while teardown invoked both `docker rm -f` and
+  `docker network rm` for names that label discovery did not own.
+- [x] Capture focused green for the exact-label teardown test and 20 repeated
+  fresh-head shutdown-drain runs without weakening either assertion.
+- [x] Keep the repair minimal and owner-specific: the service observer freezes
+  the drain target; the teardown script removes only label-discovered IDs; no
+  backend adapter, schema generation, TOML shape, or example changes.
+- [ ] Run the complete service/runner focused suites, runtime verticals,
+  diagram render/drift, architecture/SOLID checks, and final remote broad gates.
+- [ ] Freeze, commit, prepare, and push one replacement exact SHA; request and
+  read exact-head code/security reviews and collect every GitHub check before
+  merge.
+- [ ] Merge only through the release guard, verify main CI and `v0.24.68`
+  release/Latest/assets/Marketplace, then complete the post-merge audit.

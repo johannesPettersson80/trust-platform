@@ -688,6 +688,82 @@ fn shutdown_drains_records_published_after_the_last_worker_poll() {
     std::fs::remove_dir_all(root).ok();
 }
 
+#[test]
+fn shutdown_uses_a_fresh_head_when_an_older_poll_still_has_buffered_records() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "trust-openot-shutdown-buffered-drain-{}-{stamp}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&root).expect("root");
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
+            .expect("secure root");
+    }
+    let shm_path = root.join("openot.shm");
+    let mut publisher = SharedRecordPublisher::create(&shm_path, 4096).expect("publisher");
+    std::fs::write(
+        root.join("openot-definition.json"),
+        serde_json::to_vec_pretty(&sample_definition()).expect("serialize definition"),
+    )
+    .expect("write definition");
+    publisher
+        .append_record(&Record::new(11, 1, 0, 7, EVENT_HEARTBEAT))
+        .expect("publish first record");
+    publisher
+        .append_record(&Record::new(12, 1, 1, 7, EVENT_HEARTBEAT))
+        .expect("publish buffered record");
+    let config = OpenOtTelemetryConfig {
+        enabled: true,
+        path: "openot.shm".into(),
+        persistence: OpenOtPersistenceConfig {
+            enabled: true,
+            backend: Some(OpenOtPersistenceBackend::Sqlite),
+            batch_size: 1,
+            queue_capacity: 4,
+            flush_interval_ms: 60_000,
+            shutdown_timeout_ms: 2_000,
+            sqlite: Some(OpenOtSqlitePersistenceConfig {
+                path: "history/logging.sqlite3".into(),
+            }),
+            ..OpenOtPersistenceConfig::default()
+        },
+        ..OpenOtTelemetryConfig::default()
+    };
+    let mut service = OpenOtPersistenceService::start(&config, &root)
+        .expect("start service")
+        .expect("enabled service");
+    let first_commit_deadline = std::time::Instant::now() + Duration::from_secs(2);
+    while service.status().documents_committed < 1
+        && std::time::Instant::now() < first_commit_deadline
+    {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(service.status().documents_committed, 1);
+    publisher
+        .append_record(&Record::new(13, 1, 2, 7, EVENT_HEARTBEAT))
+        .expect("publish after buffered poll and before shutdown");
+
+    service.shutdown();
+
+    let connection = rusqlite::Connection::open(root.join("history/logging.sqlite3"))
+        .expect("inspect drained database");
+    let count: i64 = connection
+        .query_row("SELECT COUNT(*) FROM logging_records", [], |row| row.get(0))
+        .expect("count drained records");
+    let shutdown_status = service.status();
+    assert_eq!(
+        count, 3,
+        "shutdown target must come from a fresh control snapshot, not the buffered poll; status={shutdown_status:?}"
+    );
+    assert_eq!(shutdown_status.state, OpenOtPersistenceState::Stopped);
+    std::fs::remove_dir_all(root).ok();
+}
+
 #[cfg(feature = "openot-real-database-tests")]
 #[test]
 fn postgresql_service_reconnects_and_catches_up_after_real_server_restart() {

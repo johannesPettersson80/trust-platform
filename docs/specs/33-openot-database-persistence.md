@@ -600,6 +600,11 @@ The drain MUST poll and commit source records that were published before the
 shutdown request and MUST run required remote-spool maintenance until both the
 source cursor and required remote delivery are caught up or the deadline
 expires.
+When the worker first observes the shutdown request, it MUST take a fresh,
+non-consuming control-block snapshot and freeze that snapshot's producer head
+as the drain target. A head retained by an earlier source poll or buffered
+batch MUST NOT define the target, because records may have been published after
+that poll and before the shutdown request.
 Disk-full, permission, corrupt database/spool, malformed stored document, and
 definition corruption are actionable failures and MUST NOT trigger automatic
 state deletion.
@@ -637,7 +642,10 @@ including their attached Docker volumes, even when the temporary filesystem
 state directory or marker was lost after an interrupted job. When state is
 present, its marker MUST still match the validated prefix before any mutation;
 symlinked or mismatched state MUST fail closed. Label discovery MUST NOT widen
-cleanup to unlabelled or differently labelled runner resources.
+cleanup to unlabelled or differently labelled runner resources. In particular,
+the presence of a matching state marker MUST NOT authorize deletion by a
+predictable container or network name when exact-label discovery returned no
+owned resource.
 
 ## 7. Lifecycle and observability
 

@@ -36,16 +36,6 @@ done < <(docker ps -aq --filter "label=$ownership_label")
 while IFS= read -r network; do
   [[ -n $network ]] && networks+=("$network")
 done < <(docker network ls -q --filter "label=$ownership_label")
-if [[ $state_present == true && ${#containers[@]} == 0 ]]; then
-  containers=(
-    "$prefix-postgres" "$prefix-timescale" "$prefix-mysql"
-    "$prefix-mariadb" "$prefix-sqlserver" "$prefix-influx"
-    "$prefix-influx-tls"
-  )
-fi
-if [[ $state_present == true && ${#networks[@]} == 0 ]]; then
-  networks=("$prefix-network")
-fi
 volumes=()
 if (( ${#containers[@]} != 0 )); then
   mapfile -t volumes < <(

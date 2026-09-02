@@ -172,6 +172,53 @@ esac
             self.assertIn(f"network ls -q --filter label={ownership}", calls)
             self.assertIn("network rm owned-network", calls)
 
+    def test_teardown_does_not_delete_unlabelled_names_when_state_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            docker_log = root / "docker.log"
+            docker_log.write_text("", encoding="utf-8")
+            fake_docker = bin_dir / "docker"
+            fake_docker.write_text(
+                """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >>"$DOCKER_LOG"
+""",
+                encoding="utf-8",
+            )
+            fake_docker.chmod(0o755)
+            prefix = "trust-openot-unlabelled-test"
+            state = root / "trust-openot-state"
+            state.mkdir()
+            (state / ".trust-openot-runner-state").write_text(
+                f"{prefix}\n", encoding="utf-8"
+            )
+            environment = os.environ.copy()
+            environment.update(
+                PATH=f"{bin_dir}{os.pathsep}{environment['PATH']}",
+                DOCKER_LOG=str(docker_log),
+                OPENOT_DATABASE_RUNNER_STATE_DIR=str(state),
+                OPENOT_DATABASE_RUNNER_PREFIX=prefix,
+            )
+
+            completed = subprocess.run(
+                [str(ROOT / "scripts" / "openot_database_runner_teardown.sh")],
+                cwd=ROOT,
+                env=environment,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            calls = docker_log.read_text(encoding="utf-8")
+            ownership = f"com.trust.openot.runner={prefix}"
+            self.assertIn(f"ps -aq --filter label={ownership}", calls)
+            self.assertIn(f"network ls -q --filter label={ownership}", calls)
+            self.assertNotIn("rm -f", calls)
+            self.assertNotIn("network rm", calls)
+
 
 if __name__ == "__main__":
     unittest.main()

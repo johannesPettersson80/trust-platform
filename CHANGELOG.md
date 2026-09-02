@@ -72,6 +72,10 @@ Target release: `v0.24.68`
 
 ### Fixed
 
+- Freeze bounded OpenOT shutdown drains from a fresh non-consuming producer
+  head so records published after an older buffered poll are still committed,
+  and restrict real-database runner teardown to exact-labelled Docker
+  resources even when a matching temporary-state marker exists.
 - Keep OpenOT source-head and pending-byte status observable while an initial
   remote database connection is unavailable, and run the same complete
   Architecture Safety gate before push and in GitHub CI. Protect active

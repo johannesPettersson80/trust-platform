@@ -216,6 +216,64 @@ fn next_retry_delay(current: Duration, multiplier: u32, maximum: Duration) -> Du
         .min(maximum)
 }
 
+#[cfg(unix)]
+struct WorkerRetrySchedule {
+    initial: Duration,
+    current: Duration,
+    maximum: Duration,
+    multiplier: u32,
+    consecutive: u32,
+    max_attempts: u32,
+}
+
+#[cfg(unix)]
+impl WorkerRetrySchedule {
+    fn reset(&mut self) {
+        self.current = self.initial;
+        self.consecutive = 0;
+    }
+
+    fn record_failure(
+        &mut self,
+        status: &Arc<Mutex<OpenOtPersistenceStatus>>,
+        error: &PersistenceError,
+        transient: bool,
+    ) -> bool {
+        apply_worker_error(
+            status,
+            error,
+            &mut self.consecutive,
+            self.max_attempts,
+            transient,
+        );
+        transient && self.consecutive < self.max_attempts
+    }
+
+    fn park(&mut self) {
+        std::thread::park_timeout(self.current);
+        self.current = next_retry_delay(self.current, self.multiplier, self.maximum);
+    }
+}
+
+#[cfg(unix)]
+fn capture_shutdown_drain_target(
+    requested: bool,
+    drain_target: &mut Option<u64>,
+    observer: &SharedMemoryOpenOtSourceObserver,
+    status: &Arc<Mutex<OpenOtPersistenceStatus>>,
+) -> Result<(), PersistenceError> {
+    if !requested || drain_target.is_some() {
+        return Ok(());
+    }
+    let snapshot = observer.snapshot()?;
+    *drain_target = Some(snapshot.head_abs);
+    if let Ok(mut status) = status.lock() {
+        status.head_abs = snapshot.head_abs;
+        status.pending = status.head_abs.saturating_sub(status.cursor_abs);
+    }
+    Ok(())
+}
+
 /// Observable lifecycle of the persistence service.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpenOtPersistenceState {
@@ -373,8 +431,14 @@ impl OpenOtPersistenceService {
             .name("trust-openot-persistence".to_string())
             .spawn(move || {
                 let mut worker = None;
-                let mut retry_delay = retry_initial;
-                let mut consecutive_retries = 0u32;
+                let mut retries = WorkerRetrySchedule {
+                    initial: retry_initial,
+                    current: retry_initial,
+                    maximum: retry_max,
+                    multiplier: retry_multiplier,
+                    consecutive: 0,
+                    max_attempts: retry_max_attempts,
+                };
                 let mut reconnect_totals = ReconnectTotals::default();
                 let mut drain_target = None;
                 loop {
@@ -388,22 +452,25 @@ impl OpenOtPersistenceService {
                         worker_drain_expired.store(true, Ordering::Release);
                         break;
                     }
+                    if let Err(error) = capture_shutdown_drain_target(
+                        requested,
+                        &mut drain_target,
+                        &source_observer,
+                        &worker_status,
+                    ) {
+                        if !retries.record_failure(&worker_status, &error, true) {
+                            break;
+                        }
+                        retries.park();
+                        continue;
+                    }
                     if worker.is_none() {
                         if let Err(error) = observe_source_status(&source_observer, &worker_status)
                         {
-                            apply_worker_error(
-                                &worker_status,
-                                &error,
-                                &mut consecutive_retries,
-                                retry_max_attempts,
-                                true,
-                            );
-                            if consecutive_retries >= retry_max_attempts {
+                            if !retries.record_failure(&worker_status, &error, true) {
                                 break;
                             }
-                            std::thread::park_timeout(retry_delay);
-                            retry_delay =
-                                next_retry_delay(retry_delay, retry_multiplier, retry_max);
+                            retries.park();
                             continue;
                         }
                         match open_runtime_worker(
@@ -420,21 +487,11 @@ impl OpenOtPersistenceService {
                                 continue;
                             }
                             Err(error) => {
-                                apply_worker_error(
-                                    &worker_status,
-                                    &error,
-                                    &mut consecutive_retries,
-                                    retry_max_attempts,
-                                    matches!(error, PersistenceError::Connection(_)),
-                                );
-                                if !matches!(error, PersistenceError::Connection(_))
-                                    || consecutive_retries >= retry_max_attempts
-                                {
+                                let transient = matches!(error, PersistenceError::Connection(_));
+                                if !retries.record_failure(&worker_status, &error, transient) {
                                     break;
                                 }
-                                std::thread::park_timeout(retry_delay);
-                                retry_delay =
-                                    next_retry_delay(retry_delay, retry_multiplier, retry_max);
+                                retries.park();
                                 continue;
                             }
                         }
@@ -445,8 +502,7 @@ impl OpenOtPersistenceService {
                         .run_once(unix_time_ns())
                     {
                         Ok(outcome) => {
-                            retry_delay = retry_initial;
-                            consecutive_retries = 0;
+                            retries.reset();
                             let snapshot =
                                 worker.as_ref().expect("successful worker pass").status();
                             if let Ok(mut status) = worker_status.lock() {
@@ -458,7 +514,8 @@ impl OpenOtPersistenceService {
                                 );
                             }
                             if requested {
-                                let target = *drain_target.get_or_insert(snapshot.head_abs);
+                                let target = drain_target
+                                    .expect("shutdown request captures a fresh source head");
                                 if snapshot.cursor_abs >= target
                                     && snapshot.remote_pending == 0
                                     && snapshot.pending_part_count == 0
@@ -473,23 +530,14 @@ impl OpenOtPersistenceService {
                                 error,
                                 PersistenceError::Commit(_) | PersistenceError::Connection(_)
                             );
-                            apply_worker_error(
-                                &worker_status,
-                                &error,
-                                &mut consecutive_retries,
-                                retry_max_attempts,
-                                transient,
-                            );
-                            if !transient || consecutive_retries >= retry_max_attempts {
+                            if !retries.record_failure(&worker_status, &error, transient) {
                                 break;
                             }
                             if let Some(failed_worker) = worker.as_ref() {
                                 reconnect_totals.accumulate(failed_worker.status());
                             }
                             worker = None;
-                            std::thread::park_timeout(retry_delay);
-                            retry_delay =
-                                next_retry_delay(retry_delay, retry_multiplier, retry_max);
+                            retries.park();
                             continue;
                         }
                     }

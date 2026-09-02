@@ -25,7 +25,7 @@ package "Host persistence thread" {
   component "Supervision + redacted status\n(generation 1 after successful open)" as status
   ring --> source : concurrent poll
   ring --> observer : coherent control snapshot
-  observer --> status : head / durable-cursor lag during sink outage
+  observer --> status : outage lag + fresh bounded-shutdown drain head
   source --> loss : raw batches + control snapshot
   loss --> resolver : records + explicit loss ranges
   resolver --> worker : event / loss / placeholder documents
@@ -83,6 +83,9 @@ Initial remote open, initialization, and reconnect remain in
 the supervised host worker and cannot block PLC startup.
 Shared-memory head/lag observation remains active without
 consuming records while the selected sink is unreachable.
+Bounded shutdown freezes its drain target from a fresh
+non-consuming producer-head snapshot after observing the request;
+an older buffered poll cannot hide pre-request records.
 Only explicitly classified remote reachability failures
 retry during open. Schema compatibility and deterministic
 storage failures fault immediately without reconnecting.

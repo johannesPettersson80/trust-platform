@@ -241,3 +241,9 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   exact GitHub Architecture Safety gate and release-candidate preparation on
   one shared script. Close after focused red-green outage proof, the exact
   full-map gate, real-product PLC/database proof, and release verification.
+- [ ] `ARCH-OPENOT-DB-07` Freeze bounded shutdown from a fresh non-consuming
+  producer-head snapshot instead of an older buffered poll, and keep
+  release-runner cleanup strictly scoped to exact-labelled Docker resources
+  even when local state exists. Close after focused assertion red-green proof,
+  repeated shutdown stress, runner-contract coverage, refreshed diagrams,
+  runtime verticals, and exact-candidate release gates.
