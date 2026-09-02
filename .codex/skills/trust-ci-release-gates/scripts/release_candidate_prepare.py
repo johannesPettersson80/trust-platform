@@ -90,11 +90,17 @@ def remote_validation_commands(
     passthrough_source = (
         ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh"
     )
-    target_env = (
+    cargo_env = (
         f"CARGO_TARGET_DIR={shlex.quote(target)} "
         "CARGO_INCREMENTAL=0 RUSTC_WRAPPER=/usr/bin/env "
-        "CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env "
-        f"CC=cc CXX=c++ TMPDIR={shlex.quote(target_tmp)} "
+        "CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env"
+    )
+    target_env = (
+        f"{cargo_env} CC=cc CXX=c++ TMPDIR={shlex.quote(target_tmp)} "
+        f"PATH={shlex.quote(target_bin)}:$PATH"
+    )
+    cross_target_env = (
+        f"{cargo_env} TMPDIR={shlex.quote(target_tmp)} "
         f"PATH={shlex.quote(target_bin)}:$PATH"
     )
     vscode_target_env = target_env.replace(
@@ -104,6 +110,12 @@ def remote_validation_commands(
         f"mkdir -p -- {shlex.quote(target_tmp)} {shlex.quote(target_bin)} && "
         f"install -m 755 {passthrough_source} {shlex.quote(sccache_shim)}"
     )
+    def leased(command: str) -> str:
+        return (
+            "bash scripts/with_cargo_target_lease.sh "
+            f"{shlex.quote(target)} bash -lc {shlex.quote(command)}"
+        )
+
     disk_preflight = (
         'available_kib=$(df --output=avail -k "$HOME" | tail -n 1 | tr -d " "); '
         "required_kib=83886080; "
@@ -120,22 +132,54 @@ def remote_validation_commands(
     if vscode_changed:
         commands.append(
             (
+                "remote_docs_capture_lifecycle",
+                "python3 -m unittest scripts.tests.test_capture_lifecycle -v",
+            )
+        )
+        commands.append(
+            (
                 "remote_vscode",
-                "vscode_tmp=$(mktemp -d /tmp/trust-vscode-candidate.XXXXXX) && "
-                "trap 'rm -rf -- \"$vscode_tmp\"' EXIT && "
-                "cd editors/vscode && npm ci && npm run lint && npm run compile && "
-                f"{vscode_target_env} xvfb-run -a npm test",
+                leased(
+                    "vscode_tmp=$(mktemp -d /tmp/trust-vscode-candidate.XXXXXX) && "
+                    "trap 'rm -rf -- \"$vscode_tmp\"' EXIT && "
+                    "cd editors/vscode && npm ci && npm run lint && npm run compile && "
+                    f"{vscode_target_env} xvfb-run -a npm test"
+                ),
             )
         )
     commands.extend(
         [
             ("remote_fmt", "just fmt"),
-            ("remote_clippy", f"{target_env} just clippy"),
+            (
+                "remote_cross_target_warnings",
+                leased(
+                    f"{cross_target_env} ./scripts/check_runtime_cross_target_warnings.sh "
+                    "--install-missing --require-cross"
+                ),
+            ),
+            (
+                "remote_supply_chain",
+                leased(f"{target_env} bash scripts/supply_chain_gate.sh"),
+            ),
+            (
+                "remote_architecture_safety",
+                leased(f"{target_env} bash scripts/architecture_safety_gate.sh"),
+            ),
+            (
+                "remote_clippy",
+                leased(
+                    f"{target_env} cargo clippy --all-targets --all-features -- -D warnings"
+                ),
+            ),
             (
                 "remote_reclaim_before_test_all",
-                f"rm -rf -- {shlex.quote(target)} && {prepare_target}",
+                "bash scripts/remove_cargo_target_if_idle.sh "
+                f"{shlex.quote(target)} && {prepare_target}",
             ),
-            ("remote_test_all", f"{target_env} CARGO_BUILD_JOBS=1 just test-all"),
+            (
+                "remote_test_all",
+                leased(f"{target_env} CARGO_BUILD_JOBS=1 just test-all"),
+            ),
             ("remote_clean_after", 'test -z "$(git status --porcelain=v1 --untracked-files=all)"'),
         ]
     )

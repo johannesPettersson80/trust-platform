@@ -13,5 +13,6 @@ turning conflicting payloads into ordinary duplicates.
 
 Monitor connection/transaction latency, InnoDB growth, retry/lag/loss, and
 backup health. Test vendor upgrades and restores against the same product; a
-MySQL run is not MariaDB proof. Schema 1 to 2 migration uses product-neutral
-metadata inspection because their `ALTER TABLE` dialects differ.
+MySQL run is not MariaDB proof. Both products initialize the same schema
+generation 1 directly and reject incompatible pre-release databases without
+altering them.

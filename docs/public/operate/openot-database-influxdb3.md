@@ -11,6 +11,10 @@ cleanup. Set `max_bytes` above the spool schema footprint and leave filesystem
 headroom for WAL/allocation. Full spool rolls back the incoming batch and
 checkpoint and faults visibly.
 
+The spool is initialized directly as schema generation 1. A markerless,
+incomplete, or differently marked pre-release spool is rejected without
+modification; back it up and recreate the development spool.
+
 Back up both the Influx database and local spool consistently. Never delete or
 replace a nonempty spool during troubleshooting. Monitor spool pages,
 `remote_pending`, HTTP latency/errors, ring lag/loss, and free space. Test

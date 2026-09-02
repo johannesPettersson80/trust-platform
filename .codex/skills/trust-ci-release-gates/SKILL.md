@@ -20,6 +20,25 @@ gate wiring, artifact evidence, and release enforcement.
 
 ## Core workflow
 
+Before candidate preparation, enumerate the required GitHub jobs and their exact commands from the
+current workflows. Do not treat a broad host command as a substitute for a platform-specific job.
+For every runtime candidate, preparation must run and record
+`./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross` before Clippy;
+the guard must list `remote_cross_target_warnings` as a required artifact command. If the command is
+missing, skipped, or fails, the candidate cannot be pushed.
+Every candidate must also run `bash scripts/supply_chain_gate.sh` as
+`remote_supply_chain` before Clippy. CI must call that same script rather than
+duplicating its commands. Advisory and yanked-package data are live inputs: a
+passing older artifact cannot substitute for this exact-candidate check.
+Every candidate must run `bash scripts/architecture_safety_gate.sh` as
+`remote_architecture_safety` before Clippy. The GitHub Architecture Safety job
+must call the same script, including its AST safety checks and full-map
+architecture doctor. `verification_report_gate --strict --smoke`, Clippy, and
+`just test-all` do not substitute for this command.
+When Docs Captures paths are present in the candidate diff, preparation must also run and record
+`python3 -m unittest scripts.tests.test_capture_lifecycle -v` as
+`remote_docs_capture_lifecycle`. Do not infer coverage from the VS Code npm suite.
+
 ### Release-candidate state machine
 
 For integration, release, `main`, or any branch whose workspace version differs from
@@ -178,6 +197,11 @@ Prevent known Windows-only regressions in `trust-lsp` tests:
   Reclaim only that validated `CARGO_TARGET_DIR` between Clippy and
   `just test-all`. Never apply that cleanup to a repository, home directory,
   shared cache, unrelated target, or unresolved path.
+  Every Cargo-producing exact-candidate command must run through
+  `scripts/with_cargo_target_lease.sh`; reclamation must use
+  `scripts/remove_cargo_target_if_idle.sh`. Never use a direct or globbed
+  `rm -rf` for a target on the shared builder. A leased target returns exit 75
+  from cleanup and must be left intact.
 - Before creating the exact-candidate target, fail closed unless the builder has
   at least 80 GiB available under `$HOME`. Report both `$HOME` and `/tmp`
   filesystem state in that preflight. The floor must be enforced by the

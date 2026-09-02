@@ -1,6 +1,8 @@
 # Architecture Improvements Checklist
 - [x] `ARCH-OPENOT-DB-01` Add product-owned durable database persistence after OpenOT document resolution, keeping shared-memory carriage, loss accounting, definition resolution, durable checkpointing, database writes, and status projection in separate owners and entirely outside the PLC scan path. Select the supported database through `[runtime.openot.persistence] backend = "..."` and dispatch through backend-owned adapters without fallback. Execute through `openot-database-persistence-implementation-checklist.md`; close only after specification-first native red-green tests, per-backend outage/recovery proof, refreshed diagrams, remote full gates, and release evidence pass. Evidence includes the split `openot_persistence::{source,consumer,worker,projection,factory,service}` owners and six backend adapters, exact seven-product canonical retrieval, real outage/restart and scoped teardown, retained checksummed artifacts, generated `openot-database-persistence` and system diagrams, green diagram drift/all-scope architecture doctor, and the frozen exact-candidate full/release gate contract.
-- [ ] `ARCH-OPENOT-DB-02` Replace canonical-JSON-as-query-model with one backend-neutral `LoggingProjector` and a stable descriptive typed database read model. Keep canonical OpenOT documents in internal authority tables; atomically write relational domain projections and checkpoints; use typed TimescaleDB hypertables and homogeneous InfluxDB measurements with per-part spool reconciliation. Update ownership/data-flow diagrams and close only after behavior-lock/expected-red tests, schema-v3 migration proof, simple non-JSON queries, exact full-range value proof, all-domain examples, and a fresh seven-product real-database matrix.
+- [x] `ARCH-OPENOT-DB-02` Replace canonical-JSON-as-query-model with one backend-neutral `LoggingProjector` and a stable descriptive typed database read model. Keep canonical OpenOT documents in internal authority tables; atomically write relational domain projections and checkpoints; use explicit SQLite public views, typed TimescaleDB hypertables, and homogeneous InfluxDB measurements with per-part spool reconciliation. The initial release uses one schema generation, 1, across all adapters; development-only migration/rebuild paths are superseded by fail-closed compatibility checks. Evidence: non-JSON typed queries pass across the complete all-domain workload; exact full-range values and canonical recovery bytes match in all seven real products; the Influx selected-sink contract reports all reconciled parts; the refreshed ownership/data-flow diagram passes drift validation.
+- [x] `ARCH-OPENOT-DB-04` Remove unreleased v1/v2/v3/v4 schema histories. Initialize the final generation-1 shape directly on every backend, reject markerless/differently marked/incomplete pre-release state without mutation, and prove the same contract with real products and the real PLC workload. Execute through `openot-database-initial-schema-corrective-checklist.md`.
+- [ ] `ARCH-OPENOT-DB-03` Make persistence-open failure ownership explicit: synchronous startup validation owns selected adapter/environment/local artifacts; only typed remote-reachability failures consume the reconnect budget; deterministic schema, migration, capacity, identity, projection, and storage failures fault without repeated open attempts. Close after focused red-green lifecycle tests, real PostgreSQL outage/reconnect proof, all-feature host and Windows warning-deny checks, refreshed OpenOT diagrams, and final remote gates pass.
 - [x] `ARCH-VERIF-SCOPE-01` Retire the post-closure per-function code/spec and test-routing control planes. Preserve every real product specification, native behavior test, required fixture, and product fix. Current product work follows the direct written-specification -> native-executable-test contract; historical metadata cannot create requirements.
 - [ ] `ARCH-RELEASE-CLEAN-01` Keep post-merge cleanup in a dedicated release-guard module that audits exact candidate ancestry, refs, and worktree dirtiness; reports explicit targets without deleting automatically; is registered in the Supply Chain CI job; and is reflected in the release-evidence diagram. Close after focused tests, diagram regeneration/drift proof, and final remote gates pass.
 - [ ] `ARCH-CAPTURE-LIFECYCLE-01` Keep docs-capture process ownership in a dedicated session wrapper, reap its complete owned process session and named code-server container on success, failure, and interruption, preserve the child status, and leave reused external servers untouched. Close after focused lifecycle tests, a real capture run, diagram regeneration/drift proof, and final remote gates pass.
@@ -207,3 +209,43 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   identity-scope unit regression and the six debugger lifecycle integration
   tests pass on `trust-builder`; `debug-architecture.puml` and
   `debug-step-sequence.puml` record the execution flow.
+- [x] `ARCH-OPENOT-DB-03` Keep OpenOT database startup validation and failure
+  classification at explicit boundaries: the factory validates the selected
+  TOML backend's required environment before worker creation, adapters emit a
+  distinct reachability error for typed transient connection failures, and the
+  service retries only that transport category during open, schema
+  initialization, commit, or maintenance. Generic commit/storage and
+  deterministic projection errors fault immediately. Evidence: focused
+  missing-environment, newer-schema, and deterministic-commit assertion
+  red/green tests; a forced real PostgreSQL operation disconnect red/green;
+  real restart recovery across PostgreSQL, TimescaleDB, MySQL, MariaDB, SQL
+  Server, and InfluxDB 3; the complete pinned real-database gate; refreshed
+  `openot-database-persistence.puml`, generated SVG, and manifest; remote
+  diagram render and drift check.
+- [ ] `ARCH-OPENOT-DB-04` Validate generation 1 from each backend's actual
+  catalog instead of object names alone: adapters extract native table/view,
+  column, key, check, foreign-key, and index definitions, while the shared
+  schema-contract owner provides deterministic ordering and SHA-256 identity.
+  Preserve one initial schema with no migration or repair path, and reapply
+  connection-local SQLite/Influx spool durability settings on every open.
+  Close after focused corruption red-green tests, all real database products,
+  a real PLC workload, refreshed diagrams, and exact-candidate release gates.
+- [ ] `ARCH-OPENOT-DB-05` Bound every SQL Server persistence statement below
+  its effective parameter ceiling without splitting the logical transaction;
+  preserve every loss and unresolved typed projection in multi-document
+  batches. Close after real 2,101-document and repeated-special-document tests,
+  the complete real-product PLC gate, refreshed diagrams, and exact-candidate
+  release proof.
+- [ ] `ARCH-OPENOT-DB-06` Keep shared-memory source observation independent of
+  initial database connectivity: a non-consuming control-snapshot owner keeps
+  head and durable-cursor lag visible during retry and shutdown, while the
+  consuming source remains owned by the connected persistence worker. Keep the
+  exact GitHub Architecture Safety gate and release-candidate preparation on
+  one shared script. Close after focused red-green outage proof, the exact
+  full-map gate, real-product PLC/database proof, and release verification.
+- [ ] `ARCH-OPENOT-DB-07` Freeze bounded shutdown from a fresh non-consuming
+  producer-head snapshot instead of an older buffered poll, and keep
+  release-runner cleanup strictly scoped to exact-labelled Docker resources
+  even when local state exists. Close after focused assertion red-green proof,
+  repeated shutdown stress, runner-contract coverage, refreshed diagrams,
+  runtime verticals, and exact-candidate release gates.

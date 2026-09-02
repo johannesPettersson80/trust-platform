@@ -12,10 +12,10 @@ pub struct SqliteDocumentSink {
     projector: LoggingProjector,
 }
 
-const SCHEMA_VERSION: u32 = 3;
+use super::contracts::LOGGING_SCHEMA_GENERATION;
 
 impl SqliteDocumentSink {
-    /// Opens the database and applies compatible truST-owned migrations.
+    /// Opens an exact generation-1 database or initializes an empty one.
     pub fn open(path: &Path) -> Result<Self, PersistenceError> {
         Self::open_with_definitions(path, Vec::new())
     }
@@ -43,7 +43,7 @@ impl SqliteDocumentSink {
             )
             .map_err(sqlite_error("configure durability"))?;
         let projector = LoggingProjector::new(definitions)?;
-        migrate(&mut connection, &projector)?;
+        initialize_schema(&mut connection)?;
         validate_existing_documents(&connection)?;
         Ok(Self {
             connection,
@@ -166,10 +166,14 @@ impl DocumentSink for SqliteDocumentSink {
         let mut duplicated = 0;
         let mut projection_rows_committed = 0;
         let mut unclassified_events = 0;
+        let mut unresolved_documents = 0;
+        let mut loss_ranges = 0;
+        let mut lost_records = 0u64;
         for document in &batch.documents {
             let projected = self.projector.project(document)?;
             let projected_row_count = projected.public_row_count();
             let has_unclassified_event = projected.has_unclassified_event();
+            let special_counts = projected.loss_and_unresolved_counts()?;
             let row = projected.canonical;
             let existing = transaction
                 .query_row(
@@ -218,6 +222,9 @@ impl DocumentSink for SqliteDocumentSink {
             inserted += 1;
             projection_rows_committed += projected_row_count;
             unclassified_events += usize::from(has_unclassified_event);
+            unresolved_documents += special_counts.0;
+            loss_ranges += special_counts.1;
+            lost_records = lost_records.saturating_add(special_counts.2);
             if let Some(event) = projected.event {
                 transaction
                     .execute(
@@ -295,6 +302,9 @@ impl DocumentSink for SqliteDocumentSink {
             remote_pending: 0,
             projection_rows_committed,
             unclassified_events,
+            unresolved_documents,
+            loss_ranges,
+            lost_records,
             pending_parts: 0,
             checkpoint: batch.checkpoint,
         })
@@ -308,27 +318,37 @@ fn decode_u64_blob(bytes: &[u8], context: &str) -> Result<u64, PersistenceError>
     Ok(u64::from_be_bytes(bytes))
 }
 
-fn migrate(
-    connection: &mut Connection,
-    projector: &LoggingProjector,
-) -> Result<(), PersistenceError> {
+fn initialize_schema(connection: &mut Connection) -> Result<(), PersistenceError> {
     let version: u32 = connection
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .map_err(sqlite_error("read schema version"))?;
-    if version > SCHEMA_VERSION {
+    if version == LOGGING_SCHEMA_GENERATION {
+        validate_schema_shape(connection)?;
+        return Ok(());
+    }
+    if version != 0 {
         return Err(PersistenceError::Commit(format!(
-            "SQLite OpenOT schema version {version} is newer than supported version {SCHEMA_VERSION}"
+            "SQLite incompatible pre-release schema generation {version}; back up and recreate the development database"
         )));
     }
-    if version == SCHEMA_VERSION {
-        return Ok(());
+    let occupied: Option<String> = connection
+        .query_row(
+            "SELECT name FROM sqlite_master WHERE type IN ('table','view') AND (substr(name,1,8)='logging_' OR name IN ('event_log','logged_values','alarm_history','message_log','state_history','batch_history','recipe_history','material_additions','operator_activity','audit_log','electronic_signatures','system_events','data_loss','unresolved_records','openot_schema','openot_documents','openot_checkpoint')) LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(sqlite_error("inspect schema ownership"))?;
+    if let Some(object) = occupied {
+        return Err(PersistenceError::Commit(format!(
+            "SQLite incompatible pre-release schema object {object}; back up and recreate the development database"
+        )));
     }
 
     let transaction = connection
         .transaction()
-        .map_err(sqlite_error("begin schema migration"))?;
-    if version == 0 {
-        transaction
+        .map_err(sqlite_error("begin schema initialization"))?;
+    transaction
             .execute_batch(
                 "CREATE TABLE logging_records (\n\
                  identity_key TEXT PRIMARY KEY NOT NULL,\n\
@@ -361,35 +381,15 @@ fn migrate(
                  cursor_abs BLOB NOT NULL CHECK (length(cursor_abs) = 8)\n\
              );",
             )
-            .map_err(sqlite_error("create schema v3 internal tables"))?;
-    } else {
-        if version == 1 {
-            transaction
-                .execute_batch(
-                    "ALTER TABLE openot_checkpoint ADD COLUMN run_id BLOB NOT NULL DEFAULT X'0000000000000000' CHECK (length(run_id) = 8);",
-                )
-                .map_err(sqlite_error("apply schema migration 1 to 2"))?;
-        }
-        transaction
-            .execute_batch(
-                "ALTER TABLE openot_documents RENAME TO logging_records;\n\
-                 ALTER TABLE openot_checkpoint RENAME TO logging_checkpoint;\n\
-                 DROP INDEX IF EXISTS openot_documents_source_sequence;\n\
-                 DROP INDEX IF EXISTS openot_documents_receive_time;\n\
-                 DROP INDEX IF EXISTS openot_documents_event_type;\n\
-                 CREATE INDEX logging_records_source_sequence ON logging_records (buffer_id,run_id,source_id,seq);\n\
-                 CREATE INDEX logging_records_receive_time ON logging_records (receive_time_ns);\n\
-                 CREATE INDEX logging_records_event_type ON logging_records (event_type_id);",
-            )
-            .map_err(sqlite_error("rename schema v2 internal tables"))?;
-    }
+            .map_err(sqlite_error("create generation-1 internal tables"))?;
     transaction
         .execute_batch(
             "CREATE TABLE logging_schema (\n\
                  singleton INTEGER PRIMARY KEY CHECK (singleton = 1),\n\
-                 version INTEGER NOT NULL CHECK (version > 0)\n\
+                 version INTEGER NOT NULL CHECK (version = 1),\n\
+                 catalog_fingerprint TEXT NOT NULL\n\
              );\n\
-             INSERT INTO logging_schema(singleton,version) VALUES(1,3);\n\
+             INSERT INTO logging_schema(singleton,version,catalog_fingerprint) VALUES(1,1,'');\n\
              CREATE TABLE event_log (\n\
                  record_id TEXT PRIMARY KEY NOT NULL REFERENCES logging_records(identity_key),\n\
                  event_time TEXT,\n\
@@ -416,7 +416,7 @@ fn migrate(
              CREATE INDEX event_log_source_sequence ON event_log(source_id,run_id,sequence);\n\
              CREATE INDEX event_log_type_time ON event_log(event_type_id,event_time);",
         )
-        .map_err(sqlite_error("create schema v3 read model"))?;
+        .map_err(sqlite_error("create generation-1 read model"))?;
     transaction
         .execute_batch(
             "CREATE TABLE logged_values (\n\
@@ -440,57 +440,146 @@ fn migrate(
              CREATE INDEX logged_values_name_time ON logged_values(value_name,event_time);\n\
              CREATE INDEX logged_values_source_time ON logged_values(source_id,event_time);",
         )
-        .map_err(sqlite_error("create schema v3 logged values"))?;
+        .map_err(sqlite_error("create generation-1 logged values"))?;
     super::sqlite_read_model::create_domain_schema(&transaction)?;
-
-    if version > 0 {
-        let canonical = {
-            let mut statement = transaction
-                .prepare("SELECT canonical_json FROM logging_records ORDER BY identity_key")
-                .map_err(sqlite_error("prepare schema v3 projection backfill"))?;
-            let rows = statement
-                .query_map([], |row| row.get::<_, String>(0))
-                .map_err(sqlite_error("query schema v3 projection backfill"))?
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(sqlite_error("decode schema v3 projection backfill"))?;
-            rows
-        };
-        for canonical_json in canonical {
-            let document: open_ot_document::Document = serde_json::from_str(&canonical_json)
-                .map_err(|error| {
-                    PersistenceError::Commit(format!(
-                        "SQLite migrate schema 2 to 3 malformed canonical document: {error}"
-                    ))
-                })?;
-            let projected = projector.project(&document)?;
-            if let Some(event) = projected.event {
-                transaction
-                    .execute(
-                        "INSERT INTO event_log (record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,event_type_id,event_name,has_unclassified_fields) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)",
-                        params![event.record_id,event.event_time,event.event_time_ns,event.received_time,event.received_time_ns,event.source,event.source_id,event.source_path,event.source_hierarchy,event.buffer_id,event.run_id,event.epoch_id,event.sequence,event.definition_hash,event.time_unsynced,event.synthetic_record,event.partial_payload,event.event_type_id,event.event_name,event.has_unclassified_fields],
-                    )
-                    .map_err(sqlite_error("backfill schema v3 event projection"))?;
-            }
-            for value in projected.logged_values {
-                let common = value.common;
-                transaction
-                    .execute(
-                        "INSERT INTO logged_values (record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value,previous_boolean_value,previous_signed_value,previous_unsigned_value,previous_number_value,previous_text_value,previous_exact_value,is_audited,actor,reason,authorization_result) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37,?38,?39)",
-                        params![common.record_id,common.event_time,common.event_time_ns,common.received_time,common.received_time_ns,common.source,common.source_id,common.source_path,common.source_hierarchy,common.buffer_id,common.run_id,common.epoch_id,common.sequence,common.definition_hash,common.time_unsynced,common.synthetic_record,common.partial_payload,value.value_id,value.value_name,value.value_type,value.unit,value.quality,value.semantic_role,value.boolean_value,value.signed_value,value.unsigned_value,value.number_value,value.text_value,value.exact_value,value.previous_boolean_value,value.previous_signed_value,value.previous_unsigned_value,value.previous_number_value,value.previous_text_value,value.previous_exact_value,value.is_audited,value.actor,value.reason,value.authorization_result],
-                    )
-                    .map_err(sqlite_error("backfill schema v3 logged value projection"))?;
-            }
-            super::sqlite_read_model::insert_domains(&transaction, projected.domains)?;
-        }
-    }
     transaction
-        .execute_batch("PRAGMA user_version = 3;")
-        .map_err(sqlite_error("advance schema version to 3"))?;
+        .execute_batch("PRAGMA user_version = 1;")
+        .map_err(sqlite_error("record schema generation 1"))?;
+    let catalog_fingerprint = sqlite_catalog_fingerprint(&transaction)?;
+    transaction
+        .execute(
+            "UPDATE logging_schema SET catalog_fingerprint=?1 WHERE singleton=1",
+            [&catalog_fingerprint],
+        )
+        .map_err(sqlite_error("record generation-1 catalog fingerprint"))?;
     transaction
         .commit()
-        .map_err(sqlite_error("commit schema migration"))
+        .map_err(sqlite_error("commit schema initialization"))?;
+    validate_schema_shape(connection)
+}
+
+fn validate_schema_shape(connection: &Connection) -> Result<(), PersistenceError> {
+    let version: u32 = connection
+        .query_row(
+            "SELECT version FROM logging_schema WHERE singleton=1",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(sqlite_error("validate schema generation marker"))?;
+    if version != LOGGING_SCHEMA_GENERATION {
+        return Err(PersistenceError::Commit(format!(
+            "SQLite incompatible pre-release schema generation {}; back up and recreate the development database",
+            version
+        )));
+    }
+    const REQUIRED_OBJECTS: &[&str] = &[
+        "logging_schema",
+        "logging_records",
+        "logging_checkpoint",
+        "event_log",
+        "logged_values",
+        "alarm_history",
+        "message_log",
+        "state_history",
+        "batch_history",
+        "recipe_history",
+        "material_additions",
+        "operator_activity",
+        "audit_log",
+        "electronic_signatures",
+        "system_events",
+        "data_loss",
+        "unresolved_records",
+    ];
+    for object in REQUIRED_OBJECTS {
+        let exists: bool = connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type IN ('table','view') AND name=?1)",
+                [object],
+                |row| row.get(0),
+            )
+            .map_err(sqlite_error("validate schema object"))?;
+        if !exists {
+            return Err(PersistenceError::Commit(format!(
+                "SQLite incompatible pre-release schema: required object {object} is missing; back up and recreate the development database"
+            )));
+        }
+    }
+    let catalog_fingerprint: String = connection
+        .query_row(
+            "SELECT catalog_fingerprint FROM logging_schema WHERE singleton=1",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(sqlite_error("validate schema catalog marker"))?;
+    if sqlite_catalog_fingerprint(connection)? != catalog_fingerprint {
+        return Err(super::schema_contract::incompatible("SQLite"));
+    }
+    Ok(())
+}
+
+fn sqlite_catalog_fingerprint(connection: &Connection) -> Result<String, PersistenceError> {
+    let mut statement = connection
+        .prepare(
+            "SELECT type || '|' || name || '|' || tbl_name || '|' || COALESCE(sql,'') \
+             FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND (\
+               name LIKE 'logging_%' OR tbl_name LIKE 'logging_%' OR \
+               tbl_name IN ('event_log','logged_values','alarm_history','message_log',\
+                 'state_history','batch_history','recipe_history','material_additions',\
+                 'operator_activity','audit_log','electronic_signatures','system_events',\
+                 'data_loss','unresolved_records'))",
+        )
+        .map_err(sqlite_error("prepare catalog fingerprint"))?;
+    let rows = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(sqlite_error("read catalog fingerprint"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(sqlite_error("decode catalog fingerprint"))?;
+    Ok(super::schema_contract::fingerprint(rows))
 }
 
 fn sqlite_error(context: &'static str) -> impl FnOnce(rusqlite::Error) -> PersistenceError {
     move |error| PersistenceError::Commit(format!("SQLite {context}: {error}"))
+}
+
+#[cfg(test)]
+mod schema_contract_tests {
+    use super::*;
+
+    #[test]
+    fn generation_1_database_with_changed_index_fails_closed() {
+        static CASE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let root = std::env::temp_dir().join(format!(
+            "trust-logging-schema-contract-{}-{}",
+            std::process::id(),
+            CASE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&root).expect("create isolated database directory");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
+                .expect("secure isolated database directory");
+        }
+        let path = root.join("trust-logging.sqlite3");
+        let sink = SqliteDocumentSink::open(&path).expect("initialize generation-1 database");
+        sink.connection
+            .execute_batch("DROP INDEX logging_records_receive_time;")
+            .expect("damage required generation-1 index");
+        let reopened = SqliteDocumentSink::open(&path);
+        sink.connection
+            .execute_batch(
+                "CREATE INDEX logging_records_receive_time ON logging_records(receive_time_ns);",
+            )
+            .expect("restore required index");
+        let error = reopened.expect_err("changed generation-1 index must fail closed");
+        assert!(
+            error
+                .to_string()
+                .contains("incompatible pre-release schema"),
+            "unexpected compatibility error: {error}"
+        );
+        drop(sink);
+        std::fs::remove_dir_all(root).expect("remove isolated database directory");
+    }
 }

@@ -34,7 +34,7 @@ backend = "mysql"
 
 [runtime.openot.persistence.mysql]
 connection_url_env = "TRUST_OPENOT_DATABASE_URL"
-database = "openot"
+database = "trust_logging"
 tls = "require"
 ca_cert_path = "certs/openot-database-ca.pem"
 

@@ -48,6 +48,11 @@ The Linux builder does not prove Windows console encoding, locale, TCP-close, or
 behavior. Preserve portable harness tests and treat the Windows GitHub job as authoritative for
 those surfaces.
 
+For `trust-runtime` candidates, run the repository's required Windows GNU cross-target warning
+shape on the builder before calling the candidate push-ready:
+`./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross`. Host
+`just clippy` and `just test-all` do not replace this command.
+
 ## Disk Preflight Rule
 
 Before running any broad remote gate (`just clippy`, `just test`, `just test-all`, `npm test`, or
@@ -83,16 +88,25 @@ only generated caches and targets, not source checkouts:
 ```bash
 ssh trust-builder 'rm -rf "$HOME/projects/<isolated-validation-copy>/target"'
 ssh trust-builder 'rm -rf "$HOME/projects/"*/fuzz/target'
-ssh trust-builder 'rm -rf "$HOME/.cache/sccache" "$HOME/.cache/codex-targets/"*'
+ssh trust-builder 'for target in "$HOME/.cache/codex-targets/"*; do [[ -d "$target" ]] || continue; "$HOME/projects/trust-platform/scripts/remove_cargo_target_if_idle.sh" "$target" || [[ $? == 75 ]]; done'
 ssh trust-builder 'df -hT /home/johannes /tmp'
 ```
+
+Never glob-delete `$HOME/.cache/codex-targets/*`. The builder is shared and a
+different checkout can be compiling into any one of those targets even when a
+single `lsof` sample is empty. Run every Cargo-producing command that uses a
+shared target through `scripts/with_cargo_target_lease.sh TARGET COMMAND...`.
+Delete a target only through `scripts/remove_cargo_target_if_idle.sh TARGET`;
+exit 75 means the target is leased and MUST be retained. The lease lives under
+`$HOME/.cache/codex-target-leases`, outside the removable target, so deleting
+and recreating the target cannot bypass an active lock.
 
 For isolated validation copies, avoid repeated cold rebuilds by using one warmed target directory
 on the remote builder when practical:
 
 ```bash
 ssh trust-builder 'mkdir -p "$HOME/.cache/codex-targets/trust-platform-gate"'
-ssh trust-builder 'cd "$HOME/projects/<isolated-validation-copy>" && CARGO_TARGET_DIR="$HOME/.cache/codex-targets/trust-platform-gate" just test-all'
+ssh trust-builder 'cd "$HOME/projects/<isolated-validation-copy>" && scripts/with_cargo_target_lease.sh "$HOME/.cache/codex-targets/trust-platform-gate" env CARGO_TARGET_DIR="$HOME/.cache/codex-targets/trust-platform-gate" just test-all'
 ```
 
 Use broad `*/target` cleanup only when the user asked for cleanup or the stale target directories

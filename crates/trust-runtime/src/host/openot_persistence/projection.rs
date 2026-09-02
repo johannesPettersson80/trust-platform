@@ -20,6 +20,44 @@ impl ProjectedDocument {
             .as_ref()
             .is_some_and(|event| event.has_unclassified_fields)
     }
+
+    pub(super) fn loss_and_unresolved_counts(
+        &self,
+    ) -> Result<(usize, usize, u64), PersistenceError> {
+        self.domains
+            .iter()
+            .try_fold((0usize, 0usize, 0u64), |mut counts, domain| {
+                match domain {
+                    super::projection_domains::DomainRow::Unresolved(_) => counts.0 += 1,
+                    super::projection_domains::DomainRow::Loss(loss) => {
+                        counts.1 += 1;
+                        let lost = loss.lost_count.parse::<u64>().map_err(|error| {
+                            PersistenceError::Commit(format!(
+                                "logging loss projection contains invalid count: {error}"
+                            ))
+                        })?;
+                        counts.2 = counts.2.saturating_add(lost);
+                    }
+                    _ => {}
+                }
+                Ok(counts)
+            })
+    }
+}
+
+pub(super) fn committed_special_counts(
+    documents: &[ProjectedDocument],
+) -> Result<(usize, usize, u64), PersistenceError> {
+    documents
+        .iter()
+        .try_fold((0usize, 0usize, 0u64), |counts, document| {
+            let current = document.loss_and_unresolved_counts()?;
+            Ok((
+                counts.0 + current.0,
+                counts.1 + current.1,
+                counts.2.saturating_add(current.2),
+            ))
+        })
 }
 
 #[derive(Debug)]

@@ -3,6 +3,7 @@ import os
 import signal
 import subprocess
 import tempfile
+import threading
 import time
 import unittest
 
@@ -14,6 +15,22 @@ CAPTURE_RUNNER = ROOT / "scripts" / "captures" / "run-playwright-captures.sh"
 def write_executable(path: Path, text: str) -> None:
     path.write_text(text)
     path.chmod(0o755)
+
+
+def read_pid_when_ready(path: Path, timeout: float) -> int:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            value = path.read_text().strip()
+        except FileNotFoundError:
+            value = ""
+        if value:
+            try:
+                return int(value)
+            except ValueError:
+                pass
+        time.sleep(0.05)
+    raise TimeoutError(f"PID file did not contain a numeric PID: {path}")
 
 
 class CaptureLifecycleTests(unittest.TestCase):
@@ -35,11 +52,15 @@ class CaptureLifecycleTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         if self.child_pid_file.exists():
-            child_pid = int(self.child_pid_file.read_text().strip())
             try:
-                os.kill(child_pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+                child_pid = read_pid_when_ready(self.child_pid_file, timeout=0.25)
+            except TimeoutError:
+                child_pid = None
+            if child_pid is not None:
+                try:
+                    os.kill(child_pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
         self.temp_dir.cleanup()
 
     def environment(self) -> dict[str, str]:
@@ -136,7 +157,7 @@ class CaptureLifecycleTests(unittest.TestCase):
             while not self.child_pid_file.exists() and time.monotonic() < deadline:
                 time.sleep(0.05)
             self.assertTrue(self.child_pid_file.exists(), "fake capture child did not start")
-            child_pid = int(self.child_pid_file.read_text().strip())
+            child_pid = read_pid_when_ready(self.child_pid_file, timeout=10)
 
             process.terminate()
             try:
@@ -165,6 +186,21 @@ class CaptureLifecycleTests(unittest.TestCase):
                     process.stdout.close()
                 if process.stderr is not None:
                     process.stderr.close()
+
+    def test_pid_reader_waits_for_nonempty_numeric_content(self) -> None:
+        self.child_pid_file.write_text("")
+
+        writer = threading.Thread(
+            target=lambda: (
+                time.sleep(0.1),
+                self.child_pid_file.write_text("12345"),
+            )
+        )
+        writer.start()
+        try:
+            self.assertEqual(read_pid_when_ready(self.child_pid_file, timeout=1), 12345)
+        finally:
+            writer.join()
 
 
 if __name__ == "__main__":

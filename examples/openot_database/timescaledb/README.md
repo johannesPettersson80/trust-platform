@@ -9,7 +9,7 @@ extension enabled. Create the database/user, install `psql`, place the CA at
 ## Prepare and run
 
 ```bash
-export TRUST_OPENOT_DATABASE_URL='host=db.example port=5432 user=openot_logger dbname=openot sslmode=require password=FROM_SECRET_STORE'
+export TRUST_OPENOT_DATABASE_URL='host=db.example port=5432 user=trust_logging_writer dbname=trust_logging sslmode=require password=FROM_SECRET_STORE'
 example_root=$(mktemp -d /tmp/trust-openot-timescaledb.XXXXXX)
 install -d -m 700 "$example_root/src" "$example_root/certs"
 cp ../workload/Main.st "$example_root/src/Main.st"
@@ -26,7 +26,7 @@ psql "$TRUST_OPENOT_DATABASE_URL" -c "select extversion from pg_extension where 
 psql "$TRUST_OPENOT_DATABASE_URL" -c \
   "select hypertable_name from timescaledb_information.hypertables where hypertable_name in ('event_log','logged_values','alarm_history','message_log','state_history') order by hypertable_name"
 psql "$TRUST_OPENOT_DATABASE_URL" -c \
-  "select time_bucket('1 minute',received_time),count(*) from openot.event_log group by 1 order by 1"
+  "select time_bucket('1 minute',received_time),count(*) from trust_logging.event_log group by 1 order by 1"
 ```
 
 ## Outage and restart

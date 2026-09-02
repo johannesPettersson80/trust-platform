@@ -372,14 +372,15 @@ class PostMergeCleanupCommandTests(unittest.TestCase):
 class PostMergeCleanupRegistrationTests(unittest.TestCase):
     def test_ci_runs_all_release_candidate_guard_selftests(self) -> None:
         workflow = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-        normalized = " ".join(workflow.split())
-
-        self.assertIn(
-            "python3 -m unittest discover -s "
-            ".codex/skills/trust-ci-release-gates/scripts "
-            "-p 'release_candidate_*_tests.py'",
-            normalized,
+        supply_chain_gate = (REPO_ROOT / "scripts/supply_chain_gate.sh").read_text(
+            encoding="utf-8"
         )
+        self.assertIn("bash scripts/supply_chain_gate.sh", workflow)
+        self.assertIn("python3 -m unittest discover", supply_chain_gate)
+        self.assertIn(
+            ".codex/skills/trust-ci-release-gates/scripts", supply_chain_gate
+        )
+        self.assertIn("release_candidate_*_tests.py", supply_chain_gate)
 
     def test_verify_release_requires_exact_candidate_identity(self) -> None:
         with self.assertRaises(SystemExit):

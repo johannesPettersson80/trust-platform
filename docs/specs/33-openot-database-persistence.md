@@ -21,7 +21,7 @@ or turn an unresolved record into a guessed event.
 
 Database work is a host concern after shared-memory carriage, validation, loss
 accounting, definition-epoch selection, and document construction. Connection,
-migration, serialization, retry, spool, and database I/O MUST NOT run in the
+schema initialization, serialization, retry, spool, and database I/O MUST NOT run in the
 PLC scan cycle or `OpenOtTelemetrySubsystem::publish` path. Database failure
 MUST NOT stop PLC execution; it changes persistence health and may lead to
 explicit OpenOT loss when bounded storage is exhausted.
@@ -59,8 +59,51 @@ clients, or fall back to another adapter after configuration, startup, or
 connection failure. A recognized backend omitted from the current build MUST
 fail startup with a named unavailable-backend error.
 
+After configuration and local artifact validation succeed, opening a remote
+database MUST occur in the supervised persistence worker. An unreachable
+configured database MUST NOT prevent the PLC runtime from starting; persistence
+reports `retrying` and reconnects under the configured bounded retry policy.
+Every environment-variable name selected by the backend configuration MUST be
+resolved before the persistence worker is spawned. A required variable that is
+absent or whose value is empty is a local configuration failure and MUST reject
+startup synchronously. Validation and status output MUST identify only the
+variable name; secret values MUST NOT be included.
+For every network backend, the selected `ca_cert_path` MUST resolve relative to
+the runtime bundle when it is not absolute and MUST be readable before the
+persistence worker is spawned. Missing or unreadable CA files are local
+artifact failures and MUST reject startup synchronously.
+
+The service MUST classify failures by the operation that observed them; it MUST
+NOT infer retryability from diagnostic text. The required lifecycle behavior is:
+
+| Failure boundary | Required behavior |
+| --- | --- |
+| Invalid TOML, unavailable adapter, missing or empty required environment variable, missing definition/carriage artifact, or missing/unreadable CA file | reject `start()` synchronously; no worker is spawned |
+| Remote endpoint cannot be reached while opening the selected network adapter, or a reached PostgreSQL-compatible endpoint reports a typed closed-client state or connection/startup/shutdown SQLSTATE (`08` connection class or `57P01`/`57P02`/`57P03`) | start the PLC runtime, report persistence as `retrying`, and apply the bounded reconnect policy |
+| The endpoint is reached but rejects authentication/authorization, or opening detects an incompatible schema generation, corrupt schema metadata, incompatible required product capability, corrupt local database/spool, or another deterministic storage/schema violation | report persistence as `faulted` immediately; do not consume the reconnect budget or reopen repeatedly |
+| An established worker loses remote commit or maintenance availability | preserve the last durable checkpoint/counters, report `retrying`, and reconnect under the bounded policy |
+| Identity conflict, checkpoint regression, capacity exhaustion, malformed stored canonical data, or deterministic projection corruption | report `faulted`; do not retry or delete durable state |
+
+Opening and schema-initialization code MUST return an explicitly classified reachability
+failure for the retryable open case. Generic commit/storage errors are not
+implicitly retryable during initial open. Adding a new open failure path
+requires a direct native assertion of its lifecycle classification.
+The backend-neutral error contract MUST distinguish deterministic commit/storage
+failure from retryable transport loss. A deterministic projection, serialization,
+schema, capacity, or local-storage failure MUST NOT enter the reconnect loop. A
+typed transport loss MAY enter that loop whether it occurs while opening,
+initializing the schema, committing, or running maintenance. PostgreSQL catalog
+and DDL helpers used during initialization MUST preserve typed `08`, `57P01`,
+`57P02`, and `57P03` classification instead of flattening those errors into the
+deterministic commit category.
+For InfluxDB 3, a transport failure from the initial authenticated `/health`
+request is a reachability failure and MUST be returned as a retryable
+connection error. A received HTTP response, including authentication or
+authorization rejection, is not a transport failure and MUST remain a
+non-retryable open error.
+
 When `enabled = false` or the persistence table is absent, no persistence
-worker, spool, migration, or database connection is created. When enabled,
+worker, spool, schema initialization, or database connection is created. When enabled,
 `backend` and exactly one matching backend table are required. Unknown fields,
 unknown backends, a missing selected table, and any unselected backend table
 MUST be rejected before services start.
@@ -139,7 +182,7 @@ The runtime host supervises a persistence worker outside the scan thread. The
 worker is composed from narrow responsibilities:
 
 - `DocumentSource` yields resolved documents and source cursor information;
-- `DocumentSink` validates/migrates and durably commits document batches;
+- `DocumentSink` validates or initializes its schema and durably commits document batches;
 - `CheckpointStore` binds durable acknowledgement to those commits;
 - `RetryPolicy` calculates bounded retry timing without interpreting documents;
 - status projection reports state and counters without exposing secrets.
@@ -193,7 +236,7 @@ or internal table names.
 ### 4.1 Ownership and names
 
 OpenOT owns the semantic input document. truST owns the database schema,
-migrations, typed projection, public names, and query examples. No OpenOT
+schema initialization, typed projection, public names, and query examples. No OpenOT
 carriage, definition, registry, or document contract is changed by this read
 model.
 
@@ -206,7 +249,7 @@ The internal relational objects are:
 
 | Object | Contract |
 | --- | --- |
-| `logging_schema` | singleton migration version owned by truST |
+| `logging_schema` | singleton schema-generation marker owned by truST |
 | `logging_records` | append-only canonical documents and indexed provenance |
 | `logging_checkpoint` | singleton durable carriage checkpoint |
 | `logging_delivery_spool` | InfluxDB-only local delivery state |
@@ -237,7 +280,7 @@ The stable public read-model objects are:
 These names and documented columns are a stable read-only database contract.
 truST MAY add nullable columns compatibly. Removing, renaming, changing the
 meaning/type of a documented column, or moving a documented event to a
-different table requires a specification change and migration. Users MUST NOT
+different table requires a specification and compatibility-policy change. Users MUST NOT
 insert, update, or delete these objects directly.
 
 ### 4.2 Common public columns
@@ -278,6 +321,12 @@ event, including future events that do not yet have a domain projection.
 - `exact_value` and `previous_exact_value` as lossless human-readable
   representations;
 - `is_audited`, `actor`, `reason`, and `authorization_result`.
+
+This column contract and its value bindings are identical on SQLite,
+PostgreSQL, TimescaleDB, MySQL, MariaDB, and SQL Server. InfluxDB 3 MUST expose
+the same fields on its `logged_values` measurement. An adapter MUST NOT create
+the columns while discarding their values, or retain the values only in the
+canonical document.
 
 Exactly one current typed lane MUST be non-`NULL`, selected by `value_type`.
 Previous lanes are all `NULL` when OpenOT has no previous value; otherwise
@@ -357,6 +406,18 @@ of them. Duplicate replay compares the canonical payload and creates no
 duplicate public rows. Each public row is keyed by `record_id` (and a stable
 ordinal only where one event legitimately projects repeated values).
 
+An adapter MAY split one logical projection group into multiple statements
+inside that transaction when the database imposes a statement-size or bind-
+parameter limit. Every SQL Server statement MUST remain at or below its
+2,100-parameter limit for every permitted `batch_size`. Canonical-document and
+event/domain projection groups MUST use at most 100 projected documents per
+statement; logged-value groups MUST use at most 53 rows per statement because
+each row binds 39 parameters. Chunking MUST NOT split the surrounding
+transaction or advance the checkpoint before every chunk succeeds. Every loss
+and unresolved document in the logical batch MUST receive its own `data_loss`
+or `unresolved_records` row; batching MUST never collapse either domain to the
+first matching document.
+
 No asynchronous relational projector or trigger is introduced. Query tables
 MUST be immediately consistent with a successful durable commit.
 
@@ -390,38 +451,75 @@ key, as TimescaleDB requires; source-time queries continue to use the separate
 records remain ordinary relational tables unless a later measured workload and
 specification revision promotes them.
 
-### 4.8 Migration and reconstruction
+### 4.8 Initial schema generation and compatibility
 
-The first typed-read-model schema is version 3. Migration from schema v2 MUST:
+Database persistence has not been released before this specification. There is
+therefore exactly one product schema generation: `1`. SQLite, PostgreSQL,
+TimescaleDB, MySQL, MariaDB, SQL Server, and the InfluxDB durable spool MUST all
+record and report generation `1`. Backend-specific SQL types, indexes,
+hypertables, and InfluxDB measurements MAY differ only where Sections 4.2
+through 4.7 explicitly require them; they do not create different public
+schema generations.
 
-1. rename legacy `openot_schema`, `openot_documents`, and
-   `openot_checkpoint` objects to their `logging_*` names without dropping or
-   rewriting the canonical rows;
-2. create the descriptive public objects;
-3. load a trusted definition catalog containing every `definition_hash`
-   referenced by the stored canonical records;
-4. stream every existing canonical document through the same Rust
-   `LoggingProjector` used for new writes and the exactly matching definition;
-5. backfill public rows idempotently;
-6. compare canonical identities, expected projection identities, row counts,
-   and typed values;
-7. advance the schema version only after the complete backfill validates.
+This release MUST NOT contain or advertise legacy schema migrations, object
+renames, historical-definition catalogs, canonical-row backfills, projection
+rebuilds, or v1/v2/v3/v4 compatibility paths. No released truST database exists
+to migrate. The final generation-1 schema is created directly from the current
+DDL and receives new documents only through `LoggingProjector`.
 
-An interrupted migration MUST be safely repeatable. It MUST never delete the
-only canonical copy. An unprojectable known event or missing historical
-definition fails closed with its `record_id` and `definition_hash`; the runtime
-MUST NOT advance schema version or silently produce incomplete public rows.
-InfluxDB reconstruction uses the durable local spool/canonical authority and
-remains degraded until every remote projection part reconciles.
+On open, an adapter MUST follow this sequence without destructive recovery:
 
-The projector MUST be deterministic and replayable so future read-model
-versions can be rebuilt from `logging_records` without changing OpenOT or PLC
-execution.
+1. If none of truST's internal or public logging objects exists, create the
+   complete final schema atomically where the backend supports transactional
+   DDL. The generation marker constraint MUST admit only `1`. Transactional
+   adapters MUST commit only after every exact DDL and required product-
+   capability command succeeds, then validate before returning the adapter.
+   Adapters whose DDL is not transactional MUST create the marker last, so a
+   partial initialization is never advertised as compatible. Every adapter
+   MUST complete compatibility validation before it accepts documents.
+   MySQL and MariaDB MUST enforce this singleton rule in the physical
+   `logging_schema` table with a database `CHECK(singleton=1)` constraint; a
+   primary key alone is insufficient because it still admits other values.
+2. If the generation-1 marker exists, validate the exact marker, every required
+   object, and every required product capability before opening. The marker is
+   truST's assertion that its generation-1 DDL (including column, key, check,
+   foreign-key, and index definitions) was installed as one contract; manual
+   changes to truST-owned objects are unsupported and make the database
+   operator-owned recovery work. Each adapter MUST derive a deterministic
+   catalog fingerprint from the actual truST-owned table/view kind, ordered
+   columns and physical types, nullability/defaults, primary and unique keys,
+   checks, foreign keys, and indexes. The fingerprint recorded when the empty
+   generation-1 schema is created MUST match the freshly derived fingerprint
+   on every later open. Enumerating object names alone is not compatibility
+   validation.
+3. If any truST logging object exists without the exact generation-1 marker,
+   if the marker has another value, or if a required generation-1 object is
+   missing or incompatible, fail closed before consuming documents or changing
+   stored state. The error MUST identify an incompatible pre-release schema and
+   direct the operator to back up and recreate the development database.
 
-Schemas and migrations are owned by truST. Users MUST NOT rely on undocumented
-columns as a stable API. Stored history is append-only through truST. A backend
-MUST reject an unknown newer schema version and corrupt migration metadata; it
-MUST NOT drop, recreate, truncate, or downgrade durable state automatically.
+An adapter MUST NOT infer compatibility from a subset of tables, silently add
+missing objects to an inhabited schema, drop, rename, truncate, replay, repair,
+downgrade, or advance schema metadata. Unrelated objects in a shared server
+namespace do not by themselves make it incompatible, but a name collision with
+any truST-owned object does. SQLite and InfluxDB spool files with no truST
+objects are empty candidates; files containing legacy truST objects are not.
+Connection-local SQLite settings are part of opening, not schema creation.
+Every SQLite database and every InfluxDB spool connection MUST reapply and
+verify `foreign_keys=ON`, `journal_mode=WAL`, and `synchronous=FULL` before it
+can accept documents, including when an existing compatible generation-1 file
+is reopened.
+
+The projector remains deterministic so newly accepted canonical records and
+their public projections can be verified, but reconstruction of a previous
+development schema is not a product feature. A future released schema change
+requires a new specification, explicit upgrade and rollback policy, native
+red-green tests, real-product proof, and a deliberate schema-generation bump.
+
+Schema initialization and compatibility validation are owned by truST. Users
+MUST NOT rely on undocumented columns as a stable API. Stored history is
+append-only through truST. A backend MUST NOT modify incompatible durable state
+automatically.
 
 Event and placeholder idempotency identity is
 `(buffer_id, run_id, source_id, seq)`. Loss identity is
@@ -489,8 +587,32 @@ identity conflict, or retry policy exhaustion enters `faulted`. Any resulting
 ring overwrite remains explicit as OpenOT loss. No uncommitted document is
 reported as committed.
 
+Source observation MUST remain active while the selected database is
+unreachable during initial open or reconnect. Database connectivity MUST NOT
+gate reading the shared-memory control snapshot. During such an outage,
+`head_abs` MUST track the latest coherently published producer head and
+`pending` MUST equal `head_abs - cursor_abs`, using the last durable cursor
+known to this service (zero before a first database checkpoint can be read).
+The service MUST NOT consume or advance the source cursor merely to observe
+lag, and shutdown status MUST retain the observed pending source bytes even
+when no database connection was established.
+
+Platform-specific persistence supervision helpers MUST be compiled only on
+the platforms that compile their owning worker path. The workspace's
+warning-deny Linux and Windows cross-target checks MUST remain clean even when
+the shared-memory persistence worker is unavailable on the target platform.
+
 Shutdown drains for at most `shutdown_timeout_ms`, then reports the exact
 pending count and exits without advancing beyond the last durable commit.
+The drain MUST poll and commit source records that were published before the
+shutdown request and MUST run required remote-spool maintenance until both the
+source cursor and required remote delivery are caught up or the deadline
+expires.
+When the worker first observes the shutdown request, it MUST take a fresh,
+non-consuming control-block snapshot and freeze that snapshot's producer head
+as the drain target. A head retained by an earlier source poll or buffered
+batch MUST NOT define the target, because records may have been published after
+that poll and before the shutdown request.
 Disk-full, permission, corrupt database/spool, malformed stored document, and
 definition corruption are actionable failures and MUST NOT trigger automatic
 state deletion.
@@ -508,38 +630,77 @@ Operators MUST size the ring
 and Influx spool for their outage window; truST MUST expose lag before unread
 ring data is overwritten.
 
+### 6.1 Release-runner provisioning
+
+The mandatory real-database release job MUST be runnable from a clean,
+repository-registered Linux x86_64 runner without undocumented host files or
+pre-existing database credentials. Version-controlled prepare and teardown
+scripts MUST provision the pinned database products with ephemeral credentials
+and TLS material, export only the values required by the job through
+`GITHUB_ENV`, wait for every endpoint to become ready, and remove the
+containers, network, credentials, and certificates after the job. The workflow
+MUST call those repository scripts directly. Runner registration is an
+explicit operational prerequisite and MUST be verified before a release tag is
+pushed; a release MUST NOT be left waiting for an unregistered label.
+
+Every Docker container and network created by the prepare script MUST carry an
+ownership label whose value is the validated per-run resource prefix. Teardown
+MUST discover and remove only resources bearing that exact ownership label,
+including their attached Docker volumes, even when the temporary filesystem
+state directory or marker was lost after an interrupted job. When state is
+present, its marker MUST still match the validated prefix before any mutation;
+symlinked or mismatched state MUST fail closed. Label discovery MUST NOT widen
+cleanup to unlabelled or differently labelled runner resources. In particular,
+the presence of a matching state marker MUST NOT authorize deletion by a
+predictable container or network name when exact-label discovery returned no
+owned resource.
+
 ## 7. Lifecycle and observability
 
 The lifecycle states are `disabled`, `starting`, `ready`, `catching_up`,
 `degraded`, `retrying`, `faulted`, and `stopped`. Persistence health is distinct
 from PLC runtime health.
 
-Status MUST expose backend name, schema version, documents read, committed,
+Status MUST expose backend name, schema generation, documents read, committed,
 duplicated, retried, source-ring pending bytes, required remote-delivery pending
 documents, rejected, unresolved, loss-range count, lost record count,
 unclassified-event count, projection rows committed, cursor/head lag, last
 successful commit time, and a redacted last error.
 `projection_rows_committed` counts newly committed rows in the descriptive
 public read model, excluding internal canonical/checkpoint rows.
+`documents_read`, `unresolved`, `loss_range_count`, and `lost_record_count`
+advance only after the corresponding canonical transaction is durable.
+Idempotent replay may increase `documents_read` and `documents_duplicated`, but
+MUST NOT increase unresolved or loss totals for rows that already exist.
+Reconnect MUST preserve these runtime-cumulative meanings without counting the
+same worker-local total twice.
 `unclassified_event_count` counts retained future event records whose fields
 could not be assigned to a known typed domain without guessing.
 `pending_part_count` counts durable InfluxDB delivery parts not yet reconciled;
 it is zero for atomic relational backends. `reconciled_part_count` is the
 cumulative number of such parts confirmed remotely during this runtime.
+After a sink accepts a batch durably, the service MUST publish that commit's
+cursor, document counters, and known remote backlog before reporting a later
+maintenance/reconciliation failure. The maintenance failure is retried through
+the supervised error path and MUST NOT hide or roll back the already-durable
+local acceptance. A selected-sink wrapper MUST preserve the concrete adapter's
+detailed maintenance counters rather than replacing them with generic zeros.
 Status MUST also expose deterministic warning codes derived without database
 I/O: `lag` for a nonzero cursor lag, `retrying` after a retry, `placeholder`
 for unresolved documents, `loss` for any loss range, `spool_pressure` for
-required remote-delivery backlog, `migration_or_storage_fault` for a faulted
+required remote-delivery backlog, `schema_or_storage_fault` for a faulted
 startup/commit error, and `shutdown_pending` when stopped or faulted with local
 or remote work outstanding. Multiple applicable warnings are all returned in
 that order. These codes are operator hints; counters and `last_error` retain
 the exact evidence.
-`ready` means the selected backend is reachable, compatible, migrated, and has
+`ready` means the selected backend is reachable, initialized and compatible, and has
 no required remote delivery outstanding. `catching_up`, remote spool backlog,
 or unresolved loss cannot be represented as complete.
 
 The product exposes status through the existing structured runtime
-control/observability boundary and exposes the documented public database
+control/observability boundary. Its OpenOT persistence object MUST expose the
+single shared value as `schema_generation`; it MUST NOT imply backend-specific
+versions with a `schema_version` field. The product exposes the documented public database
 objects as a stable read-only query contract. It adds no PLC-language query
 API, runtime raw-SQL passthrough, or promise that undocumented internal columns
 are stable.
@@ -550,24 +711,37 @@ Examples use non-secret environment-variable names and local development
 accounts only. Deployments SHOULD use a least-privilege role limited to the
 owned schema/database, protected filesystem permissions, authenticated TLS,
 and independently managed backups. Backup, restore, integrity checking,
-retention, Timescale compression/retention, Influx spool sizing, migration,
-and clean shutdown procedures MUST be documented per shipped backend.
+retention, Timescale compression/retention, Influx spool sizing, incompatible
+development-database recreation, and clean shutdown procedures MUST be
+documented per shipped backend.
 Documentation and examples MUST query the descriptive public objects without
 JSON extraction. Raw canonical inspection is an advanced integrity/recovery
-procedure, not the ordinary value/alarm/message workflow.
+procedure, not the ordinary value/alarm/message workflow. Because persistence
+has not previously shipped, operations documentation MUST describe backing up
+and recreating an incompatible pre-release development database rather than a
+legacy migration procedure.
 
-Opening a backup or database with a newer schema fails closed. Automatic
+Opening a backup or database with an incompatible generation fails closed. Automatic
 rollback is not promised; rollback requires restoring a compatible backup.
 Retention MUST NOT delete rows required by an undelivered checkpoint or hide a
 known loss range.
 
 ## 9. Supported backend proof
 
-A backend is supported only after its adapter, migrations, failure/restart
+A backend is supported only after its adapter, schema initialization and compatibility checks, failure/restart
 tests, example, operations documentation, and full canonical OpenOT coverage
 manifest pass against the real named product. Compile-only tests, mocks,
 protocol substitutes, and a different compatible server do not establish a
 product claim.
+
+Every locked Rust dependency used by a supported backend MUST pass the
+repository's cargo-deny and cargo-audit policy at the frozen release-candidate
+SHA. A yanked package MUST be replaced by a supported non-yanked release unless
+an explicit, reviewed, time-bounded repository exception already permits that
+exact package and version. The exact-SHA pre-push guard MUST run the same
+version-controlled supply-chain gate as GitHub CI and record it as a required,
+successful artifact command; `just test-all` does not substitute for this
+live-advisory and yanked-package check.
 
 The intended first-release matrix is SQLite, PostgreSQL, TimescaleDB, MySQL,
 MariaDB through the `mysql` adapter, SQL Server, and InfluxDB 3. Exact minimum

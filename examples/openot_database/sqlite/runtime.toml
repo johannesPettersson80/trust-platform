@@ -41,7 +41,7 @@ retry_multiplier = 2
 retry_max_attempts = 20
 
 [runtime.openot.persistence.sqlite]
-path = "history/openot.sqlite3"
+path = "history/trust-logging.sqlite3"
 
 [runtime.log]
 level = "info"

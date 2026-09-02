@@ -167,7 +167,7 @@ fn openot_persistence_status_json(state: &ControlState) -> Result<Value, &'stati
             if status.state == crate::openot_persistence::OpenOtPersistenceState::Faulted
                 && status.last_error.is_some()
             {
-                warnings.push("migration_or_storage_fault");
+                warnings.push("schema_or_storage_fault");
             }
             if matches!(
                 status.state,
@@ -180,7 +180,7 @@ fn openot_persistence_status_json(state: &ControlState) -> Result<Value, &'stati
             json!({
                 "state": status.state.as_str(),
                 "backend": status.backend,
-                "schema_version": status.schema_version,
+                "schema_generation": status.schema_version,
                 "documents_read": status.documents_read,
                 "documents_committed": status.documents_committed,
                 "documents_duplicated": status.documents_duplicated,
@@ -206,7 +206,7 @@ fn openot_persistence_status_json(state: &ControlState) -> Result<Value, &'stati
         None => json!({
             "state": "disabled",
             "backend": null,
-            "schema_version": null,
+            "schema_generation": null,
             "documents_read": 0,
             "documents_committed": 0,
             "documents_duplicated": 0,

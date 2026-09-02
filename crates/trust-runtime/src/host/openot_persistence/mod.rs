@@ -23,6 +23,7 @@ mod postgres_read_model;
 mod postgresql;
 mod projection;
 mod projection_domains;
+mod schema_contract;
 mod service;
 #[cfg(unix)]
 mod service_error;
@@ -57,6 +58,8 @@ pub use postgresql::PostgreSqlDocumentSink;
 pub use service::{OpenOtPersistenceService, OpenOtPersistenceState, OpenOtPersistenceStatus};
 #[cfg(unix)]
 pub use source::SharedMemoryOpenOtSource;
+#[cfg(unix)]
+pub(crate) use source::SharedMemoryOpenOtSourceObserver;
 #[cfg(feature = "openot-database-sqlite")]
 pub use sqlite::SqliteDocumentSink;
 #[cfg(feature = "openot-database-sqlserver")]

@@ -552,7 +552,7 @@ fn runtime_schema_accepts_explicitly_disabled_openot_persistence() {
 fn runtime_schema_selects_sqlite_openot_persistence_from_toml() {
     let text = format!(
         "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\n[runtime.openot.persistence]\nenabled = true\nbackend = \"sqlite\"\n\
-         \n[runtime.openot.persistence.sqlite]\npath = \"history/openot.sqlite3\"\n",
+         \n[runtime.openot.persistence.sqlite]\npath = \"history/trust-logging.sqlite3\"\n",
         runtime_toml()
     );
 
@@ -565,7 +565,7 @@ fn runtime_schema_rejects_persistence_when_openot_carriage_is_disabled() {
     let text = format!(
         "{}\n[runtime.openot]\nenabled = false\n\
          \n[runtime.openot.persistence]\nenabled = true\nbackend = \"sqlite\"\n\
-         \n[runtime.openot.persistence.sqlite]\npath = \"history/openot.sqlite3\"\n",
+         \n[runtime.openot.persistence.sqlite]\npath = \"history/trust-logging.sqlite3\"\n",
         runtime_toml()
     );
 
@@ -584,23 +584,23 @@ fn runtime_schema_accepts_every_openot_persistence_backend_table() {
     for (backend, backend_table) in [
         (
             "postgresql",
-            "connection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"openot\"\ntls = \"require\"",
+            "connection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"trust_logging\"\ntls = \"require\"",
         ),
         (
             "timescaledb",
-            "connection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"openot\"\ntls = \"require\"",
+            "connection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"trust_logging\"\ntls = \"require\"",
         ),
         (
             "mysql",
-            "connection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\ndatabase = \"openot\"\ntls = \"require\"",
+            "connection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\ndatabase = \"trust_logging\"\ntls = \"require\"",
         ),
         (
             "sqlserver",
-            "connection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"openot\"\ntls = \"require\"",
+            "connection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"trust_logging\"\ntls = \"require\"",
         ),
         (
             "influxdb3",
-            "host_env = \"TRUST_OPENOT_INFLUX_HOST\"\ntoken_env = \"TRUST_OPENOT_INFLUX_TOKEN\"\ndatabase = \"openot\"\nspool_path = \"history/openot-influx-spool.sqlite3\"\nmax_bytes = 1073741824",
+            "host_env = \"TRUST_OPENOT_INFLUX_HOST\"\ntoken_env = \"TRUST_OPENOT_INFLUX_TOKEN\"\ndatabase = \"trust_logging\"\nspool_path = \"history/trust-logging-influx-spool.sqlite3\"\nmax_bytes = 1073741824",
         ),
     ] {
         let text = format!(
@@ -618,7 +618,7 @@ fn runtime_schema_accepts_every_openot_persistence_backend_table() {
 fn runtime_schema_requires_an_explicit_bounded_influx_spool_capacity() {
     let text = format!(
         "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\n[runtime.openot.persistence]\nenabled = true\nbackend = \"influxdb3\"\n\
-         \n[runtime.openot.persistence.influxdb3]\nhost_env = \"TRUST_OPENOT_INFLUX_HOST\"\ntoken_env = \"TRUST_OPENOT_INFLUX_TOKEN\"\ndatabase = \"openot\"\nspool_path = \"history/openot-influx-spool.sqlite3\"\nmax_bytes = 1048576\n",
+         \n[runtime.openot.persistence.influxdb3]\nhost_env = \"TRUST_OPENOT_INFLUX_HOST\"\ntoken_env = \"TRUST_OPENOT_INFLUX_TOKEN\"\ndatabase = \"trust_logging\"\nspool_path = \"history/trust-logging-influx-spool.sqlite3\"\nmax_bytes = 1048576\n",
         runtime_toml()
     );
 
@@ -629,8 +629,8 @@ fn runtime_schema_requires_an_explicit_bounded_influx_spool_capacity() {
 fn runtime_schema_rejects_unselected_openot_persistence_backend_table() {
     let text = format!(
         "{}\n[runtime.openot]\n[runtime.openot.persistence]\nenabled = true\nbackend = \"sqlite\"\n\
-         \n[runtime.openot.persistence.sqlite]\npath = \"history/openot.sqlite3\"\n\
-         \n[runtime.openot.persistence.postgresql]\nconnection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"openot\"\ntls = \"require\"\n",
+         \n[runtime.openot.persistence.sqlite]\npath = \"history/trust-logging.sqlite3\"\n\
+         \n[runtime.openot.persistence.postgresql]\nconnection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"trust_logging\"\ntls = \"require\"\n",
         runtime_toml()
     );
 
@@ -648,7 +648,7 @@ fn runtime_schema_rejects_unselected_openot_persistence_backend_table() {
 fn runtime_schema_accepts_openot_persistence_operational_limits() {
     let text = format!(
         "{}\n[runtime.openot]\nenabled = true\npath = \"openot.shm\"\n[runtime.openot.persistence]\nenabled = true\nbackend = \"sqlite\"\nbatch_size = 128\nflush_interval_ms = 500\nqueue_capacity = 2048\nshutdown_timeout_ms = 7000\nretry_initial_ms = 100\nretry_max_ms = 10000\nretry_multiplier = 3\nretry_max_attempts = 4\n\
-         \n[runtime.openot.persistence.sqlite]\npath = \"history/openot.sqlite3\"\n",
+         \n[runtime.openot.persistence.sqlite]\npath = \"history/trust-logging.sqlite3\"\n",
         runtime_toml()
     );
 
@@ -713,7 +713,7 @@ fn openot_example_has_parseable_toml_for_every_supported_database_product() {
 fn runtime_schema_accepts_openot_remote_database_ca_certificate_path() {
     let text = format!(
         "{}\n[runtime.openot]\nenabled = true\npath = \"history/openot.jsonl\"\n[runtime.openot.persistence]\nenabled = true\nbackend = \"postgresql\"\n\
-         \n[runtime.openot.persistence.postgresql]\nconnection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"openot\"\ntls = \"require\"\nca_cert_path = \"certs/openot-database-ca.pem\"\n",
+         \n[runtime.openot.persistence.postgresql]\nconnection_url_env = \"TRUST_OPENOT_DATABASE_URL\"\nschema = \"trust_logging\"\ntls = \"require\"\nca_cert_path = \"certs/openot-database-ca.pem\"\n",
         runtime_toml()
     );
 
@@ -725,7 +725,7 @@ fn runtime_schema_accepts_openot_remote_database_ca_certificate_path() {
 fn runtime_schema_accepts_openot_influxdb3_ca_certificate_path() {
     let text = format!(
         "{}\n[runtime.openot]\nenabled = true\npath = \"history/openot.jsonl\"\n[runtime.openot.persistence]\nenabled = true\nbackend = \"influxdb3\"\n\
-         \n[runtime.openot.persistence.influxdb3]\nhost_env = \"TRUST_OPENOT_INFLUX_HOST\"\ntoken_env = \"TRUST_OPENOT_INFLUX_TOKEN\"\ndatabase = \"openot\"\nspool_path = \"history/openot-influx-spool.sqlite3\"\nmax_bytes = 1073741824\nca_cert_path = \"certs/openot-influx-ca.pem\"\n",
+         \n[runtime.openot.persistence.influxdb3]\nhost_env = \"TRUST_OPENOT_INFLUX_HOST\"\ntoken_env = \"TRUST_OPENOT_INFLUX_TOKEN\"\ndatabase = \"trust_logging\"\nspool_path = \"history/trust-logging-influx-spool.sqlite3\"\nmax_bytes = 1073741824\nca_cert_path = \"certs/openot-influx-ca.pem\"\n",
         runtime_toml()
     );
 
@@ -737,7 +737,7 @@ fn runtime_schema_accepts_openot_influxdb3_ca_certificate_path() {
 fn runtime_schema_rejects_inline_openot_database_credentials() {
     let text = format!(
         "{}\n[runtime.openot]\n[runtime.openot.persistence]\nenabled = true\nbackend = \"postgresql\"\n\
-         \n[runtime.openot.persistence.postgresql]\nconnection_url_env = \"postgresql://logger:secret@db/openot\"\nschema = \"openot\"\ntls = \"require\"\n",
+         \n[runtime.openot.persistence.postgresql]\nconnection_url_env = \"postgresql://logger:secret@db/trust_logging\"\nschema = \"trust_logging\"\ntls = \"require\"\n",
         runtime_toml()
     );
 

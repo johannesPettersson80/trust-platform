@@ -48,7 +48,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.67`
+Target release: `v0.24.68`
 
 ### Added
 
@@ -57,19 +57,71 @@ Target release: `v0.24.67`
   SQL Server, or InfluxDB 3 backend, with atomic durable checkpoints,
   idempotent replay, TLS/secret boundaries, InfluxDB outage spooling, runtime
   status, complete examples, and real-vendor conformance coverage.
-- Expose schema-v3 typed logging objects with descriptive names such as
+- Expose typed logging objects with descriptive names such as
   `logged_values`, `alarm_history`, `message_log`, `state_history`, and
   `audit_log`; normal reports no longer require OpenOT field arrays or JSON
-  paths, while canonical JSON remains internal recovery authority.
+  paths, while canonical JSON remains internal recovery authority. Every
+  backend and the InfluxDB spool initialize the same first schema generation,
+  1, directly. Because database persistence has not previously shipped,
+  incompatible pre-release development schemas fail closed without migration,
+  backfill, reconstruction, or automatic repair. Runtime status reports this
+  shared contract as `schema_generation`, not a backend-specific version.
 - Support MQTT tag mappings that bind fully qualified scalar program variables
   directly to broker topics with explicit PLC-relative `read` and `write`
   directions.
 
 ### Fixed
 
+- Preserve typed database transport failures through OpenOT schema
+  initialization, commit, and maintenance so bounded reconnect still applies,
+  while deterministic projection and storage failures fault immediately
+  instead of repeatedly reopening the selected backend.
+- Freeze bounded OpenOT shutdown drains from a fresh non-consuming producer
+  head so records published after an older buffered poll are still committed,
+  and restrict real-database runner teardown to exact-labelled Docker
+  resources even when a matching temporary-state marker exists.
+- Keep OpenOT source-head and pending-byte status observable while an initial
+  remote database connection is unavailable, and run the same complete
+  Architecture Safety gate before push and in GitHub CI. Protect active
+  shared-builder Cargo targets with stable external leases so concurrent
+  cleanup cannot delete exact-candidate test executables without leaking those
+  leases into helper daemons or detached children, and preserve target
+  compiler discovery instead of injecting host C/C++ compilers into Windows
+  cross-target checks.
+- Keep SQL Server logged-value statements below its 2,100-parameter limit,
+  constrain the MySQL/MariaDB schema marker to its single valid key, replace
+  the yanked MySQL client patch release, and run the same supply-chain policy
+  in exact pre-push validation and GitHub CI.
+- Keep PLC startup independent of remote logging availability, preserve
+  cumulative status across reconnects, drain bounded shutdown work, and report
+  the actual opened backend schema without exposing secrets.
+- Make InfluxDB delivery bounded and continuous under sustained input, retain
+  the complete typed/domain/provenance model, and require authenticated,
+  CA-verified real-product release proof.
+- Publish an InfluxDB spool commit before surfacing later reconciliation
+  failures, preserve detailed reconciliation counters through backend
+  selection, and reject compiled-out TOML backends synchronously at startup.
+- Reject missing or empty selected database environment variables before
+  worker startup, retry only explicitly classified remote-open reachability
+  failures, and fault permanent schema or storage-open errors immediately.
+- Reject missing database CA files before starting the persistence worker,
+  preserve complete loss/unresolved provenance in SQL Server combined commits,
+  and require capture-lifecycle parity for every Docs Captures workflow path.
+- Provision every real logging database from repository-owned, digest-pinned
+  runner scripts with ephemeral credentials, authenticated readiness checks,
+  symlink-safe container/network/anonymous-volume teardown, and retained
+  exact-candidate evidence.
 - Make every OpenOT database example portable to Windows and Linux by using a
   TCP runtime control endpoint with an explicit local-only example token instead
   of a Unix-only `/tmp` socket.
+- Preserve previous-value and audit fields in every relational `logged_values`
+  row, reapply SQLite/Influx spool durability settings on every connection,
+  and reject generation-1 databases whose actual columns, constraints, foreign
+  keys, or indexes differ from the schema created by truST.
+- Keep initial InfluxDB transport outages in the bounded reconnect lifecycle,
+  reclaim exact-labelled real-database runner resources after interrupted jobs
+  even when temporary state was lost, and make exact-candidate Clippy use the
+  same warning-deny command as GitHub CI.
 
 - Keep real-Mosquitto conformance compatible with broker versions whose help
   command prints a usable version and then exits nonzero, so optional version

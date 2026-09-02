@@ -11,7 +11,12 @@ pub struct TimescaleDbDocumentSink {
 }
 
 impl TimescaleDbDocumentSink {
-    /// Connects with authenticated TLS, requires TimescaleDB, and migrates.
+    /// Returns the compatible truST-owned relational schema version.
+    pub fn schema_version(&mut self) -> Result<u32, PersistenceError> {
+        self.postgresql.schema_version()
+    }
+
+    /// Connects with authenticated TLS and opens the initial TimescaleDB schema.
     pub fn open(
         connection_url: &str,
         schema: &str,
@@ -40,9 +45,9 @@ impl TimescaleDbDocumentSink {
                 &[],
             )
             .map(|row| row.get(0))
-            .map_err(|error| {
-                PersistenceError::Commit(format!("TimescaleDB read extension version: {error}"))
-            })
+            .map_err(super::postgresql::pg_error(
+                "read TimescaleDB extension version",
+            ))
     }
 
     /// Reports whether every required public time-series object is a hypertable.
@@ -56,9 +61,9 @@ impl TimescaleDbDocumentSink {
                 &[&self.postgresql.schema],
             )
             .map(|row| row.get(0))
-            .map_err(|error| {
-                PersistenceError::Commit(format!("TimescaleDB inspect hypertable: {error}"))
-            })
+            .map_err(super::postgresql::pg_error(
+                "inspect TimescaleDB hypertable",
+            ))
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
@@ -73,9 +78,51 @@ impl TimescaleDbDocumentSink {
                 &[],
             )
             .map(|row| row.get(0))
-            .map_err(|error| {
-                PersistenceError::Commit(format!("TimescaleDB count time index: {error}"))
-            })
+            .map_err(super::postgresql::pg_error("count TimescaleDB time index"))
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn audited_value_projection(
+        &mut self,
+    ) -> Result<super::contracts::AuditedValueProjection, PersistenceError> {
+        self.postgresql
+            .client
+            .query_one(
+                &format!(
+                    "SELECT previous_boolean_value,is_audited,actor,reason,authorization_result \
+                     FROM \"{}\".logged_values WHERE is_audited LIMIT 1",
+                    self.postgresql.schema
+                ),
+                &[],
+            )
+            .map(|row| (row.get(0), row.get(1), row.get(2), row.get(3), row.get(4)))
+            .map_err(super::postgresql::pg_error(
+                "read TimescaleDB audited value projection",
+            ))
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn set_required_index_present_for_test(
+        &mut self,
+        present: bool,
+    ) -> Result<(), PersistenceError> {
+        let statement = if present {
+            format!(
+                "CREATE INDEX logging_records_receive_time ON \"{}\".logging_records(receive_time_ns)",
+                self.postgresql.schema
+            )
+        } else {
+            format!(
+                "DROP INDEX \"{}\".logging_records_receive_time",
+                self.postgresql.schema
+            )
+        };
+        self.postgresql
+            .client
+            .batch_execute(&statement)
+            .map_err(super::postgresql::pg_error(
+                "change TimescaleDB required index for compatibility test",
+            ))
     }
 
     #[cfg(feature = "openot-real-database-tests")]
@@ -85,16 +132,16 @@ impl TimescaleDbDocumentSink {
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
-    pub(crate) fn downgrade_checkpoint_to_v1_for_test(&mut self) -> Result<(), PersistenceError> {
-        self.postgresql.downgrade_checkpoint_to_v1_for_test()
-    }
-
-    #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn set_schema_version_for_test(
         &mut self,
         version: u32,
     ) -> Result<(), PersistenceError> {
         self.postgresql.set_schema_version_for_test(version)
+    }
+
+    #[cfg(all(test, feature = "openot-real-database-tests"))]
+    pub(crate) fn remove_schema_marker_for_test(&mut self) -> Result<(), PersistenceError> {
+        self.postgresql.remove_schema_marker_for_test()
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]

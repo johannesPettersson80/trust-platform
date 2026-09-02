@@ -1,7 +1,19 @@
 use open_ot_document::Document;
 
+/// Initial database contract generation shared by every persistence adapter.
+pub(crate) const LOGGING_SCHEMA_GENERATION: u32 = 1;
+
 #[cfg(all(test, feature = "openot-real-database-tests"))]
 pub(crate) type StoredCheckpointRow = (u32, Vec<u8>, Vec<u8>);
+
+#[cfg(all(test, feature = "openot-real-database-tests"))]
+pub(crate) type AuditedValueProjection = (
+    Option<bool>,
+    bool,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
 
 #[cfg(test)]
 use super::projection::document_identity;
@@ -39,6 +51,12 @@ pub struct CommitOutcome {
     pub projection_rows_committed: usize,
     /// Newly committed future events retaining unclassified fields.
     pub unclassified_events: usize,
+    /// Newly inserted fail-closed placeholder documents.
+    pub unresolved_documents: usize,
+    /// Newly inserted queryable loss ranges.
+    pub loss_ranges: usize,
+    /// Source records represented by newly inserted loss ranges.
+    pub lost_records: u64,
     /// Durable delivery parts still awaiting remote reconciliation.
     pub pending_parts: usize,
     /// Durable checkpoint after the commit.
@@ -65,6 +83,8 @@ pub enum PersistenceError {
     IdentityConflict(String),
     /// A backend could not durably commit the requested batch.
     Commit(String),
+    /// A remote backend transport was unavailable while opening or operating.
+    Connection(String),
     /// A configured durable capacity bound cannot accept another batch.
     CapacityExhausted(String),
     /// A batch attempted to move an existing buffer cursor backward.
@@ -90,6 +110,9 @@ impl std::fmt::Display for PersistenceError {
             Self::Commit(message) => {
                 write!(formatter, "OpenOT persistence commit failed: {message}")
             }
+            Self::Connection(message) => {
+                write!(formatter, "OpenOT persistence connection failed: {message}")
+            }
             Self::CapacityExhausted(message) => {
                 write!(
                     formatter,
@@ -114,6 +137,16 @@ impl std::fmt::Display for PersistenceError {
 }
 
 impl std::error::Error for PersistenceError {}
+
+pub(super) fn deterministic_unless_transport(
+    error: PersistenceError,
+    deterministic_message: &'static str,
+) -> PersistenceError {
+    match error {
+        PersistenceError::Connection(_) => error,
+        _ => PersistenceError::Commit(deterministic_message.to_string()),
+    }
+}
 
 pub(super) fn ensure_private_parent(
     path: &std::path::Path,
@@ -192,6 +225,7 @@ pub(crate) struct InMemoryDocumentSink {
     pub(crate) checkpoint: Option<PersistenceCheckpoint>,
     fail_next_commit: bool,
     remote_pending: usize,
+    maintenance_calls: usize,
 }
 
 #[cfg(test)]
@@ -202,6 +236,7 @@ impl InMemoryDocumentSink {
             checkpoint: None,
             fail_next_commit: false,
             remote_pending: 0,
+            maintenance_calls: 0,
         }
     }
 
@@ -212,11 +247,16 @@ impl InMemoryDocumentSink {
     pub(crate) fn set_remote_pending(&mut self, remote_pending: usize) {
         self.remote_pending = remote_pending;
     }
+
+    pub(crate) fn maintenance_calls(&self) -> usize {
+        self.maintenance_calls
+    }
 }
 
 #[cfg(test)]
 impl DocumentSink for InMemoryDocumentSink {
     fn maintenance(&mut self) -> Result<usize, PersistenceError> {
+        self.maintenance_calls = self.maintenance_calls.saturating_add(1);
         Ok(self.remote_pending)
     }
 
@@ -251,6 +291,9 @@ impl DocumentSink for InMemoryDocumentSink {
         let mut staged = self.documents.clone();
         let mut inserted = 0;
         let mut duplicated = 0;
+        let mut unresolved_documents = 0;
+        let mut loss_ranges = 0;
+        let mut lost_records = 0u64;
         for document in &batch.documents {
             let identity = document_identity(document);
             if let Some(existing) = staged
@@ -265,6 +308,14 @@ impl DocumentSink for InMemoryDocumentSink {
             }
             staged.push(document.clone());
             inserted += 1;
+            match document {
+                Document::Placeholder(_) => unresolved_documents += 1,
+                Document::Loss(loss) => {
+                    loss_ranges += 1;
+                    lost_records = lost_records.saturating_add(loss.count);
+                }
+                Document::Event(_) => {}
+            }
         }
         self.documents = staged;
         self.checkpoint = Some(batch.checkpoint);
@@ -274,6 +325,9 @@ impl DocumentSink for InMemoryDocumentSink {
             remote_pending: self.remote_pending,
             projection_rows_committed: 0,
             unclassified_events: 0,
+            unresolved_documents,
+            loss_ranges,
+            lost_records,
             pending_parts: 0,
             checkpoint: batch.checkpoint,
         })

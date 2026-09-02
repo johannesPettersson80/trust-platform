@@ -1,5 +1,6 @@
 import io
 import json
+import shlex
 import subprocess
 import tempfile
 import unittest
@@ -107,6 +108,22 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn("npm ci &&", commands["remote_vscode"])
         self.assertIn("xvfb-run -a npm test", commands["remote_vscode"])
 
+    def test_vscode_candidate_runs_docs_capture_lifecycle_parity(self) -> None:
+        commands = dict(
+            candidate_prepare.remote_validation_commands(
+                vscode_changed=True, remote_target="/tmp/trust-target"
+            )
+        )
+
+        self.assertEqual(
+            commands["remote_docs_capture_lifecycle"],
+            "python3 -m unittest scripts.tests.test_capture_lifecycle -v",
+        )
+        self.assertIn(
+            "remote_docs_capture_lifecycle",
+            guard.required_command_ids(vscode_changed=True),
+        )
+
     def test_vscode_remote_gate_uses_unique_short_lived_temp_directory(self) -> None:
         commands = dict(
             candidate_prepare.remote_validation_commands(
@@ -119,11 +136,12 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         )
 
         vscode = commands["remote_vscode"]
+        vscode_body = shlex.split(vscode)[-1]
         self.assertIn(
-            "vscode_tmp=$(mktemp -d /tmp/trust-vscode-candidate.XXXXXX)", vscode
+            "vscode_tmp=$(mktemp -d /tmp/trust-vscode-candidate.XXXXXX)", vscode_body
         )
-        self.assertIn("trap 'rm -rf -- \"$vscode_tmp\"' EXIT", vscode)
-        self.assertIn('TMPDIR="$vscode_tmp"', vscode)
+        self.assertIn("trap 'rm -rf -- \"$vscode_tmp\"' EXIT", vscode_body)
+        self.assertIn('TMPDIR="$vscode_tmp"', vscode_body)
         self.assertNotIn(
             "TMPDIR=/home/johannes/.cache/codex-targets/"
             "trust-platform-release-candidate-with-a-long-name/tmp",
@@ -141,6 +159,81 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn("remote_test_all", commands)
         self.assertIn("just test-all", commands["remote_test_all"])
 
+    def test_remote_validation_runs_required_cross_target_warning_gate_before_clippy(self) -> None:
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target="/tmp/trust-target"
+        )
+        command_ids = [command_id for command_id, _command in commands]
+        by_id = dict(commands)
+
+        self.assertIn("remote_cross_target_warnings", command_ids)
+        self.assertLess(
+            command_ids.index("remote_cross_target_warnings"),
+            command_ids.index("remote_clippy"),
+        )
+        self.assertIn(
+            "./scripts/check_runtime_cross_target_warnings.sh "
+            "--install-missing --require-cross",
+            by_id["remote_cross_target_warnings"],
+        )
+        cross_body = shlex.split(by_id["remote_cross_target_warnings"])[-1]
+        self.assertNotIn("CC=cc", cross_body)
+        self.assertNotIn("CXX=c++", cross_body)
+        self.assertIn(
+            "cargo clippy --all-targets --all-features -- -D warnings",
+            by_id["remote_clippy"],
+        )
+        self.assertNotIn("just clippy", by_id["remote_clippy"])
+
+    def test_remote_validation_runs_the_same_supply_chain_gate_as_ci(self) -> None:
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target="/tmp/trust-target"
+        )
+        command_ids = [command_id for command_id, _command in commands]
+        by_id = dict(commands)
+
+        self.assertIn("remote_supply_chain", command_ids)
+        self.assertIn("remote_supply_chain", guard.BASE_REQUIRED_COMMANDS)
+        self.assertLess(
+            command_ids.index("remote_supply_chain"),
+            command_ids.index("remote_clippy"),
+        )
+        self.assertIn("bash scripts/supply_chain_gate.sh", by_id["remote_supply_chain"])
+        workflow = (Path(__file__).parents[4] / ".github/workflows/ci.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("bash scripts/supply_chain_gate.sh", workflow)
+
+    def test_remote_validation_runs_the_same_architecture_safety_gate_as_ci(self) -> None:
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target="/tmp/trust-target"
+        )
+        command_ids = [command_id for command_id, _command in commands]
+        by_id = dict(commands)
+
+        self.assertIn("remote_architecture_safety", command_ids)
+        self.assertIn("remote_architecture_safety", guard.BASE_REQUIRED_COMMANDS)
+        self.assertLess(
+            command_ids.index("remote_architecture_safety"),
+            command_ids.index("remote_clippy"),
+        )
+        self.assertIn(
+            "bash scripts/architecture_safety_gate.sh",
+            by_id["remote_architecture_safety"],
+        )
+        workflow = (Path(__file__).parents[4] / ".github/workflows/ci.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("bash scripts/architecture_safety_gate.sh", workflow)
+
+    def test_architecture_safety_gate_exposes_cargo_installed_tools(self) -> None:
+        gate = (
+            Path(__file__).parents[4] / "scripts/architecture_safety_gate.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"', gate)
+        self.assertLess(gate.index("export PATH="), gate.index("command -v ast-grep"))
+
     def test_remote_validation_reclaims_exact_target_before_test_all(self) -> None:
         commands = candidate_prepare.remote_validation_commands(
             vscode_changed=True, remote_target="/tmp/trust target"
@@ -155,6 +248,31 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             command_ids.index("remote_clippy"),
             command_ids.index("remote_reclaim_before_test_all"),
         )
+
+    def test_remote_validation_leases_every_cargo_target_user_and_safe_reclaims(self) -> None:
+        commands = dict(
+            candidate_prepare.remote_validation_commands(
+                vscode_changed=True, remote_target="/tmp/trust target"
+            )
+        )
+        command_ids = list(commands)
+        leased_ids = (
+            "remote_vscode",
+            "remote_cross_target_warnings",
+            "remote_supply_chain",
+            "remote_architecture_safety",
+            "remote_clippy",
+            "remote_test_all",
+        )
+        for command_id in leased_ids:
+            self.assertIn(
+                "bash scripts/with_cargo_target_lease.sh '/tmp/trust target'",
+                commands[command_id],
+                command_id,
+            )
+        reclaim = commands["remote_reclaim_before_test_all"]
+        self.assertIn("bash scripts/remove_cargo_target_if_idle.sh", reclaim)
+        self.assertNotIn("rm -rf", reclaim)
         self.assertLess(
             command_ids.index("remote_reclaim_before_test_all"),
             command_ids.index("remote_test_all"),
@@ -169,23 +287,25 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         )
         self.assertEqual(
             by_id["remote_reclaim_before_test_all"],
-            "rm -rf -- '/tmp/trust target' && "
+            "bash scripts/remove_cargo_target_if_idle.sh '/tmp/trust target' && "
             "mkdir -p -- '/tmp/trust target/tmp' '/tmp/trust target/bin' && "
             "install -m 755 "
             ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh "
             "'/tmp/trust target/bin/sccache'",
         )
         for command_id in ("remote_clippy", "remote_test_all"):
-            self.assertIn("CARGO_INCREMENTAL=0", by_id[command_id])
-            self.assertIn("RUSTC_WRAPPER=/usr/bin/env", by_id[command_id])
-            self.assertIn("CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env", by_id[command_id])
-            self.assertIn("CC=cc", by_id[command_id])
-            self.assertIn("CXX=c++", by_id[command_id])
-            self.assertIn("TMPDIR='/tmp/trust target/tmp'", by_id[command_id])
-            self.assertIn("PATH='/tmp/trust target/bin':$PATH", by_id[command_id])
-        self.assertIn("CARGO_INCREMENTAL=0", by_id["remote_vscode"])
-        self.assertIn('TMPDIR="$vscode_tmp"', by_id["remote_vscode"])
-        self.assertNotIn("TMPDIR='/tmp/trust target/tmp'", by_id["remote_vscode"])
+            body = shlex.split(by_id[command_id])[-1]
+            self.assertIn("CARGO_INCREMENTAL=0", body)
+            self.assertIn("RUSTC_WRAPPER=/usr/bin/env", body)
+            self.assertIn("CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env", body)
+            self.assertIn("CC=cc", body)
+            self.assertIn("CXX=c++", body)
+            self.assertIn("TMPDIR='/tmp/trust target/tmp'", body)
+            self.assertIn("PATH='/tmp/trust target/bin':$PATH", body)
+        vscode_body = shlex.split(by_id["remote_vscode"])[-1]
+        self.assertIn("CARGO_INCREMENTAL=0", vscode_body)
+        self.assertIn('TMPDIR="$vscode_tmp"', vscode_body)
+        self.assertNotIn("TMPDIR='/tmp/trust target/tmp'", vscode_body)
         self.assertIn("CARGO_BUILD_JOBS=1", by_id["remote_test_all"])
 
     def test_remote_validation_requires_eighty_gib_before_cold_gates(self) -> None:

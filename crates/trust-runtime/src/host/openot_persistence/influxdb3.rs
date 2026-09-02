@@ -6,10 +6,12 @@ use ureq::{
     Agent,
 };
 
+use super::contracts::LOGGING_SCHEMA_GENERATION;
 use super::projection::LoggingProjector;
 use super::{CommitOutcome, DocumentSink, PersistenceBatch, PersistenceError};
 
-const SPOOL_SCHEMA_VERSION: u32 = 3;
+const MAX_DELIVERY_PARTS_PER_PASS: i64 = 2_048;
+const RECONCILIATION_POINTS_PER_QUERY: usize = 32;
 
 /// InfluxDB 3 HTTP adapter with a mandatory durable SQLite delivery spool.
 pub struct InfluxDb3DocumentSink {
@@ -34,6 +36,17 @@ impl std::fmt::Debug for InfluxDb3DocumentSink {
 }
 
 impl InfluxDb3DocumentSink {
+    /// Returns the compatible truST-owned durable spool schema version.
+    pub fn schema_version(&self) -> Result<u32, PersistenceError> {
+        self.spool
+            .query_row(
+                "SELECT version FROM logging_schema WHERE singleton=1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(spool_error("read spool schema version"))
+    }
+
     /// Opens the durable spool and CA-authenticated InfluxDB 3 connection.
     pub fn open(
         host: &str,
@@ -87,7 +100,7 @@ impl InfluxDb3DocumentSink {
         let projector = LoggingProjector::new(definitions)?;
         let spool = Connection::open(spool_path)
             .map_err(|e| PersistenceError::Commit(format!("InfluxDB 3 open spool: {e}")))?;
-        migrate_spool(&spool)?;
+        initialize_spool_schema(&spool)?;
         if logical_spool_bytes(&spool)? > max_bytes {
             return Err(PersistenceError::InvalidConfig(format!(
                 "InfluxDB 3 spool schema exceeds configured max_bytes {max_bytes}"
@@ -111,10 +124,10 @@ impl InfluxDb3DocumentSink {
     pub fn flush_pending(&mut self) -> Result<usize, PersistenceError> {
         let mut statement = self
             .spool
-            .prepare("SELECT document_identity,part_id,line_protocol FROM logging_delivery_spool WHERE delivered=0 ORDER BY document_identity,part_ordinal")
+            .prepare("SELECT document_identity,part_id,line_protocol FROM logging_delivery_spool WHERE delivered=0 ORDER BY document_identity,part_ordinal LIMIT ?1")
             .map_err(spool_error("prepare pending delivery"))?;
         let rows = statement
-            .query_map([], |row| {
+            .query_map([MAX_DELIVERY_PARTS_PER_PASS], |row| {
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
@@ -212,7 +225,7 @@ impl InfluxDb3DocumentSink {
         }
         let mut verified = Vec::with_capacity(rows.len());
         for (measurement, points) in groups {
-            for chunk in points.chunks(12) {
+            for chunk in points.chunks(RECONCILIATION_POINTS_PER_QUERY) {
                 let query = format!(
                     "SELECT COUNT(*) AS count FROM {measurement} WHERE {}",
                     chunk
@@ -235,7 +248,7 @@ impl InfluxDb3DocumentSink {
                 let body = response
                     .body_mut()
                     .read_to_string()
-                    .map_err(|error| influx_error("read reconciliation query", error))?;
+                    .map_err(|error| transport_error("read reconciliation query", error))?;
                 let result: Vec<serde_json::Value> =
                     serde_json::from_str(&body).map_err(|error| {
                         PersistenceError::Commit(format!(
@@ -294,7 +307,7 @@ impl InfluxDb3DocumentSink {
         let body = response
             .body_mut()
             .read_to_string()
-            .map_err(|e| influx_error("read query response", e))?;
+            .map_err(|error| transport_error("read query response", error))?;
         let rows: Vec<serde_json::Value> = serde_json::from_str(&body)
             .map_err(|e| PersistenceError::Commit(format!("InfluxDB 3 decode query: {e}")))?;
         rows.first()
@@ -348,7 +361,7 @@ impl InfluxDb3DocumentSink {
         let body = response
             .body_mut()
             .read_to_string()
-            .map_err(|error| influx_error("read typed measurement query", error))?;
+            .map_err(|error| transport_error("read typed measurement query", error))?;
         let rows: Vec<serde_json::Value> = serde_json::from_str(&body).map_err(|error| {
             PersistenceError::Commit(format!("InfluxDB 3 decode typed query: {error}"))
         })?;
@@ -420,7 +433,7 @@ impl InfluxDb3DocumentSink {
         let body = response
             .body_mut()
             .read_to_string()
-            .map_err(|error| influx_error("read canonical query response", error))?;
+            .map_err(|error| transport_error("read canonical query response", error))?;
         let rows: Vec<serde_json::Value> = serde_json::from_str(&body).map_err(|error| {
             PersistenceError::Commit(format!("InfluxDB 3 decode canonical query: {error}"))
         })?;
@@ -498,25 +511,24 @@ impl InfluxDb3DocumentSink {
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
-    pub(crate) fn downgrade_checkpoint_to_v1_for_test(&self) -> Result<(), PersistenceError> {
+    pub(crate) fn set_schema_version_for_test(&self, version: u32) -> Result<(), PersistenceError> {
+        let catalog_fingerprint = spool_catalog_fingerprint(&self.spool)?;
         self.spool
-            .execute_batch(
-                "DELETE FROM logging_checkpoint;
-                 ALTER TABLE logging_checkpoint DROP COLUMN run_id;
-                 UPDATE logging_schema SET version=1 WHERE singleton=1;",
+            .execute(
+                "INSERT INTO logging_schema(singleton,version,catalog_fingerprint) VALUES (1,?1,?2)
+             ON CONFLICT(singleton) DO UPDATE SET version=excluded.version,catalog_fingerprint=excluded.catalog_fingerprint",
+                rusqlite::params![version, catalog_fingerprint],
             )
-            .map_err(spool_error("seed spool schema v1"))
+            .and_then(|_| self.spool.pragma_update(None, "user_version", version))
+            .map_err(spool_error("seed spool schema version"))
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
-    pub(crate) fn set_schema_version_for_test(&self, version: u32) -> Result<(), PersistenceError> {
+    pub(crate) fn remove_schema_marker_for_test(&self) -> Result<(), PersistenceError> {
         self.spool
-            .execute(
-                "UPDATE logging_schema SET version=?1 WHERE singleton=1",
-                [version],
-            )
-            .map(|_| ())
-            .map_err(spool_error("seed spool schema version"))
+            .execute("DELETE FROM logging_schema WHERE singleton=1", [])
+            .and_then(|_| self.spool.pragma_update(None, "user_version", 0))
+            .map_err(spool_error("remove spool schema generation marker"))
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
@@ -534,7 +546,7 @@ impl InfluxDb3DocumentSink {
         response
             .body_mut()
             .read_to_string()
-            .map_err(|e| influx_error("read response", e))
+            .map_err(|error| transport_error("read response", error))
     }
 }
 
@@ -635,10 +647,14 @@ impl DocumentSink for InfluxDb3DocumentSink {
         let mut duplicated = 0;
         let mut projection_rows_committed = 0;
         let mut unclassified_events = 0;
+        let mut unresolved_documents = 0;
+        let mut loss_ranges = 0;
+        let mut lost_records = 0u64;
         for document in &batch.documents {
             let projected = self.projector.project(document)?;
             let projected_row_count = projected.public_row_count();
             let has_unclassified_event = projected.has_unclassified_event();
+            let special_counts = projected.loss_and_unresolved_counts()?;
             let row = &projected.canonical;
             let existing: Option<String> = transaction
                 .query_row(
@@ -670,6 +686,9 @@ impl DocumentSink for InfluxDb3DocumentSink {
             inserted += 1;
             projection_rows_committed += projected_row_count;
             unclassified_events += usize::from(has_unclassified_event);
+            unresolved_documents += special_counts.0;
+            loss_ranges += special_counts.1;
+            lost_records = lost_records.saturating_add(special_counts.2);
         }
         transaction.execute(
             "INSERT INTO logging_checkpoint(singleton,buffer_id,run_id,cursor_abs) VALUES(1,?1,?2,?3)
@@ -693,96 +712,140 @@ impl DocumentSink for InfluxDb3DocumentSink {
             remote_pending,
             projection_rows_committed,
             unclassified_events,
+            unresolved_documents,
+            loss_ranges,
+            lost_records,
             pending_parts,
             checkpoint: batch.checkpoint,
         })
     }
 }
 
-fn migrate_spool(connection: &Connection) -> Result<(), PersistenceError> {
-    for (legacy, current) in [
-        ("openot_schema", "logging_schema"),
-        ("openot_spool", "logging_records"),
-        ("openot_checkpoint", "logging_checkpoint"),
-        ("logging_delivery_parts", "logging_delivery_spool"),
-    ] {
-        let legacy_exists: i64 = connection
-            .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
-                [legacy],
-                |row| row.get(0),
-            )
-            .map_err(spool_error("inspect legacy spool object"))?;
-        let current_exists: i64 = connection
-            .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
-                [current],
-                |row| row.get(0),
-            )
-            .map_err(spool_error("inspect logging spool object"))?;
-        if legacy_exists == 1 && current_exists == 0 {
-            connection
-                .execute_batch(&format!("ALTER TABLE {legacy} RENAME TO {current}"))
-                .map_err(spool_error("rename legacy spool object"))?;
-        }
-    }
-    connection.execute_batch(&format!(
-        "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;
-         CREATE TABLE IF NOT EXISTS logging_schema(singleton INTEGER PRIMARY KEY CHECK(singleton=1),version INTEGER NOT NULL);
-         CREATE TABLE IF NOT EXISTS logging_records(spool_id INTEGER PRIMARY KEY AUTOINCREMENT,identity_key TEXT NOT NULL UNIQUE,canonical_json TEXT NOT NULL,line_protocol TEXT NOT NULL,delivered INTEGER NOT NULL CHECK(delivered IN(0,1)));
-         CREATE TABLE IF NOT EXISTS logging_delivery_spool(part_id TEXT PRIMARY KEY,document_identity TEXT NOT NULL,part_ordinal INTEGER NOT NULL,line_protocol TEXT NOT NULL,delivered INTEGER NOT NULL CHECK(delivered IN(0,1)),UNIQUE(document_identity,part_ordinal),FOREIGN KEY(document_identity) REFERENCES logging_records(identity_key));
-         CREATE INDEX IF NOT EXISTS logging_delivery_spool_pending ON logging_delivery_spool(delivered,document_identity,part_ordinal);
-         CREATE TABLE IF NOT EXISTS logging_checkpoint(singleton INTEGER PRIMARY KEY CHECK(singleton=1),buffer_id INTEGER NOT NULL,run_id BLOB NOT NULL CHECK(length(run_id)=8),cursor_abs BLOB NOT NULL CHECK(length(cursor_abs)=8));
-         INSERT OR IGNORE INTO logging_schema(singleton,version) VALUES(1,{SPOOL_SCHEMA_VERSION});"
-    )).map_err(spool_error("migrate spool"))?;
+fn initialize_spool_schema(connection: &Connection) -> Result<(), PersistenceError> {
     let version: u32 = connection
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .map_err(spool_error("read spool schema generation"))?;
+    if version == LOGGING_SCHEMA_GENERATION {
+        let marker: (u32, String) = connection
+            .query_row("SELECT version,catalog_fingerprint FROM logging_schema WHERE singleton=1", [], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(|_| PersistenceError::Commit(
+                "InfluxDB 3 incompatible pre-release spool schema; back up and recreate the development spool".into(),
+            ))?;
+        if marker.0 != LOGGING_SCHEMA_GENERATION {
+            return Err(PersistenceError::Commit(format!(
+                "InfluxDB 3 incompatible pre-release spool generation {}; back up and recreate the development spool",
+                marker.0
+            )));
+        }
+        validate_spool_schema(connection)?;
+        if spool_catalog_fingerprint(connection)? != marker.1 {
+            return Err(PersistenceError::Commit(
+                "InfluxDB 3 incompatible pre-release spool schema: the generation-1 catalog definition changed; back up and recreate the development spool".into(),
+            ));
+        }
+        return apply_and_verify_spool_pragmas(connection);
+    }
+    if version != 0 {
+        return Err(PersistenceError::Commit(format!(
+            "InfluxDB 3 incompatible pre-release spool generation {version}; back up and recreate the development spool"
+        )));
+    }
+    let occupied: Option<String> = connection
         .query_row(
-            "SELECT version FROM logging_schema WHERE singleton=1",
+            "SELECT name FROM sqlite_master WHERE type IN ('table','view') AND (substr(name,1,8)='logging_' OR name IN ('openot_schema','openot_spool','openot_checkpoint')) LIMIT 1",
             [],
             |row| row.get(0),
         )
-        .map_err(spool_error("read spool schema version"))?;
-    if version > SPOOL_SCHEMA_VERSION {
+        .optional()
+        .map_err(spool_error("inspect spool schema ownership"))?;
+    if let Some(object) = occupied {
         return Err(PersistenceError::Commit(format!(
-            "InfluxDB 3 spool schema {version} is newer than supported {SPOOL_SCHEMA_VERSION}"
+            "InfluxDB 3 incompatible pre-release spool object {object}; back up and recreate the development spool"
         )));
     }
-    if version == 1 {
-        connection
-            .execute_batch(
-                "ALTER TABLE logging_checkpoint ADD COLUMN run_id BLOB NOT NULL DEFAULT X'0000000000000000' CHECK(length(run_id)=8);
-                 UPDATE logging_schema SET version=2 WHERE singleton=1;",
-            )
-            .map_err(spool_error("migrate spool schema 1 to 2"))?;
-    }
-    if version <= 2 {
-        let rows = connection
-            .prepare("SELECT identity_key,line_protocol,delivered FROM logging_records ORDER BY spool_id")
-            .and_then(|mut statement| {
-                statement
-                    .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, i64>(2)?)))?
-                    .collect::<Result<Vec<_>, _>>()
-            })
-            .map_err(spool_error("read legacy delivery records"))?;
-        let transaction = connection
-            .unchecked_transaction()
-            .map_err(spool_error("begin delivery-part backfill"))?;
-        for (identity, line_protocol, delivered) in rows {
-            for (ordinal, line) in line_protocol.lines().enumerate() {
-                transaction.execute(
-                    "INSERT OR IGNORE INTO logging_delivery_spool(part_id,document_identity,part_ordinal,line_protocol,delivered) VALUES(?1,?2,?3,?4,?5)",
-                    params![format!("{identity}:{ordinal}"), identity, ordinal as u32, line, delivered],
-                ).map_err(spool_error("backfill delivery part"))?;
-            }
-        }
-        transaction
-            .execute("UPDATE logging_schema SET version=3 WHERE singleton=1", [])
-            .map_err(spool_error("migrate spool schema 2 to 3"))?;
-        transaction
-            .commit()
-            .map_err(spool_error("commit delivery-part backfill"))?;
+    connection.execute_batch(
+        "BEGIN IMMEDIATE;
+         PRAGMA foreign_keys=ON;
+         CREATE TABLE logging_schema(singleton INTEGER PRIMARY KEY CHECK(singleton=1),version INTEGER NOT NULL CHECK(version=1),catalog_fingerprint TEXT NOT NULL);
+         INSERT INTO logging_schema(singleton,version,catalog_fingerprint) VALUES(1,1,'');
+         CREATE TABLE logging_records(spool_id INTEGER PRIMARY KEY AUTOINCREMENT,identity_key TEXT NOT NULL UNIQUE,canonical_json TEXT NOT NULL,line_protocol TEXT NOT NULL,delivered INTEGER NOT NULL CHECK(delivered IN(0,1)));
+         CREATE TABLE logging_delivery_spool(part_id TEXT PRIMARY KEY,document_identity TEXT NOT NULL,part_ordinal INTEGER NOT NULL,line_protocol TEXT NOT NULL,delivered INTEGER NOT NULL CHECK(delivered IN(0,1)),UNIQUE(document_identity,part_ordinal),FOREIGN KEY(document_identity) REFERENCES logging_records(identity_key));
+         CREATE INDEX logging_delivery_spool_pending ON logging_delivery_spool(delivered,document_identity,part_ordinal);
+         CREATE TABLE logging_checkpoint(singleton INTEGER PRIMARY KEY CHECK(singleton=1),buffer_id INTEGER NOT NULL,run_id BLOB NOT NULL CHECK(length(run_id)=8),cursor_abs BLOB NOT NULL CHECK(length(cursor_abs)=8));
+         PRAGMA user_version=1;"
+    ).map_err(spool_error("initialize generation-1 spool"))?;
+    let catalog_fingerprint = spool_catalog_fingerprint(connection)?;
+    connection
+        .execute(
+            "UPDATE logging_schema SET catalog_fingerprint=?1 WHERE singleton=1",
+            [&catalog_fingerprint],
+        )
+        .map_err(spool_error("record generation-1 spool catalog fingerprint"))?;
+    connection
+        .execute_batch("COMMIT;")
+        .map_err(spool_error("commit generation-1 spool"))?;
+    validate_spool_schema(connection)?;
+    apply_and_verify_spool_pragmas(connection)
+}
+
+fn apply_and_verify_spool_pragmas(connection: &Connection) -> Result<(), PersistenceError> {
+    connection
+        .execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;")
+        .map_err(spool_error("apply connection-local durability settings"))?;
+    let foreign_keys: u32 = connection
+        .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
+        .map_err(spool_error("verify foreign-key mode"))?;
+    let synchronous: u32 = connection
+        .query_row("PRAGMA synchronous", [], |row| row.get(0))
+        .map_err(spool_error("verify synchronous mode"))?;
+    let journal_mode: String = connection
+        .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+        .map_err(spool_error("verify journal mode"))?;
+    if foreign_keys != 1 || synchronous != 2 || !journal_mode.eq_ignore_ascii_case("wal") {
+        return Err(PersistenceError::Commit(format!(
+            "InfluxDB 3 spool durability settings were not applied: foreign_keys={foreign_keys}, synchronous={synchronous}, journal_mode={journal_mode}"
+        )));
     }
     Ok(())
+}
+
+fn validate_spool_schema(connection: &Connection) -> Result<(), PersistenceError> {
+    for object in [
+        "logging_schema",
+        "logging_records",
+        "logging_delivery_spool",
+        "logging_checkpoint",
+    ] {
+        let exists: bool = connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1)",
+                [object],
+                |row| row.get(0),
+            )
+            .map_err(spool_error("validate spool schema object"))?;
+        if !exists {
+            return Err(PersistenceError::Commit(format!(
+                "InfluxDB 3 incompatible pre-release spool schema: required object {object} is missing; back up and recreate the development spool"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn spool_catalog_fingerprint(connection: &Connection) -> Result<String, PersistenceError> {
+    let mut statement = connection
+        .prepare(
+            "SELECT type || '|' || name || '|' || tbl_name || '|' || COALESCE(sql,'') \
+             FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND \
+             (name LIKE 'logging_%' OR tbl_name LIKE 'logging_%')",
+        )
+        .map_err(spool_error("prepare spool catalog fingerprint"))?;
+    let rows = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(spool_error("read spool catalog fingerprint"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(spool_error("decode spool catalog fingerprint"))?;
+    Ok(super::schema_contract::fingerprint(rows))
 }
 
 fn logical_spool_bytes(connection: &Connection) -> Result<u64, PersistenceError> {
@@ -854,8 +917,31 @@ fn spool_error(context: &'static str) -> impl FnOnce(rusqlite::Error) -> Persist
     move |error| PersistenceError::Commit(format!("InfluxDB 3 {context}: {error}"))
 }
 fn http_error(context: &'static str) -> impl FnOnce(ureq::Error) -> PersistenceError {
-    move |error| PersistenceError::Commit(format!("InfluxDB 3 {context}: {error}"))
+    move |error| {
+        let retryable = matches!(
+            &error,
+            ureq::Error::Io(_)
+                | ureq::Error::Timeout(_)
+                | ureq::Error::HostNotFound
+                | ureq::Error::ConnectionFailed
+                | ureq::Error::ConnectProxyFailed(_)
+        );
+        let message = format!("InfluxDB 3 {context}: {error}");
+        if retryable {
+            PersistenceError::Connection(message)
+        } else {
+            PersistenceError::Commit(message)
+        }
+    }
 }
 fn influx_error(context: &'static str, error: impl std::fmt::Display) -> PersistenceError {
     PersistenceError::Commit(format!("InfluxDB 3 {context}: {error}"))
 }
+
+fn transport_error(context: &'static str, error: impl std::fmt::Display) -> PersistenceError {
+    PersistenceError::Connection(format!("InfluxDB 3 {context}: {error}"))
+}
+
+#[cfg(test)]
+#[path = "influxdb3_tests.rs"]
+mod tests;

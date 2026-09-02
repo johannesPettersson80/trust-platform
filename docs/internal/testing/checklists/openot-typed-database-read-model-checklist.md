@@ -1,9 +1,16 @@
 # OpenOT Typed Database Read Model Implementation Checklist
 
-Status: implementation complete; exact-candidate release publication awaits authorization
+Status: corrective audit active; implementation acceptance reopened
 Owner: truST runtime logging persistence
 Owning specification: `docs/specs/33-openot-database-persistence.md`
 Architecture decision: `docs/internal/architecture/openot-database-persistence-contract.md`
+
+Superseded schema history: all v2-to-v3, SQLite-v4, migration, backfill, and
+reconstruction rows below describe unreleased development iterations. They are
+replaced by
+`docs/internal/testing/checklists/openot-database-initial-schema-corrective-checklist.md`:
+one final schema generation 1, direct initialization, and non-mutating rejection
+of incompatible pre-release state.
 
 ## Execution Evidence
 
@@ -91,7 +98,7 @@ command/result, implementation commit, and same-test green command/result.
 ## Phase 3 - Incremental Implementation
 
 - [x] `OTRM-CODE-001` Implement the backend-neutral row model and `LoggingProjector` in small single-responsibility modules.
-- [x] `OTRM-CODE-002` Implement SQLite schema v3, typed writes, migration, exact unsigned storage, and indexes.
+- [x] `OTRM-CODE-002` Implement SQLite schema v4, typed writes, v3 public-view rebuild, exact unsigned storage, and indexes.
 - [x] `OTRM-CODE-003` Implement PostgreSQL schema v3, typed writes, migration, native types, constraints, and indexes.
 - [x] `OTRM-CODE-004` Implement TimescaleDB typed hypertables and product verification over PostgreSQL transport.
 - [x] `OTRM-CODE-005` Implement shared MySQL/MariaDB transport with separately verified DDL, types, collation, and migration behavior.

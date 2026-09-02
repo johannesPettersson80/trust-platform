@@ -8,7 +8,8 @@ production proof.
 Use the repository's `examples/openot_database/sqlserver/` example
 for native queries, restart, backup, restore, and cleanup. The adapter stores
 canonical JSON plus binary-collated identity fields in one transaction with
-the checkpoint and rejects invalid/newer migrations.
+the checkpoint. It initializes schema generation 1 directly and rejects
+incompatible pre-release schemas without changing them.
 
 Monitor sessions, transaction latency, database growth, runtime retries/lag,
 and backup jobs. Test CU/major upgrades and recovery on a disposable real SQL

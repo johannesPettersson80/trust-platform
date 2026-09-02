@@ -15,31 +15,10 @@ jobs:
     timeout-minutes: 120
     env:
       TRUST_OPENOT_EVIDENCE_DIR: ${{ github.workspace }}/openot-real-database-evidence
-      TRUST_TEST_OPENOT_POSTGRES_URL: ${{ secrets.TRUST_TEST_OPENOT_POSTGRES_URL }}
-      TRUST_TEST_OPENOT_POSTGRES_CA_PEM: ${{ secrets.TRUST_TEST_OPENOT_POSTGRES_CA_PEM }}
-      TRUST_TEST_OPENOT_POSTGRES_CONTAINER: ${{ vars.TRUST_TEST_OPENOT_POSTGRES_CONTAINER }}
-      TRUST_TEST_OPENOT_TIMESCALE_URL: ${{ secrets.TRUST_TEST_OPENOT_TIMESCALE_URL }}
-      TRUST_TEST_OPENOT_TIMESCALE_CA_PEM: ${{ secrets.TRUST_TEST_OPENOT_TIMESCALE_CA_PEM }}
-      TRUST_TEST_OPENOT_TIMESCALE_CONTAINER: ${{ vars.TRUST_TEST_OPENOT_TIMESCALE_CONTAINER }}
-      TRUST_TEST_OPENOT_MYSQL_URL: ${{ secrets.TRUST_TEST_OPENOT_MYSQL_URL }}
-      TRUST_TEST_OPENOT_MYSQL_CA_PEM: ${{ secrets.TRUST_TEST_OPENOT_MYSQL_CA_PEM }}
-      TRUST_TEST_OPENOT_MYSQL_CONTAINER: ${{ vars.TRUST_TEST_OPENOT_MYSQL_CONTAINER }}
-      TRUST_TEST_OPENOT_MARIADB_URL: ${{ secrets.TRUST_TEST_OPENOT_MARIADB_URL }}
-      TRUST_TEST_OPENOT_MARIADB_CA_PEM: ${{ secrets.TRUST_TEST_OPENOT_MARIADB_CA_PEM }}
-      TRUST_TEST_OPENOT_MARIADB_CONTAINER: ${{ vars.TRUST_TEST_OPENOT_MARIADB_CONTAINER }}
-      TRUST_TEST_OPENOT_SQLSERVER_URL: ${{ secrets.TRUST_TEST_OPENOT_SQLSERVER_URL }}
-      TRUST_TEST_OPENOT_SQLSERVER_CA_PEM: ${{ secrets.TRUST_TEST_OPENOT_SQLSERVER_CA_PEM }}
-      TRUST_TEST_OPENOT_SQLSERVER_CONTAINER: ${{ vars.TRUST_TEST_OPENOT_SQLSERVER_CONTAINER }}
-      TRUST_TEST_OPENOT_INFLUX_HOST: ${{ secrets.TRUST_TEST_OPENOT_INFLUX_HOST }}
-      TRUST_TEST_OPENOT_INFLUX_TOKEN: ${{ secrets.TRUST_TEST_OPENOT_INFLUX_TOKEN }}
-      TRUST_TEST_OPENOT_INFLUX_CA_PEM: ${{ secrets.TRUST_TEST_OPENOT_INFLUX_CA_PEM }}
-      TRUST_TEST_OPENOT_INFLUX_CONTAINER: ${{ vars.TRUST_TEST_OPENOT_INFLUX_CONTAINER }}
     steps:
       - uses: actions/checkout@v6
-      - name: Verify runner provisioner contract
-        run: test -x /opt/trust/openot-databases/prepare && test -x /opt/trust/openot-databases/teardown
       - name: Provision pinned real products and CA files
-        run: /opt/trust/openot-databases/prepare
+        run: scripts/openot_database_runner_prepare.sh
       - name: Materialize ephemeral CA certificates
         shell: bash
         run: |
@@ -56,7 +35,7 @@ jobs:
         run: scripts/openot_real_database_gate.sh
       - name: Tear down disposable products
         if: always()
-        run: /opt/trust/openot-databases/teardown
+        run: scripts/openot_database_runner_teardown.sh
       - name: Retain redacted evidence
         if: always()
         uses: actions/upload-artifact@v7

@@ -142,9 +142,9 @@ dependencies = [
 
 [[package]]
 name = "arc-swap"
-version = "1.9.1"
+version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a3a1fd6f75306b68087b831f025c712524bcb19aad54e557b1129cfa0a2b207"
+checksum = "c049c0be4daef0b145cb3555416b3b8ef5b7888a38aea1a3a155801fe7b0810b"
 dependencies = [
  "rustversion",
 ]
@@ -2819,10 +2819,11 @@ dependencies = [
 
 [[package]]
 name = "mysql"
-version = "28.0.0"
+version = "28.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a732193888328fc060ab901c0ed1355521267a51ffbfd9a0b3786434c6b8e7f"
+checksum = "e99968f000e2aadff1545932ac7f7ed4002eeb0207061f377f15ac95ae82626c"
 dependencies = [
+ "arc-swap",
  "bufstream",
  "bytes",
  "crossbeam-queue",
@@ -5649,7 +5650,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "serde",
  "serde_json",
@@ -5658,14 +5659,14 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
 name = "trust-debug"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "glob",
  "indexmap 2.14.0",
@@ -5680,7 +5681,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5699,7 +5700,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "boxcar",
  "insta",
@@ -5718,7 +5719,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -5731,7 +5732,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -5761,7 +5762,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plcopen"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -5773,7 +5774,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "ads",
  "anyhow",
@@ -5847,7 +5848,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "indexmap 2.14.0",
  "rustc-hash 2.1.2",
@@ -5859,7 +5860,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -5871,14 +5872,14 @@ dependencies = [
 
 [[package]]
 name = "trust-tcads-native"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "libloading",
 ]
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "rowan",
  "serde",
@@ -6175,7 +6176,7 @@ checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 
 [[package]]
 name = "verification-cases"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "serde",
  "serde_json",
@@ -6946,7 +6947,7 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "xtask"
-version = "0.24.67"
+version = "0.24.68"
 dependencies = [
  "anyhow",
  "proc-macro2",

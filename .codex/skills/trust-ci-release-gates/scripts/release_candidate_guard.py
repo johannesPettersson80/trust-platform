@@ -38,6 +38,9 @@ BASE_REQUIRED_COMMANDS = (
     "remote_exact_head",
     "remote_disk_preflight",
     "remote_fmt",
+    "remote_cross_target_warnings",
+    "remote_supply_chain",
+    "remote_architecture_safety",
     "remote_clippy",
     "remote_reclaim_before_test_all",
     "remote_test_all",
@@ -135,7 +138,10 @@ def changed_paths_sha256(repo: Path, base: str, head: str) -> str:
 
 def required_command_ids(*, vscode_changed: bool) -> tuple[str, ...]:
     if vscode_changed:
-        return BASE_REQUIRED_COMMANDS + ("remote_vscode",)
+        return BASE_REQUIRED_COMMANDS + (
+            "remote_docs_capture_lifecycle",
+            "remote_vscode",
+        )
     return BASE_REQUIRED_COMMANDS
 
 

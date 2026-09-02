@@ -50,7 +50,7 @@ impl RealRestartProduct {
             enabled: true,
             ..OpenOtPersistenceConfig::default()
         };
-        let schema = format!("openot_restart_{stamp}");
+        let schema = format!("logging_restart_{stamp}");
         match self {
             Self::PostgreSql => {
                 config.backend = Some(OpenOtPersistenceBackend::PostgreSql);
@@ -90,7 +90,7 @@ impl RealRestartProduct {
                 config.backend = Some(OpenOtPersistenceBackend::MySql);
                 config.mysql = Some(OpenOtMySqlPersistenceConfig {
                     connection_url_env: url_env.into(),
-                    database: "openot".into(),
+                    database: "trust_logging".into(),
                     tls: OpenOtPersistenceTlsMode::Require,
                     ca_cert_path: Some(std::env::var(ca_env).expect("MySQL-family CA").into()),
                 });
@@ -113,7 +113,7 @@ impl RealRestartProduct {
                 config.influxdb3 = Some(OpenOtInfluxDb3PersistenceConfig {
                     host_env: "TRUST_TEST_OPENOT_INFLUX_HOST".into(),
                     token_env: "TRUST_TEST_OPENOT_INFLUX_TOKEN".into(),
-                    database: "openot".into(),
+                    database: "trust_logging".into(),
                     spool_path: root.join("influx-spool.sqlite3"),
                     max_bytes: 1_073_741_824,
                     ca_cert_path: Some(
@@ -308,45 +308,45 @@ fn influxdb3_real_server_restart_drains_the_required_durable_spool() {
 
 #[cfg(feature = "openot-real-database-tests")]
 #[test]
-fn every_real_network_backend_migrates_v1_and_rejects_newer_schema() {
-    fn downgrade(sink: &mut OpenOtDocumentSink) {
+fn every_real_network_backend_rejects_incompatible_generation_without_repair() {
+    fn remove_marker(sink: &mut OpenOtDocumentSink) {
         match sink {
             OpenOtDocumentSink::PostgreSql(sink) => sink
-                .downgrade_checkpoint_to_v1_for_test()
-                .expect("downgrade PostgreSQL fixture"),
+                .remove_schema_marker_for_test()
+                .expect("remove PostgreSQL schema marker"),
             OpenOtDocumentSink::TimescaleDb(sink) => sink
-                .downgrade_checkpoint_to_v1_for_test()
-                .expect("downgrade TimescaleDB fixture"),
+                .remove_schema_marker_for_test()
+                .expect("remove TimescaleDB schema marker"),
             OpenOtDocumentSink::MySql(sink) => sink
-                .downgrade_checkpoint_to_v1_for_test()
-                .expect("downgrade MySQL-family fixture"),
+                .seed_incompatible_generation_for_test()
+                .expect("remove MySQL-family schema marker"),
             OpenOtDocumentSink::SqlServer(sink) => sink
-                .downgrade_checkpoint_to_v1_for_test()
-                .expect("downgrade SQL Server fixture"),
+                .remove_schema_marker_for_test()
+                .expect("remove SQL Server schema marker"),
             OpenOtDocumentSink::InfluxDb3(sink) => sink
-                .downgrade_checkpoint_to_v1_for_test()
-                .expect("downgrade InfluxDB spool fixture"),
+                .remove_schema_marker_for_test()
+                .expect("remove InfluxDB spool schema marker"),
             OpenOtDocumentSink::Sqlite(_) => unreachable!("network matrix excludes SQLite"),
         }
     }
 
-    fn set_version(sink: &mut OpenOtDocumentSink, version: u32) {
+    fn restore_marker(sink: &mut OpenOtDocumentSink) {
         match sink {
             OpenOtDocumentSink::PostgreSql(sink) => sink
-                .set_schema_version_for_test(version)
-                .expect("set PostgreSQL schema version"),
+                .set_schema_version_for_test(1)
+                .expect("restore PostgreSQL schema marker"),
             OpenOtDocumentSink::TimescaleDb(sink) => sink
-                .set_schema_version_for_test(version)
-                .expect("set TimescaleDB schema version"),
+                .set_schema_version_for_test(1)
+                .expect("restore TimescaleDB schema marker"),
             OpenOtDocumentSink::MySql(sink) => sink
-                .set_schema_version_for_test(version)
-                .expect("set MySQL-family schema version"),
+                .set_schema_version_for_test(1)
+                .expect("restore MySQL-family schema marker"),
             OpenOtDocumentSink::SqlServer(sink) => sink
-                .set_schema_version_for_test(version)
-                .expect("set SQL Server schema version"),
+                .set_schema_version_for_test(1)
+                .expect("restore SQL Server schema marker"),
             OpenOtDocumentSink::InfluxDb3(sink) => sink
-                .set_schema_version_for_test(version)
-                .expect("set InfluxDB spool schema version"),
+                .set_schema_version_for_test(1)
+                .expect("restore InfluxDB spool schema marker"),
             OpenOtDocumentSink::Sqlite(_) => unreachable!("network matrix excludes SQLite"),
         }
     }
@@ -367,66 +367,38 @@ fn every_real_network_backend_migrates_v1_and_rejects_newer_schema() {
     .enumerate()
     {
         let root = std::env::temp_dir().join(format!(
-            "trust-openot-{}-migration-{}-{stamp}",
+            "trust-openot-{}-schema-{}-{stamp}",
             product.label(),
             std::process::id()
         ));
-        std::fs::create_dir_all(&root).expect("migration root");
+        std::fs::create_dir_all(&root).expect("schema root");
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
-                .expect("secure migration root");
+                .expect("secure schema root");
         }
         let config = product.config(&root, stamp.saturating_add(index as u64));
-        let mut v2 = OpenOtDocumentSink::open_with_definitions(
+        let mut sink = OpenOtDocumentSink::open_with_definitions(
             &config,
             &root,
             &[open_ot_definition::sample_definition()],
         )
-        .unwrap_or_else(|error| panic!("open {} v2 fixture: {error:?}", product.label()));
-        downgrade(&mut v2);
-        drop(v2);
-
-        let mut migrated = OpenOtDocumentSink::open_with_definitions(
-            &config,
-            &root,
-            &[open_ot_definition::sample_definition()],
-        )
-        .unwrap_or_else(|error| panic!("migrate {} v1 fixture: {error:?}", product.label()));
-        let run_id = stamp.saturating_add(10_000 + index as u64);
-        let batch = PersistenceBatch {
-            documents: canonical_documents_for_run(run_id),
-            checkpoint: PersistenceCheckpoint {
-                buffer_id: 7,
-                run_id,
-                cursor_abs: 24_576,
-            },
-        };
-        migrated
-            .commit(&batch)
-            .unwrap_or_else(|error| panic!("commit migrated {}: {error:?}", product.label()));
-        assert_eq!(
-            migrated
-                .load_checkpoint(7, run_id)
-                .unwrap_or_else(|error| panic!("load migrated {}: {error:?}", product.label())),
-            Some(batch.checkpoint)
-        );
-
-        set_version(&mut migrated, 4);
+        .unwrap_or_else(|error| panic!("initialize {} generation 1: {error:?}", product.label()));
+        remove_marker(&mut sink);
         let error = OpenOtDocumentSink::open_with_definitions(
             &config,
             &root,
             &[open_ot_definition::sample_definition()],
         )
-        .expect_err("newer schema must fail closed");
+        .expect_err("incompatible schema must fail closed");
         assert!(
-            format!("{error:?}").contains("newer"),
-            "{} newer-schema error was not actionable: {error:?}",
+            format!("{error:?}").contains("incompatible pre-release"),
+            "{} incompatible-schema error was not actionable: {error:?}",
             product.label()
         );
-        set_version(&mut migrated, 3);
-        drop(migrated);
+        restore_marker(&mut sink);
+        drop(sink);
         std::fs::remove_dir_all(root).ok();
     }
 }

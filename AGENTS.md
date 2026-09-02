@@ -113,6 +113,15 @@ applicable, and lexer/parser tests or snapshots.
 
 ## Release Candidate State Machine (non-negotiable)
 
+- Before preparing or pushing a candidate, inventory every required GitHub job and run every
+  feasible job-specific command shape that is not already an identical required artifact command.
+  A host-only `just clippy`, `just test`, or `just test-all` result is never cross-platform CI
+  parity. For runtime changes, the exact-SHA artifact must include
+  `./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross`; a passing
+  artifact is invalid without that recorded command.
+- When the Docs Captures workflow path filter is triggered, the exact-SHA artifact must also run
+  and record `python3 -m unittest scripts.tests.test_capture_lifecycle -v`; VS Code `npm test` is
+  not a substitute for this workflow-specific lifecycle gate.
 - Integration, release, `main`, and version-bump pushes require the exact-SHA artifact produced by
   `.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py prepare`; the shared
   pre-push hook must be installed and must not be bypassed.
@@ -241,7 +250,8 @@ applicable, and lexer/parser tests or snapshots.
     `trust-builder:/tmp` after cleanup. The exact-candidate guard enforces the
     home-space floor because an uncached all-target test build can exceed 55G.
   - For `just clippy`, `just test`, VS Code `npm test`, or broad `cargo test`, aim for at least 25G free on `trust-builder:/home/johannes`.
-  - If below the practical threshold, delete only generated build/cache outputs such as the active isolated validation `target/`, `fuzz/target/`, `$HOME/.cache/sccache`, or `$HOME/.cache/codex-targets/*`; never delete source worktrees or non-generated files for cleanup.
+  - If below the practical threshold, delete only generated build/cache outputs such as the active isolated validation `target/`, `fuzz/target/`, or `$HOME/.cache/sccache`; never delete source worktrees or non-generated files for cleanup.
+  - Never glob-delete `$HOME/.cache/codex-targets/*`. Every Cargo-producing command using a shared target must run through `scripts/with_cargo_target_lease.sh TARGET COMMAND...`. Delete a shared target only through `scripts/remove_cargo_target_if_idle.sh TARGET`; exit 75 means another gate holds the stable external lease and the target must be retained.
   - For isolated validation copies, prefer one warmed target directory on the remote builder (`CARGO_TARGET_DIR=$HOME/.cache/codex-targets/trust-platform-gate`) instead of repeatedly creating huge cold `target/` trees.
   - If space is still below threshold after safe cleanup, report the real free space and either run a narrower gate or ask before deleting large unrelated generated targets.
   - If a gate fails with `No space left on device`, `Disk quota exceeded`, `mold: failed to write`, or `couldn't create a temp dir`, stop; kill any leftover cargo/rustc/linker processes, re-run the disk preflight, clean generated artifacts, and only then rerun.

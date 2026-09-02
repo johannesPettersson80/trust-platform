@@ -22,14 +22,14 @@ pub(super) fn create_domain_schema(connection: &mut Conn) -> Result<(), Persiste
     ];
     for (table, fields) in tables {
         connection
-            .query_drop(format!("CREATE TABLE IF NOT EXISTS `{table}` ({COMMON_DDL},{fields},PRIMARY KEY(record_id),FOREIGN KEY(record_id) REFERENCES openot_documents(identity_key)) ENGINE=InnoDB"))
+            .query_drop(format!("CREATE TABLE IF NOT EXISTS `{table}` ({COMMON_DDL},{fields},PRIMARY KEY(record_id),FOREIGN KEY(record_id) REFERENCES logging_records(identity_key)) ENGINE=InnoDB"))
             .map_err(error("create MySQL domain table"))?;
     }
     connection
-        .query_drop(format!("CREATE TABLE IF NOT EXISTS data_loss ({COMMON_DDL},first_sequence DECIMAL(20,0) NOT NULL,last_sequence DECIMAL(20,0) NOT NULL,lost_count DECIMAL(20,0) NOT NULL,basis VARCHAR(16) NOT NULL,PRIMARY KEY(record_id),FOREIGN KEY(record_id) REFERENCES openot_documents(identity_key)) ENGINE=InnoDB"))
+        .query_drop(format!("CREATE TABLE IF NOT EXISTS data_loss ({COMMON_DDL},first_sequence DECIMAL(20,0) NOT NULL,last_sequence DECIMAL(20,0) NOT NULL,lost_count DECIMAL(20,0) NOT NULL,basis VARCHAR(16) NOT NULL,PRIMARY KEY(record_id),FOREIGN KEY(record_id) REFERENCES logging_records(identity_key)) ENGINE=InnoDB"))
         .map_err(error("create MySQL data loss table"))?;
     connection
-        .query_drop(format!("CREATE TABLE IF NOT EXISTS unresolved_records ({COMMON_DDL},event_type_id INT UNSIGNED NOT NULL,reason TEXT NOT NULL,diagnostic_summary TEXT NULL,PRIMARY KEY(record_id),FOREIGN KEY(record_id) REFERENCES openot_documents(identity_key)) ENGINE=InnoDB"))
+        .query_drop(format!("CREATE TABLE IF NOT EXISTS unresolved_records ({COMMON_DDL},event_type_id INT UNSIGNED NOT NULL,reason TEXT NOT NULL,diagnostic_summary TEXT NULL,PRIMARY KEY(record_id),FOREIGN KEY(record_id) REFERENCES logging_records(identity_key)) ENGINE=InnoDB"))
         .map_err(error("create MySQL unresolved table"))?;
     Ok(())
 }
@@ -54,8 +54,8 @@ pub(super) fn insert_projection(
     for value in values {
         let common = value.common;
         transaction.exec_drop(
-            "INSERT INTO logged_values(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value)
-             VALUES(:record_id,STR_TO_DATE(LEFT(:event_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:event_time_ns,STR_TO_DATE(LEFT(:received_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:received_time_ns,:source,:source_id,:source_path,:source_hierarchy,:buffer_id,:run_id,:epoch_id,:sequence,:definition_hash,:time_unsynced,:synthetic_record,:partial_payload,:value_id,:value_name,:value_type,:unit,:quality,:semantic_role,:boolean_value,:signed_value,:unsigned_value,:number_value,:text_value,:exact_value)",
+            "INSERT INTO logged_values(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value,previous_boolean_value,previous_signed_value,previous_unsigned_value,previous_number_value,previous_text_value,previous_exact_value,is_audited,actor,reason,authorization_result)
+             VALUES(:record_id,STR_TO_DATE(LEFT(:event_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:event_time_ns,STR_TO_DATE(LEFT(:received_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:received_time_ns,:source,:source_id,:source_path,:source_hierarchy,:buffer_id,:run_id,:epoch_id,:sequence,:definition_hash,:time_unsynced,:synthetic_record,:partial_payload,:value_id,:value_name,:value_type,:unit,:quality,:semantic_role,:boolean_value,:signed_value,:unsigned_value,:number_value,:text_value,:exact_value,:previous_boolean_value,:previous_signed_value,:previous_unsigned_value,:previous_number_value,:previous_text_value,:previous_exact_value,:is_audited,:actor,:reason,:authorization_result)",
             common_params(&common, params! {
                 "value_id" => value.value_id,
                 "value_name" => value.value_name,
@@ -69,6 +69,16 @@ pub(super) fn insert_projection(
                 "number_value" => value.number_value,
                 "text_value" => value.text_value,
                 "exact_value" => value.exact_value,
+                "previous_boolean_value" => value.previous_boolean_value,
+                "previous_signed_value" => value.previous_signed_value,
+                "previous_unsigned_value" => value.previous_unsigned_value,
+                "previous_number_value" => value.previous_number_value,
+                "previous_text_value" => value.previous_text_value,
+                "previous_exact_value" => value.previous_exact_value,
+                "is_audited" => value.is_audited,
+                "actor" => value.actor,
+                "reason" => value.reason,
+                "authorization_result" => value.authorization_result,
             }),
         ).map_err(error("insert logged value projection"))?;
     }
@@ -185,8 +195,8 @@ fn insert_loss(
 ) -> Result<(), PersistenceError> {
     transaction.exec_drop(
         "INSERT INTO data_loss(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,first_sequence,last_sequence,lost_count,basis)
-         VALUES(:record_id,NULL,NULL,STR_TO_DATE(LEFT(:received_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:received_time_ns,:source,:source_id,'','',:buffer_id,:run_id,:epoch_id,:first_sequence,:definition_hash,TRUE,TRUE,TRUE,:first_sequence,:last_sequence,:lost_count,:basis)",
-        params! {"record_id"=>row.record_id,"received_time"=>row.received_time,"received_time_ns"=>row.received_time_ns,"source"=>row.source,"source_id"=>row.source_id,"buffer_id"=>row.buffer_id,"run_id"=>row.run_id,"epoch_id"=>row.epoch_id,"definition_hash"=>row.definition_hash,"first_sequence"=>row.first_sequence,"last_sequence"=>row.last_sequence,"lost_count"=>row.lost_count,"basis"=>row.basis},
+         VALUES(:record_id,NULL,NULL,STR_TO_DATE(LEFT(:received_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:received_time_ns,:source,:source_id,:source_path,:source_hierarchy,:buffer_id,:run_id,:epoch_id,:first_sequence,:definition_hash,:time_unsynced,:synthetic_record,:partial_payload,:first_sequence,:last_sequence,:lost_count,:basis)",
+        params! {"record_id"=>row.record_id,"received_time"=>row.received_time,"received_time_ns"=>row.received_time_ns,"source"=>row.source,"source_id"=>row.source_id,"source_path"=>row.source_path,"source_hierarchy"=>row.source_hierarchy,"buffer_id"=>row.buffer_id,"run_id"=>row.run_id,"epoch_id"=>row.epoch_id,"definition_hash"=>row.definition_hash,"time_unsynced"=>row.time_unsynced,"synthetic_record"=>row.synthetic_record,"partial_payload"=>row.partial_payload,"first_sequence"=>row.first_sequence,"last_sequence"=>row.last_sequence,"lost_count"=>row.lost_count,"basis"=>row.basis},
     ).map_err(error("insert MySQL data loss projection"))
 }
 
@@ -196,8 +206,8 @@ fn insert_unresolved(
 ) -> Result<(), PersistenceError> {
     transaction.exec_drop(
         "INSERT INTO unresolved_records(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,event_type_id,reason,diagnostic_summary)
-         VALUES(:record_id,STR_TO_DATE(LEFT(:event_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:event_time_ns,STR_TO_DATE(LEFT(:received_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:received_time_ns,:source,:source_id,'','',:buffer_id,:run_id,:epoch_id,:sequence,:definition_hash,TRUE,TRUE,TRUE,:event_type_id,:reason,:diagnostic_summary)",
-        params! {"record_id"=>row.record_id,"event_time"=>row.event_time,"event_time_ns"=>row.event_time_ns,"received_time"=>row.received_time,"received_time_ns"=>row.received_time_ns,"source"=>row.source,"source_id"=>row.source_id,"buffer_id"=>row.buffer_id,"run_id"=>row.run_id,"epoch_id"=>row.epoch_id,"sequence"=>row.sequence,"definition_hash"=>row.definition_hash,"event_type_id"=>row.event_type_id,"reason"=>row.reason,"diagnostic_summary"=>row.diagnostic_summary},
+         VALUES(:record_id,STR_TO_DATE(LEFT(:event_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:event_time_ns,STR_TO_DATE(LEFT(:received_time,26),'%Y-%m-%dT%H:%i:%s.%f'),:received_time_ns,:source,:source_id,:source_path,:source_hierarchy,:buffer_id,:run_id,:epoch_id,:sequence,:definition_hash,:time_unsynced,:synthetic_record,:partial_payload,:event_type_id,:reason,:diagnostic_summary)",
+        params! {"record_id"=>row.record_id,"event_time"=>row.event_time,"event_time_ns"=>row.event_time_ns,"received_time"=>row.received_time,"received_time_ns"=>row.received_time_ns,"source"=>row.source,"source_id"=>row.source_id,"source_path"=>row.source_path,"source_hierarchy"=>row.source_hierarchy,"buffer_id"=>row.buffer_id,"run_id"=>row.run_id,"epoch_id"=>row.epoch_id,"sequence"=>row.sequence,"definition_hash"=>row.definition_hash,"time_unsynced"=>row.time_unsynced,"synthetic_record"=>row.synthetic_record,"partial_payload"=>row.partial_payload,"event_type_id"=>row.event_type_id,"reason"=>row.reason,"diagnostic_summary"=>row.diagnostic_summary},
     ).map_err(error("insert MySQL unresolved projection"))
 }
 
@@ -232,5 +242,5 @@ fn common_params(event: &EventLogRow, mut extra: mysql::Params) -> mysql::Params
 }
 
 fn error(context: &'static str) -> impl FnOnce(mysql::Error) -> PersistenceError {
-    move |error| PersistenceError::Commit(format!("MySQL {context}: {error}"))
+    move |error| super::mysql::mysql_error(context, error)
 }

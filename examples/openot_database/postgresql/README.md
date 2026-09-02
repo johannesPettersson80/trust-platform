@@ -10,7 +10,7 @@ issuing CA at `certs/openot-database-ca.pem`. The shared source is
 ## Prepare and run
 
 ```bash
-export TRUST_OPENOT_DATABASE_URL='host=db.example port=5432 user=openot_logger dbname=openot sslmode=require password=FROM_SECRET_STORE'
+export TRUST_OPENOT_DATABASE_URL='host=db.example port=5432 user=trust_logging_writer dbname=trust_logging sslmode=require password=FROM_SECRET_STORE'
 example_root=$(mktemp -d /tmp/trust-openot-postgresql.XXXXXX)
 install -d -m 700 "$example_root/src" "$example_root/certs"
 cp ../workload/Main.st "$example_root/src/Main.st"
@@ -25,9 +25,9 @@ trust-runtime run --project "$example_root"
 ```bash
 psql "$TRUST_OPENOT_DATABASE_URL" -c 'select version()'
 psql "$TRUST_OPENOT_DATABASE_URL" -c \
-  'select event_name,count(*) from openot.event_log group by 1 order by 1'
+  'select event_name,count(*) from trust_logging.event_log group by 1 order by 1'
 psql "$TRUST_OPENOT_DATABASE_URL" -c \
-  'select buffer_id,encode(run_id,'\''hex'\''),encode(cursor_abs,'\''hex'\'') from openot.logging_checkpoint'
+  'select buffer_id,encode(run_id,'\''hex'\''),encode(cursor_abs,'\''hex'\'') from trust_logging.logging_checkpoint'
 ```
 
 ## Outage and restart

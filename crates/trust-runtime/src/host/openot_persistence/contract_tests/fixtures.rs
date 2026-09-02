@@ -196,6 +196,14 @@ fn canonical_event_fields(event_type_id: u32) -> Vec<DocumentField> {
                 unit: None,
                 enum_label: None,
             },
+            DocumentField {
+                key: open_ot_carriage::registry::KEY_AUTH_RESULT,
+                name: "authorizationResult".into(),
+                type_name: "Enum".into(),
+                value: serde_json::json!(1),
+                unit: None,
+                enum_label: Some("authorized".into()),
+            },
         ],
         open_ot_carriage::registry::EVENT_CONDITION_ACTIVE
             ..=open_ot_carriage::registry::EVENT_REFRESH_END => vec![field(

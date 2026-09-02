@@ -14,7 +14,7 @@ use super::SqlServerDocumentSink;
 use super::SqliteDocumentSink;
 #[cfg(feature = "openot-database-timescaledb")]
 use super::TimescaleDbDocumentSink;
-use super::{CommitOutcome, DocumentSink, PersistenceBatch, PersistenceError};
+use super::{CommitOutcome, DocumentSink, MaintenanceOutcome, PersistenceBatch, PersistenceError};
 
 /// Exactly one concrete sink selected by `runtime.openot.persistence.backend`.
 #[derive(Debug)]
@@ -54,6 +54,136 @@ fn backend_unavailable(backend: &str) -> PersistenceError {
 }
 
 impl OpenOtDocumentSink {
+    /// Resolves only the selected backend's required secret-bearing environment variables.
+    #[cfg(unix)]
+    pub(crate) fn validate_required_environment(
+        config: &OpenOtPersistenceConfig,
+    ) -> Result<(), PersistenceError> {
+        let backend = config.backend.ok_or_else(|| {
+            PersistenceError::InvalidConfig(
+                "runtime.openot.persistence.backend is required".to_string(),
+            )
+        })?;
+        let required = match backend {
+            OpenOtPersistenceBackend::Sqlite => Vec::new(),
+            OpenOtPersistenceBackend::PostgreSql => vec![config
+                .postgresql
+                .as_ref()
+                .ok_or_else(|| {
+                    PersistenceError::InvalidConfig(
+                        "runtime.openot.persistence.postgresql is required".to_string(),
+                    )
+                })?
+                .connection_url_env
+                .as_str()],
+            OpenOtPersistenceBackend::TimescaleDb => vec![config
+                .timescaledb
+                .as_ref()
+                .ok_or_else(|| {
+                    PersistenceError::InvalidConfig(
+                        "runtime.openot.persistence.timescaledb is required".to_string(),
+                    )
+                })?
+                .connection_url_env
+                .as_str()],
+            OpenOtPersistenceBackend::MySql => vec![config
+                .mysql
+                .as_ref()
+                .ok_or_else(|| {
+                    PersistenceError::InvalidConfig(
+                        "runtime.openot.persistence.mysql is required".to_string(),
+                    )
+                })?
+                .connection_url_env
+                .as_str()],
+            OpenOtPersistenceBackend::SqlServer => vec![config
+                .sqlserver
+                .as_ref()
+                .ok_or_else(|| {
+                    PersistenceError::InvalidConfig(
+                        "runtime.openot.persistence.sqlserver is required".to_string(),
+                    )
+                })?
+                .connection_url_env
+                .as_str()],
+            OpenOtPersistenceBackend::InfluxDb3 => {
+                let influx = config.influxdb3.as_ref().ok_or_else(|| {
+                    PersistenceError::InvalidConfig(
+                        "runtime.openot.persistence.influxdb3 is required".to_string(),
+                    )
+                })?;
+                vec![influx.host_env.as_str(), influx.token_env.as_str()]
+            }
+        };
+        for name in required {
+            let value = std::env::var(name).map_err(|_| {
+                PersistenceError::InvalidConfig(format!("environment variable '{name}' is not set"))
+            })?;
+            if value.is_empty() {
+                return Err(PersistenceError::InvalidConfig(format!(
+                    "environment variable '{name}' is empty"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// Rejects a configured adapter that was omitted from this runtime binary.
+    #[cfg(unix)]
+    pub(crate) fn validate_backend_available(
+        config: &OpenOtPersistenceConfig,
+    ) -> Result<(), PersistenceError> {
+        let backend = config.backend.ok_or_else(|| {
+            PersistenceError::InvalidConfig(
+                "runtime.openot.persistence.backend is required".to_string(),
+            )
+        })?;
+        match backend {
+            #[cfg(feature = "openot-database-sqlite")]
+            OpenOtPersistenceBackend::Sqlite => Ok(()),
+            #[cfg(not(feature = "openot-database-sqlite"))]
+            OpenOtPersistenceBackend::Sqlite => Err(backend_unavailable("sqlite")),
+            #[cfg(feature = "openot-database-postgresql")]
+            OpenOtPersistenceBackend::PostgreSql => Ok(()),
+            #[cfg(not(feature = "openot-database-postgresql"))]
+            OpenOtPersistenceBackend::PostgreSql => Err(backend_unavailable("postgresql")),
+            #[cfg(feature = "openot-database-timescaledb")]
+            OpenOtPersistenceBackend::TimescaleDb => Ok(()),
+            #[cfg(not(feature = "openot-database-timescaledb"))]
+            OpenOtPersistenceBackend::TimescaleDb => Err(backend_unavailable("timescaledb")),
+            #[cfg(feature = "openot-database-mysql")]
+            OpenOtPersistenceBackend::MySql => Ok(()),
+            #[cfg(not(feature = "openot-database-mysql"))]
+            OpenOtPersistenceBackend::MySql => Err(backend_unavailable("mysql")),
+            #[cfg(feature = "openot-database-sqlserver")]
+            OpenOtPersistenceBackend::SqlServer => Ok(()),
+            #[cfg(not(feature = "openot-database-sqlserver"))]
+            OpenOtPersistenceBackend::SqlServer => Err(backend_unavailable("sqlserver")),
+            #[cfg(feature = "openot-database-influxdb3")]
+            OpenOtPersistenceBackend::InfluxDb3 => Ok(()),
+            #[cfg(not(feature = "openot-database-influxdb3"))]
+            OpenOtPersistenceBackend::InfluxDb3 => Err(backend_unavailable("influxdb3")),
+        }
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn schema_version(&mut self) -> Result<u32, PersistenceError> {
+        match self {
+            #[cfg(feature = "openot-database-sqlite")]
+            Self::Sqlite(sink) => sink.schema_version(),
+            #[cfg(feature = "openot-database-postgresql")]
+            Self::PostgreSql(sink) => sink.schema_version(),
+            #[cfg(feature = "openot-database-timescaledb")]
+            Self::TimescaleDb(sink) => sink.schema_version(),
+            #[cfg(feature = "openot-database-mysql")]
+            Self::MySql(sink) => sink.schema_version(),
+            #[cfg(feature = "openot-database-sqlserver")]
+            Self::SqlServer(sink) => sink.schema_version(),
+            #[cfg(feature = "openot-database-influxdb3")]
+            Self::InfluxDb3(sink) => sink.schema_version(),
+        }
+    }
+
     /// Validates and opens only the explicitly selected adapter.
     pub fn open(
         config: &OpenOtPersistenceConfig,
@@ -304,6 +434,23 @@ fn open_influxdb3(
 }
 
 impl DocumentSink for OpenOtDocumentSink {
+    fn maintenance_status(&mut self) -> Result<MaintenanceOutcome, PersistenceError> {
+        match self {
+            #[cfg(feature = "openot-database-sqlite")]
+            Self::Sqlite(sink) => sink.maintenance_status(),
+            #[cfg(feature = "openot-database-postgresql")]
+            Self::PostgreSql(sink) => sink.maintenance_status(),
+            #[cfg(feature = "openot-database-timescaledb")]
+            Self::TimescaleDb(sink) => sink.maintenance_status(),
+            #[cfg(feature = "openot-database-mysql")]
+            Self::MySql(sink) => sink.maintenance_status(),
+            #[cfg(feature = "openot-database-sqlserver")]
+            Self::SqlServer(sink) => sink.maintenance_status(),
+            #[cfg(feature = "openot-database-influxdb3")]
+            Self::InfluxDb3(sink) => sink.maintenance_status(),
+        }
+    }
+
     fn maintenance(&mut self) -> Result<usize, PersistenceError> {
         match self {
             #[cfg(feature = "openot-database-sqlite")]

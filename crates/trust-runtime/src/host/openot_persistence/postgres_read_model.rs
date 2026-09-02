@@ -481,8 +481,8 @@ fn insert_loss(
     row: super::projection_domains::LossRow,
 ) -> Result<(), PersistenceError> {
     transaction.execute(
-        &format!("INSERT INTO \"{schema}\".data_loss ({COMMON_COLUMNS},first_sequence,last_sequence,lost_count,basis) VALUES($1,NULL,NULL,$2::text::timestamptz,$3::text::numeric,$4,$5,'','',$6,$7::text::numeric,$8::text::numeric,$9::text::numeric,$10,TRUE,TRUE,TRUE,$11::text::numeric,$12::text::numeric,$13::text::numeric,$14)"),
-        &[&row.record_id,&row.received_time,&row.received_time_ns,&row.source,&i64::from(row.source_id),&i64::from(row.buffer_id),&row.run_id,&row.epoch_id,&row.first_sequence,&row.definition_hash,&row.first_sequence,&row.last_sequence,&row.lost_count,&row.basis],
+        &format!("INSERT INTO \"{schema}\".data_loss ({COMMON_COLUMNS},first_sequence,last_sequence,lost_count,basis) VALUES($1,NULL,NULL,$2::text::timestamptz,$3::text::numeric,$4,$5,$6,$7,$8,$9::text::numeric,$10::text::numeric,$11::text::numeric,$12,$13,$14,$15,$16::text::numeric,$17::text::numeric,$18::text::numeric,$19)"),
+        &[&row.record_id,&row.received_time,&row.received_time_ns,&row.source,&i64::from(row.source_id),&row.source_path,&row.source_hierarchy,&i64::from(row.buffer_id),&row.run_id,&row.epoch_id,&row.first_sequence,&row.definition_hash,&row.time_unsynced,&row.synthetic_record,&row.partial_payload,&row.first_sequence,&row.last_sequence,&row.lost_count,&row.basis],
     ).map(|_| ()).map_err(error("insert PostgreSQL data loss projection"))
 }
 
@@ -492,8 +492,8 @@ fn insert_unresolved(
     row: super::projection_domains::UnresolvedRow,
 ) -> Result<(), PersistenceError> {
     transaction.execute(
-        &format!("INSERT INTO \"{schema}\".unresolved_records ({COMMON_COLUMNS},unresolved_event_type_id,reason,diagnostic_summary) VALUES($1,$2::text::timestamptz,$3::text::numeric,$4::text::timestamptz,$5::text::numeric,$6,$7,'','',$8,$9::text::numeric,$10::text::numeric,$11::text::numeric,$12,TRUE,TRUE,TRUE,$13,$14,$15)"),
-        &[&row.record_id,&row.event_time,&row.event_time_ns,&row.received_time,&row.received_time_ns,&row.source,&i64::from(row.source_id),&i64::from(row.buffer_id),&row.run_id,&row.epoch_id,&row.sequence,&row.definition_hash,&i64::from(row.event_type_id),&row.reason,&row.diagnostic_summary],
+        &format!("INSERT INTO \"{schema}\".unresolved_records ({COMMON_COLUMNS},unresolved_event_type_id,reason,diagnostic_summary) VALUES($1,$2::text::timestamptz,$3::text::numeric,$4::text::timestamptz,$5::text::numeric,$6,$7,$8,$9,$10,$11::text::numeric,$12::text::numeric,$13::text::numeric,$14,$15,$16,$17,$18,$19,$20)"),
+        &[&row.record_id,&row.event_time,&row.event_time_ns,&row.received_time,&row.received_time_ns,&row.source,&i64::from(row.source_id),&row.source_path,&row.source_hierarchy,&i64::from(row.buffer_id),&row.run_id,&row.epoch_id,&row.sequence,&row.definition_hash,&row.time_unsynced,&row.synthetic_record,&row.partial_payload,&i64::from(row.event_type_id),&row.reason,&row.diagnostic_summary],
     ).map(|_| ()).map_err(error("insert PostgreSQL unresolved projection"))
 }
 
@@ -511,10 +511,12 @@ fn insert_value(
                  source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,
                  time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,
                  quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,
-                 text_value,exact_value)
+                 text_value,exact_value,previous_boolean_value,previous_signed_value,
+                 previous_unsigned_value,previous_number_value,previous_text_value,
+                 previous_exact_value,is_audited,actor,reason,authorization_result)
                  VALUES($1,$2::text::timestamptz,$3::text::numeric,$4::text::timestamptz,$5::text::numeric,$6,$7,$8,$9,$10,
                  $11::text::numeric,$12::text::numeric,$13::text::numeric,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,
-                 $25,$26::text::numeric,$27,$28,$29)"
+                 $25,$26::text::numeric,$27,$28,$29,$30,$31,$32::text::numeric,$33,$34,$35,$36,$37,$38,$39)"
             ),
             &[
                 &common.record_id,
@@ -546,6 +548,16 @@ fn insert_value(
                 &value.number_value,
                 &value.text_value,
                 &value.exact_value,
+                &value.previous_boolean_value,
+                &value.previous_signed_value,
+                &value.previous_unsigned_value,
+                &value.previous_number_value,
+                &value.previous_text_value,
+                &value.previous_exact_value,
+                &value.is_audited,
+                &value.actor,
+                &value.reason,
+                &value.authorization_result,
             ],
         )
         .map(|_| ())
@@ -553,5 +565,5 @@ fn insert_value(
 }
 
 fn error(context: &'static str) -> impl FnOnce(postgres::Error) -> PersistenceError {
-    move |error| PersistenceError::Commit(format!("PostgreSQL {context}: {error}"))
+    super::postgresql::pg_error(context)
 }

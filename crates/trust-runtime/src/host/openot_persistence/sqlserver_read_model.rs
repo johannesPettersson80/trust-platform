@@ -11,6 +11,7 @@ type TdsClient = Client<Compat<TcpStream>>;
 const COMMON_COLUMNS: &str = "record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload";
 const COMMON_SELECT: &str = "e.record_id,e.event_time,e.event_time_ns,e.received_time,e.received_time_ns,e.source,e.source_id,e.source_path,e.source_hierarchy,e.buffer_id,e.run_id,e.epoch_id,e.sequence,e.definition_hash,e.time_unsynced,e.synthetic_record,e.partial_payload";
 const COMMON_DDL: &str = "record_id NVARCHAR(255) COLLATE Latin1_General_100_BIN2 NOT NULL,event_time DATETIME2(7) NULL,event_time_ns DECIMAL(20,0) NULL,received_time DATETIME2(7) NOT NULL,received_time_ns DECIMAL(20,0) NOT NULL,source NVARCHAR(MAX) NULL,source_id BIGINT NOT NULL,source_path NVARCHAR(MAX) NOT NULL,source_hierarchy NVARCHAR(MAX) NOT NULL,buffer_id BIGINT NOT NULL,run_id DECIMAL(20,0) NOT NULL,epoch_id DECIMAL(20,0) NOT NULL,sequence DECIMAL(20,0) NOT NULL,definition_hash NVARCHAR(MAX) NOT NULL,time_unsynced BIT NOT NULL,synthetic_record BIT NOT NULL,partial_payload BIT NOT NULL";
+const SQLSERVER_LOGGED_VALUE_ROWS_PER_STATEMENT: usize = 53;
 
 pub(super) fn create_domain_schema(
     runtime: &tokio::runtime::Runtime,
@@ -85,8 +86,8 @@ pub(super) fn insert_projection(
         DomainRow::Audit(row) => event_domain!("audit_log", row.common.record_id, "action,target,actor,reason,authorization_result,value_type,previous_value,current_value,workstation", "@P2,@P3,@P4,@P5,@P6,@P7,@P8,@P9,@P10", row.action, row.target, row.actor, row.reason, row.authorization_result, row.value_type, row.previous_value, row.current_value, row.workstation),
         DomainRow::Signature(row) => event_domain!("electronic_signatures", row.common.record_id, "action_id,actor,meaning,authorization_result,signed_source_id,signed_sequence", "@P2,@P3,@P4,@P5,@P6,CONVERT(DECIMAL(20,0),@P7)", row.action_id, row.actor, row.meaning, row.authorization_result, i64::from(row.signed_source_id), row.signed_sequence),
         DomainRow::System(row) => event_domain!("system_events", row.common.record_id, "event_name,interval_ms,sequence_base,dropped_count,first_sequence,last_sequence,registered_source_id,previous_definition_hash,new_definition_hash,changed_epoch_id,clock_quality,produced_count,cold_start", "@P2,CONVERT(DECIMAL(20,0),@P3),CONVERT(DECIMAL(20,0),@P4),CONVERT(DECIMAL(20,0),@P5),CONVERT(DECIMAL(20,0),@P6),CONVERT(DECIMAL(20,0),@P7),CONVERT(DECIMAL(20,0),@P8),@P9,@P10,CONVERT(DECIMAL(20,0),@P11),@P12,CONVERT(DECIMAL(20,0),@P13),@P14", row.event_name, row.interval_ms.map(|v| v.to_string()), row.sequence_base, row.dropped_count, row.first_sequence, row.last_sequence, row.registered_source_id, row.previous_definition_hash, row.new_definition_hash, row.changed_epoch_id, row.clock_quality, row.produced_count, row.cold_start),
-        DomainRow::Loss(row) => insert_loss(runtime, client, schema, row)?,
-        DomainRow::Unresolved(row) => insert_unresolved(runtime, client, schema, row)?,
+        DomainRow::Loss(row) => insert_loss(runtime, client, schema, &row)?,
+        DomainRow::Unresolved(row) => insert_unresolved(runtime, client, schema, &row)?,
         }
     }
     Ok(())
@@ -141,13 +142,45 @@ pub(super) fn insert_value_batch(
     if values.is_empty() {
         return Ok(());
     }
+    for values in values.chunks(SQLSERVER_LOGGED_VALUE_ROWS_PER_STATEMENT) {
+        insert_value_batch_chunk(runtime, client, schema, values)?;
+    }
+    Ok(())
+}
+
+fn insert_value_batch_chunk(
+    runtime: &tokio::runtime::Runtime,
+    client: &mut TdsClient,
+    schema: &str,
+    values: &[&LoggedValueRow],
+) -> Result<(), PersistenceError> {
     let mut parameter = 1;
-    let tuples = values.iter().map(|_| {
-        let indices = (0..29).map(|_| { let value = parameter; parameter += 1; value }).collect::<Vec<_>>();
-        let raw = indices.iter().map(|index| format!("@P{index}")).collect::<Vec<_>>();
-        format!("({},CONVERT(DATETIME2(7),LEFT({},27),127),CONVERT(DECIMAL(20,0),{}),CONVERT(DATETIME2(7),LEFT({},27),127),CONVERT(DECIMAL(20,0),{}),{},{},{},{},{},CONVERT(DECIMAL(20,0),{}),CONVERT(DECIMAL(20,0),{}),CONVERT(DECIMAL(20,0),{}),{},{},{},{},{},{},{},{},{},{},{},{},CONVERT(DECIMAL(20,0),{}),{},{},{})", raw[0],raw[1],raw[2],raw[3],raw[4],raw[5],raw[6],raw[7],raw[8],raw[9],raw[10],raw[11],raw[12],raw[13],raw[14],raw[15],raw[16],raw[17],raw[18],raw[19],raw[20],raw[21],raw[22],raw[23],raw[24],raw[25],raw[26],raw[27],raw[28])
-    }).collect::<Vec<_>>().join(",");
-    let mut query = Query::new(format!("INSERT INTO [{schema}].logged_values(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value) VALUES {tuples}"));
+    let tuples = values
+        .iter()
+        .map(|_| {
+            let indices = (0..39)
+                .map(|_| {
+                    let value = parameter;
+                    parameter += 1;
+                    value
+                })
+                .collect::<Vec<_>>();
+            let mut raw = indices
+                .iter()
+                .map(|index| format!("@P{index}"))
+                .collect::<Vec<_>>();
+            raw[1] = format!("CONVERT(DATETIME2(7),LEFT({},27),127)", raw[1]);
+            raw[2] = format!("CONVERT(DECIMAL(20,0),{})", raw[2]);
+            raw[3] = format!("CONVERT(DATETIME2(7),LEFT({},27),127)", raw[3]);
+            raw[4] = format!("CONVERT(DECIMAL(20,0),{})", raw[4]);
+            for index in [10_usize, 11, 12, 25, 31] {
+                raw[index] = format!("CONVERT(DECIMAL(20,0),{})", raw[index]);
+            }
+            format!("({})", raw.join(","))
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let mut query = Query::new(format!("INSERT INTO [{schema}].logged_values(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value,previous_boolean_value,previous_signed_value,previous_unsigned_value,previous_number_value,previous_text_value,previous_exact_value,is_audited,actor,reason,authorization_result) VALUES {tuples}"));
     for value in values {
         bind_common(&mut query, &value.common);
         query.bind(i64::from(value.value_id));
@@ -162,6 +195,16 @@ pub(super) fn insert_value_batch(
         query.bind(value.number_value);
         query.bind(value.text_value.as_deref());
         query.bind(value.exact_value.as_str());
+        query.bind(value.previous_boolean_value);
+        query.bind(value.previous_signed_value);
+        query.bind(value.previous_unsigned_value.as_deref());
+        query.bind(value.previous_number_value);
+        query.bind(value.previous_text_value.as_deref());
+        query.bind(value.previous_exact_value.as_deref());
+        query.bind(value.is_audited);
+        query.bind(value.actor.as_deref());
+        query.bind(value.reason.as_deref());
+        query.bind(value.authorization_result.as_deref());
     }
     execute(
         runtime,
@@ -423,53 +466,17 @@ pub(super) fn insert_loss_and_unresolved_batch(
     schema: &str,
     documents: &[ProjectedDocument],
 ) -> Result<(), PersistenceError> {
-    let loss = documents
+    for domain in documents
         .iter()
         .flat_map(|document| document.domains.iter())
-        .find_map(|domain| match domain {
-            DomainRow::Loss(row) => Some(row),
-            _ => None,
-        });
-    let unresolved = documents
-        .iter()
-        .flat_map(|document| document.domains.iter())
-        .find_map(|domain| match domain {
-            DomainRow::Unresolved(row) => Some(row),
-            _ => None,
-        });
-    let (Some(loss), Some(unresolved)) = (loss, unresolved) else {
-        return Ok(());
-    };
-    let mut query = Query::new(format!("INSERT INTO [{schema}].data_loss({COMMON_COLUMNS},first_sequence,last_sequence,lost_count,basis) VALUES(@P1,NULL,NULL,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),@P4,@P5,N'',N'',@P6,CONVERT(DECIMAL(20,0),@P7),CONVERT(DECIMAL(20,0),@P8),CONVERT(DECIMAL(20,0),@P9),@P10,1,1,1,CONVERT(DECIMAL(20,0),@P9),CONVERT(DECIMAL(20,0),@P11),CONVERT(DECIMAL(20,0),@P12),@P13); INSERT INTO [{schema}].unresolved_records({COMMON_COLUMNS},event_type_id,reason,diagnostic_summary) VALUES(@P14,CONVERT(DATETIME2(7),LEFT(@P15,27),127),CONVERT(DECIMAL(20,0),@P16),CONVERT(DATETIME2(7),LEFT(@P17,27),127),CONVERT(DECIMAL(20,0),@P18),@P19,@P20,N'',N'',@P21,CONVERT(DECIMAL(20,0),@P22),CONVERT(DECIMAL(20,0),@P23),CONVERT(DECIMAL(20,0),@P24),@P25,1,1,1,@P26,@P27,@P28)"));
-    query.bind(loss.record_id.as_str());
-    query.bind(loss.received_time.as_str());
-    query.bind(loss.received_time_ns.as_str());
-    query.bind(loss.source.as_deref());
-    query.bind(i64::from(loss.source_id));
-    query.bind(i64::from(loss.buffer_id));
-    query.bind(loss.run_id.as_str());
-    query.bind(loss.epoch_id.as_str());
-    query.bind(loss.first_sequence.as_str());
-    query.bind(loss.definition_hash.as_str());
-    query.bind(loss.last_sequence.as_str());
-    query.bind(loss.lost_count.as_str());
-    query.bind(loss.basis);
-    query.bind(unresolved.record_id.as_str());
-    query.bind(unresolved.event_time.as_deref());
-    query.bind(unresolved.event_time_ns.as_deref());
-    query.bind(unresolved.received_time.as_str());
-    query.bind(unresolved.received_time_ns.as_str());
-    query.bind(unresolved.source.as_deref());
-    query.bind(i64::from(unresolved.source_id));
-    query.bind(i64::from(unresolved.buffer_id));
-    query.bind(unresolved.run_id.as_str());
-    query.bind(unresolved.epoch_id.as_str());
-    query.bind(unresolved.sequence.as_str());
-    query.bind(unresolved.definition_hash.as_str());
-    query.bind(i64::from(unresolved.event_type_id));
-    query.bind(unresolved.reason.as_str());
-    query.bind(unresolved.diagnostic_summary.as_deref());
-    execute(runtime, client, query, "insert loss and unresolved batch")
+    {
+        match domain {
+            DomainRow::Loss(row) => insert_loss(runtime, client, schema, row)?,
+            DomainRow::Unresolved(row) => insert_unresolved(runtime, client, schema, row)?,
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 fn message_args(
@@ -486,21 +493,26 @@ fn insert_loss(
     runtime: &tokio::runtime::Runtime,
     client: &mut TdsClient,
     schema: &str,
-    row: super::projection_domains::LossRow,
+    row: &super::projection_domains::LossRow,
 ) -> Result<(), PersistenceError> {
-    let mut query = Query::new(format!("INSERT INTO [{schema}].data_loss({COMMON_COLUMNS},first_sequence,last_sequence,lost_count,basis) VALUES(@P1,NULL,NULL,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),@P4,@P5,N'',N'',@P6,CONVERT(DECIMAL(20,0),@P7),CONVERT(DECIMAL(20,0),@P8),CONVERT(DECIMAL(20,0),@P9),@P10,1,1,1,CONVERT(DECIMAL(20,0),@P9),CONVERT(DECIMAL(20,0),@P11),CONVERT(DECIMAL(20,0),@P12),@P13)"));
-    query.bind(row.record_id);
-    query.bind(row.received_time);
-    query.bind(row.received_time_ns);
-    query.bind(row.source);
+    let mut query = Query::new(format!("INSERT INTO [{schema}].data_loss({COMMON_COLUMNS},first_sequence,last_sequence,lost_count,basis) VALUES(@P1,NULL,NULL,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),@P4,@P5,@P6,@P7,@P8,CONVERT(DECIMAL(20,0),@P9),CONVERT(DECIMAL(20,0),@P10),CONVERT(DECIMAL(20,0),@P11),@P12,@P13,@P14,@P15,CONVERT(DECIMAL(20,0),@P11),CONVERT(DECIMAL(20,0),@P16),CONVERT(DECIMAL(20,0),@P17),@P18)"));
+    query.bind(row.record_id.as_str());
+    query.bind(row.received_time.as_str());
+    query.bind(row.received_time_ns.as_str());
+    query.bind(row.source.as_deref());
     query.bind(i64::from(row.source_id));
+    query.bind(row.source_path.as_str());
+    query.bind(row.source_hierarchy.as_str());
     query.bind(i64::from(row.buffer_id));
-    query.bind(row.run_id);
-    query.bind(row.epoch_id);
-    query.bind(row.first_sequence);
-    query.bind(row.definition_hash);
-    query.bind(row.last_sequence);
-    query.bind(row.lost_count);
+    query.bind(row.run_id.as_str());
+    query.bind(row.epoch_id.as_str());
+    query.bind(row.first_sequence.as_str());
+    query.bind(row.definition_hash.as_str());
+    query.bind(row.time_unsynced);
+    query.bind(row.synthetic_record);
+    query.bind(row.partial_payload);
+    query.bind(row.last_sequence.as_str());
+    query.bind(row.lost_count.as_str());
     query.bind(row.basis);
     execute(runtime, client, query, "insert data loss projection")
 }
@@ -509,24 +521,29 @@ fn insert_unresolved(
     runtime: &tokio::runtime::Runtime,
     client: &mut TdsClient,
     schema: &str,
-    row: super::projection_domains::UnresolvedRow,
+    row: &super::projection_domains::UnresolvedRow,
 ) -> Result<(), PersistenceError> {
-    let mut query = Query::new(format!("INSERT INTO [{schema}].unresolved_records({COMMON_COLUMNS},event_type_id,reason,diagnostic_summary) VALUES(@P1,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),CONVERT(DATETIME2(7),LEFT(@P4,27),127),CONVERT(DECIMAL(20,0),@P5),@P6,@P7,N'',N'',@P8,CONVERT(DECIMAL(20,0),@P9),CONVERT(DECIMAL(20,0),@P10),CONVERT(DECIMAL(20,0),@P11),@P12,1,1,1,@P13,@P14,@P15)"));
-    query.bind(row.record_id);
-    query.bind(row.event_time);
-    query.bind(row.event_time_ns);
-    query.bind(row.received_time);
-    query.bind(row.received_time_ns);
-    query.bind(row.source);
+    let mut query = Query::new(format!("INSERT INTO [{schema}].unresolved_records({COMMON_COLUMNS},event_type_id,reason,diagnostic_summary) VALUES(@P1,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),CONVERT(DATETIME2(7),LEFT(@P4,27),127),CONVERT(DECIMAL(20,0),@P5),@P6,@P7,@P8,@P9,@P10,CONVERT(DECIMAL(20,0),@P11),CONVERT(DECIMAL(20,0),@P12),CONVERT(DECIMAL(20,0),@P13),@P14,@P15,@P16,@P17,@P18,@P19,@P20)"));
+    query.bind(row.record_id.as_str());
+    query.bind(row.event_time.as_deref());
+    query.bind(row.event_time_ns.as_deref());
+    query.bind(row.received_time.as_str());
+    query.bind(row.received_time_ns.as_str());
+    query.bind(row.source.as_deref());
     query.bind(i64::from(row.source_id));
+    query.bind(row.source_path.as_str());
+    query.bind(row.source_hierarchy.as_str());
     query.bind(i64::from(row.buffer_id));
-    query.bind(row.run_id);
-    query.bind(row.epoch_id);
-    query.bind(row.sequence);
-    query.bind(row.definition_hash);
+    query.bind(row.run_id.as_str());
+    query.bind(row.epoch_id.as_str());
+    query.bind(row.sequence.as_str());
+    query.bind(row.definition_hash.as_str());
+    query.bind(row.time_unsynced);
+    query.bind(row.synthetic_record);
+    query.bind(row.partial_payload);
     query.bind(i64::from(row.event_type_id));
-    query.bind(row.reason);
-    query.bind(row.diagnostic_summary);
+    query.bind(row.reason.as_str());
+    query.bind(row.diagnostic_summary.as_deref());
     execute(runtime, client, query, "insert unresolved projection")
 }
 
@@ -555,8 +572,8 @@ fn insert_value(
 ) -> Result<(), PersistenceError> {
     let common = value.common;
     let mut query = Query::new(format!(
-        "INSERT INTO [{schema}].logged_values(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value)
-         VALUES(@P1,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),CONVERT(DATETIME2(7),LEFT(@P4,27),127),CONVERT(DECIMAL(20,0),@P5),@P6,@P7,@P8,@P9,@P10,CONVERT(DECIMAL(20,0),@P11),CONVERT(DECIMAL(20,0),@P12),CONVERT(DECIMAL(20,0),@P13),@P14,@P15,@P16,@P17,@P18,@P19,@P20,@P21,@P22,@P23,@P24,@P25,CONVERT(DECIMAL(20,0),@P26),@P27,@P28,@P29)"
+        "INSERT INTO [{schema}].logged_values(record_id,event_time,event_time_ns,received_time,received_time_ns,source,source_id,source_path,source_hierarchy,buffer_id,run_id,epoch_id,sequence,definition_hash,time_unsynced,synthetic_record,partial_payload,value_id,value_name,value_type,unit,quality,semantic_role,boolean_value,signed_value,unsigned_value,number_value,text_value,exact_value,previous_boolean_value,previous_signed_value,previous_unsigned_value,previous_number_value,previous_text_value,previous_exact_value,is_audited,actor,reason,authorization_result)
+         VALUES(@P1,CONVERT(DATETIME2(7),LEFT(@P2,27),127),CONVERT(DECIMAL(20,0),@P3),CONVERT(DATETIME2(7),LEFT(@P4,27),127),CONVERT(DECIMAL(20,0),@P5),@P6,@P7,@P8,@P9,@P10,CONVERT(DECIMAL(20,0),@P11),CONVERT(DECIMAL(20,0),@P12),CONVERT(DECIMAL(20,0),@P13),@P14,@P15,@P16,@P17,@P18,@P19,@P20,@P21,@P22,@P23,@P24,@P25,CONVERT(DECIMAL(20,0),@P26),@P27,@P28,@P29,@P30,@P31,CONVERT(DECIMAL(20,0),@P32),@P33,@P34,@P35,@P36,@P37,@P38,@P39)"
     ));
     bind_common(&mut query, &common);
     query.bind(i64::from(value.value_id));
@@ -571,6 +588,16 @@ fn insert_value(
     query.bind(value.number_value);
     query.bind(value.text_value);
     query.bind(value.exact_value);
+    query.bind(value.previous_boolean_value);
+    query.bind(value.previous_signed_value);
+    query.bind(value.previous_unsigned_value);
+    query.bind(value.previous_number_value);
+    query.bind(value.previous_text_value);
+    query.bind(value.previous_exact_value);
+    query.bind(value.is_audited);
+    query.bind(value.actor);
+    query.bind(value.reason);
+    query.bind(value.authorization_result);
     execute(runtime, client, query, "insert logged value projection")
 }
 
@@ -603,7 +630,7 @@ fn execute(
     runtime
         .block_on(query.execute(client))
         .map(|_| ())
-        .map_err(|error| PersistenceError::Commit(format!("SQL Server {context}: {error}")))
+        .map_err(|error| super::sqlserver::sql_error(context, error))
 }
 
 fn batch(
@@ -614,7 +641,75 @@ fn batch(
     runtime
         .block_on(client.simple_query(sql))
         .map(|_| ())
-        .map_err(|error| {
-            PersistenceError::Commit(format!("SQL Server create domain schema: {error}"))
-        })
+        .map_err(|error| super::sqlserver::sql_error("create domain schema", error))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn logged_value_batches_stay_within_sql_server_parameter_limit() {
+        let source = include_str!("sqlserver_read_model.rs");
+        let production = source
+            .split("#[cfg(test)]")
+            .next()
+            .expect("SQL Server read-model production module");
+        let batch = source
+            .split("pub(super) fn insert_value_batch")
+            .nth(1)
+            .expect("logged-value batch function")
+            .split("pub(super) fn insert_singleton_event_domains_batch")
+            .next()
+            .expect("logged-value batch body");
+
+        assert!(production.contains("const SQLSERVER_LOGGED_VALUE_ROWS_PER_STATEMENT: usize = 53;"));
+        assert!(batch.contains("values.chunks(SQLSERVER_LOGGED_VALUE_ROWS_PER_STATEMENT)"));
+    }
+
+    #[test]
+    fn every_special_document_is_projected_without_first_match_collapse() {
+        let source = include_str!("sqlserver_read_model.rs");
+        let batch = source
+            .split("pub(super) fn insert_loss_and_unresolved_batch")
+            .nth(1)
+            .expect("loss and unresolved batch function")
+            .split("fn message_args")
+            .next()
+            .expect("loss and unresolved batch body");
+
+        assert!(!batch.contains("find_map"));
+        assert!(batch.contains("for domain in"));
+    }
+
+    #[test]
+    fn loss_and_unresolved_inserts_bind_complete_provenance() {
+        let source = include_str!("sqlserver_read_model.rs");
+        let loss = source
+            .split("\nfn insert_loss(")
+            .nth(1)
+            .expect("loss insert function")
+            .split("fn insert_unresolved")
+            .next()
+            .expect("loss insert body");
+        let unresolved = source
+            .split("\nfn insert_unresolved(")
+            .nth(1)
+            .expect("unresolved insert function")
+            .split("fn insert_event")
+            .next()
+            .expect("unresolved insert body");
+
+        for field in [
+            "row.source_path",
+            "row.source_hierarchy",
+            "row.time_unsynced",
+            "row.synthetic_record",
+            "row.partial_payload",
+        ] {
+            assert!(loss.contains(field), "missing loss binding: {field}");
+            assert!(
+                unresolved.contains(field),
+                "missing unresolved binding: {field}"
+            );
+        }
+    }
 }
