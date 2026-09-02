@@ -143,11 +143,11 @@
     "decision": "Apply only the first move after all 729 sequences complete and at least one satisfies every hard constraint; compare qualified weight candidates with PI and retain the simplest controller meeting all declared comfort, energy, movement, robustness, and lifecycle requirements."
   },
   "experiment": {
-    "kind": "load_step",
-    "signal": "Current outdoor temperature",
-    "baseline": 5,
-    "amplitude": -1,
-    "durationSeconds": 1200,
+    "kind": "observe_without_excitation",
+    "signal": "P1.ExperimentEnabled",
+    "baseline": false,
+    "amplitude": 0,
+    "durationSeconds": 1200.1,
     "settlingSeconds": 360,
     "disturbances": [
       "Outdoor temperature falls from 5 to 4 degC at minute 6.",
@@ -156,7 +156,7 @@
       "Repeat with 22 degC comfort minimum for completed-search infeasibility and negative temperature weight for invalid configuration."
     ],
     "seed": 20260829,
-    "restorationValue": 5
+    "restorationValue": false
   },
   "acceptance": [
     { "metric": "normal_mpc_candidate_count", "signal": "Enumerated sequence count", "window": "every valid normal MPC interval", "comparator": "==", "limit": 729, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
@@ -189,7 +189,7 @@
       "Physical use requires identified dynamics, qualified forecasts, equipment interlocks, privacy review, explicit immediate approval and rollback."
     ]
   },
-  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-83--predictive-control-capstone-constrained-building-hvac",
     "nativeTest": "control_curriculum_building_hvac_capstone_makes_evidence_based_decision",

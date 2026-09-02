@@ -75,11 +75,11 @@
     "decision": "Use feedforward only for qualified upstream temperature and prediction only while model evidence is valid; otherwise retain the strongest robust measured-feedback PI."
   },
   "experiment": {
-    "kind": "setpoint_step",
-    "signal": "Product-temperature setpoint",
-    "baseline": 20,
-    "amplitude": 15,
-    "durationSeconds": 180,
+    "kind": "observe_without_excitation",
+    "signal": "P1.ExperimentEnabled",
+    "baseline": false,
+    "amplitude": 0,
+    "durationSeconds": 180.1,
     "settlingSeconds": 10,
     "disturbances": [
       "Request 35 degC at 10 seconds.",
@@ -89,7 +89,7 @@
       "Exercise invalid upstream and downstream quality, incomplete or invalid model evidence, unavailable heater, Manual return, ControlledStop, restoration, and rollback."
     ],
     "seed": 20260829,
-    "restorationValue": 20
+    "restorationValue": false
   },
   "acceptance": [
     {"metric":"integrated_ninety_percent_rise_time","signal":"Integrated product temperature","window":"time from the 10-second request until first reaching 33.5 degC","comparator":"<","limit":45,"unit":"s","tolerance":0.1,"evidenceClass":"simulation"},
@@ -125,7 +125,7 @@
       "Applying revision 81 requires separate explicit approval and a rollback-ready commissioning window."
     ]
   },
-  "workflowStages": ["Monitor","Test","Identify","Tune","Validate"],
+  "workflowStages": ["Monitor","Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-81--delay-capstone-conveyor-oven",
     "nativeTest": "control_curriculum_conveyor_oven_capstone_selects_delay_architecture",

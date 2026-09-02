@@ -78,15 +78,15 @@
     "decision": "Select PI plus measured-demand feedforward only if common normal, uncertainty, actuator, stability and abnormal evidence satisfies every predeclared requirement."
   },
   "experiment": {
-    "kind": "load_step",
-    "signal": "Measured plant air demand",
-    "baseline": 50,
-    "amplitude": 15,
-    "durationSeconds": 300,
+    "kind": "observe_without_excitation",
+    "signal": "P1.ExperimentEnabled",
+    "baseline": false,
+    "amplitude": 0,
+    "durationSeconds": 300.1,
     "settlingSeconds": 120,
     "disturbances": ["Demand changes from 50 to 65 percent at 60 seconds.", "Demand changes from 65 to 55 percent at 180 seconds.", "Repeat with eight-second delivery lag, reduced receiver rate gain and an unmeasured five-percent leak."],
     "seed": 20260829,
-    "restorationValue": 50
+    "restorationValue": false
   },
   "acceptance": [
     { "metric": "normal_pressure_envelope_violation", "signal": "Integrated-plant header pressure", "window": "complete nominal 300-second record", "comparator": "==", "limit": 0, "unit": "bar*s", "tolerance": 0.001, "evidenceClass": "simulation" },
@@ -116,7 +116,7 @@
       "Physical work requires independently reviewed topology, protection ownership, bounded experiment approval, immediate action approval and rollback."
     ]
   },
-  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-84--independent-engineering-capstone",
     "nativeTest": "control_curriculum_independent_capstone_defends_selected_architecture",

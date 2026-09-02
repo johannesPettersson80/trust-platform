@@ -158,6 +158,11 @@ $MV_{\mathrm{feedforward}} = q_{\mathrm{d}} - 50 percent$
 
 $MV_{\mathrm{requested}} = MV_{\mathrm{feedback}} + MV_{\mathrm{feedforward}}$
 
+The one-for-one gain follows from the steady receiver balance. Setting
+$dp/dt=0$ requires $q_c=q_d$, so each additional percentage point of measured
+demand needs one additional percentage point of delivery. Subtracting 50
+percent expresses only the change from the operating point.
+
 Feedforward enters the shared PID authority before amplitude and rate limiting.
 Adding it after the returned output would bypass anti-windup and make requested
 and applied commands disagree without controller knowledge.
@@ -182,6 +187,17 @@ minus 0.1666 radians per second. The Bode oracle gives crossover frequency
 crossing, and delay margin 4.69 seconds. Maximum sensitivity is 1.626. These
 values qualify the declared local design; they do not qualify another receiver
 or the external protection system.
+
+The tuning and poles come from the same loop. The compressor and receiver give
+$G(s)=K_r/[s(T_c s+1)]$, while PI is
+$C(s)=(K_p s+K_i)/s$. Setting $1+C(s)G(s)=0$ and dividing by $T_c$ gives
+
+$s^3+(1/T_c)s^2+(K_rK_p/T_c)s+K_rK_i/T_c=0$
+
+The qualified target coefficients are 0.2, 0.04, and 0.001. With $T_c=5$ and
+$K_r=0.005$, the last two coefficients give
+$K_p=0.04T_c/K_r=40$ and $K_i=0.001T_c/K_r=1$. Solving that polynomial gives
+the reported poles; evaluating its open loop gives the frequency margins.
 
 Automatic gives the qualified controller authority. Manual applies a reviewed
 operator request through the same limits. ControlledStop ramps the request to
@@ -238,7 +254,10 @@ metric, precomputed trace, selected winner or application approval.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Add qualified measured-demand feedforward through the same PID, actuator, anti-windup and tracking boundary on an equivalent plant. The declared event lasts 300 seconds. It restores Measured plant air demand to 50 % afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the complete project-owned reference comparison.
+Control Studio grants only Boolean permission; the project owns demand changes,
+invalid-data cases, unavailable authority, Manual, ControlledStop, and safe
+restoration. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -247,35 +266,14 @@ This procedure tests one declared lesson change under controlled conditions. Add
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Select PI plus measured-demand feedforward only if common normal, uncertainty, actuator, stability and abnormal evidence satisfies every predeclared requirement.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test. Stop recording before leaving Monitor.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Load disturbance step**, **Amplitude** = **15 %**, and **Maximum duration (s)** = **300**. The affected signal is **Measured plant air demand**; it starts at 50 % and must restore to 50 %.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **300.1**. The only writable lesson signal is Boolean `P1.ExperimentEnabled`. Amplitude zero is intentional because the project owns the complete demand and abnormal sequence.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Feedback-plant header pressure 6 bar to 8 bar; Integrated-plant header pressure 6 bar to 8 bar; Feedback PI applied request 0 % to 100 %; Integrated applied request 0 % to 100 %. Apply the same evidence process to a learner-selected, platform-supported plant only after defending the shipped reference compressed-air receiver.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Measured plant air demand to 50 %, wait for current data, and review a new test.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, confirm `P1.ExperimentEnabled = FALSE`, and wait for the project to restore 7 bar, 50-percent demand, valid quality, compressor availability, and zero safe authority before reviewing a new test.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Requirements-led architecture selection, independent modelling, PI tuning, measured-demand feedforward, robustness and abnormal validation** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Requirements-led architecture selection, independent modelling, PI tuning, measured-demand feedforward, robustness and abnormal validation** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Requirements-led architecture selection, independent modelling, PI tuning, measured-demand feedforward, robustness and abnormal validation** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Requirements-led architecture selection, independent modelling, PI tuning, measured-demand feedforward, robustness and abnormal validation**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: normal_pressure_envelope_violation == 0 bar*s (tolerance 0.001 bar*s); regulatory_iae_improvement >= 30 % (tolerance 0.1 %); applied_movement_increase <= 25 % (tolerance 0.1 %); maximum_applied_request <= 100 % (tolerance 0.001 %).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
 
 ## Evidence and decision
 

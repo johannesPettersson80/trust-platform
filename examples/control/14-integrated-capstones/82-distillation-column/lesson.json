@@ -86,11 +86,11 @@
     "decision": "Select static decoupling only after four-path identification, RGA pairing and common robustness evidence; retain direct feedback as invalid-mapping fallback and the +2/+2 record as Infeasible."
   },
   "experiment": {
-    "kind": "setpoint_step",
-    "signal": "Overhead purity setpoint",
-    "baseline": 0,
-    "amplitude": 1,
-    "durationSeconds": 720,
+    "kind": "observe_without_excitation",
+    "signal": "P1.ExperimentEnabled",
+    "baseline": false,
+    "amplitude": 0,
+    "durationSeconds": 720.1,
     "settlingSeconds": 10,
     "disturbances": [
       "Run separately restored overhead-only, bottoms-only, simultaneous +1/+1, and feed-composition records on each model and architecture.",
@@ -98,7 +98,7 @@
       "Do not retune from validation data or include the deliberately infeasible record in normal-envelope ranking."
     ],
     "seed": 20260829,
-    "restorationValue": 0
+    "restorationValue": false
   },
   "acceptance": [
     { "metric": "normal_final_window_combined_absolute_error", "signal": "Overhead light-product purity deviation", "window": "mean over the final 10 seconds of each 240-second normal event", "comparator": "<=", "limit": 0.1, "unit": "pp", "tolerance": 0.001, "evidenceClass": "simulation" },
@@ -132,7 +132,7 @@
       "Physical use requires independently reviewed models, topology, product and equipment limits, uncertainty set, abort/restoration, and explicit immediate approval."
     ]
   },
-  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-82--mimo-capstone-distillation-process",
     "nativeTest": "control_curriculum_distillation_capstone_selects_robust_architecture",

@@ -12748,8 +12748,12 @@ use.
   product temperature (`y_predicted`) is delay-free output plus correction:
   `c_model = y_measured - y_model_delayed` and
   `y_predicted = y_model_now + c_model`. The Smith PI uses a `6 s` desired
-  delay-free closed-loop time constant, giving `Kp = 2.5 %/degC` and
-  `Ki = 0.2083333 %/(degC*s)` against predicted feedback.
+  delay-free closed-loop time constant `lambda = 6 s`. For
+  `G0(s)=K/(T*s+1)`, choose `Ti=T` so the PI zero cancels the nominal model
+  pole. The remaining loop is `K*Kp/(T*s)`; matching its closed loop to
+  `1/(lambda*s+1)` requires `Kp=T/(K*lambda)`. Therefore
+  `Kp=12/(0.8*6)=2.5 %/degC` and
+  `Ki=Kp/Ti=2.5/12=0.2083333 %/(degC*s)` against predicted feedback.
   Prediction changes the controller's internal feedback path; it does not move
   heat or product faster and does not eliminate the physical `16 s` delay.
 - **Theory recalled before practice — mismatch, fallback and authority:** Model
@@ -12790,31 +12794,26 @@ use.
   each net plant thermal input as applied heater power plus the physical
   upstream-load equivalent. The controller shall never use that net truth as
   feedback or as a substitute for the quality-gated measured disturbance.
-- **Experiment:** Perform one Control Studio journey:
+- **Experiment:** Perform the exact two-stage Control Studio journey. Control
+  Studio may write only Boolean `P1.ExperimentEnabled`; the runnable project
+  owns every setpoint, disturbance, mismatch, invalid-data, fallback, stop and
+  restoration event.
   1. **Monitor** verify oven/controller/model identities, Simulation label,
      units, downstream and upstream quality, setpoint, measured and predicted
      temperatures, delay-free/delayed model, correction, feedforward,
      requested/applied heater, predictor history, active/fallback authority,
      mode, limits, `100 ms` interval and revision `81`.
-  2. **Test** first evaluate the accepted and next-aggressive ordinary PI
-     against the same identified model and frequency criteria. Reject the
-     aggressive candidate before closed-loop use when its phase margin is
-     below `35 deg`. Run the accepted fallback from a restored `20 degC`
-     state. Request `35 degC` at `10 s`, announce the
-     qualified `-2 degC` upstream event at `54 s`, let it reach the downstream
-     product at `70 s`, and end at `180 s`. Retain both candidate decisions.
-  3. **Identify** run the bounded heater experiment; compare delay-free and
-     FOPDT fits; qualify `K`, `T`, `L`, uncertainty and residuals on independent
-     data; and reject prediction when the model is inadequate.
-  4. **Tune/Design** select the strongest robust ordinary PI using time, Bode,
-     Nyquist and delay-margin evidence. Calculate feedforward separately from
-     the measured disturbance path. Design Smith PI from the validated delay-
-     free model. Keep every architecture and revision unapplied.
-  5. **Validate** compare the three equivalent nominal copies over setpoint and
-     regulatory windows. Repeat the integrated candidate under moderate and
-     severe model mismatch, invalid upstream quality, invalid downstream
-     quality, incomplete history, unavailable heater, Manual return and
-     ControlledStop. Retain fallback, abort, restoration and rollback evidence.
+  2. **Test** select **Observe without excitation**, amplitude `0`, and duration
+     `180.1 s`. Review that the sole write is `P1.ExperimentEnabled` at
+     `%MX240.4`, with baseline and restoration `FALSE`. The project starts from
+     `20 degC`, requests `35 degC` at `10 s`, announces the qualified `-2 degC`
+     upstream event at `54 s`, lets it reach the downstream product at `70 s`,
+     and owns ordinary-candidate screening, nominal comparisons, mismatch,
+     invalid qualities, incomplete history, unavailable heater, Manual return,
+     ControlledStop, safe restoration and rollback evidence. The learner
+     interprets those live results using the derived identification, frequency,
+     feedforward and Smith theory; disabled Identify, Tune or Validate screens
+     are not lesson authority.
 - **Comparison and decision measures:** First classify each interval as
   eligible ordinary feedback, eligible feedforward, eligible prediction,
   model mismatch, correction limited, fallback, saturated, rate limited,
@@ -12990,26 +12989,28 @@ use.
   value, performance metric, precomputed winner, experiment timing or silently
   applied revision. Concise comments shall explain why controller parameters
   remain fixed and why common scaling preserves direction.
-- **Experiment:** Perform one Control Studio journey:
+  Derive those fixed gains from each diagonal first-order path before using
+  them: with `Ti=T`, direct synthesis gives `Kp=T/(K*lambda)` and
+  `Ki=Kp/Ti`. Thus overhead uses `20/(0.8*15)=1.6666667` and
+  `1.6666667/20=0.0833333`; bottoms uses
+  `30/(0.7*20)=2.1428571` and `2.1428571/30=0.0714286`.
+- **Experiment:** Perform the exact two-stage Control Studio journey. Control
+  Studio may write only Boolean `P1.ExperimentEnabled`; the project owns the
+  complete restored architecture and abnormal sequence.
   1. **Monitor** verify project/model identity, Simulation label, operating
      region, both SP/PV pairs and units, virtual corrections, requested/applied
      valves, architecture and qualification, common scale, saturation, mode,
      quality, availability, `100 ms` interval, seed and revision `82`.
-  2. **Test** perform separately restored `+1 pp` reflux and `+1 pp` reboiler
-     steps with the other input held at zero. Retain initial/final windows,
-     exact applied inputs, all four purity responses, aborts and restoration.
-  3. **Identify** fit all four paths, reject an unexcited or singular record,
-     validate against unused simultaneous-input data, calculate determinant and
-     RGA, and select diagonal pairing before configuring feedback.
-  4. **Tune/Design** retain the fixed paired PI controllers and compare direct,
-     static-decoupled and centrally constrained mappings. Carry forward the
-     reason dynamic decoupling was excluded. Keep every candidate unapplied.
-  5. **Validate** run restored overhead-only, bottoms-only, simultaneous
-     `+1/+1`, and feed-composition records on nominal and stronger-interaction
-     models for every eligible architecture. Then run the separately labelled
-     `+2/+2` infeasible challenge. Exercise invalid model/mapping evidence,
-     invalid composition quality, one unavailable valve, Manual return,
-     ControlledStop, restoration and rollback.
+  2. **Test** select **Observe without excitation**, amplitude `0`, and duration
+     `720.1 s`. Review that the sole write is `P1.ExperimentEnabled` at
+     `%MX116.1`, with baseline and restoration `FALSE`. The project owns the
+     overhead-only and bottoms-only direct records, simultaneous static and
+     centrally coordinated records, feed-disturbance record, `+2/+2`
+     infeasible challenge, invalid composition, unavailable valve, Manual,
+     ControlledStop, restoration and rollback. The learner derives and
+     interprets identification, RGA, singular-value, sensitivity and feasibility
+     evidence from the live project results; disabled Identify, Tune or
+     Validate screens are not authority.
 - **Comparison and decision measures:** Classify each record as `Eligible`,
   `Unqualified model`, `Unqualified pairing`, `Saturated`, `Infeasible`,
   `Fallback`, `Invalid`, `Aborted` or `Not settled` before ranking. Final-window
@@ -13092,6 +13093,12 @@ use.
 - **Theory recalled before practice — model and estimator:** Reintroduce the
   continuous heat balances in physical words, then the exact sampled state
   transition (`A_d`) and input (`B_d`) matrices from Lesson 68. Both air
+  temperatures are measured. Derive the sampled matrices from
+  `x_dot=A_c*x+B_c*u` under inputs held for `Delta t=60 s`:
+  `A_d=exp(A_c*Delta t)` and
+  `B_d=integral_0^Delta_t exp(A_c*tau)*B_c d tau`. Explain that the matrix
+  exponential retains loss and inter-zone exchange throughout the minute while
+  the integral accumulates heater, outdoor and occupancy effects.
   temperatures are measured, so an observer for those states would add no
   information. The required estimator instead represents unmeasured net
   thermal-load bias for each zone. Define previous one-step predicted
@@ -13099,6 +13106,9 @@ use.
   innovation (`nu = T_measured - T_pred_prev`), and estimated additive
   temperature bias per interval (`d_hat`). With estimator gain `Ke = 0.4`,
   explain before writing `d_hat_next = clamp(d_hat + Ke*nu,-1,1) degC/step`.
+  Explain `Ke=0.4` as accepting `40 %` of the newest innovation and retaining
+  `60 %` of prior error: for a constant bias, the uncorrected part decays as
+  `0.6^n` and has half-life `ln(0.5)/ln(0.6)=1.36` intervals.
   Each horizon prediction adds the retained `d_hat`. Estimation is eligible
   only after initialization with qualified measurements, finite timing and
   absolute innovation `<=2 degC`; otherwise predictive authority is removed
@@ -13151,30 +13161,24 @@ use.
   metric or winner. Comments shall explain why estimator bias enters every
   horizon prediction, why only the first move is applied and why stale or
   invalid predictive evidence cannot retain authority.
-- **Experiment:** Perform one Control Studio journey:
+- **Experiment:** Perform the exact two-stage Control Studio journey. Control
+  Studio may write only Boolean `P1.ExperimentEnabled`; the project owns every
+  schedule, infeasibility, invalid-data, fallback, mode and restoration event.
   1. **Monitor** verify Simulation/project/model identity, both temperatures
      and setpoints, measurement quality, estimator signals, weather/occupancy/
      tariff present values and forecasts, previous/requested/applied heaters,
      individual/move/shared limits, mode, availability, solver states, `60 s`
      interval, schedule revision, controller revision `83` and rollback.
-  2. **Test** run a bounded excitation and retain the nominal sampled model;
-     validate it on unused schedule data, then repeat against the declared
-     outdoor-loss mismatch and qualify the additive-bias estimator from
-     innovation and independent residual evidence.
-  3. **Identify** classify the model as configured Simulation truth for the
-     nominal plant and as locally mismatched for the second plant. Do not call
-     either a physical-building identification. Reject estimator use for
-     unbounded innovation or invalid measurement quality.
-  4. **Tune/Design** screen cascade, retain its explicit ineligibility, qualify
-     the conventional PI pair, reproduce the 729-sequence independent oracle,
-     and evaluate at least Balanced and actuator-conservative objective weights
-     without changing plant, schedule or limits. Keep every revision unapplied.
-  5. **Validate** compare the strongest eligible PI and selected MPC candidate
-     over the identical `20 min` weather, occupancy and tariff schedule from
-     Lesson 68. Repeat on the mismatch plant, with `22 degC` infeasibility,
-     negative-weight invalid configuration, invalid/stale temperature,
-     unbounded innovation, unavailable heater, Manual return, ControlledStop,
-     restoration and next-interval recovery.
+  2. **Test** select **Observe without excitation**, amplitude `0`, and duration
+     `1200.1 s`. Review that the sole write is `P1.ExperimentEnabled` at
+     `%MX242.0`, with baseline and restoration `FALSE`. At its declared `60 s`
+     task interval the project owns the twenty-minute weather, occupancy and
+     tariff schedule, the nominal estimator/MPC comparison, `22 degC`
+     infeasibility, negative-weight invalid configuration, invalid quality,
+     unavailable heater, Manual return, ControlledStop, restoration and
+     recovery. The learner uses the derived model, estimator and objective to
+     interpret the live counts and moves; disabled Identify, Tune or Validate
+     screens are not lesson authority.
 - **Comparison and decision measures:** Classify each interval and run before
   ranking. Define zone absolute-error integral, comfort-violation magnitude and
   duration, tariff-weighted heating, applied-heater total variation, peak
@@ -13300,6 +13304,9 @@ use.
   path uses `MV_feedforward = q_d-50 %`, so
   `MV_requested = MV_feedback + MV_feedforward`; it shall not add feedforward
   after actuator limiting or bypass tracking.
+  Derive the one-for-one feedforward gain from steady receiver balance:
+  `dp/dt=0` requires `q_c=q_d`, so one additional demand percentage point
+  requires one additional delivery percentage point.
 - **Theory before practice — stability and safety:** Use the identified
   integrating-plus-lag model to calculate closed-loop poles, Bode gain/phase
   margins, delay margin and sensitivity before applying either candidate in
@@ -13311,6 +13318,13 @@ use.
   transfer, restoration and rollback before the learner operates them. PID
   integration and the `10 pp/s` slew boundary shall use the measured interval;
   invalid timing removes automatic authority.
+  Show the PI derivation from the complete loop. With
+  `G(s)=K_r/[s(T_c*s+1)]` and `C(s)=(Kp*s+Ki)/s`, the closed-loop
+  characteristic is
+  `s^3+(1/T_c)s^2+(K_r*Kp/T_c)s+K_r*Ki/T_c=0`. Matching the qualified
+  coefficients `0.2`, `0.04`, `0.001` for `T_c=5` and `K_r=0.005` gives
+  `Kp=0.04*T_c/K_r=40` and `Ki=0.001*T_c/K_r=1`; solving this polynomial
+  gives the reported poles and evaluating the same open loop gives the margins.
 - **Prediction:** At `7 bar`, `50 %` delivery and `50 %` demand, predict zero
   pressure rate. For a demand step to `65 %`, predict an initial
   `-0.075 bar/s` pressure rate until delivery changes. Predict that static
@@ -13329,26 +13343,22 @@ use.
   response metric, precomputed trace, winner, application approval or hidden
   acceptance result. Concise comments shall explain only non-obvious ownership
   and tracking decisions.
-- **Experiment:** Perform and retain one complete Control Studio journey:
+- **Experiment:** Perform the exact two-stage Control Studio journey. Control
+  Studio may write only Boolean `P1.ExperimentEnabled`; the reference project
+  owns all demand, abnormal, mode and restoration events.
   1. **Monitor** verifies project/plant/evidence identity, SP/PV/MV identities
      and units, pressure, requested/applied/actual delivery, demand, quality,
      mode, availability, sample interval, limits, external protection boundary,
      revision `84` and rollback.
-  2. **Test** obtains bounded restored request-pulse and demand-imbalance
-     records, enforces the abort envelope and retains exact inputs, outputs,
-     timing, initial state and restoration.
-  3. **Identify** estimates `T_c` and `K_r`, declares uncertainty and validity,
-     validates on unused data, and rejects an inadequate result rather than
-     tuning from it.
-  4. **Tune/Design** screens every named architecture, independently reproduces
-     PI tuning and frequency evidence, and leaves both PI candidates unapplied.
-  5. **Validate** compares feedback PI and PI-plus-feedforward from identical
-     state for a `50->65 %` demand step at `60 s` and `65->55 %` change at
-     `180 s` over `300 s`; repeats with `T_c = 8 s`, `K_r = 0.004`, an
-     unmeasured `5 %` leak, sensor noise and declared timing variation; then
-     exercises invalid/stale pressure, invalid demand, invalid delivery,
-     compressor unavailable, saturation, Manual return, ControlledStop, Safe,
-     abort, restoration and a new qualified recovery run.
+  2. **Test** select **Observe without excitation**, amplitude `0`, and duration
+     `300.1 s`. Review that the sole write is `P1.ExperimentEnabled` at
+     `%MX9.2`, with baseline and restoration `FALSE`. The project owns the
+     `50->65 %` demand change at `60 s`, `65->55 %` change at `180 s`, invalid
+     demand, pressure and delivery quality, unavailable compressor, Manual,
+     ControlledStop, Safe restoration and recovery. Separate project/native
+     records own identification, uncertainty and frequency evidence. The
+     learner interprets and defends those results using the derived equations;
+     disabled Identify, Tune or Validate screens are not authority.
 - **Comparison and decision measures:** Classify records before ranking. Define
   pressure integrated absolute error in `bar*s`, maximum pressure departure in
   bar, two-percent settling only for settled records, time outside

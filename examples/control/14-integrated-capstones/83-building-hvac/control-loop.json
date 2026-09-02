@@ -42,7 +42,7 @@
       "symbol": "P1.Zone1HeatRequested",
       "address": "%ML72",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -50,6 +50,17 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-enabled",
+        "channel": "experiment-enabled",
+        "role": "authority",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX242.0",
+        "iecType": "BOOL",
+        "direction": "write",
+        "unit": "1",
+        "range": {"minimum": 0, "maximum": 1}
+      },
       {
         "id": "control-enabled",
         "channel": "control-enabled",
@@ -407,7 +418,7 @@
         "symbol": "P1.Zone2HeatRequested",
         "address": "%ML80",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -449,7 +460,7 @@
         "symbol": "P1.OutsideCurrent",
         "address": "%ML104",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "degC",
         "range": {
           "minimum": -10,
@@ -659,7 +670,7 @@
         "symbol": "P1.ManualZone1Heat",
         "address": "%ML248",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -673,7 +684,7 @@
         "symbol": "P1.ManualZone2Heat",
         "address": "%ML256",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -799,7 +810,7 @@
         "symbol": "P1.Zone1HeatApplied",
         "address": "%QL0",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -813,7 +824,7 @@
         "symbol": "P1.Zone2HeatApplied",
         "address": "%QL8",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -888,9 +899,9 @@
   "plantId": "coupled_two_zone_office_capstone_nominal",
   "experiment": {
     "execution": "control-studio",
-    "kind": "load_step",
-    "amplitude": -1,
-    "durationSeconds": 1200,
+    "kind": "observe_without_excitation",
+    "amplitude": 0,
+    "durationSeconds": 1200.1,
     "seed": 20260829
   }
 }
