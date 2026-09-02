@@ -565,5 +565,5 @@ fn insert_value(
 }
 
 fn error(context: &'static str) -> impl FnOnce(postgres::Error) -> PersistenceError {
-    move |error| PersistenceError::Commit(format!("PostgreSQL {context}: {error}"))
+    super::postgresql::pg_error(context)
 }

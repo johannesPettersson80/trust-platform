@@ -484,9 +484,13 @@ fn initialize_schema(connection: &mut Conn) -> Result<(), PersistenceError> {
     if owned_object.is_some() {
         let marker: Option<(u32, String)> = connection
             .query_first("SELECT version,catalog_fingerprint FROM logging_schema WHERE singleton=1")
-            .map_err(|_| PersistenceError::Commit(
-                "MySQL incompatible pre-release schema; back up and recreate the development database".into(),
-            ))?;
+            .map_err(|error| mysql_error("read logging schema marker", error))
+            .map_err(|error| {
+                super::contracts::deterministic_unless_transport(
+                    error,
+                    "MySQL incompatible pre-release schema; back up and recreate the development database",
+                )
+            })?;
         if marker.as_ref().map(|value| value.0) != Some(LOGGING_SCHEMA_GENERATION) {
             return Err(PersistenceError::Commit(format!(
                 "MySQL incompatible pre-release schema generation {:?}; back up and recreate the development database",
@@ -678,6 +682,12 @@ fn decode_u64(bytes: &[u8], context: &str) -> Result<u64, PersistenceError> {
     Ok(u64::from_be_bytes(bytes))
 }
 
-fn mysql_error(context: &'static str, error: mysql::Error) -> PersistenceError {
-    PersistenceError::Commit(format!("MySQL {context}: {error}"))
+pub(super) fn mysql_error(context: &'static str, error: mysql::Error) -> PersistenceError {
+    let retryable = error.is_connectivity_error();
+    let message = format!("MySQL {context}: {error}");
+    if retryable {
+        PersistenceError::Connection(message)
+    } else {
+        PersistenceError::Commit(message)
+    }
 }

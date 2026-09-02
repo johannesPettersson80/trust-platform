@@ -83,7 +83,7 @@ pub enum PersistenceError {
     IdentityConflict(String),
     /// A backend could not durably commit the requested batch.
     Commit(String),
-    /// A remote backend could not be reached while opening a connection.
+    /// A remote backend transport was unavailable while opening or operating.
     Connection(String),
     /// A configured durable capacity bound cannot accept another batch.
     CapacityExhausted(String),
@@ -137,6 +137,16 @@ impl std::fmt::Display for PersistenceError {
 }
 
 impl std::error::Error for PersistenceError {}
+
+pub(super) fn deterministic_unless_transport(
+    error: PersistenceError,
+    deterministic_message: &'static str,
+) -> PersistenceError {
+    match error {
+        PersistenceError::Connection(_) => error,
+        _ => PersistenceError::Commit(deterministic_message.to_string()),
+    }
+}
 
 pub(super) fn ensure_private_parent(
     path: &std::path::Path,

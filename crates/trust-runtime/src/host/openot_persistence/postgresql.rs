@@ -225,6 +225,9 @@ impl PostgreSqlDocumentSink {
 }
 
 fn postgresql_connect_error_is_transient(error: &postgres::Error) -> bool {
+    if error.is_closed() {
+        return true;
+    }
     if let Some(code) = error.code() {
         return code.code().starts_with("08")
             || matches!(
@@ -272,9 +275,13 @@ fn initialize_schema(
                 &format!("SELECT version,catalog_fingerprint FROM \"{schema}\".logging_schema WHERE singleton=TRUE"),
                 &[],
             )
-            .map_err(|_| PersistenceError::Commit(
-                "PostgreSQL incompatible pre-release schema; back up and recreate the development database".into(),
-            ))?
+            .map_err(pg_error("read logging schema marker"))
+            .map_err(|error| {
+                super::contracts::deterministic_unless_transport(
+                    error,
+                    "PostgreSQL incompatible pre-release schema; back up and recreate the development database",
+                )
+            })?
             .map(|row| (row.get::<_, i32>(0), row.get::<_, String>(1)));
         if marker.as_ref().map(|value| value.0) != Some(LOGGING_SCHEMA_GENERATION as i32) {
             return Err(PersistenceError::Commit(format!(
@@ -532,8 +539,15 @@ fn validate_identifier(value: &str) -> Result<(), PersistenceError> {
     }
 }
 
-fn pg_error(context: &'static str) -> impl FnOnce(postgres::Error) -> PersistenceError {
-    move |error| PersistenceError::Commit(format!("PostgreSQL {context}: {error}"))
+pub(super) fn pg_error(context: &'static str) -> impl FnOnce(postgres::Error) -> PersistenceError {
+    move |error| {
+        let message = format!("PostgreSQL {context}: {error}");
+        if postgresql_connect_error_is_transient(&error) {
+            PersistenceError::Connection(message)
+        } else {
+            PersistenceError::Commit(message)
+        }
+    }
 }
 
 impl DocumentSink for PostgreSqlDocumentSink {
@@ -780,6 +794,10 @@ fn decode_u64(bytes: &[u8], context: &str) -> Result<u64, PersistenceError> {
 #[cfg(test)]
 mod connection_error_tests {
     use super::error_source_is_transient;
+    #[cfg(feature = "openot-real-database-tests")]
+    use super::{pg_error, PostgreSqlDocumentSink};
+    #[cfg(feature = "openot-real-database-tests")]
+    use crate::openot_persistence::PersistenceError;
 
     #[test]
     fn typed_io_error_is_retryable_without_diagnostic_text_matching() {
@@ -800,5 +818,51 @@ mod connection_error_tests {
     fn unknown_no_sqlstate_error_is_permanent() {
         let error = std::fmt::Error;
         assert!(!error_source_is_transient(Some(&error)));
+    }
+
+    #[cfg(feature = "openot-real-database-tests")]
+    #[test]
+    fn typed_postgresql_disconnect_during_an_operation_remains_retryable() {
+        let connection_url = std::env::var("TRUST_TEST_OPENOT_POSTGRES_URL")
+            .expect("TRUST_TEST_OPENOT_POSTGRES_URL");
+        let ca = std::env::var_os("TRUST_TEST_OPENOT_POSTGRES_CA")
+            .map(std::path::PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("OPENOT_DATABASE_RUNNER_STATE_DIR")
+                    .map(std::path::PathBuf::from)
+                    .map(|state| state.join("tls/ca.pem"))
+            })
+            .expect("PostgreSQL CA path or owned runner state");
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let schema = format!("logging_disconnect_classification_{stamp}");
+        let mut sink = PostgreSqlDocumentSink::open(&connection_url, &schema, &ca)
+            .expect("open reviewed PostgreSQL server");
+        let error = sink
+            .client
+            .simple_query("SELECT pg_terminate_backend(pg_backend_pid())")
+            .expect_err("terminating the current backend must break the operation");
+        let classified = pg_error("initialize logging schema after disconnect")(error);
+
+        assert!(
+            matches!(classified, PersistenceError::Connection(_)),
+            "typed disconnect must remain retryable during schema initialization: {classified:?}"
+        );
+
+        let closed_error = sink
+            .client
+            .simple_query("SELECT 1")
+            .expect_err("the terminated PostgreSQL client must remain closed");
+        assert!(
+            closed_error.is_closed(),
+            "unexpected error: {closed_error:?}"
+        );
+        let classified = pg_error("read checkpoint after disconnect")(closed_error);
+        assert!(
+            matches!(classified, PersistenceError::Connection(_)),
+            "a typed closed PostgreSQL client must remain retryable: {classified:?}"
+        );
     }
 }

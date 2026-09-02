@@ -467,6 +467,16 @@ fn service_supplies_compiled_definition_to_typed_database_projection() {
 }
 
 #[test]
+fn deterministic_commit_error_is_not_a_retryable_worker_transport_loss() {
+    assert!(worker_error_is_transient(&PersistenceError::Connection(
+        "typed transport loss".into()
+    )));
+    assert!(!worker_error_is_transient(&PersistenceError::Commit(
+        "deterministic projection or storage failure".into()
+    )));
+}
+
+#[test]
 fn sqlite_service_restart_uses_durable_checkpoint_and_catches_up_once() {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)

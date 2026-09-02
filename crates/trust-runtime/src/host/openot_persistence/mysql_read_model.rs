@@ -242,5 +242,5 @@ fn common_params(event: &EventLogRow, mut extra: mysql::Params) -> mysql::Params
 }
 
 fn error(context: &'static str) -> impl FnOnce(mysql::Error) -> PersistenceError {
-    move |error| PersistenceError::Commit(format!("MySQL {context}: {error}"))
+    move |error| super::mysql::mysql_error(context, error)
 }

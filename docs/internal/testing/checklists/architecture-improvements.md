@@ -213,13 +213,15 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   classification at explicit boundaries: the factory validates the selected
   TOML backend's required environment before worker creation, adapters emit a
   distinct reachability error for typed transient connection failures, and the
-  service retries only that open-time category while established commit
-  outages retain their existing bounded retry path. Evidence: focused missing
-  environment and newer-schema assertion red/green tests; real PostgreSQL
-  outage/restart assertion red/green proof; the complete pinned real-database
-  gate across SQLite, PostgreSQL, TimescaleDB, MySQL, MariaDB, SQL Server, and
-  InfluxDB 3; refreshed `openot-database-persistence.puml`, generated SVG, and
-  manifest; remote diagram render and drift check.
+  service retries only that transport category during open, schema
+  initialization, commit, or maintenance. Generic commit/storage and
+  deterministic projection errors fault immediately. Evidence: focused
+  missing-environment, newer-schema, and deterministic-commit assertion
+  red/green tests; a forced real PostgreSQL operation disconnect red/green;
+  real restart recovery across PostgreSQL, TimescaleDB, MySQL, MariaDB, SQL
+  Server, and InfluxDB 3; the complete pinned real-database gate; refreshed
+  `openot-database-persistence.puml`, generated SVG, and manifest; remote
+  diagram render and drift check.
 - [ ] `ARCH-OPENOT-DB-04` Validate generation 1 from each backend's actual
   catalog instead of object names alone: adapters extract native table/view,
   column, key, check, foreign-key, and index definitions, while the shared

@@ -789,6 +789,27 @@ A compile error, missing dependency, broken harness, timeout, ignored test, filt
 - [x] `OOTDB-P8-005` Bump and synchronize workspace/VS Code versions as required by repository release hygiene for the release-notable runtime feature.
 - [x] `OOTDB-P8-005A` Read every automatic security/code review and repair the complete finding ledger test-first. Evidence: security review reported no findings; code review identified durable status publication, selected-sink maintenance delegation, and synchronous compiled-backend validation defects. Each received an expected assertion red before production repair and a same-test green afterward, including the real InfluxDB 3 reconciliation test (110 parts). A separate expected-red runner-contract test then registered the compiled-out-backend test in the mandatory real-database release gate and passed after the gate was wired.
 - [x] `OOTDB-P8-005B` Run a post-repair SOLID/KISS/DRY and architecture audit. Evidence: startup artifact validation, SQLite read-model backfill, and Influx domain-line construction were extracted into focused helpers; `cargo run -p xtask -- architecture-doctor --full-map` changed `FULLMAP-CHECK-10` from three OpenOT oversized-function findings to `PASS`. Builder storage forensics also found anonymous database volumes surviving teardown; an expected-red runner-contract test now requires pre-removal volume discovery and explicit removal, and the real runner lifecycle verifies no owned volume remains.
+- [x] `OOTDB-P8-005C` Batch the exact-SHA automatic-review ledger before another
+  push. The reviewed candidate had clean CI and security results but exposed
+  two lifecycle defects: PostgreSQL disconnects during schema initialization
+  were flattened into deterministic commit failures, and the service retried
+  every generic commit/storage error. The focused service-classifier assertion
+  failed because `Commit` was retryable and passed after only the explicit
+  transport category remained retryable. A pinned real PostgreSQL assertion
+  failed with `Commit("...connection closed")` and passed after typed
+  operation errors preserved transport classification. The existing serial
+  real restart suite then passed 7/7 across incompatible-generation rejection,
+  PostgreSQL, TimescaleDB, MySQL, MariaDB, SQL Server, and InfluxDB 3.
+- [x] `OOTDB-P8-005D` Preserve the first exact-candidate real-database gate
+  failure and repair its complete ledger before refreezing. The optimized
+  seven-product qualification passed, then the real PostgreSQL service restart
+  test faulted while reading its checkpoint because the client library's typed
+  closed-client state has neither a SQLSTATE nor a nested I/O source. The
+  extended operation-disconnect assertion failed with
+  `Commit("...connection closed")` before production repair and passed after
+  the typed `is_closed()` state was classified as transport loss; the same real
+  stop/start/catch-up service test then passed without increasing its retry
+  budget.
 - [x] `OOTDB-P8-006` Freeze one clean candidate after focused tests and cheap full-diff preflight; any code, schema, migration, docs claim, validator, or instruction change invalidates the candidate.
 - [x] `OOTDB-P8-007` Run remote disk preflight, then remote `just fmt`, `just clippy`, and `just test-all` plus feature-specific runtime/OpenOT/database gates.
 - [x] `OOTDB-P8-008` Run the required runtime vertical tests: `api_smoke`, `debug_control`, `complete_program`, and `runtime_reliability`.

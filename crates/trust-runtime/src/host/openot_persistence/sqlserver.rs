@@ -362,9 +362,12 @@ impl SqlServerDocumentSink {
             "SELECT COUNT_BIG(*) FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE s.name=N'{s}' AND (t.name LIKE N'logging[_]%' OR t.name IN (N'event_log',N'logged_values',N'alarm_history',N'message_log',N'state_history',N'batch_history',N'recipe_history',N'material_additions',N'operator_activity',N'audit_log',N'electronic_signatures',N'system_events',N'data_loss',N'unresolved_records',N'openot_schema',N'openot_documents',N'openot_checkpoint'))"
         ))?.get::<i64,_>(0).unwrap_or(0);
         if owned > 0 {
-            let version = self.schema_version().map_err(|_| PersistenceError::Commit(
-                "SQL Server incompatible pre-release schema; back up and recreate the development database".into(),
-            ))?;
+            let version = self.schema_version().map_err(|error| {
+                super::contracts::deterministic_unless_transport(
+                    error,
+                    "SQL Server incompatible pre-release schema; back up and recreate the development database",
+                )
+            })?;
             if version != LOGGING_SCHEMA_GENERATION {
                 return Err(PersistenceError::Commit(format!(
                     "SQL Server incompatible pre-release schema generation {version}; back up and recreate the development database"
@@ -827,19 +830,23 @@ fn commit_error(message: &str) -> PersistenceError {
 }
 
 fn sqlserver_connect_error(error: tiberius::error::Error) -> PersistenceError {
+    sqlserver_error("connect with required TLS", error)
+}
+
+fn sqlserver_error(context: &str, error: tiberius::error::Error) -> PersistenceError {
     let retryable = matches!(
         error,
         tiberius::error::Error::Io { .. } | tiberius::error::Error::Routing { .. }
     );
-    let message = format!("SQL Server connect with required TLS: {error}");
+    let message = format!("SQL Server {context}: {error}");
     if retryable {
         PersistenceError::Connection(message)
     } else {
         PersistenceError::Commit(message)
     }
 }
-fn sql_error(context: &str, error: tiberius::error::Error) -> PersistenceError {
-    commit_error(&format!("{context}: {error}"))
+pub(super) fn sql_error(context: &str, error: tiberius::error::Error) -> PersistenceError {
+    sqlserver_error(context, error)
 }
 
 #[cfg(test)]

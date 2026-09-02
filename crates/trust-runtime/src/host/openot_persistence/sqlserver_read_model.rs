@@ -630,7 +630,7 @@ fn execute(
     runtime
         .block_on(query.execute(client))
         .map(|_| ())
-        .map_err(|error| PersistenceError::Commit(format!("SQL Server {context}: {error}")))
+        .map_err(|error| super::sqlserver::sql_error(context, error))
 }
 
 fn batch(
@@ -641,9 +641,7 @@ fn batch(
     runtime
         .block_on(client.simple_query(sql))
         .map(|_| ())
-        .map_err(|error| {
-            PersistenceError::Commit(format!("SQL Server create domain schema: {error}"))
-        })
+        .map_err(|error| super::sqlserver::sql_error("create domain schema", error))
 }
 
 #[cfg(test)]

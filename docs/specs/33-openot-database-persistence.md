@@ -79,7 +79,7 @@ NOT infer retryability from diagnostic text. The required lifecycle behavior is:
 | Failure boundary | Required behavior |
 | --- | --- |
 | Invalid TOML, unavailable adapter, missing or empty required environment variable, missing definition/carriage artifact, or missing/unreadable CA file | reject `start()` synchronously; no worker is spawned |
-| Remote endpoint cannot be reached while opening the selected network adapter, or a reached PostgreSQL-compatible endpoint reports a typed connection/startup/shutdown SQLSTATE (`08` connection class or `57P01`/`57P02`/`57P03`) | start the PLC runtime, report persistence as `retrying`, and apply the bounded reconnect policy |
+| Remote endpoint cannot be reached while opening the selected network adapter, or a reached PostgreSQL-compatible endpoint reports a typed closed-client state or connection/startup/shutdown SQLSTATE (`08` connection class or `57P01`/`57P02`/`57P03`) | start the PLC runtime, report persistence as `retrying`, and apply the bounded reconnect policy |
 | The endpoint is reached but rejects authentication/authorization, or opening detects an incompatible schema generation, corrupt schema metadata, incompatible required product capability, corrupt local database/spool, or another deterministic storage/schema violation | report persistence as `faulted` immediately; do not consume the reconnect budget or reopen repeatedly |
 | An established worker loses remote commit or maintenance availability | preserve the last durable checkpoint/counters, report `retrying`, and reconnect under the bounded policy |
 | Identity conflict, checkpoint regression, capacity exhaustion, malformed stored canonical data, or deterministic projection corruption | report `faulted`; do not retry or delete durable state |
@@ -88,6 +88,14 @@ Opening and schema-initialization code MUST return an explicitly classified reac
 failure for the retryable open case. Generic commit/storage errors are not
 implicitly retryable during initial open. Adding a new open failure path
 requires a direct native assertion of its lifecycle classification.
+The backend-neutral error contract MUST distinguish deterministic commit/storage
+failure from retryable transport loss. A deterministic projection, serialization,
+schema, capacity, or local-storage failure MUST NOT enter the reconnect loop. A
+typed transport loss MAY enter that loop whether it occurs while opening,
+initializing the schema, committing, or running maintenance. PostgreSQL catalog
+and DDL helpers used during initialization MUST preserve typed `08`, `57P01`,
+`57P02`, and `57P03` classification instead of flattening those errors into the
+deterministic commit category.
 For InfluxDB 3, a transport failure from the initial authenticated `/health`
 request is a reachability failure and MUST be returned as a retryable
 connection error. A received HTTP response, including authentication or

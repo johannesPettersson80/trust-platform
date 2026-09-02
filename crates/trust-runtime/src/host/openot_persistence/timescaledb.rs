@@ -45,9 +45,9 @@ impl TimescaleDbDocumentSink {
                 &[],
             )
             .map(|row| row.get(0))
-            .map_err(|error| {
-                PersistenceError::Commit(format!("TimescaleDB read extension version: {error}"))
-            })
+            .map_err(super::postgresql::pg_error(
+                "read TimescaleDB extension version",
+            ))
     }
 
     /// Reports whether every required public time-series object is a hypertable.
@@ -61,9 +61,9 @@ impl TimescaleDbDocumentSink {
                 &[&self.postgresql.schema],
             )
             .map(|row| row.get(0))
-            .map_err(|error| {
-                PersistenceError::Commit(format!("TimescaleDB inspect hypertable: {error}"))
-            })
+            .map_err(super::postgresql::pg_error(
+                "inspect TimescaleDB hypertable",
+            ))
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
@@ -78,9 +78,7 @@ impl TimescaleDbDocumentSink {
                 &[],
             )
             .map(|row| row.get(0))
-            .map_err(|error| {
-                PersistenceError::Commit(format!("TimescaleDB count time index: {error}"))
-            })
+            .map_err(super::postgresql::pg_error("count TimescaleDB time index"))
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
@@ -98,11 +96,9 @@ impl TimescaleDbDocumentSink {
                 &[],
             )
             .map(|row| (row.get(0), row.get(1), row.get(2), row.get(3), row.get(4)))
-            .map_err(|error| {
-                PersistenceError::Commit(format!(
-                    "TimescaleDB read audited value projection: {error}"
-                ))
-            })
+            .map_err(super::postgresql::pg_error(
+                "read TimescaleDB audited value projection",
+            ))
     }
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
@@ -124,11 +120,9 @@ impl TimescaleDbDocumentSink {
         self.postgresql
             .client
             .batch_execute(&statement)
-            .map_err(|error| {
-                PersistenceError::Commit(format!(
-                    "TimescaleDB change required index for compatibility test: {error}"
-                ))
-            })
+            .map_err(super::postgresql::pg_error(
+                "change TimescaleDB required index for compatibility test",
+            ))
     }
 
     #[cfg(feature = "openot-real-database-tests")]

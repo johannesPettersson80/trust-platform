@@ -248,7 +248,7 @@ impl InfluxDb3DocumentSink {
                 let body = response
                     .body_mut()
                     .read_to_string()
-                    .map_err(|error| influx_error("read reconciliation query", error))?;
+                    .map_err(|error| transport_error("read reconciliation query", error))?;
                 let result: Vec<serde_json::Value> =
                     serde_json::from_str(&body).map_err(|error| {
                         PersistenceError::Commit(format!(
@@ -307,7 +307,7 @@ impl InfluxDb3DocumentSink {
         let body = response
             .body_mut()
             .read_to_string()
-            .map_err(|e| influx_error("read query response", e))?;
+            .map_err(|error| transport_error("read query response", error))?;
         let rows: Vec<serde_json::Value> = serde_json::from_str(&body)
             .map_err(|e| PersistenceError::Commit(format!("InfluxDB 3 decode query: {e}")))?;
         rows.first()
@@ -361,7 +361,7 @@ impl InfluxDb3DocumentSink {
         let body = response
             .body_mut()
             .read_to_string()
-            .map_err(|error| influx_error("read typed measurement query", error))?;
+            .map_err(|error| transport_error("read typed measurement query", error))?;
         let rows: Vec<serde_json::Value> = serde_json::from_str(&body).map_err(|error| {
             PersistenceError::Commit(format!("InfluxDB 3 decode typed query: {error}"))
         })?;
@@ -433,7 +433,7 @@ impl InfluxDb3DocumentSink {
         let body = response
             .body_mut()
             .read_to_string()
-            .map_err(|error| influx_error("read canonical query response", error))?;
+            .map_err(|error| transport_error("read canonical query response", error))?;
         let rows: Vec<serde_json::Value> = serde_json::from_str(&body).map_err(|error| {
             PersistenceError::Commit(format!("InfluxDB 3 decode canonical query: {error}"))
         })?;
@@ -546,7 +546,7 @@ impl InfluxDb3DocumentSink {
         response
             .body_mut()
             .read_to_string()
-            .map_err(|e| influx_error("read response", e))
+            .map_err(|error| transport_error("read response", error))
     }
 }
 
@@ -936,6 +936,10 @@ fn http_error(context: &'static str) -> impl FnOnce(ureq::Error) -> PersistenceE
 }
 fn influx_error(context: &'static str, error: impl std::fmt::Display) -> PersistenceError {
     PersistenceError::Commit(format!("InfluxDB 3 {context}: {error}"))
+}
+
+fn transport_error(context: &'static str, error: impl std::fmt::Display) -> PersistenceError {
+    PersistenceError::Connection(format!("InfluxDB 3 {context}: {error}"))
 }
 
 #[cfg(test)]

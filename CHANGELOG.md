@@ -72,6 +72,10 @@ Target release: `v0.24.68`
 
 ### Fixed
 
+- Preserve typed database transport failures through OpenOT schema
+  initialization, commit, and maintenance so bounded reconnect still applies,
+  while deterministic projection and storage failures fault immediately
+  instead of repeatedly reopening the selected backend.
 - Freeze bounded OpenOT shutdown drains from a fresh non-consuming producer
   head so records published after an older buffered poll are still committed,
   and restrict real-database runner teardown to exact-labelled Docker

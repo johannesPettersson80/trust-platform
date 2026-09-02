@@ -217,6 +217,11 @@ fn next_retry_delay(current: Duration, multiplier: u32, maximum: Duration) -> Du
 }
 
 #[cfg(unix)]
+fn worker_error_is_transient(error: &PersistenceError) -> bool {
+    matches!(error, PersistenceError::Connection(_))
+}
+
+#[cfg(unix)]
 struct WorkerRetrySchedule {
     initial: Duration,
     current: Duration,
@@ -526,10 +531,7 @@ impl OpenOtPersistenceService {
                             }
                         }
                         Err(error) => {
-                            let transient = matches!(
-                                error,
-                                PersistenceError::Commit(_) | PersistenceError::Connection(_)
-                            );
+                            let transient = worker_error_is_transient(&error);
                             if !retries.record_failure(&worker_status, &error, transient) {
                                 break;
                             }
