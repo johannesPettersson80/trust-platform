@@ -1,11 +1,47 @@
 <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" viewBox="0 0 900 650">
 <title id="title">Wide-range nonlinear control must survive payload change</title>
-<desc id="desc">Fixed, scheduled, and feedback-linearised architectures compared on nominal and heavy-payload plants; case labels match the shipped trace and summary CSVs.</desc>
+<desc id="desc">Index 0 is fixed gain, 1 is gain scheduled, and 2 uses feedback linearisation.</desc>
 <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#243044"/></marker></defs>
-<rect width="900" height="650" fill="#f7f9fc" />
+<rect width="900" height="650" fill="#f7f9fc"/>
 <style>text{font-family:system-ui,-apple-system,sans-serif;fill:#243044} .axis{stroke:#526078;stroke-width:1} .grid{stroke:#d8e0eb;stroke-width:1}</style>
 <text x="55" y="42" font-size="24" font-weight="700">Wide-range nonlinear control must survive payload change</text>
-<text x="55" y="70" font-size="14">Fixed, scheduled, and feedback-linearised architectures on nominal and heavy-payload plants.</text>
-<line x1="55" y1="108" x2="83" y2="108" stroke="#2563eb" stroke-width="3"/><text x="89" y="113" font-size="12">Nominal payload</text><line x1="205" y1="108" x2="233" y2="108" stroke="#dc2626" stroke-width="3" stroke-dasharray="7 5"/><text x="239" y="113" font-size="12">Heavy payload</text>
-<text x="75" y="145" font-size="16" font-weight="700">Integrated absolute position error (rad s)</text><line class="grid" x1="75" y1="157.00" x2="855" y2="157.00" /><text x="67" y="161.00" text-anchor="end" font-size="11">3.98</text><line class="grid" x1="75" y1="197.00" x2="855" y2="197.00" /><text x="67" y="201.00" text-anchor="end" font-size="11">2.98</text><line class="grid" x1="75" y1="237.00" x2="855" y2="237.00" /><text x="67" y="241.00" text-anchor="end" font-size="11">1.99</text><line class="grid" x1="75" y1="277.00" x2="855" y2="277.00" /><text x="67" y="281.00" text-anchor="end" font-size="11">0.99</text><line class="grid" x1="75" y1="317.00" x2="855" y2="317.00" /><text x="67" y="321.00" text-anchor="end" font-size="11">0.00</text><line class="grid" x1="75.00" y1="157" x2="75.00" y2="317" /><text x="75.00" y="335" text-anchor="middle" font-size="11">Fixed PID</text><line class="grid" x1="465.00" y1="157" x2="465.00" y2="317" /><text x="465.00" y="335" text-anchor="middle" font-size="11">Scheduled PID</text><line class="grid" x1="855.00" y1="157" x2="855.00" y2="317" /><text x="855.00" y="335" text-anchor="middle" font-size="11">Feedback linearisation</text><rect class="axis" x="75" y="157" width="780" height="160" fill="none" /><circle cx="75.00" cy="195.20" r="4" fill="#2563eb"/><circle cx="465.00" cy="195.18" r="4" fill="#2563eb"/><circle cx="855.00" cy="251.39" r="4" fill="#2563eb"/><circle cx="75.00" cy="171.61" r="4" fill="#dc2626"/><circle cx="465.00" cy="171.55" r="4" fill="#dc2626"/><circle cx="855.00" cy="199.66" r="4" fill="#dc2626"/><text x="75" y="395" font-size="16" font-weight="700">Cumulative motor-torque movement (N m)</text><line class="grid" x1="75" y1="407.00" x2="855" y2="407.00" /><text x="67" y="411.00" text-anchor="end" font-size="11">290.71</text><line class="grid" x1="75" y1="447.00" x2="855" y2="447.00" /><text x="67" y="451.00" text-anchor="end" font-size="11">218.04</text><line class="grid" x1="75" y1="487.00" x2="855" y2="487.00" /><text x="67" y="491.00" text-anchor="end" font-size="11">145.36</text><line class="grid" x1="75" y1="527.00" x2="855" y2="527.00" /><text x="67" y="531.00" text-anchor="end" font-size="11">72.68</text><line class="grid" x1="75" y1="567.00" x2="855" y2="567.00" /><text x="67" y="571.00" text-anchor="end" font-size="11">0.00</text><line class="grid" x1="75.00" y1="407" x2="75.00" y2="567" /><text x="75.00" y="585" text-anchor="middle" font-size="11">Fixed PID</text><line class="grid" x1="465.00" y1="407" x2="465.00" y2="567" /><text x="465.00" y="585" text-anchor="middle" font-size="11">Scheduled PID</text><line class="grid" x1="855.00" y1="407" x2="855.00" y2="567" /><text x="855.00" y="585" text-anchor="middle" font-size="11">Feedback linearisation</text><rect class="axis" x="75" y="407" width="780" height="160" fill="none" /><circle cx="75.00" cy="471.67" r="4" fill="#2563eb"/><circle cx="465.00" cy="452.31" r="4" fill="#2563eb"/><circle cx="855.00" cy="421.61" r="4" fill="#2563eb"/><circle cx="75.00" cy="469.56" r="4" fill="#dc2626"/><circle cx="465.00" cy="450.67" r="4" fill="#dc2626"/><circle cx="855.00" cy="421.55" r="4" fill="#dc2626"/>
+<text x="55" y="70" font-size="14">Index 0 is fixed gain, 1 is gain scheduled, and 2 uses feedback linearisation.</text>
+<line x1="55" y1="108" x2="83" y2="108" stroke="#2563eb" stroke-width="3"/><text x="89" y="113" font-size="12">Nominal payload</text>
+<line x1="205" y1="108" x2="233" y2="108" stroke="#dc2626" stroke-width="3" stroke-dasharray="7 5"/><text x="239" y="113" font-size="12">Heavy payload</text>
+<text x="75" y="145" font-size="16" font-weight="700">Integrated absolute position error (rad s)</text>
+<line class="grid" x1="75" y1="157.00" x2="855" y2="157.00"/><text x="67" y="161.00" text-anchor="end" font-size="11">3.98</text>
+<line class="grid" x1="75" y1="197.00" x2="855" y2="197.00"/><text x="67" y="201.00" text-anchor="end" font-size="11">2.98</text>
+<line class="grid" x1="75" y1="237.00" x2="855" y2="237.00"/><text x="67" y="241.00" text-anchor="end" font-size="11">1.99</text>
+<line class="grid" x1="75" y1="277.00" x2="855" y2="277.00"/><text x="67" y="281.00" text-anchor="end" font-size="11">0.99</text>
+<line class="grid" x1="75" y1="317.00" x2="855" y2="317.00"/><text x="67" y="321.00" text-anchor="end" font-size="11">0.00</text>
+<line class="grid" x1="75.00" y1="157" x2="75.00" y2="317"/><text x="75.00" y="335" text-anchor="middle" font-size="11">-0.10</text>
+<line class="grid" x1="270.00" y1="157" x2="270.00" y2="317"/><text x="270.00" y="335" text-anchor="middle" font-size="11">0.45</text>
+<line class="grid" x1="465.00" y1="157" x2="465.00" y2="317"/><text x="465.00" y="335" text-anchor="middle" font-size="11">1.00</text>
+<line class="grid" x1="660.00" y1="157" x2="660.00" y2="317"/><text x="660.00" y="335" text-anchor="middle" font-size="11">1.55</text>
+<line class="grid" x1="855.00" y1="157" x2="855.00" y2="317"/><text x="855.00" y="335" text-anchor="middle" font-size="11">2.10</text>
+<circle cx="110.45" cy="195.20" r="4" fill="#2563eb"/>
+<circle cx="465.00" cy="195.18" r="4" fill="#2563eb"/>
+<circle cx="819.55" cy="251.39" r="4" fill="#2563eb"/>
+<circle cx="110.45" cy="171.61" r="4" fill="#dc2626"/>
+<circle cx="465.00" cy="171.55" r="4" fill="#dc2626"/>
+<circle cx="819.55" cy="199.66" r="4" fill="#dc2626"/>
+<rect class="axis" x="75" y="157" width="780" height="160" fill="none"/><text x="465" y="353" text-anchor="middle" font-size="12">architecture index</text>
+<text x="75" y="395" font-size="16" font-weight="700">Cumulative motor-torque movement (N m)</text>
+<line class="grid" x1="75" y1="407.00" x2="855" y2="407.00"/><text x="67" y="411.00" text-anchor="end" font-size="11">290.71</text>
+<line class="grid" x1="75" y1="447.00" x2="855" y2="447.00"/><text x="67" y="451.00" text-anchor="end" font-size="11">218.04</text>
+<line class="grid" x1="75" y1="487.00" x2="855" y2="487.00"/><text x="67" y="491.00" text-anchor="end" font-size="11">145.36</text>
+<line class="grid" x1="75" y1="527.00" x2="855" y2="527.00"/><text x="67" y="531.00" text-anchor="end" font-size="11">72.68</text>
+<line class="grid" x1="75" y1="567.00" x2="855" y2="567.00"/><text x="67" y="571.00" text-anchor="end" font-size="11">0.00</text>
+<line class="grid" x1="75.00" y1="407" x2="75.00" y2="567"/><text x="75.00" y="585" text-anchor="middle" font-size="11">-0.10</text>
+<line class="grid" x1="270.00" y1="407" x2="270.00" y2="567"/><text x="270.00" y="585" text-anchor="middle" font-size="11">0.45</text>
+<line class="grid" x1="465.00" y1="407" x2="465.00" y2="567"/><text x="465.00" y="585" text-anchor="middle" font-size="11">1.00</text>
+<line class="grid" x1="660.00" y1="407" x2="660.00" y2="567"/><text x="660.00" y="585" text-anchor="middle" font-size="11">1.55</text>
+<line class="grid" x1="855.00" y1="407" x2="855.00" y2="567"/><text x="855.00" y="585" text-anchor="middle" font-size="11">2.10</text>
+<circle cx="110.45" cy="471.67" r="4" fill="#2563eb"/>
+<circle cx="465.00" cy="452.31" r="4" fill="#2563eb"/>
+<circle cx="819.55" cy="421.61" r="4" fill="#2563eb"/>
+<circle cx="110.45" cy="469.56" r="4" fill="#dc2626"/>
+<circle cx="465.00" cy="450.67" r="4" fill="#dc2626"/>
+<circle cx="819.55" cy="421.55" r="4" fill="#dc2626"/>
+<rect class="axis" x="75" y="407" width="780" height="160" fill="none"/><text x="465" y="603" text-anchor="middle" font-size="12">architecture index</text>
 </svg>
