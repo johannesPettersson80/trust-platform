@@ -165,6 +165,7 @@ docs/internal/testing/evidence/*
 !docs/internal/testing/checklists/control-pid-advanced-benchmark-checklist.md
 !docs/internal/testing/checklists/control-engineering-next-implementation-checklist.md
 !docs/internal/testing/checklists/control-engineering-learning-program-implementation-checklist.md
+!docs/internal/testing/checklists/control-engineering-curriculum-implementation-checklist.md
 !docs/internal/testing/evidence/plcopen-motion-library-implementation-*.md
 !docs/internal/testing/evidence/plcopen-motion-library-post-parity-reconciliation-*.md
 !docs/internal/testing/evidence/vscode-plant-simulation-ui/
