@@ -21,8 +21,8 @@ derivative, or when torque reaches the drive.
 The plant advances every 10 ms; the controller updates every one, two, or
 ten scans, holding the last torque between updates. Gains remain 8 N m/rad,
 2 N m/(rad s), 3 N m s/rad, and a 0.05 s derivative filter — only
-realization, interval, resolution, and delay change; the task is to derive
-the actual recurrences and qualify method and interval from that evidence.
+realization, interval, resolution, and delay change; derive the actual
+recurrences and qualify method and interval from that evidence.
 
 ## What we need
 
@@ -58,7 +58,7 @@ The **setpoint ($SP$)** is desired angle, **process value ($PV$)** is
 sampled angle, and **error ($e$)** is SP minus PV. Index **k** is the
 current update, `k-1` the previous.
 
-The **integral torque** remembers the area under error:
+The **integral torque** remembers the error area:
 
 $T_I(t_k)=T_I(t_{k-1})+K_i\int_{t_{k-1}}^{t_k}e(t)\,dt.$
 
@@ -94,13 +94,12 @@ for $D_k$:
 
 $D_k=\frac{D_{k-1}+(K_d/\tau_D)(PV_k-PV_{k-1})} {1+\Delta t/\tau_D}.$
 
-Tustin integrates over one interval, approximating $D$'s area by a
-trapezoid, then solves for $D_k$:
+Tustin integrates over one interval, trapezoid-approximating $D$'s area,
+solved for $D_k$:
 
 $D_k= \frac{(2\tau_D-\Delta t)D_{k-1} +2K_d(PV_k-PV_{k-1})} {2\tau_D+\Delta t}.$
 
-Three different executable state updates, not three labels for one
-calculation.
+Three different state updates, not three labels for one calculation.
 
 The **quantization step ($q$)** is the 0.001 rad spacing between encoder
 values.
@@ -110,8 +109,8 @@ a sampled disturbance above $f_N$ produces:
 
 $f_{\mathrm{alias}}=|f_{\mathrm{signal}}-m f_s|,$
 
-with integer $m$ chosen so the result lies in $[0,f_N]$: 8 Hz sampled at
-10 Hz gives $m=1$, $f_{\mathrm{alias}}=|8-10|=2\,\mathrm{Hz}.$
+with integer $m$ so the result lies in $[0,f_N]$: 8 Hz sampled at 10 Hz
+gives $m=1$, $f_{\mathrm{alias}}=|8-10|=2\,\mathrm{Hz}.$
 
 The **computation delay ($T_{\mathrm{delay}}$)** is one update: torque is
 applied at the next update.
@@ -147,7 +146,7 @@ torque recurrence, longer holds, a 2 Hz alias, and a one-update delay shift.
 
 ## Implementation
 
-The lesson executes the alternatives directly:
+The lesson executes each alternative:
 
 ```st
 CASE MethodSelection OF
@@ -167,7 +166,7 @@ RequestedTorque := Controller.Update(
 );
 ```
 
-Between updates `RequestedTorque` is unchanged, implementing the hold.
+Between updates `RequestedTorque` stays unchanged: the hold.
 
 ## Experiment in Control Studio
 
@@ -178,8 +177,8 @@ method/interval, enables control, applies SP 0.5 rad, and false restores SP
 0, disabled, zero torque.
 
 Fresh native runtimes own the three-method 20 ms, 10/20/100 ms interval, and
-delayed 10 ms comparisons; one UI run cannot claim that matrix. Seed
-20260828 is deterministic.
+delayed 10 ms comparisons; one UI run cannot claim that matrix (seed
+20260828, deterministic).
 
 ### Control Studio actions
 
@@ -202,8 +201,8 @@ method, interval, and delay matrix; Monitor and Test expose one declared case.
 
 ## Evidence and decision
 
-Plot SP, PV, held torque, and update pulses together; compare error,
-overshoot, settling, torque travel, interval, jitter, and hold duration.
+Plot SP, PV, held torque, and update pulses; compare error, overshoot,
+settling, torque travel, interval, jitter, and hold duration.
 
 **Maximum absolute position error**, the maximum over all samples of the
 absolute value of SP minus PV, is
@@ -215,8 +214,8 @@ variation**, the sum of absolute successive changes, is
 
 $TV(T)=\sum_k|T_k-T_{k-1}|,$
 
-which cannot be cancelled by alternating movement. Final-window position
-span is $\max(PV)-\min(PV)$, and torque span is $\max(T)-\min(T)$, each over
+which cannot be cancelled by alternating movement.
+Final-window position span is $\max(PV)-\min(PV)$, and torque span is $\max(T)-\min(T)$, each over
 the final two seconds, so a small final sample alone cannot hide variation.
 
 The **measurement residual** is sampled PV minus its 5-to-20 s window mean;
@@ -270,8 +269,8 @@ Every tested case remained finite and bounded:
 | Tustin, 10 ms plus delay | 11.73 s | 98.25 N m | 0.01 s | 0.01 s |
 
 Lower movement at 100 ms is not automatically better: the command is held
-longer and 8 Hz interference appears as 2 Hz. Judge timing, tracking, alias,
-and delay together.
+longer and 8 Hz interference appears as 2 Hz. Judge timing, tracking,
+alias, and delay together.
 
 Torque shall change only on update pulses at the selected 10/20/100 ms
 spacing; PV shall stay on the 0.001 rad grid; the 100 ms alias shall fall

@@ -1,17 +1,17 @@
 # Reshape a positioning-servo root locus
 
-Course position: Lesson 46 of 84. Prerequisite:
-[`control-crane-routh-stability`](../45-crane-routh-stability/).
-Next lesson: [`control-flexible-drive-bode`](../47-flexible-drive-bode/).
+Course position: Lesson 46 of 84. Previous lesson:
+[crane Routh-Hurwitz stability](../45-crane-routh-stability/README.md).
+Next lesson: [flexible-drive Bode analysis](../47-flexible-drive-bode/README.md).
 
-**Equipment:** Belt-driven industrial positioning carriage.
-
-**One clear objective:** prove why proportional gain alone fails and design and
+**Lesson objective:** Prove why proportional gain alone fails and design and
 validate one lead compensator from explicit pole requirements.
+
+**Evidence class:** Simulation evidence, not physical-plant evidence.
 
 ## The problem
 
-This lesson controls a belt-driven industrial positioning carriage. The
+The equipment is a belt-driven industrial positioning carriage. The
 carriage-position setpoint and measured position use millimetres. Requested and
 applied motor-current commands use percent of the drive rating and may act in
 either direction.
@@ -19,8 +19,7 @@ either direction.
 Two independent simulated copies use the same motor and carriage model, zero
 initial position, one-millimetre move, 10-millisecond control interval, current
 limits, and deterministic seed. One uses proportional control; the other uses
-the lead compensator designed in this lesson. This is Simulation evidence, not
-physical-plant evidence.
+the lead compensator designed in this lesson.
 
 Lesson 45 used Routh-Hurwitz to establish a stable gain interval. It did not
 show how individual poles move, which poles dominate the response, or whether
@@ -44,10 +43,21 @@ gain changes.
 
 Branches start at open-loop poles and finish at open-loop zeros or at infinity.
 A real-axis segment is part of the locus on the real number line. A breakaway
-point is where branches leave that line. An asymptote describes a branch going
-to infinity; its centroid is the point where the asymptotes intersect the real
-axis. The angle condition decides whether a point lies on the locus. The
-magnitude condition calculates the gain at that point.
+point is where branches leave that line.
+
+An asymptote describes a branch going to infinity when open-loop poles
+outnumber open-loop zeros. Their count equals that excess; their shared
+centroid, where they intersect the real axis, is the sum of the pole
+locations minus the sum of the zero locations, divided by the count; and
+their angles are evenly spaced around the plane, starting at 180 degrees
+divided by the count.
+
+The angle condition decides whether a point lies on the locus: measuring the
+angle from every open-loop pole to that point, and separately from every
+open-loop zero to that point, the pole angles minus the zero angles must sum
+to plus-or-minus 180 degrees or an odd multiple of it. The magnitude
+condition then calculates the positive gain that places a closed-loop pole
+exactly there.
 
 Natural frequency describes the undamped speed of a pole pair. Damping ratio
 describes its decay relative to that frequency. A constant-damping line marks
@@ -79,7 +89,11 @@ $G(s) = \frac{1}{s(s+2)}$
 
 The factors in the denominator give open-loop poles at 0 and -2. The pole at
 zero is the integration from speed to position; the pole at -2 is the damped
-speed mode. There is no numerator factor, so there is no finite open-loop zero.
+speed mode. There is no numerator factor, so there is no finite open-loop
+zero. The coefficient 2 is a configured teaching value for viscous friction;
+on a physical carriage an engineer would estimate it from a guarded
+low-speed coast-down test and validate it on an unused move at the same
+load.
 
 For proportional feedback, $1+KG(s)=0$. Multiplying by $s(s+2)$ gives
 
@@ -92,28 +106,48 @@ $K=-s(s+2).$
 
 The gain is positive only between -2 and 0, so that interval is the real-axis
 locus. A breakaway occurs where changing $s$ no longer changes $K$ to first
-order. Differentiating gives $dK/ds=-2s-2$; setting it to zero gives $s=-1$.
-Because two branches must go to infinity and there are no finite zeros, their
-asymptote centroid is the mean of the two poles, $(0-2)/2=-1$, and their angles
-are $+90^\circ$ and $-90^\circ$. The branches therefore leave -1 vertically.
+order. Differentiating gives $dK/ds=-2s-2$; setting it to zero gives $s=-1$:
+the locus breaks away at -1. Two branches must go to infinity with no finite
+zeros, so by the asymptote rule above their count is two, their centroid is
+the mean of the two poles, $(0-2)/2=-1$, and their two evenly spaced angles
+start at 180 degrees divided by 2: 90 degrees and -90 degrees. The branches
+therefore leave -1 vertically.
 
-The quadratic formula gives $s=-1\pm\sqrt{1-K}$. For $K>1$ this becomes
+The quadratic formula gives $s=-1\pm\sqrt{1-K}$. For $K > 1$ this becomes
 $s=-1\pm j\sqrt{K-1}$. Increasing gain raises the imaginary part, which means
-faster oscillation, but the decay rate remains fixed at real part -1. At
-$K=4$, the poles are $-1\pm j1.732$. Their natural frequency is their distance
-from the origin, $\omega_n=\sqrt{1^2+1.732^2}=2$ rad/s, and their damping ratio
-is $\zeta=1/2=0.5$. The standard second-order estimates then give
+faster oscillation, but the decay rate remains fixed at real part -1: since
+settling time depends only on that real part, proportional gain alone cannot
+improve on roughly 4 seconds of decay time at any $K$. At $K=4$, the poles
+are $-1\pm j1.732$. Their natural frequency is their distance from the
+origin, $\omega_n=\sqrt{1^2+1.732^2}=2$ rad/s, and their damping ratio is
+$\zeta=1/2=0.5$.
+
+Percent overshoot ($M_p$) is the peak response above the final commanded
+value, expressed as a percentage of the commanded change. The 2-percent
+settling time ($T_{2\%}$) — a symbol chosen so it is never confused with the
+sample interval $T_s$ — is the earliest time after which the response stays
+within plus or minus 2 percent of that final value. The standard
+second-order estimates are
 
 $M_p=100e^{-\pi\zeta/\sqrt{1-\zeta^2}}=16.3\%$
 
-and $T_s\approx4/(\zeta\omega_n)=4$ s. Both miss the servo requirements. More
-proportional gain cannot fix that settling time because it cannot move the real
-part left of -1.
+and
+
+$T_{2\%}\approx4/(\zeta\omega_n)=4\text{ s}.$
+
+At $K = 4$ this predicts 16.3-percent overshoot and a 4-second settling
+time. Both miss the servo requirements. More proportional gain cannot fix
+that settling time because it cannot move the real part left of -1.
 
 ### Derive the lead design
 
-The required region needs a more negative real part. Place a lead zero at
--2.5, a farther-left pole at -15, and use gain 50:
+The required region needs a more negative real part than -1: 5-percent
+overshoot needs damping ratio at least 0.69, and 2-second settling needs
+$\zeta\omega_n$ of at least 2 rad/s. The standard lead recipe places a zero
+close to the slow region, so it supplies positive phase there, and a pole
+several times farther left, so it contributes little phase near the target
+and stays non-dominant; that recipe places a lead zero at -2.5, a
+farther-left pole at -15, and uses gain 50:
 
 $C(s)=50\frac{s+2.5}{s+15}$
 
@@ -132,6 +166,19 @@ $-3.235\pm j1.186$ and $-10.530$. The real pole is more than three times faster
 than the complex pair, so the pair is dominant. Its natural frequency is
 $\sqrt{3.235^2+1.186^2}=3.446$ rad/s and its damping ratio is
 $3.235/3.446=0.939$.
+
+The angle and magnitude conditions confirm this placement. At the dominant
+pole $s_0=-3.235+j1.186$, the open-loop poles at 0, -2, and -15 contribute
+angles of approximately 159.9, 136.2, and 5.8 degrees to that point; the zero
+at -2.5 contributes approximately 121.8 degrees. Poles minus zero gives
+$159.9+136.2+5.8-121.8\approx180$ degrees, so $s_0$ lies on the compensated
+locus as the angle condition requires. The same four distances give the gain
+through the magnitude condition, $|s_0|\approx3.446$, $|s_0+2|\approx1.712$,
+$|s_0+15|\approx11.825$, and $|s_0+2.5|\approx1.395$:
+
+$K=\frac{|s_0|\,|s_0+2|\,|s_0+15|}{|s_0+2.5|}=\frac{3.446\times1.712\times11.825}{1.395}\approx50$
+
+recovering the gain 50 used above.
 
 That damping ratio does not by itself determine overshoot because the complete
 closed-loop transfer function still contains the controller zero:

@@ -232,7 +232,10 @@ def render_topology() -> str:
 
 def main() -> None:
     (ROOT / "pole-zero-plant-classes.svg").write_text(render_results(), encoding="utf-8")
-    (ROOT / "pole-zero-plant-classes-map.svg").write_text(render_map(), encoding="utf-8")
+    # This figure is written and byte-compared by the native runtime test
+    # (crates/trust-runtime/tests/control_curriculum_modelling_progression.rs).
+    # Regenerating it here would drift that retained artifact, so it is left
+    # to the test that owns it; run the native test to refresh pole-zero-plant-classes-map.svg.
     (ROOT / "pole-zero-plant-classes-topology.svg").write_text(render_topology(), encoding="utf-8")
 
 

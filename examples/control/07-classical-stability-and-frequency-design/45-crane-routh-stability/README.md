@@ -4,21 +4,28 @@ Course position: Lesson 45 of 84. Previous lesson:
 [model-qualified PI tuning](../../06-pid-tuning-methods/44-model-based-tuning/README.md).
 Next lesson: [servo root locus](../46-servo-root-locus/README.md).
 
-**Equipment:** Overhead travelling crane trolley with suspended load.
-
-**One clear objective:** derive the complete gain interval and predict stable,
+**Lesson objective:** Derive the complete gain interval and predict stable,
 marginal, and unstable crane responses before executable confirmation.
+
+**Evidence class:** Simulation evidence, not physical-plant evidence. Never
+apply the marginal or unstable gain from this result to a physical crane.
 
 ## The problem
 
-An overhead travelling crane moves a trolley while a suspended load introduces
-oscillatory mechanical dynamics. The trolley-position setpoint and measured
-trolley position use metres. Requested and applied motor force use percent of
-the reviewed bidirectional drive range, from -100 to 100 percent.
+The equipment is an overhead travelling crane trolley with suspended load: a
+motor-driven trolley runs along an overhead rail while the suspended load
+introduces oscillatory mechanical dynamics. The trolley-position setpoint and
+measured trolley position use metres. Requested and applied motor force use
+percent of the reviewed bidirectional drive range, from -100 to 100 percent.
 
 The simulator contains three independent copies of the same local crane model.
 They start from the same 0.1-metre trolley displacement and differ only in
-proportional gain. This is Simulation evidence, not physical-plant evidence.
+proportional gain.
+
+This model describes trolley position under drive force. Lesson 35's crane
+model described payload position under trolley force instead, a different
+signal path, so its earlier all-stable poles do not contradict the pole at
+the origin derived below.
 
 Lesson 44 ran selected tunings against nominal and perturbed process models.
 Those finite experiments cannot prove stability for every gain between or
@@ -62,9 +69,8 @@ A complete crane model begins with Newton's laws for the trolley and suspended
 load. Trolley force accelerates both masses, rope angle couples load swing back
 into trolley motion, and friction removes motion. Linearizing those balances
 around a fixed load, rope length, small swing angle, and stationary trolley
-produces coupled linear equations. This lesson uses a reduced local modal model
-of those equations; it does not claim that a complete crane has only three
-states.
+produces coupled linear equations. This lesson's reduced local modal model of
+those equations does not claim a complete crane has only three states.
 
 The trolley-position deviation ($x$) is measured in metres. Its first, second,
 and third time derivatives are velocity in metres per second, acceleration in
@@ -119,18 +125,18 @@ closed-loop poles:
 $p(s)=s^3+2s^2+3s+K.$
 
 Place alternating coefficients into the first two rows: the $s^3$ row is
-$[1,3]$ and the $s^2$ row is $[2,K]$. The first element of the next row
+$[1, 3]$ and the $s^2$ row is $[2, K]$. The first element of the next row
 ($b_1$) is formed by cross-multiplying the two rows above, subtracting, and
 dividing by the leading value 2:
 
-$b_1=\frac{2(3)-1(K)}{2}=\frac{6-K}{2}.$
+$b_1=\frac{2(3)-1(K)}{2}=\frac{(6-K)}{2}.$
 
 The $s^0$ row contains $K$. Thus the first column is
-$[1,2,(6-K)/2,K]$.
+$[1, 2, (6-K)/2, K]$.
 
 Every first-column element must be positive for asymptotic stability. The last
-element requires $K>0$ and the preceding element requires $6-K>0$, or $K<6$.
-Their intersection gives the complete interval $0<K<6$.
+element requires $K > 0$ and the preceding element requires $6-K>0$, or
+$K < 6$. Their intersection gives the complete interval $0 < K < 6$.
 
 For $K = 4$, the first column is $[1, 2, 1, 4]$: zero sign changes predict a
 stable response. For $K=6$, the $s^1$ row becomes zero. The auxiliary
@@ -167,7 +173,7 @@ classification. The deterministic Simulation seed is 20260829.
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Stable trolley setpoint (SP, m) and Marginal trolley setpoint (SP, m); Stable trolley position (PV, m) and Marginal trolley position (PV, m); Stable applied motor force (MV, %) and Marginal applied motor force (MV, %), including units, limits, mode, and quality. The initial operating point is Stable trolley setpoint = 0 m, Marginal trolley setpoint = 0 m, Unstable trolley setpoint = 0 m, Stable applied motor force = 0 %, Marginal applied motor force = 0 %, Unstable applied motor force = 0 %, Stable trolley position = 0.1 m, Marginal trolley position = 0.1 m. The unresolved baseline problem is: A finite response at selected gains cannot prove the complete stability interval or expose a weakly excited unstable mode.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Stable trolley setpoint (SP, m), Marginal trolley setpoint (SP, m), and Unstable trolley setpoint (SP, m); Stable trolley position (PV, m), Marginal trolley position (PV, m), and Unstable trolley position (PV, m); Stable applied motor force (MV, %), Marginal applied motor force (MV, %), and Unstable applied motor force (MV, %), including units, limits, mode, and quality. The initial operating point is Stable trolley setpoint = 0 m, Marginal trolley setpoint = 0 m, Unstable trolley setpoint = 0 m, Stable applied motor force = 0 %, Marginal applied motor force = 0 %, Unstable applied motor force = 0 %, Stable trolley position = 0.1 m, Marginal trolley position = 0.1 m, Unstable trolley position = 0.1 m. The unresolved baseline problem is: A finite response at selected gains cannot prove the complete stability interval or expose a weakly excited unstable mode.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Use the Routh first-column signs and independent numerical roots as authority; use equivalent time traces only as confirmation.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
@@ -186,48 +192,42 @@ checks and correlates them with the retained traces.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 Change only proportional gain. Hold the crane model, initial displacement,
 zero setpoint, sample schedule, 40-second duration, limits, and seed equal.
-
-Define the measures before seeing results:
-
-- **First-column sign-change count** is the integer number of changes in the
-  ordered Routh first column.
-- **Position-envelope ratio** is the largest absolute position in the declared
-  late window divided by the largest absolute position in the declared early
-  window. Values below one show decay; values near one show persistence; values
-  above one show growth.
-- **Force travel** is actuator activity, calculated as the sum of absolute
-  changes between consecutive applied-force samples, in percentage points.
-
-Also retain peak position, peak requested and applied force, limit contact,
-stop reason, polynomial, gain, windows, sample interval, and evidence class.
-
-### Validation
+Define the measures before seeing results. The **first-column sign-change
+count** is the integer number of changes in the ordered Routh first column.
+The **position-envelope ratio** is the largest absolute position in the
+declared late window divided by the largest absolute position in the declared
+early window: values below one show decay, values near one show persistence,
+and values above one show growth. The declared early window is 2.01-12.00 s;
+the declared late window is 30.01-40.00 s. Native acceptance requires the
+stable ratio below 0.25, well under the near-one persistence boundary, so
+borderline decay is never misread as stability. **Force travel** is actuator
+activity: the sum of absolute changes between consecutive applied-force
+samples, in percentage points. Also retained: peak requested and applied
+force, limit contact, stop reason, polynomial, gain, and sample interval.
 
 First use an independent numerical root oracle. It must find no right-half-
-plane roots for $K = 4$, two imaginary-axis roots for $K = 6$, and two right-
-half-plane roots for $K = 8$. Then compare the time traces.
-
-The stable trace must decay. The marginal trace must persist and be reported
-as `Not settled`, never asymptotically stable. The unstable trace must grow or
-reach its safe simulation abort. The time trace confirms the prediction; it
-does not replace the Routh calculation or numerical root oracle. A short quiet
-prefix or convenient final sample cannot override the pole classification.
-
-Never test the unstable gain on a physical crane from this simulation result.
-Physical work requires a separately reviewed plant model, topology, limits,
-interlocks, operating procedure, authorised roles, and explicit approval.
-
-### Retained evidence
+plane roots for $K = 4$, two imaginary-axis roots for $K = 6$, and two
+right-half-plane roots for $K = 8$. Then compare the time traces: the stable
+trace must decay, the marginal trace must persist and be reported as
+`Not settled`, and the unstable trace must grow or reach its safe simulation
+abort. The time trace confirms the prediction; it does not replace the Routh
+calculation or numerical root oracle, and a short quiet prefix cannot
+override the pole classification.
 
 The pole plot records the Routh-Hurwitz prediction beside the measured crane
-motion. Use the decision summary for the engineering verdict and the complete
-trace when you want to reproduce every plotted point.
+motion, shading the early and late windows on the position trace.
 
 ![Crane pole locations and measured position](figures/crane-routh-evidence.svg)
+
+The retained run reproduces every prediction:
+
+| Case | Peak position (m) | Early envelope (m) | Late envelope (m) | Late/early ratio | Applied force travel (pp) | Result |
+|---|---:|---:|---:|---:|---:|---|
+| Stable, K = 4 | 0.1000 | 0.0492 | 0.0004 | 0.01 | 1.75 | Decayed, 0 unstable poles |
+| Marginal, K = 6 | 0.1000 | 0.0794 | 0.0892 | 1.12 | 21.84 | Persisted, `Not settled`, 0 unstable poles |
+| Unstable, K = 8 | 2.6283 | 0.3500 | 1.6116 | 4.61 | 189.45 | Aborted at local range, 2 unstable poles |
 
 [Complete trace](figures/crane-routh-evidence-trace.csv) ·
 [Decision summary](figures/crane-routh-evidence-summary.csv)
