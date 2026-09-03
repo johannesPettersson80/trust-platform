@@ -100,41 +100,61 @@ fn curriculum_project_file(relative: &str) -> String {
 }
 
 fn addressed_source(source: &str) -> String {
+    // Every pattern below is anchored on a leading "\n    " (the standard
+    // 4-space VAR-block indent) so it cannot also match a longer declaration
+    // that happens to end with the same suffix (e.g. "AutoMode : BOOL :="
+    // must not also rewrite "PreviousAutoMode : BOOL :=" or
+    // "LastAutoMode : BOOL :=" into an alias of the same %IX24.0 cell, and
+    // "Setpoint : LREAL :=" / "ProcessValue : LREAL :=" must not also rewrite
+    // "PreviousSetpoint : LREAL :=" / "PreviousProcessValue : LREAL :=").
     source
         .split("CONFIGURATION Config")
         .next()
         .expect("example program before configuration")
-        .replace("Setpoint : LREAL :=", "Setpoint AT %IL32 : LREAL :=")
+        .replace("\n    Setpoint : LREAL :=", "\n    Setpoint AT %IL32 : LREAL :=")
         .replace(
-            "HysteresisWidth : LREAL :=",
-            "HysteresisWidth AT %IL8 : LREAL :=",
-        )
-        .replace("AutoMode : BOOL :=", "AutoMode AT %IX24.0 : BOOL :=")
-        .replace("ProcessValue : LREAL :=", "ProcessValue AT %IL0 : LREAL :=")
-        .replace(
-            "DoorOpenIndication : LREAL :=",
-            "DoorOpenIndication AT %IL8 : LREAL :=",
+            "\n    HysteresisWidth : LREAL :=",
+            "\n    HysteresisWidth AT %IL8 : LREAL :=",
         )
         .replace(
-            "EffectiveSurroundings : LREAL :=",
-            "EffectiveSurroundings AT %IL16 : LREAL :=",
+            "\n    AutoMode : BOOL :=",
+            "\n    AutoMode AT %IX24.0 : BOOL :=",
         )
         .replace(
-            "SimulatorTruePressure : LREAL :=",
-            "SimulatorTruePressure AT %IL8 : LREAL :=",
-        )
-        .replace("BeltSpeed : LREAL :=", "BeltSpeed AT %IL16 : LREAL :=")
-        .replace(
-            "ManipulatedValue : LREAL :=",
-            "ManipulatedValue AT %QL0 : LREAL :=",
+            "\n    ProcessValue : LREAL :=",
+            "\n    ProcessValue AT %IL0 : LREAL :=",
         )
         .replace(
-            "AppliedHeaterPower : LREAL :=",
-            "AppliedHeaterPower AT %QL0 : LREAL :=",
+            "\n    DoorOpenIndication : LREAL :=",
+            "\n    DoorOpenIndication AT %IL8 : LREAL :=",
         )
         .replace(
-            "AppliedHeaterTrim : LREAL :=",
-            "AppliedHeaterTrim AT %QL0 : LREAL :=",
+            "\n    EffectiveSurroundings : LREAL :=",
+            "\n    EffectiveSurroundings AT %IL16 : LREAL :=",
+        )
+        .replace(
+            "\n    SimulatorTruePressure : LREAL :=",
+            "\n    SimulatorTruePressure AT %IL8 : LREAL :=",
+        )
+        .replace(
+            "\n    BeltSpeed : LREAL :=",
+            "\n    BeltSpeed AT %IL16 : LREAL :=",
+        )
+        .replace(
+            "\n    ManipulatedValue : LREAL :=",
+            "\n    ManipulatedValue AT %QL0 : LREAL :=",
+        )
+        .replace(
+            "\n    AppliedHeaterPower : LREAL :=",
+            "\n    AppliedHeaterPower AT %QL0 : LREAL :=",
+        )
+        .replace(
+            "\n    AppliedHeaterTrim : LREAL :=",
+            "\n    AppliedHeaterTrim AT %QL0 : LREAL :=",
+        )
+        .replace(
+            "\n    ExperimentEnabled : BOOL :=",
+            "\n    ExperimentEnabled AT %IX56.0 : BOOL :=",
         )
 }
 
@@ -174,7 +194,7 @@ fn run_water_heater(proportional_gain: f64) -> Vec<(f64, f64)> {
     );
     let sp = IoAddress::parse("%IL32").expect("SP address");
     let kp = IoAddress::parse("%IL8").expect("Kp address");
-    let auto = IoAddress::parse("%IX24.0").expect("mode address");
+    let experiment_enabled = IoAddress::parse("%IX56.0").expect("experiment-enabled address");
     let pv = IoAddress::parse("%IL0").expect("PV address");
     let mv = IoAddress::parse("%QL0").expect("MV address");
     simulation
@@ -184,7 +204,7 @@ fn run_water_heater(proportional_gain: f64) -> Vec<(f64, f64)> {
     for cycle in 1..=1_200 {
         write_lreal(&mut runtime, &sp, 35.0);
         write_lreal(&mut runtime, &kp, proportional_gain);
-        write_bool(&mut runtime, &auto, true);
+        write_bool(&mut runtime, &experiment_enabled, true);
         runtime.execute_cycle().expect("execute P controller");
         let now = Duration::from_millis((cycle * 100) as i64);
         simulation
@@ -209,17 +229,17 @@ fn control_curriculum_water_heater_p_shipped_defaults_run_selected_candidate_saf
     .label_errors(true)
     .build_runtime()
     .expect("compile shipped water-heater P lesson");
-    let auto = IoAddress::parse("%IX24.0").expect("mode address");
+    let experiment_enabled = IoAddress::parse("%IX56.0").expect("experiment-enabled address");
     let mv = IoAddress::parse("%QL0").expect("MV address");
 
-    write_bool(&mut runtime, &auto, true);
+    write_bool(&mut runtime, &experiment_enabled, true);
     runtime.execute_cycle().expect("run selected P candidate");
     assert!(
         (read_lreal(&runtime, &mv) - 100.0).abs() <= 1.0e-12,
         "the shipped 35 degC, Kp 8 candidate must clamp its initial 120% request to 100%"
     );
 
-    write_bool(&mut runtime, &auto, false);
+    write_bool(&mut runtime, &experiment_enabled, false);
     runtime.execute_cycle().expect("restore manual safe state");
     assert!(
         read_lreal(&runtime, &mv).abs() <= 1.0e-12,
@@ -246,7 +266,7 @@ fn run_water_heater_with_bias() -> Vec<(f64, f64)> {
     let mut simulation =
         SimulationController::new(SimulationConfig::load(&path).expect("load bias simulation"));
     let sp = IoAddress::parse("%IL32").expect("SP address");
-    let auto = IoAddress::parse("%IX24.0").expect("mode address");
+    let experiment_enabled = IoAddress::parse("%IX56.0").expect("experiment-enabled address");
     let pv = IoAddress::parse("%IL0").expect("PV address");
     let mv = IoAddress::parse("%QL0").expect("MV address");
     simulation
@@ -255,7 +275,7 @@ fn run_water_heater_with_bias() -> Vec<(f64, f64)> {
     let mut trace = Vec::with_capacity(1_200);
     for cycle in 1..=1_200 {
         write_lreal(&mut runtime, &sp, 35.0);
-        write_bool(&mut runtime, &auto, true);
+        write_bool(&mut runtime, &experiment_enabled, true);
         runtime
             .execute_cycle()
             .expect("execute biased P controller");
@@ -292,7 +312,7 @@ fn run_water_heater_integral_only() -> Vec<(f64, f64)> {
         SimulationConfig::load(&path).expect("load integral-only simulation"),
     );
     let sp = IoAddress::parse("%IL32").expect("SP address");
-    let auto = IoAddress::parse("%IX24.0").expect("mode address");
+    let experiment_enabled = IoAddress::parse("%IX56.0").expect("experiment-enabled address");
     let pv = IoAddress::parse("%IL0").expect("PV address");
     let mv = IoAddress::parse("%QL0").expect("MV address");
     simulation
@@ -301,7 +321,7 @@ fn run_water_heater_integral_only() -> Vec<(f64, f64)> {
     let mut trace = Vec::with_capacity(1_200);
     for cycle in 1..=1_200 {
         write_lreal(&mut runtime, &sp, 35.0);
-        write_bool(&mut runtime, &auto, true);
+        write_bool(&mut runtime, &experiment_enabled, true);
         runtime
             .execute_cycle()
             .expect("execute integral-only controller");
@@ -334,7 +354,7 @@ fn run_water_heater_pi() -> Vec<(f64, f64)> {
     let mut simulation =
         SimulationController::new(SimulationConfig::load(&path).expect("load PI simulation"));
     let sp = IoAddress::parse("%IL32").expect("SP address");
-    let auto = IoAddress::parse("%IX24.0").expect("mode address");
+    let experiment_enabled = IoAddress::parse("%IX56.0").expect("experiment-enabled address");
     let pv = IoAddress::parse("%IL0").expect("PV address");
     let mv = IoAddress::parse("%QL0").expect("MV address");
     simulation
@@ -343,7 +363,7 @@ fn run_water_heater_pi() -> Vec<(f64, f64)> {
     let mut trace = Vec::with_capacity(1_200);
     for cycle in 1..=1_200 {
         write_lreal(&mut runtime, &sp, 35.0);
-        write_bool(&mut runtime, &auto, true);
+        write_bool(&mut runtime, &experiment_enabled, true);
         runtime.execute_cycle().expect("execute PI controller");
         let now = Duration::from_millis((cycle * 100) as i64);
         simulation
@@ -512,12 +532,12 @@ fn control_curriculum_on_off_hysteresis_has_two_thresholds() {
     let mv = IoAddress::parse("%QL0").expect("MV address");
     let sp = IoAddress::parse("%IL32").expect("SP address");
     let hysteresis = IoAddress::parse("%IL8").expect("hysteresis address");
-    let auto = IoAddress::parse("%IX24.0").expect("mode address");
+    let experiment_enabled = IoAddress::parse("%IX56.0").expect("experiment-enabled address");
 
     let run = |runtime: &mut Runtime, process_value: f64, auto_mode: bool| {
         write_lreal(runtime, &sp, 2.0);
         write_lreal(runtime, &hysteresis, 1.0);
-        write_bool(runtime, &auto, auto_mode);
+        write_bool(runtime, &experiment_enabled, auto_mode);
         write_lreal(runtime, &pv, process_value);
         runtime.execute_cycle().expect("execute thermostat cycle");
         read_lreal(&runtime, &mv)
@@ -570,12 +590,12 @@ fn control_curriculum_cold_storage_single_threshold_reproduces_noise_chatter() {
     let pv = IoAddress::parse("%IL0").expect("PV address");
     let mv = IoAddress::parse("%QL0").expect("MV address");
     let sp = IoAddress::parse("%IL32").expect("SP address");
-    let auto = IoAddress::parse("%IX24.0").expect("mode address");
+    let experiment_enabled = IoAddress::parse("%IX56.0").expect("experiment-enabled address");
 
     let mut outputs = Vec::new();
     for process_value in [2.05, 1.95, 2.04, 1.96, 2.03, 1.97, 2.02, 1.98] {
         write_lreal(&mut runtime, &sp, 2.0);
-        write_bool(&mut runtime, &auto, true);
+        write_bool(&mut runtime, &experiment_enabled, true);
         write_lreal(&mut runtime, &pv, process_value);
         runtime.execute_cycle().expect("execute ON/OFF controller");
         outputs.push(read_lreal(&runtime, &mv));
@@ -613,6 +633,10 @@ fn control_curriculum_cold_storage_loop_anatomy_bounds_manual_actuation_and_expo
     .replace(
         "EffectiveSurroundings : LREAL :=",
         "EffectiveSurroundings AT %IL16 : LREAL :=",
+    )
+    .replace(
+        "ExperimentEnabled : BOOL :=",
+        "ExperimentEnabled AT %IX56.0 : BOOL :=",
     );
     let mut runtime = CompileSession::from_sources(vec![SourceFile::with_path(
         "cold-storage-loop-anatomy/src/Main.st",
@@ -633,12 +657,17 @@ fn control_curriculum_cold_storage_loop_anatomy_bounds_manual_actuation_and_expo
     let manual_demand = IoAddress::parse("%IL40").expect("manual demand address");
     let pv = IoAddress::parse("%IL0").expect("PV address");
     let mv = IoAddress::parse("%QL0").expect("MV address");
+    let experiment_enabled = IoAddress::parse("%IX56.0").expect("experiment-enabled address");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .expect("publish initial room temperature");
     let initial_temperature = read_lreal(&runtime, &pv);
     let mut cooled_temperature = initial_temperature;
 
+    // Control Studio grants the project's one Boolean authority; the project
+    // itself then owns the bounded 150% manual-demand interval and the
+    // restoration that follows, matching the loop below.
+    write_bool(&mut runtime, &experiment_enabled, true);
     for cycle in 1..=200 {
         write_lreal(&mut runtime, &manual_demand, 150.0);
         runtime
@@ -701,7 +730,7 @@ fn run_cold_storage(simulation_source: &str) -> (Vec<(f64, f64)>, usize) {
     let mv = IoAddress::parse("%QL0").expect("MV address");
     let sp = IoAddress::parse("%IL32").expect("SP address");
     let hysteresis = IoAddress::parse("%IL8").expect("hysteresis address");
-    let auto = IoAddress::parse("%IX24.0").expect("mode address");
+    let experiment_enabled = IoAddress::parse("%IX56.0").expect("experiment-enabled address");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .expect("publish initial cold-storage state");
@@ -709,7 +738,7 @@ fn run_cold_storage(simulation_source: &str) -> (Vec<(f64, f64)>, usize) {
     for cycle in 1..=1_200 {
         write_lreal(&mut runtime, &sp, 2.0);
         write_lreal(&mut runtime, &hysteresis, 1.0);
-        write_bool(&mut runtime, &auto, true);
+        write_bool(&mut runtime, &experiment_enabled, true);
         runtime.execute_cycle().expect("execute thermostat");
         let now = Duration::from_millis((cycle * 100) as i64);
         simulation
