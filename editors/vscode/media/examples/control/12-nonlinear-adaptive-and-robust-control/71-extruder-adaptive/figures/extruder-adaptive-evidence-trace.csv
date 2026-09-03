@@ -2,6 +2,6 @@ panel,series,point,x,y,x_unit,y_unit
 Grade-B tracking error,IAE,1,0.000000000000,158.457087329045,architecture index,bar s
 Grade-B tracking error,IAE,2,1.000000000000,134.650777297812,architecture index,bar s
 Grade-B tracking error,IAE,3,2.000000000000,109.791695320364,architecture index,bar s
-Cumulative screw-speed command movement,Movement,1,0.000000000000,1430.466553577599,architecture index,percentage points
-Cumulative screw-speed command movement,Movement,2,1.000000000000,1457.901789323270,architecture index,percentage points
-Cumulative screw-speed command movement,Movement,3,2.000000000000,1468.397196363637,architecture index,percentage points
+Cumulative valve-command movement,Movement,1,0.000000000000,1430.466553577599,architecture index,percentage points
+Cumulative valve-command movement,Movement,2,1.000000000000,1457.901789323270,architecture index,percentage points
+Cumulative valve-command movement,Movement,3,2.000000000000,1468.397196363637,architecture index,percentage points

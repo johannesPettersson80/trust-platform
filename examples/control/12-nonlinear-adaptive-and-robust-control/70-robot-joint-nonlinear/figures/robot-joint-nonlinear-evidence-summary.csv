@@ -1,4 +1,4 @@
-architecture,nominal_iae_rad_s,heavy_iae_rad_s,nominal_movement_nm,heavy_movement_nm,nominal_peak_torque_nm,heavy_peak_torque_nm,nominal_saturation_s,heavy_saturation_s,nominal_settling_plus1_2_s,nominal_settling_minus1_2_s,nominal_settling_spread_s,heavy_mae_plus1_2_rad,heavy_mae_minus1_2_rad,nominal_overshoot_percent_max,heavy_return_to_zero
-fixed,3.027579261,3.614085290,173.220078587,177.052740956,18.52,18.52,0.00,0.00,3.14,3.22,0.92,,,,Not settled
-scheduled,3.028162033,3.615595805,208.384251223,211.365130638,26.02,26.02,0.00,0.00,4.66,4.76,0.70,0.00189,0.00207,,Not settled
-feedback_linearised,1.630964857,2.916790855,264.172649232,264.285507658,28.80,28.80,0.00,0.00,1.02,1.02,0.02,0.07380,0.07380,0.38,
+architecture,nominal_iae_rad_s,heavy_iae_rad_s,nominal_movement_nm,heavy_movement_nm
+fixed,3.027579261,3.614085290,173.220078587,177.052740956
+scheduled,3.028162033,3.615595805,208.384251223,211.365130638
+feedback_linearised,1.630964857,2.916790855,264.172649232,264.285507658
