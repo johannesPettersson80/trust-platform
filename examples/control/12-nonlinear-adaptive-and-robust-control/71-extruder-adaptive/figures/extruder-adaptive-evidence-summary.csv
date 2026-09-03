@@ -1,5 +1,6 @@
-architecture,grade_b_iae_bar_s,cumulative_output_movement_pp,saturation_s
-fixed,158.457087329,1430.466553578,2.800
-scheduled,134.650777298,1457.901789323,2.900
-adaptive,109.791695320,1468.397196364,3.000
-adaptive_gain_estimate_rmse,0.073495665,,
+architecture,grade_b_iae_bar_s,cumulative_output_movement_pp,saturation_s,settling_status,grade_transition_projected_samples,determinant_at_60s,determinant_at_89_9s,unhealthy_window_start_s,unhealthy_window_end_s,resumed_updates_at_s
+fixed,158.457087329,1430.466553578,2.800,Not settled,,,,,,
+scheduled,134.650777298,1457.901789323,2.900,Not settled,,,,,,
+adaptive,109.791695320,1468.397196364,3.000,Not settled,63,,,,,
+adaptive_gain_estimate_rmse,0.073495665,,,,,,,,,
+constant_grade_probe_authorization_diagnostic,,,,,,23.543,0.060,90,95,105

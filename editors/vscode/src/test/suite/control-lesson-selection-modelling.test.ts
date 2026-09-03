@@ -1541,7 +1541,9 @@ suite("Controller selection and modelling curriculum lessons", () => {
       /applied coil-current deviation \(u_b\).*amperes/i,
       /feedback-gain row \(K_b\).*displacement.*velocity weights/i,
       /reference gain \(N_b\).*constant requested displacement/i,
-      /position-only.*poles.*\+j.*-j.*does not settle/i,
+      // The lesson now says why the position-only roots cannot settle (neither has
+      // a negative real part) instead of only asserting that they do not.
+      /position-only.*\+j.*-j.*negative real part.*without decaying/i,
       /desired poles.*-3.*-4.*16.*7.*12/i,
       /motor state vector \(x_m\).*shaft speed.*load torque/i,
       /measured motor output \(y_m\).*encoder speed/i,

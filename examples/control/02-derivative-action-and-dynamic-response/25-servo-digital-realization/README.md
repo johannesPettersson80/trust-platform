@@ -14,25 +14,23 @@ physical timing, drive latency, or an encoder.
 
 The equipment is the encoder-controlled industrial positioning table used
 since Lesson 19. Lesson 24 separated command shaping from drive and
-mechanical effects; this lesson looks inside the controller itself. A
+mechanical effects; this lesson looks inside the controller itself, since a
 continuous PID law does not say which samples a computer uses, how it
 approximates an integral or derivative, or when a calculated torque reaches
 the drive.
 
-The positioning plant advances every 10 ms. Its controller updates every one,
-two, or ten plant scans and holds the last torque between updates.
-
-The gains remain 8 N m/rad, 2 N m/(rad s), and 3 N m s/rad with a 0.05 s
-derivative filter. Only realization, interval, resolution, and delay change.
-
-The task is to derive the actual recurrences, then qualify the method and
-interval from timing, tracking, held output, quantization, aliasing, and delay.
+The plant advances every 10 ms; the controller updates every one, two, or
+ten scans and holds the last torque between updates. Gains remain 8 N m/rad,
+2 N m/(rad s), and 3 N m s/rad with a 0.05 s derivative filter — only
+realization, interval, resolution, and delay change. The task is to derive
+the actual recurrences, then qualify method and interval from timing,
+tracking, held output, quantization, aliasing, and delay.
 
 ## What we need
 
 We need a sampled controller whose update interval, held output, coefficient
-calculation, and aliasing limit are explicit rather than hidden by continuous-
-time notation.
+calculation, and aliasing limit are explicit, not hidden by continuous-time
+notation.
 
 ## The new idea
 
@@ -46,8 +44,8 @@ in hertz (Hz):
 
 $f_s=\frac{1}{\Delta t},$
 
-in code terms `f_s = 1 / dt`. This is a unit conversion: one update occupies
-$\Delta t$ seconds, so one second contains $1/\Delta t$ updates.
+`f_s = 1 / dt`: one update occupies $\Delta t$ seconds, so one second
+contains $1/\Delta t$ updates.
 
 The **Nyquist frequency ($f_{N}$)** is half the sampling frequency. Frequencies
 above it cannot be distinguished uniquely:
@@ -82,54 +80,42 @@ current error as the rectangle's height,
 
 $T_{I,k}=T_{I,k-1} +K_i\frac{\Delta t}{2}(e_k+e_{k-1}).$
 
-All three multiply error by elapsed time, which creates error area, and then
-by $K_i$, which converts that area to N·m.
+All three multiply error by elapsed time (error area), then by $K_i$
+(N·m).
 
-The **filtered derivative torque ($T_D$)**, written $D$ in the recurrences
-below, estimates $K_d$ times the measurement-rate of change of position,
-$dPV/dt$, and is subtracted from torque to provide damping. Its continuous
-equation is
+The **filtered derivative torque ($T_D$)**, written $D$ below, estimates
+$K_d$ times the measurement-rate of change of position, $dPV/dt$, and is
+subtracted from torque for damping. Its continuous equation is
 
 $\tau_D\frac{dD}{dt}+D=K_d\frac{dPV}{dt}.$
 
-Forward Euler evaluates the right-hand side from retained old values. With
-$r_{k-1}$ the previous measured position rate,
+Forward Euler evaluates the right side from the previous measured position
+rate $r_{k-1}$:
 
 $D_k=D_{k-1} +\frac{\Delta t}{\tau_D}(K_dr_{k-1}-D_{k-1}).$
 
-Backward Euler uses the current position change. Replacing both derivatives
-with backward differences gives
-
-$\tau_D\frac{D_k-D_{k-1}}{\Delta t}+D_k =K_d\frac{PV_k-PV_{k-1}}{\Delta t}.$
-
-Multiplying by $\Delta t/\tau_D$, collecting the $D_k$ terms, and solving
-produces the implemented recurrence
+Backward Euler replaces both derivatives with backward differences of $D$
+and $PV$, then solves for $D_k$:
 
 $D_k=\frac{D_{k-1}+(K_d/\tau_D)(PV_k-PV_{k-1})} {1+\Delta t/\tau_D}.$
 
-For Tustin, integrate the continuous equation over one interval and approximate
-the area under $D$ by a trapezoid:
-
-$\tau_D(D_k-D_{k-1}) +\frac{\Delta t}{2}(D_k+D_{k-1}) =K_d(PV_k-PV_{k-1}).$
-
-Collecting and solving gives
+Tustin integrates over one interval, approximating $D$'s area by a
+trapezoid, then solves for $D_k$:
 
 $D_k= \frac{(2\tau_D-\Delta t)D_{k-1} +2K_d(PV_k-PV_{k-1})} {2\tau_D+\Delta t}.$
 
-These are different executable state updates, not three labels for the same
+Three different executable state updates, not three labels for one
 calculation.
 
 The **quantization step ($q$)** is the 0.001 rad spacing between encoder values.
 
-The **alias frequency ($f_{\mathrm{alias}}$)** is the false lower frequency produced when a
-sampled disturbance exceeds $f_{N}$. For 8 Hz interference sampled at 10 Hz:
+The **alias frequency ($f_{\mathrm{alias}}$)** is the false lower frequency a
+sampled disturbance above $f_N$ produces:
 
 $f_{\mathrm{alias}}=|f_{\mathrm{signal}}-m f_s|,$
 
-where integer $m$ is chosen so the result lies between zero and $f_N$. For
-8 Hz sampled at 10 Hz, $m=1$, so
-
-$f_{\mathrm{alias}}=|8-10|=2\,\mathrm{Hz}.$
+with integer $m$ chosen so the result lies in $[0,f_N]$. 8 Hz sampled at
+10 Hz gives $m=1$, so $f_{\mathrm{alias}}=|8-10|=2\,\mathrm{Hz}.$
 
 The **computation delay ($T_{\mathrm{delay}}$)** is one update: calculated torque is applied
 at the next update.
@@ -139,37 +125,30 @@ quantization, stale samples, or a poor interval.
 
 ## Prediction
 
-From $J\dot\omega+B\omega=T$, the joint's $1\,\mathrm{kg\,m^2}$ inertia over
-its $1\,\mathrm{N\,m\,s/rad}$ friction gives a 1 s velocity time constant.
-**Samples per time constant** is 1 s divided by $\Delta t$.
+From $J\dot\omega+B\omega=T$, $1\,\mathrm{kg\,m^2}$ inertia over
+$1\,\mathrm{N\,m\,s/rad}$ friction gives a 1 s velocity time constant, so
+**samples per time constant** is 1 s divided by $\Delta t$.
 
-| $\Delta t$ | $f_{s}$ | $f_{N}$ | Samples per 1 s | Integral weight $K_i$ × $\Delta t$ | 8 Hz interference |
+| $\Delta t$ | $f_{s}$ | $f_{N}$ | Samples/1 s | $K_i\times\Delta t$ | 8 Hz? |
 | ---: | ---: | ---: | ---: | ---: | --- |
-| 0.01 s | 100 Hz | 50 Hz | 100 | 0.02 N m/rad | below Nyquist |
-| 0.02 s | 50 Hz | 25 Hz | 50 | 0.04 N m/rad | below Nyquist |
-| 0.10 s | 10 Hz | 5 Hz | 10 | 0.20 N m/rad | aliases to 2 Hz |
+| 0.01 s | 100 Hz | 50 Hz | 100 | 0.02 N m/rad | below |
+| 0.02 s | 50 Hz | 25 Hz | 50 | 0.04 N m/rad | below |
+| 0.10 s | 10 Hz | 5 Hz | 10 | 0.20 N m/rad | aliases |
 
 Calculate the 0.05 s derivative-filter coefficients before execution:
 
-| $\Delta t$ | Forward coefficient $\Delta t$/τ | Backward denominator 1 + $\Delta t$/τ | Tustin retained-state coefficient | Tustin position-change coefficient |
+| $\Delta t$ | Forward $\Delta t$/τ | Backward 1+$\Delta t$/τ | Tustin retained | Tustin position |
 | ---: | ---: | ---: | ---: | ---: |
 | 0.01 s | 0.200 | 1.200 | 0.818 | 54.545 N m/rad |
 | 0.02 s | 0.400 | 1.400 | 0.667 | 50.000 N m/rad |
 | 0.10 s | 2.000 | 3.000 | 0.000 | 30.000 N m/rad |
 
-The forward coefficient is $\Delta t/\tau_D$. The backward denominator is
-$1+\Delta t/\tau_D$. Dividing the Tustin recurrence by
-$2\tau_D+\Delta t$ identifies its retained-state coefficient
-$(2\tau_D-\Delta t)/(2\tau_D+\Delta t)$ and position-change coefficient
-$2K_d/(2\tau_D+\Delta t)$. For example, at 20 ms the retained coefficient is
-$(0.10-0.02)/(0.10+0.02)=0.667$, and the position coefficient is
-$6/0.12=50\,\mathrm{N\,m/rad}$.
+Dividing the Tustin recurrence by $2\tau_D+\Delta t$ gives its tabulated
+retained-state coefficient $(2\tau_D-\Delta t)/(2\tau_D+\Delta t)$ and
+position-change coefficient $2K_d/(2\tau_D+\Delta t)$.
 
-Thus $dt = 0.10 s$, $f_{s} = 10 Hz$, $f_{N} = 5 Hz$, and the forward coefficient is
-2.0. One-update delay is 0.01, 0.02, or 0.10 s.
-
-Predict different torque recurrences, longer holds at slower updates, a 2 Hz
-alias at 100 ms, and a one-update shift with delay.
+Thus $dt = 0.10 s$, $f_{s} = 10 Hz$, $f_{N} = 5 Hz$: predict a different
+torque recurrence, longer holds, a 2 Hz alias, and a one-update delay shift.
 
 ## Implementation
 
@@ -197,16 +176,15 @@ Between updates `RequestedTorque` is unchanged, implementing the hold.
 
 ## Experiment in Control Studio
 
-Control Studio exposes the most diagnostic selected case: Tustin at 100 ms,
-where the 8 Hz encoder component lies above the 5 Hz Nyquist limit. Test writes
-one reviewed Boolean authority, $\mathtt{P1.ExperimentEnabled}$, for 20.01
-seconds. The project selects the method and interval, enables control, and
-applies SP 0.5 rad. Returning authority false restores SP 0 rad, disables
-control, and commands zero torque.
+Control Studio exposes the most diagnostic case: Tustin at 100 ms, where the
+8 Hz encoder component lies above the 5 Hz Nyquist limit. Test writes one
+reviewed Boolean authority, $\mathtt{P1.ExperimentEnabled}$, for 20.01 s.
+The project selects method and interval, enables control, and applies SP
+0.5 rad; false restores SP 0 rad, disables control, zero torque.
 
-Fresh native runtimes own the three-method 20 ms comparison, the 10/20/100 ms
-interval comparison, and the delayed 10 ms case. One selected UI run must not
-claim that full matrix. The deterministic Simulation seed is 20260828.
+Fresh native runtimes own the three-method 20 ms comparison, the 10/20/100
+ms interval comparison, and the delayed 10 ms case; one UI run cannot claim
+that matrix. Seed 20260828 is deterministic.
 
 ### Control Studio actions
 
@@ -229,37 +207,31 @@ method, interval, and delay matrix; Monitor and Test expose one declared case.
 
 ## Evidence and decision
 
-Plot SP, PV, held torque, and update pulses together. Compare error, overshoot,
-settling, torque travel, interval, jitter, and hold duration.
+Plot SP, PV, held torque, and update pulses together; compare error,
+overshoot, settling, torque travel, interval, jitter, and hold duration.
 
-**Maximum absolute position error** is the maximum over all samples of the
-absolute value of SP minus PV:
+**Maximum absolute position error**, the maximum over all samples of the
+absolute value of SP minus PV, is
 
-$e_{\max}=\max_k|SP_k-PV_k|.$
+$e_{\max}=\max_k|SP_k-PV_k|,$
 
-The absolute value measures error in either direction and the maximum keeps the
-worst sampled value. It is not the final error and not the largest signed error.
+not the final error nor the largest signed error. **Applied-torque total
+variation**, the sum of absolute successive changes, is
 
-**Applied-torque total variation** is the sum of absolute successive changes:
+$TV(T)=\sum_k|T_k-T_{k-1}|,$
 
-$TV(T)=\sum_k|T_k-T_{k-1}|.$
+which cannot be cancelled by alternating movement. Final-window position
+span is $\max(PV)-\min(PV)$, and torque span is $\max(T)-\min(T)$, each over
+the final two seconds, so a small final sample alone cannot hide variation.
 
-Absolute increments prevent alternating movement from cancelling. Final-window
-position span is $\max(PV)-\min(PV)$, and torque span is
-$\max(T)-\min(T)$, each over the final two seconds. A span measures remaining
-variation, which a small final sample alone could hide.
+The **measurement residual** is sampled PV minus its 5-to-20 s window mean;
+its **spectrum**, estimated by counting 5-to-20 s zero-crossings per second
+for the dominant frequency and half the peak-to-peak size for amplitude,
+should show a 2 Hz alias at 100 ms from the 8 Hz interference.
 
-The **measurement residual** is sampled PV minus its 5-to-20 s window mean,
-isolating interference from tracked position. Its **spectrum** is the set
-of sine-wave amplitudes per frequency that reproduce it; the estimator
-counts 5-to-20 s zero-crossings per second for the dominant frequency and
-reports half the residual's peak-to-peak size as its amplitude. At 100 ms
-it should show a 2 Hz alias from the 8 Hz interference.
-
-A case settles only when PV remains within 0.020 rad of SP and final 2 s spans
-are at most 0.010 rad PV and 0.500 N m torque. Otherwise report no settling time.
-Classify that case as **not settled**; if its sampled response grows rather than
-remaining bounded, classify it as **unstable** and stop the run.
+A case **settles** only if PV stays within 0.020 rad of SP and final 2 s
+spans stay within 0.010 rad PV and 0.500 N m torque; otherwise it is **not
+settled**, and a growing rather than bounded response is **unstable**.
 
 Evidence measured a 23.69 N m torque-total-variation gap between the forward-
 and backward-Euler 20 ms candidates, a 0.0020 rad 2 Hz alias at 100 ms, and
@@ -278,13 +250,13 @@ retained 100 ms samples give an estimated alias frequency of 2.00 Hz.
 
 ![Torque and position traces for all six candidate realizations](figures/digital-method-comparison.svg)
 
-Torque steps once per interval and holds between updates; the 100 ms trace's
-longer, sparser steps are visible next to the 20 ms and 10 ms traces.
+Torque steps once per interval and holds; the 100 ms trace's sparser steps
+contrast with the 20 ms and 10 ms traces.
 
 ![Update-pulse timing showing held torque between scans](figures/digital-update-timing.svg)
 
-Update pulses mark exactly when torque may change; the trace between pulses
-is flat, showing the zero-order hold.
+Update pulses mark when torque may change; the flat trace between pulses
+shows the zero-order hold.
 
 ![Sampled residual spectrum showing the 100 ms alias peak](figures/digital-alias-spectrum.svg)
 
@@ -293,7 +265,7 @@ interference, not at 8 Hz itself.
 
 Every tested case remained finite and bounded:
 
-| Case | Settling time | Torque total variation | Longest hold | Actual interval |
+| Case | Settling | TV | Longest hold | Actual interval |
 | --- | ---: | ---: | ---: | ---: |
 | Forward Euler, 20 ms | 11.73 s | 101.34 N m | 0.02 s | 0.02 s |
 | Backward Euler, 20 ms | 11.74 s | 77.65 N m | 0.02 s | 0.02 s |
@@ -306,27 +278,27 @@ Lower movement at 100 ms is not automatically better: the command is held
 longer and 8 Hz interference appears as 2 Hz. Judge timing, tracking, alias,
 and delay together.
 
-Torque shall change only on update pulses and remain held between them. Actual
-update spacing shall be 10, 20, or 100 ms as selected. PV shall remain on the
-0.001 rad grid. The spectrum estimated from the retained 100 ms samples shall
-place the dominant alias between 1.9 and 2.1 Hz with at least 0.001 rad
-amplitude. The delayed case shall shift first torque by one complete update.
-
-State, PV, velocity, and torque must remain finite; torque stays within ±10 N m.
+Torque shall change only on update pulses, held between them at the
+selected 10/20/100 ms spacing; PV shall remain on the 0.001 rad grid; the
+100 ms spectrum's dominant alias shall fall between 1.9 and 2.1 Hz with at
+least 0.001 rad amplitude; the delayed case shall shift first torque by one
+update. State, PV, velocity, and torque must remain finite, torque within
+±10 N m.
 
 ## Conclusion
 
-Each recurrence approximates the same continuous terms with different samples
-and coefficients. Increasing $\Delta t$ lengthens holds and delays, and can make an
-8 Hz encoder component look like 2 Hz.
-
-Numerical precision cannot reconstruct unsampled measurements. Timing,
-sampling, and resolution are controller behavior.
+Each recurrence approximates the same continuous terms with different
+samples and coefficients. Increasing $\Delta t$ lengthens holds and delays
+and can make an 8 Hz encoder component look like 2 Hz. Numerical precision
+cannot reconstruct unsampled measurements; timing, sampling, and resolution
+are controller behavior.
 
 ## Reason for the next lesson
 
-Choose from bandwidth, noise, phase margin, timing, numerical range, and
-closed-loop evidence. Requalify after timing, filtering, delay, or hardware changes.
+Choosing method, interval, and delay used timing, noise, and closed-loop
+evidence available now; later lessons add frequency-domain tools (bandwidth,
+phase margin) that refine this choice, and any timing, filtering, delay, or
+hardware change requires requalifying it.
 
 Lesson 26 builds on this result by comparing positional, incremental, and
 combined production PID forms without pretending that their retained states

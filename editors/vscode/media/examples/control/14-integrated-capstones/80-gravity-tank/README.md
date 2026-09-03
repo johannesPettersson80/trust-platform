@@ -1,32 +1,34 @@
 # Commission full-range control of a gravity-drained tank
 
-Course position: Lesson 80 of 84.
-Prerequisite: `control-capstone-reactor`.
+Course position: Lesson 80 of 84. Previous lesson: [Commission one jacketed-reactor control architecture](../79-reactor/README.md). Next lesson: [Select delay compensation for a conveyor oven](../81-conveyor-oven/README.md).
 
 **Lesson objective:** Prove the limitation of one fixed PI, qualify three local tank models, and validate one tracked gain-scheduled PI across the complete operating envelope without applying revision 80.
 
-Plant: Vented gravity-drained water tank with variable-speed inlet pump.
-
-This is Lesson 80, the nonlinear-control capstone. You will commission a vented
-gravity-drained water tank across its qualified range from 0.30 through 0.80
-metres. Controller revision 80 remains unapplied. Every executable result is
-deterministic **Simulation evidence**, not physical tank or pump evidence.
+**Evidence class:** Simulation evidence. Every executable result in this lesson is deterministic, not physical tank or pump evidence.
 
 ## The problem
 
-The equipment in this lesson is Vented gravity-drained water tank with variable-speed inlet pump.
+The equipment in this lesson is Vented gravity-drained water tank with
+variable-speed inlet pump. This is Lesson 80, the nonlinear-control capstone:
+you will commission this tank across its qualified range from 0.30 through
+0.80 metres, and controller revision 80 remains unapplied.
 
 The equipment is a vertical vented water tank with a constant cross-sectional
 area. A variable-speed inlet pump adds water. A fixed outlet drains water under
 gravity. The tank area is 1.0 square metre, and the pump can apply from 0 through
-0.060 cubic metres per second.
+0.060 cubic metres per second. Both values are declared configured teaching
+values representing a mid-size vented tank and pump, new to the course; on
+real equipment the tank area comes from a diameter measurement and the pump's
+range comes from its rated data sheet.
 
 The liquid level ($h$) is water height, in metres. The inlet pump flow ($q_{\mathrm{in}}$) is
 the volume added each second, in cubic metres per second. The gravity outlet
 flow ($q_{\mathrm{out}}$) is the volume leaving each second in the same unit. The tank area
 ($A$) is stored volume per metre of level. The outlet coefficient ($c$) describes
 the fixed outlet and has units of square metres times square-root metre per
-second.
+second; its declared configured value is `0.050`. A learner would obtain it
+physically by measuring steady outlet flow at one known level and solving
+$c=q_{\mathrm{out}}/\sqrt{h}$, then confirming that estimate at a second level.
 
 The requested level is the setpoint, and the measured liquid level is the
 process value. The requested pump flow ($q_{\mathrm{requested}}$) is the controller's
@@ -75,8 +77,10 @@ $A \cdot dh/dt = q_{in} - q_{\mathrm{out}}$
 
 At equilibrium the level no longer changes, so inlet flow equals outlet flow.
 The equilibrium pump flow at one level is therefore the outlet coefficient
-multiplied by the square root of that level. At 0.30, 0.55, and 0.80 metres the
-predicted flows are 0.02739, 0.03708, and 0.04472 cubic metres per second.
+multiplied by the square root of that level:
+
+$0.050\sqrt{0.30}=0.02739$, $0.050\sqrt{0.55}=0.03708$, $0.050\sqrt{0.80}=0.04472$
+cubic metres per second.
 
 ### Replace the curve only within one local region
 
@@ -159,6 +163,18 @@ Tracking aligns retained controller state with physical authority. It does not
 make invalid data valid. After restoration, the first Automatic request may
 differ from the preceding applied flow by no more than 0.0005 cubic metres per
 second. Requested and applied signals stay separate throughout this sequence.
+
+### Define the full-range comparison measures
+
+The common low-middle-high-middle-low record produces four regions, one for
+each setpoint transition. Regional integrated absolute level error is the sum
+of absolute setpoint-minus-measurement error, multiplied by the 0.1-second
+sample interval, accumulated over one region, in metre-seconds. Worst regional
+IAE is the largest of the four regional values, so it reports the single
+weakest transition rather than an average that could hide it. Maximum level
+departure is the largest absolute setpoint-minus-measurement difference over
+the complete run, in metres. Both measures are defined here, before either is
+used to state a prediction.
 
 ## Prediction
 

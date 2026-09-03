@@ -10,7 +10,7 @@ Course position: Lesson 66 of 84. Previous lesson: [Place bearing modes and obse
 
 ## The problem
 
-The equipment is a dry-material weigh-belt feeder. Belt-speed command is measured in percent, and mass flow is measured in kilograms per second. The local feeder gain is one kilogram per second for each percent of belt command, and its time constant is one second. Command and mass-flow truth are limited to 0 through 20 in their respective units.
+The equipment is a dry-material weigh-belt feeder with noisy load cell. Belt-speed command is measured in percent, and mass flow is measured in kilograms per second. The local feeder gain is one kilogram per second for each percent of belt command, and its time constant is one second. Command and mass-flow truth are limited to 0 through 20 in their respective units.
 
 The feeder gain and time constant are configured teaching values, not measurements of a physical belt. A real design would obtain initial values from the feeder motor's rated speed-to-mass-flow curve or a loaded weigh test, then estimate the response time constant from a command-step record and validate both against an independent loaded run.
 

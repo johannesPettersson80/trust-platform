@@ -14,15 +14,15 @@ physical defect, safe dither, wear, or a maintenance interval.
 The equipment is the geared industrial positioning table used since Lesson
 19, now driven through a gearbox that adds backlash and reversing between
 +0.5 and -0.5 rad. Lesson 23 showed a noisy torque trace can come from the
-measurement path, at a measurable cost. This lesson keeps the same PID and
-asks a wider question: when a real axis moves badly, is the cause the
-reference, the drive, or the mechanism?
+measurement path, at a cost. This lesson keeps the same PID and asks a
+wider question: when a real axis moves badly, is the cause the reference,
+the drive, or the mechanism?
 
-We first establish an ideal reference case, then introduce trajectory
+We first establish an ideal reference, then introduce trajectory
 profiling, a torque constraint, Coulomb friction, command deadband,
 backlash, and stiction one at a time, with signals synchronized so a
 student can identify cause from a signature instead of raising PID gains at
-every large error — which can increase current, heating, impacts, and wear
+every large error — which increases current, heating, impacts, and wear
 without removing the defect.
 
 The drive limit is now ±2.5 N·m, not the ±10 N·m of Lessons 19 through 23,
@@ -34,8 +34,8 @@ torque test, or command ramp.
 
 ## What we need
 
-We need separate command, drive, and mechanism signals so a learner can tell a
-controller request from torque limiting and from lost mechanical motion.
+We need separate command, drive, and mechanism signals so a learner can tell
+a request from torque limiting and lost mechanical motion.
 
 ## The new idea
 
@@ -44,18 +44,18 @@ The **target position ($SP_{\mathrm{target}}$)** is the desired final table angl
 velocity-limited position command sent to PID, also in radians. The **load
 position ($PV_{\mathrm{load}}$)** is the load-side encoder angle in radians.
 
-The **trajectory velocity limit ($v_{\mathrm{profile}}$)** bounds the rate of
-change of the profiled command, $dSP_{\mathrm{profile}}/dt$, in radians per
-second (rad/s), to 0.5 rad/s. The **trajectory acceleration limit
-($a_{\mathrm{profile}}$)** bounds the rate of change of that velocity, in
-radians per second squared (rad/s²), to 1.0 rad/s². These limits
-deliberately shape what is requested. They are neither drive saturation nor
+The **trajectory velocity limit ($v_{\mathrm{profile}}$)** bounds
+$dSP_{\mathrm{profile}}/dt$, in radians per second (rad/s), to 0.5 rad/s.
+The **trajectory acceleration limit ($a_{\mathrm{profile}}$)** bounds that
+rate's own rate of change, in radians per second squared (rad/s²), to 1.0
+rad/s² — a deliberate shaping of the request, neither drive saturation nor
 gearbox damage.
 
-The **requested motor torque ($T_{\mathrm{requested}}$)** is the controller's calculation in
-newton metres (N m). The **applied motor torque ($T_{\mathrm{applied}}$)** is the simulated
-drive output after amplitude, slew, deadband, and stiction behavior, measured in
-newton metres. Their difference is diagnostic evidence.
+The **requested motor torque ($T_{\mathrm{requested}}$)** is the controller's
+calculation in newton metres (N m); the **applied motor torque
+($T_{\mathrm{applied}}$)** is the simulated drive output after amplitude,
+slew, deadband, and stiction, also in newton metres. Their difference is
+diagnostic evidence.
 
 The **rotational inertia** $J$ describes resistance to angular acceleration
 in kg·m². Newton's rotational law, the same balance Lesson 19 wrote as
@@ -65,19 +65,16 @@ in rad/s²:
 
 $\sum T=J\alpha.$
 
-Solving for acceleration gives $\alpha=\sum T/J$. At zero angle and zero
-speed, gravity $4\sin(\theta)$ and viscous friction $B\dot\theta$ are both
-zero, so if the 2.5 N·m drive limit were the only torque, the initial
-acceleration would be $a_{\mathrm{ideal}}=T_{\mathrm{limit}}/J
-=2.5/1.0=2.5\,\mathrm{rad/s^2}$ — in code terms, `a_ideal = T_limit / J = 2.5
-N m / 1.0 kg m^2 = 2.5 rad/s^2`. Away from that instant, gravity and friction
-must be subtracted; this is a local upper-bound calculation, not the
-acceleration of the whole move.
+Solving gives $\alpha=\sum T/J$. At zero angle and speed, gravity and
+friction are both zero, so if the 2.5 N·m drive limit were the only torque,
+$a_{\mathrm{ideal}}=T_{\mathrm{limit}}/J=2.5/1.0=2.5\,\mathrm{rad/s^2}$ —
+`a_ideal = T_limit / J = 2.5 N m / 1.0 kg m^2 = 2.5 rad/s^2` — a local upper
+bound, not the whole move's acceleration.
 
-**Coulomb friction** opposes motion with nearly constant magnitude, set by
-the **Coulomb friction magnitude ($T_c$)**. Its direction uses the **sign
-function ($\operatorname{sign}(\cdot)$)**, which returns $+1$ for positive
-velocity and $-1$ for negative velocity, in a simplified moving model:
+**Coulomb friction** opposes motion with nearly constant magnitude, the
+**Coulomb friction magnitude ($T_c$)**, in a direction set by the **sign
+function ($\operatorname{sign}(\cdot)$)**: $+1$ for positive velocity, $-1$
+for negative, in this simplified moving model:
 
 $T_f=-T_c\operatorname{sign}(\dot\theta).$
 
@@ -90,14 +87,13 @@ unchanged, a command-path effect, not lost mechanical travel.
 
 The **backlash width ($w_{\mathrm{backlash}}$)** is the total reversal travel through
 mechanical clearance, measured in radians. After direction reverses, motor-side
-motion crosses the gap before $PV_{\mathrm{load}}$ moves. This kinematic model cannot
-reproduce tooth impact or compliance.
+motion crosses the gap before $PV_{\mathrm{load}}$ moves; this kinematic
+model omits tooth impact and compliance.
 
 **Stiction**, or static friction, holds the actuator until demand exceeds a
-breakaway band. Motion can then begin with a slip jump. The hold is tied to
-being stuck; backlash is tied specifically to taking up clearance after a
-direction reversal. Similar delayed PV traces therefore need torque and state
-signals to distinguish them.
+breakaway band, then motion begins with a slip jump — unlike backlash,
+which is tied to clearance after reversal, not to being stuck. Similar
+delayed PV traces need torque and state signals to tell apart.
 
 ### Deriving the motion profile
 
@@ -106,8 +102,8 @@ time ($\Delta t$)** is 0.02 s, so its maximum velocity change per scan is:
 
 $|\Delta v_p|_{\mathrm{max}}=a_{\mathrm{profile}}\Delta t =1.0(0.02)=0.02\,\mathrm{rad/s},$
 
-in code terms `Δv_max = a_profile × dt = 1.0 rad/s^2 × 0.02 s = 0.02 rad/s`.
-This is why the program clamps each scan's velocity change to ±0.02 rad/s.
+— `Δv_max = a_profile × dt = 1.0 rad/s^2 × 0.02 s = 0.02 rad/s` — clamping
+each scan's velocity change to ±0.02 rad/s.
 
 At maximum profile speed, its maximum position change per scan is:
 
@@ -122,32 +118,31 @@ $v_f=v_i+at$ and $\Delta\theta=v_it+\tfrac12at^2$:
 
 $v_f^2=v_i^2+2a\Delta\theta.$
 
-At the target $v_f=0$. With remaining distance
-$d=|SP_{\mathrm{target}}-SP_{\mathrm{profile}}|$ and braking acceleration
-opposite the motion, solving for the largest current speed that can still stop
-gives
+At the target $v_f=0$; with remaining distance
+$d=|SP_{\mathrm{target}}-SP_{\mathrm{profile}}|$, solving for the largest
+speed that can still stop gives
 
 $v_{\mathrm{stop}}=\sqrt{2a_{\mathrm{profile}}d}.$
 
-The program chooses the smaller of this stopping speed and the 0.5 rad/s
-cruise limit. Far from the target it cruises; near the target the square-root
-bound starts deceleration.
+The program cruises at 0.5 rad/s far from the target and takes the smaller
+of that and $v_{\mathrm{stop}}$ near it.
 
 ### Measures and decision rules
 
-Aligning every case at the 10 s reversal, **reversal delay** is the elapsed
+Aligning cases at the 10 s reversal, **reversal delay** is the elapsed
 time from the commanded reversal to the first sample where load motion in
 the new direction reaches 0.020 rad. **Peak following error** is
 
 $e_{\mathrm{peak}}=\max_k|SP_{\mathrm{profile},k}-PV_{\mathrm{load},k}|.$
 
-The **requested-to-applied torque gap** is
+The **requested-to-applied torque gap** is the largest absolute difference,
+$T_{\mathrm{requested}}$ minus $T_{\mathrm{applied}}$:
 
 $g_T=\max_k|T_{\mathrm{requested},k}-T_{\mathrm{applied},k}|,$
 
-near zero when the drive follows the request and growing when amplitude,
-slew, deadband, or stiction prevents that. **Torque total variation** sums
-absolute successive changes so oscillation cannot cancel:
+near zero unless amplitude, slew, deadband, or stiction prevents the drive
+from following. **Torque total variation** sums absolute successive changes
+so oscillation cannot cancel:
 
 $TV(T)=\sum_{k=1}^{N}|T_k-T_{k-1}|,$
 
@@ -157,9 +152,9 @@ duration of zero is evidence too, since backlash should not be renamed
 deadband merely because both can delay motion.
 
 A run counts as **settled** only if, over its final two seconds, load
-position stays within a 0.010 rad range and applied torque stays within a
-0.050 N·m range; otherwise report **Not settled** rather than trust one
-final sample. Report final-window position error only for a settled run.
+position stays within 0.010 rad and applied torque within 0.050 N·m;
+otherwise report **Not settled** and skip final-window position error
+rather than trust one sample.
 
 ## Prediction
 
@@ -191,15 +186,14 @@ the actuator-state flags.
 ## Experiment in Control Studio
 
 Control Studio executes the checked-in combined diagnostic case. Test writes
-one reviewed Boolean authority, $\mathtt{P1.ExperimentEnabled}$, for 20.02
-seconds. The project owns the complete motion: safe Manual zero first, +0.5 rad
-in Auto, reversal to -0.5 rad at 10 seconds, and restoration to target 0 rad,
-Manual mode, and zero request when authority returns false.
+one reviewed Boolean authority, $\mathtt{P1.ExperimentEnabled}$, for 20.02 s.
+The project owns the complete motion: safe Manual zero, +0.5 rad in Auto,
+reversal to -0.5 rad at 10 s, and restoration to target 0 rad, Manual mode,
+zero request, when authority returns false.
 
-Fresh native runtimes own the ideal baseline and six one-effect cases.
-That separation matters: changing simulator configuration during one UI run
-would not be the controlled comparison reported in the evidence table. The
-deterministic Simulation seed is 20260828.
+Fresh native runtimes own the ideal baseline and six one-effect cases,
+since changing simulator configuration mid-run would not be the controlled
+comparison in the evidence table. Seed 20260828 is deterministic.
 
 ### Control Studio actions
 

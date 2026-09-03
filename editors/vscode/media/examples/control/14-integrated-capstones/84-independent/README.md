@@ -1,9 +1,10 @@
 # Defend an independent compressed-air control-system recommendation
 
-Course position: Lesson 84 of 84.
-Prerequisite: `control-capstone-building-hvac`.
+Course position: Lesson 84 of 84. Previous lesson: [Decide whether predictive building control earns its complexity](../83-building-hvac/README.md).
 
 **Lesson objective:** Commission and defend the simplest unapplied controller satisfying the compressed-air reference requirements, then apply the same evidence discipline to a learner-selected platform-supported plant.
+
+**Evidence class:** Simulation evidence. The shipped compressed-air receiver comparison and its uncertainty-plant copies in this lesson are deterministic Simulation evidence and are not approved for a physical compressor, receiver, or air network.
 
 Plant: Factory compressed-air receiver supplied by one variable-speed compressor.
 
@@ -35,9 +36,16 @@ configuration changes the compressor lag and receiver rate gain. All results
 are **Simulation evidence**, not physical evidence.
 
 For your own capstone, select another named plant only when the platform can
-execute it. Declare its purpose, owner, sensors, actuator, disturbances, units,
-operating region, equipment limits, external safety functions, evidence class
-and approval authority before designing control.
+execute it: either an existing Lesson 1 through 83 plant reused with its own
+requirements restated from scratch, or a new project built the same way from
+one of the built-in nominal plant models catalogued in Specification 33 §7
+(`static_gain`, `first_order`, `first_order_dead_time`, `integrator`,
+`second_order`, `state_space`, `piecewise_linear`, `gravity_tank`, or
+`robot_joint`). A generic transfer function with no named equipment, a
+prose-only method, a mocked result, or a plant the platform cannot execute is
+not an eligible capstone. Declare its purpose, owner, sensors, actuator,
+disturbances, units, operating region, equipment limits, external safety
+functions, evidence class and approval authority before designing control.
 
 Lesson 83 showed why advanced mathematics must not decide the winner. Balanced
 model-predictive control slightly improved building error and energy but failed
@@ -63,7 +71,7 @@ delivery exceeds plant demand, falls when demand exceeds delivery, and remains
 constant when the flows balance.
 
 The header pressure ($p$) is the receiver pressure in bar. Actual compressor
-delivery ($q_{\mathrm{c}}$) is delivered air in percent of design flow. Plant demand ($\mathbf{q}_{\mathrm{d}}$)
+delivery ($q_{\mathrm{c}}$) is delivered air in percent of design flow. Plant demand ($q_{\mathrm{d}}$)
 is consumed air in percent of design flow. The receiver rate gain ($K_{r}$) states
 how quickly pressure changes for each percentage point of delivery-demand
 imbalance, in bar per percent-flow second.
@@ -149,12 +157,17 @@ compressor delivery ($MV_{\mathrm{requested}}$) is the controller's total comman
 plant authority. The applied compressor request ($MV_{\mathrm{applied}}$) is the bounded
 command delivered to the simulated drive.
 
-Both candidates use proportional gain $K_p = 40 percent/bar$, integral gain
-$K_i = 1.0 percent/(bar \cdot s)$, a 50-percent bias, zero derivative, combined
-anti-windup, one second update, and actual-delivery tracking during external
-authority. The integrated candidate uses:
+![Feedback and measured-demand feedforward share one actuator path](figures/independent-capstone-topology.svg)
+Both contributions pass through the same amplitude and slew limit before
+reaching the compressor, so anti-windup and tracking see one combined
+request rather than two independent actuator paths.
 
-$MV_{\mathrm{feedforward}} = q_{\mathrm{d}} - 50 percent$
+Both candidates use proportional gain $K_p = 40$ percent/bar, integral gain
+$K_i = 1.0$ percent/(bar·s), a 50-percent bias, zero derivative, combined
+anti-windup, one second update, and actual-delivery tracking during external
+authority. The integrated candidate uses, in percent:
+
+$MV_{\mathrm{feedforward}} = q_{\mathrm{d}} - 50$
 
 $MV_{\mathrm{requested}} = MV_{\mathrm{feedback}} + MV_{\mathrm{feedforward}}$
 
@@ -215,7 +228,7 @@ zero. Predict zero pressure rate.
 When demand changes from 50 to 65 percent while delivery is still 50 percent,
 the imbalance is -15 percentage points:
 
-$dp/dt = 0.005 \cdot (50-65) = -0.075 bar/s$
+$dp/dt = 0.005 \cdot (50-65) = -0.075$ bar/s
 
 Qualified one-for-one feedforward immediately adds 15 percentage points to the
 request. The first request is limited by the 10-percentage-point-per-second
@@ -261,7 +274,7 @@ restoration. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Header pressure setpoint (SP, bar); Feedback-plant header pressure (PV, bar) and Integrated-plant header pressure (PV, bar); Manual feedback-plant request (MV, %) and Manual integrated-plant request (MV, %), including units, limits, mode, and quality. The initial operating point is Header pressure setpoint = 7 bar, Feedback-plant header pressure = 7 bar, Integrated-plant header pressure = 7 bar, Feedback-plant actual delivery = 50 %, Integrated-plant actual delivery = 50 %, Measured plant air demand = 50 %. The unresolved baseline problem is: Feedback PI reacts only after demand imbalance has changed header pressure.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Select PI plus measured-demand feedforward only if common normal, uncertainty, actuator, stability and abnormal evidence satisfies every predeclared requirement.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
@@ -270,20 +283,28 @@ restoration. The deterministic Simulation seed is 20260829.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **300.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns the complete demand and abnormal sequence.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Feedback-plant header pressure 6 bar to 8 bar; Integrated-plant header pressure 6 bar to 8 bar; Feedback PI applied request 0 % to 100 %; Integrated applied request 0 % to 100 %. Apply the same evidence process to a learner-selected, platform-supported plant only after defending the shipped reference compressed-air receiver.
+   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Feedback-plant header pressure 6 bar to 8 bar; Integrated-plant header pressure 6 bar to 8 bar; Feedback PI applied request 0 % to 100 %; Integrated applied request 0 % to 100 %. Enabling **Experiment authority** is the correct action, and a manual Control Studio setpoint step is not, because the project — not Control Studio — owns the demand-change and abnormal sequence this comparison depends on. Apply the same evidence process to a learner-selected, platform-supported plant only after defending the shipped reference compressed-air receiver.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, confirm `P1.ExperimentEnabled = FALSE`, and wait for the project to restore 7 bar, 50-percent demand, valid quality, compressor availability, and zero safe authority before reviewing a new test.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
 
+Identify, Tune, and Validate are not learner steps. The native executable test
+owns the receiver and compressor identification, the stability-margin
+calculation, and the uncertainty-plant and abnormal-case evidence; disabled
+generic panels are not evidence. For your own selected plant, run this same
+Monitor → Test procedure against your own project's Control Studio loop
+binding once it is built the same way as this reference project.
+
 ## Evidence and decision
 
-### Measures and comparison
-
 Pressure integrated absolute error is the sum of absolute setpoint-minus-
-pressure error multiplied by one second, in bar-seconds. Maximum pressure
-departure is the largest absolute setpoint-minus-pressure value, in bar.
-Settling time is reported only after pressure enters and remains in the
-declared two-percent band.
+pressure error multiplied by one second, over the regulatory window from 60
+through 300 seconds — after both demand changes, excluding the initial
+60-second settled baseline — in bar-seconds. The acceptance rule below calls
+this the regulatory pressure integrated absolute error for that reason.
+Maximum pressure departure is the largest absolute setpoint-minus-pressure
+value, in bar. Settling time is reported only after pressure enters and
+remains in the declared two-percent band.
 
 Normal-envelope violation accumulates pressure outside 6.5 through 7.5 bar in
 bar-seconds and also records duration. Requested and applied total variation
@@ -297,8 +318,6 @@ pressure integrated absolute error and no more than 25 percent additional
 applied movement versus feedback PI. Every candidate must also preserve the
 normal pressure envelope, hard limits, qualified stability margins,
 deterministic abnormal authority and rollback.
-
-### Validation
 
 The native test must compile and execute this Structured Text against both
 equivalent nominal plants and both equivalent uncertainty plants. Independent
@@ -363,12 +382,15 @@ maintenance cost without an observed failure that requires them.
 
 The compressed-air reference proves the final assessment workflow is
 executable; it is not a controller recipe for every plant. Produce a
-reproducible engineering report for your learner-selected plant. Include
-requirements, topology, safety ownership, theory, calculations, experiment and
-restoration approvals, raw records, identified models and uncertainty,
-architecture rejections, tuning or design, stability and robustness, normal and
-abnormal validation, the selected unapplied revision, application approval,
-rollback, monitoring and maintenance triggers.
+reproducible engineering report for your learner-selected plant, written as
+that project's own `README.md` in the same nine-section problem-driven order
+this lesson uses (The problem through Reason for the next lesson), inside a
+project directory built the same way as this one. Include requirements,
+topology, safety ownership, theory, calculations, experiment and restoration
+approvals, raw records, identified models and uncertainty, architecture
+rejections, tuning or design, stability and robustness, normal and abnormal
+validation, the selected unapplied revision, application approval, rollback,
+monitoring and maintenance triggers.
 
 Keep calculations, configured Simulation truth, identified-model evidence and
 physical evidence visibly separate. Course completion requires you to defend

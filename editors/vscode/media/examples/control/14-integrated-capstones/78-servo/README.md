@@ -1,20 +1,17 @@
 # Commission a flexible rotary indexing servo
 
-Course position: Lesson 78 of 84.
-Prerequisite: `control-capstone-water-heater`.
+Course position: Lesson 78 of 84. Previous lesson: [Commission a recirculating water-heater PI loop](../77-water-heater/README.md). Next lesson: [Commission one jacketed-reactor control architecture](../79-reactor/README.md).
 
 **Lesson objective:** Select and qualify the minimum P, PD, or PID structure that positions a flexible payload under load, noise, drive limits, model variation, and the implemented sample-and-delay behavior.
 
-Plant: Flexible rotary indexing table.
-
-This is Lesson 78, the motion-control capstone. It asks you to commission a
-flexible rotary indexing table and select the minimum eligible structure from
-measured evidence. The controller revision remains unapplied. Every executable
-result is deterministic **Simulation evidence**, not physical machine evidence.
+**Evidence class:** Simulation evidence. Every executable result in this lesson is deterministic, not physical machine evidence.
 
 ## The problem
 
-The equipment in this lesson is Flexible rotary indexing table.
+The equipment in this lesson is Flexible rotary indexing table. This is
+Lesson 78, the motion-control capstone: it asks you to commission this table
+and select the minimum eligible structure from measured evidence, and the
+controller revision remains unapplied.
 
 The equipment is a servomotor driving a rotary payload table through an elastic
 shaft. The motor and payload can rotate in either direction. The drive can apply
@@ -35,9 +32,15 @@ separately even when an ideal nominal run makes them equal.
 The motor inertia is 0.2 kilogram-square-metres. The payload inertia is
 0.8 kilogram-square-metres. The shaft stiffness is 20 newton metres per radian,
 and the shaft damping is 0.5 newton-metre-seconds per radian. Motor and payload
-viscous damping are 0.2 and 0.3 newton-metre-seconds per radian. Those values
-describe the local linear model around this move; they do not describe every
-mechanical mode of an installed machine.
+viscous damping are 0.2 and 0.3 newton-metre-seconds per radian. This plant is
+new to the course, so none of those six values is inherited; all are declared
+configured teaching values representing a plausible small indexing table. On
+real equipment, motor and payload inertia come from rated motor data and a
+payload mass-and-radius calculation, while shaft stiffness and damping require
+a static torsion test or the coupling manufacturer's data sheet; the model
+also omits backlash, friction, and every mechanical mode besides this one
+flexible pair. Those values describe the local linear model around this move;
+they do not describe every mechanical mode of an installed machine.
 
 The experiment commands 0.5 radians at 1 second. At 10 seconds, an opposing
 1.5-newton-metre payload torque begins. The qualified encoder contains a
@@ -85,16 +88,15 @@ for. These words must be understood before converting the balances into the
 four-state matrix stored in `simulation.toml`.
 
 Ignoring damping for one prediction, the flexible-mode natural angular
-frequency is the square root of shaft stiffness multiplied by the sum of the
-inverse inertias:
+frequency ($\omega_{\mathrm{f}}$) is the square root of shaft stiffness
+multiplied by the sum of the inverse inertias, in radians per second. Here the
+shaft stiffness ($k_{s}$) is 20 newton metres per radian, motor inertia
+($J_{m}$) is 0.2 kilogram-square-metres, and payload inertia ($J_{\mathrm{l}}$) is
+0.8 kilogram-square-metres, each already stated above:
 
 $\omega_{\mathrm{f}} = \sqrt{k_{s} \cdot (1/J_{m} + 1/J_{\mathrm{l}})}$
 
-Here the shaft stiffness ($k_{s}$) is 20 newton metres per radian, motor inertia
-($\mathbf{J}_{m}$) is 0.2 kilogram-square-metres, and payload inertia ($J_{\mathrm{l}}$) is
-0.8 kilogram-square-metres:
-
-$\omega_{\mathrm{f}} = \sqrt{20 \cdot (1/0.2 + 1/0.8)} = 11.18 radians per second$
+$\omega_{\mathrm{f}} = \sqrt{20 \cdot (1/0.2 + 1/0.8)} = 11.18$ radians per second
 
 The measured resonant peak will shift and broaden because damping and feedback
 are present. The calculation tells us where to look; it does not replace the
@@ -103,10 +105,12 @@ frequency experiment.
 ### Decide why P, PD, and PID are different
 
 Proportional gain ($K_p$) states how many newton metres the positional controller
-requests for each radian of present error. With $K_p$ equal to 7 newton metres per
-radian, the initial 0.5-radian error predicts:
+requests for each radian of present error. The requested proportional torque
+($\tau_{\mathrm{P}}$) is that gain multiplied by present position error, in
+newton metres. With $K_p$ equal to 7 newton metres per radian, the initial
+0.5-radian error predicts:
 
-$P torque = K_p \cdot e = 7 \cdot 0.5 = 3.5 newton metres$
+$\tau_{\mathrm{P}} = K_p \cdot e = 7 \cdot 0.5 = 3.5$ newton metres
 
 Increasing P gain can reduce error, but it does not directly measure motion and
 can excite the lightly damped flexible response.
@@ -121,7 +125,7 @@ At equilibrium the derivative contribution is zero. Under the constant
 The steady load error ($e_{\mathrm{ss}}$) is predicted by load torque divided by
 proportional gain:
 
-$e_{ss} = 1.5 / 7 = 0.2143 radians$
+$e_{ss} = 1.5 / 7 = 0.2143$ radians
 
 Integral gain ($K_i$) changes retained torque from accumulated error, in newton
 metres per radian-second. PID can therefore supply 1.5 newton metres at zero
@@ -131,8 +135,10 @@ minimum eligible structure: P lacks useful damping, and PD retains load error.
 ### Filter without hiding the encoder
 
 Raw encoder position is the noisy sensor signal. Filtered position is the
-controller-facing signal after a first-order low-pass filter with a time
-constant of 0.05 seconds. The filter reduces 20-hertz noise before numerical derivative
+controller-facing signal after a first-order low-pass filter. The filter time
+constant ($\tau_f$) is 0.05 seconds; it is a configured teaching value chosen
+to be short compared with the servo's response but long compared with one
+20-hertz noise cycle. The filter reduces 20-hertz noise before numerical derivative
 action, but its phase lag consumes stability margin. Both raw encoder and
 filtered position remain visible. A smooth filtered plot is not evidence that
 the physical encoder is quiet.
@@ -157,11 +163,14 @@ gain changes. Pole locations predict mode speed and damping for the stated
 model. The plot must retain the flexible pole pair; hiding it would hide the
 mechanism we need to control.
 
-A Bode plot shows loop magnitude and phase against angular frequency. Gain
+A Bode plot shows loop magnitude and phase against angular frequency. The
+crossover frequency is the angular frequency at which loop magnitude equals
+one; it is where the loop switches from amplifying to attenuating error. Gain
 margin is the additional loop-gain factor available at the minus-180-degree
 phase crossing. Phase margin is the phase still available before minus
-180 degrees when loop magnitude is one. The resonance and filter phase lag
-must remain visible on the same model used for these calculations.
+180 degrees when loop magnitude is one, evaluated at the crossover frequency.
+The resonance and filter phase lag must remain visible on the same model used
+for these calculations.
 
 The loop transfer ($L_{\mathrm{loop}}$) is the controller transfer multiplied by the plant
 transfer. Sensitivity ($S$) is the path from an output disturbance to control
@@ -268,8 +277,6 @@ disabled generic panels are not evidence.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 Classify each run and each measure as eligible, not settled, saturated, aborted,
 or invalid before ranking it.
 
@@ -291,8 +298,6 @@ phase margin, delay margin, maximum sensitivity, maximum complementary
 sensitivity, frequency grid, exact discrete poles, sample/hold/delay identity,
 and numerical tolerances.
 
-### Validation
-
 The selected 0.01-second PID must overshoot by no more than 35 percent, settle
 within 5 seconds, end with no more than 0.02 radians final-window load error,
 stay inside torque and speed limits, and keep quiet-window torque RMS below
@@ -301,8 +306,16 @@ stay inside torque and speed limits, and keep quiet-window torque RMS below
 2.5. Exact implemented discrete poles must remain inside the unit circle.
 
 The unchanged delayed 0.1-second candidate is rejected when a declared time- or
-discrete-domain requirement fails. Heavy-payload, reduced-damping, and doubled-
-noise results are separate abnormal Simulation evidence. A failed or invalid
+discrete-domain requirement fails. Heavy payload (25 percent higher payload
+inertia), reduced damping (half shaft damping), and doubled encoder noise are
+separate uncertainty-variant runs of the selected PID; each is still required
+to keep final-window load error at or below 0.03 radians, and the doubled-
+noise run must keep quiet-window torque RMS at or below 0.20 newton metres. A
+separate abnormal run validates manual tracking, invalid quality, and
+controlled stop: dropping Automatic mode or measurement quality commands a
+tracked controlled stop whose applied torque reaches zero before the declared
+recovery time, and applied torque never changes by more than 2 newton metres
+between updates through that entire abnormal sequence. A failed or invalid
 measure cannot make an uncertainty case look better.
 
 The retained deterministic run gives the following evidence. Displayed values

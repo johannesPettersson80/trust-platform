@@ -314,34 +314,21 @@ equal. PI versus feedforward changes only the qualified feedforward path. PI
 plus feedforward versus Smith plus feedforward changes the feedback design and
 declares its different accepted tuning.
 
-Hold initial state, physical model, setpoint, upstream event, downstream event,
-limits, sample schedule, duration, seed, metric windows, and validity rules
-equal. PI versus feedforward changes only the qualified feedforward path. PI
-plus feedforward versus Smith plus feedforward changes the feedback design and
-declares its different accepted tuning.
-
-Setpoint-window integrated absolute temperature error is the sum of absolute
-setpoint error multiplied by 0.1 seconds from 10 through 70 seconds, in degree-
-Celsius-seconds. Regulatory IAE uses 70 through 180 seconds. The 90-percent rise
-time runs from the 10-second request until measured temperature first reaches
-33.5 degrees Celsius. Overshoot is peak measured temperature minus 35 degrees
-Celsius. Heater total variation is cumulative applied-heater movement in
-percentage points.
-
-Also retain upstream-to-feedforward onset delay, predictor-active fraction,
-peak absolute correction, fallback count, saturation and rate-limit occupancy,
-and final-window mean absolute error from 170 through 180 seconds. Final error
-is eligible only after the declared temperature and heater spans prove settling;
-otherwise report `Not settled`. Frequency evidence retains the exact model,
-controller, grid, contour, crossings, margins, P, N, Z, and uncertainty case.
-
-### Validation
+The 90-percent rise time runs from the 10-second request until measured
+temperature first reaches 33.5 degrees Celsius. Overshoot is peak measured
+temperature minus 35 degrees Celsius. Heater total variation is cumulative
+applied-heater movement in percentage points. Also retain upstream-to-
+feedforward onset delay, predictor-active fraction, peak absolute correction,
+fallback count, saturation and rate-limit occupancy, and final-window mean
+absolute error from 170 through 180 seconds. Final error is eligible only
+after the declared temperature and heater spans prove settling; otherwise
+report `Not settled`. Frequency evidence retains the exact model, controller,
+grid, contour, crossings, margins, P, N, Z, and uncertainty case.
 
 Classify each interval as eligible ordinary feedback, eligible feedforward,
 eligible prediction, model mismatch, correction limited, fallback, saturated,
-rate limited, invalid, aborted, or not settled before ranking it.
-
-The executable campaign shall establish all of the following:
+rate limited, invalid, aborted, or not settled before ranking it. The
+executable campaign shall establish all of the following:
 
 - accepted ordinary PI has no more than 2 degrees Celsius overshoot, no more
   than 0.5 degree final-window error, at least 35 degrees phase margin, at least
@@ -353,26 +340,32 @@ The executable campaign shall establish all of the following:
   sooner and reduces setpoint-window IAE relative to ordinary PI;
 - moderate mismatch remains bounded but worsens correction, settling, or error;
   severe mismatch or invalid model evidence uses measured-feedback fallback;
-- invalid upstream quality removes only feedforward; invalid downstream quality
-  or unavailable heater closes $MV_{\mathrm{applied}}$;
+- invalid upstream quality removes only feedforward, while ordinary feedback
+  continues; invalid downstream quality closes $MV_{\mathrm{applied}}$ because
+  measured feedback is no longer trustworthy; an incomplete history keeps
+  prediction inactive and retains ordinary feedback instead; heater
+  unavailable likewise closes $MV_{\mathrm{applied}}$;
 - Manual return and ControlledStop track actual applied heater power, all heater
   limits and slew are respected, and revision 81 remains unchanged.
 
 The focused native campaign produced this Simulation evidence. Each time-domain
 row is eligible because its required signals stayed finite and within the
-declared operating and authority limits.
+declared operating and authority limits. The two rows below are the ones the
+retained trace and summary CSVs carry; the 90-percent rise time and heater
+total variation are native-test acceptance measures (see Prediction and the
+bullets above) but are not retained in the shipped CSV at this precision, so
+they are not tabulated here.
 
 | Evidence | Accepted ordinary PI | PI plus feedforward | Smith PI plus feedforward |
 | --- | ---: | ---: | ---: |
-| 90-percent rise time | 52.5 s | 52.5 s | 43.1 s |
 | Setpoint-window IAE | 525.81 degC*s | 525.81 degC*s | 425.25 degC*s |
 | Regulatory IAE | 52.25 degC*s | 17.80 degC*s | not used for the feedforward decision |
-| Applied-heater total variation | 86.85 pp | 88.35 pp | 418.65 pp |
 
-Smith prediction is 17.9 percent faster by the declared rise measure. The
-feedforward comparison improves regulatory IAE by 65.9 percent. The table also
-shows the cost of the faster Smith response: much greater heater movement.
-That cost remains visible rather than being hidden by the selected result.
+Smith prediction lowers setpoint-window IAE by 19.1 percent relative to
+ordinary PI. The feedforward comparison improves regulatory IAE by 65.9
+percent. Both improvements come from different tuning discussed above: the
+IAE columns alone do not report Smith's heater-movement cost, which the
+native acceptance rule and the Prediction section still bound.
 
 The accepted ordinary PI has 0.232 degree Celsius overshoot and 0.067 degree
 Celsius final-window mean absolute error. Its crossover frequency is 0.03125

@@ -1,25 +1,22 @@
 # Commission one jacketed-reactor control architecture
 
-Course position: Lesson 79 of 84.
-Prerequisite: `control-capstone-servo`.
+Course position: Lesson 79 of 84. Previous lesson: [Commission a flexible rotary indexing servo](../78-servo/README.md). Next lesson: [Commission full-range control of a gravity-drained tank](../80-gravity-tank/README.md).
 
 **Lesson objective:** Commission one maintainable reactor-temperature architecture across inner-loop startup, production, measured feed load, protection takeover, degradation, manual operation, and controlled shutdown.
 
-Plant: Jacketed continuously stirred chemical reactor.
-
-This is Lesson 79, the industrial-process capstone. You will commission one
-jacketed stirred reactor from startup through production, a temperature
-constraint, and controlled shutdown. The proposed architecture remains
-unapplied. All executable results are deterministic **Simulation evidence**,
-not physical reactor evidence.
+**Evidence class:** Simulation evidence. All executable results in this lesson are deterministic, not physical reactor evidence.
 
 ## The problem
 
-The equipment is a jacketed continuously stirred chemical reactor. Steam warms
-the jacket, cooling water cools it, and heat crosses the jacket wall into or out
-of the well-mixed reactor inventory. Incoming feed changes the reactor's thermal
-load. The lesson models temperatures and utility control, not reaction kinetics
-or process safety.
+The equipment is a jacketed continuously stirred chemical reactor. This is
+Lesson 79, the industrial-process capstone: you will commission this reactor
+from startup through production, a temperature constraint, and controlled
+shutdown, and the proposed architecture remains unapplied.
+
+Steam warms the jacket, cooling water cools it, and heat crosses the jacket
+wall into or out of the well-mixed reactor inventory. Incoming feed changes
+the reactor's thermal load. The lesson models temperatures and utility
+control, not reaction kinetics or process safety.
 
 The reactor-temperature setpoint ($SP_{r}$) is the desired product temperature, in
 degrees Celsius. The reactor process value ($PV_{r}$) is the measured reactor
@@ -87,9 +84,16 @@ are acceptable may the sequence grant Production authority to the outer loop.
 For a first-order local approximation, a time constant is the time required to
 complete about 63.2 percent of a response after dead time. The jacket time
 constant ($\tau_{j}$) is 2 seconds and the reactor time constant ($\tau_{r}$) is 12
-seconds. Their time-scale ratio is the slower value divided by the faster one:
+seconds. These two time constants, the jacket model's pole magnitude below,
+the feed-load gain, and the jacket-to-reactor gain introduced further down are
+all declared configured teaching values for this local linear reactor-and-
+jacket model; this plant is new to the course, so none of them is inherited.
+The Evidence and decision section reports an independent identification
+experiment that recovers consistent parameters from the plant's own step
+response, which is how a learner would obtain them on real equipment. Their
+time-scale ratio is the slower value divided by the faster one:
 
-$time-scale ratio = \tau_{r} / \tau_{j} = 12 s / 2 s = 6$
+$\tau_{r} / \tau_{j} = 12/2 = 6$
 
 Six is greater than the lesson's minimum separation of three.
 
@@ -98,14 +102,14 @@ proportional gain ($K_{p,j}$) is 10 percentage points per degree Celsius and the
 selected inner integral gain ($K_{i,j}$) is 5 percentage points per degree-Celsius-
 second. Their ratio places the PI zero at the local plant pole:
 
-$K_{i,j} / K_{p,j} = 5 / 10 = 0.5 per second$
+$K_{i,j} / K_{p,j} = 5 / 10 = 0.5$ per second
 
 For the declared jacket input coefficient of 0.08 degrees Celsius per
 percentage-point-second, cancelling that pole predicts an inner closed-loop
 time constant of 1 divided by 0.08 times the jacket proportional gain
 ($K_{p,j}$):
 
-$\tau_{\mathrm{inner}} = 1 / (0.08 \cdot 10) = 1.25 seconds$
+$\tau_{\mathrm{inner}} = 1 / (0.08 \cdot 10) = 1.25$ seconds
 
 The local jacket transfer is $0.08/(s+0.5)$. The PI is
 $10(s+0.5)/s$ because $K_{i,j}/K_{p,j}=0.5$. Their product cancels the
@@ -131,7 +135,7 @@ $K_{\mathrm{ff}} = 0.6 {}^\circ\mathrm{C}/load-unit / 1.143 {}^\circ\mathrm{C}/{
 
 When $D_{\mathrm{feed}}$ is four load units, the predicted immediate jacket correction is:
 
-$feedforward contribution = K_{\mathrm{ff}} \cdot D_{\mathrm{feed}} = 0.525 \cdot 4 = 2.10 {}^\circ\mathrm{C}$
+$K_{\mathrm{ff}} \cdot D_{\mathrm{feed}} = 0.525 \cdot 4 = 2.10\,{}^\circ\mathrm{C}$
 
 The feedback-only copy waits for $PV_{r}$ to move. The integrated copy immediately
 adds 2.10 degrees Celsius to the normal outer-loop jacket request while the
@@ -270,8 +274,6 @@ generic panels cannot establish them.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 First classify each sample window by signal quality, operating mode, active
 authority, saturation, and fault state. Do not rank an invalid or protected
 window as ordinary production performance.
@@ -297,8 +299,6 @@ feedforward-quality loss, steam-unavailable, cooling-unavailable, manual, and
 shutdown intervals separately. Requested and applied valves are not
 interchangeable measures.
 
-### Validation
-
 The executable validation shall establish all of the following before the
 candidate is eligible:
 
@@ -320,7 +320,7 @@ the declared common cold-load record:
 
 | Decision measure | Feedback-only cascade | Integrated architecture | Decision |
 | --- | ---: | ---: | --- |
-| Integrated absolute error, 30–50 s | 17.52 °C·s | 6.91 °C·s | 60.6% lower; passes the required 25% reduction |
+| Integrated absolute error, 30–50 s | 17.52 °C·s | 6.91 °C·s | 60.5% lower; passes the required 25% reduction |
 | Maximum departure from pre-event temperature | 0.681 °C | 0.552 °C | Feedforward does not increase departure |
 | Applied-valve total variation, 30–50 s | 16.18 pp | 35.88 pp | Earlier correction costs more valve activity |
 | Qualified feedforward onset delay | Not applicable | 0.0 s | The predicted 2.10 °C correction appears on the first qualified sample |
@@ -336,7 +336,26 @@ variation is a real engineering cost rather than a hidden side effect. Retained
 plots must be generated from the same shipped run. A source review or smooth
 screenshot does not replace that evidence.
 
-### Retained evidence
+A separate identification experiment run before commissioning recovers local
+coefficients from the plant's own step response rather than assuming the
+declared design values are exact; this is the retained evidence for how a
+learner would obtain them on real equipment:
+
+| Identified coefficient | Recovered value | Compare to declared |
+| --- | ---: | --- |
+| Jacket time constant | 2.00 s | Matches the declared 2 s exactly |
+| Reactor time constant | 13.70 s | 1.7 s above the declared 12 s |
+| Time-scale ratio | 6.85 | Above the declared 6 and still above the minimum-three requirement |
+| Feed-load gain | -0.600 °C per load unit | Matches the declared -0.6 °C per load unit within rounding |
+| Steady jacket gain | 0.160 °C per percentage point | The declared 0.08 °C-per-percentage-point-second input coefficient held for the identified 2.00 s jacket time constant |
+| Steady reactor-to-utility gain | 0.1787 °C per percentage point | A new quantity this identification introduces; it is not derived from the declared jacket-to-reactor gain alone |
+| Feedforward gain (utility form) | 3.358 percentage points per load unit | An alternative single-stage estimate of the same feedforward correction the declared two-stage $K_{\mathrm{ff}}$ calculation predicts |
+
+The identified reactor time constant runs higher than the declared value
+because the coupled two-state jacket-and-reactor system does not settle as a
+pure single first order; the time-scale ratio nonetheless stays well above
+the lesson's minimum separation of three, so the cascade design remains
+eligible under either the declared or the identified numbers.
 
 The plot keeps the main engineering decision visible: the qualified integrated
 architecture reacts to the measured load before feedback alone, while the same

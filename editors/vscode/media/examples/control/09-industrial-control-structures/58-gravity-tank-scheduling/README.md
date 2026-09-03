@@ -1,10 +1,10 @@
 # Schedule PI control across a gravity tank's operating range
 
-Course position: Lesson 58 of 84. Prerequisite: compressor override control in Lesson
-57. Every result is **Simulation evidence**. It is not evidence from a physical
-tank and does not authorize operation of a pump.
+Course position: Lesson 58 of 84. Previous lesson: [Protect compressor flow margin with tracked override](../57-compressor-override/README.md). Next lesson: [Compensate conveyor-oven transport delay with a Smith predictor](../59-heated-air-duct-smith/README.md).
 
 **Lesson objective:** Derive and validate local models of a gravity-drained tank, then decide whether one fixed proportional-integral controller or either of two gain-scheduling architectures gives consistent control over the full operating range without creating output bumps or boundary chatter.
+
+**Evidence class:** Simulation evidence. It is not evidence from a physical tank and does not authorize operation of a pump.
 
 ## The problem
 
@@ -102,6 +102,16 @@ low to high level. The fixed baseline uses the conservative high-level value,
 $K_i$ = 0.00280, everywhere. Scheduling only $K_i$ is still gain scheduling:
 integral action must follow the changing plant time constant.
 
+The design time $\lambda=10$ seconds is a declared teaching value chosen well
+inside the plant's own 21.91-to-35.78-second local time constants: a design
+time comparable to or larger than those time constants would make every
+region's response about as slow as the uncorrected plant, hiding the low-level
+sluggishness this lesson demonstrates, while a design time far below 10
+seconds would demand proportional gains large enough to risk the pump-flow
+limits at every operating point, not only the fastest one. Ten seconds keeps
+every derived tuning inside Lesson 44's speed-versus-robustness guidance while
+still producing a visibly faster low-level recovery than the fixed baseline.
+
 The tuning is also calculated, not guessed. For a first-order plant and design
 time $\lambda=10$ seconds, $K_p=T_h/(K_h\lambda)$. Here $A=1$, so the derived
 $T_h$ and $K_h$ have equal numerical values and $K_p=1/10=0.100$. Choosing the
@@ -133,10 +143,15 @@ parameters.
 ### Parallel scheduling
 
 The alternative keeps low-, middle-, and high-level PIs as separate stateful
-controllers. Nominal region boundaries are 0.425 and 0.675 metres. A 0.010 m
-hysteresis half-band requires upward crossings above 0.435 or 0.685 metres and
-downward crossings below 0.415 or 0.665 metres. Sensor noise inside the band
-cannot change region.
+controllers. Nominal region boundaries sit halfway between adjacent qualified
+schedule points: $(0.30+0.55)/2=0.425$ and $(0.55+0.80)/2=0.675$ metres, so
+each region owns the operating range closest to its own qualified local model.
+A 0.010 m hysteresis half-band requires upward crossings above 0.435 or 0.685
+metres and downward crossings below 0.415 or 0.665 metres. The declared sensor
+noise standard deviation is 0.0005 m (stated in **The problem** above), so the
+0.010 m half-band is 20 standard deviations wide: far beyond anything the
+deterministic noise source can produce in one sample, which is why sensor
+noise inside the band cannot change region.
 
 Only one controller is automatic. Each inactive controller keeps the real
 setpoint and measurement histories. Because this incremental PID still
@@ -173,6 +188,21 @@ END_IF;
 InterpolatedController.Configure(Parameters := InterpolatedParameters);
 ```
 
+The more novel parallel-tracking mechanism is the increment-subtraction shown
+above in **Parallel scheduling**. Because Track mode still evaluates the
+current incremental proportional and integral terms, the program subtracts
+those known increments from the applied pump request before using the result
+as each inactive controller's tracking reference, here for the low-region PI:
+
+```st
+LowTrackingReference := ParallelPumpRequest
+    - LowParameters.ProportionalGain
+        * ((LevelSetpoint - PreviousParallelSetpoint)
+            - (ParallelLevel - PreviousParallelLevel))
+    - LowParameters.IntegralGain * LREAL#0.1
+        * (LevelSetpoint - ParallelLevel);
+```
+
 The program exposes requested level, measured levels, pump requests, filtered
 scheduling level, interpolation fraction, active gains, parallel region, and
 transition count. It contains no timed experiment or stored verdict.
@@ -186,7 +216,7 @@ signal. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Requested liquid level (SP, m); Fixed-PI liquid level (PV, m); Fixed-PI pump-flow request (MV, m3/s), including units, limits, mode, and quality. The initial operating point is Requested liquid level = 0.3 m, Fixed-PI liquid level = 0.3 m, Interpolated-PI liquid level = 0.3 m, Parallel-PI liquid level = 0.3 m, Fixed-PI pump-flow request = 0.027386127875 m3/s, Interpolated-PI pump-flow request = 0.027386127875 m3/s, Parallel-PI pump-flow request = 0.027386127875 m3/s. The unresolved baseline problem is: The conservative high-level integral gain is unnecessarily slow in the low-level region. Retain the schedule boundaries at 30 s, 120 s, 240 s, 330 s, and 420 s before opening Test.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept scheduling only when every local model is qualified, constraints remain common, regional performance improves, and both transition architectures are bumpless.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
@@ -202,8 +232,6 @@ signal. The deterministic Simulation seed is 20260829.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 Hold nonlinear plant parameters, initial state, level sequence, local tuning,
 common constraints, sample schedule, duration, and noise seed equal. Change
 only fixed, interpolated, or parallel-tracked controller architecture.
@@ -213,11 +241,7 @@ error** sums absolute level error times the 0.1-second interval in
 metre-seconds. **Pump-flow total variation** sums consecutive absolute applied
 pump-flow changes in cubic metres per second. **Region transition count**
 counts changes among low, middle, and high regions. **Transition pump step** is
-the adjacent applied-flow change at a transition. Settling time and
-final-window error are reported only when declared level and pump spans prove
-settling; otherwise report Not settled.
-
-### Validation
+the adjacent applied-flow change at a transition.
 
 First classify each run as Valid, Not settled, Saturated, Unqualified region,
 Chattering, Invalid, or Aborted. Only eligible metrics may then be compared.
@@ -235,7 +259,7 @@ The deterministic executable run produced:
 | --- | --- | ---: | --- |
 | Fixed high-level PI | 3.2839, 3.2207, 2.6221, 3.2669 | 3.2839 | No scheduled transfer |
 | Atomically interpolated PI | 2.6837, 3.0500, 2.3617, 2.3014 | 3.0500 | Continuous parameter record |
-| Parallel tracked PIs | 2.4123, 2.8488, 2.4749, 2.4807 | 2.8488 | Four transitions; largest pump step 0.000284 m³/s |
+| Parallel tracked PIs | 2.3770, 2.7861, 2.4274, 2.4270 | 2.7861 | Four transitions; largest pump step 0.000000 m³/s |
 
 Both scheduled architectures improve the fixed controller's worst region. The
 parallel result is eligible because it makes exactly four transitions, does not

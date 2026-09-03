@@ -495,7 +495,7 @@ suite("Control-engineering capstone lessons", () => {
       /Control Studio.*Monitor.*Test/i,
       /158\.67.*146\.72.*46,624.*46,200.*18\.7.*160\.0/i,
       /tradeoff.*not.*automatic win/i,
-      /invalid.*stale.*unbounded innovation.*unavailable heater.*Manual.*ControlledStop/i,
+      /invalid.*stale.*excessive innovation.*unavailable heater.*Manual.*ControlledStop/i,
       /Simulation evidence.*not.*physical/i,
       /select.*simplest.*Lesson 84/i,
     ]) assert.match(readme, requirement);

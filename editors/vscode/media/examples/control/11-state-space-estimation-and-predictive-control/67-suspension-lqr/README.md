@@ -10,7 +10,7 @@ Course position: Lesson 67 of 84. Previous lesson: [Qualify a weigh-feeder Kalma
 
 ## The problem
 
-The equipment is the locally linear body-bounce mode of one corner of an active road-vehicle suspension. Suspension deflection ($z$) says how far the body moves relative to its local rest position, in metres. Body vertical velocity ($v$) says how quickly that deflection changes, in metres per second. Hydraulic force ($u$) is the bidirectional actuator command, in kilonewtons. Road-equivalent vertical acceleration disturbance ($d$) represents the bump force reaching the body mode, in metres per squared second.
+The equipment is the reduced body-bounce mode of an active road-vehicle suspension: the locally linear model of one corner. Suspension deflection ($z$) says how far the body moves relative to its local rest position, in metres. Body vertical velocity ($v$) says how quickly that deflection changes, in metres per second. Hydraulic force ($u$) is the bidirectional actuator command, in kilonewtons. Road-equivalent vertical acceleration disturbance ($d$) represents the bump force reaching the body mode, in metres per squared second.
 
 Velocity changes deflection. Spring and damper action oppose body motion, while hydraulic force and the road disturbance change vertical velocity. In equations:
 
@@ -70,7 +70,7 @@ corresponds to spending the entire available force.
 
 ### From cost to feedback
 
-Riccati matrix (P) relates the present state to future optimal cost—the least cost achievable by the declared unconstrained linear problem. First confirm that actuator force can stabilize every unstable state: stacking the actuator matrix with its one-step reach, $[\mathbf B\ \ \mathbf A\mathbf B]=\begin{bmatrix}0&0.5\\0.5&-0.6\end{bmatrix}$, gives determinant $-0.25\neq0$, so Lesson 64's rank test confirms this pair is controllable and every state can be moved by hydraulic force alone. The continuous algebraic Riccati equation then finds P:
+Riccati matrix (P) relates the present state to future optimal cost—the least cost achievable by the declared unconstrained linear problem. First confirm that actuator force can stabilize every unstable state: stacking the actuator matrix with its one-step reach, $[\mathbf B\;\mathbf A\mathbf B]=\begin{bmatrix}0&0.5\\0.5&-0.6\end{bmatrix}$, gives determinant $-0.25\neq0$, so Lesson 64's rank test confirms this pair is controllable and every state can be moved by hydraulic force alone. The continuous algebraic Riccati equation then finds P:
 
 $\mathbf{A}^{T}\mathbf{P}+\mathbf{P}\mathbf{A} -\mathbf{P}\mathbf{B}\mathbf{R}^{-1}\mathbf{B}^{T}\mathbf{P} +\mathbf{Q}=0$
 

@@ -112,18 +112,18 @@ There is no feedback controller and no model fit in this lesson. The actual
 Structured Text reviews the proposed physical result before accepting the plan:
 
 ```st
-IF ((LREAL#60.0 + ProposedStep) < LREAL#40.0) OR
-   ((LREAL#60.0 + ProposedStep) > LREAL#80.0) OR
-   (PredictedFinalTemperature < LREAL#45.0) OR
-   (PredictedFinalTemperature > LREAL#58.0) THEN
-    PlanRejectReason := 1;
-ELSIF (ProposedDuration < LREAL#63.0) OR (ProposedDuration > LREAL#120.0) THEN
-    PlanRejectReason := 2;
-ELSE
-    LatchedStep := ProposedStep;
-    LatchedDuration := ProposedDuration;
-    PlanAccepted := TRUE;
-END_IF;
+    IF ((LREAL#60.0 + ProposedStep) < LREAL#40.0) OR
+       ((LREAL#60.0 + ProposedStep) > LREAL#80.0) OR
+       (PredictedFinalTemperature < LREAL#45.0) OR
+       (PredictedFinalTemperature > LREAL#58.0) THEN
+        PlanRejectReason := 1;
+    ELSIF (ProposedDuration < LREAL#63.0) OR (ProposedDuration > LREAL#120.0) THEN
+        PlanRejectReason := 2;
+    ELSE
+        LatchedStep := ProposedStep;
+        LatchedDuration := ProposedDuration;
+        PlanAccepted := TRUE;
+    END_IF;
 ```
 
 Requested valve position and applied valve position are separate signals. The

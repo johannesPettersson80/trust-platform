@@ -168,9 +168,8 @@ clamped to 100 percent. For gain 2, `PB = 100% / (2 %/°C) = 50 °C`. For gain
 
 If the heater needs an illustrative 50 percent steady output (not the plant's
 measured holding power), `e_ss = 50% / (2 %/°C) = 25 °C` at gain 2 and
-`e_ss = 50% / (8 %/°C) = 6.25 °C` at gain 8. Predict that gain 8 reduces
-offset, and that an intentionally excessive gain of 40 %/°C causes repeated
-temperature and output movement.
+`e_ss = 50% / (8 %/°C) = 6.25 °C` at gain 8. Predict gain 8 reduces offset,
+and gain 40 causes repeated temperature and output movement.
 
 ## Implementation
 
@@ -213,8 +212,8 @@ Auto mode and owns the scheduled cold-water load event.
 ### Control Studio actions
 
 1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait for **Simulation**, **Running**, current data, with units, limits, mode, and quality shown for SP, PV, Requested heater power, and Applied heater power (MV). Confirm SP = 35 °C, PV = 20 °C, MV = 0%, `Kp = 8 %/°C`, Auto disabled — the unresolved problem is low proportional gain leaving a large load-dependent offset.
-   - **Decision before action:** Read **Prediction** above and predict which signal moves first and which way, because holding plant, initial state, load event, limits, duration, sample time and seed identical isolates gain as the one changed cause; reject a gain that cuts offset by destroying damping.
+   - **Baseline check:** Wait for **Simulation**, **Running**, current data, with units, limits, mode, and quality shown for SP, PV, Requested heater power, and Applied heater power (MV). Confirm SP = 35 °C, PV = 20 °C, MV = 0%, `Kp = 8 %/°C`, Auto disabled. Low proportional gain leaves a large load-dependent outlet-temperature offset.
+   - **Decision before action:** Read **Prediction** above, then predict which signal moves first and which way. Compare moderate and intentionally aggressive proportional gains while preserving the identical plant, initial state, load event, limits, duration, sample time and seed; reject a gain that reduces offset by destroying damping. Holding every other condition identical is why gain alone explains the difference.
    - **Successful evidence:** The Response plot advances, values are finite and current, and **Start recording** is enabled; select it only once true.
    - **Recovery:** If recording is disabled or samples are unavailable or stale, stop the Simulator, correct the runtime or binding problem, restart, and repeat the baseline check.
    - **Record:** Write down initial SP, PV, requested/applied MV, controller mode, and your predicted response.
@@ -228,11 +227,11 @@ Auto mode and owns the scheduled cold-water load event.
 
 ## Evidence and decision
 
-Apply the validity, settling, travel, and selection definitions declared
-before the experiment to the retained samples, not the rounded table; an
-invalid or unrestored run is not ranked. Compare desired and measured
-temperature in the upper plot, then requested and applied heater power below;
-requested power may exceed the physical range, applied power may not.
+Apply the validity, settling, travel, and selection definitions to the
+retained samples, not the rounded table; an invalid run is not ranked.
+Compare desired and measured temperature in the upper plot, then requested
+and applied heater power below; requested power may exceed the physical
+range, applied power may not.
 
 ![Water-heater responses for three proportional gains](figures/p-gain-comparison.svg)
 

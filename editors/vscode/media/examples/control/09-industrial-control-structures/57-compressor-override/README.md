@@ -196,7 +196,7 @@ authority signal. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Discharge-pressure setpoint (SP, bar); Normal-only discharge pressure (PV, bar); Normal-only recycle request (MV, %), including units, limits, mode, and quality. The initial operating point is Discharge-pressure setpoint = 8 bar, Tracked normal recycle demand = 30 %, Tracked protective recycle demand = 30 %, Normal-only discharge pressure = 8 bar, Normal-only flow margin = 20 %, Untracked discharge pressure = 8 bar, Untracked flow margin = 20 %, Tracked discharge pressure = 8 bar. The unresolved baseline problem is: Normal pressure control violates margin, while an untracked inactive protection integral may take over late or return with a bump. In Control Studio Monitor retain the production, override, and restored authority boundaries at 20.0 s, 80.0 s, and 140.0 s.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept override only when common-unit direction, quality, tracked inactive state, one takeover, one release and transition-step limits are all proven.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
@@ -211,8 +211,6 @@ authority signal. The deterministic Simulation seed is 20260829.
    - **Record:** Compare the three cases with your prediction and retain the terminal state, restoration result, and seed **20260829**. The native lesson test owns the numeric selector verdict and invalid-quality case; this observation does not create generic Identify, Tune, or Validate evidence.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Hold plant equations, initial state, normal and protective tuning, setpoint
 cycle, thresholds, sample schedule, duration, limits, and seed equal. Change
@@ -239,8 +237,6 @@ Define measures before revealing results:
 
 Final-window pressure and margin error from 130 through 140 seconds are eligible
 only after declared pressure, margin, and valve spans show settling.
-
-### Validation
 
 Normal-only control must cross 12 percent and prove the conflict. The untracked
 selector must retain its late takeover or larger bump; eventual recovery does

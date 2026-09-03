@@ -91,9 +91,9 @@ The heater PRBS dwell is 2.5 seconds, half its 5-second thermal lag. This gives
 the temperature several scans to begin responding to each level instead of
 turning the heater input into mostly attenuated rapid switching. The servo
 PRBS dwell is 0.3 second, exactly three 100-millisecond task scans — short
-because the flexible mode's own period is close to 1 second, and a longer
-dwell would waste scans past where the shaft already reversed. The servo
-chirp sweeps from 0.2 to 2 hertz in 20 seconds.
+because the flexible mode's own period is near 1 second; longer would waste
+scans past where the shaft already reversed. The servo chirp sweeps 0.2 to 2
+hertz in 20 seconds.
 It crosses the 0.95-hertz flexible mode because angular frequency and
 ordinary frequency obey $\omega=2\pi f$, so $f_n=6/(2\pi)=0.955$ Hz.
 
@@ -108,8 +108,8 @@ $\sin\phi$. This explains why merely changing the displayed frequency without
 integrating phase would not generate the intended chirp.
 
 Before a method runs, the project checks five numbered reasons: 1 unsafe
-amplitude, 2 insufficient duration, 3 invalid chirp band, 4 relay feedback
-(always rejected here), 5 ineligible plant-method pairing.
+amplitude, 2 short duration, 3 invalid chirp band, 4 relay feedback (always
+rejected here), 5 ineligible pairing.
 
 ## Prediction
 
@@ -124,9 +124,9 @@ signed torque area: $(+0.1)(5)+(-0.1)(5)=0$ N·m·s. Predict that the chirp's la
 
 ## Implementation
 
-There is no feedback controller and no fitted model. The actual Structured Text
-generates the waveform selected by the learner; this is case 6, the chirp,
-inside the `CASE MethodSelection OF` block:
+There is no feedback controller and no fitted model. The actual Structured
+Text generates the selected waveform; this is chirp case 6 of
+`CASE MethodSelection OF`:
 
 ```st
         6:

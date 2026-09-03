@@ -1,11 +1,10 @@
 # Select a robust distillation control architecture
 
-Course position: Lesson 63 of 84. Prerequisite:
-`control-distillation-decoupling`. Next lesson: `control-two-tank-observability`.
-
-**Equipment:** Continuous binary distillation column.
+Course position: Lesson 63 of 84. Previous lesson: [Distillation decoupling comparison](../62-distillation-decoupling/README.md). Next lesson: [Two-tank actuator and sensor feasibility](../../11-state-space-estimation-and-predictive-control/64-two-tank-observability/README.md).
 
 **Lesson objective:** Evaluate direct PI, static decoupling, and centralized direction-preserving constraint coordination against common nominal, interaction, and infeasibility evidence.
+
+**Evidence class:** Simulation evidence. This lesson operates a simulated distillation column; it is not approved for a physical column.
 
 ## The problem
 
@@ -38,7 +37,7 @@ The Euclidean length is the combined magnitude of a vector. For the two physical
 
 A two-input gain matrix does not have one gain for every direction. The largest singular value ($\sigma_{\mathrm{max}}$) is the largest output-vector magnitude produced by any unit-length input direction. The smallest singular value ($\sigma_{\mathrm{min}}$) is the smallest output-vector magnitude produced by any unit-length input direction. The associated input and output directions explain which physical combinations create those extremes.
 
-For every input direction whose length is one:
+For a generic normalized gain matrix ($M$), not yet the specific nominal or stronger-interaction case defined below, these extremes are, for every input direction whose length is one:
 
 $\sigma_{\mathrm{max}} = \max\left(\lVert M \cdot u \rVert_2\right)$
 
@@ -51,11 +50,15 @@ $\mathbf{M}_0=\begin{bmatrix}1&-0.5\\-0.428571&1\end{bmatrix}$
 Its largest and smallest singular values are 1.4649 and 0.5364. Their ratio is the condition number ($\kappa$), which is 2.73. The largest steady inverse-command amplification is the reciprocal of the smallest singular value: $1 / \sigma_{min} = 1.86$.
 
 For a two-by-two matrix, these values can be checked without treating a
-software result as magic. Form $M^TM=\begin{bmatrix}a&b\\b&d\end{bmatrix}$.
-Its eigenvalues are
+software result as magic. As Lesson 61 defines matrix multiplication, forming $M^TM$ multiplies the transpose's rows by $M$'s columns: for $M_0$,
+$a=1(1)+(-0.428571)(-0.428571)=1.183673$, $d=(-0.5)(-0.5)+1(1)=1.25$, and
+$b=1(-0.5)+(-0.428571)(1)=-0.928571$, giving
+$M^TM=\begin{bmatrix}a&b\\b&d\end{bmatrix}$. Its eigenvalues solve
+$\det(\lambda I-M^TM)=0$, that is $(\lambda-a)(\lambda-d)-b^2=0$, a quadratic
+in $\lambda$ whose two roots are the familiar quadratic-formula result
 $\lambda_{\pm}=[a+d\pm\sqrt{(a-d)^2+4b^2}]/2$, and the singular values are
-$\sqrt{\lambda_{+}}$ and $\sqrt{\lambda_{-}}$. For $M_0$,
-$a=1.183673$, $b=-0.928571$, and $d=1.25$, which give 1.4649 and 0.5364.
+$\sqrt{\lambda_{+}}$ and $\sqrt{\lambda_{-}}$. For $M_0$ this substitution
+gives 1.4649 and 0.5364.
 
 The normalized stronger-interaction matrix ($M_{1}$) is:
 
@@ -63,15 +66,21 @@ $\mathbf{M}_1=\begin{bmatrix}1&-0.8\\-0.7&1\end{bmatrix}$
 
 Its singular values are 1.7512 and 0.2512, its condition number is 6.97, and its inverse-command amplification is 3.98. The smaller minimum singular value means that one combined product direction needs much more coordinated actuator movement.
 
-For $M_1$, $a=1.49$, $b=-1.50$, and $d=1.64$ in the same calculation.
+For $M_1$, the same row-times-column products give $a=1.49$, $b=-1.50$, and $d=1.64$.
 Then $\kappa=1.7512/0.2512=6.97$ and
 $1/\sigma_{min}=1/0.2512=3.98$.
+
+The stronger-interaction gain matrix ($G_{1}$) restores each row of $M_1$ to its own direct engineering gain: scaling row 1 by the overhead direct gain 0.8 and row 2 by the bottoms direct gain 0.7 gives
+
+$\mathbf{G}_1=\begin{bmatrix}0.8&-0.64\\-0.49&0.7\end{bmatrix}$
+
+The Prediction below solves a coupled equilibrium request through this matrix.
 
 ### Interaction uncertainty
 
 The interaction uncertainty ($\Delta\mathbf{M}$) is the actual normalized matrix minus the nominal normalized matrix. Its largest singular value measures the worst directional size of the model difference.
 
-$DeltaM = M_{1} - M_{0}$
+$\Delta\mathbf{M} = \mathbf{M}_{1} - \mathbf{M}_{0}$
 
 The uncertainty size is 0.30. This is smaller than the nominal minimum singular value of 0.5364, so this bounded set is not predicted to lose invertibility. That test does not promise good conditioning or good closed-loop performance.
 
@@ -86,6 +95,8 @@ The loop-transfer matrix ($L$) combines the dynamic plant, controller, and selec
 $S(s) = \operatorname{inverse}\left(I + L(s)\right)$
 
 At each frequency, the largest singular value of the sensitivity matrix is the worst disturbance amplification over every output direction. We therefore search over frequency and direction; the diagonal elements alone are insufficient.
+
+As one bounded illustrative point rather than the full coupled calculation, approximate the overhead loop alone near $\omega=1$ radian per second using its Lesson 62 PI gains: $L(j\omega)\approx K_p+K_i/(j\omega)=1.6667-j0.08333$, so $\left\lVert I+L(j1)\right\rVert=\left\lVert2.6667-j0.08333\right\rVert\approx2.668$ and this loop's own sensitivity magnitude is about $1/2.668\approx0.375$, comfortably under the 1.20 acceptance limit at this one frequency. The reported peaks below come from the full two-input, two-output matrix swept over frequency and direction by the native lesson test; this single scalar point only illustrates why the calculation is possible by hand.
 
 ### Three architectures
 
@@ -120,14 +131,26 @@ For a +2/+2 target, the stronger-interaction plant needs about +10.88/+10.47 val
 The shipped program runs these actual components:
 
 ```st
-VirtualCommand.First := OverheadController.Update(Input := OverheadInput);
-VirtualCommand.Second := BottomsController.Update(Input := BottomsInput);
-CoupledCommand := StaticDecoupler.ToActuators(VirtualCommand := VirtualCommand);
+IF (Architecture >= 1) AND StaticQualified THEN
+    CoupledCommand := StaticDecoupler.ToActuators(VirtualCommand := VirtualCommand);
+    RefluxRequested := CoupledCommand.First;
+    ReboilerRequested := CoupledCommand.Second;
+ELSE
+    RefluxRequested := VirtualCommand.First;
+    ReboilerRequested := VirtualCommand.Second;
+END_IF;
 
 RequestedPeak := MAX(ABS(RefluxRequested), ABS(ReboilerRequested));
-CommonScale := MIN(LREAL#1.0, LREAL#10.0 / RequestedPeak);
-RefluxApplied := CommonScale * RefluxRequested;
-ReboilerApplied := CommonScale * ReboilerRequested;
+IF (Architecture = 2) AND StaticQualified AND (RequestedPeak > LREAL#0.0) THEN
+    // One scale preserves the requested input direction when a shared constraint is active.
+    CommonScale := MIN(LREAL#1.0, LREAL#10.0 / RequestedPeak);
+    RefluxApplied := CommonScale * RefluxRequested;
+    ReboilerApplied := CommonScale * ReboilerRequested;
+ELSE
+    CommonScale := LREAL#1.0;
+    RefluxApplied := LIMIT(LREAL#-10.0, RefluxRequested, LREAL#10.0);
+    ReboilerApplied := LIMIT(LREAL#-10.0, ReboilerRequested, LREAL#10.0);
+END_IF;
 ```
 
 The complete source guards division by zero, chooses direct, static, or centralized operation explicitly, and exposes requested and applied commands separately. It does not contain singular values, performance metrics, or a preselected winner.
@@ -138,27 +161,28 @@ This procedure observes one project-owned centralized run that moves from a
 feasible common-product target to an infeasible one. The project owns
 architecture, both requests, the restored interval, and Manual zero restoration;
 Control Studio writes only one Boolean authority signal. The native lesson test
-owns the full model-and-architecture matrix. The seed is 20260829.
+owns the full model-and-architecture matrix across overhead-only, bottoms-only,
+simultaneous, and feed-composition-disturbance events on both models; the
+interactive Test below reproduces only the simultaneous feasible-to-infeasible
+sequence. The seed is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm both SP/PV pairs, requested and applied vectors, common scale, saturation, architecture, limits, modes, and quality. All deviations and inputs begin at zero. Retain the 20-second baseline, feasible +1/+1 interval from 20 to 240 seconds, restored interval to 480 seconds, and infeasible +2/+2 interval to 720 seconds.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Select the least coupled architecture that passes every normal-envelope record on both models; retain the +2/+2 record as Infeasible rather than ranking it.
+   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Select the least coupled architecture that passes every normal-envelope record on both models; retain the +2/+2 record as Infeasible rather than ranking it, because a common scale can preserve direction but cannot create reflux or reboiler capacity the column does not have.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the initial overhead and bottoms setpoints and purity deviations, the requested and applied reflux and reboiler changes, the common scale, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **720.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project selects the direction-preserving coordinator, commands +1/+1 after 20 seconds, restores zero at 240 seconds, and commands the infeasible +2/+2 target at 480 seconds.
-   - **Decision before action:** Before selecting **Review test**, predict when common scale should stay one and when it must fall below one. Confirm applied inputs remain within -10 through +10 points and product deviations within -6 through +6 points.
+   - **Decision before action:** Before selecting **Review test**, predict when common scale should stay one and when it must fall below one. Confirm applied inputs remain within -10 through +10 points and product deviations within -6 through +6 points, because either boundary would leave the local linear model this lesson's predictions depend on.
    - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must show requested and applied input direction together with common scale. At termination authority clears, both controllers enter Manual with zero outputs, and all event signals return to zero. Keep **Abort test** visible.
    - **Recovery:** Select **Abort test** if the test is rejected, stale, unsafe, unavailable, failed, or aborted. Read the reason, confirm authority is false and Manual zero restoration is active, wait for current data, and review a new observation.
    - **Record:** Classify the second target as infeasible rather than failed control. Retain terminal state, restoration, and seed **20260829**. The native test owns the full architecture/uncertainty verdict; this observation does not create generic Identify, Tune, or Validate evidence.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Final-window combined absolute error is the mean of the two absolute setpoint-minus-process-value errors over the final 10 seconds, after both outputs qualify as settled. Its unit is composition percentage points and smaller is better.
 
@@ -170,23 +194,21 @@ Also retain time at an input limit, minimum common scale, restoration error, mat
 
 A normal record passes only when combined final error is at most 0.10, single-axis cross peak is at most 0.20, input-limit time is at most 0.5 seconds, restoration error is at most 0.02, and sensitivity peak is at most 1.20. The simplest architecture wins. A more centralized candidate needs at least 20 percent improvement in eligible error or input travel, or it must turn a failed normal requirement into a pass without breaking another limit.
 
-### Validation
+These limits are **declared teaching values** for this simulation. The 0.10 and 0.20-composition-percentage-point error and cross-peak limits are small compared with the ±6-point product limits, so a passing run is visibly well controlled; the 0.5-second input-limit time and 0.02-point restoration error bound how long and how far a normal event may push an actuator or leave a residual; and the 1.20 sensitivity limit permits at most a 20 percent worst-case amplification of an output disturbance, a conventional robust-margin ceiling. The stronger-interaction perturbation (-0.8 and -0.7 in place of the nominal -0.5 and -0.428571) is likewise a declared teaching value, chosen to raise the condition number enough to change the architecture ranking rather than a measurement of a specific real column's uncertainty; a learner qualifying a real column would instead bound cross-gain uncertainty from repeated Lesson 61-style step tests at several operating points.
 
 The executable comparison retained every record, including failures. The most decision-relevant results are:
 
 | Evidence case | Direct PI | Static decoupling | Centralized coordinator |
 | --- | ---: | ---: | ---: |
-| Nominal simultaneous final error | 0.0161 pp | 0.0041 pp | 0.0041 pp |
 | Strong-interaction simultaneous final error | 0.1728 pp | 0.0767 pp | 0.0767 pp |
-| Worst strong-interaction single-axis cross peak | 0.1891 pp | 0.0752 pp | 0.0752 pp |
-| Strong-interaction sensitivity peak | 1.0067 | 1.0071 | 1.0071 |
+| Strong-interaction overhead-step cross peak | 0.1447 pp | 0.0535 pp | 0.0535 pp |
 | Infeasible +2/+2 final error | 1.0275 pp | 0.4174 pp | 0.2747 pp |
+
+These three rows are retained in the checked-in summary CSV. The native lesson test also confirms a nominal simultaneous final error near 0.004 to 0.016 composition percentage points and a strong-interaction sensitivity peak of about 1.007 for every architecture, comfortably inside the 1.20 limit; those two measures are part of the native test's fuller record and are not fields in the checked-in summary CSV, unlike the three rows above.
 
 Every static and centralized normal-envelope record passed final error, cross peak, input-limit duration, sensitivity, and Manual restoration requirements. Direct PI failed the stronger-interaction simultaneous-error requirement. Because the common scale remained one throughout every feasible record, centralized behavior equalled static decoupling and produced no 20-percent material benefit. Static decoupling is therefore selected as the simplest architecture for the declared normal envelope.
 
 In the +2/+2 challenge, requested commands exceed the physical range. Static decoupling clips independently and changes their direction. Centralized scaling reduces $\alpha$ to 0.8436 at its lowest point and preserves the requested ratio. All three architectures retain more than 0.10 composition percentage points of combined error, so the record is correctly classified `Infeasible` rather than settled. Its lower centralized residual does not make an impossible target eligible.
-
-### Retained evidence
 
 ![The stronger-interaction cross response and the infeasible reflux request](figures/distillation-robustness-evidence.svg)
 

@@ -158,33 +158,29 @@ This procedure observes supervised adaptive PI through the nominal recipe, drift
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Die-pressure setpoint (SP, bar); Die pressure (PV, bar); Requested screw speed (MV, %) and Applied screw speed (MV, %), including units, limits, mode, and quality. The initial operating point is Die-pressure setpoint = 40 bar, Die pressure = 40 bar, Applied screw speed = 40 %. The unresolved baseline problem is: Fixed PI cannot preserve the same response when known resin grade and unmeasured within-grade pressure gain both change.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Use a qualified frozen estimate only while its model, information, bounds and data remain valid; otherwise preserve scheduled fallback or safe output.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Die-pressure setpoint (SP) reads 0 bar and Requested/Applied screw speed both read 0 %, because Control enabled remains false and the project forces the setpoint to zero until Experiment authority (`P1.ExperimentEnabled`) is granted. Die pressure (PV) starts at 40 bar (the plant's initial state) but, with zero applied screw speed and the 5-second pressure time constant, expect it to drift away from 40 bar the longer Monitor is left open before Test starts — this is expected pre-authority physics, not the reviewed 40 bar operating point that Test itself establishes. The unresolved baseline problem is: Fixed PI cannot preserve the same response when known resin grade and unmeasured within-grade pressure gain both change.
+   - **Decision before action:** Because a qualified estimate must earn authority from information, not from time alone, decide now what should distinguish real qualification from a coincidentally small covariance: Persistent excitation and Estimate qualified must both read true together, only after Informative-update count has reached at least 20, before Active architecture may show adaptive (2). Use this decision rule: Use a qualified frozen estimate only while its model, information, bounds and data remain valid; otherwise preserve scheduled fallback or safe output.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the zero-authority SP and requested/applied MV, the PV at the instant Test starts, and your predicted grade-A gains (1.667 %/bar, 0.333 %/(bar s)) before opening Test.
 
-2. **Test** — Open **truST sidebar → Control Studio → Test**.
+2. **Test** — Open **Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns adaptation, probing, grade, and pressure schedules.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Applied screw speed 0 % to 100 %; Die pressure 0 bar to 90 bar; Estimated process gain 0.5 bar/% to 1.5 bar/%; Estimated pressure bias -20 bar to 20 bar.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
+   - **Decision before action:** Before selecting **Review test**, predict that requested and applied screw speed stay equal (unsaturated) and inside 0 % to 100 %, that Die pressure stays inside 0 bar to 90 bar, and that Estimated process gain and Estimated pressure bias stay inside their projected bounds (0.5 to 1.5 bar/%, -20 to 20 bar) throughout — because this supervised run is designed to keep every signal inside its reviewed range, so any excursion signals a wiring or model problem rather than expected behavior.
+   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and Response must show the probe alternating applied screw speed by about ±10 percentage points every 2 seconds from the start, the setpoint step to 50 bar at 30 s, the known-recipe change to grade B at 60 s, the setpoint step to 60 bar at 90 s, Active architecture reaching adaptive (2) once Estimate qualified turns true, and every signal returning to zero at the 120.1-second restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify frozen adaptation, zero setpoint, and zero applied speed, wait for current data, and review a new test.
    - **Record:** Stop recording only after restoration. Retain information determinant, covariance, estimate, qualification, projection, fallback, active gains, probe, pressure, requested/applied speed, terminal state, restoration result, and seed **20260829**. Use native evidence for alternative and fault cases; do not claim this visible run executed them.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 Pressure integrated absolute error is the sum of absolute setpoint-minus-pressure error multiplied by the 0.1-second interval, in bar seconds. Compare the declared 60-through-110-second grade-B window under identical probe conditions.
 
 Settling time is valid only after absolute pressure error remains at most 0.5 bar continuously for 5 seconds. A case that does not satisfy this rule reports `Not settled` rather than using its last sample as steady state.
 
-Applied-speed total variation is the sum of absolute changes between consecutive $u_{\mathrm{applied}}$ samples, in percentage points. It exposes the cost of probing and changing controller gains. Also retain peak requested and applied speed, saturation duration, projection count, informative-update count, frozen duration, covariance trace, $D_{R}$, architecture transitions, and exact parameter change during frozen windows.
+Applied-speed total variation is the sum of absolute changes between consecutive $u_{\mathrm{applied}}$ samples, in percentage points. It exposes the cost of probing and changing controller gains. Also retain peak requested and applied speed, saturation duration, projection count, informative-update count, frozen duration, covariance trace, $D_{R}$, architecture transitions, and exact parameter change during frozen windows. Every one of these measures, the projected-sample count during the grade transition, and the constant-grade determinant-decay and recovery times reported below are retained in [`figures/extruder-adaptive-evidence-summary.csv`](figures/extruder-adaptive-evidence-summary.csv).
 
 Estimate root-mean-square error compares $\hat{K}$ with effective gain reconstructed independently from Simulation configuration over qualified samples. This metric is available only to the native Simulation oracle. A real extruder does not reveal true effective gain, so a field workflow must use independent validation data instead.
-
-### Validation
 
 The shipped native test must match every RLS state and active PI gain against an independent oracle. Estimated gain must remain within 0.5 through 1.5 bar/% and estimated bias within -20 through +20 bar. Covariance and all commands must remain finite.
 
@@ -207,6 +203,8 @@ On the separate constant-grade record, removing probe authorization froze both e
 The lower adaptive IAE is useful, but it is not a complete win: none of the three probed responses met the five-second settling rule, and adaptive PI used the most applied-speed movement and saturation time. A moving estimate, small covariance number, or attractive pressure trace alone cannot qualify adaptive authority.
 
 ![Grade-B pressure error and screw-speed movement for fixed, scheduled, and supervised adaptive control](figures/extruder-adaptive-evidence.svg)
+
+The upper panel shows adaptive PI's lower grade-B tracking error against the same fixed and scheduled baselines reported in the table above. The lower panel shows the cost of that improvement: cumulative screw-speed movement rises from fixed through scheduled to adaptive, because both the shared probe and the estimator's own gain corrections move the actuator.
 
 [Complete trace](figures/extruder-adaptive-evidence-trace.csv) · [Decision summary](figures/extruder-adaptive-evidence-summary.csv)
 

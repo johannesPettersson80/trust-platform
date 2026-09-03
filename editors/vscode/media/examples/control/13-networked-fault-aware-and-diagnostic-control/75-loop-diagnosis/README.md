@@ -1,14 +1,14 @@
 # Diagnose a steam-flow loop before retuning
 
-Course position: Lesson 75 of 84. Prerequisite: multirate and fault-aware pumping control. Next lesson: cold-storage capstone.
-
-This lesson uses deterministic **Simulation evidence**, not physical-plant evidence.
+Course position: Lesson 75 of 84. Previous lesson: [Multirate and fault-aware pumping control](../74-pumping-fault-aware/README.md). Next lesson: [Cold-storage capstone](../../14-integrated-capstones/76-cold-storage/README.md).
 
 **Lesson objective:** Diagnose eight blinded steam-loop records and select the next evidence-producing action without treating retuning as the default remedy.
 
+**Evidence class:** Simulation evidence. The eight-case casebook is deterministic Simulation evidence, not physical-plant evidence of an installed steam valve.
+
 ## The problem
 
-The equipment in this lesson is Industrial steam-distribution flow loop.
+The equipment in this lesson is an industrial steam-distribution flow loop.
 
 A modulating steam valve supplies one production user. The steam-flow setpoint
 and both flow measurements use tonnes per hour (`t/h`). Valve demand and
@@ -32,6 +32,17 @@ The nominal local steam path has a gain of `1.0 t/h/%`, a time constant of
 baseline proportional-integral controller has proportional gain
 `2.0 %/(t/h)` and integral gain `0.2 %/(t/h*s)`. The valve is one-sided and
 limited from `0%` closed to `100%` open.
+
+The plant gain, time constant, dead time, and baseline PI gains are declared
+teaching values configured directly in the casebook's plant model, not fitted
+from a measured commissioning test. A learner would instead obtain the plant
+values from a bump test at a fixed valve position — the same step-identification
+method taught in Lessons 16 through 18 — and would obtain commissioned PI gains
+from the model-qualified method of Lesson 44. The machine-readable lesson
+metadata records these same two gains with the abbreviated units `%` and
+`1/s`, because the project's closed unit vocabulary has no `%/(t/h)` or
+`%/(t/h*s)` entry; the engineering unit taught and used here is the one stated
+in this paragraph.
 
 ![Steam-flow loop diagnosis signal path](figures/loop-diagnosis-signal-path.svg)
 The diagram shows why one process-value curve is insufficient. A cause can
@@ -98,6 +109,21 @@ trace. The oscillation period ($P_{\mathrm{osc}}$) is the time between equivalen
 consecutive peaks. The cross-correlation lag between requested valve demand
 and steam flow estimates which signal consistently leads.
 
+Formally, for two synchronized sample sequences $x_{k}$ (requested valve
+demand) and $y_{k}$ (steam flow) recorded at the same interval, the
+cross-correlation at a trial lag of $m$ samples is:
+
+$R_{xy}(m) = \sum_{k} x_{k} \cdot y_{k+m}$
+
+The cross-correlation lag is the value of $m$ that produces the largest
+$R_{xy}(m)$. A positive lag means $y$ must be shifted backward by $m$ samples
+to align with $x$, so $x$ leads $y$ by $m$ samples at the sample interval.
+Worked example: valve demand steps from 50 to 60 percent at sample 3, and
+steam flow steps from 50 to 55 t/h at sample 5, both recorded at the 100-ms
+interval. Shifting the flow signal 2 samples earlier lines its step up exactly
+with the demand step, so the cross-correlation lag is 2 samples, or 0.2 s:
+valve demand leads steam flow by 0.2 s, the order a healthy loop should show.
+
 Poor tuning is eligible only when requested valve movement comes first, the
 measured stem follows, no limit is active, an external signal does not lead,
 measurement quality is good, and the response repeats at the same operating
@@ -141,16 +167,18 @@ $100N_{\mathrm{limit}}/N_{\mathrm{eligible}}$. Counting only eligible samples
 prevents missing or invalid data from being mistaken for time at a limit.
 
 A measured upstream disturbance must precede the controlled-flow change and
-controller response. The required order is $header -> flow -> valve response$;
+controller response. The required order is header -> flow -> valve response;
 precedence matters because correlation alone is not causation.
 
 Interaction is supported when another loop acts before the shared process and
 local controller react. At least three repetitions of
-$other MV -> header/flow -> local MV$ justify an interaction study. They do not
+other MV -> header/flow -> local MV justify an interaction study. They do not
 by themselves prove which decoupler should be used.
 
 A model residual ($\varepsilon_{\mathrm{model}}$) is measured flow minus independently
-predicted flow. A persistent residual beginning at an operating-region
+predicted flow, calculated from the nominal first-order-plus-dead-time model
+declared above (gain 1.0 t/h per percent, time constant 5 s, dead time 1 s)
+driven by the same requested valve demand. A persistent residual beginning at an operating-region
 transition, while sensors and valve remain eligible, supports model or
 schedule validation. A schedule-aligned mismatch is not evidence for changing
 feedback gains.
@@ -161,6 +189,17 @@ hypotheses. When signatures overlap, conflict, or lack a required signal, the
 result is `Inconclusive`; the system must not invent confidence.
 
 ## Prediction
+
+One worked numeric prediction anchors the qualitative table below. If the
+flow-disagreement window runs from `t=10 s` to `t=60 s` and the reference and
+primary meters disagree by 0.6 t/h more at the end of that window than at the
+start, the endpoint drift-slope estimate is:
+
+$m = 0.6 / (60 - 10) = 0.012$ t/h/s
+
+That is above the declared 0.01 t/h/s instrument-verification threshold, so a
+disagreement of this size over this window would already support instrument
+verification rather than retuning.
 
 Before opening the answer key, write down the expected leading evidence and
 next action for all eight records:
@@ -192,9 +231,18 @@ Controller.Configure(Parameters := Parameters);
 
 Input.Setpoint := Setpoint;
 Input.ProcessValue := ProcessValue;
-Input.CycleTime := MeasuredCycleTime;
+Input.FeedForward := LREAL#0.0;
+IF (MeasuredCycleTime >= LREAL#0.01) AND (MeasuredCycleTime <= LREAL#1.0) THEN
+    Input.CycleTime := MeasuredCycleTime;
+ELSE
+    Input.CycleTime := LREAL#0.1;
+END_IF;
 ValveRequested := Controller.Update(Input := Input);
 ```
+
+The guard keeps a corrupted or momentarily unavailable measured interval from
+reaching the controller unfiltered: outside 0.01 through 1.0 seconds, the
+program substitutes the nominal 100-ms interval instead.
 
 `ValveRequested` is $MV_{\mathrm{requested}}$. `ValveStemPosition` is the separately
 measured $MV_{\mathrm{applied}}$. The simulator creates the faults; hidden controller
@@ -206,28 +254,21 @@ The learner-facing workflow is exactly **Monitor → Test**. The visible project
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Steam-flow setpoint (SP, t/h); Primary steam flow (PV, t/h) and Reference steam flow (PV, t/h); Requested valve demand (MV, %) and Applied valve-stem position (MV, %), including units, limits, mode, and quality. The initial operating point is Steam-flow setpoint = 50 t/h, Primary steam flow = 50 t/h, Reference steam flow = 50 t/h, Requested valve demand = 50 %, Applied valve-stem position = 50 %, Upstream header pressure = 8 bar, Adjacent-user valve demand = 0 %, Operating region = 0 (dimensionless). The unresolved baseline problem is: A process-value oscillation or offset is a symptom shared by different controller, actuator, measurement, capacity, disturbance, interaction, and model causes. The industrial steam-distribution area record must show steam-flow setpoint in t/h and valve-stem position in percent before diagnosis.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Use synchronized causal signatures and a discriminating test to select the responsible engineering action; report Inconclusive when required evidence is absent.
+   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: use synchronized causal signatures and a discriminating test to select the responsible engineering action; report Inconclusive when required evidence is absent. This matters because two different causes can produce the same oscillating process value — only the order in which signals move, and a bounded follow-up test, can tell them apart.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **60.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project writes its own setpoint schedule.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Primary steam flow 0 t/h to 120 t/h; Reference steam flow 0 t/h to 120 t/h; Requested valve demand 0 % to 100 %; Applied valve-stem position 0 % to 100 %; Upstream header pressure 0 bar to 16 bar.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
+   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Primary steam flow 0 t/h to 120 t/h; Reference steam flow 0 t/h to 120 t/h; Requested valve demand 0 % to 100 %; Applied valve-stem position 0 % to 100 %; Upstream header pressure 0 bar to 16 bar. Predicting the healthy record's own timing first gives the baseline band that every degraded record is later judged against.
+   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows steam flow holding near 50 t/h through 10 s, a bounded setpoint step to 60 t/h from 10 s through 40 s, and recovery back to 50 t/h through 60 s.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason and remove experiment authority. The project disables the controller and restores the 50 t/h setpoint before another run.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
 
-Identify, Tune, and Validate are not learner steps in this lesson. A disabled
-generic panel cannot classify a causal record. The native executable casebook
-owns the blinded scenarios, metric calculations, answer reveal, and pass/fail
-decision.
-
 ## Evidence and decision
-
-### Measures and comparison
 
 Define every measure before reading its value:
 
@@ -249,7 +290,38 @@ The source signals, window, sample interval, validity prerequisite, and desired
 direction must remain in the exported artifact. Do not rank a value from an
 ineligible record.
 
-### Validation
+The shipped trace retains the two fingerprints that the figure below plots:
+the stiction case (`case-2.toml`) and the sensor-drift case (`case-3.toml`).
+Recomputing held-demand travel and stem jump from the retained requested- and
+measured-stem samples, using the definitions above, finds five qualifying
+hold-then-breakaway cycles:
+
+| Cycle (breakaway time) | Held-demand travel ($TV_{\mathrm{hold}}$) | Stem jump ($\Delta_{\mathrm{stem}}$) |
+| ---: | ---: | ---: |
+| 15.1 s | 15.10 pp | +15.10 pp |
+| 25.1 s | 62.18 pp | -60.28 pp |
+| 35.1 s | 103.69 pp | +95.18 pp |
+| 45.1 s | 100.00 pp | -100.00 pp |
+| 55.1 s | 100.00 pp | +100.00 pp |
+
+Every cycle clears the declared 2-percentage-point travel and 1-percentage-point
+jump thresholds, satisfying the at-least-three-cycle requirement above.
+Recomputing the endpoint drift-slope estimate from the retained primary and
+reference samples over the same 10-through-59.9-second window used by the
+acceptance gate gives $m = 0.0200$ t/h/s, above the 0.01 t/h/s threshold.
+
+The other six cases (`case-0.toml` healthy baseline, `case-1.toml` poor
+tuning, `case-4.toml` saturation, `case-5.toml` upstream disturbance,
+`case-6.toml` interaction, `case-7.toml` model/schedule mismatch) are proved
+only by the native executable test against the sealed answer key; the shipped
+figures do not retain a plotted trace or a numeric signature for them, so none
+is reported here. The learner-facing Control Studio Test above executes only
+the healthy reference record; running the seven degraded cases and comparing
+them against the sealed answer requires the native test command, not a Control
+Studio action, because Control Studio has no control that swaps the loaded
+scenario file. Shipping the answer key in plain text alongside the cases it
+grades is a known packaging gap in this project that a README change cannot
+fix; it is reported here for the platform team, not corrected.
 
 The native executable test compiles the shipped Structured Text with the
 shared Control library and executes the same controller against all eight
@@ -264,6 +336,13 @@ run artifacts. Simulation results must never be labelled as measurements from
 a physical steam plant.
 
 ![Valve-stiction and sensor-drift fingerprints built from independent diagnostic signals](figures/loop-diagnosis-evidence.svg)
+
+The upper panel plots requested valve demand against measured stem position
+for the stiction case (`case-2.toml`): five held-and-broken-away cycles, listed
+above, are visible as flat stem segments under a moving demand trace. The
+lower panel plots the primary and independent reference flow for the
+sensor-drift case (`case-3.toml`): the two traces separate at a constant rate
+after `t=10 s`, the 0.0200 t/h/s slope computed above.
 
 [Complete trace](figures/loop-diagnosis-evidence-trace.csv) · [Decision summary](figures/loop-diagnosis-evidence-summary.csv)
 

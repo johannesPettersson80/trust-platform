@@ -1,10 +1,10 @@
 # Characterize a cooling-water valve and diagnose stiction
 
-Course position: Lesson 60 of 84. Prerequisite: the conveyor-oven Smith-predictor lesson. Next lesson: distillation interaction and Relative Gain Array.
-
-This project operates three simulated cooling-water flow benches. It does not operate or diagnose a physical valve.
+Course position: Lesson 60 of 84. Previous lesson: [Compensate conveyor-oven transport delay with a Smith predictor](../59-heated-air-duct-smith/README.md). Next lesson: [Measure distillation interaction and select an RGA pairing](../../10-multivariable-control/61-distillation-mimo/README.md).
 
 **Lesson objective:** After this lesson, you can measure an installed valve curve, distinguish healthy motion, command deadband and mechanical stiction, and decide when valve maintenance is justified instead of changing controller tuning.
+
+**Evidence class:** Simulation evidence. This project operates three simulated cooling-water flow benches; it does not operate or diagnose a physical valve.
 
 ## The problem
 
@@ -28,11 +28,11 @@ We need evidence that separates controller demand, positioner behavior, physical
 
 The **inherent valve characteristic** relates stem travel to flow capacity while pressure drop across the valve is held constant. The **installed characteristic** relates stem travel to actual process flow after the valve is connected to its pump and piping. They need not be the same because pressure drop changes with total system flow.
 
-The valve stem position ($x$) is physical travel in percent. The rangeability ($R$) is the dimensionless ratio describing the useful span of an equal-percentage valve. The normalized flow capacity ($c$) is the fraction of maximum capacity, from zero through one. The measured flow ($q$) is cooling-water flow in cubic metres per hour.
+The valve stem position ($x$) is physical travel in percent. The rangeability ($R$) is the dimensionless ratio describing the useful span of an equal-percentage valve. This bench's $R$ is 50, a declared teaching value configured directly in the plant model (`rangeability` in `lesson.json`), not a measurement of a physical valve. The normalized flow capacity ($c$) is the fraction of maximum capacity, from zero through one. The measured flow ($q$) is cooling-water flow in cubic metres per hour.
 
 An idealized equal-percentage reference is:
 
-$c = (R^(x/100) - 1) / (R - 1)$
+$c = (R^{(x/100)} - 1) / (R - 1)$
 
 Equal stem increments therefore multiply inherent capacity by approximately the same factor; they do not add equal flow. That is the valve's inherent reference, not automatically its installed flow curve.
 
@@ -40,6 +40,12 @@ The normalization explains every part of the expression. $x/100$ converts
 percent travel to a zero-to-one fraction. Raising $R$ to that fraction creates
 the exponential shape. Subtracting one makes capacity zero at closed position,
 and dividing by $R-1$ makes capacity exactly one at full travel.
+
+For example, at 40 percent travel with $R=50$: $c = (50^{0.4} - 1) / 49 =
+(4.7818 - 1) / 49 = 0.0772$. Only 7.72 percent of maximum inherent capacity is
+available at 40 percent travel, far less than the 40 percent a linear valve
+would give — the equal-percentage shape deliberately opens slowly at low
+travel and quickly at high travel.
 
 The installed target flow ($q_{\mathrm{target}}$) is the flow this fixed-head piping approximation reaches after the hydraulics settle, in cubic metres per hour. The hydraulic response time ($T_{q}$) is three seconds. The simulator uses a square-law installed target and a first-order flow response:
 
@@ -66,7 +72,7 @@ The diagram matters because a controller-output trace is not a valve-position me
 
 **Backlash** is direction-dependent mechanical play. After a reversal, motion first takes up clearance before the driven part follows. The same request can therefore correspond to a different position depending on whether the valve approached it while opening or closing. Lesson 24 executed this reversal-memory mechanism. This lesson recalls it but does not rename deadband or stiction as backlash.
 
-**Stiction** means static friction holds the stem while the request-to-position difference grows. When the difference exceeds the breakaway band, the stem slips by a finite amount. The stiction bench is configured to hold through five percentage points and make an initial two-percentage-point slip jump.
+**Stiction** means static friction holds the stem while the request-to-position difference grows. The **breakaway band ($B$)** is the request-to-position difference that static friction can hold before it releases; when the difference exceeds $B$, the stem slips by a finite amount. This bench's $B$ is 5 percentage points, a declared teaching value chosen larger than the 2-percentage-point command deadband so the reversal probe produces a clearly different, longer hold for stiction than for deadband, while still small enough that the probe characterizes breakaway without moving the stem far from its restored 70 percent position. The stiction bench is configured to hold through five percentage points and make an initial two-percentage-point slip jump.
 
 Healthy motion begins following every resolvable request after ordinary lag. Deadband ignores small increments and then moves smoothly. Stiction shows a stationary stem, a growing request-to-position gap, and a discrete breakaway jump. Confirmed diagnosis requires this signature to repeat and requires the corresponding flow movement.
 
@@ -138,7 +144,7 @@ deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Cooling-water flow setpoint (SP, m3/h); Healthy measured flow (PV, m3/h) and Deadband measured flow (PV, m3/h); Common manual valve demand (MV, %) and Healthy requested valve position (MV, %), including units, limits, mode, and quality. The initial operating point is Cooling-water flow setpoint = 64 m3/h, Healthy measured flow = 64 m3/h, Deadband measured flow = 64 m3/h, Stiction measured flow = 64 m3/h, Common manual valve demand = 80 %. The unresolved baseline problem is: Flow and controller-request traces alone do not prove whether nonlinear response comes from the installed curve, command deadband, mechanical play, stiction, or process dynamics.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Classify stiction only from repeated request-to-position holds and breakaway jumps with corresponding flow response; otherwise retain the run as inconclusive.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
@@ -154,8 +160,6 @@ deterministic Simulation seed is 20260829.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 Hold the installed curve, controller, initial position, request sequence, sample schedule, duration, limits, seed and metric windows equal. Change only valve condition.
 
 Define each decision measure before reading its result:
@@ -169,8 +173,6 @@ Define each decision measure before reading its result:
 - **Cumulative applied-position movement** is the sum of absolute successive physical-position changes, in percentage points. It may exceed 100 because it measures total travel, not instantaneous position.
 
 An isolated jump is not enough. A diagnosis is `Inconclusive` unless the hold and breakaway signature repeats under equivalent probes.
-
-### Validation
 
 Accept the installed characterization only when every healthy settled point is within 0.05 cubic metres per hour of its prediction.
 

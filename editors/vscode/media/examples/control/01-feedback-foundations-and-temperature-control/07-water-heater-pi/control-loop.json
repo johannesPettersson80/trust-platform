@@ -176,7 +176,7 @@
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 120,
+    "durationSeconds": 120.1,
     "seed": 20260828,
     "activation": {
       "symbol": "P1.ExperimentEnabled",

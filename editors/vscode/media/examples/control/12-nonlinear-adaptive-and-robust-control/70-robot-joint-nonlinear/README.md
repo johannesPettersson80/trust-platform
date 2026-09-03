@@ -32,7 +32,7 @@ $J \cdot \ddot q+b \cdot \dot q+G \cdot \sin\left(q\right)=\tau_{\mathrm{applied
 
 A local model is a linear approximation around one operating angle ($q_0$). Writing $q=q_0+\delta q$ and using $\sin(q_0+\delta q)\approx\sin(q_0)+\cos(q_0)\delta q$ shows that the constant term is the holding torque and the coefficient of small angle change is the local gravity stiffness $G\cos(q_0)$. It changes from its largest value near zero angle to a smaller value as the arm moves toward 1.2 radians. A fixed proportional gain therefore does not produce identical local closed-loop stiffness everywhere.
 
-Natural frequency ($\omega_n$) describes the intended response speed of the local closed loop, in radians per second. Damping ratio ($\zeta$) describes how strongly oscillation is suppressed, where 1 is critically damped and values below 1 allow some overshoot. Both are **declared teaching choices**: $\omega_n=5\text{ rad/s}$ is roughly five times the pendulum's certified 1.73 rad/s from Lesson 69, fast enough to show a clear scheduling effect within the plant's 30 N m torque budget, and $\zeta=0.8$ sits close to critical damping so the local response settles with little overshoot rather than oscillating. With those choices, the local proportional and derivative gains are:
+Natural frequency ($\omega_n$) describes the intended response speed of the local closed loop, in radians per second. Choose desired natural frequency ($\omega_{n}$) 5 rad/s — a **declared teaching choice**, roughly five times the pendulum's certified 1.73 rad/s from Lesson 69, fast enough to show a clear scheduling effect within the plant's 30 N m torque budget. Damping ratio ($\zeta$) describes how strongly oscillation is suppressed, where 1 is critically damped and values below 1 allow some overshoot. Choose damping ratio ($\zeta$) 0.8 — likewise declared, sitting close to critical damping so the local response settles with little overshoot rather than oscillating. With those choices, the local proportional and derivative gains are:
 
 $K_p(q_{0})=J \cdot \omega_{n}^{2}-G \cdot \cos\left(q_{0}\right)$
 
@@ -54,7 +54,7 @@ Dividing by $J$ and matching it to the desired second-order polynomial $s^2+2\ze
 
 At absolute operating angles 0, 0.6, and 1.2 rad, substitution gives $25-9.81\cos(0)=15.190$, $25-9.81\cos(0.6)=16.904$, and $25-9.81\cos(1.2)=21.445$, each in newton metres per radian. The derivative calculation is $2(0.8)(5)(1)-0.2=7.800$, in newton metre seconds per radian.
 
-Gain scheduling means selecting or interpolating parameters from validated local controller designs using a measurable scheduling variable. Here the scheduling variable is absolute setpoint angle, clamped to 1.2 radians. Linear interpolation connects the three proportional-gain points. Integral gain is a further **declared teaching choice**, kept fixed at 12 N m/(rad s) rather than scheduled: paired with the scheduled proportional gains it gives an integral time between about 1.27 and 1.79 seconds (derived below) — a few times slower than the 0.2-second period implied by $\omega_n=5\text{ rad/s}$, so integral action removes the remaining gravity offset without fighting the faster proportional-derivative response. Derivative gain remains 7.8 N m s/rad.
+Gain scheduling means selecting or interpolating parameters from validated local controller designs using a measurable scheduling variable. Here the scheduling variable is absolute setpoint angle, clamped to 1.2 radians. Linear interpolation connects the three proportional-gain points. Only the two plateau endpoints, 0 and 1.2 rad, are validated at steady state by the settling-time and final-error evidence below; the 0.6 rad midpoint gain is exercised only transiently while the schedule interpolates through it during a plateau change, never held there, so its own steady-state behavior remains a calculated design, not an independently measured one. Integral gain is a further **declared teaching choice**, kept fixed at 12 N m/(rad s) rather than scheduled: paired with the scheduled proportional gains it gives an integral time between about 1.27 and 1.79 seconds (derived below) — a few times slower than the 0.2-second period implied by $\omega_n=5\text{ rad/s}$, so integral action removes the remaining gravity offset without fighting the faster proportional-derivative response. Derivative gain remains 7.8 N m s/rad.
 
 Fixed and scheduled PID use the same integral gain. Integral time ($T_i$) is proportional gain divided by integral gain. It therefore ranges from about 1.27 seconds at zero angle to 1.79 seconds at 1.2 radians. This gives integral action enough authority to build the required gravity-holding torque during each plateau while leaving scheduled proportional gain as the only difference between those two records.
 
@@ -74,9 +74,13 @@ N m below the motor's 30 N m limit for model compensation and numerical
 margin. Designing exactly on an actuator boundary would make the nominal
 architecture saturate before its claimed linear dynamics could be evaluated.
 
-With exact nominal coefficients, substituting the request into the plant balance cancels gravity and viscous friction and leaves $\ddot q=24(q_{sp}-q)-8\dot q$. For a constant setpoint and error $e=q_{sp}-q$, this becomes $\ddot e+8\dot e+24e=0$. Its roots are $-4\pm j\sqrt{8}$, so the nominal error decays. Feedback is still necessary because initial error, disturbances, sensor error, and model error remain.
+With exact nominal coefficients ($\hat{G}=G$, $\hat{b}=b$, $\hat{J}=J$), substitute the requested torque into the plant balance:
 
-Input effectiveness is the coefficient that maps actuator command into state acceleration. It is `1/J_hat` here. Feedback linearisation is eligible because this value stays finite, positive, and bounded throughout the declared range. On a different plant, dividing by input effectiveness that approaches zero would create a singular command. That architecture must be rejected rather than numerically clipped and called successful.
+$J\ddot q+b\dot q+G\sin(q)=\hat{G}\sin(q)+\hat{b}\dot q+\hat{J} \cdot (24(q_{sp}-q)-8\dot q)$
+
+Because the estimates equal the true coefficients, $G\sin(q)$ cancels $\hat{G}\sin(q)$ and $b\dot q$ cancels $\hat{b}\dot q$ on both sides, and dividing the remaining $J\ddot q=J \cdot (24(q_{sp}-q)-8\dot q)$ by $J$ leaves $\ddot q=24(q_{sp}-q)-8\dot q$. For a constant setpoint and error $e=q_{sp}-q$, this becomes $\ddot e+8\dot e+24e=0$. Its roots are $-4\pm j\sqrt{8}$, so the nominal error decays. Feedback is still necessary because initial error, disturbances, sensor error, and model error remain.
+
+Input effectiveness is the coefficient that maps actuator command into state acceleration. It is $1/\hat{J}$ here. Feedback linearisation is eligible because this value stays finite, positive, and bounded throughout the declared range. On a different plant, dividing by input effectiveness that approaches zero would create a singular command. That architecture must be rejected rather than numerically clipped and called successful.
 
 Residual dynamics are the tracking dynamics left after imperfect cancellation. A 20 percent heavy payload creates coefficient error because actual gravity is 11.772 while the controller still cancels 9.81. The resulting residual must remain visible in the comparison.
 
@@ -86,23 +90,19 @@ All three architectures use the shared Control.PID implementation. Fixed and sch
 
 At measured joint angle 0.5 rad and zero rate, nominal gravity compensation is:
 
-$\tau_{\mathrm{model}}=9.81 \cdot \sin\left(0.5\right)=4.703 N m$
+$\tau_{\mathrm{model}}=9.81 \cdot \sin\left(0.5\right)=4.703\text{ N m}$
 
 At zero setpoint, scheduled proportional gain is 15.190 N m/rad. At 1.2-radian setpoint, it is 21.445 N m/rad.
 
-When measured angle equals the 1.2-radian setpoint and rate is zero, nominal feedback error is zero. Exact feedback linearisation still requests the holding torque:
+When measured angle equals the 1.2-radian setpoint and rate is zero, nominal feedback error is zero. Exact feedback linearisation still requests the holding torque. The running program evaluates $\tau_{\mathrm{model}}$ before the proportional-derivative correction is added to it, so the learner can distinguish cancellation from ordinary error feedback; in the shipped Structured Text this term is `GravityCompensation` (the $\hat{G}\sin(q)$ part alone) plus the viscous part folded into `ModelCompensation`, both evaluated before `Input.FeedForward` carries the sum into `Controller.Update`.
 
-The implemented model-torque term is recorded as `tau_model=` before the
-feedback correction is added, so the learner can distinguish cancellation from
-ordinary error feedback.
-
-$\tau_{\mathrm{model}}=9.81 \cdot \sin\left(1.2\right)=9.143 N m$
+$\tau_{\mathrm{model}}=9.81 \cdot \sin\left(1.2\right)=9.143\text{ N m}$
 
 With heavy actual gravity but unchanged nominal compensation, the missing torque is:
 
-$\tau_{\mathrm{residual}}=(11.772-9.81) \cdot \sin\left(1.2\right)=1.829 N m$
+$\tau_{\mathrm{residual}}=(11.772-9.81) \cdot \sin\left(1.2\right)=1.829\text{ N m}$
 
-The no-integral feedback term needs roughly $1.829/24=0.076 rad$ of error to balance that residual. Predict a visible load-dependent offset for feedback linearisation. Predict that scheduled PID integral action eventually removes the constant residual, although it may move more slowly.
+The no-integral feedback term needs roughly $1.829/24=0.076\text{ rad}$ of error to balance that residual. Predict a visible load-dependent offset for feedback linearisation. Predict that scheduled PID integral action eventually removes the constant residual, although it may move more slowly.
 
 ## Implementation
 
@@ -110,23 +110,44 @@ The shipped program has one shared Control.PID instance. The scheduling law and 
 
 ```st
 SchedulingVariable := MIN(ABS(JointSetpoint), LREAL#1.2);
-
-IF ActiveArchitecture = INT#1 THEN
-    ActiveProportionalGain := ScheduledProportionalGain;
+IF SchedulingVariable <= LREAL#0.6 THEN
+    ScheduledProportionalGain := LREAL#15.19
+        + (LREAL#16.903457618 - LREAL#15.19) * SchedulingVariable / LREAL#0.6;
+ELSE
+    ScheduledProportionalGain := LREAL#16.903457618
+        + (LREAL#21.445270429 - LREAL#16.903457618)
+            * (SchedulingVariable - LREAL#0.6) / LREAL#0.6;
+END_IF;
+...
+IF ActiveArchitecture = INT#0 THEN
+    ActiveProportionalGain := FixedProportionalGain;
+    Parameters.ProportionalGain := ActiveProportionalGain;
     Parameters.IntegralGain := LREAL#12.0;
+    Parameters.DerivativeGain := LREAL#7.8;
     Input.FeedForward := LREAL#0.0;
-ELSIF ActiveArchitecture = INT#2 THEN
+ELSIF ActiveArchitecture = INT#1 THEN
+    ActiveProportionalGain := ScheduledProportionalGain;
+    Parameters.ProportionalGain := ActiveProportionalGain;
+    Parameters.IntegralGain := LREAL#12.0;
+    Parameters.DerivativeGain := LREAL#7.8;
+    Input.FeedForward := LREAL#0.0;
+ELSE
+    // Keep the nominal 1.2-radian step below the motor limit so model
+    // compensation retains actuator authority instead of starting saturated.
     ActiveProportionalGain := LREAL#24.0 * EstimatedInertia;
+    Parameters.ProportionalGain := ActiveProportionalGain;
     Parameters.IntegralGain := LREAL#0.0;
+    Parameters.DerivativeGain := LREAL#8.0 * EstimatedInertia;
     Input.FeedForward := ModelCompensation;
 END_IF;
-
 Controller.Configure(Parameters := Parameters);
+...
 TorqueRequested := Controller.Update(Input := Input);
 TorqueApplied := LIMIT(LREAL#-30.0, TorqueRequested, LREAL#30.0);
+TorqueSaturated := Enabled AND ABS(TorqueRequested - TorqueApplied) > LREAL#1.0E-12;
 ```
 
-ControllerMode requests fixed PID, scheduled PID, or feedback linearisation. ActiveArchitecture states what actually runs. ModelEligible requires bounded positive inertia and bounded gravity and friction estimates. An ineligible model requested for cancellation activates explicit scheduled fallback. FixedProportionalGain, ScheduledProportionalGain, and ActiveProportionalGain show exactly what is used. GravityCompensation contains only the nominal sine-gravity term; ModelCompensation adds nominal viscous friction. Neither uses actual payload truth. TorqueRequested and TorqueApplied remain separate, with TorqueSaturated showing any limit action.
+This is the shipped code verbatim, with `...` marking elided lines that do not change the governing choice (the `ModelEligible`, `FallbackActive`, and `ActiveArchitecture` selection logic, and the `GravityCompensation`/`ModelCompensation` calculation, sit between the blocks shown). `ControllerMode` (an external request, always Auto in this observation) and `ActiveArchitecture` (INT#0 fixed, INT#1 scheduled, INT#2 feedback-linearised) states what actually runs — the third branch above is reached only when `ActiveArchitecture` is neither 0 nor 1, i.e. INT#2. `ModelEligible` requires bounded positive inertia and bounded gravity and friction estimates; an ineligible model requested for cancellation activates explicit scheduled fallback. `FixedProportionalGain`, `ScheduledProportionalGain`, and `ActiveProportionalGain` show exactly what is used, and each branch sets its own `Parameters.DerivativeGain` alongside it — 7.8 for the PID forms, $8\hat{J}$ for the linearised form. `GravityCompensation` contains only the nominal sine-gravity term; `ModelCompensation` adds nominal viscous friction. Neither uses actual payload truth. `TorqueRequested` and `TorqueApplied` remain separate, with `TorqueSaturated` showing any limit action.
 
 ## Experiment in Control Studio
 
@@ -134,31 +155,27 @@ This procedure observes scheduled PID on the nominal plant over the complete wid
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Joint angle setpoint (SP, rad); Joint angle (PV, rad); Requested motor torque (MV, N m) and Applied motor torque (MV, N m), including units, limits, mode, and quality. The initial operating point is Joint angle setpoint = 0 rad, Joint angle = 0 rad, Joint angular rate = 0 rad/s, Applied motor torque = 0 N m. The unresolved baseline problem is: A tuning derived at zero angle has different effective stiffness and transient behavior as gravity curvature changes across the arm range.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Select scheduled PID when validated local designs and integral load rejection are stronger evidence than the cancellation model; select feedback linearisation only while model and input-effectiveness eligibility remain qualified.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Joint angle setpoint (SP) and Joint angle (PV) both read 0 rad, Requested and Applied motor torque both read 0 N m, Active architecture reads scheduled (1), Active proportional gain reads 15.19 N m/rad, and Control enabled (`P1.Enabled`) is false because Experiment authority (`P1.ExperimentEnabled`) has not yet been granted. This zero-angle rest point is a genuine equilibrium — gravity torque is zero at $q=0$ — so, unlike a release away from equilibrium, nothing should drift while Monitor is open.
+   - **Decision before action:** Before granting authority, decide what would show scheduling is actually happening rather than a fixed gain in disguise: Active proportional gain must move away from 15.19 N m/rad as soon as the setpoint leaves zero, reaching 21.445 N m/rad once the joint angle magnitude reaches 1.2 rad, while Active architecture stays at scheduled (1) throughout — because a lesson claiming "scheduled" control that never changes gain would be indistinguishable from fixed PID.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the zero-angle SP, PV, requested/applied MV, Active architecture, and Active proportional gain (15.19 N m/rad) before opening Test.
 
-2. **Test** — Open **truST sidebar → Control Studio → Test**.
+2. **Test** — Open **Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **31.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns the 0, +1.2, 0, -1.2, 0-radian schedule.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Applied motor torque -30 N m to 30 N m; Joint angle -1.5 rad to 1.5 rad; Joint angular rate -4 rad/s to 4 rad/s.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
+   - **Decision before action:** Before selecting **Review test**, predict that requested and applied torque stay equal (unsaturated) and inside Applied motor torque -30 N m to 30 N m throughout, that Joint angle stays inside -1.5 rad to 1.5 rad, and that Joint angular rate stays inside -4 rad/s to 4 rad/s — because this scheduled-PID run is tuned to stay well inside the actuator's 30 N m limit, so any excursion beyond these bounds signals a wiring or model problem rather than expected behavior.
+   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and Response must show Active proportional gain step from 15.19 toward 21.445 N m/rad as the +1.2 rad plateau is reached near 11 s, settle by roughly 4.7 s into that plateau, mirror through the -1.2 rad plateau from 16-26 s, and return every signal to zero at the 31.1-second restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero setpoint and applied torque, wait for current data, and review a new test.
    - **Record:** Stop recording only after restoration. Retain active gain, requested/active architecture, model eligibility, joint response, requested/applied torque, terminal state, restoration result, and seed **20260829**. Use native evidence for the other architectures and payload cases; do not claim this visible run executed them.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 Segment integrated absolute angle error is the sum of absolute setpoint-minus-angle error multiplied by the 20-millisecond interval, in radian-seconds. Overshoot is the greatest movement beyond the commanded target divided by the magnitude of that segment's commanded change, in percent.
 
 Settling time is valid only when absolute angle error is at most 0.02 rad and absolute angular rate is at most 0.05 rad/s continuously for the final 0.5 seconds of the plateau. An ineligible segment reports `Not settled` instead of a final-error ranking.
 
-Applied-torque total variation is the sum of absolute consecutive applied-torque changes, in newton metres. Also retain peak requested and applied torque, saturation duration, and final-window mean absolute error over the final 0.5 seconds of each plateau. Requested and applied torque, nominal and heavy payload, requested and active architecture, model eligibility, and fallback state remain distinct in every table and plot.
-
-### Validation
+Applied-torque total variation is the sum of absolute consecutive applied-torque changes, in newton metres. Also retain peak requested and applied torque, saturation duration, and final-window mean absolute error over the final 0.5 seconds of each plateau. Requested and applied torque, nominal and heavy payload, requested and active architecture, model eligibility, and fallback state remain distinct in every table and plot. Every one of these measures is retained in [`figures/robot-joint-nonlinear-evidence-summary.csv`](figures/robot-joint-nonlinear-evidence-summary.csv), which extends the integrated-error and movement columns with the peak torque, saturation, settling, heavy-payload final-window error, and overshoot values reported below.
 
 The active scheduled gain and nominal model compensation must match independent equations to `1e-9`. Applied torque must remain within -30 through +30 N m. On the nominal plant, scheduled PID should make wide-angle segment behavior more consistent than the fixed zero-angle tuning, while eligible feedback linearisation must meet every segment tolerance without saturation.
 
@@ -199,6 +216,8 @@ payload torque is more important than nominal speed. Source equations or a
 single attractive trace cannot make that decision.
 
 ![Tracking error and motor-torque movement for fixed, scheduled, and feedback-linearised control](figures/robot-joint-nonlinear-evidence.svg)
+
+Read left to right: feedback linearisation (right-most point) has the lowest integrated error on the nominal plant (upper panel, blue) but that advantage shrinks under heavy payload (red) exactly where its uncompensated residual appears, while its torque movement (lower panel) is consistently the highest of the three — the cost of driving the joint to target faster.
 
 [Complete trace](figures/robot-joint-nonlinear-evidence-trace.csv) · [Decision summary](figures/robot-joint-nonlinear-evidence-summary.csv)
 

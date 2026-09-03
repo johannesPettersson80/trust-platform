@@ -61,7 +61,7 @@ $\rho_{xy}=\frac{\sum_k(x_k-\bar x)(y_k-\bar y)}{\sqrt{\sum_k(x_k-\bar x)^2\sum_
 It ranges from minus one to plus one. A magnitude near one means strong
 association, not causation.
 
-Here $\Delta MV$ is an exact affine function of $PV_{\mathrm{used}}$, so their
+$\Delta MV$ is an exact affine function of $PV_{\mathrm{used}}$, so their
 correlation is exactly $-1$ regardless of noise — the law's algebra, not a
 fresh empirical discovery. That perfect collinearity is itself the
 diagnostic: input carries zero information independent of the noisy

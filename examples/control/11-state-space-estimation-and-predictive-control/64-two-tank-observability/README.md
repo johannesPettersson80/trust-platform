@@ -8,7 +8,7 @@ Course position: Lesson 64 of 84. Previous lesson: [Robust distillation architec
 
 ## The problem
 
-The equipment is a pilot water-treatment buffer with two interconnected vented tanks. Tank 1 receives normal inlet-pump flow and drains through a restriction into Tank 2. Tank 2 drains to the next treatment stage. Level deviations from the qualified operating point are measured in centimetres. Pump-flow changes are measured in litres per minute.
+The equipment is a pair of interconnected water-treatment buffer tanks, vented, in a pilot plant. Tank 1 receives normal inlet-pump flow and drains through a restriction into Tank 2. Tank 2 drains to the next treatment stage. Level deviations from the qualified operating point are measured in centimetres. Pump-flow changes are measured in litres per minute.
 
 The normal actuator is an inlet pump into Tank 1. A maintenance bypass can inject flow directly into Tank 2, but cannot move water backward into Tank 1. The normal level transmitter measures Tank 2. A deliberately deficient alternative measures only Tank 1.
 

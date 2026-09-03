@@ -1,6 +1,6 @@
 # Qualify robust load alleviation on a flexible-wing test rig
 
-Course position: Lesson 72 of 84. Prerequisite: supervised adaptive extruder pressure control. Next lesson: networked control at a remote pumping station.
+Course position: Lesson 72 of 84. Previous lesson: [Supervise adaptive pressure control on a polymer extruder](../71-extruder-adaptive/README.md). Next lesson: [Qualify network ownership at a remote pumping station](../../13-networked-fault-aware-and-diagnostic-control/73-networked-pumping/README.md).
 
 **Lesson objective:** Reject an aggressive nominal controller, select a filtered-PD candidate from common worst-case evidence, and state the exact boundary of the resulting robust claim.
 
@@ -34,7 +34,7 @@ The nominal plant ($P_{0}$) is the best single linear model at the reviewed oper
 
 Structured uncertainty means uncertainty in named physical parameters. Here those parameters are modal frequency, damping and surface effectiveness. Because they have physical names and ranges, we can construct explicit plant cases.
 
-Unstructured uncertainty means a bounded residual whose internal dynamics are not described one by one. Multiplicative uncertainty says that a local plant response may differ by a bounded fraction at each frequency. The local grid plant ($P_i$) is one structured case. The residual-uncertainty weight ($W_{\Delta}$) is the allowed fractional error. The normalized unknown residual ($\Delta$) may contain any stable dynamics whose $H_\infty$ norm is no greater than one.
+Unstructured uncertainty means a bounded residual whose internal dynamics are not described one by one. Multiplicative uncertainty says that a local plant response may differ by a bounded fraction at each frequency. The local grid plant ($P_i$) is one structured case. The residual-uncertainty weight ($W_{\Delta}$) is the allowed fractional error. The **H-infinity norm** ($H_\infty$ norm) of a stable scalar transfer is its greatest magnitude over all frequencies; a maximum is used, rather than an average, because an average could hide one badly behaved frequency. The normalized unknown residual ($\Delta$) may contain any stable dynamics whose $H_\infty$ norm is no greater than one.
 
 Only after those quantities are defined do we write their relationship:
 
@@ -54,7 +54,7 @@ $P_{i}(s)=0.1 \cdot g_{u} \cdot \omega_{n}^{2}/(s^{2}+2 \cdot \zeta \cdot \omega
 
 Its input is surface position in percent and its output is bending in g. The gust-to-bending plant is:
 
-$P_{\mathrm{d}},i(s)=\omega_{n}^{2}/(s^{2}+2 \cdot \zeta \cdot \omega_{n} \cdot s+\omega_{n}^{2})$
+$P_{\mathrm{d},i}(s)=\omega_{n}^{2}/(s^{2}+2 \cdot \zeta \cdot \omega_{n} \cdot s+\omega_{n}^{2})$
 
 Its input and output are both in g.
 
@@ -92,25 +92,25 @@ $W_{p}(s)=1.5/(1+s/1)$
 
 $W_{\Delta}(s)=0.15 \cdot (1+s/2)/(1+s/10)$
 
-$W_{u}=0.005 g/\%$
+$W_{u}=0.005\,\text{g}/\%$
 
-Each weighted path must remain below one. An average is not allowed to hide one failed frequency or plant.
+At zero frequency, $W_p(0)=1.5$, so requiring $|W_pS|<1$ demands $|S|<1/1.5\approx0.667$ at low frequency — at least 33 percent gust attenuation. $W_p$'s 1 rad/s corner is a **declared requirement**, set below the grid's slowest modal frequency (3.2 rad/s) so the low-frequency demand relaxes before the flexible mode itself. $W_\Delta(0)=0.15$ matches the stated 15-percent low-frequency residual directly; its 2 and 10 rad/s corners are likewise declared, shaping the rise toward 75 percent so that uncertainty is treated as largest near and above the 3.2-4.8 rad/s modal band, where an unmodelled residual is least trustworthy. $W_u=0.005\,\text{g}/\%$ is a declared control-effort price, small enough that surface effort is a soft tie-breaker rather than the dominant term, chosen so it does not mask the performance and robustness requirements it is weighed against. Each weighted path must remain below one. An average is not allowed to hide one failed frequency or plant.
 
-### H-infinity and the small-gain condition
+### The mixed-sensitivity score and the small-gain condition
 
-The H-infinity norm of a stable scalar transfer is its greatest magnitude over all frequencies. A maximum is required because an average could hide one failed resonance. The mixed-sensitivity score ($\gamma$) is the worst of the three weighted paths over every declared plant and frequency:
+The mixed-sensitivity score ($\gamma$) is the worst of the three weighted paths over every declared plant and frequency:
 
 $\gamma=\max\left(\lVert W_{p} \cdot S \rVert_\infty,\lVert W_{\Delta} \cdot T \rVert_\infty,\lVert W_{u} \cdot KS \rVert_\infty\right)$
 
-The small-gain robust stability condition says that a stable local loop remains stable for every stable normalized residual inside the declared multiplicative envelope when the weighted complementary-sensitivity peak is below one. Robust performance additionally requires the performance and effort peaks below one.
+The small-gain robust stability condition says that a stable local loop remains stable for every stable normalized residual inside the declared multiplicative envelope when the weighted complementary-sensitivity peak is below one. Because $\gamma$ is the worst of three *separately* evaluated peaks, meeting $\gamma<1$ proves nominal performance on every grid plant plus robust stability — it does not by itself prove robust performance (acceptable performance under the worst-case combination of residual and disturbance together). The standard single-loop robust-performance test instead sums two of those same peaks, $|W_pS|+|W_\Delta T|<1$; for the selected design (Evidence and decision, below) this sum is $0.8333+0.7714=1.6047$, which fails. This lesson therefore selects on nominal performance across the grid plus robust stability, and states plainly that strict robust performance is not established by this design.
 
 This lesson calculates a qualified numerical bound, not an exact continuous-frequency proof. The oracle evaluates 20,000 logarithmically spaced frequencies from 0.01 through 100 rad/s. It retains each peak's frequency and plant. The 20-millisecond sample interval has Nyquist angular frequency $\pi/0.02=157.08$ rad/s; higher frequencies cannot be represented uniquely by these samples and are outside the claim.
 
 ### The controller that is actually sampled
 
-The baseline is positional proportional control with proportional gain 40 %/g.
+The baseline is positional proportional control with proportional gain 40 %/g — the naive design an engineer reaches for first because high gain rejects low-frequency bending strongly (The problem, above); it has no other provenance because its purpose here is to be tested against the declared uncertainty and rejected, not to be trusted.
 
-The robust candidates use proportional gain ($K_p$) in %/g, derivative gain ($K_d$) in %·s/g and measurement-filter time constant ($\tau_f$) in seconds. The finite candidate set is $(8,3,0.05)$, $(10,2,0.05)$, $(10,3,0.05)$ and $(12,3,0.05)$ for $(K_p,K_d,\tau_f)$.
+The robust candidates use proportional gain ($K_p$) in %/g, derivative gain ($K_d$) in %·s/g and measurement-filter time constant ($\tau_f$) in seconds. The finite candidate set is $(8,3,0.05)$, $(10,2,0.05)$, $(10,3,0.05)$ and $(12,3,0.05)$ for $(K_p,K_d,\tau_f)$ — a small **declared design search** around one filter time constant fast enough to pass the flexible mode largely unfiltered (0.05 s, versus the mode's roughly 1.3-2.0 s period) while still attenuating high-frequency sensor content, with proportional gain lowered from the rejected 40 to a range the sampled-pole test can still pass and derivative gain added for damping; it is not derived from a single closed-form design equation the way Lesson 70's scheduled gains were.
 
 The frequency calculation uses the actual 20 ms sampled loop: exact zero-order-hold discretization of each plant, the one-cycle command-to-next-measurement relationship, and the same first-order filter and backward measurement difference used by the Structured Text. It rejects a candidate if a sampled closed-loop pole is on or outside the unit circle.
 
@@ -136,11 +136,17 @@ Predict that this weak-control low-frequency case sets, or nearly sets, the sele
 
 Also predict that the aggressive nominal proportional controller fails at least one weighted bound and has at least one sampled pole outside the unit circle. Candidate (10,3,0.05) should keep all three weighted peaks below one and every declared sampled pole inside the unit circle.
 
-There is a separate continuous local-stability check. After normalizing the surface path, the selected continuous filtered-PD approximation has proportional coefficient 1.0, derivative coefficient 0.3 and filter time constant 0.05 s. Its cubic Routh-Hurwitz determinant becomes:
+There is a separate continuous local-stability check. **Normalizing** means folding the plant's own 0.1 g/% static surface gain into the controller coefficients so the loop can be written with one shared plant gain of 1: multiplying candidate (10,3,0.05)'s proportional gain 10 %/g and derivative gain 3 %s/g by 0.1 g/% gives normalized coefficients 1.0 and 0.3. The selected continuous filtered-PD approximation therefore has proportional coefficient 1.0, derivative coefficient 0.3 and filter time constant 0.05 s.
 
-$2 \cdot \zeta \cdot \omega_{n}+0.25 \cdot g_{u} \cdot \omega_{n}^{2}+0.2 \cdot \zeta^{2} \cdot \omega_{n}^{2}+0.005 \cdot \zeta \cdot \omega_{n}^{3}+0.03 \cdot g_{u} \cdot \zeta \cdot \omega_{n}^{3}$
+Closing the loop with plant $g_u\omega_n^2/(s^2+2\zeta\omega_ns+\omega_n^2)$, controller $(1.0+0.3s)$, and filter $1/(1+0.05s)$ gives a cubic closed-loop characteristic polynomial $a_3s^3+a_2s^2+a_1s+a_0$ with:
 
-This expression is obtained by forming the cubic closed-loop characteristic polynomial for the plant plus derivative filter and applying the cubic Routh-Hurwitz condition $a_2a_1>a_3a_0$. Every term in the resulting difference is positive for positive physical parameters. This predicts continuous local stability, but it does not replace the sampled-pole test or the residual-uncertainty test.
+$a_3=0.05,\quad a_2=1+0.1\zeta\omega_n,\quad a_1=2\zeta\omega_n+0.05\omega_n^2+0.3g_u\omega_n^2,\quad a_0=\omega_n^2(1+g_u)$
+
+The cubic Routh-Hurwitz condition for all three roots to stay in the left half-plane is $a_2a_1>a_3a_0$, so it must hold that $a_2a_1-a_3a_0>0$. Expanding that difference term by term gives:
+
+$a_2a_1-a_3a_0=2 \cdot \zeta \cdot \omega_{n}+0.25 \cdot g_{u} \cdot \omega_{n}^{2}+0.2 \cdot \zeta^{2} \cdot \omega_{n}^{2}+0.005 \cdot \zeta \cdot \omega_{n}^{3}+0.03 \cdot g_{u} \cdot \zeta \cdot \omega_{n}^{3}$
+
+Every term in this difference is a product of positive physical parameters ($\zeta$, $\omega_n$, $g_u$ all positive by their declared ranges), so the sum is always positive and the condition holds for every case in the grid. This predicts continuous local stability, but small-gain protects stability against the *unstructured* residual $\Delta$ specifically — a stable local loop can still lose stability if the true plant's unmodelled dynamics exceed the declared $W_\Delta$ envelope, which is what the weighted complementary-sensitivity peak below one is checking. This continuous result does not replace the sampled-pole test or the residual-uncertainty test.
 
 ## Implementation
 
@@ -185,23 +191,19 @@ This procedure observes the aggressive baseline and selected robust controller o
 
 ## Evidence and decision
 
-### Measures and comparison
-
 Classify stability and eligibility before comparing performance. An unstable controller is not allowed to win because one finite time window happens to look quiet.
 
-Maximum weighted sensitivity is the largest $\left|W_{\mathrm{p\,S}}\right|$ over the declared plants and frequencies. Lower is better and values below one pass the declared performance weight.
+Maximum weighted sensitivity is the largest $\lvert W_p \cdot S\rvert$ over the declared plants and frequencies. Lower is better and values below one pass the declared performance weight.
 
-Maximum weighted complementary sensitivity is the largest $\left|W_{\mathrm{delta\,T}}\right|$. Lower is better and values below one pass the small-gain residual-uncertainty condition, provided the local loop and residual assumptions are valid.
+Maximum weighted complementary sensitivity is the largest $\lvert W_\Delta \cdot T\rvert$. Lower is better and values below one pass the small-gain residual-uncertainty condition, provided the local loop and residual assumptions are valid.
 
-Maximum weighted control sensitivity is the largest $\left|W_{\mathrm{u\,KS}}\right|$. Lower is better and values below one pass the declared surface-effort weight.
+Maximum weighted control sensitivity is the largest $\lvert W_u \cdot KS\rvert$. Lower is better and values below one pass the declared surface-effort weight.
 
 Peak absolute bending is the maximum absolute wing-root bending response after gust onset, measured in g. Bending integrated absolute error is the sum of absolute bending multiplied by the 0.02-second interval from 5 through 25 seconds, measured in g*s.
 
 Settling time is valid only when absolute bending remains at or below 0.005 g continuously for 2 seconds after the gust ends. Otherwise the result is `Not settled`.
 
-Cumulative applied-surface movement is total variation: the sum of absolute changes between consecutive applied surface samples, measured in percentage points. Also retain peak requested and applied surface position and saturation duration. A requested position beyond 15 percent may be numerically valid while the physical actuator remains limited; the two signals are not interchangeable.
-
-### Validation
+Cumulative applied-surface movement is total variation: the sum of absolute changes between consecutive applied surface samples, measured in percentage points. Also retain peak requested and applied surface position and saturation duration. A requested position beyond 15 percent may be numerically valid while the physical actuator remains limited; the two signals are not interchangeable. Every one of the three weighted peaks, their frequencies and worst plants, the settled-case count, and the worst settling time reported below are retained in [`figures/flexible-airframe-robust-evidence-summary.csv`](figures/flexible-airframe-robust-evidence-summary.csv), which extends the gamma, pole-radius, IAE, peak, movement, and saturation columns.
 
 The native test independently calculates the exact sampled plant, filter and controller responses. It also matches every executed filter, requested command, applied command and saturation state against a separate scan oracle.
 
@@ -219,6 +221,8 @@ Across the 27 identical gust comparisons, the worst nominal and robust bending i
 The separate quality record matched the controller scan oracle, applied exactly zero from both controllers while bending quality was bad, resumed bounded control after restoration, and applied zero after disable. These are Simulation results for the declared ground-rig models. A single favorable gamma, Bode curve or nominal trace still cannot qualify an undeclared plant.
 
 ![Worst-case bending error and peak response for the nominal and robust controllers](figures/flexible-airframe-robust-evidence.svg)
+
+Both panels plot the worst case across all 27 structured plants, on a common log-free scale that makes the nominal controller's near-total loss of authority visible next to the robust design's small residual bending.
 
 [Complete trace](figures/flexible-airframe-robust-evidence-trace.csv) · [Decision summary](figures/flexible-airframe-robust-evidence-summary.csv)
 

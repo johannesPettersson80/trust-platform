@@ -8,7 +8,7 @@ Course position: Lesson 62 of 84. Previous lesson: [Distillation interaction and
 
 ## The problem
 
-This is the same local binary distillation column measured in Lesson 61. Reflux and reboiler steam regulate overhead and bottoms product quality, but each actuator affects both products.
+The equipment is the same continuous binary distillation column measured in Lesson 61. Reflux and reboiler steam regulate overhead and bottoms product quality, but each actuator affects both products.
 
 The overhead purity setpoint ($SP_{1}$) is the desired overhead light-product purity deviation, in composition percentage points. Its process value ($PV_{1}$) is the measured deviation in the same unit. The bottoms purity setpoint ($SP_{2}$) and its process value ($PV_{2}$) describe bottoms heavy-product purity deviation.
 
