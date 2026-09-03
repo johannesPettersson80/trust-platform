@@ -236,8 +236,11 @@ pressure and valve movement; one pole should reduce both and add some lag; two
 poles should reduce them further and add more lag. Do not decide that two poles
 are best merely because their trace should look smoothest.
 
-Before practice, define every comparison. Controller-PV increment RMS uses the
-steady-noise window from 20.1 through 40.0 seconds and is measured in bar.
+Before practice, define every comparison. Controller-PV increment RMS is the root
+mean square of the consecutive sample-to-sample differences in measured pressure:
+it measures how much the reading jitters from scan to scan rather than how far it
+sits from target. It uses the steady-noise window from 20.1 through 40.0 seconds
+and is measured in bar.
 Applied-valve increment RMS uses the same 20.1-through-40.0-second window and is
 measured in percentage points. For each consecutive pair, first calculate the
 controller-PV increment $\Delta PV_k=PV_{controller,k}-PV_{controller,k-1}$. Root mean

@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""Render Lesson 36's figures from retained native data.
+"""Render Lesson 36's topology diagram.
 
-Writes:
-  * two-tank-state-space.svg            -- from two-tank-state-space-trace.csv
-  * two-tank-hidden-prediction.svg      -- from two-tank-hidden-prediction-summary.csv
-    (the pre-commit prompt; by definition it shows only the two identical
-    zero downstream readings and no future trace)
-  * two-tank-state-space-topology.svg   -- pump, upstream tank, inter-tank
-    flow, downstream tank, drain; no time-series data source.
+main() writes figures/two-tank-state-space-topology.svg -- pump, upstream
+tank, inter-tank flow, downstream tank, drain; no time-series data source.
+(render_hidden_prediction() below can still regenerate
+figures/two-tank-hidden-prediction.svg -- the pre-commit prompt, from
+two-tank-hidden-prediction-summary.csv -- but it is not wired into main().)
+
+figures/two-tank-state-space.svg is owned by the native test
+control_curriculum_modelling_progression
+(crates/trust-runtime/tests/control_curriculum_modelling_progression.rs).
+Refresh it with: TRUST_UPDATE_CONTROL_CURRICULUM_ARTIFACTS=1 cargo test -p trust-runtime --test control_curriculum_modelling_progression
 """
 
 from __future__ import annotations
 
 import csv
-import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -24,106 +26,6 @@ PAPER = "#f7f9fc"
 BLUE = "#0072b2"
 ORANGE = "#d55e00"
 GREEN = "#009e73"
-PINK = "#cc79a7"
-
-STYLE = (
-    "text{font-family:system-ui,-apple-system,sans-serif;fill:#243044} "
-    ".axis{stroke:#526078;stroke-width:1} .grid{stroke:#d8e0eb;stroke-width:1} "
-    ".marker{stroke:#b43c32;stroke-width:1.5;stroke-dasharray:4 4}"
-)
-
-
-def nice_num(span: float, round_result: bool) -> float:
-    if span <= 0:
-        return 1.0
-    exponent = math.floor(math.log10(span))
-    fraction = span / (10 ** exponent)
-    if round_result:
-        nice_fraction = 1 if fraction < 1.5 else 2 if fraction < 3 else 5 if fraction < 7 else 10
-    else:
-        nice_fraction = 1 if fraction <= 1 else 2 if fraction <= 2 else 5 if fraction <= 5 else 10
-    return nice_fraction * (10 ** exponent)
-
-
-def nice_ticks(min_val: float, max_val: float, count: int = 5) -> list[float]:
-    if min_val == max_val:
-        min_val, max_val = min_val - 1.0, max_val + 1.0
-    pad = (max_val - min_val) * 0.04
-    min_val, max_val = min_val - pad, max_val + pad
-    span = nice_num(max_val - min_val, False)
-    step = nice_num(span / (count - 1), True)
-    niced_min = math.floor(min_val / step) * step
-    return [niced_min + i * step for i in range(count)]
-
-
-def draw_panel(body: list[str], left: float, right: float, top: float, bottom: float,
-               title: str, y_ticks: list[float], x_ticks: list[float], x_min: float, x_max: float,
-               series: list[tuple[list[float], list[float], str, str]]) -> None:
-    body.append(f'<text x="{left:.0f}" y="{top - 12:.0f}" font-size="16" font-weight="700">{title}</text>')
-
-    def sy(v: float) -> float:
-        return bottom - (v - y_ticks[0]) / (y_ticks[-1] - y_ticks[0]) * (bottom - top)
-
-    def sx(v: float) -> float:
-        return left + (v - x_min) / (x_max - x_min) * (right - left)
-
-    for yv in y_ticks:
-        body.append(f'<line class="grid" x1="{left:.2f}" y1="{sy(yv):.2f}" x2="{right:.2f}" y2="{sy(yv):.2f}"/>')
-        body.append(f'<text x="{left - 8:.2f}" y="{sy(yv) + 4:.2f}" text-anchor="end" font-size="11">{yv:.2f}</text>')
-    for xv in x_ticks:
-        body.append(f'<line class="grid" x1="{sx(xv):.2f}" y1="{top:.2f}" x2="{sx(xv):.2f}" y2="{bottom:.2f}"/>')
-        body.append(f'<text x="{sx(xv):.2f}" y="{bottom + 18:.0f}" text-anchor="middle" font-size="11">{xv:.1f}</text>')
-    for xs, ys, colour, dash in series:
-        pts = " ".join(f"{sx(x):.2f},{sy(y):.2f}" for x, y in zip(xs, ys))
-        dash_attr = f' stroke-dasharray="{dash}"' if dash else ""
-        body.append(f'<polyline fill="none" stroke="{colour}" stroke-width="2.2"{dash_attr} points="{pts}"/>')
-    body.append(f'<rect class="axis" x="{left:.2f}" y="{top:.2f}" width="{right - left:.2f}" height="{bottom - top:.2f}" fill="none"/>')
-
-
-def legend_row(body: list[str], y: float, items: list[tuple[str, str, str]]) -> None:
-    x = 55.0
-    for label, colour, dash in items:
-        dash_attr = f' stroke-dasharray="{dash}"' if dash else ""
-        body.append(f'<line x1="{x:.1f}" y1="{y}" x2="{x + 28:.1f}" y2="{y}" stroke="{colour}" stroke-width="3"{dash_attr}/>')
-        body.append(f'<text x="{x + 34:.1f}" y="{y + 5}" font-size="12">{label}</text>')
-        x += 34 + 7 * len(label) + 26
-
-
-def render_results() -> str:
-    with (ROOT / "two-tank-state-space-trace.csv").open(newline="", encoding="utf-8") as handle:
-        rows = list(csv.DictReader(handle))
-    t = [float(r["time_s"]) for r in rows]
-    upstream = [float(r["upstream_level"]) for r in rows]
-    downstream = [float(r["downstream_level"]) for r in rows]
-    empty = [float(r["empty_upstream_state"]) for r in rows]
-    charged = [float(r["charged_upstream_state"]) for r in rows]
-    x_ticks = [round(i * max(t) / 6, 1) for i in range(7)]
-
-    body: list[str] = []
-    legend_row(body, 101, [
-        ("upstream level", BLUE, ""), ("downstream level", ORANGE, ""),
-        ("empty upstream state", GREEN, "7 5"), ("charged upstream state", PINK, ""),
-    ])
-    y1 = nice_ticks(0.0, max(max(upstream), max(downstream)))
-    draw_panel(body, 70, 860, 155, 315, "Main two-tank response (cm)", y1, x_ticks, 0, max(t), [
-        (t, upstream, BLUE, ""), (t, downstream, ORANGE, ""),
-    ])
-    y2 = nice_ticks(0.0, max(max(empty), max(charged)))
-    draw_panel(body, 70, 860, 360, 520, "Zero-input downstream reveal (cm)", y2, x_ticks, 0, max(t), [
-        (t, empty, GREEN, "7 5"), (t, charged, PINK, ""),
-    ])
-    body.append('<text x="465" y="598" text-anchor="middle" font-size="12">time (s)</text>')
-
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" viewBox="0 0 900 610">
-<title id="title">One output can hide different internal states</title>
-<desc id="desc">Configured Simulation evidence · both hidden cases start at zero downstream level</desc>
-<rect width="900" height="610" fill="{PAPER}"/>
-<style>{STYLE}</style>
-<text x="55" y="42" font-size="24" font-weight="700">One output can hide different internal states</text>
-<text x="55" y="68" font-size="14">Configured Simulation evidence · both hidden cases start at zero downstream level</text>
-{"".join(body)}
-</svg>
-'''
 
 
 def render_hidden_prediction() -> str:
@@ -191,11 +93,6 @@ def render_topology() -> str:
 
 
 def main() -> None:
-    (ROOT / "two-tank-state-space.svg").write_text(render_results(), encoding="utf-8")
-    # This figure is written and byte-compared by the native runtime test
-    # (crates/trust-runtime/tests/control_curriculum_modelling_progression.rs).
-    # Regenerating it here would drift that retained artifact, so it is left
-    # to the test that owns it; run the native test to refresh two-tank-hidden-prediction.svg.
     (ROOT / "two-tank-state-space-topology.svg").write_text(render_topology(), encoding="utf-8")
 
 

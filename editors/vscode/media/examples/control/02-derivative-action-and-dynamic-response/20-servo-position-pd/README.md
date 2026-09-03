@@ -357,8 +357,7 @@ Validate screen for this project-owned comparison.
      mode, and predicted sequence before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without
-     excitation**, **Amplitude** = **0** (disabled), and
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and
      **Maximum duration (s)** = **15.02**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`).
    - **Decision before action:** Confirm that the zero-amplitude observation
      will not inject a second setpoint change. The reviewed Boolean must start

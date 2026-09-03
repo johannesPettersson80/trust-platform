@@ -370,8 +370,7 @@ separate Validate screen for this project-owned comparison.
      gravity/response prediction before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without
-     excitation**, **Amplitude** = **0** (disabled), and
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and
      **Maximum duration (s)** = **30.02**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`).
    - **Decision before action:** Confirm that Test will not inject a second
      setpoint. The sole Boolean must authorize the project's complete gain

@@ -1,29 +1,23 @@
 # Prove sampled positioning stability in the z-plane
 
-Course position: Lesson 50 of 84. Prerequisite:
-[`control-motor-sensitivity-loop-shaping`](../49-motor-sensitivity/).
-Next lesson:
-[`control-tuning-method-comparison`](../../08-tuning-qualification-and-automation/51-method-comparison/).
-
-**Equipment:** Industrial positioning table.
+Course position: Lesson 50 of 84. Previous lesson: [Shape a precision motor-speed loop](../49-motor-sensitivity/README.md). Next lesson: [Compare PI tuning methods without inventing a winner](../../08-tuning-qualification-and-automation/51-method-comparison/README.md).
 
 **Lesson objective:** Explain and verify why unchanged continuous gains fail at 100 ms and validate a corrected digital position controller.
 
+**Evidence class:** Simulation evidence, not physical-axis evidence. A physical move additionally requires reviewed force, current, speed, travel, stopping distance, end stops, guards, emergency stop, motion zone, and rollback.
+
 ## The problem
 
-An industrial positioning table moves a carriage. Motor-force command is
-measured in percent of rated force. Carriage position is measured in
-millimetres (mm), and carriage velocity is measured in millimetres per second.
+The equipment is an industrial positioning table that moves a carriage.
+Motor-force command is measured in percent of rated force. Carriage position is
+measured in millimetres (mm), and carriage velocity is measured in millimetres
+per second.
 
 Three simulated tables have the same mechanics, one-millimetre request, initial
 state, 10 ms physical-plant integration, force limit, position range, and seed.
 The fine controller updates every 10 ms. The coarse baseline and corrected
 controller update every 100 ms. Each controller applies the request calculated
 at the preceding update and holds that force until the next update.
-
-This is **Simulation evidence, not physical-axis evidence**. A physical move
-requires reviewed force, current, speed, travel, stopping distance, end stops,
-guards, emergency stop, motion zone, and rollback.
 
 Lesson 49 balanced sensitivity, encoder noise, robustness, bandwidth, and drive
 effort for a continuous design. The controller actually executes as sampled
@@ -57,9 +51,15 @@ continuous pole maps exactly to a sampled pole through:
 
 $z=e^{sT_s}$
 
-This maps a stable isolated continuous pole inside the unit circle. It does not
-justify mapping a completed continuous closed loop while ignoring the output
-hold or computation delay.
+This follows from solving the mode exactly over one sample: a state obeying
+$\dot x=sx$ has exact solution $x(t)=x(0)e^{st}$, so one sample interval later
+$x_{k+1}=e^{sT_s}x_k$, which is exactly the discrete update $x_{k+1}=zx_k$ with
+$z=e^{sT_s}$. For example, a continuous pole at $s=-2$ rad/s sampled at
+$T_s=0.01$ s maps to $z=e^{-2\times0.01}=e^{-0.02}=0.9802$: a real pole just
+inside the unit circle, decaying slightly each sample. This maps a stable
+isolated continuous pole inside the unit circle. It does not justify mapping a
+completed continuous closed loop while ignoring the output hold or computation
+delay.
 
 A zero-order hold keeps actuator force constant between samples. Exact hold
 discretization can create a sampling zero even when the continuous plant has no
@@ -73,10 +73,15 @@ $\omega_{N}=\frac{\pi}{T_s}$
 
 A higher-frequency component aliases: its samples look like a false lower
 frequency. A discrete root locus traces closed-loop z-plane poles as a declared
-digital gain changes.
+digital gain changes; the retained figure sweeps proportional gain $K_p$ from
+0.05 through 4.00 in 80 equal 0.05 steps at the 100 ms interval with
+$K_d=0.4$ fixed, plotting the real pole as branch 1 and the complex-conjugate
+pair as branches 2 and 3.
 
-The table position ($x$) is measured in mm, velocity ($v$) in mm/s, and applied
-force ($u$) in percent. Its local mechanics are:
+The table position ($x$) is measured in $\mathrm{mm}$, velocity ($v$) in
+$\mathrm{mm/s}$, and applied force ($u$) in percent. Its local mechanics are a
+**declared teaching value** for this simulation, configured directly in the
+plant model:
 
 $\frac{dx}{dt}=v$
 
@@ -104,11 +109,14 @@ $\mathbf{B}_d=\begin{bmatrix}5T_s-2.5(1-a)\\5(1-a)\end{bmatrix}$
 
 With no feedback, the eigenvalues of $\mathbf A_d$ are its diagonal entries 1
 and $a$, so its characteristic denominator is
-$(z-1)(z-a)=z^2-(1+a)z+a$. Combining $\mathbf A_d$, $\mathbf B_d$, and the
-position output into the sampled input-output transfer function creates a
-sampling zero: approximately -0.9934 at 10 ms and -0.9355 at 100 ms. It is a
-consequence of how a held force changes both velocity and position during one
-sample, not a physical flexible mode.
+$(z-1)(z-a)=z^2-(1+a)z+a$. This sampling zero follows from exact
+zero-order-hold discretization: selecting position with output row
+$C=\begin{bmatrix}1&0\end{bmatrix}$ and forming
+$G(z)=C(z\mathbf{I}-\mathbf{A}_d)^{-1}\mathbf{B}_d=\dfrac{b_0z+b_1}{(z-1)(z-a)}$
+combines $\mathbf{A}_d$ and $\mathbf{B}_d$ into a numerator whose root
+$z=-b_1/b_0$ is the sampling zero: approximately -0.9934 at 10 ms and -0.9355
+at 100 ms. It is a consequence of how a held force changes both velocity and
+position during one sample, not a physical flexible mode.
 
 The proportional gain ($K_{p}$) requests force from position error. The
 derivative gain ($K_{\mathrm{d}}$) requests damping force from measured velocity. The
@@ -116,8 +124,12 @@ position setpoint (`SP`) is desired carriage position:
 
 $u_{\mathrm{requested}}=K_p(SP-x)-K_dv$
 
-The continuous-design gains are $K_{p} = 4 \%/mm$ and
-$K_{\mathrm{d}} = 0.4 \%/(mm/s)$. The held-force state stores the preceding request. The
+The continuous-design gains $K_{p} = 4 \%/\mathrm{mm}$ and
+$K_{\mathrm{d}} = 0.4 \%/(\mathrm{mm/s})$ are **declared teaching values**,
+configured directly in the baseline controller to give a fast, adequately
+damped continuous response without saturating the 10 percent force limit; they
+are not fitted to a physical table. The held-force state stores the preceding
+request. The
 sampled closed-loop state is position, velocity, and held force. The first two
 rows propagate the plant using held force. The last row calculates the next
 held force from $-K_px-K_dv$; setpoint changes the forced response but not pole
@@ -126,8 +138,26 @@ $\begin{bmatrix}\mathbf{A}_d & \mathbf{B}_d\\-K_p & -K_d & 0\end{bmatrix}$.
 
 ## Prediction
 
-Substitute each sample interval into $a$, build its augmented matrix, and
-calculate all three eigenvalues. Stability requires every magnitude
+Substitute each sample interval into $a=e^{-2T_s}$: at 10 ms,
+$a=e^{-0.02}=0.980199$; at 100 ms, $a=e^{-0.2}=0.818731$. With
+$c=(1-a)/2$ and the matching $\mathbf{B}_d=[b_0;b_1]$, the augmented matrix's
+determinant $\det(\mathbf{M}-z\mathbf{I})=0$ expands (following Lesson 36's
+$\det(\lambda\mathbf{I}-\mathbf{A})=0$ method, here for the 3x3 case) to the
+characteristic polynomial
+
+$z^3-(1+a)z^2+\left[a+K_db_1+K_pb_0\right]z-\left[b_1(K_d-K_pc)+K_pab_0\right]=0.$
+
+Evaluating its coefficients numerically for each case:
+
+| Case | $a$ | $b_0$ | $b_1$ | Characteristic polynomial |
+|---|---:|---:|---:|---|
+| 10 ms, unchanged | 0.980199 | 0.000497 | 0.099007 | $z^3-1.980199z^2+1.021788z-0.037633=0$ |
+| 100 ms, unchanged | 0.818731 | 0.046827 | 0.906346 | $z^3-1.818731z^2+1.368577z-0.187318=0$ |
+| 100 ms, corrected | 0.818731 | 0.046827 | 0.906346 | $z^3-1.818731z^2+1.228096z-0.318721=0$ |
+
+Solving each cubic numerically (as a companion-matrix eigenvalue problem, the
+same operation Lesson 36 performed by hand for its simpler 2x2 case) gives all
+three roots. Stability requires every magnitude
 $|z|=\sqrt{(\Re z)^2+(\Im z)^2}$ to be strictly below one:
 
 | Case | Predicted sampled poles | Largest magnitude | Verdict |
@@ -136,7 +166,9 @@ $|z|=\sqrt{(\Re z)^2+(\Im z)^2}$ to be strictly below one:
 | 100 ms, unchanged gains | 0.17276; 0.82299 +/- j0.63790 | 1.04126 | Unstable |
 | 100 ms, corrected gains | 0.74361; 0.53756 +/- j0.37370 | 0.65469 | Stable |
 
-The corrected case uses $K_{p} = 1 \%/mm$ and $K_{\mathrm{d}} = 0.4 \%/(mm/s)$.
+The corrected case uses $K_{p} = 1 \%/\mathrm{mm}$ and $K_{\mathrm{d}} = 0.4 \%/(\mathrm{mm/s})$,
+the same declared-teaching-value derivative gain with proportional gain
+reduced to restore the augmented poles inside the unit circle (shown below).
 
 The 10 ms Nyquist frequency is $\pi/0.01=314.16$ rad/s; the 100 ms value is
 $\pi/0.1=31.416$ rad/s. At 100 ms the sampling angular frequency is
@@ -152,15 +184,29 @@ For the fine path, the previous pending request is applied before calculating
 the next request:
 
 ```st
-FineAppliedForce := FinePendingForce;
-FineRequestedForce := ContinuousProportionalGain * (PositionSetpoint - FinePosition)
-    - ContinuousDerivativeGain * FineVelocity;
-FinePendingForce := FineRequestedForce;
+IF FineAborted THEN
+    FineAppliedForce := MAX(MIN(-LREAL#0.8 * FineVelocity, ForceMaximum), ForceMinimum);
+ELSE
+    // Apply the preceding request before calculating the next one. This is
+    // the explicit one-sample computation and actuation delay.
+    FineAppliedForce := FinePendingForce;
+    FineRequestedForce := ContinuousProportionalGain * (PositionSetpoint - FinePosition)
+        - ContinuousDerivativeGain * FineVelocity;
+    IF (FineRequestedForce < ForceMinimum) OR (FineRequestedForce > ForceMaximum)
+        OR (FinePosition < LREAL#-5.0) OR (FinePosition > LREAL#5.0) THEN
+        FineAborted := TRUE;
+        FinePendingForce := LREAL#0.0;
+    ELSE
+        FinePendingForce := FineRequestedForce;
+    END_IF;
+END_IF;
 ```
 
 The coarse counters perform the same operation every ten 10 ms plant cycles.
-If the unstable case requests force outside its limit, its normal controller is
-latched out and a separate velocity-damping controlled stop removes motion.
+The inner `IF` is the safety-limit latch: if the unstable case's requested
+force or position ever leaves its declared range, its normal controller is
+latched out (`FineAborted`/`CoarseAborted`/`CorrectedAborted` := TRUE) and the
+outer `IF` substitutes the velocity-damping controlled stop shown above.
 
 ## Experiment in Control Studio
 
@@ -189,8 +235,6 @@ lets project restoration finish first. The deterministic Simulation seed is
 
 ## Evidence and decision
 
-### Measures and comparison
-
 First, change only the controller update interval from 10 ms to 100 ms. Keep
 the mechanics, gains, one-sample delay, setpoint, integration interval, limits,
 and seed equal. Next, hold the 100 ms interval and delay constant and change
@@ -202,8 +246,6 @@ sample/hold/delay convention, and revisions. For time evidence, define
 overshoot, two-percent settling time, final-window position error, requested-
 and applied-force total variation in percentage points, saturation duration,
 abort trigger, controlled stop, and timing tolerance before reporting values.
-
-### Validation
 
 Control Studio and an independent oracle shall agree on poles and magnitudes
 within `1e-6`, sampling zeros within `1e-4`, and alias frequency within
@@ -232,6 +274,16 @@ discrete redesign is accepted.
 ![Sampled force request, delay and application](figures/position-z-plane-force-evidence.svg)
 
 [Complete force trace](figures/position-z-plane-force-evidence-trace.csv)
+
+The native comparison confirms the Prediction table: the fine 10 ms case has
+largest pole magnitude 0.971845 (stable), settles at 1.29 s, and finishes at
+0.000 mm final-window error; the unchanged 100 ms case has largest pole
+magnitude 1.041260 (unstable), is reported `Not settled`, and aborts on a
+force-or-position boundary before the controlled velocity-damping stop
+completes; and the corrected 100 ms case has largest pole magnitude 0.743613
+(stable), settles at 1.60 s, and also finishes at 0.000 mm final-window
+error — both stable cases pass the required 0.02 mm final-error limit and the
+unchanged case correctly fails it by never settling.
 
 ## Conclusion
 

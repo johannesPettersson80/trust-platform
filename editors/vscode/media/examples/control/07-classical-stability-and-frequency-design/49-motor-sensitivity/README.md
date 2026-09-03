@@ -4,16 +4,15 @@ Course position: Lesson 49 of 84. Previous lesson: [Count delayed-oven stability
 
 **Lesson objective:** Compare proportional and loop-shaped motor-speed controllers against common frequency- and time-domain requirements.
 
-**Evidence class:** Simulation evidence, not physical-plant evidence. A physical drive additionally requires reviewed current, vibration, guarding, and machine-motion limits.
+**Evidence class:** Simulation evidence, not physical-plant evidence. A physical drive additionally requires reviewed current, guarding, and motion limits.
 
 ## The problem
 
 The equipment is a precision motor driving a precision load through a
 compliant coupling. The drive's rated-torque command is measured in percent. A
 load-side encoder measures speed in revolutions per minute (rpm). The
-experiment uses small speed deviations about a 1000 rpm operating speed, a
-declared teaching point; a deviation of 1 rpm means an actual shaft speed of
-1001 rpm.
+experiment uses small speed deviations about a 1000 rpm declared teaching
+operating point; a 1 rpm deviation means an actual shaft speed of 1001 rpm.
 
 The measured-speed channel carries identical deterministic encoder
 interference in both cases; a separate true-speed channel lets you distinguish
@@ -21,8 +20,8 @@ encoder noise from physical shaft motion. Opposing load torque is a second
 physical plant input, not an artificial change to the speed reading.
 
 The two simulated motors have identical dynamics, initial state, setpoint,
-load event, 10 millisecond timing, limits, interference, seed, and abort range.
-Only the controller changes.
+load event, timing, limits, interference, seed, and abort range. Only the
+controller changes.
 
 Lesson 48 used Nyquist analysis for delayed-loop stability, and Lesson 47
 calculated margins near crossover, but neither says how much load torque,
@@ -67,10 +66,10 @@ $1/(1+L)+L/(1+L)=(1+L)/(1+L)=1$. It explains a fundamental trade-off. At a
 frequency where feedback makes $S$ small, $T$ must be near one; the two cannot
 both be zero.
 
-The plant-input load-disturbance path, `G(s)S(s)`, is measured in rpm of speed
-motion per percent of opposing load torque. The measurement-noise to
-requested-torque path is the control-sensitivity function, `C(s)S(s)`,
-measured in percent torque per rpm of encoder noise.
+The plant-input load-disturbance path, `G(s)S(s)`, is measured in rpm per
+percent of opposing load torque. The measurement-noise path, the
+control-sensitivity function `C(s)S(s)`, is measured in percent torque per rpm
+of encoder noise.
 
 Closed-loop bandwidth is the first frequency where complementary sensitivity's
 magnitude falls below one divided by the square root of two times its
@@ -109,10 +108,10 @@ $C_{\mathrm{base}}(s) = 0.4 \%/\mathrm{rpm}$
 
 The shaped controller keeps the same zero-frequency gain. Its lead, lag, and
 low-pass corner frequencies are declared choices set relative to the plant's
-own $\omega_n=1$ rad/s resonance, not fitted or optimized values: the lead
-factor adds phase near crossover, the lag factor reduces gain around the
-flexible mode relative to slow-load authority, and the low-pass factor rolls
-off high-frequency controller response:
+own $\omega_n=1$ rad/s resonance, not fitted values: the lead factor adds
+phase near crossover, the lag factor reduces gain around the flexible mode
+relative to slow-load authority, and the low-pass factor rolls off
+high-frequency response:
 
 $C_{\mathrm{shape}}(s) = 0.4 \cdot ((1+s/0.3)/(1+s/3)) \cdot ((1+s/0.8)/(1+s/0.08)) \cdot (1/(1+s/8))$
 
@@ -142,8 +141,8 @@ produces:
 | Measure | Baseline | Shaped | What it means |
 |---|---:|---:|---|
 | $\left|S\right|$ at 0.01 rad/s | 0.200 | 0.201 | Similar slow-load rejection |
-| $M_{s}$ | 3.195 | 1.723 | Less worst-case disturbance/model amplification |
-| $M_{t}$ | 3.002 | 1.333 | Less worst-case tracking/noise amplification |
+| $M_{s}$ | 3.195 | 1.723 | Less worst-case disturbance amplification |
+| $M_{t}$ | 3.002 | 1.333 | Less worst-case noise amplification |
 | Gain crossover | 2.187 rad/s | 1.706 rad/s | Lower shaped-loop crossover |
 | Phase margin | 19.13 degrees | 44.11 degrees | More shaped-loop phase reserve |
 | Bandwidth | 3.43 rad/s | 2.83 rad/s | Shaped response is intentionally slower |
@@ -199,12 +198,12 @@ timing, and independent abort states.
 
 ## Experiment in Control Studio
 
-The project owns the setpoint, the 0.1-percent load step at 60 seconds,
-encoder interference, the 120-second observation, aborts, and restoration to
-zero. Control Studio may write only
+The project owns the setpoint, the 0.1-percent load step, encoder
+interference, the 120-second observation, aborts, and restoration to zero.
+Control Studio may write only
 `P1.ExperimentEnabled`; it must not inject another load step. The 120.1-second
-timeout lets project restoration finish first. The deterministic Simulation
-seed is 20260829.
+timeout lets restoration finish first. The deterministic Simulation seed is
+20260829.
 
 ### Control Studio actions
 
@@ -227,17 +226,18 @@ seed is 20260829.
 Change only the controller. Hold the plant, initial state, setpoint, load event,
 sample schedule, duration, limits, interference, seed, and abort logic equal.
 
-Retain complex loop response, sensitivity, complementary sensitivity, load and
-control sensitivity, the $S+T$ residual, every crossover, bandwidth, $M_{s}$,
-$M_{t}$, phase margin, model revision, controller revision, and evidence class.
+Retain complex loop response, sensitivity, complementary sensitivity,
+load/control sensitivity, the $S+T$ residual, every crossover, bandwidth,
+$M_{s}$, $M_{t}$, phase margin, model revision, controller revision, and
+evidence class.
 
 For the time traces, setpoint overshoot is peak true-speed departure above the
 predicted 0.8 rpm equilibrium; settling time is the first time true speed
 stays within 2 percent of it; load departure is the largest true-speed
-distance from the 0.6 rpm post-load equilibrium; and torque total variation is
-the sum of consecutive requested-torque changes, in percentage points.
-Encoder-noise torque travel is measured over the final quiet window, distinct
-from physical shaft movement.
+distance from the 0.6 rpm post-load equilibrium; and torque total variation
+sums consecutive requested-torque changes, in percentage points. Encoder-noise
+torque travel is measured over the final quiet window, distinct from physical
+shaft movement.
 
 The shaped candidate shall keep low-frequency $\left|S\right|$ and $\left|GS\right|$ within 2 percent
 of baseline, reduce $M_{s}$ below 1.8, reduce $M_{t}$ below 1.4, provide at least 40
@@ -269,11 +269,10 @@ slower load-recovery cost on equal simulated motors.
 
 The native comparison reproduces every Prediction value exactly (shaped
 $M_{s}=1.723$, $M_{t}=1.333$, crossover 1.706 rad/s, phase margin 44.11
-degrees, bandwidth 2.83 rad/s), and every declared acceptance criterion
-passes: $M_{s}<1.8$, $M_{t}<1.4$, phase margin above 40 degrees, bandwidth
-inside 2.6 through 3.0 rad/s, overshoot 19.16 percent under the 65 percent
-ceiling, and a final-window speed error (recomputed here, 110-120 s) of about
-0.0003 rpm against the 0.01 rpm limit.
+degrees, bandwidth 2.83 rad/s), and every acceptance criterion passes:
+$M_{s}<1.8$, $M_{t}<1.4$, phase margin above 40 degrees, bandwidth inside
+2.6-3.0 rad/s, overshoot 19.16 percent under 65 percent, and a final-window
+speed error (110-120 s) of about 0.0003 rpm under the 0.01 rpm limit.
 
 ## Conclusion
 

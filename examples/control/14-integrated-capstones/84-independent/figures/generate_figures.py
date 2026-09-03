@@ -1,122 +1,26 @@
 #!/usr/bin/env python3
-"""Render Lesson 84's figures.
+"""Render Lesson 84's topology diagram.
 
 Pure Python, no third-party dependencies.
 
-- figures/independent-capstone-evidence.svg is rebuilt from the retained
-  native trace figures/independent-capstone-evidence-trace.csv, keeping the
-  same two panels, series, and axes the shipped figure uses.
-- figures/independent-capstone-topology.svg is a structural box-and-arrow
-  diagram of the feedback-plus-feedforward signal path onto the shared
-  receiver. It is not derived from CSV data (it has no panels, series, or
-  axes to reproduce); it is written directly in the visual style of
-  examples/control/01-feedback-foundations-and-temperature-control/
-  08-water-heater-saturation/figures/heater-signal-path.svg.
+figures/independent-capstone-topology.svg is a structural box-and-arrow
+diagram of the feedback-plus-feedforward signal path onto the shared
+receiver. It is not derived from CSV data (it has no panels, series, or
+axes to reproduce); it is written directly in the visual style of
+examples/control/01-feedback-foundations-and-temperature-control/
+08-water-heater-saturation/figures/heater-signal-path.svg.
+
+figures/independent-capstone-evidence.svg is owned by the native test
+control_curriculum_independent_capstone
+(crates/trust-runtime/tests/control_curriculum_independent_capstone.rs).
+Refresh it with: TRUST_UPDATE_CONTROL_CURRICULUM_ARTIFACTS=1 cargo test -p trust-runtime --test control_curriculum_independent_capstone
 """
 
 from __future__ import annotations
 
-import csv
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-
-# --- Evidence chart -------------------------------------------------------
-
-PANELS = [
-    {
-        "name": "Pressure integrated absolute error",
-        "axis_title": "Pressure integrated absolute error (bar*s)",
-        "y_min": 0.0,
-        "y_max": 32.0,
-        "top": 195.0,
-        "bottom": 355.0,
-        "x_axis_label_y": 391.0,
-    },
-    {
-        "name": "Applied-compressor movement",
-        "axis_title": "Applied-compressor movement (percentage points)",
-        "y_min": 0.0,
-        "y_max": 180.0,
-        "top": 445.0,
-        "bottom": 605.0,
-        "x_axis_label_y": 641.0,
-    },
-]
-
-SERIES_STYLE = {
-    "Nominal plant": {"colour": "#2563eb", "dash": ""},
-    "Uncertainty plant": {"colour": "#dc2626", "dash": "7 5"},
-}
-
-LEFT, RIGHT = 75.0, 855.0
-X_MIN, X_MAX = -0.05, 1.05
-
-
-def read_trace() -> dict[str, dict[str, list[tuple[float, float]]]]:
-    with (ROOT / "independent-capstone-evidence-trace.csv").open(newline="", encoding="utf-8") as handle:
-        rows = list(csv.DictReader(handle))
-    by_panel: dict[str, dict[str, list[tuple[float, float]]]] = {}
-    for row in rows:
-        panel = by_panel.setdefault(row["panel"], {})
-        panel.setdefault(row["series"], []).append((float(row["x"]), float(row["y"])))
-    return by_panel
-
-
-def sx(index: float) -> float:
-    return LEFT + (index - X_MIN) / (X_MAX - X_MIN) * (RIGHT - LEFT)
-
-
-def sy(value: float, y_min: float, y_max: float, top: float, bottom: float) -> float:
-    return bottom - (value - y_min) / (y_max - y_min) * (bottom - top)
-
-
-def render_evidence(by_panel: dict[str, dict[str, list[tuple[float, float]]]]) -> str:
-    body: list[str] = []
-    body.append(
-        '<line x1="55" y1="146" x2="83" y2="146" stroke="#2563eb" stroke-width="3"/>'
-        '<text x="89" y="151" font-size="12">Nominal plant</text>'
-        '<line x1="191" y1="146" x2="219" y2="146" stroke="#dc2626" stroke-width="3" stroke-dasharray="7 5"/>'
-        '<text x="225" y="151" font-size="12">Uncertainty plant</text>'
-    )
-    for panel in PANELS:
-        series_map = by_panel[panel["name"]]
-        top, bottom = panel["top"], panel["bottom"]
-        y_min, y_max = panel["y_min"], panel["y_max"]
-        body.append(f'<text x="75" y="{top - 12:.2f}" font-size="16" font-weight="700">{panel["axis_title"]}</text>')
-        for step in range(5):
-            value = y_min + (y_max - y_min) * (4 - step) / 4
-            y = top + step / 4 * (bottom - top)
-            body.append(f'<line class="grid" x1="75" y1="{y:.2f}" x2="855" y2="{y:.2f}"/>')
-            body.append(f'<text x="67" y="{y + 4:.2f}" text-anchor="end" font-size="11">{value:.2f}</text>')
-        for step in range(5):
-            index = X_MIN + step / 4 * (X_MAX - X_MIN)
-            x = sx(index)
-            body.append(f'<line class="grid" x1="{x:.2f}" y1="{top}" x2="{x:.2f}" y2="{bottom}"/>')
-            body.append(f'<text x="{x:.2f}" y="{bottom + 18:.2f}" text-anchor="middle" font-size="11">{index:.2f}</text>')
-        for series_name, points in series_map.items():
-            colour = SERIES_STYLE[series_name]["colour"]
-            for index, value in points:
-                body.append(
-                    f'<circle cx="{sx(index):.2f}" cy="{sy(value, y_min, y_max, top, bottom):.2f}" r="4" fill="{colour}"/>'
-                )
-        body.append(f'<rect class="axis" x="75" y="{top}" width="780" height="{bottom - top}" fill="none"/>')
-        body.append(f'<text x="465" y="{panel["x_axis_label_y"]:.2f}" text-anchor="middle" font-size="12">architecture index</text>')
-
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" viewBox="0 0 900 650">
-<title id="title">Qualified demand feedforward improves the compressed-air receiver under uncertainty</title>
-<desc id="desc">Index 0 is feedback only and index 1 is PI plus qualified demand feedforward; the same decision is tested on nominal and uncertainty plants.</desc>
-<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#243044"/></marker></defs>
-<rect width="900" height="650" fill="#f7f9fc"/>
-<style>text{{font-family:system-ui,-apple-system,sans-serif;fill:#243044}} .axis{{stroke:#526078;stroke-width:1}} .grid{{stroke:#d8e0eb;stroke-width:1}}</style>
-<text x="55" y="42" font-size="24" font-weight="700">Qualified demand feedforward improves the compressed-air</text>
-<text x="55" y="70" font-size="24" font-weight="700">receiver under uncertainty</text>
-<text x="55" y="98" font-size="14">Index 0 is feedback only and index 1 is PI plus qualified demand feedforward; the same</text>
-<text x="55" y="116" font-size="14">decision is tested on nominal and uncertainty plants.</text>
-{"".join(body)}
-</svg>
-'''
-
 
 # --- Topology diagram (structural, not CSV-derived) ------------------------
 
@@ -193,8 +97,6 @@ def render_topology() -> str:
 
 
 def main() -> None:
-    by_panel = read_trace()
-    (ROOT / "independent-capstone-evidence.svg").write_text(render_evidence(by_panel), encoding="utf-8")
     (ROOT / "independent-capstone-topology.svg").write_text(render_topology(), encoding="utf-8")
 
 

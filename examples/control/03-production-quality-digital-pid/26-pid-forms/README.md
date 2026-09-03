@@ -15,6 +15,7 @@ evidence.
 
 ## The problem
 
+The equipment is an industrial positioning table and recirculating water heater.
 Lesson 25 turned continuous equations into recurrences with retained state.
 Now we must decide which kind of recurrence preserves the intended controller
 behavior. The encoder-controlled positioning table needs proportional control, while the

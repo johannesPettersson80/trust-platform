@@ -198,9 +198,12 @@ def render_alias_spectrum() -> None:
 
 
 def main() -> None:
-    render_realization()
-    render_method_comparison()
-    render_update_timing()
+    # digital-realization.svg, digital-method-comparison.svg and
+    # digital-update-timing.svg are written and byte-compared by the motion
+    # progression runtime test, which is their generator; refresh them with
+    # TRUST_UPDATE_CONTROL_CURRICULUM_ARTIFACTS=1 cargo test -p trust-runtime
+    # --test control_curriculum_motion_progression. Only the alias spectrum,
+    # which no test owns, is drawn here.
     render_alias_spectrum()
 
 

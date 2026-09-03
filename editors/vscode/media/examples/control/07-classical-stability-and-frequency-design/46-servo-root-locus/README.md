@@ -16,10 +16,10 @@ carriage-position setpoint and measured position use millimetres. Requested and
 applied motor-current commands use percent of the drive rating and may act in
 either direction.
 
-Two independent simulated copies use the same motor and carriage model, zero
-initial position, one-millimetre move, 10-millisecond control interval, current
-limits, and deterministic seed. One uses proportional control; the other uses
-the lead compensator designed in this lesson.
+Two independent simulated copies share the same motor and carriage model,
+zero initial position, one-millimetre move, 10-millisecond control interval,
+current limits, and seed. One uses proportional control; the other uses the
+lead compensator designed here.
 
 Lesson 45 used Routh-Hurwitz to establish a stable gain interval. It did not
 show how individual poles move, which poles dominate the response, or whether
@@ -32,7 +32,7 @@ requirements together before changing controller structure.
 
 ## What we need
 
-We need more freedom than proportional gain alone provides to place the positioning carriage's dominant response while keeping the remaining modes acceptable. Desired pole location, added dynamics, and executable response must tell the same story.
+We need more freedom than proportional gain alone provides to place the carriage's dominant response while keeping other modes acceptable. Desired pole location, added dynamics, and executable response must agree.
 
 ## The new idea
 
@@ -45,19 +45,17 @@ Branches start at open-loop poles and finish at open-loop zeros or at infinity.
 A real-axis segment is part of the locus on the real number line. A breakaway
 point is where branches leave that line.
 
-An asymptote describes a branch going to infinity when open-loop poles
-outnumber open-loop zeros. Their count equals that excess; their shared
-centroid, where they intersect the real axis, is the sum of the pole
-locations minus the sum of the zero locations, divided by the count; and
-their angles are evenly spaced around the plane, starting at 180 degrees
-divided by the count.
+An asymptote is a branch going to infinity: when open-loop poles outnumber
+zeros, one asymptote exists per excess pole. Their centroid, where they
+cross the real axis, is the pole sum minus the zero sum, divided by the
+count; their angles are evenly spaced, starting at 180 degrees divided by
+the count.
 
-The angle condition decides whether a point lies on the locus: measuring the
-angle from every open-loop pole to that point, and separately from every
-open-loop zero to that point, the pole angles minus the zero angles must sum
-to plus-or-minus 180 degrees or an odd multiple of it. The magnitude
-condition then calculates the positive gain that places a closed-loop pole
-exactly there.
+The angle condition decides whether a point lies on the locus: the angles
+from every open-loop pole to that point, minus the angles from every
+open-loop zero to it, must sum to plus-or-minus 180 degrees or an odd
+multiple. The magnitude condition then gives the positive gain that places a
+closed-loop pole exactly there.
 
 Natural frequency describes the undamped speed of a pole pair. Damping ratio
 describes its decay relative to that frequency. A constant-damping line marks
@@ -92,8 +90,7 @@ zero is the integration from speed to position; the pole at -2 is the damped
 speed mode. There is no numerator factor, so there is no finite open-loop
 zero. The coefficient 2 is a configured teaching value for viscous friction;
 on a physical carriage an engineer would estimate it from a guarded
-low-speed coast-down test and validate it on an unused move at the same
-load.
+coast-down test and validate it on an unused move.
 
 For proportional feedback, $1+KG(s)=0$. Multiplying by $s(s+2)$ gives
 
@@ -106,12 +103,11 @@ $K=-s(s+2).$
 
 The gain is positive only between -2 and 0, so that interval is the real-axis
 locus. A breakaway occurs where changing $s$ no longer changes $K$ to first
-order. Differentiating gives $dK/ds=-2s-2$; setting it to zero gives $s=-1$:
-the locus breaks away at -1. Two branches must go to infinity with no finite
-zeros, so by the asymptote rule above their count is two, their centroid is
-the mean of the two poles, $(0-2)/2=-1$, and their two evenly spaced angles
-start at 180 degrees divided by 2: 90 degrees and -90 degrees. The branches
-therefore leave -1 vertically.
+order: differentiating gives $dK/ds=-2s-2$, so setting it to zero gives
+$s=-1$; the locus breaks away at -1. Two branches go to infinity with no
+finite zeros, so by the asymptote rule their count is two, their centroid is
+the mean of the two poles, $(0-2)/2=-1$, and their angles start at 180
+degrees divided by 2: 90 degrees and -90 degrees, leaving -1 vertically.
 
 The quadratic formula gives $s=-1\pm\sqrt{1-K}$. For $K > 1$ this becomes
 $s=-1\pm j\sqrt{K-1}$. Increasing gain raises the imaginary part, which means
@@ -123,11 +119,10 @@ origin, $\omega_n=\sqrt{1^2+1.732^2}=2$ rad/s, and their damping ratio is
 $\zeta=1/2=0.5$.
 
 Percent overshoot ($M_p$) is the peak response above the final commanded
-value, expressed as a percentage of the commanded change. The 2-percent
-settling time ($T_{2\%}$) — a symbol chosen so it is never confused with the
-sample interval $T_s$ — is the earliest time after which the response stays
-within plus or minus 2 percent of that final value. The standard
-second-order estimates are
+value, as a percentage of the commanded change. The 2-percent settling time
+($T_{2\%}$, chosen not to collide with the sample interval $T_s$) is the
+earliest time the response stays within plus or minus 2 percent of that
+final value. The standard second-order estimates are
 
 $M_p=100e^{-\pi\zeta/\sqrt{1-\zeta^2}}=16.3\%$
 
@@ -136,18 +131,16 @@ and
 $T_{2\%}\approx4/(\zeta\omega_n)=4\text{ s}.$
 
 At $K = 4$ this predicts 16.3-percent overshoot and a 4-second settling
-time. Both miss the servo requirements. More proportional gain cannot fix
-that settling time because it cannot move the real part left of -1.
+time: both miss the servo requirements.
 
 ### Derive the lead design
 
 The required region needs a more negative real part than -1: 5-percent
 overshoot needs damping ratio at least 0.69, and 2-second settling needs
 $\zeta\omega_n$ of at least 2 rad/s. The standard lead recipe places a zero
-close to the slow region, so it supplies positive phase there, and a pole
-several times farther left, so it contributes little phase near the target
-and stays non-dominant; that recipe places a lead zero at -2.5, a
-farther-left pole at -15, and uses gain 50:
+close to the slow region for positive phase there, and a pole several times
+farther left so it stays non-dominant: a lead zero at -2.5, a farther-left
+pole at -15, and gain 50:
 
 $C(s)=50\frac{s+2.5}{s+15}$
 
@@ -167,25 +160,22 @@ than the complex pair, so the pair is dominant. Its natural frequency is
 $\sqrt{3.235^2+1.186^2}=3.446$ rad/s and its damping ratio is
 $3.235/3.446=0.939$.
 
-The angle and magnitude conditions confirm this placement. At the dominant
-pole $s_0=-3.235+j1.186$, the open-loop poles at 0, -2, and -15 contribute
-angles of approximately 159.9, 136.2, and 5.8 degrees to that point; the zero
-at -2.5 contributes approximately 121.8 degrees. Poles minus zero gives
-$159.9+136.2+5.8-121.8\approx180$ degrees, so $s_0$ lies on the compensated
-locus as the angle condition requires. The same four distances give the gain
-through the magnitude condition, $|s_0|\approx3.446$, $|s_0+2|\approx1.712$,
-$|s_0+15|\approx11.825$, and $|s_0+2.5|\approx1.395$:
+The angle and magnitude conditions confirm this choice. At
+$s_0=-3.235+j1.186$, the poles at 0, -2, -15 contribute angles near 159.9,
+136.2, 5.8 degrees; the zero at -2.5 contributes near 121.8 degrees. Poles
+minus zero, $159.9+136.2+5.8-121.8\approx180$ degrees, satisfies the angle
+condition. The same four distances, $|s_0|\approx3.446$,
+$|s_0+2|\approx1.712$, $|s_0+15|\approx11.825$, $|s_0+2.5|\approx1.395$, give
+the gain:
 
 $K=\frac{|s_0|\,|s_0+2|\,|s_0+15|}{|s_0+2.5|}=\frac{3.446\times1.712\times11.825}{1.395}\approx50$
-
-recovering the gain 50 used above.
 
 That damping ratio does not by itself determine overshoot because the complete
 closed-loop transfer function still contains the controller zero:
 
 $T(s)=\frac{50(s+2.5)}{s^3+17s^2+80s+125}.$
 
-Evaluating this complete response predicts about 3.2-percent overshoot and
+Evaluating this complete response predicts about 3.2 percent overshoot and
 1.36-second settling. Its DC gain is $T(0)=125/125=1$, so a constant
 one-millimetre command has zero steady-state error. At the instant of the step,
 the filter state is still zero and the error is 1 mm, so the implemented law
@@ -239,22 +229,17 @@ the terminal state. The deterministic Simulation seed is 20260829.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 Change only controller structure and its derived parameters. Hold plant,
-initial state, setpoint event, sample schedule, duration, limits, and seed equal.
-
-Percent overshoot is peak position above setpoint divided by commanded position
-change, times 100. The 2-percent settling time is the first time after which
-position remains within plus/minus 2 percent of setpoint. Report `Not settled`
-if that condition never holds. Final-window absolute error is calculated only
-for a settled response. Applied-current travel is the sum of absolute changes
-between successive applied-current samples, in percentage points.
-
-Also retain peak requested and applied current, time at limit, calculated pole
-identities, damping, metric windows, and stop reason.
-
-### Validation
+initial state, setpoint event, sample schedule, duration, limits, and seed
+equal. Percent overshoot is peak position above setpoint divided by
+commanded position change, times 100. The 2-percent settling time is the
+first time after which position remains within plus/minus 2 percent of
+setpoint; report `Not settled` if that condition never holds. Final-window
+absolute error is calculated only for a settled response, over the declared
+final window of 7.01-8.00 s. Applied-current travel is the sum of absolute
+changes between successive applied-current samples, in percentage points.
+Also retained: peak current, time at limit, pole identities, damping, and
+stop reason.
 
 The independent numerical oracle and executable run give:
 
@@ -264,15 +249,12 @@ The independent numerical oracle and executable run give:
 | Lead, 50(s+2.5)/(s+15) | 3.35% | 1.38 s | < 0.0001 mm | No |
 
 The proportional case fails overshoot and settling. The lead case meets both,
-reaches the final-error tolerance, and remains unsaturated. A faster design
-that touches the current limit would be rejected. The calculated roots and
-complete response—not only a dominant-pole approximation—must agree with the
-retained run.
+reaches the final-error tolerance, and remains unsaturated. The calculated
+roots and complete response, not only a dominant-pole approximation, agree
+with the retained run.
 
-### Retained evidence
-
-The first panel shows where each controller places the closed-loop poles. The
-second panel shows what those pole locations mean for the real positioning
+The first panel shows where each controller places the closed-loop poles;
+the second shows what those pole locations mean for the real positioning
 requirement.
 
 ![Servo pole placement and position response](figures/servo-root-locus-evidence.svg)
@@ -283,11 +265,11 @@ requirement.
 ## Conclusion
 
 Gain alone moves the uncompensated pair vertically after breakaway, leaving
-real part -1. It trades damping for oscillation frequency but cannot make the
-decay faster. The added zero and farther-left pole change the angle condition,
-moving the dominant branches into the required region. The third pole is much
-farther left and decays faster. The closed-loop zero explains why overshoot is
-not given by the dominant-pair damping ratio alone.
+real part -1: it trades damping for oscillation frequency but cannot decay
+faster. The added zero and farther-left pole change the angle condition,
+moving the dominant branches into the required region; the third pole, much
+farther left, decays faster still. The closed-loop zero explains why
+overshoot is not given by dominant-pair damping ratio alone.
 
 ## Reason for the next lesson
 

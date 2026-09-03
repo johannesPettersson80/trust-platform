@@ -234,8 +234,7 @@ separate Validate screen for this project-owned comparison.
      mode, and the predicted first request before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without
-     excitation**, **Amplitude** = **0** (disabled), and
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and
      **Maximum duration (s)** = **15.02**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`).
    - **Decision before action:** Confirm that Test will not inject a second
      setpoint. The Boolean must authorize the project's selected $c=0$ setup,
