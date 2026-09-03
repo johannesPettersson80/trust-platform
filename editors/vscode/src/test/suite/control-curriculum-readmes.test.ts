@@ -1075,12 +1075,15 @@ suite("Control curriculum pedagogical READMEs", () => {
       /integral time \(Ti\).*seconds.*same output contribution/i,
     ]) assert.match(prose, definition);
     const definitions = readme.indexOf("proportional increment");
-    const discreteEquation = readme.indexOf("\\Delta_{\\mathrm{uP},k} = K_p \\times (e_{k} - e_{k-1})");
+    // Notation corrected per review finding L07-2 (one consistent Delta u_{P,k}/
+    // Delta u_{I,k} subscript form, replacing the four incompatible renderings)
+    // and L07-4 (cycle time written as Delta t, not dt, in every formula).
+    const discreteEquation = readme.indexOf("\\Delta u_{P,k} = K_p \\times (e_{k} - e_{k-1})");
     assert.ok(definitions >= 0 && discreteEquation > definitions,
       "Lesson 7 must explain its actual incremental PI quantities before equations");
-    assert.match(readme, /\\Delta_\{\\mathrm\{uI\},k\} = K_i \\times e_\{k\} \\times dt/);
+    assert.match(readme, /\\Delta u_\{I,k\} = K_i \\times e_\{k\} \\times \\Delta t/);
     assert.match(readme,
-      /MV_\{\\mathrm\{requested\},k\} = MV_\{\\mathrm\{previous\},k-1\} \+ \\Delta_\{\\mathrm\{uP\},k\} \+ \\Delta_\{\\mathrm\{uI\},k\}/);
+      /MV_\{\\mathrm\{requested\},k\} = MV_\{\\mathrm\{previous\},k-1\} \+ \\Delta u_\{P,k\} \+ \\Delta u_\{I,k\}/);
     assert.match(readme, /T_i = K_p \/ K_i/);
     assert.match(prose,
       /2 (?:°C|degrees Celsius).*Ki.*4.*0\.1 s.*75 percent.*0 percentage points.*0\.8 percentage point.*75\.8 percent/is);
@@ -1281,8 +1284,12 @@ suite("Control curriculum pedagogical READMEs", () => {
       /steady state.*heater model.*PV_ss = T0 \+ K_?h \* MV_required.*subtract T0.*divide by K_?h.*MV_required = \(SP - T0\) \/ K_?h/is);
     assert.match(prose,
       /inner minimum.*first.*prevents.*exceeding.*upper limit.*outer maximum.*second.*prevents.*falling below.*lower limit/is);
+    // Notation corrected per review findings L08-2 (u_{I,N}/u_{I,0}, consistent
+    // with the u_I defined one paragraph earlier), L08-5 (Delta t named at
+    // first use instead of bare dt) and L08-6 (quotes Lesson 6's actual
+    // unsubscripted-e notation rather than an e_k Lesson 6 never wrote).
     assert.match(prose,
-      /uI_N = uI_?0 \+ sum.*Ki \* e_k \* dt.*positive.*continues.*grow/is);
+      /u_I,N = u_I,0 \+ sum.*Ki.*e_k.*dt.*positive.*continues.*grow/is);
     assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.baseline.settings.proportionalGain, 8);
     assert.strictEqual(lesson.baseline.settings.integralGain, 4);
@@ -1909,7 +1916,9 @@ suite("Control curriculum pedagogical READMEs", () => {
       /FilterParameters\.TimeConstant := FilterTimeConstantUsed/,
       /FilterParameters\.Order := FilterOrder#FirstOrder/,
       /FilterParameters\.Order := FilterOrder#SecondOrder/,
-      /FilterOutput := Filter\.Update\(Input := ProcessValue, CycleTime := ConfiguredCycleTime\)/,
+      // L13-10: the excerpt now quotes the shipped multi-line call verbatim
+      // instead of the earlier single-line rewrite.
+      /FilterOutput := Filter\.Update\(\s*Input := ProcessValue,\s*CycleTime := ConfiguredCycleTime\s*\)/,
       /Input\.ProcessValue := FilteredValue/,
       /Input\.ManualOutput := ManualOutput/,
       /ManipulatedValue := Controller\.Update/,

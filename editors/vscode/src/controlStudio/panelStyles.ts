@@ -49,7 +49,12 @@ button:disabled{color:var(--vscode-disabledForeground);border-color:var(--vscode
 .studio:has(> .workspace > .workflow-pane[data-workflow-pane="Monitor"]:not([hidden])) .design-row,
 .studio:has(> .workspace > .workflow-pane[data-workflow-pane="Test"]:not([hidden])) .design-row,
 .studio:has(> .workspace > .workflow-pane[data-workflow-pane="Identify"]:not([hidden])) .design-row{display:none}
-[data-workflow-pane="Test"] .workspace-actions{position:sticky;bottom:0;z-index:2;margin-top:14px;padding:8px 0;background:var(--vscode-editor-background);border-top:1px solid var(--vscode-panel-border)}
+[data-workflow-pane="Test"] .workspace-actions{margin-top:14px;padding:8px 0;background:var(--vscode-editor-background)}
+/* The abort control is only pinned while a test is actually running (finding W-12);
+   pinning it at rest floated the bar over the experiment form and hid the amplitude
+   and duration fields the learner is asked to confirm before approving. */
+[data-workflow-pane="Test"] .workspace-actions:has([data-test-abort]:not(:disabled)){position:sticky;bottom:0;z-index:2;border-top:1px solid var(--vscode-panel-border)}
+[data-workflow-pane="Test"]:has([data-test-abort]:not(:disabled)) .control-group{padding-bottom:52px}
 label[for="tune-import-file"]{cursor:pointer;display:inline-block}
 .field label.secondary{font-size:inherit;font-weight:400;color:var(--vscode-button-secondaryForeground)}
 #tune-import-file:focus + label[for="tune-import-file"]{outline:1px solid var(--vscode-focusBorder);outline-offset:2px}

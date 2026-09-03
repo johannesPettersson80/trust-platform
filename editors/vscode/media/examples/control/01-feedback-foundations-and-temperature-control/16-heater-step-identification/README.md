@@ -9,12 +9,12 @@ qualify its measured data, estimate one local dynamic model with explicit
 resolution limits, and explain why that model still requires independent
 validation.
 
-This lesson produces **Simulation evidence**. It does not prove behavior on a
+**Evidence class:** Simulation evidence. This lesson does not prove behavior on a
 physical water heater.
 
 ## The problem
 
-The equipment is: Electric recirculating water heater, outlet-temperature sensor, and heater power stage. It is the same plant as Lesson 15: water flows
+The equipment is: Electric recirculating water heater, outlet-temperature sensor, and heater power stage. It is the same heater dynamics as Lesson 15: water flows
 through a heated vessel, the outlet sensor measures water temperature, and the
 0-to-100-percent power stage drives the heater. The heater can add heat but
 cannot actively cool the water. This experiment must therefore keep outlet
@@ -25,7 +25,14 @@ loss, and transport delay. On installed equipment those values may be unknown,
 outdated, or difficult to measure. We now need a model obtained from signals we
 can actually record: applied heater power and outlet-water temperature.
 
-The plant starts at 30 degrees Celsius and 20 percent heater power. A reviewed
+This lesson's configured teaching condition reuses Lesson 15's gain, time
+constant, and dead time (0.2 degrees Celsius per percentage point, 5 seconds,
+1 second) but at a warmer declared ambient condition: 26 degrees Celsius
+instead of Lesson 15's 20 degrees Celsius, representing a warmer supply main.
+Lesson 15's balance therefore predicts $26+0.2\times20=30$ degrees Celsius at
+20 percent power, matching the plant's starting condition below; it is not the
+same ambient condition as Lesson 15's own 24-degree-Celsius prediction. The
+plant starts at 30 degrees Celsius and 20 percent heater power. A reviewed
 test will hold that baseline, raise power to 30 percent, record the response,
 and restore 20 percent. The controller stays in Manual mode so feedback cannot
 change the input and hide the plant's natural response.
@@ -93,8 +100,17 @@ resolution bracket; the recording cannot locate the crossing more precisely
 than its sample interval.
 
 After the delay, a simple self-regulating plant can be described by a
-first-order balance. Let the output departure be $x = y-y_0$ and the delayed
-input departure be $v=u(t-L)-u_0$. The balance says that the current departure
+first-order balance identical in structure to Lesson 15's energy balance,
+$C\,dT_{\mathrm{water}}/dt=Q_{in}-H(T_{\mathrm{water}}-T_{\mathrm{ambient}})$.
+Dividing that balance by $H$ and writing the departure from equilibrium as
+before recovers a time constant of $C/H$ seconds and a gain of
+$(P_{100}/100)/H$ degrees Celsius per percentage point, the same $\tau$ and $K$
+Lesson 15 derived. From here this lesson renames the time constant from
+Lesson 15's $\tau$ to $T$, the conventional symbol used in identification and
+controller-tuning literature and the symbol Lesson 18 also uses; nothing else
+about the physical relationship changes. Let the output departure be $x = y-y_0$ and the delayed
+input departure be $v=u(t-L)-u_0$, playing the same role as Lesson 15's
+temperature-minus-equilibrium departure. The balance says that the current departure
 plus the rate needed to change it equals the departure demanded by the input:
 
 $T\,dx/dt + x = K v$
@@ -126,10 +142,11 @@ A model must also be compared with every retained measurement. At sample $k$,
 the **prediction residual ($r_k$)** is measured temperature minus the
 model-predicted temperature:
 
-In sampled-signal notation, the same quantity is read aloud as “residual at
-sample k” and written $r[k]$.
-
 $r_{k} = PV_{\mathrm{measured},k} - PV_{\mathrm{predicted},k}$
+
+In sampled-signal notation, the same quantity is read aloud as "residual at
+sample k" and written $r[k]$; later lessons use this bracket form for any
+quantity recorded once per scan.
 
 Positive and negative residuals would cancel if they were simply averaged.
 Squaring prevents cancellation. Averaging the $N$ squared residuals gives the
@@ -173,11 +190,30 @@ tempt us to relax its limits afterward.
   actually reached the plant.
 - **Output span** is maximum temperature minus minimum temperature. It must be
   at least 1.90 degrees Celsius, proving enough response to estimate dynamics.
-- Signal-to-noise ratio compares response amplitude with baseline noise:
+- **Signal-to-noise ratio (SNR)** compares response amplitude with baseline
+  noise, using the same decibel scale Lesson 13 defined: here **signal** is the
+  output span above (the qualified temperature range), and **noise** is the
+  baseline-window peak-to-peak temperature variation before the step. The
+  common logarithm ($\log_{10}$) is the power to which 10 must be raised to
+  produce its argument; for example $\log_{10}(10)=1$ because $10^1=10$.
   $SNR_{dB}=20\log_{10}(\text{signal}/\text{noise})$. The factor 20 follows
   because amplitude is squared when converted to power. The 20-decibel limit
   means signal amplitude is at least ten times noise amplitude, since
   $20\log_{10}(10)=20$.
+- Five model classes are fitted to the qualified samples, each by adjusting its
+  own free parameters to minimize the sum of squared prediction residuals
+  against the recorded response (a least-squares fit). **Integrating** has no
+  equilibrium: its output ramps at a rate proportional to input, so it never
+  produces a settled gain. **First order** is the delay-free version of the
+  FOPDT relationship derived above. **First order plus dead time (FOPDT)** is
+  that same relationship, additionally fitting an apparent dead time.
+  **Second order** and **second order plus dead time** each add one more
+  retained state: here two identical time constants at a **repeated pole**,
+  meaning the same first-order stage applied twice in series, the way Lesson
+  13's cascaded filter applied its update twice. A candidate's poles are
+  stable when every fitted time constant is positive; a non-positive time
+  constant would predict a temperature that grows without bound instead of
+  settling, which cannot describe this heater.
 - A candidate is eligible only if its parameters and NRMSE are finite, its
   poles are stable, and NRMSE is no greater than 0.0500.
 - Among eligible candidates, prefer the least-complex model. The dead-time rule
@@ -238,6 +274,9 @@ Requested and applied power remain separate signals. Invalid finite inputs or
 
 ```st
 IF ExperimentEnabled THEN
+    IF NOT ExperimentWasEnabled THEN
+        ExperimentCycle := UDINT#0;
+    END_IF;
     ExperimentCycle := ExperimentCycle + UDINT#1;
     IF ExperimentCycle <= UDINT#100 THEN
         ExperimentInput := LREAL#20.0;

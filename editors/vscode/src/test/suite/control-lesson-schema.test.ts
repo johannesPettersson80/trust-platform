@@ -349,9 +349,13 @@ suite("Control lesson schema", () => {
     const availability = api.evaluateControlLessonAvailability?.(raw, "control-water-heater-p");
     assert.strictEqual(availability?.kind, "available");
 
+    // Finding L04-7 (docs/internal/reviews/control-course-review-2026-09-03.md):
+    // the course map's Lesson 4 row is stale; the lesson's own objective (below,
+    // matching README.md) is the current, reviewed text and is what the course
+    // map must be synced to, not the reverse.
     assert.strictEqual(
       availability.lesson.objective,
-      "Tune a proportional controller experimentally and explain why the best acceptable setting still leaves a steady-state temperature error."
+      "Compare three proportional gains under identical conditions, run the selected candidate on the simulated heater, and explain why the best acceptable proportional setting still leaves steady-state error."
     );
 
     const theory = pedagogicalText(availability.lesson.learning.theory.join("\n"));
@@ -766,9 +770,12 @@ suite("Control lesson schema", () => {
     ]) {
       assert.match(piText, definition);
     }
-    const piEquation = piText.indexOf("mv_requested = kp × e + ui");
+    // L07-2: u_I (proper subscript) replaces the bare "uI" this conceptual
+    // equation used to render, so it now stays consistent with the u_I
+    // defined one paragraph earlier instead of contradicting it.
+    const piEquation = piText.indexOf("mv_requested = kp × e + u_i");
     assert.ok(piEquation > 0, "Lesson 7 must present the parallel PI equation");
-    for (const definition of ["proportional gain (kp)", "integral contribution (ui)", "requested manipulated variable (mv_requested)"]) {
+    for (const definition of ["proportional gain (kp)", "integral contribution (u_i)", "requested manipulated variable (mv_requested)"]) {
       assert.ok(piText.indexOf(definition) >= 0 && piText.indexOf(definition) < piEquation,
         `${definition} must precede the PI equation`);
     }
@@ -1111,7 +1118,10 @@ suite("Control lesson schema", () => {
     ]) assert.match(readme, requirement);
     assert.match(source, /\\Delta x_D=c\\,\\Delta SP-\\Delta PV/);
     assert.match(source, /T_D=K_d\\frac\{c\\,\\Delta SP\}\{\\Delta t\}/);
-    assert.match(source, /T_\{requested\}=79\.02,\\ 41\.52,\\ 4\.02/);
+    // L22-6: the README uses \, (thin space) rather than \ (backslash-space)
+    // between listed numbers, since a literal backslash-space inside $...$
+    // is a preview-unsafe math violation under Specification 38 S:2.1.4.
+    assert.match(source, /T_\{requested\}=79\.02,\\,41\.52,\\,4\.02/);
     assert.match(source, /^## Implementation$/m);
     assert.match(source, /RequestedTorque := Controller\.Update\(Input := Input\);/);
     assert.match(source, /AppliedTorque := MAX\(MIN\(RequestedTorque, LREAL#10\.0\), LREAL#-10\.0\);/);

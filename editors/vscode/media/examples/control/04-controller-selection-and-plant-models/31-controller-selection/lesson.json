@@ -32,7 +32,7 @@
     "parameters": [
       { "name": "cold_room_time_constant", "value": 20, "unit": "s" },
       { "name": "heater_gain", "value": 0.2, "unit": "degC/%" },
-      { "name": "tank_integrating_gain", "value": 0.2, "unit": "cm" },
+      { "name": "tank_integrating_gain", "value": 0.2, "unit": "cm/(%*s)" },
       { "name": "table_inertia", "value": 1, "unit": "kg m2" },
       { "name": "table_gravity_torque_coefficient", "value": 4, "unit": "N m" }
     ],
@@ -119,7 +119,7 @@
     "context": "Four common loops have different actuator capabilities, plant dynamics, disturbances, and performance requirements.",
     "reason": "The learner knows each controller structure but needs to select from evidence rather than always applying the most complex one.",
     "theory": ["A candidate is eligible only if it satisfies every accuracy, dynamic, actuator, disturbance, noise, and safety requirement with margin.", "The minimum sufficient controller is the eligible structure with the fewest justified dynamic mechanisms and retained states.", "Binary actuation favors protected ON/OFF control; a self-regulating process needing zero load offset commonly needs PI; an integrating plant can supply setpoint integration; a loaded oscillatory motion plant can require PID.", "Every selection is conditional on the declared requirement and operating boundary. A changed disturbance or actuator can change the correct structure."],
-    "workedPrediction": "The cold room cycles at 1.5/2.5 degC with 5 s dwell. The heater needs 50 percent at 30 degC. The tank's P closed-loop time constant is 2.5 s around 20 percent bias. PD on the loaded table predicts 0.2 rad equilibrium error, while PID can retain 4 N m at zero error.",
+    "workedPrediction": "The cold room cycles at 1.5/2.5 degC with 5 s dwell. The heater needs 50 percent at 30 degC. The tank's P closed-loop time constant is 2.5 s around 20 percent bias. PD on the loaded table predicts approximately 0.316 rad equilibrium error, while PID can retain 4 N m at zero error.",
     "practicalPreparation": ["Write each controlled-variable, actuator, setpoint, disturbance, accuracy, dynamic, noise, constraint, and safety requirement before selecting a structure.", "In Control Studio verify all four SP/PV/MV sets, selected codes, enabled terms, limits, state, quality, event timing, and simulation label."],
     "baseline": "Apply the rejected rule 'PID everywhere' and identify the actuator mismatch or unnecessary mechanisms before running it.",
     "change": "Run ON/OFF, PI, biased P, and PID on the four executable plants under their declared events, then change one worksheet requirement at a time without silently changing the plant.",

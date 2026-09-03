@@ -28,34 +28,34 @@ $e = SP - PV$
 
 The **proportional gain ($K_p$)** is requested-output percentage points per degree Celsius of present error. The **integral gain ($K_i$)** is stored-output change in percentage points per degree Celsius-second. The **cycle time ($\Delta t$)** is seconds between updates.
 
-The **proportional increment ($\Delta u_P$)** is the requested-output change caused by the change in error during one scan, in percentage points. The **integral increment ($\Delta u_I$)** is the change caused by present error and cycle time. The **requested manipulated variable ($MV_{\mathrm{requested}}$)** is the preliminary request before limits. The **applied manipulated variable ($MV_{\mathrm{applied}}$)** is the bounded heater command.
+The **proportional increment ($\Delta u_P$)** is the requested-output change caused by the change in error during one scan, in percentage points. The **integral increment ($\Delta u_I$)** is the change caused by present error and cycle time. The **requested manipulated variable ($MV_{\mathrm{requested}}$)** is the preliminary request before limits. The **applied manipulated variable ($MV_{\mathrm{applied}}$)** is the bounded heater command. The **previous requested output ($MV_{\mathrm{previous}}$)** is the value from the last update that the current update uses, in percent.
 
 Conceptually, parallel PI adds an immediate proportional contribution to the
 stored integral contribution ($u_I$):
 
-$MV_{\mathrm{requested}} = K_p \times e + uI$
+$MV_{\mathrm{requested}} = K_p \times e + u_I$
 
 The shipped controller executes the same law incrementally. Write the
 positional law for the current and previous scans:
 
-$MV_{\mathrm{requested},k} = K_p \times e_k + uI_k$
+$MV_{\mathrm{requested},k} = K_p \times e_k + u_{I,k}$
 
-$MV_{\mathrm{previous},k-1} = K_p \times e_{k-1} + uI_{k-1}$
+$MV_{\mathrm{previous},k-1} = K_p \times e_{k-1} + u_{I,k-1}$
 
 Subtract the previous equation from the current equation. The left side is the
 required output change. On the right, proportional output changes with error,
 and Lesson 6 established that the integral-state change is
-$K_i \times e_k \times dt$:
+$K_i \times e_k \times \Delta t$:
 
-$MV_{\mathrm{requested},k} - MV_{\mathrm{previous},k-1} = K_p \times (e_k-e_{k-1}) + K_i \times e_k \times dt$
+$MV_{\mathrm{requested},k} - MV_{\mathrm{previous},k-1} = K_p \times (e_k-e_{k-1}) + K_i \times e_k \times \Delta t$
 
 For this constant-setpoint, unsaturated experiment, name the two terms:
 
-$\Delta_{\mathrm{uP},k} = K_p \times (e_{k} - e_{k-1})$
+$\Delta u_{P,k} = K_p \times (e_{k} - e_{k-1})$
 
-$\Delta_{\mathrm{uI},k} = K_i \times e_{k} \times dt$
+$\Delta u_{I,k} = K_i \times e_{k} \times \Delta t$
 
-$MV_{\mathrm{requested},k} = MV_{\mathrm{previous},k-1} + \Delta_{\mathrm{uP},k} + \Delta_{\mathrm{uI},k}$
+$MV_{\mathrm{requested},k} = MV_{\mathrm{previous},k-1} + \Delta u_{P,k} + \Delta u_{I,k}$
 
 The proportional increment reacts to a change in error during the current
 scan. The integral increment continues whenever present error is nonzero. Their
@@ -110,7 +110,7 @@ Absolute values make upward and downward movement add instead of cancel. The
 unit is percentage points. The **saturation duration** is the number of samples
 at the lower or upper output limit multiplied by the 0.1-second cycle:
 
-$\text{saturation duration} = N_{\mathrm{limited}} \times dt$
+$\text{saturation duration} = N_{\mathrm{limited}} \times \Delta t$
 
 **Validity prerequisite:** every normal candidate must use Kp 8 and differ only
 in Ki; it must use the same plant, 50-second Manual preparation at the measured
@@ -122,7 +122,14 @@ a tuning candidate.
 **Decision direction:** a candidate is eligible only if it is finite, settled,
 recovers within 15 seconds, has at most 0.2 degrees Celsius final MAE, at most
 0.25 degrees Celsius overshoot, and zero normal-run saturation duration. These
-are simulation teaching criteria, not physical-plant acceptance thresholds.
+are declared teaching values for this simulation, not physical-plant
+acceptance thresholds, chosen so the requirement actually discriminates
+candidates: 15 seconds is faster than Lesson 6's 25.5-second integral-only
+recovery, so a passing candidate must genuinely improve on that baseline; 0.2
+degrees Celsius reuses the same band that defines recovery time above, so the
+final-error and recovery criteria stay consistent; and 0.25 degrees Celsius
+permits the small overshoot fast integral action produces without excusing the
+much larger overshoot the $K_i$ 8 candidate later shows.
 Select shortest recovery; when two results differ by no more than one sample
 (0.1 second), prefer lower movement.
 
@@ -130,7 +137,7 @@ Select shortest recovery; when two results differ by no more than one sample
 
 With unchanged 2 degrees Celsius error, $K_p$ 8, $K_i$ 4, cycle time 0.1 second, and previous output 75 percent, the proportional increment is 0 percentage points. Integral action adds:
 
-$\Delta u_I = 4 \times 2 \times 0.1 = 0.8 percentage point$
+$\Delta u_I = 4 \times 2 \times 0.1 = 0.8\text{ percentage point}$
 
 The preliminary request is therefore 75.8 percent.
 
@@ -148,44 +155,65 @@ comparison, which begins each case settled at 35 degrees Celsius and 75 percent.
 
 The program configures `Control.PID`, exposes both increments and the request,
 starts safely at Manual zero, and preloads the visible measured holding output
-inherited from Lesson 5 before Auto:
+inherited from Lesson 5 before Auto. This is the shipped per-scan logic
+verbatim, after the one-time startup block that runs only once:
 
 ```st
+(* Control Studio gain edits are adopted together at the next scan boundary.
+   Configure changes parameters without resetting the retained PI state. *)
 Parameters.ProportionalGain := ProportionalGain;
 Parameters.IntegralGain := IntegralGain;
 Controller.Configure(Parameters := Parameters);
 
-IF AutoMode AND NOT LastAutoMode THEN
-    InitialState.NominalOutput := MeasuredHoldingOutput;
-    InitialState.SaturatedOutput := MeasuredHoldingOutput;
-    Controller.Initialize(State := InitialState);
-END_IF;
-
-ProportionalIncrement := ProportionalGain
-    * ((Setpoint - PreviousSetpoint) - (ProcessValue - PreviousProcessValue));
-IntegralIncrement := IntegralGain * (Setpoint - ProcessValue) * LREAL#0.1;
-IF NOT LastAutoMode THEN
-    RequestedHeaterPower := MeasuredHoldingOutput
-        + ProportionalIncrement + IntegralIncrement;
+Input.Setpoint := Setpoint;
+Input.ProcessValue := ProcessValue;
+Input.ManualOutput := ManualHeaterPower;
+IF AutoMode THEN
+    IF NOT LastAutoMode THEN
+        (* Seed PI from the measured Manual holding output so Auto starts
+           from the same physical operating point without an output bump. *)
+        InitialState.Setpoint := Setpoint;
+        InitialState.ProcessValue := ProcessValue;
+        InitialState.NominalOutput := MeasuredHoldingOutput;
+        InitialState.SaturatedOutput := MeasuredHoldingOutput;
+        Controller.Initialize(State := InitialState);
+        PreviousSetpoint := Setpoint;
+        PreviousProcessValue := ProcessValue;
+    END_IF;
+    ProportionalIncrement := ProportionalGain
+        * ((Setpoint - PreviousSetpoint) - (ProcessValue - PreviousProcessValue));
+    IntegralIncrement := IntegralGain * (Setpoint - ProcessValue) * LREAL#0.1;
+    IF NOT LastAutoMode THEN
+        RequestedHeaterPower := MeasuredHoldingOutput
+            + ProportionalIncrement + IntegralIncrement;
+    ELSE
+        RequestedHeaterPower := AppliedHeaterPower
+            + ProportionalIncrement + IntegralIncrement;
+    END_IF;
+    Input.Mode := PIDMode#Auto;
 ELSE
-    RequestedHeaterPower := AppliedHeaterPower
-        + ProportionalIncrement + IntegralIncrement;
+    ProportionalIncrement := LREAL#0.0;
+    IntegralIncrement := LREAL#0.0;
+    RequestedHeaterPower := ManualHeaterPower;
+    Input.Mode := PIDMode#Manual;
 END_IF;
+Input.CycleTime := LREAL#0.1;
 AppliedHeaterPower := Controller.Update(Input := Input);
 ```
 
-It uses positive action, a 0.1-second cycle, zero derivative and bias, and 0-to-100-percent limits. Constraint handling may alter retained state after a request exceeds a limit; Lesson 8 studies that case.
+It uses **positive action**: Lesson 4 established that because heating raises temperature, positive error must request positive heater power, so the controller's sign convention is never reversed. It also uses a 0.1-second cycle, zero derivative and bias, and 0-to-100-percent limits. Constraint handling may alter retained state after a request exceeds a limit; Lesson 8 studies that case.
 
-The shipped Control Studio run keeps Kp 8 and Ki 4 fixed. At each 0.1-second
-scan the program copies those project-owned values into the parameter structure
-and calls `Configure` without reinitializing retained controller state. The
-exposed increments and `Controller.Update` therefore use the same gains. The
-native comparison, not Control Studio, creates fresh restored runs for the
-other Ki candidates.
+The shipped Control Studio run keeps Kp 8 and Ki 4 fixed. Those project-owned
+gain values are live-mapped into the parameter structure and take effect at
+the next 0.1-second scan; the program calls `Configure` without
+reinitializing retained controller state, so a gain edit changes the running
+case immediately and is not a case reset. The exposed increments and
+`Controller.Update` therefore use the same gains. The native comparison, not
+Control Studio, creates fresh restored runs for the other Ki candidates.
 
 ## Experiment in Control Studio
 
-Test runs the shipped selected PI candidate, Kp 8 and Ki 4, for 120 seconds by
+Test runs the shipped selected PI candidate, Kp 8 and Ki 4, for 120.1 seconds by
 writing the sole reviewed Boolean authority, `P1.ExperimentEnabled`. The project derives Auto mode and owns the measured 75
 percent preload and the load event at 60 seconds. The retained Ki sweep,
 inherited P/I references, and separate unreachable-setpoint exposure come from
@@ -195,7 +223,7 @@ therefore Manual zero output. The deterministic Simulation seed is 20260828.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm SP and PV (degC); requested and applied output (%); Kp (%/degC); Ki (%/(degC·s)); proportional and integral increments (percentage points); measured holding output (%); mode; limits; and quality. The real safe initial state is SP = 35 degC, PV = 20 degC, requested output = 0%, applied output = 0%, Kp = 8 %/degC, Ki = 4 %/(degC·s), measured holding output = 75%, and Manual mode. The 35 degC / 75% condition is the qualified starting point for the retained native comparison, not the shipped initial state. The unresolved trade-off is Lesson 5's 1.15 degC final error versus Lesson 6's slower 1.62 degC early-load error and 17.38 pp movement.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Keep Kp fixed at 8, qualify each Ki candidate, and select Ki 4 by shortest eligible recovery before separately exposing an unreachable setpoint.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
@@ -203,15 +231,13 @@ therefore Manual zero output. The deterministic Simulation seed is 20260828.
    - **Record:** Write down the initial SP, PV, requested and applied output, both gains, both increments, measured holding output, mode, and your predicted 81% first request before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Control Studio sets it true; the project derives Auto mode and owns selected Kp 8, selected Ki 4, the measured holding-output preload, and the timed load event. The native sweep restores the Manual holding condition before starting each additional candidate and restores every run at 120.1 seconds to Manual with zero requested and applied output.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Control Studio sets it true; the project derives Auto mode and owns selected Kp 8, selected Ki 4, the measured holding-output preload, and the timed load event. The native sweep restores the Manual holding condition before starting each additional candidate and restores every run at 120.1 seconds to Manual with zero requested and applied output.
    - **Decision before action:** Before selecting **Review test**, predict the response to Cold-water flow increases at 60 s in the normal comparison. Confirm the live values are current and the reviewed plan stays inside Outlet-water temperature 0 degC to 80 degC; Applied heater power 0 % to 100 %.
    - **Successful evidence:** Select **Review test**, verify **P1.ExperimentEnabled**, the timeout, stop conditions, and false restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, the project derives Auto mode, the first unsaturated request is predicted as 81%, and completion restores experiment authority false, Auto false, and zero requested and applied output.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the safe Manual-zero initial state, and review a new test.
    - **Record:** Compare the first request and load response with your predictions. Retain the terminal state, restoration result, and deterministic seed **20260828**.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Apply the validity, settling, MAE, recovery, overshoot, movement, saturation,
 eligibility, and ranking definitions declared before the experiment. The normal
@@ -229,8 +255,6 @@ comparison and the separate unreachable exposure remain distinct evidence.
 | PI, $K_i$ 8 | Settled; saturated | 0.38 °C | <0.01 °C | 17.8 s | 0.51 °C | 67.79 pp | Rejected: overshoot and saturation |
 
 The complete samples are in [`figures/pi-comparison.csv`](figures/pi-comparison.csv), and their qualification and selection fields are in [`figures/qualification-summary.csv`](figures/qualification-summary.csv).
-
-### Validation
 
 $K_i$ 4 is selected: recovery is 6.6 seconds, overshoot 0.17 degrees Celsius, normal saturation zero, and final error below 0.01 degrees Celsius. $K_i$ 8 is rejected despite shorter $T_i$: it overshoots 0.51 degrees, saturates 0.7 seconds, and moves 67.79 percentage points.
 

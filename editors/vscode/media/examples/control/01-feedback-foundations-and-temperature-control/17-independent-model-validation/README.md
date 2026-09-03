@@ -8,8 +8,8 @@ identification](../16-heater-step-identification/README.md). Next lesson:
 model, restrict its disturbance purpose, and retain uncertainty, residuals,
 range, and verdict.
 
-The recorded results are **Simulation evidence**, not evidence from a physical
-water heater.
+**Evidence class:** Simulation evidence. The recorded results are not evidence
+from a physical water heater.
 
 ## The problem
 
@@ -135,7 +135,11 @@ Declare these rules before looking at validation results:
   power. It must equal 5 percentage points with numerical comparison tolerance
   $10^{-9}$ percentage point, proving that the new amplitude reached the plant.
 - **Fixed-flow RMSE** uses only 11.00 through 29.00 seconds, after the step and
-  before the cold-flow event. It must not exceed 0.030 degrees Celsius, with
+  before the cold-flow event. The outlet-temperature sensor's declared
+  resolution is 0.01 degrees Celsius (`lesson.json`); the 0.030-degree-Celsius
+  limit is three times that resolution, a configured teaching margin wide
+  enough to absorb rounding but tight enough to catch a genuinely mismatched
+  model. It must not exceed 0.030 degrees Celsius, with
   0.001-degree-Celsius numerical comparison tolerance, for the local command
   purpose to pass.
 - Lag-one correlation uses the same 11.00-to-29.00-second residual window. It is
@@ -166,7 +170,7 @@ $\Delta u=25\%-20\%=5\text{ percentage points}$
 
 The final model-predicted temperature change is gain times input change:
 
-$\Delta \hat y_{\infty}=K\Delta u=0.1998605954\times5=0.999302977,{}^\circ\mathrm{C}$
+$\Delta \hat y_{\infty}=K\Delta u=0.1998605954\times5=0.999302977{}^\circ\mathrm{C}$
 
 Starting from 30 degrees Celsius, the predicted fixed-flow equilibrium is
 $30.999302977$ degrees Celsius.
@@ -180,7 +184,7 @@ Six seconds after the step, five seconds of first-order response remain after
 subtracting the 1-second delay. Substitution gives:
 
 $\hat y(t_s+6)=30+0.999302977\left[1-e^{-5/4.9}\right]
-=30.639106,{}^\circ\mathrm{C}$
+=30.639106{}^\circ\mathrm{C}$
 
 The model contains heater power but no cold-flow input. At 30 seconds the
 simulator lowers the real plant equilibrium by 1 degree Celsius while the

@@ -4,10 +4,10 @@ Course position: Lesson 13 of 84. Previous lesson: [Setpoint weighting](../12-re
 
 **Lesson objective:** Configure bypass, first-order, and cascaded second-order measurement paths for the same simulated centrifugal-pump pressure loop; predict their discrete first-sample response and frequency attenuation; use three equivalent retained runs to select the weakest filter that satisfies the declared pressure-noise and recycle-valve-activity requirements without exceeding the allowed measurement-path lag or final-window pressure bias; and explain why smoothing cannot reconstruct information lost before sampling.
 
-Everything measured here is **Simulation evidence**, not evidence from a
-physical pump, transmitter, or recycle valve. The simulator exposes one signal
-that cannot normally be measured on a real installation. It is labelled
-explicitly below and is never connected to the controller.
+**Evidence class:** Simulation evidence. This lesson's results are not
+evidence from a physical pump, transmitter, or recycle valve. The simulator
+exposes one signal that cannot normally be measured on a real installation. It
+is labelled explicitly below and is never connected to the controller.
 
 ## The problem
 
@@ -75,22 +75,40 @@ separate quantizer. We therefore discuss quantization so it is not confused
 with noise, but we do not claim to measure quantization error here.
 
 The cycle time (`dt`) is the elapsed time between controller and filter updates.
-It is 0.1 second. The sampling frequency ($f_s$) is the number of samples per
+It is 0.1 second. One **hertz (Hz)** means one sample, or one repeating cycle,
+per second. The sampling frequency ($f_s$) is the number of samples per
 second. Here it is 10 hertz. The Nyquist frequency ($f_{N}$) is half the sampling
 frequency, here 5 hertz. Input content at or above that boundary cannot be
-represented uniquely by the sampled record. A filter applied after sampling
-can reduce recorded high-frequency content, but it cannot undo aliasing that
-already occurred before sampling.
+distinguished from a lower, false frequency once it is sampled: two genuinely
+different signals can produce identical sampled values. This false appearance
+is called **aliasing**. A filter applied after sampling can reduce recorded
+high-frequency content, but it cannot undo aliasing that already occurred
+before sampling, because the samples it receives no longer carry the
+information needed to tell the two signals apart.
 
-A low-pass filter retains slower movement while reducing faster variation. The
-filter time constant ($\tau_{\mathrm{f}}$) is 0.1 second. The filter coefficient ($a$) is
-the fraction of the difference between the current raw value and the retained
-filter state that is applied during one update.
+A low-pass filter retains slower movement while reducing faster variation.
+Physically, its state moves toward the current raw value at a rate
+proportional to how far apart they still are: a large gap produces fast
+correction, and a gap of zero leaves the filter unchanged. Lesson 9 measured a
+rate as position change divided by elapsed time, a finite difference; the same
+idea now applies to the filter's own output. The **filter input ($x$)** is the
+raw value entering the low-pass calculation, in bar, and the **filter output
+($y$)** is the filter's retained estimate, also in bar. "Output rate is
+proportional to the remaining gap, scaled by one over the time constant" is
+written $dy/dt=(x-y)/\tau_{\mathrm{f}}$. The filter time constant
+($\tau_{\mathrm{f}}$) is 0.1 second: it sets how quickly the gap closes. The
+filter coefficient ($a$) is the fraction of the difference between the current
+raw value and the retained filter state that is applied during one update.
 
-The coefficient is derived from the continuous lag equation
-$\tau_f\,dy/dt+y=x$. Over one update, approximate the derivative by
-$(y_k-y_{k-1})/dt$, approximate the output during the interval by its midpoint
-$(y_k+y_{k-1})/2$, and hold the current input at $x_k$:
+Multiplying $dy/dt=(x-y)/\tau_{\mathrm{f}}$ by $\tau_f$ and moving $y$ to the
+left recovers the continuous lag equation used to derive the coefficient that
+actually runs:
+$\tau_f\,dy/dt+y=x$. Over one update, approximate the derivative by the same
+finite-difference rate idea, $(y_k-y_{k-1})/dt$. Because the true output during
+the interval is unknown, approximate it by the midpoint of its two known
+endpoints, $(y_k+y_{k-1})/2$, so the estimate is not systematically biased
+toward the start or the end of the interval, and hold the current input at
+$x_k$:
 
 $\tau_f\frac{y_k-y_{k-1}}{dt}+\frac{y_k+y_{k-1}}{2}=x_k$
 
@@ -114,11 +132,32 @@ Bypass sends the raw value directly to the controller. First order sends the
 first stage. Cascaded second order applies the same update again to a second
 retained state (`y2`) driven by the first stage:
 
-$bypass: PV_{\mathrm{controller},k} = PV_{\mathrm{raw},k}$
+$\text{bypass: } PV_{\mathrm{controller},k} = PV_{\mathrm{raw},k}$
 
-$first order: PV_{\mathrm{controller},k} = y_{1,k}$
+$\text{first order: } PV_{\mathrm{controller},k} = y_{1,k}$
 
-$second order: PV_{\mathrm{controller},k} = y_{2,k}$
+$\text{second order: } PV_{\mathrm{controller},k} = y_{2,k}$
+
+Each filter state retained from one update to the next is called a **pole**:
+bypass keeps no state and has zero poles, the first-order filter has one pole
+(`y1`), and the cascaded second-order filter has two poles (`y1` and `y2`).
+
+A **sinusoid** is a signal that oscillates smoothly and repeats after a fixed
+period, such as a sine or cosine wave. When a sinusoidal pressure variation
+passes through this filter, the filtered output is also a sinusoid at the same
+frequency, but with a smaller amplitude and a time shift. The **amplitude
+ratio ($|H(f)|$)** is the output sinusoid's amplitude divided by the input
+sinusoid's amplitude at frequency $f$; because both amplitudes are in bar, the
+ratio has no unit. A **decibel (dB)** expresses an amplitude ratio on a
+logarithmic scale, $\mathrm{dB}=20\log_{10}(|H(f)|)$; the factor 20 is the same
+power-versus-amplitude reasoning used for the signal-to-noise decibel
+definition in Lesson 16. The **corner (or cutoff) frequency** is where the
+ratio has fallen to $1/\sqrt2$, about minus 3 dB: below it the response stays
+close to flat, and above it the response keeps falling. Away from the corner,
+that falling response approaches a straight line on a log-log plot, called an
+**asymptote**. **Phase lag** is the time shift between the input and output
+sinusoid, expressed as an angle: it means the filtered signal reports genuine
+pressure motion later than it happened.
 
 The continuous reference cutoff frequency ($fc_{\mathrm{reference}}$) follows
 from the continuous first-order magnitude
@@ -126,14 +165,19 @@ $|H(f)|=1/\sqrt{1+(2\pi f\tau_f)^2}$. Minus three decibels means the amplitude
 has fallen to one over square root of two. Setting the magnitude to
 $1/\sqrt{2}$, square both sides, and solve for the cutoff frequency:
 
-$fc_{\mathrm{reference}} = 1 / (2 \cdot pi \cdot \tau_{\mathrm{f}})$
+$fc_{\mathrm{reference}} = 1 / (2 \cdot \pi \cdot \tau_{\mathrm{f}})$
 
 It is 1.5915 hertz for this time constant. It is not the exact sampled
-filter's minus-three-decibel frequency. The executed discrete one-stage filter
+filter's minus-three-decibel frequency: the discrete filter's magnitude has no
+equally short closed form, so its crossing is instead found numerically, by
+evaluating the executed filter's exact magnitude response at closely spaced
+frequencies up to the 5-hertz Nyquist limit and reporting where it first
+crosses $1/\sqrt2$. The executed discrete one-stage filter
 has a minus-three-decibel frequency of approximately 1.9591 hertz. Two
 cascaded stages together reach minus three decibels at approximately 1.2118
-hertz. The generated magnitude plot calculates the executed discrete response,
-not an ideal continuous substitute.
+hertz. The generated magnitude plot performs exactly that numerical search on
+the executed discrete response; it does not fit an ideal continuous
+substitute.
 
 Magnitude attenuation in decibels states how strongly a sinusoidal component
 is reduced. Away from its corner, one continuous pole approaches 20 decibels
@@ -152,7 +196,11 @@ requested-output trace.
 
 The proportional gain ($K_p$) is 0.667 requested percentage points per bar. The
 integral gain ($K_i$) is 0.667 requested percentage points per bar-second. The
-derivative gain ($K_d$) is zero. A rapid controller-process-value increment
+derivative gain ($K_d$) is zero. Both gains are a configured teaching baseline,
+declared in `lesson.json`, chosen to give a brisk response on this reduced-order
+plant without the model-based design tools introduced later: Lesson 18 derives
+comparable gains from a plant's gain, time constant, and dead time once Lesson
+15 has taught that model. A rapid controller-process-value increment
 therefore contributes an immediate proportional valve increment in the
 opposite direction. Filtering reduces that noise transmission, but it also
 delays genuine pressure information.
@@ -168,20 +216,20 @@ The coefficient is two thirds, not one half. If the initialized raw pressure
 jumps by 0.10 bar, one stage moves by two thirds of that difference on its first
 update:
 
-$first stage = 0.10 \cdot 2/3 = 0.0667 bar$
+$\text{first stage} = 0.10 \cdot 2/3 = 0.0667\text{ bar}$
 
 The second cascaded stage receives 0.0667 bar and also moves by two thirds, so
 its first output change is 0.0444 bar:
 
-$second stage = 0.0667 \cdot 2/3 = 0.0444 bar$
+$\text{second stage} = 0.0667 \cdot 2/3 = 0.0444\text{ bar}$
 
 Also calculate the sampling quantities before running:
 
-$fs = 1 / 0.1 = 10 Hz$
+$f_s = 1 / 0.1 = 10\text{ Hz}$
 
-$f_{N} = 10 / 2 = 5 Hz$
+$f_{N} = 10 / 2 = 5\text{ Hz}$
 
-$fc_{\mathrm{reference}} = 1 / (2 \cdot pi \cdot 0.1) = 1.5915 Hz$
+$fc_{\mathrm{reference}} = 1 / (2 \cdot \pi \cdot 0.1) = 1.5915\text{ Hz}$
 
 Write down your prediction: bypass should show the largest sample-to-sample
 pressure and valve movement; one pole should reduce both and add some lag; two
@@ -246,35 +294,64 @@ fewest filter poles; a smoother appearance cannot override failed lag.
 
 ## Implementation
 
-These are the governing lines from the shipped Structured Text program. The
-selector is read when the program initializes. Changing it in Control Studio
-requires a restore and fresh restart; it does not silently replace the state of
-a running filter.
+These are the governing lines from the shipped Structured Text program, quoted
+verbatim. The selector is read when the program initializes:
 
 ```st
-FilterParameters.TimeConstant := FilterTimeConstantUsed;
+    FilterParameters.TimeConstant := FilterTimeConstantUsed;
+    InitializedFilterSelection := FilterSelection;
+    InitializedFilterTimeConstant := FilterTimeConstantUsed;
+    InitializedCycleTime := ConfiguredCycleTime;
+    (* 0 bypasses filtering, 1 selects one pole, and 2 selects two cascaded
+       poles. The selection is fixed for each fresh comparison run. *)
+    IF FilterSelection = 1 THEN
+        FilterParameters.Order := FilterOrder#FirstOrder;
+    ELSIF FilterSelection = 2 THEN
+        FilterParameters.Order := FilterOrder#SecondOrder;
+    ELSE
+        (* Bypass and invalid selections use a valid internal filter object;
+           invalid selections are denied automatic authority below. *)
+        FilterParameters.Order := FilterOrder#FirstOrder;
+    END_IF;
+    Filter.Configure(Parameters := FilterParameters);
+    Filter.Initialize(Input := ProcessValue);
+```
 
-IF FilterSelection = 1 THEN
-    FilterParameters.Order := FilterOrder#FirstOrder;
-ELSIF FilterSelection = 2 THEN
-    FilterParameters.Order := FilterOrder#SecondOrder;
-ELSE
-    FilterParameters.Order := FilterOrder#FirstOrder;
+Changing the selector in Control Studio requires a restore and fresh restart;
+it does not silently replace the state of a running filter. Every scan then
+gates the filter and the controller behind the same validity check:
+
+```st
+IF ConfigurationValid THEN
+    FilterOutput := Filter.Update(
+        Input := ProcessValue,
+        CycleTime := ConfiguredCycleTime
+    );
+    IF FilterSelection <> 0 THEN
+        FilteredValue := FilterOutput;
+    END_IF;
 END_IF;
-
-FilterOutput := Filter.Update(Input := ProcessValue, CycleTime := ConfiguredCycleTime);
-IF FilterSelection = 0 THEN
-    FilteredValue := ProcessValue;
-ELSE
-    FilteredValue := FilterOutput;
-END_IF;
-
 Input.ProcessValue := FilteredValue;
-Input.ManualOutput := ManualOutput;
+IF ConfigurationValid THEN
+    Input.ManualOutput := ManualOutput;
+ELSE
+    (* Invalid filter configuration removes both automatic authority and any
+       operator request so the declared restoration is deterministically zero. *)
+    Input.ManualOutput := LREAL#0.0;
+END_IF;
+IF AutoMode AND ConfigurationValid THEN
+    Input.Mode := PIDMode#Auto;
+ELSE
+    Input.Mode := PIDMode#Manual;
+END_IF;
+Input.CycleTime := ConfiguredCycleTime;
 ManipulatedValue := Controller.Update(Input := Input);
 ```
 
-The complete program also checks that selection is zero through two, the time
+`FilteredValue` starts each scan at the raw `ProcessValue` and is only
+overwritten by the filter output when selection is not bypass, so bypass
+(selection 0) sends the raw value straight to the controller. `ConfigurationValid`
+checks that selection is zero through two, the time
 constant and cycle time are positive and unchanged since initialization, and
 pressure and Manual demand remain inside their declared ranges. An invalid
 selection or changed initialization-only setting removes automatic authority
@@ -293,7 +370,7 @@ Simulation seed is 20260824.
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait for **Simulation**, **Running**, and current data. Confirm SP = 0 bar, raw PV and controller PV are current near 0 bar, applied MV = 0%, Manual command = 0%, filter selection = 1, Manual mode, and experiment authority false. Verify units, limits, quality, 0.1-second sampling, and that simulator-only true pressure is labelled as evidence and never as controller input.
-   - **Decision before action:** State that the first filter sample after a 0.10-bar raw change should be 0.0667 bar and that first order must pass both attenuation limits without exceeding lag or final-window bias.
+   - **Decision before action:** Predict the run Test actually applies: after the 1-bar SP step at 5.1 seconds the first incremental PI move should be about 0.7337 percentage points (0.667 proportional plus 0.0667 integral), and first order must pass both attenuation limits without exceeding lag or final-window bias. Keep the standalone 0.10-bar-raw-jump example above as a hand exercise for the coefficient; that isolated jump is not the signal this Test applies.
    - **Successful evidence:** The Response plot advances with finite current values and **Start recording** is enabled. Select **Start recording** only then.
    - **Recovery:** If data are stale, unavailable, nonfinite, or outside limits, stop the Simulator, correct the runtime or binding problem, restart, and repeat the baseline check.
    - **Record:** Retain initial SP, raw PV, controller PV, applied MV, filter selection, mode, and prediction before opening Test.

@@ -1,14 +1,15 @@
 # Initialize a booster-pump controller before Auto
 
 Course position: Lesson 27 of 84. Previous lesson:
-[PID realization forms](../26-pid-forms/README.md). Next lesson: Bumpless transfer
-and [external tracking](../28-booster-pump-bumpless-transfer/README.md).
+[PID realization forms](../26-pid-forms/README.md). Next lesson:
+[Bumpless transfer and external tracking](../28-booster-pump-bumpless-transfer/README.md).
 
 **Lesson objective:** Initialize controller and filter histories from the
 running booster pump, distinguish Disabled, Manual, Auto, and Track authority,
 and block Auto until startup state is qualified.
 
-This lesson uses simulation. Its results are not physical-plant evidence.
+**Evidence class:** Simulation evidence. Its results are not physical-plant
+evidence.
 
 **Equipment:** Variable-speed booster pump with recirculation valve.
 
@@ -20,7 +21,8 @@ process that is already running. A variable-speed booster pump is already runnin
 starts. A recirculation valve is 40 percent open and discharge pressure is
 6 bar. Starting software does not make those physical values zero.
 
-The station's declared Disabled action commands 30 percent recirculation. A
+The station's declared Disabled action — a station-level safe state, not a
+controller mode, defined below — commands 30 percent recirculation. A
 physical startup additionally requires reviewed piping, independent valve
 feedback, pump protection, and explicit approval.
 
@@ -71,22 +73,30 @@ keeps plant safety policy outside the paper-compatible three-value enum.
 
 The **filter-settled indication** becomes true only after filtered and raw
 pressure differ by no more than 0.01 bar for three consecutive 100 ms updates.
-Until initialization is complete and this indication is true, a request for
-Auto remains under Manual authority at the actual valve position.
+The 0.01 bar tolerance and three-update count are configured teaching values
+chosen to make settling observable within this lesson's short exposure, not
+values measured on a physical pump. Until initialization is complete and this
+indication is true, a request for Auto remains under Manual authority at the
+actual valve position.
 
-The simulator's local equilibrium says that discharge pressure rises by
+The **equilibrium discharge pressure ($PV_{\mathrm{eq}}$)** is the steady
+pressure this simplified model predicts for a constant valve command, also in
+bar. The simulator's local equilibrium says that discharge pressure rises by
 0.1 bar for every percentage point of valve position, above a 2 bar base:
 
-$PV_{\mathrm{eq}}=2\,\mathrm{bar} +(0.1\,\mathrm{bar/\%})MV.$
+$PV_{\mathrm{eq}} = 2\ \mathrm{bar} + 0.1\ \mathrm{bar/\%} \times MV.$
 
-This is a bounded first-order teaching model, not a pump curve.
+This is a bounded first-order teaching model, not a pump curve. The 2 bar base
+and 0.1 bar/% slope are configured teaching values chosen for this simulated
+station, not measurements from rated pump equipment.
 
 ## Prediction
 
 The model has 2 bar at zero valve command. Each percentage point adds 0.1 bar,
-so substitution gives $2+0.1(20)=4$ bar,
-$2+0.1(40)=6$ bar, and $2+0.1(70)=9$ bar. Set SP equal to the corresponding
-PV in each startup case so initial feedback error is zero.
+so substitution gives 20 percent valve position and 4 bar ($2+0.1(20)=4$),
+40 percent valve position and 6 bar ($2+0.1(40)=6$), and 70 percent valve
+position and 9 bar ($2+0.1(70)=9$). Set SP equal to the corresponding PV in
+each startup case so initial feedback error is zero.
 
 With measured-state initialization, error and signal differences are zero and
 retained output equals $MV_{\mathrm{actual}}$. The first permitted Auto request should
@@ -104,8 +114,9 @@ moves to
 $0+a(1.09091-0)=0.19835\,\mathrm{bar}.$
 
 That 0.198 bar is an invented startup transient, not a pressure the sensor
-measured. The controller's retained applied output is also zero. Its rate limit
-is 100 percentage points per second, so one 0.1-second update may move by only
+measured. The controller's retained applied output is also zero. Its rate
+limit is a configured teaching value of 100 percentage points per second, so
+one 0.1-second update may move by only
 
 $\Delta MV_{\max}=100(0.1)=10\%.$
 
@@ -145,9 +156,9 @@ four independent initial states. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm SP/raw PV = 6 bar, actual valve = 40%, station Disabled, requested/applied safe command = 30%, controller not ready, filter not settled, and experiment authority false. Add raw/filtered pressure, actual/requested/applied valve, requested mode, active authority, ready/settled/blocked states, and experiment authority to **Signals**.
-   - **Decision before action:** Write the measured-state prediction of zero initialization error and first Auto request 40%. Also write the rejected zero-state predictions 0.198 bar and 10%, but do not expect the UI run to execute that unsafe baseline.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
+   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm SP/raw PV = 6 bar, actual valve = 40%, station Disabled, and requested/applied safe command = 30%; controller-ready and filter-settled state are not bound signals and are confirmed from the written plan instead. Add raw pressure, filtered pressure, actual valve position, valve command, requested mode, and experiment authority to **Signals**.
+   - **Decision before action:** Write the measured-state prediction of zero initialization error and first Auto request 40%, because measured-state initialization starts the filter and controller from the pump's true condition. Also write the rejected zero-state predictions 0.198 bar and 10%, but do not expect the UI run to execute that unsafe baseline.
    - **Successful evidence:** The plot advances, all values are finite/current, quality is good, and **Start recording** is enabled. Select **Start recording**.
    - **Recovery:** For stale, unavailable, nonfinite, or poor-quality data, stop the Simulator, correct the displayed fault, restart, and repeat the baseline check.
    - **Record:** Note the complete initial physical state, ownership state, and both prediction sets.
@@ -163,8 +174,6 @@ There is no separate disabled Validate stage. The native test owns the unsafe
 baseline and all three equilibria; Monitor and Test expose the safe 40% start.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 The **first-update valve mismatch** is
 
@@ -192,9 +201,10 @@ hide an invented filter state.
 [Decision summary](figures/booster-pump-startup-summary.csv)
 
 If a valve limit or rate limit changes the request, report that state and do
-not call the bounded result an initialization calculation.
-
-### Validation
+not call the bounded result an initialization calculation. The rejected
+zero-state baseline confirms the failure mode: arbitrary zero histories
+produce a first request of 10.000 percent from an invented filter state of
+0.198 bar, both far from the pump's actual 40 percent and 6 bar.
 
 Require measured-state first-update mismatch and filter initialization error to
 be at most `1e-9`. The deliberate zero-state mismatch must be at least

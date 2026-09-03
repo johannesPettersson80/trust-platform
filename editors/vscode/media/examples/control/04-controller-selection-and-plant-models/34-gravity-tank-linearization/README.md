@@ -2,18 +2,18 @@
 
 Course position: Lesson 34 of 84. Previous lesson: [Conservation-law
 models](../33-tank-heater-conservation/README.md). Next lesson:
-[poles, zeros, and real plant classes](../35-pole-zero-plant-classes/README.md).
+[Poles, zeros, and real plant classes](../35-pole-zero-plant-classes/README.md).
 
 **Lesson objective:** Derive a first-order transfer function for a
 gravity-drained tank at three operating points and use executable error evidence
 to decide where each local model is valid.
 
-This open-loop workshop is simulation evidence, not physical-plant evidence.
+**Evidence class:** Simulation evidence, not physical-plant evidence. This is
+an open-loop workshop.
 
 ## The problem
 
-**Equipment:** Gravity-drained water tank with variable-speed inlet pump.
-
+The equipment is a gravity-drained water tank with variable-speed inlet pump.
 A variable-speed pump supplies a vertical tank. Liquid leaves through a fixed
 outlet under gravity. We measure tank level in centimetres, perform the physical
 balance in metres, and command inlet flow in cubic metres per second.
@@ -34,7 +34,11 @@ tank operating point, with an explicit range where that approximation applies.
 
 ## The new idea
 
-Tank-volume accumulation equals inlet flow minus gravity outlet flow. Define
+Tank-volume accumulation equals inlet flow minus gravity outlet flow.
+
+![Pump inlet at the top and a fixed gravity outlet at the bottom of the tank](figures/gravity-tank-linearization-topology.svg)
+
+Define
 tank area ($A$) in square metres, level ($h$) in metres, inlet flow ($q$) in
 cubic metres per second, and outlet coefficient ($c$) in
 $\mathrm{m^2\sqrt{m}/s}$. The physical balance is
@@ -47,13 +51,16 @@ in the same unit. The units of $c$ make $c\sqrt h$ a volume flow. The square
 root makes the relation **nonlinear**: doubling level does not double outlet
 flow.
 
-An **operating point** is a constant inlet flow ($q_0$) and level ($h_0$) at
-which accumulation is zero. Setting the derivative to zero gives
+An **operating point** is a constant inlet flow ($q_0$) and constant level
+($h_0$) at which the balance has zero accumulation. Setting the derivative to
+zero gives
 
 $0=q_0-c\sqrt{h_0},\qquad q_0=c\sqrt{h_0}.$
 
-Define deviations from that equilibrium by $\Delta h=h-h_0$ and
-$\Delta q=q-q_0$. A **first-order Taylor approximation** replaces the curved
+Define **level deviation ($\Delta h$)** as the departure from that
+equilibrium level, $\Delta h=h-h_0$, and **inlet-flow deviation ($\Delta q$)**
+as the departure from that equilibrium flow, $\Delta q=q-q_0$. A **first-order
+Taylor approximation** replaces the curved
 outlet relation with its tangent. Since the derivative of $c\sqrt h$ is
 $c/(2\sqrt h)$, near $h_0$
 
@@ -92,6 +99,11 @@ that model form is familiar.
 
 ## Prediction
 
+Tank area is inherited from Lesson 33's measured value. The outlet
+coefficient ($c$) is a configured teaching value for this fixed outlet; on
+real equipment a learner would obtain it from the outlet orifice or valve
+geometry, or estimate it from a bounded gravity-drain test (command zero
+inlet flow, record the level decay, and fit $c$ to the observed drain rate).
 Use $A=0.5\,\mathrm{m^2}$ and
 $c=0.02\,\mathrm{m^2\sqrt m/s}$. At $h_0=0.25$ m, for example,
 
@@ -160,7 +172,9 @@ deterministic Simulation seed is 20260829.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Use a local model only with its operating point, declared range, and validated error evidence.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the initial low/middle/high-tank inlet flows and
+     levels and your predicted local gain, time constant, and small-step
+     level rise at each operating point before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **300.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false.
@@ -174,8 +188,6 @@ owns the independent arithmetic and large-step boundary case; Monitor and Test
 expose the common small-step case.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 For operating point $i$, **local-model prediction error** is
 
@@ -193,11 +205,13 @@ more than 5 cm.
 
 ![Local gravity-tank models are accurate only near their operating points](figures/gravity-tank-linearization.svg)
 
+The three small-step error traces settle to small, near-flat values, while the
+large-step trace shows the nonlinear and local-tangent levels diverging
+instead of tracking each other.
+
 [Retained run](figures/gravity-tank-linearization-run.csv) ·
 [Plot data](figures/gravity-tank-linearization-trace.csv) ·
 [Decision summary](figures/gravity-tank-linearization-summary.csv)
-
-### Validation
 
 Independent arithmetic must reproduce every equilibrium flow, gain, time
 constant, and pole. The nonlinear tanks must hold their operating points before

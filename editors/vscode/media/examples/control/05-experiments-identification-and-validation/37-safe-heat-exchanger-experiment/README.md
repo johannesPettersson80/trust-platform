@@ -7,10 +7,10 @@ Next lesson: [excitation methods](../38-excitation-methods/README.md).
 **Lesson objective:** Design, review, execute, abort, and restore one bounded
 heat-exchanger step experiment before accepting identification data.
 
-**Equipment:** Plate heat exchanger with steam-side valve and product
-outlet-temperature transmitter.
-
-This lesson produces simulation evidence, not physical-plant evidence.
+**Evidence class:** Simulation evidence, not physical-plant evidence. The
+plate heat exchanger, its steam-side valve, and its outlet-temperature
+transmitter run on the shipped simulator; this project cannot authorise a
+physical steam-valve move.
 
 ## The problem
 
@@ -19,8 +19,7 @@ steam-side control valve. The sensor measures product outlet temperature. The
 normal operating point is 50 degrees Celsius at 60 percent valve position.
 
 The valve may operate only from 40 to 80 percent during this experiment. The
-product temperature must remain from 45 to 58 degrees Celsius. The executable
-project is simulation-only and cannot authorise a physical steam-valve move.
+product temperature must remain from 45 to 58 degrees Celsius.
 
 Lesson 36 showed that a useful model must preserve the dynamics needed for a
 prediction. A constant operating record does not reveal how much or how quickly
@@ -53,33 +52,38 @@ The baseline valve position ($MV_{0}$) is 60 percent. The planned valve change
 ($\Delta MV$) is measured in percentage points. The baseline outlet temperature
 ($PV_{0}$) is 50 degrees Celsius. The local process gain ($K$) is 0.5 degrees Celsius
 per percentage point. The time constant ($T$) is 20 seconds. The dead time ($L$) is
-3 seconds.
+3 seconds. These are the simulator's configured teaching parameters, not yet
+known facts; on real equipment they would come from a datasheet or one
+cautious manual step.
 
 The predicted final temperature change ($\Delta PV_{\mathrm{final}}$) is the local process
 gain multiplied by the planned valve change:
 
-$\Delta PV_{\mathrm{final}}=K\Delta MV.$
+$\Delta PV_{\mathrm{final}} = K \cdot \Delta MV.$
 
-A 10-percentage-point step therefore predicts
-$0.5\times10=5$ °C change and a 55 °C final temperature. The delayed
-first-order prediction is
+A 10-percentage-point step therefore predicts a 5-degree-Celsius change and a
+55-degree-Celsius final temperature: $0.5 \times 10 = 5$ °C added to the 50 °C
+baseline. The delayed first-order prediction is
 
 $PV(t)=PV_0+K\Delta MV \left(1-e^{-(t-L)/T}\right),\qquad t\ge L.$
 
-After three time constants, the completed fraction is
-$1-e^{-3}=0.9502$, or about 95%. Three time constants take
-$3T=3(20)=60$ s after the 3 s dead time, so the complete hold is
-$L+3T=63$ s. At that instant the predicted temperature is
-$50+5(0.9502)=54.751$ °C. This duration captures nearly all the local change;
-it does not make one final sample proof of exact equilibrium.
+This lesson's 3-second dead time delays the start of the response. Three time
+constants take $3T=3(20)=60$ seconds and complete $1-e^{-3}=0.9502$, about 95
+percent, of the change.
 
-A **soft experiment bound** is the stricter envelope used to review the plan. A
-**hard limit** requires immediate abort. This lesson permits 40 to 80 percent
-valve and 45 to 58 degrees Celsius. Bad or stale signal quality, a nonfinite
-value, an undeclared disturbance, loss of the authorised mode, or a hard-limit
-violation aborts the run. Both abort and normal completion restore 60 percent
-valve. Restoration finishes only after temperature returns within 0.1 degrees
-Celsius of the baseline.
+The **complete hold** is therefore 63 seconds: 3 seconds of dead time plus 60
+seconds of response ($L+3T=63$ seconds), predicting
+$50+5(0.9502)=54.751$ °C — $5\times(1-0.9502)=0.249$ °C short of full
+equilibrium.
+
+A **soft experiment bound** (40 to 80 percent valve) is checked once at plan
+review, since an accepted plan then drives the valve deterministically. A
+**hard limit** (45 to 58 degrees Celsius) is checked every scan instead,
+because plant dynamics cannot be guaranteed in advance, and triggers
+immediate abort. Bad or stale quality, a nonfinite value, an undeclared
+disturbance, or lost authorised mode also aborts the run. Both abort and
+normal completion restore 60 percent valve, finishing only after temperature
+returns within 0.1 degrees Celsius of baseline.
 
 Simulation approval permits only a simulated test. A physical experiment would
 also require independently reviewed input/output topology, confirmed
@@ -93,9 +97,9 @@ Evaluate two plans before pressing Start:
 - **Plan A** moves the valve from 60 to 70 percent for 63 seconds. It predicts
   55 degrees Celsius and remains inside the declared envelope.
 - **Plan B** moves the valve from 60 to 85 percent. Its 25-point step predicts
-  $50+0.5(25)=62.5$ °C and violates both the 80% valve bound and 58 °C
-  temperature bound. It must be
-  rejected before the simulated valve moves.
+  $50+0.5(25)=62.5$ °C — 62.5 degrees Celsius — violating both the 80% valve
+  bound and 58 °C temperature bound. It must be rejected before the
+  simulated valve moves.
 
 Also predict what happens if Plan A loses signal quality: the run must abort
 immediately and both requested and applied valve positions must return to 60
@@ -107,13 +111,16 @@ There is no feedback controller and no model fit in this lesson. The actual
 Structured Text reviews the proposed physical result before accepting the plan:
 
 ```st
-PredictedFinalTemperature := LREAL#50.0 + LREAL#0.5 * ProposedStep;
-
-IF ((LREAL#60.0 + ProposedStep) > LREAL#80.0) OR
+IF ((LREAL#60.0 + ProposedStep) < LREAL#40.0) OR
+   ((LREAL#60.0 + ProposedStep) > LREAL#80.0) OR
+   (PredictedFinalTemperature < LREAL#45.0) OR
    (PredictedFinalTemperature > LREAL#58.0) THEN
     PlanRejectReason := 1;
+ELSIF (ProposedDuration < LREAL#63.0) OR (ProposedDuration > LREAL#120.0) THEN
+    PlanRejectReason := 2;
 ELSE
     LatchedStep := ProposedStep;
+    LatchedDuration := ProposedDuration;
     PlanAccepted := TRUE;
 END_IF;
 ```
@@ -136,29 +143,39 @@ state. The deterministic Simulation seed is 20260829.
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Product outlet temperature (PV, degC); Requested steam-valve position (MV, %) and Applied steam-valve position (MV, %), including units, limits, mode, and quality. The initial operating point is Proposed valve change = 10 %, Product outlet temperature = 50 degC, Requested steam-valve position = 60 %, Applied steam-valve position = 60 %, Outlet-temperature signal quality = 1 (dimensionless), Confounding disturbance active = 0 (dimensionless). The unresolved baseline problem is: Constant data are uninformative and an unreviewed excitation may be unsafe or causally ambiguous.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Collect data only after plan bounds, baseline qualification, aborts, restoration, evidence class, and approval boundary are explicit.
+   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Collect data only after plan bounds, baseline qualification, aborts, restoration, evidence class, and approval boundary are explicit, since an unreviewed test could overheat product.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the initial outlet temperature, requested/applied steam-valve position, signal quality, disturbance state, and your 54.751 °C prediction.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **160.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm requested/applied valve = 60%, temperature = 50 °C, good quality, allowed mode, and no confounding disturbance.
-   - **Decision before action:** Before selecting **Review test**, confirm Plan A predicts 54.751 °C at 63 seconds and remains inside 40–80% valve and 45–58 °C temperature limits. The project, not the Test form, owns the physical step. Do not Identify, Tune, or Apply.
+   - **Decision before action:** Before selecting **Review test**, confirm Plan A predicts 54.751 °C at 63 seconds and remains inside 40–80% valve and 45–58 °C temperature limits, because Review test is the last checkpoint before the valve moves. The project, not the Test form, owns the physical step. Do not Identify, Tune, or Apply.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe the 10-second baseline, 70% requested/applied valve, delayed temperature rise, 60% restoration, and completed terminal state.
    - **Recovery:** Abort for stale or bad quality, forbidden mode, confounding disturbance, nonfinite data, or a hard-limit violation. Confirm authority false and requested/applied valve 60% before retrying.
    - **Record:** Retain terminal state, plan decision, baseline measures, requested/applied valve, temperature, prediction error, restoration, reason codes, and seed **20260829**.
 
-There is no separate disabled Validate stage. Native executable evidence owns
-Plan B rejection and the injected-quality abort; Monitor and Test expose Plan A.
-
 ## Evidence and decision
 
-### Measures and comparison
+Define every measure before reading a result. **Baseline temperature range** is
+the largest minus smallest outlet-temperature sample in the 10-second
+baseline, in degrees Celsius. Smaller is better. **Baseline slope** is the
+last minus first baseline temperature divided by 10 seconds, in degrees
+Celsius per second.
 
-The retained plot overlays the reviewed prediction and measured temperature,
-while keeping requested and applied valve position visible. The plan table also
-retains the rejected and aborted decisions so they cannot be mistaken for
-identification data.
+**Excitation size** is applied valve position minus the 60-percent baseline,
+in percentage points. **Observed temperature change** is the final qualified-
+window mean minus the baseline-window mean, in degrees Celsius.
+
+**Prediction error** is the absolute difference between the late-window
+result and the 55-degree-Celsius equilibrium target (`PredictedFinalTemperature`),
+not the finer 54.751 °C dynamic value; the 0.35 °C gate is sized for this
+coarser equilibrium comparison.
+
+**Restoration error** is the absolute difference between restored requested
+valve position and 60 percent, in percentage points. Report the response as
+`Not qualified` instead of calculating identification measures when baseline,
+quality, disturbance, duration, or limit requirements are not satisfied.
 
 ![Reviewed and measured heat-exchanger step](figures/safe-experiment-comparison.svg)
 
@@ -167,33 +184,17 @@ identification data.
 [Reviewed plans](figures/safe-experiment-plans.csv) ·
 [Complete rejected, accepted, aborted, and restored runs](figures/safe-experiment-evidence.json)
 
-**Baseline temperature range** is the largest minus smallest outlet-temperature
-sample in the 10-second baseline, in degrees Celsius. Smaller is better.
-
-**Baseline slope** is the last minus first baseline temperature divided by 10
-seconds, in degrees Celsius per second. Its absolute value must be small.
-
-**Excitation size** is applied valve position minus the 60-percent baseline,
-in percentage points. **Observed temperature change** is the final qualified-
-window mean minus the baseline-window mean, in degrees Celsius. **Prediction
-error** is the absolute difference between predicted and observed temperature
-change, in degrees Celsius.
-
-**Restoration error** is the absolute difference between restored requested
-valve position and 60 percent, in percentage points. Report the response as
-`Not qualified` instead of calculating identification measures when baseline,
-quality, disturbance, duration, or limit requirements are not satisfied.
-
-### Validation
-
-The executable acceptance requirements are:
+The retained plot overlays the reviewed prediction and measured temperature,
+keeping valve position visible. The plan table also retains the rejected and
+aborted decisions so they cannot be mistaken for identification data. The
+executable acceptance requirements are:
 
 | Decision | Required evidence |
 |---|---|
 | Reject Plan B | Applied valve never leaves 60 percent |
 | Qualify Plan A baseline | Range at most 0.05 degrees Celsius and absolute slope at most 0.01 degrees Celsius per second |
 | Execute Plan A | Applied step exactly 10 percentage points for 63 seconds |
-| Check prediction | Late-window result within 0.35 degrees Celsius of the 5-degree prediction |
+| Check prediction | Late-window result within 0.35 degrees Celsius of the 5-degree prediction (55 °C equilibrium) |
 | Respect constraints | Valve remains 40–80 percent and temperature remains 45–58 degrees Celsius |
 | Restore | Requested valve restoration error is zero and temperature returns within 0.1 degrees Celsius of baseline |
 | Abort bad quality | State is Aborted, reason code is retained, valve returns to 60 percent, and response is `Not qualified` |
@@ -204,7 +205,7 @@ The focused executable simulation measured:
 |---|---:|
 | Rejected Plan B | Reason code 1; requested and applied valve remained 60.000 percent |
 | Accepted Plan A late-window mean | 54.676 degrees Celsius |
-| Accepted Plan A prediction error | 0.324 degrees Celsius |
+| Accepted Plan A prediction error | 0.324 degrees Celsius (0.35 °C gate) |
 | Qualified restoration temperature | 50.099 degrees Celsius |
 | Injected bad-quality run | Aborted with reason code 1; requested and applied valve restored to 60.000 percent |
 

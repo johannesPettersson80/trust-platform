@@ -70,7 +70,10 @@ suite("Production PID curriculum lessons", () => {
       /Manual.*manual output.*Auto.*feedback.*Track.*retained nominal output/i,
       /Disabled.*station-level supervision.*not.*PIDMode/i,
       /filter-settled indication.*three consecutive.*0\.01 bar/i,
-      /PV = 2 bar \+ 0\.1 bar\/% × MV/i,
+      // L27-4: PV_eq is a distinct, explicitly introduced symbol for the
+      // model's equilibrium relationship (README "The new idea"), not the
+      // general dynamic PV also defined in this lesson.
+      /PV_eq = 2 bar \+ 0\.1 bar\/% × MV/i,
       /20 percent.*4 bar.*40 percent.*6 bar.*70 percent.*9 bar/i,
       /first-update valve mismatch.*absolute.*MV_requested.*MV_actual.*percentage points/i,
       /filter initialization error.*absolute.*PV_filtered.*PV_raw.*bar/i,
@@ -228,7 +231,11 @@ suite("Production PID curriculum lessons", () => {
       /first-fault latch.*first detected cause/i,
       /hold-last output.*preserve.*hazard.*safe output.*30 percent/i,
       /acknowledgement.*operator.*does not clear/i,
-      /nonfinite.*typed I\/O boundary.*before.*PLC scan/i,
+      // L30-4: the station's own range guard (one ordered-comparison
+      // conjunction) rejects nonfinite and implausible values alike, per
+      // src/Main.st's own comment; the README no longer attributes NaN/Inf
+      // rejection to an unexplained separate "runtime typed I/O boundary".
+      /station's own range guard rejects.*nonfinite.*before.*PID arithmetic/i,
       /0 through 12 bar.*0 through 100 percent/i,
       /code 1.*numeric.*code 2.*stale.*code 3.*cycle.*code 4.*deadline.*code 5.*configuration/i,
       /invalid scan.*does not call.*PID.*does not call.*Configure/i,
@@ -297,7 +304,8 @@ suite("Production PID curriculum lessons", () => {
       /integral time \(Ti\).*proportional gain divided by integral gain/i,
       /derivative gain \(Kd\).*seconds per degree Celsius.*derivative time \(Td\)/i,
       /derivative action.*damping.*amplifies measurement noise.*does not add/i,
-      /parallel positional form.*bias.*present-error.*accumulated-error.*measured-rate/i,
+      /ideal parallel form.*bias.*present-error.*accumulated-error.*measured-rate/i,
+      /Lesson 26.*incremental realization/i,
       /applied manipulated variable \(MV_applied\).*saturation/i,
       /manual tuning.*one term at a time.*proportional.*integral.*derivative/i,
       /ultimate gain \(Ku\).*constant-amplitude oscillation/i,

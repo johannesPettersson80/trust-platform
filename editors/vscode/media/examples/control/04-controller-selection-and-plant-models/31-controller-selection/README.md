@@ -7,19 +7,17 @@ Next lesson: [Plant response classes](../32-plant-response-classes/README.md).
 **Lesson objective:** Select and defend ON/OFF, P, PI, or PID for four different
 real loops and prove each choice on executable plants.
 
-**Equipment:** Cold room, recirculating water heater, buffer tank, and loaded
-positioning table.
+**Evidence class:** Simulation evidence, not physical-plant commissioning
+evidence. All four loops run in one shared simulator.
 
 ## The problem
 
 Lessons 1–30 built controller mechanisms and made their implementation safe.
-Now the student must choose which mechanisms a loop actually needs. This
-workshop runs a cold-storage room, recirculating water heater, buffer
-tank, and loaded positioning table together. They do not interact. Their
-different physics and actuators let us ask the same engineering question four
-times: what mechanism is actually needed?
-
-The results are simulation evidence, not physical commissioning evidence.
+Now the student must choose which mechanisms a loop actually needs. The
+equipment is a cold room, recirculating water heater, buffer tank, and loaded
+positioning table running together. They do not interact; their different
+physics and actuators let us ask the same engineering question four times:
+what mechanism is actually needed?
 
 Earlier lessons developed ON/OFF, P, PI, PD, and PID individually. Selecting
 PID everywhere would ignore the binary compressor and add tuning parameters,
@@ -79,13 +77,20 @@ heat-loss change. Before that event its equilibrium is
 
 $T_{\mathrm{eq}}=20^\circ\mathrm{C} +(0.2^\circ\mathrm{C}/\%)MV.$
 
-Solving $30=20+0.2MV$ gives $MV=50\%$. At 60 seconds the modeled ambient
+Solving $30=20+0.2MV$ gives $MV=50\%$, that is, **50 percent**, holding the
+heater at 30 degrees Celsius. At 60 seconds the modeled ambient
 bias falls from 20 to 17 °C, so the new balance is
 $30=17+0.2MV$, or 65%. PI can retain either nonzero equilibrium output at
 zero error; proportional action alone cannot change output at zero error, and
 derivative has no demonstrated purpose in this slow nonoscillatory plant.
 
-The buffer tank integrates net flow. Its known equilibrium pump bias is 20%:
+The buffer tank is new equipment for this course. Its integrating gain
+($K_t$) and 20% equilibrium pump bias are configured teaching values; a
+learner would obtain $K_t$ from a bounded step test (Lesson 32's method) and
+the bias from the steady pump output that holds level constant.
+
+The buffer tank integrates net flow. Its known equilibrium pump bias is 20
+percent (20%):
 
 $\frac{dL}{dt}=K_t(MV-20),\qquad K_t=0.2\text{ cm/(\% s)}.$
 
@@ -99,13 +104,15 @@ $de/dt=-e/\tau$. Therefore
 
 $\tau=\frac{1}{K_tK_p}=\frac{1}{0.2(2)}=2.5\text{ s}.$
 
-P control is sufficient for this setpoint case. An unknown changed outflow or
+The closed loop therefore settles with a **2.5 seconds** time constant. P
+control is sufficient for this setpoint case. An unknown changed outflow or
 an exact regulatory requirement can justify PI; that boundary is not hidden.
 
-The positioning table does not have a constant 4 N·m load. Its gravity torque
-is $4\sin(\theta)$ N·m, where 4 N·m is the peak coefficient. PID is selected
-because derivative supplies damping and integral action can supply the
-position-dependent equilibrium torque at zero final error.
+The positioning table does not have a constant four newton-metre (4 N·m)
+load. Its gravity torque is $4\sin(\theta)$ N·m, where 4 N·m is the peak
+coefficient. PID is selected because derivative supplies damping and integral
+action can supply the position-dependent equilibrium torque at zero final
+error.
 
 With the implemented $K_p=8\text{ N\,m/rad}$, PD equilibrium at
 $SP=1$ rad must satisfy
@@ -113,7 +120,8 @@ $SP=1$ rad must satisfy
 $8(1-\theta)=4\sin(\theta).$
 
 This nonlinear equation has $\theta\approx0.6840$ rad, so the predicted
-offset is $1-0.6840\approx0.3160$ rad. PID can instead hold
+offset is approximately **0.316 radian**
+($1-0.6840\approx0.3160$ rad). PID can instead hold
 $\theta=1$ rad with integral torque $4\sin(1)\approx3.366$ N·m while
 derivative continues to damp motion.
 
@@ -128,14 +136,25 @@ The heater, tank, and table each use one real `Control.PID` with only the
 selected terms enabled. The cold room uses an explicit binary law:
 
 ```st
-IF ColdRoomTemperature >= ColdRoomSetpoint + LREAL#0.5 THEN
+(* A binary compressor cannot realize a continuous PID output. Hysteresis and
+   five-second dwell implement the declared temperature-band requirement. *)
+IF DwellScans < 50 THEN
+    DwellScans := DwellScans + 1;
+END_IF;
+IF AutoMode AND (ColdRoomTemperature >= ColdRoomSetpoint + LREAL#0.5)
+    AND NOT CompressorOn AND (DwellScans >= 50) THEN
     CompressorOn := TRUE;
-ELSIF ColdRoomTemperature <= ColdRoomSetpoint - LREAL#0.5 THEN
+    DwellScans := 0;
+ELSIF (ColdRoomTemperature <= ColdRoomSetpoint - LREAL#0.5)
+    AND CompressorOn AND (DwellScans >= 50) THEN
     CompressorOn := FALSE;
+    DwellScans := 0;
 END_IF;
 ```
 
-The shipped code also enforces the five-second dwell condition.
+`DwellScans` counts 100 ms scans since the last transition; 50 scans is the
+five-second dwell the Prediction relies on. `AutoMode` gates Manual, and the
+`CompressorOn` checks select one switching direction at a time.
 
 ## Experiment in Control Studio
 
@@ -172,7 +191,10 @@ candidate matrix; Monitor and Test expose the four selected structures.
 
 ## Evidence and decision
 
-### Measures and comparison
+The four loops share one workshop but not one signal path; only the reviewed
+experiment authority is common to all four.
+
+![Four independent loops share one experiment authority but no signal path](figures/controller-selection-topology.svg)
 
 **Requirement coverage** is the count of declared requirements passed. A
 candidate is eligible only if it passes all of them.
@@ -205,14 +227,16 @@ every physical value and unit.
 
 ![Minimum sufficient structures meet four different requirements](figures/controller-selection.svg)
 
+The cold room shows protected square-wave cycling, the heater and tank settle
+smoothly, and the table shows damped tracking rather than sustained
+oscillation.
+
 [Retained run](figures/controller-selection-run.csv) ·
 [Plot data](figures/controller-selection-trace.csv) ·
 [Decision summary](figures/controller-selection-summary.csv)
 
-### Validation
-
 Require compressor commands of exactly 0 or 100 percent and at least five
-seconds between transitions. After pull-down, allow only 0.02 °C numerical
+seconds between transitions. After pull-down, allow only 0.15 °C numerical
 tolerance outside the 1.5–2.5 °C thresholds. Require heater error no greater
 than 0.10 °C, tank error no greater than 0.05 cm, and table error no greater
 than 0.02 rad in the final 20 seconds. Reject any nonfinite or limited-state

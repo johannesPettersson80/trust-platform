@@ -7,8 +7,10 @@ import {
   controlStudioStageStatusLabel,
 } from "../../controlStudio/stageAvailability";
 import {
+  ControlStudioView,
   escapeHtml,
   renderAutomaticTuneButton,
+  renderControlStudioHtml,
   renderModeTabs,
 } from "../../controlStudio/panelTemplate";
 
@@ -135,5 +137,58 @@ suite("Control Studio panel template pieces", () => {
     const html = renderAutomaticTuneButton({ disabled: true, primary: true, title: "No saved plant is available." });
     assert.match(html, /\bdisabled\b/);
     assert.match(html, /title="No saved plant is available\."/);
+  });
+});
+
+suite("Control Studio value strip naming", () => {
+  // The rendered value tile named the applied heater reading "Controller output",
+  // teaching the opposite of the requested-versus-applied distinction the lesson
+  // exists to make (finding W-09). The name must come from the loop contract.
+  function view(manipulatedVariableSymbol: string): ControlStudioView {
+    const signal = {
+      symbol: manipulatedVariableSymbol, address: "%QL0", iecType: "LREAL",
+      direction: "read" as const, unit: "%", range: { minimum: 0, maximum: 100 },
+    };
+    return {
+      cspSource: "", nonce: "n", chartScript: "chart.js", workflowScript: "workflow.js",
+      plant: "Heater", sourceLabel: "Simulation", runtime: "simulator",
+      controllerInstance: "P1.Controller", project: "project:x", session: "s",
+      revision: "sha256:a", loop: "loop", loopRevision: "sha256:b",
+      processUnit: "degC", outputUnit: "%",
+      experimentDefaults: {
+        execution: "project-scripted", kind: "observation", amplitude: 0,
+        durationSeconds: 95.1, seed: 1,
+      },
+      experimentOptions: "", pidDesign: { available: true },
+      tuneDescription: "", tuneDisabledReason: "", tuneStateText: "",
+      automaticTune: { disabled: false, primary: false, title: "" },
+      stageAvailability: controlStudioStageAvailability("project-scripted"),
+      loopDefinition: {
+        schemaVersion: 1, id: "loop", name: "Loop", revision: "sha256:b",
+        projectId: "project:x", runtimeId: "simulator",
+        controller: {
+          instance: "P1.Controller", type: "Control.PID", revision: "sha256:a",
+          action: "direct", taskPeriodMs: 100,
+        },
+        signals: {
+          processVariable: { ...signal, symbol: "P1.ProcessValue", address: "%IL0", unit: "degC" },
+          manipulatedVariable: signal,
+        },
+        limits: { outputMinimum: 0, outputMaximum: 100 },
+        observedSampleTiming: { nominalPeriodMs: 100 },
+      },
+    };
+  }
+
+  test("names the manipulated-variable tile from the loop's own bound symbol", () => {
+    const html = renderControlStudioHtml(view("P1.AppliedHeaterPower"));
+    assert.match(html, /MV · Applied heater power/);
+    assert.doesNotMatch(html, /Controller output/);
+  });
+
+  test("names an operator demand as what the loop binds, not as a controller output", () => {
+    const html = renderControlStudioHtml(view("P1.ManualCompressorDemand"));
+    assert.match(html, /MV · Manual compressor demand/);
+    assert.doesNotMatch(html, /Controller output/);
   });
 });
