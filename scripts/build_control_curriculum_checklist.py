@@ -104,8 +104,28 @@ def presentation_state(directory: Path) -> tuple[bool, str]:
     return (not problems, "; ".join(problems))
 
 
+def natively_retained_figures() -> set[str]:
+    """Figure names the runtime tests write and then byte-compare.
+
+    Such a figure already has a deterministic generator: the test that owns it,
+    refreshed with TRUST_UPDATE_CONTROL_CURRICULUM_ARTIFACTS=1. Counting it as
+    ungenerated would ask for a second writer of the same file.
+    """
+    text = "\n".join(
+        path.read_text(encoding="utf-8", errors="ignore")
+        for path in (ROOT / "crates" / "trust-runtime" / "tests").rglob("*.rs")
+    )
+    names = set(re.findall(r"[\"']([a-z0-9][a-z0-9._-]*\.svg)[\"']", text))
+    for stem in re.findall(r"[\"']([a-z0-9][a-z0-9-]*)[\"']", text):
+        names.add(f"{stem}.svg")
+    return names
+
+
+NATIVE_FIGURES = natively_retained_figures()
+
+
 def evidence_state(directory: Path) -> tuple[bool, str]:
-    """Retained figures and their generator."""
+    """Retained figures and the generator that can rebuild each one."""
     figures = directory / "figures"
     if not figures.is_dir():
         return (False, "no figures directory")
@@ -114,8 +134,18 @@ def evidence_state(directory: Path) -> tuple[bool, str]:
     problems = []
     if not svgs:
         problems.append("no retained figure")
-    if svgs and not generators:
-        problems.append("figures cannot be regenerated")
+    generated = "\n".join(path.read_text(encoding="utf-8") for path in generators)
+    data = {path.stem for path in figures.glob("*.csv")}
+    # Only a figure drawn from retained data can drift from it. A schematic of the
+    # equipment carries no measurement, so it needs no generator; a figure whose
+    # stem matches a retained CSV does.
+    orphans = [
+        svg.name for svg in svgs
+        if any(stem.startswith(svg.stem) for stem in data)
+        and svg.name not in NATIVE_FIGURES and svg.name not in generated
+    ]
+    if orphans:
+        problems.append(f"cannot regenerate {', '.join(sorted(orphans))}")
     return (not problems, "; ".join(problems))
 
 

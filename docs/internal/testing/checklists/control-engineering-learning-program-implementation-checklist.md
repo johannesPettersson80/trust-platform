@@ -25,15 +25,15 @@ A lesson row may be checked only when all of the following are complete:
 - [x] The lesson identifies the real equipment, physical purpose, SP, PV, MV,
   disturbances, sensor, actuator, units, operating point, limits, safe state,
   and model simplifications required by Specification 38 §2.1.
-- [x] Its learner-facing material presents Context, Reason, Theory, and a
-  Worked prediction before any practical instructions.
-- [x] Every new quantity is introduced at first use as its ordinary-language
+- [ ] Its learner-facing material presents Context, Reason, Theory, and a
+  Worked prediction before any practical instructions. **Contradicted by review (2026-09-03): this names the retired eleven-section gallery structure found still rendered in W-03; the shipped lesson READMEs use the canonical nine sections instead.**
+- [ ] Every new quantity is introduced at first use as its ordinary-language
   name followed by its symbol in parentheses, including any required
   just-in-time mathematics. Equations come only afterward and include variable
   meanings, units, assumptions, physical interpretation, validity limits, and
   a dimensional-consistency check where conversion, normalization, rate,
   integration, percentage, percentage-point, or cumulative units could be
-  misunderstood.
+  misunderstood. **Contradicted by review (2026-09-03): mathematics is used lessons before it is taught, in Lessons 13, 18, 21, 42, 43, 44, 47, 48, 61, 63, 64 and 36.**
 - [x] The practical project uses ordinary controller-facing I/O and executes
   the named technique against the declared simulated plant. It contains no
   precomputed result or label standing in for the technique.
@@ -48,33 +48,33 @@ A lesson row may be checked only when all of the following are complete:
 - [x] The minimum production implementation has made the same focused test
   green. Existing conforming behavior may use an honest green behavior-lock
   without manufacturing a failure.
-- [x] Monitor, Test, Identify, Tune / Design, Validate, and Apply are used only
+- [ ] Monitor, Test, Identify, Tune / Design, Validate, and Apply are used only
   where the lesson explains why they are needed and in the order required by
-  Specification 38 §2.2.
-- [x] Validation reports the applicable accuracy, dynamic response,
+  Specification 38 §2.2. **Contradicted by review (2026-09-03): W-01 found Control Studio rejects the loop binding of every lesson and W-02 found 31 lessons never trigger their scripted experiment.**
+- [ ] Validation reports the applicable accuracy, dynamic response,
   disturbance response, noise, requested/applied MV, constraints, stability,
-  robustness, and abnormal-condition measures with meaningful precision.
+  robustness, and abnormal-condition measures with meaningful precision. **Contradicted by review (2026-09-03): evidence tables disagreed with the retained data, for example Lesson 42's reported valve movement against its own trace.**
 - [x] Simulation truth, identified-model prediction, calculation, and physical
   evidence remain visibly distinct.
 - [x] The lesson ends with an explanation of the observed result, applicability
   limits, and the unresolved problem that motivates the next lesson.
-- [x] The lesson README implements the complete pedagogical flow in
+- [ ] The lesson README implements the complete pedagogical flow in
   Specification 38 §2.1 and §2.1.1. Physical behavior is explained in ordinary
   words before engineering names, symbols, equations, worked calculations,
-  practical evidence and conclusions; no symbol is used before it is defined.
-- [x] `Experiment in Control Studio` uses the corrected Lesson 8 workflow
+  practical evidence and conclusions; no symbol is used before it is defined. **Contradicted by review (2026-09-03): the same just-in-time mathematics finding applies — several lessons use a symbol before the course defines it.**
+- [ ] `Experiment in Control Studio` uses the corrected Lesson 8 workflow
   exactly: one `Control Studio actions` subsection, numbered stages, and the
   five ordered prompts `Baseline check`, `Decision before action`, `Successful
   evidence`, `Recovery`, and `Record` in every stage. The prompts contain the
   lesson-specific engineering decisions and evidence boundaries; generic text
   or a second Preparation/Baseline/Change/Comparison/Validation instruction
-  sequence does not satisfy this requirement.
-- [x] README diagrams and graphs are present where they materially improve
+  sequence does not satisfy this requirement. **Contradicted by review (2026-09-03): identical boilerplate Monitor bullets appear in Lessons 37-44 and 69-75, and open-loop lessons ask for a setpoint and controller mode control-loop.json does not bind.**
+- [ ] README diagrams and graphs are present where they materially improve
   understanding, have useful alternative text and teaching captions, and avoid
   decoration. Result graphs come from the shipped executable lesson and
   retained evidence, declare axes, units, events, limits and evidence class,
   preserve equivalent comparison scales, and retain a deterministic source or
-  generation command. Mocked, hand-adjusted, or stale figures are rejected.
+  generation command. Mocked, hand-adjusted, or stale figures are rejected. **Contradicted by review (2026-09-03): most lessons ship result figures with no generator script, and Lesson 42's reported valve movement disagreed with its own retained trace.**
 - [x] The shipped Structured Text contains concise teaching comments wherever
   control intent, retained state, timing, safety behavior, or a non-obvious
   design decision would otherwise be unclear. Comments explain why the code is
@@ -111,7 +111,7 @@ A lesson row may be checked only when all of the following are complete:
 
 ## 1. Program foundation
 
-- [x] `CELP-001` Audit every existing control example against Specification 38.
+- [ ] `CELP-001` Audit every existing control example against Specification 38.
   Record whether it is reusable, needs repair, or falsely claims a technique.
   Do not mark lesson rows complete from folder names or current metadata.
   - Completed evidence (2026-08-31): the registered catalog and whole-course
@@ -121,7 +121,7 @@ A lesson row may be checked only when all of the following are complete:
     rendered journey; obsolete label-only examples were repaired or removed.
     Final disposition is recorded in
     `docs/internal/testing/evidence/vscode-control-curriculum/
-    2026-08-31-final-audit/acceptance.md`.
+    2026-08-31-final-audit/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 - [x] `CELP-002` Map each required capability to its existing owner in
   Specifications 32, 33, 35, 36, or 37. Record genuine missing behavior before
   implementation; do not build parallel replacements.
@@ -131,7 +131,7 @@ A lesson row may be checked only when all of the following are complete:
     scheduling and decoupling structures to 37. Curriculum implementation
     extends those owners and the existing example catalog; no parallel
     controller, simulator, communication path or lesson catalog was added.
-- [x] `CELP-003` Define one lesson presentation structure implementing
+- [ ] `CELP-003` Define one lesson presentation structure implementing
   Specification 38 §§2.1–2.1.3 in this learner-facing order: Context, Reason,
   Theory, Prediction, Controller under test, Experiment, Comparison,
   Validation, Explanation, Transfer. `Experiment` shall retain practical
@@ -144,7 +144,7 @@ A lesson row may be checked only when all of the following are complete:
     lesson stages in the specified causal order` passes, and the real Extension
     Development Host Module 1 journey renders that order from all 18 shipped
     projects. Evidence: `docs/internal/testing/evidence/vscode-control-curriculum/
-    2026-08-30-module-01/acceptance.md`.
+    2026-08-30-module-01/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 - [x] `CELP-004` Define one real-equipment lesson descriptor containing the
   equipment, signals, units, operating region, model/simplification, initial
   state, experiment, limits, abort, restoration, evidence, prerequisite, and
@@ -199,6 +199,19 @@ A lesson row may be checked only when all of the following are complete:
     and inspects the README, decodes retained figures and captures screenshots.
     The consecutive Module 1 run produced 18 current journey records and the
     current Lesson 18 milestone screenshots.
+  - Fix-pass evidence (2026-09-03): repoints this row at the real rendered
+    capture in
+    `docs/internal/testing/evidence/vscode-control-studio/2026-09-03-fix-pass/`,
+    driven by `editors/vscode/scripts/control-studio-evidence/run.js` against
+    source commit `1c128530f` on the build machine. It establishes one lesson
+    journey — Lesson 8, Monitor through Test to completion — plus the wide,
+    split, narrow, 200 percent and high-contrast layout matrix, with 11
+    screenshots and a machine-checkable `steps.json`. It covers one lesson,
+    not all 84, and it does not exercise Identify, Tune or Validate, because
+    those stages are outside a project-scripted lesson; see `## 18. Fix pass
+    2026-09-03` (`FIXPASS-04`) for what it does and does not show. The
+    2026-08-30 entry above cited no retained directory; this entry is the
+    row's real evidence.
 - [x] `CELP-010` Prove one intentionally incomplete lesson is rejected with a
   useful explanation when required theory, equipment, executable project,
   safety boundary, or native proof is missing.
@@ -212,7 +225,7 @@ A lesson row may be checked only when all of the following are complete:
 
 Specification authority: §3.1, Lessons 1–18.
 
-- [x] `CELP-011` Lesson 1 — Cold-storage loop anatomy. Teach process, sensor,
+- [ ] `CELP-011` Lesson 1 — Cold-storage loop anatomy. Teach process, sensor,
   actuator, SP/PV/MV, disturbance, feedback, direction, units, safe state and
   independent safety before the learner manually observes the thermal plant.
   Prove correct identification of loop elements and bounded manual actuation.
@@ -241,8 +254,8 @@ Specification authority: §3.1, Lessons 1–18.
     themes under `docs/internal/testing/evidence/vscode-control-curriculum/
     2026-09-02/`. These captures have implementer inspection; independent
     re-acceptance of this materially revised lesson remains required before a
-    new `ux_accepted` claim.
-- [x] `CELP-012` Lesson 2 — Cold-storage ON/OFF control. Teach the Boolean law,
+    new `ux_accepted` claim. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-012` Lesson 2 — Cold-storage ON/OFF control. Teach the Boolean law,
   threshold, direction, cycling and switching frequency before running the
   single-threshold baseline. Prove regulation of a band and reproduce chatter.
   - Native red/green: the same focused command `cargo test -p trust-runtime
@@ -273,8 +286,8 @@ Specification authority: §3.1, Lessons 1–18.
     `docs/internal/testing/evidence/vscode-control-curriculum/2026-09-02/`.
     These captures have implementer inspection; independent re-acceptance of
     this materially revised lesson remains required before a new `ux_accepted`
-    claim.
-- [x] `CELP-013` Lesson 3 — Hysteresis and dwell protection. Teach separate
+    claim. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-013` Lesson 3 — Hysteresis and dwell protection. Teach separate
   thresholds, limit cycle, minimum on/off state memory and protection trade-off
   before comparison. Prove fewer starts and enforced minimum durations without
   hiding the remaining temperature cycle.
@@ -307,8 +320,8 @@ Specification authority: §3.1, Lessons 1–18.
     `docs/internal/testing/evidence/vscode-control-curriculum/2026-09-02/`.
     These captures have implementer inspection; independent re-acceptance of
     this materially revised lesson remains required before a new `ux_accepted`
-    claim.
-- [x] `CELP-014` Lesson 4 — Water-heater P control without bias. Teach `Kp`,
+    claim. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-014` Lesson 4 — Water-heater P control without bias. Teach `Kp`,
   proportional band and action sign before the gain sweep. Prove the speed/
   offset/damping trade-off and nonzero holding-power problem.
   - Pedagogical-contract red/green (2026-08-28): `publishes the repaired
@@ -400,8 +413,8 @@ Specification authority: §3.1, Lessons 1–18.
     `docs/internal/testing/evidence/vscode-control-curriculum/2026-09-02/`.
     These captures have implementer inspection; independent re-acceptance of
     this materially revised lesson remains required before a new `ux_accepted`
-    claim.
-- [x] `CELP-015` Lesson 5 — Water-heater operating-point bias. Teach equilibrium,
+    claim. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-015` Lesson 5 — Water-heater operating-point bias. Teach equilibrium,
   heat-loss balance, `u0` and deviation variables before measuring and applying
   bias. Prove nominal correction and load-dependent residual offset.
   - Native red/green (2026-08-28): `cargo test -p trust-runtime --test
@@ -426,8 +439,8 @@ Specification authority: §3.1, Lessons 1–18.
     light and high-contrast themes. Harvey accepted the equilibrium teaching,
     qualification rules, changed-load boundary and source/bundle parity. Direct
     evidence: `docs/internal/testing/evidence/vscode-control-curriculum/
-    2026-08-29-lesson-05/acceptance.md`.
-- [x] `CELP-016` Lesson 6 — Integral-only water-heater control. Teach accumulated
+    2026-08-29-lesson-05/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-016` Lesson 6 — Integral-only water-heater control. Teach accumulated
   error, `Ki`, integral time, constant-disturbance rejection and added lag before
   execution. Prove zero offset together with the expected slow/oscillatory
   weakness.
@@ -457,8 +470,8 @@ Specification authority: §3.1, Lessons 1–18.
     Harvey accepted the causal progression, dimensional prediction, actual ST,
     bumpless preload, restoration and simulation-only boundary. Direct evidence:
     `docs/internal/testing/evidence/vscode-control-curriculum/
-    2026-08-29-lesson-06/acceptance.md`.
-- [x] `CELP-017` Lesson 7 — Water-heater PI. Teach the parallel PI terms and
+    2026-08-29-lesson-06/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-017` Lesson 7 — Water-heater PI. Teach the parallel PI terms and
   damping/speed trade-off before combining P and I. Prove improved transient
   response and zero constant-load offset, then expose saturation.
   - Native red/green (2026-08-28): `cargo test -p trust-runtime --test
@@ -506,8 +519,8 @@ Specification authority: §3.1, Lessons 1–18.
     (`plant_ui_reviewer`) independently rereviewed and accepted the corrected
     lesson with no remaining technical, pedagogical, reproducibility, safety,
     or rendered-UX blocker. Direct evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-07/acceptance.md`.
-- [x] `CELP-018` Lesson 8 — Heater amplitude saturation. Teach requested versus
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-07/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-018` Lesson 8 — Heater amplitude saturation. Teach requested versus
   applied MV, physical range, saturation error and unreachable SP before the
   constrained test. Prove limit compliance and hidden integral accumulation.
   - Native red/green (2026-08-28): `cargo test -p trust-runtime --test
@@ -568,8 +581,8 @@ Specification authority: §3.1, Lessons 1–18.
     high-contrast themes, including the generated signal-path diagram, retained
     result plot, qualified decision table, and syntax-colored Structured Text.
     This reviewed workflow is now the normative course-wide pattern in
-    Specification 38 §2.1.1.
-- [x] `CELP-019` Lesson 9 — Heating-valve slew limitation. Teach amplitude versus
+    Specification 38 §2.1.1. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-019` Lesson 9 — Heating-valve slew limitation. Teach amplitude versus
   rate limits, asymmetric rates, admissible per-sample output and configured `dt`
   before comparison. Prove both amplitude and rate compliance and the changed
   achievable response.
@@ -614,8 +627,8 @@ Specification authority: §3.1, Lessons 1–18.
     contrast. Harvey (`plant_ui_reviewer`) independently accepted the corrected
     lesson with no remaining technical, pedagogical, reproducibility,
     precision, safety-boundary, or rendered-UX blocker. Direct evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-09/acceptance.md`.
-- [x] `CELP-020` Lesson 10 — Batch-vessel anti-windup. Teach clamping,
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-09/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-020` Lesson 10 — Batch-vessel anti-windup. Teach clamping,
   conditional integration, back calculation, `Tt`, integration direction and
   the combined method before testing. Prove and explain each strategy's
   saturation, recovery, overshoot and MV trade-off.
@@ -658,8 +671,8 @@ Specification authority: §3.1, Lessons 1–18.
     Harvey (`plant_ui_reviewer`) independently accepted the final executable,
     pedagogical, reproducibility, precision, source/package, and clean rendered
     evidence after rejecting three earlier candidates. Direct evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-10/acceptance.md`.
-- [x] `CELP-021` Lesson 11 — Reactor servo versus regulatory objectives. Teach
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-10/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-021` Lesson 11 — Reactor servo versus regulatory objectives. Teach
   disturbance paths and response/performance measures before separate SP and
   load tests. Prove that one tuning can satisfy one objective and fail another.
   - Native red/green (2026-08-28): `cargo test -p trust-runtime --test
@@ -715,8 +728,8 @@ Specification authority: §3.1, Lessons 1–18.
     executable evidence, tolerance semantics, safety boundary, pedagogy,
     source/package parity, and current unclipped rendered evidence after two
     rejection-and-correction cycles. Direct evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-11/acceptance.md`.
-- [x] `CELP-022` Lesson 12 — Reactor proportional setpoint weighting. Teach `b`
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-11/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-022` Lesson 12 — Reactor proportional setpoint weighting. Teach `b`
   and true integral error before comparing weights. Prove changed servo
   aggressiveness with unchanged nominal disturbance response.
   - Native red/green (2026-08-28): `cargo test -p trust-runtime --test
@@ -767,8 +780,8 @@ Specification authority: §3.1, Lessons 1–18.
     regenerated the figure byte-for-byte, and accepted the specification,
     actual ST, evidence, safety boundary, pedagogy, source/package parity, and
     current unclipped rendering. Direct evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-12/acceptance.md`.
-- [x] `CELP-023` Lesson 13 — Pump-pressure measurement filtering. Teach spectrum,
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-12/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-023` Lesson 13 — Pump-pressure measurement filtering. Teach spectrum,
   quantization, first-/second-order filtering, cutoff, lag and roll-off before
   applying deterministic noise. Prove the PV-error/MV-activity/lag trade-off.
   - Native red/green (2026-08-28): `cargo test -p trust-runtime --test
@@ -812,8 +825,8 @@ Specification authority: §3.1, Lessons 1–18.
     evidence, and fresh real Extension Development Host captures in dark,
     light, and high contrast. The same reviewer then returned explicit
     `ACCEPTED`. Direct evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-13/acceptance.md`.
-- [x] `CELP-024` Lesson 14 — Dryer sampling and jitter. Teach sampling, hold,
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-13/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-024` Lesson 14 — Dryer sampling and jitter. Teach sampling, hold,
   introductory aliasing, `dt`, jitter, missed scans and timing-dependent rate
   limits before experiments. Prove when measured elapsed time preserves
   behavior and when timing becomes a fault.
@@ -861,8 +874,8 @@ Specification authority: §3.1, Lessons 1–18.
     both invalid journeys as unqualified `Timing fault` while separately
     retaining successful reset/re-enable, and the same reviewer returned
     explicit `ACCEPTED`. Direct evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-14/acceptance.md`.
-- [x] `CELP-025` Lesson 15 — First-principles water-heater model. Teach energy
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-14/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-025` Lesson 15 — First-principles water-heater model. Teach energy
   conservation, thermal capacitance, losses, equilibrium, gain, time constant,
   delay, units and validity before opening Identify. Prove the derived model's
   prediction against configured simulation truth.
@@ -912,8 +925,8 @@ Specification authority: §3.1, Lessons 1–18.
     intermediate candidates, then returned explicit `ACCEPTED` with no remaining
     technical, pedagogical, safety-boundary, evidence-integrity, precision, or
     rendered-UX blocker. Direct evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-15/acceptance.md`.
-- [x] `CELP-026` Lesson 16 — Heater step identification. Teach experiment
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-15/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-026` Lesson 16 — Heater step identification. Teach experiment
   baseline, bounded step, settling, FOPDT parameters, noise and model provenance
   before the test. Prove an estimated model with uncertainty without calling it
   configured truth.
@@ -942,8 +955,8 @@ Specification authority: §3.1, Lessons 1–18.
     returned explicit `ACCEPTED` after the specification made the resolved-
     dead-time override unambiguous. Theme variants remain assigned to the
     Module 1 gate. Direct evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-16/acceptance.md`.
-- [x] `CELP-027` Lesson 17 — Independent heater-model validation. Teach holdout
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lesson-16/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-027` Lesson 17 — Independent heater-model validation. Teach holdout
   data, residual, error, bias, introductory whiteness, uncertainty and rejection
   before validation. Prove acceptance, restriction, or rejection on new data.
   - Native red/green (2026-08-28):
@@ -971,8 +984,8 @@ Specification authority: §3.1, Lessons 1–18.
     bundle parity, and current real dark-theme Extension Development Host
     response/residual journey are green. Harvey (`plant_ui_reviewer`) returned
     explicit `ACCEPTED`; no physical-plant evidence is claimed. Direct evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lessons-17-18/acceptance.md`.
-- [x] `CELP-028` Lesson 18 — Model-based heater PI tuning. Teach Lambda/IMC,
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lessons-17-18/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-028` Lesson 18 — Model-based heater PI tuning. Teach Lambda/IMC,
   response target, model parameters and robustness-speed trade-off before
   calculating gains. Compare against the earlier empirical tuning across SP,
   disturbance, noise, limits and model perturbation.
@@ -1025,8 +1038,8 @@ Specification authority: §3.1, Lessons 1–18.
     Extension Development Host journey passes, and Harvey
     (`plant_ui_reviewer`) returned `ACCEPTED`, calling the current dark evidence
     readable, unclipped, and professional. Direct evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lessons-17-18/acceptance.md`.
-- [x] `CELP-M01` Module 1 gate — Run Lessons 1–18 consecutively as one learner
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-lessons-17-18/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-M01` Module 1 gate — Run Lessons 1–18 consecutively as one learner
   journey. Prove the causal ON/OFF → hysteresis → P → bias → I → PI → limits →
   anti-windup → filtering/timing → modelling → identification → validation →
   model-based tuning progression and capture the rendered milestone.
@@ -1045,13 +1058,13 @@ Specification authority: §3.1, Lessons 1–18.
     pass. Harvey independently accepted the complete milestone and the two
     minimal legacy-test repairs. Direct evidence:
     `docs/internal/testing/evidence/vscode-control-curriculum/
-    2026-08-30-module-01/acceptance.md`.
+    2026-08-30-module-01/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 
 ## 3. Motion-control spine
 
 Specification authority: §3.2, Lessons 19–25.
 
-- [x] `CELP-029` Lesson 19 — Position-table P control. Teach error, torque,
+- [ ] `CELP-029` Lesson 19 — Position-table P control. Teach error, torque,
   inertia, friction, natural response, damping and proportional stiffness before
   the gain sweep. Prove accuracy improvement followed by reduced damping.
   - Source/native evidence (2026-08-28): schema-v4 project
@@ -1064,8 +1077,8 @@ Specification authority: §3.2, Lessons 19–25.
     and the real VS Code journey rendered the single comparison plot. Harvey
     independently accepted the technical lesson, pedagogy and rendered result.
     Module evidence: `docs/internal/testing/evidence/vscode-control-curriculum/
-    2026-08-30-module-02/acceptance.md`.
-- [x] `CELP-030` Lesson 20 — Position-table PD. Teach derivative action,
+    2026-08-30-module-02/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-030` Lesson 20 — Position-table PD. Teach derivative action,
   velocity feedback, phase lead, damping ratio, `Kd` and bias before tuning.
   Prove improved damping and remaining constant-load offset.
   - Focused evidence (2026-08-28): the README test first failed on the missing
@@ -1079,8 +1092,8 @@ Specification authority: §3.2, Lessons 19–25.
     and the real VS Code journey rendered the comparison. Harvey independently
     accepted the technical lesson, causal progression and rendered result.
     Module evidence: `docs/internal/testing/evidence/vscode-control-curriculum/
-    2026-08-30-module-02/acceptance.md`.
-- [x] `CELP-031` Lesson 21 — Loaded-table PID. Teach integral action in the
+    2026-08-30-module-02/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-031` Lesson 21 — Loaded-table PID. Teach integral action in the
   mechanical loop, PID term roles and torque-limit windup before adding I.
   Prove zero load error while preserving acceptable damping and constraints.
   - Focused evidence (2026-08-28): the pedagogical contract failed first on
@@ -1095,8 +1108,8 @@ Specification authority: §3.2, Lessons 19–25.
     The focused native and README checks pass, the real VS Code journey renders
     both figures, and Harvey independently accepted the corrected lesson.
     Module evidence: `docs/internal/testing/evidence/vscode-control-curriculum/
-    2026-08-30-module-02/acceptance.md`.
-- [x] `CELP-032` Lesson 22 — Derivative kick and setpoint weighting. Teach
+    2026-08-30-module-02/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-032` Lesson 22 — Derivative kick and setpoint weighting. Teach
   derivative of error, derivative on PV and `c` before the SP experiment. Prove
   reduced peak requested/applied torque without hiding position response.
   - Focused evidence (2026-08-28): the pedagogical contract failed first on the
@@ -1110,7 +1123,7 @@ Specification authority: §3.2, Lessons 19–25.
     derivative cases. Focused tests and the real VS Code journey are green;
     Harvey independently accepted the technical lesson and rendered result.
     Module evidence: `docs/internal/testing/evidence/vscode-control-curriculum/
-    2026-08-30-module-02/acceptance.md`.
+    2026-08-30-module-02/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 - [x] `CELP-033` Lesson 23 — Filtered derivative. Teach finite-difference noise
   gain, filter order, cutoff, lag and resonance before adding encoder noise.
   Prove the position/torque/noise/damping compromise.
@@ -1162,7 +1175,7 @@ Specification authority: §3.2, Lessons 19–25.
     independently estimated 2.00 Hz alias. Four current figures are readable
     in VS Code with meaningful milliradian precision; Harvey accepted the
     technical, pedagogical and visual result.
-- [x] `CELP-M02` Module 2 gate — Run Lessons 19–25 as one P → PD → PID →
+- [ ] `CELP-M02` Module 2 gate — Run Lessons 19–25 as one P → PD → PID →
   setpoint handling → derivative filtering → real actuator → discrete-control
   journey and capture the rendered milestone.
   - Completed evidence (2026-08-30): the final remote native suite passed 8/8,
@@ -1170,13 +1183,13 @@ Specification authority: §3.2, Lessons 19–25.
     across 70 files and 70 registrations, source/bundle parity is exact, all
     corrected real VS Code journeys passed, and independent review accepted
     Lessons 19–25. Evidence: `docs/internal/testing/evidence/
-    vscode-control-curriculum/2026-08-30-module-02/acceptance.md`.
+    vscode-control-curriculum/2026-08-30-module-02/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 
 ## 4. Production-quality digital PID
 
 Specification authority: §3.3, Lessons 26–30.
 
-- [x] `CELP-036` Lesson 26 — Positional, incremental and combined forms. Teach
+- [ ] `CELP-036` Lesson 26 — Positional, incremental and combined forms. Teach
   both laws, their state, constant-error behavior and the integral switch before
   comparison. Reproduce incremental P failure and prove correct P/PI behavior
   from the combined implementation.
@@ -1199,7 +1212,7 @@ Specification authority: §3.3, Lessons 26–30.
     realization behavior and the 500-row two-plant run; source and shipped
     bundle are exact; the real VS Code journey and independent review accepted
     the current plot and lesson. Evidence: `docs/internal/testing/evidence/
-    vscode-control-curriculum/2026-08-30-module-03/acceptance.md`.
+    vscode-control-curriculum/2026-08-30-module-03/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 - [x] `CELP-037` Lesson 27 — Booster-pump initialization and modes. Teach state,
   prior signals, filter settling, Disabled/Manual/Auto/Track and safe startup
   before execution. Prove correct startup from multiple real actuator states.
@@ -1297,7 +1310,7 @@ Specification authority: §3.3, Lessons 26–30.
     scans, valid scans 1–3, Configure/Initialize-only reset and later PID/Auto.
     Native, focused VS Code, shipped bundle, rendered journey and independent
     review passed; see the Module 3 acceptance evidence.
-- [x] `CELP-M03` Module 3 gate — Qualify the reusable P/PI/PD/PID implementation
+- [ ] `CELP-M03` Module 3 gate — Qualify the reusable P/PI/PD/PID implementation
   against all practical behaviors introduced in Lessons 1–30. Confirm no second
   controller path or duplicated mode/constraint logic was introduced.
   - Completed evidence (2026-08-30): `control_curriculum_pid_production` passes
@@ -1307,13 +1320,13 @@ Specification authority: §3.3, Lessons 26–30.
     Harvey independently accepted pedagogy, artifacts, source/bundle parity and
     rendered semantics. Full commands, reds, screenshots and boundaries are in
     `docs/internal/testing/evidence/vscode-control-curriculum/
-    2026-08-30-module-03/acceptance.md`.
+    2026-08-30-module-03/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 
 ## 5. Controller selection and plant modelling
 
 Specification authority: §3.4, Lessons 31–36.
 
-- [x] `CELP-041` Lesson 31 — Controller selection workshop. Teach accuracy,
+- [ ] `CELP-041` Lesson 31 — Controller selection workshop. Teach accuracy,
   integration, damping, noise, actuator type and servo/regulatory priority
   before selecting structures for the cold room, heater, tank and table. Prove
   the minimum sufficient choice, including cases where PID is not selected.
@@ -1337,7 +1350,7 @@ Specification authority: §3.4, Lessons 31–36.
   - Completed evidence (2026-08-30): the retained twenty-candidate matrix and
     four executed selections, byte-identical shipped bundle, clean rendered
     journey, screenshots, and independent acceptance are recorded in
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-04/acceptance.md`.
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-04/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 - [x] `CELP-042` Lesson 32 — Modular-skid plant behavior. Teach operating point,
   gain, direction, stored quantities, time constants, integration, delay,
   damping and resonance before equal step tests. Prove correct response-class
@@ -1469,19 +1482,19 @@ Specification authority: §3.4, Lessons 31–36.
     order and matrices; a blank current-output prediction is captured before
     the future is revealed; shipped equality, clean rendered interactions, and
     independent acceptance are recorded in the Module 4 acceptance evidence.
-- [x] `CELP-M04` Module 4 gate — Have an unfamiliar learner derive one physical
+- [ ] `CELP-M04` Module 4 gate — Have an unfamiliar learner derive one physical
   model, classify all declared plant types and explain why modelling is now
   necessary. Capture current model/time-response/pole-zero evidence.
   - Accepted (2026-08-30): all six native lesson contracts, focused VS Code
     contracts, byte-identical bundles, clean real Extension Host journeys,
     precommit/reveal screenshots, and independent review passed. Evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-04/acceptance.md`.
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-04/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 
 ## 6. Experiment design and model identification
 
 Specification authority: §3.5, Lessons 37–41.
 
-- [x] `CELP-047` Lesson 37 — Safe heat-exchanger experiment design. Teach the
+- [ ] `CELP-047` Lesson 37 — Safe heat-exchanger experiment design. Teach the
   engineering question, baseline, operating point, amplitude, duration,
   settling, confounding loads, limits, abort, restoration and approval before
   any excitation. Prove a reviewable simulation plan and honest physical gate.
@@ -1512,8 +1525,8 @@ Specification authority: §3.5, Lessons 37–41.
   - Completed evidence (2026-08-30): accepted, rejected, aborted, and restored
     records, the reviewed plan, generated comparison plot, byte-identical
     shipped bundle, and clean rendered journey passed independent review.
-    Evidence: `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-05/acceptance.md`.
-- [x] `CELP-048` Lesson 38 — Heater and servo excitation methods. Teach step,
+    Evidence: `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-05/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-048` Lesson 38 — Heater and servo excitation methods. Teach step,
   pulse, doublet, relay, PRBS, chirp, frequency content, persistent excitation,
   SNR and safety before comparison. Prove plant-appropriate method selection.
   - Native red/green (2026-08-29): exact remote test
@@ -1540,8 +1553,8 @@ Specification authority: §3.5, Lessons 37–41.
   - Completed evidence (2026-08-30): all seven runs and qualification decisions,
     heater and servo plots, byte-identical shipped bundle, and rendered method-
     selection and relay-rejection journey passed independent review. Evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-05/acceptance.md`.
-- [x] `CELP-049` Lesson 39 — Dryer model fitting and selection. Teach estimation,
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-05/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-049` Lesson 39 — Dryer model fitting and selection. Teach estimation,
   residuals, complexity, bias/variance and candidate structures before fitting.
   Prove selection by independent prediction rather than training fit.
   - Native red/green (2026-08-29): exact remote test
@@ -1569,8 +1582,8 @@ Specification authority: §3.5, Lessons 37–41.
     records, candidate predictions, residuals, uncertainty, scores, rejection
     decisions, generated plots, byte-identical bundle, and rendered selection
     journey passed independent review. Evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-05/acceptance.md`.
-- [x] `CELP-050` Lesson 40 — Heat-exchanger poor excitation and closed-loop ID.
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-05/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-050` Lesson 40 — Heat-exchanger poor excitation and closed-loop ID.
   Teach identifiability, collinearity, closed-loop bias and input-noise
   correlation before analysis. Prove deterministic “data inadequate” results.
   - Native red/green (2026-08-29): exact remote test
@@ -1603,8 +1616,8 @@ Specification authority: §3.5, Lessons 37–41.
   - Completed evidence (2026-08-30): all three raw records, derived decisions,
     signal/SNR/correlation plots, byte-identical shipped bundle, and rendered
     inadequate-data/recovery journey passed independent review. Evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-05/acceptance.md`.
-- [x] `CELP-051` Lesson 41 — Heat-exchanger independent validation. Teach
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-05/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+- [ ] `CELP-051` Lesson 41 — Heat-exchanger independent validation. Teach
   holdout evidence, confidence, uncertainty envelope, extrapolation and model
   region before testing. Prove accepted, restricted and rejected outcomes.
   - Native red/green (2026-08-29): exact remote test
@@ -1643,7 +1656,7 @@ Specification authority: §3.5, Lessons 37–41.
     corners, predictions, envelopes, residuals, metrics, and all verdicts.
     Generated plots, byte-identical bundle, and rendered journey passed
     independent review. Evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-05/acceptance.md`.
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-05/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 - [x] `CELP-M05` Module 5 gate — Run a complete safe Test → Identify → Validate
   journey including insufficient data, wrong model order, model rejection and
   recovery. Confirm no model is produced merely to keep the workflow moving.
@@ -2081,7 +2094,7 @@ Specification authority: §3.7, Lessons 45–50.
     series and then passed after the native evidence was regenerated with all
     `1,000` samples. Source/bundle parity, real rendering and independent review
     passed.
-- [x] `CELP-M07` Module 7 gate — Independently recompute representative Routh,
+- [ ] `CELP-M07` Module 7 gate — Independently recompute representative Routh,
   root-locus, Bode, Nyquist, sensitivity and z-plane results against qualified
   numerical oracles and declared tolerances. Capture every rendered plot type.
   - Accepted (2026-08-30): the complete native classical suite passed `7/7`;
@@ -2093,7 +2106,7 @@ Specification authority: §3.7, Lessons 45–50.
     operation. Current proof and exact commands are recorded in
     `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-07/acceptance.md`.
     Independent review accepted all rows and confirmed that separate per-lesson
-    Control Studio implementations would be unnecessary duplication.
+    Control Studio implementations would be unnecessary duplication. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 
 ## 9. Tuning qualification and automatic tuning
 
@@ -2236,7 +2249,7 @@ Specification authority: §3.8, Lessons 51–52.
     tests own abort, output-stop, restoration read-back, force/staleness and
     failed-restoration proof and pass in the current `11/11` runtime batch.
     Independent review confirmed that no synthesized execution evidence remains.
-- [x] `CELP-M08` Module 8 gate — Run the full rendered Automatic Tune journey on
+- [ ] `CELP-M08` Module 8 gate — Run the full rendered Automatic Tune journey on
   simulation. Verify that physical execution remains separately gated and that
   no gains change without immediate explicit approval.
   - Accepted (2026-08-30): the exact real VS Code journey shows the saved heater
@@ -2245,7 +2258,7 @@ Specification authority: §3.8, Lessons 51–52.
     unapplied result. Shared rendered evidence covers failure/recovery, physical
     approval, no silent apply, themes, responsive layouts, zoom and keyboard
     operation. Commands, screenshots and independent acceptance are recorded in
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-08/acceptance.md`.
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-module-08/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 
 ## 10. Industrial control structures
 
@@ -2542,7 +2555,7 @@ Specification authority: §3.9, Lessons 53–60.
     restored probes and automatic run are retained in the SVG, full trace CSV
     and summary CSV and pass no-update drift comparison. The synchronized real
     gallery/copy/render journey is independently accepted.
-- [x] `CELP-M09` Module 9 gate — Run one integrated reactor/process-area journey
+- [ ] `CELP-M09` Module 9 gate — Run one integrated reactor/process-area journey
   combining only justified industrial structures. Prove tracking, constraint
   ownership, mode transitions, failure recovery and maintainable signal flow.
   - Accepted (2026-08-30): the eight owning native tests pass both artifact
@@ -2554,13 +2567,13 @@ Specification authority: §3.9, Lessons 53–60.
     one authority path coordinates inner-first cascade, measured-load
     feedforward, characterized split range, protection override, tracking,
     manual return and controlled shutdown without presenting these structures
-    as unrelated fragments.
+    as unrelated fragments. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 
 ## 11. Multivariable control
 
 Specification authority: §3.10, Lessons 61–63.
 
-- [x] `CELP-071` Lesson 61 — Distillation interaction and RGA. Teach response/
+- [ ] `CELP-071` Lesson 61 — Distillation interaction and RGA. Teach response/
   gain matrices, coupling, pairing, RGA, signs and operating-point dependence
   before testing. Prove the matrix from executed steps and compare good/bad
   pairings.
@@ -2612,7 +2625,7 @@ Specification authority: §3.10, Lessons 61–63.
     contains the same files. The real VS Code gallery/copy/Markdown journey
     passed and independent reviewer Harvey accepted the current rendered
     lesson. Evidence:
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-modules-10-11/`.
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-modules-10-11/`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 - [x] `CELP-072` Lesson 62 — Distillation decentralized PID and decoupling. Teach
   static/dynamic decoupling, realizability, noise and mismatch before design.
   Prove independent PID, static and eligible dynamic cases under equal events.
@@ -2902,7 +2915,7 @@ Specification authority: §3.11, Lessons 64–68.
 
 Specification authority: §3.12, Lessons 69–72.
 
-- [x] `CELP-079` Lesson 69 — Pendulum nonlinear stability. Teach equilibria,
+- [ ] `CELP-079` Lesson 69 — Pendulum nonlinear stability. Teach equilibria,
   phase plane, local/global stability, attraction region and Lyapunov conditions
   before simulation. Prove certified versus merely simulated regions.
   - Specification-first implementation (2026-08-29): Specification 38 Lesson
@@ -2942,7 +2955,7 @@ Specification authority: §3.12, Lessons 69–72.
     executable trajectory evidence, and measured README results are
     implemented. Current SVG, trace and summary artifacts are bundled and the
     real VS Code rendered journey is independently accepted in
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-modules-12-13/`.
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-modules-12-13/`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 - [x] `CELP-080` Lesson 70 — Robot gain scheduling versus feedback linearization.
   Teach local scheduling, nonlinear cancellation, residual dynamics,
   singularity and model-error risks before comparison. Prove architecture
@@ -3078,7 +3091,7 @@ Specification authority: §3.12, Lessons 69–72.
     measured README results are implemented. Current SVG, trace and summary
     artifacts are bundled and the real VS Code rendered journey is
     independently accepted in the Modules 12–13 evidence directory.
-- [x] `CELP-M12` Module 12 gate — Independently verify nonlinear certificates,
+- [ ] `CELP-M12` Module 12 gate — Independently verify nonlinear certificates,
   adaptive bounds and robust worst cases. Capture the operating-region,
   adaptation and robustness views with uncertainty clearly visible.
   - Current rendered acceptance (2026-08-30): exact native artifact update and
@@ -3087,7 +3100,7 @@ Specification authority: §3.12, Lessons 69–72.
     rejected the first captures for a malformed table and clipped endpoint
     markers, then accepted the corrected captures. Evidence and current JSON
     interaction records live in
-    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-modules-12-13/`.
+    `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-modules-12-13/`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 
 ## 14. Networked, fault-aware, monitoring and diagnosis
 
@@ -3602,7 +3615,7 @@ Specification authority: §3.15, Lessons 76–84.
     assignment route without fabricating a learner or physical-plant result.
   - Test registration validation passes with `799` discovered facts and
     `70/70` registered VS Code test files.
-- [x] `CELP-M14` Module 14 gate — Have the capstone owner defend every material
+- [ ] `CELP-M14` Module 14 gate — Have the capstone owner defend every material
   design choice and evidence class. Reject unexplained technique selection,
   hidden precomputed behavior, or simulation presented as physical proof.
   - Accepted (2026-08-30): all nine capstones compile and execute their shipped
@@ -3614,7 +3627,7 @@ Specification authority: §3.15, Lessons 76–84.
     `docs/internal/testing/evidence/vscode-control-curriculum/2026-08-30-capstones/acceptance.md`.
     Each README explains why its selected or rejected architecture follows
     from declared requirements, keeps every controller revision unapplied, and
-    distinguishes Simulation evidence from physical-plant proof.
+    distinguishes Simulation evidence from physical-plant proof. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 
 ## 16. Learning experience and documentation acceptance
 
@@ -3645,7 +3658,7 @@ Specification authority: §3.15, Lessons 76–84.
   one independent control-engineer review of each technical module. Record
   concrete findings and corrections; author self-review is not independent
   acceptance.
-- [x] `CELP-103` Verify public navigation exposes the ordered learning path,
+- [ ] `CELP-103` Verify public navigation exposes the ordered learning path,
   prerequisites, equipment and outcomes and does not advertise unimplemented
   lessons as runnable.
   - Completed evidence for CELP-095 through CELP-103 (2026-08-31): the
@@ -3655,7 +3668,7 @@ Specification authority: §3.15, Lessons 76–84.
     retained in the foundation evidence, and Harvey's independent engineering
     acceptance is retained for every technical module and capstone. See
     `docs/internal/testing/evidence/vscode-control-curriculum/
-    2026-08-31-final-audit/acceptance.md`.
+    2026-08-31-final-audit/acceptance.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
 
 ## 17. Milestone and final gates
 
@@ -3690,7 +3703,7 @@ Specification authority: §3.15, Lessons 76–84.
   consistent with the lesson theory and actual behavior, and sufficient for a
   learner to connect each important implementation decision to the engineering
   reason without turning the source into line-by-line prose.
-- [x] `CELP-114` Audit all 84 lesson READMEs against Specification 38
+- [ ] `CELP-114` Audit all 84 lesson READMEs against Specification 38
   §§2.1–2.1.3. Confirm each README follows the reusable practical-lesson
   conformance pattern from the P-control reference lesson: one objective, a
   reason inherited from prior evidence, physical meaning before notation, an
@@ -3738,4 +3751,113 @@ Specification authority: §3.15, Lessons 76–84.
     84 real gallery/copy/Markdown-preview journeys passed. Current commands,
     logs, JSON records, and representative three-theme Lesson 8 captures are in
     `docs/internal/testing/evidence/vscode-control-curriculum/
-    2026-09-01-course-wide-markdown-review/README.md`.
+    2026-09-01-course-wide-markdown-review/README.md`. **Evidence missing (2026-09-03): the cited directory does not exist in this repository.**
+
+## 18. Fix pass 2026-09-03
+
+This section records a later fix pass, verified directly against this
+worktree on 2026-09-03 (HEAD `96038721e`), that repairs specific findings
+from `docs/internal/reviews/control-course-review-2026-09-03.md`. It does not
+re-certify any lesson row above. Where a row's only rendered-evidence
+citation pointed at the missing `vscode-control-curriculum` directory, that
+row now carries its own `Evidence missing` note added in this same pass and
+its checkbox is unchecked; that is tracked on each such row, not repeated
+here.
+
+- [x] `FIXPASS-01` Workflow authority contract, fixing W-01 and W-02.
+  `editors/vscode/src/test/suite/control-curriculum-authority.test.ts` reads
+  all 84 `control-loop.json` files and asserts each one decodes and validates
+  as `accepted` (W-01: every lesson's binding was previously rejected), and
+  that each declares `experiment.execution === "project-scripted"`,
+  `experiment.kind === "observation"`, `experiment.amplitude === 0`, and a
+  `P1.ExperimentEnabled` activation binding (W-02: 31 lessons previously had
+  no activation write).
+  - Command and result, run in this worktree on 2026-09-03: `cd
+    editors/vscode && npx mocha --ui tdd
+    out/test/suite/control-curriculum-authority.test.js` → `1 passing`.
+- [x] `FIXPASS-02` Preview-safe mathematics lint, fixing course-wide finding 3.
+  `editors/vscode/src/test/suite/control-curriculum-readmes.test.ts`, test
+  "all lesson READMEs use preview-safe left-aligned mathematics", scans all
+  84 READMEs for the `\(...\)` / `\[...\]` delimiters that VS Code's
+  markdown-math bundle does not tokenise.
+  - Command and result, run in this worktree on 2026-09-03: `cd
+    editors/vscode && npx mocha --ui tdd
+    out/test/suite/control-curriculum-readmes.test.js --grep "preview-safe"`
+    → `1 passing`.
+- [x] `FIXPASS-03` Control Studio findings fixed and their unit tests.
+  `control-studio-stage-availability.test.ts`, `control-studio-presentation.test.ts`
+  and `control-studio-chart-visuals.test.ts` cover, by name in the test
+  titles: W-09 (the value-strip tile is named from the loop's own bound
+  symbol instead of a hard-coded "Controller output"), W-14 (Automatic Tune
+  renders secondary-styled and demoted, not the primary action, for a
+  project-scripted loop), W-15 (every runtime stop/restoration reason code
+  and failure state maps to one sentence naming the recovery action, not a
+  raw enum), W-16 (the value strip badges and dims while showing a saved
+  result), V-01 (the axis formatter no longer reads the ECharts tick index as
+  fraction digits), V-02/V-07 (one unit-display helper), V-05 (Bode/Nyquist
+  draw the 0 dB / −180° references and GM/PM markers from the resolved
+  crossovers), V-08 (the response plot keeps headroom and draws SP dashed
+  over PV), V-10 (every empty or failed plot state carries one sentence and
+  keeps its axes), and V-17 (the uncertainty band is labelled, never
+  colour-only). W-12 (Abort test must stay visible while a test runs) has no
+  unit test of its own; its fix is the sticky rule at
+  `editors/vscode/src/controlStudio/panelStyles.ts:56`
+  (`.workspace-actions:has([data-test-abort]:not(:disabled))
+  {position:sticky;bottom:0;...}`, with a comment there naming "finding
+  W-12"), verified only by the rendered capture in `FIXPASS-04`.
+  - Command and result, run in this worktree on 2026-09-03: `cd
+    editors/vscode && npx mocha --ui tdd
+    out/test/suite/control-studio-stage-availability.test.js
+    out/test/suite/control-studio-presentation.test.js
+    out/test/suite/control-studio-chart-visuals.test.js` → `41 passing`.
+- [x] `FIXPASS-04` Rendered capture, fixing W-13's absent runner and giving
+  W-01, W-02, W-09, W-12 and W-15 a rendered instance. `xvfb-run -a -s
+  "-screen 0 1920x1080x24" node
+  editors/vscode/scripts/control-studio-evidence/run.js` drove Lesson 8
+  (`08-water-heater-saturation`) through Monitor to Test to completion plus
+  the wide, split, narrow, 200 percent and high-contrast layout matrix, on
+  the build machine (`trust-builder`) at source commit `1c128530f`, retained
+  under
+  `docs/internal/testing/evidence/vscode-control-studio/2026-09-03-fix-pass/`
+  (11 screenshots under `screenshots-raw/` and a machine-checkable
+  `steps.json`).
+  - Red evidence: that directory's `README.md` states the value strip's
+    third tile read `MV · Controller output` in the first capture of this
+    pass. Green evidence: the retained capture, and `steps.json` itself,
+    read `MV · Applied heater power`, taken from the loop contract's own
+    bound symbol.
+  - Not captured: the other 83 lessons' rendered journeys — they share the
+    same authority contract (`FIXPASS-01`) but are not individually rendered.
+    The Identify, Tune and Validate plots (including V-03's blank Nichols tab
+    and V-05's live margin markers) are not exercised because those stages
+    are outside a project-scripted lesson; they are covered by the unit
+    tests in `FIXPASS-03` only, not by a render.
+- [x] `FIXPASS-05` Generated per-lesson board and its generator.
+  `python3 scripts/build_control_curriculum_checklist.py`, run from the
+  repository root, regenerates
+  `docs/internal/testing/checklists/control-engineering-curriculum-implementation-checklist.md`
+  by computing Authority/Presentation/Evidence per lesson directly from
+  `control-loop.json`, `lesson.json`, `src/*.st`, `README.md` and `figures/`
+  at generation time, instead of asserting a state. The retained board was
+  generated at commit `837fb7bb7`; this worktree's HEAD (`96038721e`) is
+  three commits ahead of that, including one that folds Lesson 11's retired
+  Validation sub-heading into its evidence flow, so some of the open cells
+  recorded in `FIXPASS-06` may already be closed. The generator was not
+  re-run in this pass to confirm that; `FIXPASS-06` states the board's own
+  837fb7bb7 finding, not a current claim.
+- [ ] `FIXPASS-06` Open items remaining, taken from the generated board's own
+  "Completion boundary" section as generated at commit `837fb7bb7`, not
+  invented here: 18 of 84 lessons have at least one open computed column, and
+  a row there is closed only when Authority, Presentation and Evidence all
+  read `pass` and the lesson's native proof command has run on the build
+  machine. Presentation reads `OPEN` ("a retired workflow sub-heading is
+  present") for Lessons 11, 45, 46, 47, 48, 49, 50, 51, 52, 71, 72, 79, 80 and
+  84. Evidence reads `OPEN` ("figures cannot be regenerated") for Lessons 25,
+  45, 46, 47, 48, 49, 50, 51, 52, 64, 71, 72, 78, 79, 80 and 84. Presentation
+  also reads `OPEN` ("Test stage does not name Abort test") for Lesson 74.
+  Not captured in this pass: the generated board's own frozen final gates
+  (`npm run build:examples`; `npx tsc -p ./ && npx mocha --ui tdd
+  out/test/suite/control-*.test.js`; `cargo test -p trust-runtime --test
+  control_curriculum_workflow_contract`; `just test-all`) were not run here
+  beyond the individual focused commands in `FIXPASS-01` through
+  `FIXPASS-04`.
