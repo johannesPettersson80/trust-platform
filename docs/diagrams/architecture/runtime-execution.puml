@@ -892,6 +892,7 @@ package "I/O Interface" as ioPkg #LightGray {
     component "io/modbus/worker.rs\n(latest input snapshot +\nlevel output handoff)" as modbusWorker
     component "io/mqtt/worker.rs\n(session worker + freshness +\nlevel output handoff)" as mqttWorker
     component "io/mqtt_tag_mapping.rs\n(resolve ProgramInstance.Variable\n+ lower to typed process-image points)" as mqttTagMapping
+    component "trust-debug DebugSession\n(project I/O assembly)" as debugSession
     component "io/ethercat/driver.rs\n(hardware construction failure ->\nterminal until driver rebuild)" as ethercatDriver
 
     ioSubsystem --> ioIface
@@ -899,6 +900,7 @@ package "I/O Interface" as ioPkg #LightGray {
     ioDriver ..> modbusWorker : Modbus scan calls\nbounded handoff only
     ioDriver ..> mqttWorker : MQTT scan calls\nbounded handoff only
     runtime ..> mqttTagMapping : apply bytecode first, then\nresolve all mappings atomically
+    debugSession ..> mqttTagMapping : compile program first, then\nresolve all mappings atomically
     mqttTagMapping --> ioIface : reuse or allocate typed\n%I/%Q bindings + enum codecs\nbefore worker start
     mqttTagMapping ..> mqttWorker : validated input/output\npoint topics
     ioDriver ..> ethercatDriver : EtherCAT scan calls\nfail closed on unavailable hardware

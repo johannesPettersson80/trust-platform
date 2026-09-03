@@ -102,18 +102,31 @@ fn apply_project_io_config(
     runtime.set_io_safe_state(io.safe_state);
     let drivers = io.drivers;
     let registry = IoDriverRegistry::default_registry();
+    let mut resolved_drivers = Vec::with_capacity(drivers.len());
     for driver in &drivers {
+        let mut resolved_driver = driver.clone();
         if !driver.enabled {
+            resolved_drivers.push(resolved_driver);
             continue;
         }
+        if driver.name.eq_ignore_ascii_case("mqtt")
+            || driver.name.eq_ignore_ascii_case("mqtt-tcp")
+        {
+            resolved_driver.params = trust_runtime::io::resolve_mqtt_tag_mappings(
+                runtime,
+                &resolved_driver.params,
+            )
+            .map_err(|err| CompileError::new(format!("failed to load io.toml: {err}")))?;
+        }
         if let Some(spec) = registry
-            .build(driver.name.as_str(), &driver.params)
+            .build(resolved_driver.name.as_str(), &resolved_driver.params)
             .map_err(|err| CompileError::new(format!("failed to load io.toml: {err}")))?
         {
             runtime.add_io_driver(spec.name, spec.driver);
         }
+        resolved_drivers.push(resolved_driver);
     }
-    trust_runtime::io::annotate_io_binding_sources(runtime.io_mut(), &drivers);
+    trust_runtime::io::annotate_io_binding_sources(runtime.io_mut(), &resolved_drivers);
     Ok(())
 }
 

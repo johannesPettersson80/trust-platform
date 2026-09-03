@@ -48,7 +48,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.68`
+Target release: `v0.24.69`
 
 ### Added
 
@@ -72,6 +72,9 @@ Target release: `v0.24.68`
 
 ### Fixed
 
+- Resolve symbolic MQTT tag mappings when a project is launched in the VS Code
+  simulator, so mapped outputs connect and publish instead of leaving the
+  debugger with an empty process image.
 - Preserve typed database transport failures through OpenOT schema
   initialization, commit, and maintenance so bounded reconnect still applies,
   while deterministic projection and storage failures fault immediately
