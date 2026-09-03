@@ -208,6 +208,8 @@ ScheduledParameters := GainScheduler.Update(
 
 IF ScheduledControlEnabled AND ScheduleValid THEN
     ActiveParameters := ScheduledParameters.Parameters;
+ELSE
+    ActiveParameters := FixedParameters;
 END_IF;
 PIDController.Configure(Parameters := ActiveParameters);
 
@@ -252,33 +254,30 @@ disabled generic panels are not evidence.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 Hold nonlinear plant equations, initial state, setpoint sequence, sample time,
 noise seed, pump constraints, metric windows, and validity rules equal. Change
 only fixed high-level integral gain versus the accepted interpolated record.
+Regional integrated absolute level error and maximum level departure were
+defined above, before Prediction used them.
 
-Regional integrated absolute level error is the sum of absolute setpoint-minus-
-measurement error multiplied by the 0.1-second sample interval, in metre-
-seconds. Worst regional IAE is the largest of the four eligible regional values.
-Maximum level departure is the largest absolute setpoint-minus-measurement
-difference, in metres. Applied pump-flow total variation is the sum of
+Applied pump-flow total variation is the sum of
 consecutive absolute applied-flow changes, in cubic metres per second.
-
 Schedule parameter jump is the largest consecutive change in active $K_i$.
 Authority return bump is the first Automatic requested flow minus the last
 Manual or Safe applied flow, in cubic metres per second. Settling time and
 final-window error are reported only when the declared level band, pump-span
 band, and dwell all pass; otherwise the result is `Not settled`.
 
-### Validation
-
 First classify every interval as eligible, tracking, saturated, unqualified,
 invalid, aborted, or not settled. Only eligible regional results may be ranked.
 
 The executable candidate shall satisfy all of these requirements:
 
-- scheduled worst regional IAE is at least 5 percent lower than fixed PI;
+- scheduled worst regional IAE is at least 5 percent lower than fixed PI —
+  lesson.json encodes this as scheduled worst regional IAE below `9.9336`
+  metre-seconds, which is 95 percent of the fixed run's own measured worst
+  regional IAE of `10.4565` metre-seconds in this deterministic record, so the
+  absolute gate and the relative rule are the same requirement;
 - scheduled maximum level departure does not exceed the fixed result;
 - level remains within 0.20 through 0.90 metres and applied pump flow remains
   within 0 through 0.060 cubic metres per second;

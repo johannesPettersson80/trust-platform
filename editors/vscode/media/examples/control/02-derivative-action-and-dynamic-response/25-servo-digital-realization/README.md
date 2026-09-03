@@ -44,8 +44,8 @@ in hertz (Hz):
 
 $f_s=\frac{1}{\Delta t},$
 
-in code terms `f_s = 1 / dt`. This is a unit conversion: one update occupies
-$\Delta t$ seconds, so one second contains $1/\Delta t$ updates.
+`f_s = 1 / dt`: one update occupies $\Delta t$ seconds, so one second
+contains $1/\Delta t$ updates.
 
 The **Nyquist frequency ($f_{N}$)** is half the sampling frequency. Frequencies
 above it cannot be distinguished uniquely:

@@ -1,38 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" viewBox="0 0 900 650">
 <title id="title">Robust design improves the worst declared airframe case</title>
-<desc id="desc">Index 0 is the nominal controller and index 1 is the qualified robust candidate.</desc>
+<desc id="desc">Nominal P and the selected filtered-PD candidate compared on their worst case across all 27 structured plants; case labels match the shipped trace and summary CSVs.</desc>
 <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#243044"/></marker></defs>
-<rect width="900" height="650" fill="#f7f9fc"/>
+<rect width="900" height="650" fill="#f7f9fc" />
 <style>text{font-family:system-ui,-apple-system,sans-serif;fill:#243044} .axis{stroke:#526078;stroke-width:1} .grid{stroke:#d8e0eb;stroke-width:1}</style>
 <text x="55" y="42" font-size="24" font-weight="700">Robust design improves the worst declared airframe case</text>
-<text x="55" y="70" font-size="14">Index 0 is the nominal controller and index 1 is the qualified robust candidate.</text>
-<line x1="55" y1="108" x2="83" y2="108" stroke="#2563eb" stroke-width="3"/><text x="89" y="113" font-size="12">Worst IAE</text>
-<text x="75" y="145" font-size="16" font-weight="700">Worst integrated bending acceleration (g s)</text>
-<line class="grid" x1="75" y1="157.00" x2="855" y2="157.00"/><text x="67" y="161.00" text-anchor="end" font-size="11">11.08</text>
-<line class="grid" x1="75" y1="197.00" x2="855" y2="197.00"/><text x="67" y="201.00" text-anchor="end" font-size="11">8.31</text>
-<line class="grid" x1="75" y1="237.00" x2="855" y2="237.00"/><text x="67" y="241.00" text-anchor="end" font-size="11">5.54</text>
-<line class="grid" x1="75" y1="277.00" x2="855" y2="277.00"/><text x="67" y="281.00" text-anchor="end" font-size="11">2.77</text>
-<line class="grid" x1="75" y1="317.00" x2="855" y2="317.00"/><text x="67" y="321.00" text-anchor="end" font-size="11">0.00</text>
-<line class="grid" x1="75.00" y1="157" x2="75.00" y2="317"/><text x="75.00" y="335" text-anchor="middle" font-size="11">-0.05</text>
-<line class="grid" x1="270.00" y1="157" x2="270.00" y2="317"/><text x="270.00" y="335" text-anchor="middle" font-size="11">0.23</text>
-<line class="grid" x1="465.00" y1="157" x2="465.00" y2="317"/><text x="465.00" y="335" text-anchor="middle" font-size="11">0.50</text>
-<line class="grid" x1="660.00" y1="157" x2="660.00" y2="317"/><text x="660.00" y="335" text-anchor="middle" font-size="11">0.78</text>
-<line class="grid" x1="855.00" y1="157" x2="855.00" y2="317"/><text x="855.00" y="335" text-anchor="middle" font-size="11">1.05</text>
-<circle cx="110.45" cy="171.55" r="4" fill="#2563eb"/>
-<circle cx="819.55" cy="315.76" r="4" fill="#2563eb"/>
-<rect class="axis" x="75" y="157" width="780" height="160" fill="none"/><text x="465" y="353" text-anchor="middle" font-size="12">design index</text>
-<text x="75" y="395" font-size="16" font-weight="700">Worst peak bending acceleration (g)</text>
-<line class="grid" x1="75" y1="407.00" x2="855" y2="407.00"/><text x="67" y="411.00" text-anchor="end" font-size="11">1.85</text>
-<line class="grid" x1="75" y1="447.00" x2="855" y2="447.00"/><text x="67" y="451.00" text-anchor="end" font-size="11">1.38</text>
-<line class="grid" x1="75" y1="487.00" x2="855" y2="487.00"/><text x="67" y="491.00" text-anchor="end" font-size="11">0.92</text>
-<line class="grid" x1="75" y1="527.00" x2="855" y2="527.00"/><text x="67" y="531.00" text-anchor="end" font-size="11">0.46</text>
-<line class="grid" x1="75" y1="567.00" x2="855" y2="567.00"/><text x="67" y="571.00" text-anchor="end" font-size="11">0.00</text>
-<line class="grid" x1="75.00" y1="407" x2="75.00" y2="567"/><text x="75.00" y="585" text-anchor="middle" font-size="11">-0.05</text>
-<line class="grid" x1="270.00" y1="407" x2="270.00" y2="567"/><text x="270.00" y="585" text-anchor="middle" font-size="11">0.23</text>
-<line class="grid" x1="465.00" y1="407" x2="465.00" y2="567"/><text x="465.00" y="585" text-anchor="middle" font-size="11">0.50</text>
-<line class="grid" x1="660.00" y1="407" x2="660.00" y2="567"/><text x="660.00" y="585" text-anchor="middle" font-size="11">0.78</text>
-<line class="grid" x1="855.00" y1="407" x2="855.00" y2="567"/><text x="855.00" y="585" text-anchor="middle" font-size="11">1.05</text>
-<circle cx="110.45" cy="421.55" r="4" fill="#dc2626"/>
-<circle cx="819.55" cy="560.16" r="4" fill="#dc2626"/>
-<rect class="axis" x="75" y="407" width="780" height="160" fill="none"/><text x="465" y="603" text-anchor="middle" font-size="12">design index</text>
+<text x="55" y="70" font-size="14">Nominal P and the selected filtered-PD candidate on their worst case across 27 structured plants.</text>
+<line x1="55" y1="108" x2="83" y2="108" stroke="#2563eb" stroke-width="3"/><text x="89" y="113" font-size="12">Worst IAE</text><line x1="205" y1="108" x2="233" y2="108" stroke="#dc2626" stroke-width="3"/><text x="239" y="113" font-size="12">Worst peak</text>
+<text x="75" y="145" font-size="16" font-weight="700">Worst integrated bending acceleration (g s)</text><line class="grid" x1="75" y1="157.00" x2="855" y2="157.00" /><text x="67" y="161.00" text-anchor="end" font-size="11">11.08</text><line class="grid" x1="75" y1="197.00" x2="855" y2="197.00" /><text x="67" y="201.00" text-anchor="end" font-size="11">8.31</text><line class="grid" x1="75" y1="237.00" x2="855" y2="237.00" /><text x="67" y="241.00" text-anchor="end" font-size="11">5.54</text><line class="grid" x1="75" y1="277.00" x2="855" y2="277.00" /><text x="67" y="281.00" text-anchor="end" font-size="11">2.77</text><line class="grid" x1="75" y1="317.00" x2="855" y2="317.00" /><text x="67" y="321.00" text-anchor="end" font-size="11">0.00</text><line class="grid" x1="75.00" y1="157" x2="75.00" y2="317" /><text x="75.00" y="335" text-anchor="middle" font-size="11">Nominal P</text><line class="grid" x1="855.00" y1="157" x2="855.00" y2="317" /><text x="855.00" y="335" text-anchor="middle" font-size="11">Selected filtered PD</text><rect class="axis" x="75" y="157" width="780" height="160" fill="none" /><circle cx="75.00" cy="171.55" r="4" fill="#2563eb"/><circle cx="855.00" cy="315.76" r="4" fill="#2563eb"/><text x="75" y="395" font-size="16" font-weight="700">Worst peak bending acceleration (g)</text><line class="grid" x1="75" y1="407.00" x2="855" y2="407.00" /><text x="67" y="411.00" text-anchor="end" font-size="11">1.85</text><line class="grid" x1="75" y1="447.00" x2="855" y2="447.00" /><text x="67" y="451.00" text-anchor="end" font-size="11">1.38</text><line class="grid" x1="75" y1="487.00" x2="855" y2="487.00" /><text x="67" y="491.00" text-anchor="end" font-size="11">0.92</text><line class="grid" x1="75" y1="527.00" x2="855" y2="527.00" /><text x="67" y="531.00" text-anchor="end" font-size="11">0.46</text><line class="grid" x1="75" y1="567.00" x2="855" y2="567.00" /><text x="67" y="571.00" text-anchor="end" font-size="11">0.00</text><line class="grid" x1="75.00" y1="407" x2="75.00" y2="567" /><text x="75.00" y="585" text-anchor="middle" font-size="11">Nominal P</text><line class="grid" x1="855.00" y1="407" x2="855.00" y2="567" /><text x="855.00" y="585" text-anchor="middle" font-size="11">Selected filtered PD</text><rect class="axis" x="75" y="407" width="780" height="160" fill="none" /><circle cx="75.00" cy="421.55" r="4" fill="#dc2626"/><circle cx="855.00" cy="560.16" r="4" fill="#dc2626"/>
 </svg>

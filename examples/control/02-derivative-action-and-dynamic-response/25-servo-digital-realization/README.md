@@ -233,9 +233,9 @@ A case **settles** only if PV stays within 0.020 rad of SP and final 2 s
 spans stay within 0.010 rad PV and 0.500 N m torque; otherwise it is **not
 settled**, and a growing rather than bounded response is **unstable**.
 
-Evidence measured a 23.69 N m torque-total-variation gap between the forward-
-and backward-Euler 20 ms candidates, a 0.0020 rad 2 Hz alias at 100 ms, and
-first torque at 0.010 s or 0.020 s with delay.
+Evidence measured a 23.69 N m TV gap between forward- and backward-Euler at
+20 ms, a 0.0020 rad 2 Hz alias at 100 ms, and delayed first torque at
+0.020 s versus 0.010 s undelayed.
 
 ![Digital choices change the implemented controller](figures/digital-realization.svg)
 
@@ -278,12 +278,10 @@ Lower movement at 100 ms is not automatically better: the command is held
 longer and 8 Hz interference appears as 2 Hz. Judge timing, tracking, alias,
 and delay together.
 
-Torque shall change only on update pulses, held between them at the
-selected 10/20/100 ms spacing; PV shall remain on the 0.001 rad grid; the
-100 ms spectrum's dominant alias shall fall between 1.9 and 2.1 Hz with at
-least 0.001 rad amplitude; the delayed case shall shift first torque by one
-update. State, PV, velocity, and torque must remain finite, torque within
-±10 N m.
+Torque shall change only on update pulses at the selected 10/20/100 ms
+spacing; PV shall stay on the 0.001 rad grid; the 100 ms alias shall fall
+between 1.9 and 2.1 Hz at ≥0.001 rad amplitude; the delayed case shall shift
+first torque by one update; all signals stay finite, torque within ±10 N m.
 
 ## Conclusion
 
@@ -295,10 +293,9 @@ are controller behavior.
 
 ## Reason for the next lesson
 
-Choosing method, interval, and delay used timing, noise, and closed-loop
-evidence available now; later lessons add frequency-domain tools (bandwidth,
-phase margin) that refine this choice, and any timing, filtering, delay, or
-hardware change requires requalifying it.
+This choice used timing, noise, and closed-loop evidence available now;
+later lessons add frequency-domain tools that refine it, and any timing,
+filtering, delay, or hardware change requires requalifying it.
 
 Lesson 26 builds on this result by comparing positional, incremental, and
 combined production PID forms without pretending that their retained states

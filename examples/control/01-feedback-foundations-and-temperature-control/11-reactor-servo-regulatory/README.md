@@ -310,7 +310,8 @@ servo/regulatory requirements declared in **Prediction**. The native evidence
 owns both fresh runs; the visible Control Studio run does not turn its servo
 trace into newly executed regulatory evidence.
 
-### Validation
+The two objectives are judged separately against the requirements declared in
+**Prediction**, because one unchanged tuning may satisfy one and fail the other.
 
 | Objective | Status | Requirement-bearing result | Decision |
 | --- | --- | --- | --- |

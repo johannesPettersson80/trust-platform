@@ -82,7 +82,7 @@
     "restorationValue": 0
   },
   "acceptance": [
-    { "metric": "scheduled_worst_regional_iae", "signal": "Scheduled-PI measured level", "window": "worst of four eligible transitions from 30 through 420 seconds", "comparator": "<", "limit": 11.0, "unit": "m*s", "tolerance": 0.0001, "evidenceClass": "simulation" },
+    { "metric": "scheduled_worst_regional_iae", "signal": "Scheduled-PI measured level", "window": "worst of four eligible transitions from 30 through 420 seconds", "comparator": "<", "limit": 9.933637, "unit": "m*s", "tolerance": 0.0001, "evidenceClass": "simulation" },
     { "metric": "scheduled_maximum_level_departure", "signal": "Scheduled-PI measured level", "window": "complete eligible nominal sequence", "comparator": "<=", "limit": 0.3, "unit": "m", "tolerance": 0.001, "evidenceClass": "simulation" },
     { "metric": "maximum_applied_pump_flow", "signal": "Scheduled-PI applied pump flow", "window": "complete run", "comparator": "<=", "limit": 0.06, "unit": "m3/s", "tolerance": 0, "evidenceClass": "simulation" },
     { "metric": "active_revision_changes", "signal": "Controller revision", "window": "complete campaign", "comparator": "==", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" }
