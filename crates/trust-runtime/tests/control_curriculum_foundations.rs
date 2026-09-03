@@ -455,14 +455,6 @@ fn control_curriculum_water_heater_bias_removes_nominal_offset_but_not_load_offs
 fn control_curriculum_integral_only_removes_offset_but_responds_slower_than_biased_p() {
     let biased_p = run_water_heater_with_bias();
     let integral_only = run_water_heater_integral_only();
-    let first_reach = |trace: &[(f64, f64)]| {
-        trace[..600]
-            .iter()
-            .position(|(pv, _)| *pv >= 34.5)
-            .expect("controller must reach 34.5 degC before the load event")
-    };
-    let biased_p_reach = first_reach(&biased_p);
-    let integral_reach = first_reach(&integral_only);
     let final_error = (35.0 - integral_only[1_199].0).abs();
 
     assert!(
@@ -471,9 +463,37 @@ fn control_curriculum_integral_only_removes_offset_but_responds_slower_than_bias
             .all(|pair| pair[1].1 >= pair[0].1 - 1.0e-12),
         "positive persistent error must initially accumulate monotonically into integral MV"
     );
+
+    // Both run helpers preload the same measured 75% operating-point bias or
+    // integral state (see run_water_heater_with_bias and
+    // run_water_heater_integral_only), so both climb to setpoint at nearly
+    // the same rate before the 60 s load event: the shipped parameters give
+    // only a ~3-scan gap there, not the 20 this test used to require. The
+    // pre-load climb cannot distinguish the two controllers, so measure the
+    // post-load recovery instead. The load (plant_events at_ms=60000 in both
+    // simulation.toml files) first reaches the plant at trace index 600
+    // (t=60.1 s). For each controller, find the first post-load scan from
+    // which the absolute error stays within 0.1 degC of that controller's
+    // own final-window (110.1-120.0 s) steady offset for the rest of the run.
+    let mean_abs_error = |samples: &[(f64, f64)]| {
+        samples.iter().map(|(pv, _)| (35.0 - pv).abs()).sum::<f64>() / samples.len() as f64
+    };
+    let settle_scan = |trace: &[(f64, f64)]| {
+        let steady_offset = mean_abs_error(&trace[1_100..1_200]);
+        (600..1_200)
+            .find(|&i| {
+                trace[i..1_200]
+                    .iter()
+                    .all(|(pv, _)| ((35.0 - pv).abs() - steady_offset).abs() <= 0.1)
+            })
+            .expect("controller must settle within 0.1 degC of its own steady offset before the trace ends")
+    };
+    let biased_p_settle = settle_scan(&biased_p);
+    let integral_settle = settle_scan(&integral_only);
+
     assert!(
-        integral_reach >= biased_p_reach + 20,
-        "integral-only control must visibly respond slower than biased P; I={integral_reach}, P={biased_p_reach}"
+        integral_settle >= biased_p_settle + 200,
+        "integral-only control must take materially longer to settle near its own steady offset after the load than biased P; I={integral_settle}, P={biased_p_settle}"
     );
     assert!(
         final_error <= 0.2,

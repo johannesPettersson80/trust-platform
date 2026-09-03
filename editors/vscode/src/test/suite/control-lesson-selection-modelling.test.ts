@@ -1071,7 +1071,8 @@ suite("Controller selection and modelling curriculum lessons", () => {
       "control_curriculum_routh_range_predicts_crane_stable_marginal_and_unstable_runs");
 
     for (const requirement of [
-      /one clear objective.*stability interval.*stable.*marginal.*unstable/i,
+      // L45-1: header restores "Lesson objective" (Lesson 8's label) instead of "One clear objective".
+      /lesson objective.*stability interval.*stable.*marginal.*unstable/i,
       /overhead.*crane.*trolley.*suspended load.*motor force/i,
       /characteristic equation.*roots.*closed-loop poles.*natural response/i,
       /complex frequency variable \(s\).*left half-plane.*imaginary axis.*right half-plane/i,
@@ -1125,7 +1126,8 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_root_locus_lead_design_meets_servo_damping_and_time_requirements");
     for (const requirement of [
-      /one clear objective.*gain alone.*lead compensator/i,
+      // L46-1: header restores "Lesson objective" (Lesson 8's label) instead of "One clear objective".
+      /lesson objective.*gain alone.*lead compensator/i,
       /positioning.*carriage.*millimetres.*motor-current.*percent/i,
       /5-percent overshoot.*2-percent settling.*2\.0 seconds.*zero final.*no current saturation/i,
       /open-loop pole.*open-loop zero.*root-locus branch.*positive scalar gain/i,
@@ -1180,7 +1182,8 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_bode_measurement_exposes_flexible_drive_resonance_and_margins");
     for (const requirement of [
-      /one clear objective.*frequency response.*resonance.*margins/i,
+      // L47-1: header restores "Lesson objective" (Lesson 8's label) instead of "One clear objective".
+      /lesson objective.*frequency response.*resonance.*margins/i,
       /industrial motor.*load.*flexible shaft/i,
       /torque.*percent.*load-side shaft speed.*revolutions per minute/i,
       /sinusoidal steady state.*angular frequency.*radians per second/i,
@@ -1242,7 +1245,8 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_nyquist_count_predicts_delayed_oven_stability");
     for (const requirement of [
-      /one clear objective.*Nyquist.*stable.*unstable/i,
+      // L48-1: header restores "Lesson objective" (Lesson 8's label) instead of "One clear objective".
+      /lesson objective.*Nyquist.*stable.*unstable/i,
       /continuous conveyor oven.*heater.*downstream infrared sensor/i,
       /heater command.*percent.*product temperature.*degrees Celsius/i,
       /complex number.*real component.*imaginary component/i,

@@ -633,7 +633,9 @@ suite("Industrial control-structure curriculum lessons", () => {
     assertRetainedLessonEvidence(lessonRoot, source, "distillation-decoupling-evidence");
     for (const heading of canonicalLessonReadmeHeadings) assert.match(source, new RegExp("^##(?:#)? " + heading + "$", "m"));
     for (const requirement of [
-      /same local binary distillation column.*Lesson 61/i,
+      // The opening now names the descriptor's own equipment, which the packaging
+      // audit requires verbatim, while still pointing back at Lesson 61's column.
+      /same continuous binary distillation column.*Lesson 61/i,
       /overhead purity setpoint \(SP1\).*process value \(PV1\)/i,
       /bottoms purity setpoint \(SP2\).*process value \(PV2\)/i,
       /virtual loop corrections \(v1.*v2\).*requested.*reflux.*reboiler/i,
