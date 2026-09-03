@@ -419,6 +419,8 @@ params = { input_count = 1, output_count = 1, scan_period_ms = 10 }
         );
     }
 
+    include!("mqtt_mapping_tests.rs");
+
     #[test]
     fn session_reload_validates_project_ads_toml_bindings() {
         let project_root = temp_project_root("reload_ads");

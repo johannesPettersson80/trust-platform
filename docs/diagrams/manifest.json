@@ -8,7 +8,7 @@
   "docs/diagrams/architecture/runtime-ads-server.puml": "03be05317624422ba85b39920525baf7fcddc05b4c0a7fb660f73207ae58ca1b",
   "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml": "3f897ba1ed51ce6eb4ded22482e03cf93d5796218c444d1ecb8ff070d98847d6",
   "docs/diagrams/architecture/runtime-cloud-planes.puml": "943b12abd97a3201616be6d17bed24195537f7d7ff86984dcf7e56f824434b8a",
-  "docs/diagrams/architecture/runtime-execution.puml": "5d035c36ef61b7ac6953a41196c44c4c70b223a4a5354184888155febd07f959",
+  "docs/diagrams/architecture/runtime-execution.puml": "d53782b8e310cb2900c5b33882fc19d768dc391f6801cab03a0682b8146e0b46",
   "docs/diagrams/architecture/runtime-interpreter-removal-map.puml": "a988ae27d45fa3c2ff95698f491ff2f692d166c7d1dd566007a307bb18ba1663",
   "docs/diagrams/architecture/system-architecture.puml": "12c050a3edb896555dd1facd39e646e31b901e1bd46bc85f4ca834486758bcda",
   "docs/diagrams/architecture/verification-mutation-execution.puml": "3d8d835891f95dce7a36281a3ba1ed7b1c05860d7bb22be44bdad46a80e89d12",

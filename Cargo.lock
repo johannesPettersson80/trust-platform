@@ -5650,7 +5650,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "serde",
  "serde_json",
@@ -5659,14 +5659,14 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
 name = "trust-debug"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "glob",
  "indexmap 2.14.0",
@@ -5681,7 +5681,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5700,7 +5700,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "boxcar",
  "insta",
@@ -5719,7 +5719,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -5732,7 +5732,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -5762,7 +5762,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plcopen"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -5774,7 +5774,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "ads",
  "anyhow",
@@ -5848,7 +5848,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "indexmap 2.14.0",
  "rustc-hash 2.1.2",
@@ -5860,7 +5860,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -5872,14 +5872,14 @@ dependencies = [
 
 [[package]]
 name = "trust-tcads-native"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "libloading",
 ]
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "rowan",
  "serde",
@@ -6176,7 +6176,7 @@ checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 
 [[package]]
 name = "verification-cases"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "serde",
  "serde_json",
@@ -6947,7 +6947,7 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "xtask"
-version = "0.24.68"
+version = "0.24.69"
 dependencies = [
  "anyhow",
  "proc-macro2",

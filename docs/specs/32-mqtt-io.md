@@ -122,6 +122,11 @@ is available and before constructing the protocol worker. A missing, ambiguous,
 non-scalar, or unsupported tag is a configuration error. Resolution is atomic:
 no subset may remain installed after one mapping fails.
 
+This ordering applies equally to a project launched by `trust-runtime` and to
+the local `trust-debug` simulator when it loads the project's `io.toml`.
+Neither launch path may construct an MQTT driver from unresolved symbolic
+mappings.
+
 Existing compatible direct `%I` or `%Q` bindings are reused. Otherwise the
 startup adapter allocates deterministic non-overlapping process-image storage
 after the declared image. The worker receives only typed point descriptions and
