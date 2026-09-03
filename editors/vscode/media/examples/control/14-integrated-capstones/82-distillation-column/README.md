@@ -303,24 +303,6 @@ sensitivity peak over 0.002 through 2 radians per second.
 
 A normal record passes only when combined final error is at most 0.10, single-axis cross peak is at most 0.20, input-limit time is at most 0.5 seconds, restoration error is at most 0.02, and sensitivity peak is at most 1.20. The simplest architecture wins. A more centralized candidate needs at least 20 percent improvement in eligible error or input travel, or it must turn a failed normal requirement into a pass without breaking another limit.
 
-Final-window combined absolute error is the mean of the two absolute setpoint-minus-process-value errors over the final 10 seconds, after both outputs qualify as settled. Its unit is composition percentage points and smaller is better.
-
-Unintended cross peak is the largest absolute movement of the product whose setpoint was unchanged during a single-axis test. Its unit is composition percentage points and smaller is better.
-
-Combined integral absolute error (combined IAE) is the 0.1-second time sum of
-both absolute errors over the event. Its unit is composition-percentage-point
-seconds. Applied-input total variation is the sum of the absolute changes
-between consecutive samples of both applied inputs. Its unit is valve
-percentage points.
-
-Also retain four-path fit and validation error, determinant, RGA with
-uncertainty, time at an input limit, minimum common scale, restoration error,
-matrix singular values, condition number, inverse amplification, requested-
-versus-applied mismatch, command-direction error, and the multivariable
-sensitivity peak over 0.002 through 2 radians per second.
-
-A normal record passes only when combined final error is at most 0.10, single-axis cross peak is at most 0.20, input-limit time is at most 0.5 seconds, restoration error is at most 0.02, and sensitivity peak is at most 1.20. The simplest architecture wins. A more centralized candidate needs at least 20 percent improvement in eligible error or input travel, or it must turn a failed normal requirement into a pass without breaking another limit.
-
 The executable comparison retained every record, including failures. The
 retained trace and summary CSVs carry three of the compared measures at full
 precision; the nominal simultaneous final error and the strong-interaction

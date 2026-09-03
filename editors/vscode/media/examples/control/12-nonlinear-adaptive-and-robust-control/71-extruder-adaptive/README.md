@@ -80,7 +80,7 @@ Information determinant ($D_{R}$) measures whether the two regressor directions 
 
 $D_{R}=R_{11} \cdot R_{22}-R_{12}^{2}$
 
-Persistent excitation is accepted only when the information determinant is at least 0.10. The common probe alternates by +10 and -10 percentage points every 2 seconds to create enough bounded variation to distinguish both parameters. The resulting pressure and actuator cost remain visible.
+Persistent excitation is accepted only when the information determinant is at least 0.10 — a **declared teaching floor**, small next to the determinant the designed probe reliably sustains once excitation has run for a while (23.543, measured at 60 seconds in the record below), so it demands only a modest fraction of the probe's own information rather than an unreachable one. The common probe alternates by +10 and -10 percentage points every 2 seconds to create enough bounded variation to distinguish both parameters. The resulting pressure and actuator cost remain visible.
 
 Persistent excitation is a data condition, not permission to keep experimenting. The bounded probe window must also be explicitly authorized before an estimate may update. Otherwise, a controller-gain change can move screw speed, the estimator can mistake that self-induced motion for fresh experimental evidence, and adaptation can sustain its own apparent excitation. Removing probe authorization therefore freezes estimation immediately even if old information keeps the determinant above 0.10 for a while.
 
@@ -180,7 +180,7 @@ Settling time is valid only after absolute pressure error remains at most 0.5 ba
 
 Applied-speed total variation is the sum of absolute changes between consecutive $u_{\mathrm{applied}}$ samples, in percentage points. It exposes the cost of probing and changing controller gains. Also retain peak requested and applied speed, saturation duration, projection count, informative-update count, frozen duration, covariance trace, $D_{R}$, architecture transitions, and exact parameter change during frozen windows. Every one of these measures, the projected-sample count during the grade transition, and the constant-grade determinant-decay and recovery times reported below are retained in [`figures/extruder-adaptive-evidence-summary.csv`](figures/extruder-adaptive-evidence-summary.csv).
 
-Estimate root-mean-square error compares $\hat{K}$ with effective gain reconstructed independently from Simulation configuration over qualified samples. This metric is available only to the native Simulation oracle. A real extruder does not reveal true effective gain, so a field workflow must use independent validation data instead.
+Estimate root-mean-square error compares $\hat{K}$ with effective gain reconstructed independently from Simulation configuration over qualified samples. The declared 0.08 bar/% acceptance bound is about 8 percent of the full 0.5-1.5 bar/% projected gain range — tight enough to demonstrate the estimator genuinely tracks the drifting gain rather than merely staying inside its projection bounds. This metric is available only to the native Simulation oracle. A real extruder does not reveal true effective gain, so a field workflow must use independent validation data instead.
 
 The shipped native test must match every RLS state and active PI gain against an independent oracle. Estimated gain must remain within 0.5 through 1.5 bar/% and estimated bias within -20 through +20 bar. Covariance and all commands must remain finite.
 

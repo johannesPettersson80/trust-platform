@@ -4,7 +4,7 @@ Course position: Lesson 78 of 84. Previous lesson: [Commission a recirculating w
 
 **Lesson objective:** Select and qualify the minimum P, PD, or PID structure that positions a flexible payload under load, noise, drive limits, model variation, and the implemented sample-and-delay behavior.
 
-**Evidence class:** Simulation evidence. Every executable result in this lesson is deterministic, not physical machine evidence.
+**Evidence class:** Simulation evidence. Every executable result in this lesson is deterministic Simulation evidence, not physical machine evidence.
 
 ## The problem
 
@@ -382,7 +382,7 @@ identification design, residual evidence, rejected P and PD structures,
 controller and filter values, root-locus and frequency plots, exact digital
 realization, equivalent time traces, torque and noise evidence, uncertainty and
 abnormal results, selected gains, unchanged revision, Simulation boundary,
-explicit application approval, rollback, and maintenance limits.
+explicit approval, rollback, and maintenance limits.
 
 Lesson 79 applies the same commissioning discipline to a jacketed chemical
 reactor. That reactor requires several feedback, feedforward, cascade,

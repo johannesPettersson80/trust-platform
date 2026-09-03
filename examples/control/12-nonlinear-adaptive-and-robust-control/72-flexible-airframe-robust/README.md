@@ -150,7 +150,7 @@ Every term in this difference is a product of positive physical parameters ($\ze
 
 ## Implementation
 
-The shipped program runs the nominal and robust controllers on separate equivalent plant copies:
+The shipped program runs the nominal and robust controllers on separate equivalent plant copies. This is the shipped code verbatim, with `...` marking the elided lines that only populate each controller's input structure (setpoint, process value, cycle time, and Auto/Manual mode) between the two blocks shown:
 
 ```st
 FilteredRobustBending := RobustMeasurementFilter.Update(
@@ -162,7 +162,7 @@ NominalRequested := LREAL#-40.0 * NominalBending;
 RobustRequested := LREAL#-10.0 * FilteredRobustBending
     - LREAL#3.0
         * (FilteredRobustBending - LastFilteredBending) / LREAL#0.02;
-
+...
 NominalApplied := NominalController.Update(Input := NominalInput);
 RobustApplied := RobustController.Update(Input := RobustInput);
 ```

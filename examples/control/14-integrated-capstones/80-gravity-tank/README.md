@@ -4,7 +4,7 @@ Course position: Lesson 80 of 84. Previous lesson: [Commission one jacketed-reac
 
 **Lesson objective:** Prove the limitation of one fixed PI, qualify three local tank models, and validate one tracked gain-scheduled PI across the complete operating envelope without applying revision 80.
 
-**Evidence class:** Simulation evidence. Every executable result in this lesson is deterministic, not physical tank or pump evidence.
+**Evidence class:** Simulation evidence. Every executable result in this lesson is deterministic Simulation evidence, not physical tank or pump evidence.
 
 ## The problem
 

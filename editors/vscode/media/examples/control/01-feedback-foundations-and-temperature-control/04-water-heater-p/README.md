@@ -18,12 +18,12 @@ temperature. A sensor measures that temperature, a modulating element supplies
 seconds into every run removes more heat.
 
 The simulation starts at 20 °C with the heater off. Temperature must stay
-within 0–80 °C; the safe state is manual mode at 0 percent heat. One perfectly
-mixed thermal body and that fixed load change replace the
-gradients, varying flow, sensor error, and changing losses of a physical
-heater: a configured simulation value, not a measurement, in which each
-percent of applied power steadily raises outlet temperature by 0.2 °C. Lesson
-8 later reuses this same declared gain to check reachability.
+within 0–80 °C; the safe state is manual at 0 percent heat. One perfectly
+mixed thermal body and that fixed load change replace the gradients, varying
+flow, sensor error, and changing losses of a physical heater. Its steady
+heater gain — each percent of applied power steadily raises outlet
+temperature by 0.2 °C — is a configured simulation value, not a measurement;
+Lesson 8 later reuses this same declared gain to check reachability.
 
 The previous cold-room controller cycled fully on and off; this heater can
 modulate continuously, so we test whether output proportional to temperature

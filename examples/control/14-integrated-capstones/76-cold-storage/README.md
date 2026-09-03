@@ -4,7 +4,7 @@ Course position: Lesson 76 of 84. Previous lesson: [Diagnose a steam-flow loop b
 
 **Lesson objective:** Select and validate the simplest discrete controller that maintains the qualified product-temperature band without short-cycling the compressor.
 
-**Evidence class:** Simulation evidence. Every result in this lesson is deterministic, not physical evidence, food-safety evidence, or compressor-endurance evidence.
+**Evidence class:** Simulation evidence. Every result in this lesson is deterministic Simulation evidence, not physical evidence, food-safety evidence, or compressor-endurance evidence.
 
 ## The problem
 

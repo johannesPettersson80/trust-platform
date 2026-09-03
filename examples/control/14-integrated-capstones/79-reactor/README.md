@@ -4,14 +4,14 @@ Course position: Lesson 79 of 84. Previous lesson: [Commission a flexible rotary
 
 **Lesson objective:** Commission one maintainable reactor-temperature architecture across inner-loop startup, production, measured feed load, protection takeover, degradation, manual operation, and controlled shutdown.
 
-**Evidence class:** Simulation evidence. All executable results in this lesson are deterministic, not physical reactor evidence.
+**Evidence class:** Simulation evidence. All executable results in this lesson are deterministic Simulation evidence, not physical reactor evidence.
 
 ## The problem
 
 The equipment is a jacketed continuously stirred chemical reactor. This is
-Lesson 79, the industrial-process capstone: you will commission this reactor
-from startup through production, a temperature constraint, and controlled
-shutdown, and the proposed architecture remains unapplied.
+Lesson 79, the industrial-process capstone: you will commission one jacketed
+stirred reactor from startup through production, a temperature constraint,
+and controlled shutdown, and the proposed architecture remains unapplied.
 
 Steam warms the jacket, cooling water cools it, and heat crosses the jacket
 wall into or out of the well-mixed reactor inventory. Incoming feed changes
