@@ -213,8 +213,12 @@ Three contracts are enforced mechanically:
    workflow sub-heading, and the Test stage names all six Control Studio
    controls and the experiment signal. Proof: the preview-safe mathematics test
    in `editors/vscode/src/test/suite/control-curriculum-readmes.test.ts`.
-3. **Reproducible evidence.** Every retained figure has a generator in the
-   lesson's `figures/` directory so a reported number can be rederived.
+3. **Reproducible evidence.** Every figure drawn from retained data can be
+   rebuilt from that data. Most evidence figures are written and byte-compared
+   by the runtime test that produced the run, refreshed with
+   `TRUST_UPDATE_CONTROL_CURRICULUM_ARTIFACTS=1`; the rest have a generator in
+   the lesson's `figures/` directory. A schematic of the equipment carries no
+   measurement and needs neither.
 
 ## Per-lesson implementation and proof board
 
