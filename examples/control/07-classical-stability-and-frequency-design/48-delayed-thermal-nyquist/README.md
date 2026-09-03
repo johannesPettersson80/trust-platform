@@ -1,18 +1,16 @@
-# Count delayed-loop stability with Nyquist
+# Count delayed-oven stability with Nyquist
 
-Course position: Lesson 48 of 84. Prerequisite:
-[`control-flexible-drive-bode`](../47-flexible-drive-bode/).
-Next lesson:
-[`control-motor-sensitivity-loop-shaping`](../49-motor-sensitivity-loop-shaping/).
+Course position: Lesson 48 of 84. Previous lesson: [Measure flexible-drive resonance with Bode analysis](../47-flexible-drive-bode/README.md).
+Next lesson: [Shape a precision motor-speed loop](../49-motor-sensitivity/README.md).
 
-**Equipment:** Continuous conveyor curing oven.
+**Lesson objective:** Use complete Nyquist contours to predict and verify stable and unstable delayed conveyor-oven loops.
 
-**One clear objective:** use complete Nyquist contours to predict and verify
-stable and unstable delayed conveyor-oven loops.
+**Evidence class:** Simulation evidence from the shipped lesson project, not evidence from the physical plant.
 
 ## The problem
 
-This lesson controls product temperature in a continuous conveyor oven. The
+The equipment is a continuous conveyor curing oven. This lesson controls product
+temperature in that continuous conveyor oven. The
 heater changes the temperature of material travelling toward a downstream
 infrared sensor. Heater command is measured in percent of installed power, and
 product temperature is measured in degrees Celsius.
@@ -251,7 +249,7 @@ deterministic Simulation seed is 20260829.
 
 ## Evidence and decision
 
-### Measures and comparison
+Every comparison below changes one thing only, so a difference is attributable.
 
 Change only transport delay. Hold plant gain, time constant, controller,
 operating point, setpoint event, initial state, sample schedule, duration,
@@ -273,7 +271,7 @@ time-domain manifestation of instability. Report the separate 0.333-degree-
 Celsius setpoint offset rather than calling it instability. Heater saturation
 makes the linear stability measure ineligible rather than proving stability.
 
-### Validation
+A result counts only when it passes the checks declared before the run.
 
 The numerical oracle must return zero encirclements and zero unstable poles for
 5 seconds of delay. It must return two clockwise encirclements, represented as

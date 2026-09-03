@@ -15,6 +15,7 @@ evidence.
 
 ## The problem
 
+The equipment is variable-speed booster pump with external valve authority.
 Lesson 27 made the booster-pump controller truthful at startup, but that is
 only the first handover. An external station can nevertheless take valve authority and move the valve
 while the pressure controller is inactive. The controller must remain aligned

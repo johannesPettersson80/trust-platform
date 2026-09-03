@@ -16,6 +16,7 @@ training.
 
 ## The problem
 
+The equipment is variable-speed booster pump with recirculation valve.
 Lesson 29 guaranteed coherent ordering when all inputs were valid. Coherence
 does not make a value trustworthy. The booster pump depends on pressure, valve feedback, sensor quality, timing,
 and configuration data every scan. A plausible number can be stale. A fresh

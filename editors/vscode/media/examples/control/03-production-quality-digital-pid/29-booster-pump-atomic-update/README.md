@@ -14,6 +14,7 @@ evidence.
 
 ## The problem
 
+The equipment is variable-speed booster pump with recirculation valve.
 Lesson 28 aligned state when valve authority changed. Alignment can still be
 destroyed inside one scan if that scan sees half of one tuning record and half
 of another. An online booster pump maintains discharge pressure by moving a recirculation

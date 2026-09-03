@@ -8,8 +8,8 @@ Course position: Lesson 49 of 84. Previous lesson: [Count delayed-oven stability
 
 ## The problem
 
-The equipment is a precision motor driving a precision load through a
-compliant coupling. The drive's rated-torque command is measured in percent. A
+The equipment is a precision motor and compliant load coupling: the motor drives a
+precision load through a compliant coupling. The drive's rated-torque command is measured in percent. A
 load-side encoder measures speed in revolutions per minute (rpm). The
 experiment uses small speed deviations about a 1000 rpm declared teaching
 operating point; a 1 rpm deviation means an actual shaft speed of 1001 rpm.

@@ -15,6 +15,7 @@ evidence.
 
 ## The problem
 
+The equipment is a variable-speed booster pump with recirculation valve.
 Lesson 26 established that a production PI controller retains output and signal
 history. This lesson asks where that history comes from when software joins a
 process that is already running. A variable-speed booster pump is already running when its pressure controller

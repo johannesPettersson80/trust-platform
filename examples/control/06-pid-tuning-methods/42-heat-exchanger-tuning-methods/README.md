@@ -11,6 +11,7 @@ copies.
 
 ## The problem
 
+The equipment is plate heat exchanger with four independent simulated controller copies.
 A steam valve controls the outlet temperature of a plate heat exchanger. Four
 independent copies of the same accepted local operating region compare
 manual proportional-only, manual proportional-integral, critical

@@ -11,6 +11,7 @@ feedback-relay copies.
 
 ## The problem
 
+The equipment is plate heat exchanger with qualified and deliberately weak feedback-relay copies.
 A steam valve controls the outlet temperature of the same plate heat exchanger
 used in Lessons 40 through 42. Two independent simulated copies begin at 50
 degrees Celsius (°C) with the valve at 20 percent (%). Each local plant has gain 0.5

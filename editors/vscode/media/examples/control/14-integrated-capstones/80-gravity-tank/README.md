@@ -8,8 +8,7 @@ Course position: Lesson 80 of 84. Previous lesson: [Commission one jacketed-reac
 
 ## The problem
 
-The equipment in this lesson is Vented gravity-drained water tank with
-variable-speed inlet pump. This is Lesson 80, the nonlinear-control capstone:
+The equipment in this lesson is Vented gravity-drained water tank with variable-speed inlet pump. This is Lesson 80, the nonlinear-control capstone:
 you will commission this tank across its qualified range from 0.30 through
 0.80 metres, and controller revision 80 remains unapplied.
 

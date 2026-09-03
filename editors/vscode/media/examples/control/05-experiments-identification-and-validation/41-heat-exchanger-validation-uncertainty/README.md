@@ -13,8 +13,7 @@ three plate-heat-exchanger validation copies run on the shipped simulator.
 
 Lesson 40 produced qualified data for a plate heat exchanger near 20% hot-water valve position and 50.0 °C outlet temperature. The fitted first-order-plus-dead-time candidate has gain 0.5 °C per percentage point, time constant 20 s, and dead time 3 s. The identification result also reports gain interval 0.47–0.53 °C per percentage point, time-constant interval 18–22 s, and dead-time interval 2.5–3.5 s at a declared 95% confidence level. These parameters, intervals, and the confidence level are configured values for this lesson (`lesson.json` → `plant.parameters`), standing in for a fit-and-interval procedure performed on the Lesson 40 qualified record outside this lesson; only the frozen result, not the fitting method, is examined here.
 
-The equipment is a plate heat exchanger with local, cold-flow-load, and
-high-flow validation copies: three independent copies receive the same new
+The equipment is a plate heat exchanger with local, cold-flow-load, and high-flow validation copies: three independent copies receive the same new
 20-to-25% valve step. The local copy preserves the fitted condition. The cold-flow copy receives an unmodelled load at 90 s. The high-flow copy has lower heat-transfer gain at another operating point. Each has independent 0.15 °C measurement noise and 100 ms sampling.
 
 Lesson 40 proved that the estimation record could distinguish model parameters. It did not prove that the fitted model predicts a new amplitude, an omitted disturbance, or another operating point. Reusing estimation samples or changing parameters after seeing validation errors would repeat fitting, not test prediction.

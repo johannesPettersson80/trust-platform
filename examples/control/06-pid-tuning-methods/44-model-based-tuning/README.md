@@ -10,6 +10,7 @@ Next lesson: [prove an overhead-crane stability interval](../../07-classical-sta
 
 ## The problem
 
+The equipment is recirculating water heater, buffer tank, and continuous belt dryer.
 This lesson controls three simulated pieces of industrial equipment with the
 same shipped `Control.PID` function block: a recirculating water heater, a
 buffer tank, and a continuous belt dryer. The heater and dryer settle after a

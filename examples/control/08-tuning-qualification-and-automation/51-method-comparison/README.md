@@ -1,15 +1,15 @@
 # Compare PI tuning methods without inventing a winner
 
-Course position: Lesson 51 of 84. Prerequisite:
-[`control-position-z-plane-sampling`](../../07-classical-stability-and-frequency-design/50-position-z-plane/).
-Next lesson: [`control-automatic-tuning-sequence`](../52-automatic-water-heater/).
+Course position: Lesson 51 of 84. Previous lesson: [Prove sampled positioning stability in the z-plane](../../07-classical-stability-and-frequency-design/50-position-z-plane/README.md).
+Next lesson: [Audit a complete Automatic Tune sequence](../52-automatic-water-heater/README.md).
 
 **Lesson objective:** Use accepted models of three real industrial processes to decide which PI tuning methods are eligible, validate every real candidate under the same conditions, and conclude whether one candidate, several trade-off candidates, or no acceptable candidate meets the requirements.
 
+**Evidence class:** Simulation evidence from the shipped lesson project, not evidence from the physical plant.
+
 ## The problem
 
-Plants: Recirculating water heater, integrating buffer tank, and continuous belt
-dryer. Heater power controls water temperature, inlet-valve position controls
+Plants: Recirculating water heater, integrating buffer tank, and continuous belt dryer. Heater power controls water temperature, inlet-valve position controls
 level against outlet flow, and dryer heater command controls product dryness
 against incoming moisture load.
 
@@ -218,7 +218,7 @@ The deterministic Simulation seed is 20260829.
 
 ## Evidence and decision
 
-### Measures and comparison
+Every comparison below changes one thing only, so a difference is attributable.
 
 Change only the tuning method and the resulting proportional gain ($K_p$) and
 integral gain ($K_i$). Hold model and revision, controller form, bias, setpoint
@@ -246,7 +246,7 @@ at either output limit must remain zero. Record separate dispositions for
 setpoint tracking, disturbance rejection, measurement noise, and bounded model
 variation.
 
-### Validation
+A result counts only when it passes the checks declared before the run.
 
 First reject mismatched, stale, nonfinite, unstable, unbounded, or incomplete
 runs. Applied output must remain from 0 through 100 percent. Gain margin must be

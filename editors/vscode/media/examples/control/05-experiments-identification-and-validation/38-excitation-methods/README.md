@@ -13,8 +13,7 @@ on the shipped simulator.
 
 ## The problem
 
-The equipment is a slow water heater and resonant flexible-drive servo test
-stand. The heater has a one-sided 0-to-100-percent actuator, operating at 20
+The equipment is a slow water heater and resonant flexible-drive servo test stand. The heater has a one-sided 0-to-100-percent actuator, operating at 20
 percent and 24 degrees Celsius. Near that point, 1 percentage point of
 extra heat eventually raises temperature by 0.2 degrees Celsius. Its time
 constant is 5 seconds and its dead time is 1 second — the same gain, lag, and

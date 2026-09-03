@@ -14,8 +14,7 @@ physical steam-valve move.
 
 ## The problem
 
-The equipment is a plate heat exchanger with steam-side valve and product
-outlet-temperature transmitter: it warms a flowing product; the valve is the
+The equipment is a plate heat exchanger with steam-side valve and product outlet-temperature transmitter: it warms a flowing product; the valve is the
 actuator, the sensor measures outlet temperature. Normal operation is 50
 degrees Celsius at 60 percent valve position.
 

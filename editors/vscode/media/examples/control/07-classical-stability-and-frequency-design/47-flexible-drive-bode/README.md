@@ -1,18 +1,16 @@
-# Measure resonance with a Bode plot
+# Measure flexible-drive resonance with Bode analysis
 
-Course position: Lesson 47 of 84. Prerequisite:
-[`control-servo-root-locus`](../46-servo-root-locus/).
-Next lesson: [`control-delayed-thermal-nyquist`](../48-delayed-thermal-nyquist/).
+Course position: Lesson 47 of 84. Previous lesson: [Reshape a positioning-servo root locus](../46-servo-root-locus/README.md).
+Next lesson: [Count delayed-oven stability with Nyquist](../48-delayed-thermal-nyquist/README.md).
 
-**Equipment:** Flexible-shaft motor and load.
+**Lesson objective:** Measure the flexible-drive frequency response, expose resonance, and compare qualified unshaped and resonance-shaped margins.
 
-**One clear objective:** measure the flexible-drive frequency response, expose
-resonance, and compare qualified unshaped and resonance-shaped margins.
+**Evidence class:** Simulation evidence from the shipped lesson project, not evidence from the physical plant.
 
 ## The problem
 
-This lesson studies an industrial motor connected to its load through a flexible
-shaft. The motor-torque actuator is bidirectional. Requested and applied torque
+The equipment is a flexible-shaft motor and load: an industrial motor connected to
+its load through a flexible shaft. The motor-torque actuator is bidirectional. Requested and applied torque
 are percentages of rated torque. An encoder measures load-side shaft speed in
 revolutions per minute.
 
@@ -202,7 +200,7 @@ its complete window first. The deterministic Simulation seed is 20260829.
 
 ## Evidence and decision
 
-### Measures and comparison
+Every comparison below changes one thing only, so a difference is attributable.
 
 Change only probe frequency. Hold plant coefficients, operating point,
 amplitude, initial state, sample schedule, duration, limits, and seed equal.
@@ -224,7 +222,7 @@ phase margin, phase crossover, gain margin or explicit unavailable state, delay
 margin, resonance peak and frequency, bandwidth, model revision, and evidence
 class. Never select a favourable crossover while hiding another one.
 
-### Validation
+A result counts only when it passes the checks declared before the run.
 
 The executable simulation shall reproduce the three predicted magnitudes
 within 3 percent and phases within 2 degrees. The independent analytical oracle

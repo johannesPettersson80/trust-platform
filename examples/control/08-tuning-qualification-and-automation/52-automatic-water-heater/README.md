@@ -1,16 +1,15 @@
 # Audit a complete Automatic Tune sequence
 
-Course position: Lesson 52 of 84. Prerequisite:
-[`control-tuning-method-comparison`](../51-method-comparison/).
-Next lesson:
-[`control-conveyor-oven-feedforward`](../../09-industrial-control-structures/53-conveyor-oven-feedforward/).
+Course position: Lesson 52 of 84. Previous lesson: [Compare PI tuning methods without inventing a winner](../51-method-comparison/README.md).
+Next lesson: [Compensate measured conveyor-speed disturbances](../../09-industrial-control-structures/53-conveyor-oven-feedforward/README.md).
 
 **Lesson objective:** Run and audit Automatic Tune for a recirculating water heater, explain why each stage passes or stops, recover from the taught failures, and export one validated but unapplied controller recommendation.
 
+**Evidence class:** Simulation evidence from the shipped lesson project, not evidence from the physical plant.
+
 ## The problem
 
-Equipment: Recirculating electric water heater with independent
-candidate-validation copy.
+Equipment: Recirculating electric water heater with independent candidate-validation copy.
 
 A one-sided electric heater adds heat to recirculating water. Heater power is
 the manipulated variable from 0 through 100 percent. Water temperature is the
@@ -175,7 +174,7 @@ first. The deterministic Simulation seed is 20260829.
 
 ## Evidence and decision
 
-### Measures and comparison
+Every comparison below changes one thing only, so a difference is attributable.
 
 Use one saved conditions record for the running Robust PI and the unapplied
 candidate. Retain setpoint, process value, requested and applied power, IAE,
@@ -187,7 +186,7 @@ evidence revisions, confirmation count, excitation count, completed-stage
 prefix, failed stage, stop reason, abort state, restoration state, candidate
 $applied = false$, and active-controller revision before and after each path.
 
-### Validation
+A result counts only when it passes the checks declared before the run.
 
 The successful path must execute exactly Test, Identify, Tune, and Validate;
 reuse the exact Simulation model with zero excitation; retain every method

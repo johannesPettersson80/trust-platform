@@ -14,8 +14,7 @@ on the shipped simulator.
 
 ## The problem
 
-The equipment is a continuous conveyor drying tunnel with heated-air demand
-and product-zone temperature measurement: a conveyor carries wet product
+The equipment is a continuous conveyor drying tunnel with heated-air demand and product-zone temperature measurement: a conveyor carries wet product
 through it. Heater demand is the manipulated input in percent; product-zone
 temperature is the measured output in degrees Celsius. Air transport and
 sensor location delay the measurement after heater demand changes.
