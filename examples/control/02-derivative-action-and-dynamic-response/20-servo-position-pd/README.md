@@ -87,7 +87,7 @@ $T_{requested} = T_P + T_D = K_p e - K_d \omega$
 
 The drive then limits that request to its physical range:
 
-$T_{applied} = \operatorname{clamp}(T_{requested}, -10\ N\,m, +10\ N\,m)$
+$T_{applied} = \operatorname{clamp}(T_{requested}, -10\,\text{N m}, +10\,\text{N m})$
 
 Requested and applied torque are different quantities. A controller may ask for
 more torque than the drive can provide, so the evidence must use applied torque
@@ -202,7 +202,7 @@ are declared now so the graph cannot persuade us to move the goalposts later.
 For this table, $J=1$ kg m², $B=1$ N m s/rad, and $K_p=8$ N m/rad. Both cases
 therefore have the same natural frequency:
 
-$\omega_n=\sqrt{8/1}=2.828\ rad/s$
+$\omega_n=\sqrt{8/1}=2.828\,\text{rad/s}$
 
 With no derivative action,
 
@@ -220,7 +220,7 @@ request $8\times1=8$ N m, so derivative action has not weakened the initial
 position restoring torque. Later, if the error is still 1 rad while velocity
 is +1 rad/s, the derivative contribution is
 
-$T_D=-3\times1=-3\ N\,m$
+$T_D=-3\times1=-3\,\text{N m}$
 
 and the combined request is $8-3=5$ N m. Predict the same initial stiffness but
 far less overshoot and late oscillation in the PD run.
@@ -288,10 +288,9 @@ Validate screen for this project-owned comparison.
      mode, and predicted sequence before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Choose **Observe without excitation**, set
-     **Amplitude** to **0**, and set **Maximum duration (s)** to **15.02**.
-     Verify that the affected signal is the sole Boolean authority
-     `P1.ExperimentEnabled`, changing from false to true and restoring false.
+   - **Baseline check:** Confirm **Experiment** = **Observe without
+     excitation**, **Amplitude** = **0** (disabled), and
+     **Maximum duration (s)** = **15.02**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`).
    - **Decision before action:** Confirm that the zero-amplitude observation
      will not inject a second setpoint change. The reviewed Boolean must start
      the complete project-owned gain selection, move, and restoration. Then

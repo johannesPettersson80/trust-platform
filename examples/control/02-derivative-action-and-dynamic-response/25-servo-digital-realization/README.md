@@ -46,19 +46,15 @@ controller updates.
 The **sampling frequency ($f_{s}$)** is the number of updates per second, measured
 in hertz (Hz):
 
-\[
-f_s=\frac{1}{\Delta t}.
-\]
+$f_s=\frac{1}{\Delta t}.$
 
-This is a unit conversion: one update occupies \(\Delta t\) seconds, so one
-second contains \(1/\Delta t\) updates.
+This is a unit conversion: one update occupies $\Delta t$ seconds, so one
+second contains $1/\Delta t$ updates.
 
 The **Nyquist frequency ($f_{N}$)** is half the sampling frequency. Frequencies
 above it cannot be distinguished uniquely:
 
-\[
-f_N=\frac{f_s}{2}.
-\]
+$f_N=\frac{f_s}{2}.$
 
 Two samples per cycle are the minimum needed to distinguish alternating high
 and low values. A component above this limit can produce the same samples as a
@@ -73,81 +69,52 @@ angle, and the **error ($e$)** is SP minus PV. Index **k** is the current update
 
 The **integral torque** remembers the area under error:
 
-\[
-T_I(t_k)=T_I(t_{k-1})+K_i\int_{t_{k-1}}^{t_k}e(t)\,dt.
-\]
+$T_I(t_k)=T_I(t_{k-1})+K_i\int_{t_{k-1}}^{t_k}e(t)\,dt.$
 
 The three methods differ only in how they approximate that small area. Forward
 Euler uses a rectangle with the old error,
 
-\[
-T_{I,k}=T_{I,k-1}+K_i\Delta t\,e_{k-1}.
-\]
+$T_{I,k}=T_{I,k-1}+K_i\Delta t\,e_{k-1}.$
 
 Backward Euler uses a rectangle with the new error,
 
-\[
-T_{I,k}=T_{I,k-1}+K_i\Delta t\,e_k.
-\]
+$T_{I,k}=T_{I,k-1}+K_i\Delta t\,e_k.$
 
 Tustin, or the trapezoidal rule, uses the average height of the two ends,
 
-\[
-T_{I,k}=T_{I,k-1}
-+K_i\frac{\Delta t}{2}(e_k+e_{k-1}).
-\]
+$T_{I,k}=T_{I,k-1} +K_i\frac{\Delta t}{2}(e_k+e_{k-1}).$
 
 All three multiply error by elapsed time, which creates error area, and then
-by \(K_i\), which converts that area to N·m.
+by $K_i$, which converts that area to N·m.
 
-The **filtered derivative state** \(D\) estimates \(K_d\,dPV/dt\) and is
+The **filtered derivative state** $D$ estimates $K_d\,dPV/dt$ and is
 subtracted from torque to provide damping. Its continuous equation is
 
-\[
-\tau_D\frac{dD}{dt}+D=K_d\frac{dPV}{dt}.
-\]
+$\tau_D\frac{dD}{dt}+D=K_d\frac{dPV}{dt}.$
 
 Forward Euler evaluates the right-hand side from retained old values. With
-\(r_{k-1}\) the previous measured position rate,
+$r_{k-1}$ the previous measured position rate,
 
-\[
-D_k=D_{k-1}
-+\frac{\Delta t}{\tau_D}(K_dr_{k-1}-D_{k-1}).
-\]
+$D_k=D_{k-1} +\frac{\Delta t}{\tau_D}(K_dr_{k-1}-D_{k-1}).$
 
 Backward Euler uses the current position change. Replacing both derivatives
 with backward differences gives
 
-\[
-\tau_D\frac{D_k-D_{k-1}}{\Delta t}+D_k
-=K_d\frac{PV_k-PV_{k-1}}{\Delta t}.
-\]
+$\tau_D\frac{D_k-D_{k-1}}{\Delta t}+D_k =K_d\frac{PV_k-PV_{k-1}}{\Delta t}.$
 
-Multiplying by \(\Delta t/\tau_D\), collecting the \(D_k\) terms, and solving
+Multiplying by $\Delta t/\tau_D$, collecting the $D_k$ terms, and solving
 produces the implemented recurrence
 
-\[
-D_k=\frac{D_{k-1}+(K_d/\tau_D)(PV_k-PV_{k-1})}
-{1+\Delta t/\tau_D}.
-\]
+$D_k=\frac{D_{k-1}+(K_d/\tau_D)(PV_k-PV_{k-1})} {1+\Delta t/\tau_D}.$
 
 For Tustin, integrate the continuous equation over one interval and approximate
-the area under \(D\) by a trapezoid:
+the area under $D$ by a trapezoid:
 
-\[
-\tau_D(D_k-D_{k-1})
-+\frac{\Delta t}{2}(D_k+D_{k-1})
-=K_d(PV_k-PV_{k-1}).
-\]
+$\tau_D(D_k-D_{k-1}) +\frac{\Delta t}{2}(D_k+D_{k-1}) =K_d(PV_k-PV_{k-1}).$
 
 Collecting and solving gives
 
-\[
-D_k=
-\frac{(2\tau_D-\Delta t)D_{k-1}
-+2K_d(PV_k-PV_{k-1})}
-{2\tau_D+\Delta t}.
-\]
+$D_k= \frac{(2\tau_D-\Delta t)D_{k-1} +2K_d(PV_k-PV_{k-1})} {2\tau_D+\Delta t}.$
 
 These are different executable state updates, not three labels for the same
 calculation.
@@ -157,16 +124,12 @@ The **quantization step ($q$)** is the 0.001 rad spacing between encoder values.
 The **alias frequency ($f_{\mathrm{alias}}$)** is the false lower frequency produced when a
 sampled disturbance exceeds $f_{N}$. For 8 Hz interference sampled at 10 Hz:
 
-\[
-f_{\mathrm{alias}}=|f_{\mathrm{signal}}-m f_s|,
-\]
+$f_{\mathrm{alias}}=|f_{\mathrm{signal}}-m f_s|,$
 
-where integer \(m\) is chosen so the result lies between zero and \(f_N\). For
-8 Hz sampled at 10 Hz, \(m=1\), so
+where integer $m$ is chosen so the result lies between zero and $f_N$. For
+8 Hz sampled at 10 Hz, $m=1$, so
 
-\[
-f_{\mathrm{alias}}=|8-10|=2\ \mathrm{Hz}.
-\]
+$f_{\mathrm{alias}}=|8-10|=2\,\mathrm{Hz}.$
 
 The **computation delay ($T_{\mathrm{delay}}$)** is one update: calculated torque is applied
 at the next update.
@@ -193,13 +156,13 @@ Calculate the 0.05 s derivative-filter coefficients before execution:
 | 0.02 s | 0.400 | 1.400 | 0.667 | 50.000 N m/rad |
 | 0.10 s | 2.000 | 3.000 | 0.000 | 30.000 N m/rad |
 
-The forward coefficient is \(\Delta t/\tau_D\). The backward denominator is
-\(1+\Delta t/\tau_D\). Dividing the Tustin recurrence by
-\(2\tau_D+\Delta t\) identifies its retained-state coefficient
-\((2\tau_D-\Delta t)/(2\tau_D+\Delta t)\) and position-change coefficient
-\(2K_d/(2\tau_D+\Delta t)\). For example, at 20 ms the retained coefficient is
-\((0.10-0.02)/(0.10+0.02)=0.667\), and the position coefficient is
-\(6/0.12=50\ \mathrm{N\,m/rad}\).
+The forward coefficient is $\Delta t/\tau_D$. The backward denominator is
+$1+\Delta t/\tau_D$. Dividing the Tustin recurrence by
+$2\tau_D+\Delta t$ identifies its retained-state coefficient
+$(2\tau_D-\Delta t)/(2\tau_D+\Delta t)$ and position-change coefficient
+$2K_d/(2\tau_D+\Delta t)$. For example, at 20 ms the retained coefficient is
+$(0.10-0.02)/(0.10+0.02)=0.667$, and the position coefficient is
+$6/0.12=50\,\mathrm{N\,m/rad}$.
 
 Thus $dt = 0.10 s$, $f_{s} = 10 Hz$, $f_{N} = 5 Hz$, and the forward coefficient is
 2.0. One-update delay is 0.01, 0.02, or 0.10 s.
@@ -235,7 +198,7 @@ Between updates `RequestedTorque` is unchanged, implementing the hold.
 
 Control Studio exposes the most diagnostic selected case: Tustin at 100 ms,
 where the 8 Hz encoder component lies above the 5 Hz Nyquist limit. Test writes
-one reviewed Boolean authority, \(\mathtt{P1.ExperimentEnabled}\), for 20.01
+one reviewed Boolean authority, $\mathtt{P1.ExperimentEnabled}$, for 20.01
 seconds. The project selects the method and interval, enables control, and
 applies SP 0.5 rad. Returning authority false restores SP 0 rad, disables
 control, and commands zero torque.
@@ -248,13 +211,13 @@ claim that full matrix. The deterministic Simulation seed is 20260828.
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm SP = 0 rad, measured PV = 0 rad, held torque = 0 N·m, control disabled, update pulse false, and experiment authority false. Add method, interval, delay state, update pulse, SP, PV, velocity, held torque, encoder interference, and authority to **Signals**.
-   - **Decision before action:** Write the 100 ms values \(f_s=10\) Hz, \(f_N=5\) Hz, integral weight 0.20, Tustin coefficients 0 and 30 N·m/rad, and predicted 2 Hz alias. Require torque to change only at update pulses.
+   - **Decision before action:** Write the 100 ms values $f_s=10$ Hz, $f_N=5$ Hz, integral weight 0.20, Tustin coefficients 0 and 30 N·m/rad, and predicted 2 Hz alias. Require torque to change only at update pulses.
    - **Successful evidence:** The plot advances, values are finite/current, quality is good, and **Start recording** is enabled. Select **Start recording**.
    - **Recovery:** For stale, unavailable, nonfinite, or poor-quality samples, stop the Simulator, correct the displayed runtime or binding fault, restart, and repeat the baseline check.
    - **Record:** Note all initial signals and your calculated timing, coefficient, hold, and alias predictions.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **20.01**. The reviewed authority is \(\mathtt{P1.ExperimentEnabled}\); the project owns SP, method, interval, delay selection, and control enable.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **20.01**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns SP, method, interval, delay selection, and control enable.
    - **Decision before action:** Confirm that the plan writes only that Boolean and restores it false. Require PV within ±4 rad, velocity within ±20 rad/s, and torque within ±10 N·m. Expect one torque update followed by nine held 10 ms plant scans.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** available. Response must show Tustin/100 ms selected, SP 0.5 rad, update pulses 100 ms apart, unchanged torque between pulses, sampled interference near 2 Hz, and safe restoration.
    - **Recovery:** Abort for nonfinite, stale, out-of-limit, or incorrectly timed data. Confirm authority false, SP zero, control disabled, and held torque zero before retrying.
@@ -272,22 +235,18 @@ settling, torque travel, interval, jitter, and hold duration.
 
 **Maximum absolute position error** is
 
-\[
-e_{\max}=\max_k|SP_k-PV_k|.
-\]
+$e_{\max}=\max_k|SP_k-PV_k|.$
 
 The absolute value measures error in either direction and the maximum keeps the
 worst sampled value. It is not the final error and not the largest signed error.
 
 **Applied-torque total variation** is
 
-\[
-TV(T)=\sum_k|T_k-T_{k-1}|.
-\]
+$TV(T)=\sum_k|T_k-T_{k-1}|.$
 
 Absolute increments prevent alternating movement from cancelling. Final-window
-position span is \(\max(PV)-\min(PV)\), and torque span is
-\(\max(T)-\min(T)\), each over the final two seconds. A span measures remaining
+position span is $\max(PV)-\min(PV)$, and torque span is
+$\max(T)-\min(T)$, each over the final two seconds. A span measures remaining
 variation, which a small final sample alone could hide.
 
 Inspect the sampled measurement residual spectrum. At 100 ms it should show a

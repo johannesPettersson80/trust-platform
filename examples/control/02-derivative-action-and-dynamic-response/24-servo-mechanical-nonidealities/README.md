@@ -40,9 +40,9 @@ The **target position ($SP_{\mathrm{target}}$)** is the desired final table angl
 velocity-limited position command sent to PID, also in radians. The **load
 position ($PV_{\mathrm{load}}$)** is the load-side encoder angle in radians.
 
-The **profiled velocity** \(v_p=dSP_{\mathrm{profile}}/dt\) is the rate of
+The **profiled velocity** $v_p=dSP_{\mathrm{profile}}/dt$ is the rate of
 change of that command in rad/s. Its magnitude is limited to 0.5 rad/s. The
-**profiled acceleration** \(a_p=dv_p/dt\) is limited to 1.0 rad/s². These
+**profiled acceleration** $a_p=dv_p/dt$ is limited to 1.0 rad/s². These
 limits deliberately shape what is requested. They are neither drive
 saturation nor gearbox damage.
 
@@ -51,26 +51,22 @@ newton metres (N m). The **applied motor torque ($T_{\mathrm{applied}}$)** is th
 drive output after amplitude, slew, deadband, and stiction behavior, measured in
 newton metres. Their difference is diagnostic evidence.
 
-The **rotational inertia** \(J\) describes resistance to angular acceleration
+The **rotational inertia** $J$ describes resistance to angular acceleration
 in kg·m². Newton's rotational law is
 
-\[
-\sum T=J\alpha.
-\]
+$\sum T=J\alpha.$
 
-Solving for acceleration gives \(\alpha=\sum T/J\). At zero angle and zero
-speed, gravity \(4\sin(\theta)\) and viscous friction \(B\dot\theta\) are both
+Solving for acceleration gives $\alpha=\sum T/J$. At zero angle and zero
+speed, gravity $4\sin(\theta)$ and viscous friction $B\dot\theta$ are both
 zero. If the 2.5 N·m drive limit were the only torque, the initial ideal
-acceleration would therefore be \(2.5/1.0=2.5\ \mathrm{rad/s^2}\). Away from
+acceleration would therefore be $2.5/1.0=2.5\,\mathrm{rad/s^2}$. Away from
 that instant, gravity and friction must be subtracted; 2.5 rad/s² is a local
 upper-bound calculation, not the acceleration of the whole move.
 
 **Coulomb friction** opposes motion with nearly constant magnitude. A
 simplified moving model is
 
-\[
-T_f=-T_c\operatorname{sign}(\dot\theta).
-\]
+$T_f=-T_c\operatorname{sign}(\dot\theta).$
 
 The sign changes when velocity reverses. The controller must request extra
 torque in either direction, but motor and load can still move together.
@@ -94,44 +90,30 @@ signals to distinguish them.
 
 At zero angle and speed, the maximum ideal acceleration is:
 
-\[
-\alpha_{\mathrm{ideal}}=\frac{T_{\mathrm{limit}}}{J}
-=\frac{2.5\ \mathrm{N\,m}}{1.0\ \mathrm{kg\,m^2}}
-=2.5\ \mathrm{rad/s^2}.
-\]
+$\alpha_{\mathrm{ideal}}=\frac{T_{\mathrm{limit}}}{J} =\frac{2.5\,\mathrm{N\,m}}{1.0\,\mathrm{kg\,m^2}} =2.5\,\mathrm{rad/s^2}.$
 
 The profile is deliberately slower. The **cycle time ($\Delta t$)** is 0.02 s. Its
 maximum velocity change per scan is:
 
-\[
-|\Delta v_p|_{\mathrm{max}}=a_{\mathrm{profile}}\Delta t
-=1.0(0.02)=0.02\ \mathrm{rad/s}.
-\]
+$|\Delta v_p|_{\mathrm{max}}=a_{\mathrm{profile}}\Delta t =1.0(0.02)=0.02\,\mathrm{rad/s}.$
 
 This is why the program clamps each scan's velocity change to ±0.02 rad/s.
 
 At maximum profile speed, its maximum position change per scan is:
 
-\[
-|\Delta SP_{\mathrm{profile}}|_{\mathrm{max}}
-=v_{\mathrm{profile}}\Delta t=0.5(0.02)=0.01\ \mathrm{rad}.
-\]
+$|\Delta SP_{\mathrm{profile}}|_{\mathrm{max}} =v_{\mathrm{profile}}\Delta t=0.5(0.02)=0.01\,\mathrm{rad}.$
 
 To stop at the target without exceeding acceleration, use the
 constant-acceleration relation
 
-\[
-v_f^2=v_i^2+2a\Delta\theta.
-\]
+$v_f^2=v_i^2+2a\Delta\theta.$
 
-At the target \(v_f=0\). With remaining distance
-\(d=|SP_{\mathrm{target}}-SP_{\mathrm{profile}}|\) and braking acceleration
+At the target $v_f=0$. With remaining distance
+$d=|SP_{\mathrm{target}}-SP_{\mathrm{profile}}|$ and braking acceleration
 opposite the motion, solving for the largest current speed that can still stop
 gives
 
-\[
-v_{\mathrm{stop}}=\sqrt{2a_{\mathrm{profile}}d}.
-\]
+$v_{\mathrm{stop}}=\sqrt{2a_{\mathrm{profile}}d}.$
 
 The program chooses the smaller of this stopping speed and the 0.5 rad/s
 cruise limit. Far from the target it cruises; near the target the square-root
@@ -139,10 +121,10 @@ bound starts deceleration.
 
 ## Prediction
 
-The configured \(w_{\mathrm{backlash}}\) is 0.05 rad. Predict that a reversal
+The configured $w_{\mathrm{backlash}}$ is 0.05 rad. Predict that a reversal
 can consume 0.05 rad of motor-side travel before the load follows. The time is
-not fixed: at constant speed \(|v|\), the simple estimate is
-\(t_{\mathrm{gap}}=0.05/|v|\), so it depends on the reversal trajectory.
+not fixed: at constant speed $|v|$, the simple estimate is
+$t_{\mathrm{gap}}=0.05/|v|$, so it depends on the reversal trajectory.
 
 ## Implementation
 
@@ -167,7 +149,7 @@ the actuator-state flags.
 ## Experiment in Control Studio
 
 Control Studio executes the checked-in combined diagnostic case. Test writes
-one reviewed Boolean authority, \(\mathtt{P1.ExperimentEnabled}\), for 20.02
+one reviewed Boolean authority, $\mathtt{P1.ExperimentEnabled}$, for 20.02
 seconds. The project owns the complete motion: safe Manual zero first, +0.5 rad
 in Auto, reversal to -0.5 rad at 10 seconds, and restoration to target 0 rad,
 Manual mode, and zero request when authority returns false.
@@ -187,7 +169,7 @@ deterministic Simulation seed is 20260828.
    - **Record:** Note every initial signal above and your predicted command-, drive-, and mechanism-path signatures.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **20.02**. The reviewed authority is \(\mathtt{P1.ExperimentEnabled}\); the project owns both target changes and their timing.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **20.02**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns both target changes and their timing.
    - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Require load position within ±4 rad, motor velocity within ±20 rad/s, and applied torque within ±2.5 N·m. Predict which trace changes first at the 10-second reversal.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** available. Response must show the profiled move to +0.5 rad, the -0.5 rad reversal, requested/applied separation and state flags, followed by complete safe restoration.
    - **Recovery:** Abort for nonfinite, stale, or out-of-limit data. Confirm authority false, target/profile state reset to 0 rad, Manual mode, and zero requested torque before retrying.
@@ -210,30 +192,24 @@ instantaneous torque.
 
 Peak following error is
 
-\[
-e_{\mathrm{peak}}=\max_k|SP_{\mathrm{profile},k}-PV_{\mathrm{load},k}|.
-\]
+$e_{\mathrm{peak}}=\max_k|SP_{\mathrm{profile},k}-PV_{\mathrm{load},k}|.$
 
 The absolute value measures error size in either direction; the maximum keeps
 the worst sample. The requested-to-applied torque gap is
 
-\[
-g_T=\max_k|T_{\mathrm{requested},k}-T_{\mathrm{applied},k}|.
-\]
+$g_T=\max_k|T_{\mathrm{requested},k}-T_{\mathrm{applied},k}|.$
 
 It is near zero when the drive follows the request and grows when amplitude,
 slew, deadband, or stiction prevents that. Torque total variation is
 
-\[
-TV(T)=\sum_{k=1}^{N}|T_k-T_{k-1}|.
-\]
+$TV(T)=\sum_{k=1}^{N}|T_k-T_{k-1}|.$
 
 Each absolute increment is added, so repeated oscillation cannot cancel.
 Its unit is accumulated N·m; it describes how much the command moved over the
 record, not the torque at one instant.
 
 For each actuator flag, calculate
-\(t_{\mathrm{active}}=N_{\mathrm{active}}\Delta t\). Counting active samples and
+$t_{\mathrm{active}}=N_{\mathrm{active}}\Delta t$. Counting active samples and
 multiplying by 0.02 s converts scan count into elapsed time. A duration of zero
 is evidence too: backlash should not be renamed deadband merely because both
 can delay motion.

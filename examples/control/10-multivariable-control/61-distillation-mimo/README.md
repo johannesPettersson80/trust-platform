@@ -108,10 +108,10 @@ uses deterministic Simulation seed 20260829.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **400.1**. Confirm the only writable signal is **Experiment authority** (`P1.ExperimentEnabled`, `%MX16.1`). The project excites only reflux from 20 to 200 seconds, restores both inputs for 20 seconds, then excites only reboiler steam from 220 to 400 seconds.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **400.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project excites only reflux from 20 to 200 seconds, restores both inputs for 20 seconds, then excites only reboiler steam from 220 to 400 seconds.
    - **Decision before action:** Before selecting **Review test**, predict all four response signs and confirm inputs can remain within -10 through +10 percentage points and purity deviations within -6 through +6 points.
-   - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must show that the non-excited input remains zero in each window. At termination authority clears and both requested inputs return to zero.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the reason, confirm authority is false and both inputs restored to zero, wait for current data, and review a new observation.
+   - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must show that the non-excited input remains zero in each window. At termination authority clears and both requested inputs return to zero. Keep **Abort test** visible.
+   - **Recovery:** Select **Abort test** if the test is rejected, stale, unsafe, unavailable, failed, or aborted. Read the reason, confirm authority is false and both inputs restored to zero, wait for current data, and review a new observation.
    - **Record:** Calculate each settled change and compare it with your prediction. Retain terminal state, restoration, and seed **20260829**. The native lesson test owns the qualified gain matrix and RGA verdict; this observation does not create generic Identify, Tune, or Validate evidence.
 
 ## Evidence and decision

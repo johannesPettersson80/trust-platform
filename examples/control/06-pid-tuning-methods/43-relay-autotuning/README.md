@@ -77,9 +77,7 @@ critical gain ($K_u$), in valve percentage points per degree Celsius. After rela
 amplitude and measured process amplitude have been defined, its relationship
 is:
 
-\[
-K_u=\frac{4d}{\pi a}.
-\]
+$K_u=\frac{4d}{\pi a}.$
 
 The describing-function approximation assumes a stable repeatable limit cycle,
 small hysteresis relative to its amplitude, adequate sampling, an undistorted
@@ -155,7 +153,7 @@ unapplied candidate. The deterministic Simulation seed is 20260829.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **180.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm both applied valves = 20% and temperatures near 50 °C.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **180.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm both applied valves = 20% and temperatures near 50 °C.
    - **Decision before action:** Before selecting **Review test**, record the 2/38% strong levels, 19.8/20.2% weak levels, 49.92/50.08 °C thresholds, and all qualification gates. Confirm valves remain within 0–100% and temperature within 40–60 °C. Do not run this on a physical plant or Apply a result.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Verify valve changes occur after temperature threshold crossings—not on a fixed clock—and both valves restore to 20%.
    - **Recovery:** Abort for stale, forced, invalid, nonfinite, mismatched, or out-of-range data. Confirm authority false and both applied valves 20% before retrying.

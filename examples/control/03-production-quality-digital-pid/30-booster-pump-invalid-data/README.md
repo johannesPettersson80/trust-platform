@@ -65,9 +65,7 @@ must be 0 through 12 bar and valve feedback must be 0 through 100 percent.
 
 Each range check is a conjunction. For example,
 
-\[
-PV_{\mathrm{valid}}=(PV\ge0)\land(PV\le12).
-\]
+$PV_{\mathrm{valid}}=(PV\ge0)\land(PV\le12).$
 
 Both comparisons must be true. Positive infinity fails the upper bound;
 negative infinity fails the lower bound; and an unordered NaN comparison is
@@ -97,21 +95,13 @@ clear the latch.
 
 The recovery counter follows
 
-$$
-N_k=
-\\begin{cases}
-\\min(N_{k-1}+1,3), & \\text{acknowledged and every input valid},\\\\
-0, & \\text{otherwise}.
-\\end{cases}
-$$
+$N_k=\begin{cases}\min(N_{k-1}+1,3), & \text{acknowledged and every input valid},\\0, & \text{otherwise}.\end{cases}$
 
 The acknowledgement scan is deliberately excluded, so it leaves the count at
 zero. Valid scans 1, 2, and 3 produce counts 1, 2, and 3. Reset is accepted only
 when
 
-$$
-\\text{acknowledged}\\land(N=3)\\land\\text{reset request}.
-$$
+$\text{acknowledged}\land(N=3)\land\text{reset request}.$
 
 Reset copies present SP, PV, and actual valve feedback into controller state.
 With actual feedback at 30%, the reset scan therefore holds 30%. It calls
@@ -139,7 +129,7 @@ not call `Update` or grant Auto on that scan.
 
 Control Studio executes one complete invalid-configuration and recovery
 sequence. Test writes one reviewed Boolean authority,
-\(\mathtt{P1.ExperimentEnabled}\), for 10.1 seconds. The project initializes
+$\mathtt{P1.ExperimentEnabled}$, for 10.1 seconds. The project initializes
 revision 0 at 6 bar and 40%, applies the invalid 80%/20% candidate, corrects the
 candidate without clearing the latch, acknowledges, supplies three separate
 valid scans, resets at actual valve 30%, and requests Auto on the following
@@ -159,7 +149,7 @@ and deadline faults. The deterministic Simulation seed is 20260829.
    - **Record:** Note the initial validity, state, ownership, output, and predictions.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **10.1**. The reviewed authority is \(\mathtt{P1.ExperimentEnabled}\); the project owns all fault and recovery pulses.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **10.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns all fault and recovery pulses.
    - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. The injected reversed limits must be rejected before configuration or PID arithmetic. Pressure must remain within 0–12 bar and valve output within 0–100%.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe code 5 latch, safe 30%, acknowledgement without clear, counts 1/2/3 on separate scans, reset without Auto, and later renewed Auto.
    - **Recovery:** Abort if an invalid scan calls PID/configure, changes revision, leaves 30%, clears on acknowledgement, counts the acknowledgement scan, or grants Auto during reset. Confirm authority false and safe 30% before retrying.
@@ -179,7 +169,7 @@ and published code on the first fault scan.
 revision change on the invalid scan. Its required value is zero.
 
 The **safe-output error** is
-\(e_{\mathrm{safe}}=|MV_{\mathrm{applied}}-30\%|\) while latched. The absolute
+$e_{\mathrm{safe}}=|MV_{\mathrm{applied}}-30\%|$ while latched. The absolute
 value measures deviation in either direction; the required maximum is 0.001
 percentage points.
 
@@ -188,8 +178,8 @@ percentage points.
 together.
 
 The **recovery output step** is
-\(\Delta MV_{\mathrm{recovery}}=
-|MV_{\mathrm{Auto,first}}-MV_{\mathrm{reset}}|\). Comparing adjacent authority
+$\Delta MV_{\mathrm{recovery}}=
+|MV_{\mathrm{Auto,first}}-MV_{\mathrm{reset}}|$. Comparing adjacent authority
 states isolates the handover bump from later feedback movement.
 
 | Injection | Expected code | PID/configure calls | Applied output |

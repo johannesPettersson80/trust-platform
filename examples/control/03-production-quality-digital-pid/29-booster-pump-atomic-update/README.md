@@ -74,37 +74,28 @@ The previous applied valve output is 40 percent. The old proportional gain is
 candidate values are 15 and 3. The sample interval is 0.1 seconds.
 
 For a 1 bar setpoint increase with unchanged pressure,
-\(\Delta e=1-0=1\) bar. The incremental proportional contribution is
+$\Delta e=1-0=1$ bar. The incremental proportional contribution is
 
-\[
-\Delta MV_P=K_p\Delta e=(15\ \%/\mathrm{bar})(1\ \mathrm{bar})=15\%.
-\]
+$\Delta MV_P=K_p\Delta e=(15\text{ \%/bar})(1\text{ bar})=15\%.$
 
 The new error is also 1 bar, so the integral contribution is
 
-\[
-\Delta MV_I=K_i\Delta t\,e
-=(3\ \%/(\mathrm{bar\,s}))(0.1\ \mathrm{s})(1\ \mathrm{bar})=0.3\%.
-\]
+$\Delta MV_I=K_i\Delta t\,e =(3\text{ \%/(bar s)})(0.1\text{ s})(1\text{ bar})=0.3\%.$
 
-The coherent increment is \(15+0.3=15.3\) points, so the output moves from
-40% to 55.3%. A mixed scan using new \(K_p=15\) but old \(K_i=1\) would instead
-calculate \(15+1(0.1)(1)=15.1\) and 55.1%. That number belongs to neither
+The coherent increment is $15+0.3=15.3$ points, so the output moves from
+40% to 55.3%. A mixed scan using new $K_p=15$ but old $K_i=1$ would instead
+calculate $15+1(0.1)(1)=15.1$ and 55.1%. That number belongs to neither
 complete revision.
 
 For the ordering case, start at zero error and 40% applied output. The
-controller's unconstrained feedforward target is \(40+20=60\%\). The permitted
+controller's unconstrained feedforward target is $40+20=60\%$. The permitted
 rate movement is
 
-\[
-\Delta MV_{\max}=r_{\max}\Delta t=(20\%/\mathrm{s})(0.1\ \mathrm{s})=2\%.
-\]
+$\Delta MV_{\max}=r_{\max}\Delta t=(20\%/\mathrm{s})(0.1\text{ s})=2\%.$
 
 Therefore the current allowed interval is
 
-\[
-[MV_{\mathrm{previous}}-2,\ MV_{\mathrm{previous}}+2]=[38,42]\%.
-\]
+$[MV_{\mathrm{previous}}-2, MV_{\mathrm{previous}}+2]=[38,42]\%.$
 
 The controller must return 42%. Adding feedforward after a returned 40% would
 produce 60%, outside that interval and invisible to anti-windup state.
@@ -129,7 +120,7 @@ simulation diagnostics. Neither can drive the plant.
 
 Control Studio executes the two valid operations in a project-owned sequence.
 Test writes one reviewed Boolean authority,
-\(\mathtt{P1.ExperimentEnabled}\), for 10.1 seconds. The project initializes at
+$\mathtt{P1.ExperimentEnabled}$, for 10.1 seconds. The project initializes at
 6 bar and 40%, atomically applies the complete new record with the 1 bar
 setpoint step, then reinitializes the aligned 40% state and sends 20%
 feedforward through the PID under the 20%/s rate limit. Returning authority
@@ -149,7 +140,7 @@ is 20260829.
    - **Record:** Note the initial record, revision, applied output, rate interval, and four predictions.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **10.1**. The reviewed authority is \(\mathtt{P1.ExperimentEnabled}\); the project owns initialization, apply pulse, SP, feedforward, and restoration.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **10.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns initialization, apply pulse, SP, feedforward, and restoration.
    - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Require pressure within 0–12 bar and applied output within 0–100%. No mixed configuration or post-limit sum may enter the plant path.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe one complete revision change and 55.3% result, then the reinitialized feedforward case with a 60% target and 42% constrained output, followed by safe restoration.
    - **Recovery:** Abort for nonfinite/out-of-range data, a mixed active record, or output outside the displayed rate interval. Confirm authority false and safe 30% output before retrying.
@@ -166,17 +157,17 @@ diagnostics; Monitor and Test expose only the production paths.
 the complete old revision or the complete new revision at every update.
 
 The **first-update increment** is
-\(\Delta MV_1=MV_{\mathrm{after}}-MV_{\mathrm{before}}\), in percentage
+$\Delta MV_1=MV_{\mathrm{after}}-MV_{\mathrm{before}}$, in percentage
 points. It preserves direction; use its absolute value only when the
 requirement concerns size rather than opening versus closing.
 
 The **external-sum limit violation** is
-\(v_{\mathrm{external}}=\max(MV_{\mathrm{rejected}}-MV_{\mathrm{allowed,max}},0)\).
+$v_{\mathrm{external}}=\max(MV_{\mathrm{rejected}}-MV_{\mathrm{allowed,max}},0)$.
 The maximum with zero means a value inside the limit has no violation; here it
-is \(60-42=18\) percentage points.
+is $60-42=18$ percentage points.
 
 The **applied-output rate** is
-\(r_k=(MV_k-MV_{k-1})/\Delta t_k\). Division by measured elapsed time converts
+$r_k=(MV_k-MV_{k-1})/\Delta t_k$. Division by measured elapsed time converts
 each output change to percent per second. Opening rate must not exceed the
 positive limit and closing rate must not be more negative than the negative
 limit.

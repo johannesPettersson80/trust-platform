@@ -60,9 +60,7 @@ error per second.
 The **positional form** calculates the complete output from the present terms.
 For the P controller in this lesson:
 
-\[
-u_k=u_0+K_pe_k.
-\]
+$u_k=u_0+K_pe_k.$
 
 This follows directly from proportional action: multiply the present error by
 output-per-error gain and add the zero-error bias. No previous output is needed.
@@ -71,22 +69,16 @@ The **incremental form**, also called the **velocity form**, adds calculated
 increments to the previous output. Start with a positional PI equation at two
 successive samples:
 
-\[
-u_k=u_0+K_pe_k+T_{I,k},
-\]
+$u_k=u_0+K_pe_k+T_{I,k},$
 
-\[
-u_{k-1}=u_0+K_pe_{k-1}+T_{I,k-1}.
-\]
+$u_{k-1}=u_0+K_pe_{k-1}+T_{I,k-1}.$
 
 Subtract the second equation from the first. The unchanged bias cancels,
-the proportional difference becomes \(K_p(e_k-e_{k-1})=K_p\Delta e_k\), and
+the proportional difference becomes $K_p(e_k-e_{k-1})=K_p\Delta e_k$, and
 backward-Euler integration gives
-\(T_{I,k}-T_{I,k-1}=K_iT_se_k\). Therefore
+$T_{I,k}-T_{I,k-1}=K_iT_se_k$. Therefore
 
-\[
-u_k=u_{k-1}+K_p\Delta e_k+K_iT_se_k.
-\]
+$u_k=u_{k-1}+K_p\Delta e_k+K_iT_se_k.$
 
 At constant nonzero error, $e_{k} = e_{k-1}$, so $\Delta e_{k} = 0$. An incremental P
 calculation with $K_i = 0$ then adds nothing. It can remain stuck at an arbitrary
@@ -94,14 +86,14 @@ retained output even when $K_p$ changes. Positional P instead recalculates the
 complete output immediately.
 
 There is a second problem during a gain change. The exact proportional
-difference would be \(K_{p,k}e_k-K_{p,k-1}e_{k-1}\), not
-\(K_{p,k}(e_k-e_{k-1})\). At unchanged error, the latter is zero and misses the
+difference would be $K_{p,k}e_k-K_{p,k-1}e_{k-1}$, not
+$K_{p,k}(e_k-e_{k-1})$. At unchanged error, the latter is zero and misses the
 new proportional demand. Positional P has no such ambiguity because it
 recalculates the complete present term.
 
 When $K_i$ is nonzero, the integral increment keeps changing output while error
 remains. In the shipped PI/PID contract, retaining output is also intentional:
-tracking and anti-windup can correct that state, and changing \(K_p\) need not
+tracking and anti-windup can correct that state, and changing $K_p$ need not
 create a sudden full proportional-output jump. This is a chosen bumpless gain
 semantics, not a claim that every arbitrary retained state is valid.
 
@@ -147,7 +139,7 @@ never connected to a plant output and is not another controller implementation.
 
 ## Experiment in Control Studio
 
-Test writes one reviewed Boolean authority, \(\mathtt{P1.ExperimentEnabled}\),
+Test writes one reviewed Boolean authority, $\mathtt{P1.ExperimentEnabled}$,
 for 30.02 seconds. The project owns a visible two-plant sequence: it begins from
 Manual zero, applies the table and heater setpoints with both proportional
 gains at 4, changes both gains to 8 after 5 seconds, and restores both plants to
@@ -168,7 +160,7 @@ fresh controller states and frozen input samples to own the exact 2 N·m,
    - **Record:** Note the complete initial state and the three written predictions.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30.02**. The reviewed authority is \(\mathtt{P1.ExperimentEnabled}\); the project owns both setpoints, both gain changes, and mode.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30.02**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns both setpoints, both gain changes, and mode.
    - **Decision before action:** Confirm that the plan writes only the Boolean and restores it false. Require table position within ±4 rad, torque within ±10 N·m, temperature within 0–80 °C, and heater power within 0–100%.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe both gain changes, the selected-form indicators, the rejected diagnostic remaining disconnected, and final Manual-zero restoration.
    - **Recovery:** Abort for nonfinite, stale, out-of-limit data or any indication that the rejected diagnostic drives an output. Confirm authority false, safe setpoints, Manual mode, and zero outputs before retrying.
@@ -183,25 +175,17 @@ unchanged-error calculation; Monitor and Test expose the safe live sequence.
 
 Over the exact fixed-input native comparison, define immediate output change as
 
-\[
-\Delta u_{\mathrm{gain}}=u_{\mathrm{after}}-u_{\mathrm{before}}.
-\]
+$\Delta u_{\mathrm{gain}}=u_{\mathrm{after}}-u_{\mathrm{before}}.$
 
-For positional P this must be \(4-2=2\) N·m. Define rejected-state error as
+For positional P this must be $4-2=2$ N·m. Define rejected-state error as
 
-\[
-e_{\mathrm{state}}=
-|u_{\mathrm{positional,prediction}}-u_{\mathrm{rejected}}|.
-\]
+$e_{\mathrm{state}}= |u_{\mathrm{positional,prediction}}-u_{\mathrm{rejected}}|.$
 
 The absolute value measures disagreement regardless of sign; here it is
-\(|4-1|=3\) N·m. Finally remove the expected integral contribution from the PI
+$|4-1|=3$ N·m. Finally remove the expected integral contribution from the PI
 change:
 
-\[
-d_{\mathrm{PI}}=
-\Delta u_{\mathrm{observed}}-K_iT_se.
-\]
+$d_{\mathrm{PI}}= \Delta u_{\mathrm{observed}}-K_iT_se.$
 
 A value of zero means the gain edit introduced no extra jump beyond the
 ordinary 0.24% integral increment.

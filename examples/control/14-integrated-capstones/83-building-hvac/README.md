@@ -76,13 +76,13 @@ occupancy effects over that same interval.
 The sampled state-transition matrix ($\mathbf{A}_{\mathrm{d}}$) describes how the two present air
 temperatures influence the two temperatures one minute later:
 
-$\mathbf{A}_d=\begin{bmatrix} 0.875659571463&0.029177846573\\ 0.029177846573&0.875659571463 \end{bmatrix}$
+$\mathbf{A}_d=\begin{bmatrix} 0.875659571463&0.029177846573\\0.029177846573&0.875659571463 \end{bmatrix}$
 
 The sampled input matrix ($\mathbf{B}_{\mathrm{d}}$) describes how zone-one heating, zone-two
 heating, outdoor temperature, zone-one occupancy and zone-two occupancy affect
 the temperatures one minute later:
 
-$\mathbf{B}_d=\begin{bmatrix} 0.018727354703&0.000305161690&0.095162581964&0.093636773515&0.001525808449\\ 0.000305161690&0.018727354703&0.095162581964&0.001525808449&0.093636773515 \end{bmatrix}$
+$\mathbf{B}_d=\begin{bmatrix} 0.018727354703&0.000305161690&0.095162581964&0.093636773515&0.001525808449\\0.000305161690&0.018727354703&0.095162581964&0.001525808449&0.093636773515 \end{bmatrix}$
 
 The larger diagonal heater coefficients show that each heater primarily warms
 its own zone. The smaller off-diagonal coefficients show thermal coupling.
@@ -107,7 +107,7 @@ per one-minute step, in degrees Celsius per step. The estimator gain (Ke) is
 the fraction of the latest innovation incorporated into the estimate and has
 the value 0.4. After those quantities are defined, the update is:
 
-$d_{\mathrm{hat\,next}} = \operatorname{clamp}\left(\hat{d} + Ke \cdot \nu,-1,1\right) {}^\circ\mathrm{C}/step$
+$d_{\mathrm{hat\,next}} = \operatorname{clamp}\left(\hat{d} + Ke \cdot \nu,-1,1\right) {}^\circ\mathrm{C}/\text{step}$
 
 In this lesson, the estimator gain Ke remains 0.4.
 
@@ -180,7 +180,7 @@ Set each previous applied heater command to 80 percent, outdoor temperature to
 
 For a zero first move, the zone-one prediction is:
 
-$\begin{aligned} T_{1,\mathrm{next}}={}&0.875659571463(21)+0.029177846573(21)\\ &+0.018727354703(80)+0.000305161690(80)\\ &+0.095162581964(5)=21.00000\,{}^\circ\mathrm{C} \end{aligned}$
+$\begin{aligned} T_{1,\mathrm{next}}={}&0.875659571463(21)+0.029177846573(21)\\&+0.018727354703(80)+0.000305161690(80)\\&+0.095162581964(5)=21.00000\,{}^\circ\mathrm{C} \end{aligned}$
 
 Zone two gives the same result. Predict 729 evaluated sequences, at least one
 feasible sequence and a zero first move, leaving both heaters at 80 percent.
@@ -240,7 +240,7 @@ deterministic Simulation seed is 20260829.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test. Stop recording before leaving Monitor.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **1200.1**. The only writable lesson signal is Boolean `P1.ExperimentEnabled`. Amplitude zero is intentional because the project owns the one-minute schedule and every abnormal case.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **1200.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns the one-minute schedule and every abnormal case.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Applied zone-one heating 0 % to 100 %; Applied zone-two heating 0 % to 100 %; Zone-one temperature 15 degC to 27 degC; Zone-two temperature 15 degC to 27 degC.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, confirm `P1.ExperimentEnabled = FALSE`, and wait for the project to close both heaters and restore outdoor temperature, occupancy, quality, and availability before reviewing a new test.

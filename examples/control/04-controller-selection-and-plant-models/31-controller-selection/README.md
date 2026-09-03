@@ -69,63 +69,52 @@ failed requirement. Added mechanisms must answer measured needs:
 
 The cold-storage room has a binary compressor and permits 1.5–2.5 °C. ON/OFF
 with hysteresis directly matches that actuator. With SP 2 °C and half-width
-0.5 °C, the switch thresholds are \(2-0.5=1.5^\circ\mathrm{C}\) and
-\(2+0.5=2.5^\circ\mathrm{C}\). The 100 ms task requires
-\(5/0.1=50\) scans between transitions, which protects the compressor from
+0.5 °C, the switch thresholds are $2-0.5=1.5^\circ\mathrm{C}$ and
+$2+0.5=2.5^\circ\mathrm{C}$. The 100 ms task requires
+$5/0.1=50$ scans between transitions, which protects the compressor from
 rapid cycling.
 
 The water heater is self-regulating and must return to 30 °C after a constant
 heat-loss change. Before that event its equilibrium is
 
-\[
-T_{\mathrm{eq}}=20^\circ\mathrm{C}
-+(0.2^\circ\mathrm{C}/\%)MV.
-\]
+$T_{\mathrm{eq}}=20^\circ\mathrm{C} +(0.2^\circ\mathrm{C}/\%)MV.$
 
-Solving \(30=20+0.2MV\) gives \(MV=50\%\). At 60 seconds the modeled ambient
+Solving $30=20+0.2MV$ gives $MV=50\%$. At 60 seconds the modeled ambient
 bias falls from 20 to 17 °C, so the new balance is
-\(30=17+0.2MV\), or 65%. PI can retain either nonzero equilibrium output at
+$30=17+0.2MV$, or 65%. PI can retain either nonzero equilibrium output at
 zero error; proportional action alone cannot change output at zero error, and
 derivative has no demonstrated purpose in this slow nonoscillatory plant.
 
 The buffer tank integrates net flow. Its known equilibrium pump bias is 20%:
 
-\[
-\frac{dL}{dt}=K_t(MV-20),\qquad K_t=0.2\ \mathrm{cm/(\%\,s)}.
-\]
+$\frac{dL}{dt}=K_t(MV-20),\qquad K_t=0.2\text{ cm/(\% s)}.$
 
-Biased P control is \(MV=20+K_p(SP-L)\), with
-\(K_p=2\ \%/\mathrm{cm}\). Substitution cancels the known 20% outflow balance:
+Biased P control is $MV=20+K_p(SP-L)$, with
+$K_p=2\text{ \%/cm}$. Substitution cancels the known 20% outflow balance:
 
-\[
-\frac{dL}{dt}=K_tK_p(SP-L)=0.4(SP-L).
-\]
+$\frac{dL}{dt}=K_tK_p(SP-L)=0.4(SP-L).$
 
-For error \(e=SP-L\), \(de/dt=-0.4e\), the standard first-order form
-\(de/dt=-e/\tau\). Therefore
+For error $e=SP-L$, $de/dt=-0.4e$, the standard first-order form
+$de/dt=-e/\tau$. Therefore
 
-\[
-\tau=\frac{1}{K_tK_p}=\frac{1}{0.2(2)}=2.5\ \mathrm{s}.
-\]
+$\tau=\frac{1}{K_tK_p}=\frac{1}{0.2(2)}=2.5\text{ s}.$
 
 P control is sufficient for this setpoint case. An unknown changed outflow or
 an exact regulatory requirement can justify PI; that boundary is not hidden.
 
 The positioning table does not have a constant 4 N·m load. Its gravity torque
-is \(4\sin(\theta)\) N·m, where 4 N·m is the peak coefficient. PID is selected
+is $4\sin(\theta)$ N·m, where 4 N·m is the peak coefficient. PID is selected
 because derivative supplies damping and integral action can supply the
 position-dependent equilibrium torque at zero final error.
 
-With the implemented \(K_p=8\ \mathrm{N\,m/rad}\), PD equilibrium at
-\(SP=1\) rad must satisfy
+With the implemented $K_p=8\text{ N\,m/rad}$, PD equilibrium at
+$SP=1$ rad must satisfy
 
-\[
-8(1-\theta)=4\sin(\theta).
-\]
+$8(1-\theta)=4\sin(\theta).$
 
-This nonlinear equation has \(\theta\approx0.6840\) rad, so the predicted
-offset is \(1-0.6840\approx0.3160\) rad. PID can instead hold
-\(\theta=1\) rad with integral torque \(4\sin(1)\approx3.366\) N·m while
+This nonlinear equation has $\theta\approx0.6840$ rad, so the predicted
+offset is $1-0.6840\approx0.3160$ rad. PID can instead hold
+$\theta=1$ rad with integral torque $4\sin(1)\approx3.366$ N·m while
 derivative continues to damp motion.
 
 ## Implementation
@@ -151,7 +140,7 @@ The shipped code also enforces the five-second dwell condition.
 ## Experiment in Control Studio
 
 Test writes one reviewed Boolean authority,
-\(\mathtt{P1.ExperimentEnabled}\), for 120.1 seconds. The project owns all four
+$\mathtt{P1.ExperimentEnabled}$, for 120.1 seconds. The project owns all four
 selected controllers and their setpoints: cold room ON/OFF at 2 °C, heater PI
 at 30 °C, tank biased P at 60 cm, and table PID at 1 rad. The simulator owns
 the declared heater-bias change at 60 seconds. Returning authority false puts
@@ -172,7 +161,7 @@ automatic selector. The deterministic Simulation seed is 20260829.
    - **Record:** Note all four initial states, selected codes, safety limits, and predictions.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The reviewed authority is \(\mathtt{P1.ExperimentEnabled}\); the project owns the four setpoint and mode changes.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns the four setpoint and mode changes.
    - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Check every physical range and require compressor output exactly 0 or 100% with at least five seconds between changes.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, all stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe protected cold-room cycling, heater rejection of the 60-second loss event, tank convergence, table damping/tracking, and safe restoration.
    - **Recovery:** Abort for any nonfinite/out-of-limit signal, compressor dwell violation, unexpected mode, or structure code change. Confirm authority false and all four safe outputs before retrying.

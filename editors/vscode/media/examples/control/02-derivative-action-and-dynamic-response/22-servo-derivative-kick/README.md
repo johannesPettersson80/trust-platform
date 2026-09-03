@@ -100,15 +100,15 @@ response to actual PV motion does not disappear when command weighting changes.
 The first request contains more than derivative torque. At the first 0.5 rad
 error, proportional torque is
 
-$T_P=K_pe=8\times0.5=4.00\ N\,m$
+$T_P=K_pe=8\times0.5=4.00\,\text{N m}$
 
 The first integral-state increment is error times cycle time:
 
-$\Delta I=e\Delta t=0.5\times0.02=0.01\ rad\,s$
+$\Delta I=e\Delta t=0.5\times0.02=0.01\,\text{rad s}$
 
 so its torque contribution is
 
-$T_I=K_i\Delta I=2\times0.01=0.02\ N\,m$
+$T_I=K_i\Delta I=2\times0.01=0.02\,\text{N m}$
 
 Before the external drive clamp, the complete first request is
 
@@ -116,7 +116,7 @@ $T_{requested}=T_P+T_I+T_D$
 
 The applied torque is a separate quantity:
 
-$T_{applied}=\operatorname{clamp}(T_{requested},-10\ N\,m,+10\ N\,m)$
+$T_{applied}=\operatorname{clamp}(T_{requested},-10\,\text{N m},+10\,\text{N m})$
 
 This external clamp does not feed its ±10 N m result back into the controller's
 wide ±100 N m internal output limit. The lesson therefore proves request
@@ -144,16 +144,16 @@ tolerance and 0.001 rad error tolerance.
 
 For $\Delta SP=0.5$ rad and $\Delta t=0.02$ s, the full apparent command rate is
 
-$\Delta SP/\Delta t=0.5/0.02=25\ rad/s$
+$\Delta SP/\Delta t=0.5/0.02=25\,\text{rad/s}$
 
 With $K_d=3$ N m s/rad, the derivative contributions for $c=1$, 0.5, and 0 are
 
-$T_D=75.00,\ 37.50,\ 0.00\ N\,m$
+$T_D=75.00,\,37.50,\,0.00\,\text{N m}$
 
 Adding the common 4.00 N m proportional term and 0.02 N m first integral term
 gives complete requests
 
-$T_{requested}=79.02,\ 41.52,\ 4.02\ N\,m$
+$T_{requested}=79.02,\,41.52,\,4.02\,\text{N m}$
 
 The separate drive clamp should make the first applied torques 10.00, 10.00,
 and 4.02 N m. Predict that $c=0$ removes command kick while still damping the
@@ -217,10 +217,9 @@ separate Validate screen for this project-owned comparison.
      mode, and the predicted first request before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Choose **Observe without excitation**, set
-     **Amplitude** to **0**, and set **Maximum duration (s)** to **15.02**.
-     Verify that the sole affected signal is `P1.ExperimentEnabled`, changing
-     false to true and restoring false.
+   - **Baseline check:** Confirm **Experiment** = **Observe without
+     excitation**, **Amplitude** = **0** (disabled), and
+     **Maximum duration (s)** = **15.02**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`).
    - **Decision before action:** Confirm that Test will not inject a second
      setpoint. The Boolean must authorize the project's selected $c=0$ setup,
      0.5 rad move, and restoration. Select **Review test** and verify authority,

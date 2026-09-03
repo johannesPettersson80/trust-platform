@@ -57,17 +57,12 @@ With integral action, Track first writes
 $u_{\mathrm{nominal},k-1}=MV_{\mathrm{track}}$, then evaluates the incremental
 law from Lesson 26:
 
-$$
-u_k=u_{k-1}+K_p\Delta e_k+K_iT_se_k.
-$$
+$u_k=u_{k-1}+K_p\Delta e_k+K_iT_se_k.$
 
 At the isolated handover, SP = PV, so $e_k=0$, and neither changes, so
 $\Delta e_k=0$. Substitution gives
 
-$$
-u_k=MV_{\mathrm{track}}+K_p(0)+K_iT_s(0)
-=MV_{\mathrm{track}}.
-$$
+$u_k=MV_{\mathrm{track}}+K_p(0)+K_iT_s(0) =MV_{\mathrm{track}}.$
 
 That is why a fresh, independently observed 60% tracking value predicts a 60%
 first Auto request. An **inactive without tracking** controller receives no
@@ -89,14 +84,14 @@ Start with controller and valve at 40 percent, SP at 6 bar, and PV at 6 bar.
 External authority moves the valve to 60 percent while SP and PV are held for
 the exact transition update.
 
-With Track, \(u_{\mathrm{nominal}}\) becomes 60%, so the first Auto request is
-60%. The step is \(|60-60|=0\) percentage points. Without Track,
-\(u_{\mathrm{nominal}}\) remains 40%, so the step from the last applied 60% is
-\(|40-60|=20\) points.
+With Track, $u_{\mathrm{nominal}}$ becomes 60%, so the first Auto request is
+60%. The step is $|60-60|=0$ percentage points. Without Track,
+$u_{\mathrm{nominal}}$ remains 40%, so the step from the last applied 60% is
+$|40-60|=20$ points.
 
 For Auto-to-Manual at 40%, a manual station still set to 10% produces
-\(|10-40|=30\) points. If it first adopts 40%, the predicted step is
-\(|40-40|=0\).
+$|10-40|=30$ points. If it first adopts 40%, the predicted step is
+$|40-40|=0$.
 
 ## Implementation
 
@@ -115,7 +110,7 @@ deliberately not calling the controller. It is not another control law.
 ## Experiment in Control Studio
 
 Control Studio executes the safe tracked external-to-Auto handover. Test writes
-one reviewed Boolean authority, \(\mathtt{P1.ExperimentEnabled}\), for 10.1
+one reviewed Boolean authority, $\mathtt{P1.ExperimentEnabled}$, for 10.1
 seconds. The project initializes controller and valve at 40% and 6 bar, calls
 Track with independently observed applied output while external authority moves
 to 60%, then changes only authority to Auto. Returning authority false selects
@@ -129,13 +124,13 @@ independent counterfactuals. The deterministic Simulation seed is 20260829.
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm pressure = SP = 6 bar, external/tracking values = 40%, station Disabled, requested safe command = 30%, and experiment authority false. Add requested/active authority, SP/PV, actual external output, tracking input and quality, requested/applied output, limit state, and authority to **Signals**.
-   - **Decision before action:** Write the tracked prediction \(|60-60|=0\) and the untracked counterfactual \(|40-60|=20\) percentage points. Confirm tracking comes from applied output, not an unconstrained request.
+   - **Decision before action:** Write the tracked prediction $|60-60|=0$ and the untracked counterfactual $|40-60|=20$ percentage points. Confirm tracking comes from applied output, not an unconstrained request.
    - **Successful evidence:** The plot advances, values are finite/current, quality is good, and **Start recording** is enabled. Select **Start recording**.
    - **Recovery:** For stale, unavailable, nonfinite, or poor-quality data, stop the Simulator, correct the displayed fault, restart, and repeat the baseline check.
    - **Record:** Note the initial physical state, owner, tracking source, and both predictions.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **10.1**. The reviewed authority is \(\mathtt{P1.ExperimentEnabled}\); the project owns initialization, external move, Track calls, and Auto handover.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **10.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns initialization, external move, Track calls, and Auto handover.
    - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Require pressure within 0–12 bar and every valve value within 0–100%. Tracking quality must remain current through the handover.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe external output and tracking move together to 60%, Track active before Auto, the transition sample, and final Disabled safe restoration.
    - **Recovery:** Abort for stale tracking, nonfinite/out-of-range data, a binding limit, or unexpected ownership. Confirm authority false, station Disabled, and safe 30% command before retrying.
@@ -150,17 +145,14 @@ aligned and unaligned comparisons; Monitor and Test expose the safe handover.
 
 The **authority-transition output step** is
 
-\[
-\Delta MV_{\mathrm{transfer}}=
-|MV_{\mathrm{new,first}}-MV_{\mathrm{last,applied}}|.
-\]
+$\Delta MV_{\mathrm{transfer}}= |MV_{\mathrm{new,first}}-MV_{\mathrm{last,applied}}|.$
 
 The absolute value measures bump size regardless of opening or closing
 direction, in percentage points.
 
 The **retained-state alignment error** is
-\(e_{\mathrm{align}}=u_{\mathrm{nominal}}-
-MV_{\mathrm{external\,applied}}\) immediately before transfer. Its sign shows
+$e_{\mathrm{align}}=u_{\mathrm{nominal}}-
+MV_{\mathrm{external\,applied}}$ immediately before transfer. Its sign shows
 which way controller state is stale; its magnitude gives the predicted bump
 when the other incremental terms are zero. A zero PV error does not prove this
 state is aligned.

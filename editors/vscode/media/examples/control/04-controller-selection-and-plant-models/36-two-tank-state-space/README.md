@@ -55,31 +55,20 @@ words:
 
 The equations are then
 
-\[
-A_1\frac{dh_1}{dt}=u-k_{12}h_1,
-\qquad
-A_2\frac{dh_2}{dt}=k_{12}h_1-k_2h_2.
-\]
+$A_1\frac{dh_1}{dt}=u-k_{12}h_1, \qquad A_2\frac{dh_2}{dt}=k_{12}h_1-k_2h_2.$
 
 Each term is a volume flow. For example,
 $k_{12}\,[\mathrm{m^2/s}]$ times $h_1\,[\mathrm m]$ gives
 $\mathrm{m^3/s}$. Divide each balance by its tank area to obtain the two state
-rates. With $A_1=A_2=1\ \mathrm{m^2}$,
+rates. With $A_1=A_2=1\,\mathrm{m^2}$,
 
-\[
-\frac{dh_1}{dt}=-0.5h_1+1u,
-\qquad
-\frac{dh_2}{dt}=0.5h_1-0.2h_2.
-\]
+$\frac{dh_1}{dt}=-0.5h_1+1u, \qquad \frac{dh_2}{dt}=0.5h_1-0.2h_2.$
 
 The **state equation** advances internal state. The **output equation** maps
 state and any direct input effect into measurements. With the state order
 already declared, write:
 
-\[
-\dot x=\mathbf A x+\mathbf B u,
-\qquad y=\mathbf Cx+\mathbf Du.
-\]
+$\dot x=\mathbf A x+\mathbf B u, \qquad y=\mathbf Cx+\mathbf Du.$
 
 The state matrix ($A$), input matrix ($B$), and output matrix ($C$) are:
 
@@ -91,7 +80,7 @@ advances downstream level. The two output rows publish upstream and downstream
 level respectively.
 
 An **equilibrium** is a constant state under constant input and therefore means
-zero accumulation. For $u_0=0.1\ \mathrm{m^3/s}$, the first row gives
+zero accumulation. For $u_0=0.1\,\mathrm{m^3/s}$, the first row gives
 $0=0.1-0.5h_1$, so $h_1=0.2$ m. The second then gives
 $0=0.5(0.2)-0.2h_2$, so $h_2=0.5$ m. The prediction is therefore **20 cm
 upstream** and **50 cm downstream**.
@@ -99,7 +88,7 @@ upstream** and **50 cm downstream**.
 An **eigenvalue** is a natural state-space mode. Eigenvalues solve
 $\det(\lambda\mathbf I-\mathbf A)=0$. Because this matrix is triangular, its
 determinant is $(\lambda+0.5)(\lambda+0.2)$, so the eigenvalues are
-$-0.5$ and $-0.2\ \mathrm{s^{-1}}$; these are also poles of the
+$-0.5$ and $-0.2\,\mathrm{s^{-1}}$; these are also poles of the
 zero-initial-deviation transfer functions. Those transfer functions do not
 contain the plant's current internal state.
 
@@ -113,9 +102,7 @@ $x = [0.2, 0.0] m$. Both have the same initial downstream reading and zero
 input. Empty should remain at zero. In the charged case, the upstream state is
 $h_1(t)=0.2e^{-0.5t}$. Substitution into the downstream balance gives
 
-\[
-h_2(t)=\frac{1}{3}\left(e^{-0.2t}-e^{-0.5t}\right)\ \mathrm m.
-\]
+$h_2(t)=\frac{1}{3}\left(e^{-0.2t}-e^{-0.5t}\right)\,\mathrm m.$
 
 The peak occurs when its derivative is zero:
 $-0.2e^{-0.2t}+0.5e^{-0.5t}=0$. Rearranging gives
@@ -149,7 +136,7 @@ no observer, estimator, state feedback, optimal controller, or MPC.
 
 Control Studio exposes the full-state inlet step. Test writes one reviewed
 Boolean, `P1.ExperimentEnabled`, for 300.1 seconds. Authority true makes the
-project request $0.1\ \mathrm{m^3/s}$; authority false restores zero pump flow.
+project request $0.1\,\mathrm{m^3/s}$; authority false restores zero pump flow.
 The hidden-state comparison belongs to a fresh native run because its meaning
 depends on revealing two exact initial states at time zero. The deterministic
 Simulation seed is 20260829.
@@ -164,7 +151,7 @@ Simulation seed is 20260829.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **300.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **300.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false.
    - **Decision before action:** Before selecting **Review test**, predict both equilibrium levels and confirm they remain within 0–1 m. Use this run only to test the derived state model; do not Identify, Tune, or Apply.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Response must show pump flow 0.1 m³/s, upstream level moving first, downstream level following, and pump flow returning to zero.
    - **Recovery:** Abort for stale, invalid, nonfinite, or out-of-range data. Confirm authority false and pump flow zero before reviewing another test.

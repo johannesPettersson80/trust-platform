@@ -74,12 +74,10 @@ The expected output change caused by the experiment is the signal amplitude
 amplitude ($A_{\mathrm{noise}}$). Their dimensionless ratio is the signal-to-noise ratio
 ($SNR$):
 
-\[
-SNR=\frac{A_{\mathrm{signal}}}{A_{\mathrm{noise}}}.
-\]
+$SNR=\frac{A_{\mathrm{signal}}}{A_{\mathrm{noise}}}.$
 
 For the heater, its gain predicts
-$A_{\mathrm{signal}}=(0.2\ ^\circ\mathrm C/\%)(5\%)=1$ °C. With 0.02 °C RMS
+$A_{\mathrm{signal}}=(0.2\,^\circ\mathrm C/\%)(5\%)=1$ °C. With 0.02 °C RMS
 noise, $SNR=1/0.02=50$. High SNR does not make a
 clipped or out-of-region experiment valid.
 
@@ -93,9 +91,7 @@ $\omega=2\pi f$, so $f_n=6/(2\pi)=0.955$ Hz.
 
 For the linear chirp, frequency at sweep time $t$ is
 
-\[
-f(t)=f_0+\frac{f_1-f_0}{T_s}t.
-\]
+$f(t)=f_0+\frac{f_1-f_0}{T_s}t.$
 
 Phase is the accumulated angle, so
 $\phi(t)=2\pi\int_0^t f(\xi)d\xi$. The program approximates that integral each
@@ -156,7 +152,7 @@ state and seed. The deterministic Simulation seed is 20260829.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm servo requested/applied torque = 0 N·m.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm servo requested/applied torque = 0 N·m.
    - **Decision before action:** Before selecting **Review test**, predict a response maximum near the 0.955 Hz mode and confirm project-owned torque remains within ±0.2 N·m and shaft position within ±0.35 rad. Compare only qualified records; do not Identify, Tune, or Apply.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe five seconds at baseline, the 20-second chirp, five seconds restored, and a final zero torque.
    - **Recovery:** Abort for stale, invalid, nonfinite, or out-of-range data. Confirm authority false and requested/applied torque zero before retrying.

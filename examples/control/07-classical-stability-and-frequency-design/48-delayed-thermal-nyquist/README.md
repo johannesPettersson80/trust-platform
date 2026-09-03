@@ -122,7 +122,7 @@ differential equation gives
 
 $G(s)=\frac{K_g e^{-Ls}}{Ts+1}.$
 
-This lesson configures $K_g=1\ ^\circ\mathrm C/\%$ and $T=20$ s. The three
+This lesson configures $K_g=1\,^\circ\mathrm{C}/\%$ and $T=20$ s. The three
 delay values are configured teaching cases chosen to cross the stability
 boundary. On physical equipment, $C$, $H$, and $k_u$ begin with material,
 heater, and loss data and are refined by a bounded heater step; $L$ begins with
@@ -243,7 +243,7 @@ deterministic Simulation seed is 20260829.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **600.1**. The observed lesson signal is **Product-temperature setpoint**. Control Studio uses the existing Boolean project authority **P1.ExperimentEnabled** at **%MX96.0**; it does not inject a second process event.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **600.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The observed lesson signal is **Product-temperature setpoint**. It does not inject a second process event.
    - **Decision before action:** Before selecting **Review test**, predict the response to Product-temperature setpoint. Confirm the live values are current and the reviewed plan stays inside Short-delay applied heater command 0 % to 100 %; Medium-delay applied heater command 0 % to 100 %; Long-delay applied heater command 0 % to 100 %; Short-delay product temperature 90 degC to 110 degC; Medium-delay product temperature 90 degC to 110 degC; Long-delay product temperature 90 degC to 110 degC.
    - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.

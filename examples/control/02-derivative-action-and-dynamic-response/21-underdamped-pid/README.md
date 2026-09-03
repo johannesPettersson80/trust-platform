@@ -84,7 +84,7 @@ $T_{requested}=T_P+T_I+T_D=K_pe+K_iI-K_d\omega$
 
 The applied plant input is
 
-$T_{applied}=\operatorname{clamp}(T_{requested},-10\ N\,m,+10\ N\,m)$
+$T_{applied}=\operatorname{clamp}(T_{requested},-10\,\text{N m},+10\,\text{N m})$
 
 The clamp is why requested and applied torque must not be confused. Integral
 state can continue changing when the drive cannot deliver the requested
@@ -212,9 +212,9 @@ and 0.01 N m for torque.
 With $K_p=8$ N m/rad, $G=4$ N m, and $r=0.5$ rad, the small-angle PD prediction
 is
 
-$\theta_{ss}\approx\frac{8\times0.5}{8+4}=0.3333\ rad$
+$\theta_{ss}\approx\frac{8\times0.5}{8+4}=0.3333\,\text{rad}$
 
-$e_{ss}\approx\frac{4\times0.5}{8+4}=0.1667\ rad$
+$e_{ss}\approx\frac{4\times0.5}{8+4}=0.1667\,\text{rad}$
 
 Solving the exact sine equation numerically gives about 0.3354 rad position and
 0.1646 rad error. Those values, rather than 0.5 rad error, are what the actual
@@ -222,9 +222,9 @@ robot-joint gravity model predicts.
 
 With $K_i=2$ N m/(rad s), PID needs at the target
 
-$T_I=4\sin(0.5)=1.9177\ N\,m$
+$T_I=4\sin(0.5)=1.9177\,\text{N m}$
 
-$I_{ss}=1.9177/2=0.9589\ rad\,s$
+$I_{ss}=1.9177/2=0.9589\,\text{rad s}$
 
 In words, the small-angle prediction is 0.3333 rad position and 0.1667 rad
 error, while PID needs about 0.9589 rad s of stored error at the target.
@@ -295,10 +295,9 @@ separate Validate screen for this project-owned comparison.
      gravity/response prediction before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Choose **Observe without excitation**, set
-     **Amplitude** to **0**, and set **Maximum duration (s)** to **30.02**.
-     Verify that the affected signal is `P1.ExperimentEnabled`, changing from
-     false to true and restoring false.
+   - **Baseline check:** Confirm **Experiment** = **Observe without
+     excitation**, **Amplitude** = **0** (disabled), and
+     **Maximum duration (s)** = **30.02**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`).
    - **Decision before action:** Confirm that Test will not inject a second
      setpoint. The sole Boolean must authorize the project's complete gain
      selection, 0.5 rad move, and safe restoration. Select **Review test** and

@@ -294,7 +294,7 @@ suite("Tuning-method curriculum lesson", () => {
     assert.ok(source.replace(/\s+/g, " ").includes(lesson.objective));
     assert.ok(source.replace(/\s+/g, " ").includes(lesson.equipment));
     assert.deepStrictEqual(lesson.prerequisites, ["control-position-z-plane-sampling"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Tune", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.change.applied, false);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_tuning_methods_separate_eligibility_from_tradeoffs");
@@ -501,7 +501,7 @@ suite("Tuning-method curriculum lesson", () => {
     assert.ok(source.replace(/\s+/g, " ").includes(lesson.equipment));
     assert.strictEqual(catalogEntry?.path, "control/08-tuning-qualification-and-automation/52-automatic-water-heater");
     assert.deepStrictEqual(lesson.prerequisites, ["control-tuning-method-comparison"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Identify", "Tune", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.change.applied, false);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_automatic_tune_validates_without_replacing_the_running_heater");

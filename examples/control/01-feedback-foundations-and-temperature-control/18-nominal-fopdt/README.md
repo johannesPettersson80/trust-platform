@@ -204,16 +204,16 @@ Before practice, freeze these decisions:
 Use the rounded validated values $K=0.2$ °C/%, $T=5$ s, and $L=1$ s. Choose
 $\lambda=4$ s. The proportional gain is
 
-$K_p = 5/[0.2(4+1)] = 5\ \%/{}^\circ\mathrm{C}$
+$K_p = 5/[0.2(4+1)] = 5\,\%/{}^\circ\mathrm{C}$
 
 The integral-time alternatives are $T=5$ s and $4(\lambda+L)=20$ s. Their
 minimum is therefore
 
-$T_i=min(5,20)=5\ s$
+$T_i=min(5,20)=5\,\text{s}$
 
 and the parallel integral gain is
 
-$K_i=5/5=1\ \%/({}^\circ\mathrm{C}\cdot s)$
+$K_i=5/5=1\,\%/({}^\circ\mathrm{C}\cdot\text{s})$
 
 Lesson 7's empirical PI used $K_p=4$ %/°C and $K_i=0.8$ %/(°C·s). Both
 calculated gains are 25% larger, so predict a smaller tracking and load IAE.
@@ -281,10 +281,10 @@ authority, not a direct SP, MV, or disturbance write. The deterministic seed is
    - **Record:** Retain the initial SP, PV, requested and applied heater power, mode, empirical gains, model identity, and prediction.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Select **Observe without excitation**. Confirm **Amplitude = 0** (disabled), **Maximum duration = 120.10 seconds**, and the sole affected signal is `P1.ExperimentEnabled`. The project, not Control Studio, owns the selected-tuning lifecycle and timed cold-flow event.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project, not Control Studio, owns the selected-tuning lifecycle and timed cold-flow event.
    - **Decision before action:** Confirm the reviewed plan will start at 30.2 °C and 20 percent heater power, request 30.6 °C, apply the 29.8 °C cold-flow condition at 60 seconds, stay inside PV 0–80 °C and applied MV 0–100%, then remove authority at 120.10 seconds.
-   - **Successful evidence:** Select **Review test**, inspect the Boolean write, duration, abort conditions, and restoration, then select **Confirm and start**. While authority is true, observe the Lambda gains $K_p=5$, $K_i=1$, Automatic mode, and the response through the 60-second load event. At 120.10 seconds, confirm `P1.ExperimentEnabled=false`, `RunApproved=false`, `CandidateApplied=false`, empirical gains restored, Manual mode active, and applied heater power 0%.
-   - **Recovery:** Abort for stale or invalid inputs, a hard-limit violation, mismatched model provenance, or unexpected authority. Restart from the declared initial state; never weaken a gate to make the run pass.
+   - **Successful evidence:** Select **Review test**, inspect the Boolean write, duration, abort conditions, and restoration, then select **Confirm and start**. While authority is true, observe the Lambda gains $K_p=5$, $K_i=1$, Automatic mode, and the response through the 60-second load event. At 120.10 seconds, confirm `P1.ExperimentEnabled=false`, `RunApproved=false`, `CandidateApplied=false`, empirical gains restored, Manual mode active, and applied heater power 0%. Keep **Abort test** visible.
+   - **Recovery:** Select **Abort test** if inputs are stale or invalid, there is a hard-limit violation, model provenance is mismatched, or authority is unexpected. Restart from the declared initial state; never weaken a gate to make the run pass.
    - **Record:** Retain the terminal state, restoration result, seed, response plot, and the native comparison evidence below.
 
 ## Evidence and decision

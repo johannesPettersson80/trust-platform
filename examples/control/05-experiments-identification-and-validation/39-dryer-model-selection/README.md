@@ -48,16 +48,12 @@ The measured output ($y_{\mathrm{measured}}$) is dryer temperature. The model-pr
 output ($y_{\mathrm{predicted}}$) is the temperature calculated by a candidate. Both use
 degrees Celsius. The residual ($r$) is measured minus predicted output:
 
-\[
-r_k=y_{\mathrm{measured},k}-y_{\mathrm{predicted},k}.
-\]
+$r_k=y_{\mathrm{measured},k}-y_{\mathrm{predicted},k}.$
 
 The root-mean-square prediction error ($RMSE$) is the square root of the mean
 squared residual over a declared window:
 
-\[
-RMSE=\sqrt{\frac{1}{N}\sum_{k=1}^{N}r_k^2}.
-\]
+$RMSE=\sqrt{\frac{1}{N}\sum_{k=1}^{N}r_k^2}.$
 
 Squaring prevents positive and negative residuals from cancelling and
 penalizes large misses. Dividing by sample count makes records of different
@@ -100,9 +96,7 @@ remains physically plausible and sufficiently certain.
 A 10-percentage-point step from 30 to 40 percent predicts
 $\Delta T=K\Delta u=0.4(10)=4$ °C, from 80 to 84 °C. For the FOPDT candidate,
 
-\[
-T(t)=80+4\left(1-e^{-(t-4)/12}\right),\qquad t\ge4\ \mathrm s.
-\]
+$T(t)=80+4\left(1-e^{-(t-4)/12}\right),\qquad t\ge4\,\mathrm s.$
 
 The first four seconds contain no heater-attributable response. At 16 seconds,
 one time constant after the delay, the prediction is
@@ -152,7 +146,7 @@ Simulation seed is 20260829.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **90.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm requested/applied heater = 30% and temperature = 80 °C.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **90.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm requested/applied heater = 30% and temperature = 80 °C.
    - **Decision before action:** Before selecting **Review test**, predict no attributable response for four seconds, then a monotonic rise toward 84 °C. Confirm the project-owned input remains inside 20–50% and temperature inside 75–90 °C.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe the 40% request, delayed rise, retained estimation recording, and 30% restoration.
    - **Recovery:** Abort for stale, invalid, nonfinite, clipped, confounded, or out-of-range data. Confirm authority false and requested/applied heater 30% before retrying.

@@ -77,7 +77,7 @@ This relationship belongs to the lesson's simplified linear heater model near th
 The **reachability margin ($R$)** is available maximum power minus required
 steady power, measured in percentage points:
 
-$reachability\ margin = R = MV_{\mathrm{max}} - MV_{\mathrm{required}}$
+$\text{reachability margin} = R = MV_{\mathrm{max}} - MV_{\mathrm{required}}$
 
 A nonnegative margin means the model has enough steady authority. A negative
 margin means the target requires more than the power stage can deliver, so
@@ -88,7 +88,7 @@ exposure, peak requested power and peak applied power are the largest sample of
 each signal, and peak saturation error is the largest requested-minus-applied
 difference:
 
-$peak\ saturation\ error = \max_k(MV_{\mathrm{requested},k}-MV_{\mathrm{applied},k})$
+$\text{peak saturation error} = \max_k(MV_{\mathrm{requested},k}-MV_{\mathrm{applied},k})$
 
 The **post-restoration saturation hold** is the elapsed time after SP restoration
 until applied power first leaves the upper limit. Let $t_{restore}=65.0$ seconds
@@ -96,15 +96,15 @@ be the instant SP returns to 35 degrees Celsius.
 If $t_{release}$ is the first later sample at which applied power leaves the
 100-percent upper limit, then:
 
-$post\text{-}restoration\ saturation\ hold = t_{release}-t_{restore}$
+$\text{post-restoration saturation hold} = t_{release}-t_{restore}$
 
 The **recovery time** ends when absolute temperature error is at most 0.2
-degrees Celsius for 2.0 continuous seconds. If $t_{first\ sustained}$ is the
+degrees Celsius for 2.0 continuous seconds. If $t_{\text{first sustained}}$ is the
 first sample after restoration for which
 absolute temperature error is at most 0.2 degrees Celsius and remains there
 for 2.0 continuous seconds, then:
 
-$recovery\ time = t_{first\ sustained}-t_{restore}$
+$\text{recovery time} = t_{\text{first sustained}}-t_{restore}$
 
 If no qualifying sample exists, report `Not recovered`.
 
@@ -216,7 +216,7 @@ deterministic Simulation seed is 20260828.
    - **Record:** Note the initial SP, PV, requested power, applied power, saturation error, controller mode, and your four written predictions.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **95.1**. The reviewed authority is **P1.ExperimentEnabled**. Its false-to-true transition starts one project-owned sequence: 0.1 s safe Manual zero, Manual 75% through 50.0 s, Auto at SP 35 degC through 55.0 s, SP 45 degC through 65.0 s, SP 35 degC recovery through 95.0 s, and Manual zero at 95.1 s.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **95.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Its false-to-true transition starts one project-owned sequence: 0.1 s safe Manual zero, Manual 75% through 50.0 s, Auto at SP 35 degC through 55.0 s, SP 45 degC through 65.0 s, SP 35 degC recovery through 95.0 s, and Manual zero at 95.1 s.
    - **Decision before action:** Confirm that the reviewed plan changes only experiment authority and that the project owns every timed SP, mode, and output transition. The 45-degree target is intentionally unreachable in Simulation, but applied heater power remains bounded from 0 to 100 percent.
    - **Successful evidence:** Select **Review test**, verify **P1.ExperimentEnabled**, the 95.1-second timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** visible. The Response plot must show Manual preparation, the Auto baseline, SP rising at 55.1 seconds, requested power exceeding 100 percent while applied power stops at 100 percent, SP returning to 35 degrees Celsius at 65.1 seconds, and Manual zero at completion.
    - **Recovery:** Select **Abort test** if any signal is nonfinite, PV leaves 0 to 80 degrees Celsius, applied heater power leaves 0 to 100 percent, or the UI reports unsafe or stale data. Confirm authority false, SP 35 degrees Celsius, Manual mode, and zero requested and applied power before retrying.

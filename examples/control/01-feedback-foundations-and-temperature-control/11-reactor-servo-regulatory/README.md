@@ -87,7 +87,7 @@ Servo **overshoot** is the greatest positive temperature excess above the new
 target after the setpoint step. Taking the maximum with zero prevents a
 response that never crosses the target from being assigned negative overshoot:
 
-$servo\ overshoot = \max_k\left(PV_k - 85 {}^\circ\mathrm{C}, 0\right)$
+$\text{servo overshoot} = \max_k\left(PV_k - 85 {}^\circ\mathrm{C}, 0\right)$
 
 Servo **settling time** is the elapsed time until the absolute
 error enters the 0.5-degree-Celsius band and remains there through the end of
@@ -96,7 +96,7 @@ the automatic observation.
 Regulatory **peak deviation** is the greatest absolute departure from the fixed
 80-degree-Celsius target after the colder-feed event:
 
-$regulatory\ peak\ deviation = \max_k\left|80 {}^\circ\mathrm{C} - PV_k\right|$
+$\text{regulatory peak deviation} = \max_k\left|80 {}^\circ\mathrm{C} - PV_k\right|$
 
 Regulatory **recovery
 time** is the elapsed time until the absolute error enters the same 0.5-degree-
@@ -239,7 +239,7 @@ restoration. The deterministic Simulation seed is 20260827.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment = Observe without excitation**, **Amplitude = 0 (disabled)**, and **Maximum duration (s) = 56.5**. The reviewed authority is `P1.ExperimentEnabled`. Its false-to-true transition enters Auto at SP 80 degC through 5.0 seconds, steps SP to 85 degC at 5.1 seconds, observes the servo response through 55.0 seconds, then selects Manual zero from 55.1 seconds until the applied valve reaches zero. The initial Manual sample and complete restoration ramp are retained.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **56.5**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Its false-to-true transition enters Auto at SP 80 degC through 5.0 seconds, steps SP to 85 degC at 5.1 seconds, observes the servo response through 55.0 seconds, then selects Manual zero from 55.1 seconds until the applied valve reaches zero. The initial Manual sample and complete restoration ramp are retained.
    - **Decision before action:** Before selecting **Review test**, verify that the plan changes only experiment authority. Repeat the 90-percent initial-command prediction and confirm the declared 60-to-100-degree-Celsius PV and 0-to-100-percent valve bounds.
    - **Successful evidence:** Select **Review test**, verify `P1.ExperimentEnabled`, the 56.5-second timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** visible. Response must show the 80-to-85-degree-Celsius step, PV and valve response, and complete Manual-zero restoration. The terminal state must confirm completion and authority restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason. Confirm experiment authority false, SP 80 degC, Manual mode, and zero valve before reviewing a new test.

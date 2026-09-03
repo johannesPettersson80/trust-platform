@@ -154,7 +154,7 @@ Servo overshoot is the largest positive PV excess above the 85-degree-Celsius
 target from 5.1 through 55.0 seconds. Taking the maximum with zero prevents a
 response that never crosses the target from being assigned negative overshoot:
 
-$servo\ overshoot = \max_k(PV_k-85{}^\circ\mathrm{C},0)$
+$\text{servo overshoot} = \max_k(PV_k-85{}^\circ\mathrm{C},0)$
 
 Its upper requirement is 1.0 degree Celsius; its numerical tolerance is 0.01
 degree Celsius. Settling time is elapsed time after the 5.0-second event until
@@ -176,7 +176,7 @@ because it is safety evidence, not automatic control effort.
 For each regulatory run, peak deviation is the largest absolute error from
 60.1 through 120.0 seconds:
 
-$regulatory\ peak\ deviation = \max_k|SP_k-PV_k|$
+$\text{regulatory peak deviation} = \max_k|SP_k-PV_k|$
 
 Its lower requirement is 1.0 degree Celsius and its tolerance is 0.01 degree
 Celsius, so the disturbance is large enough to test rejection. Recovery time
@@ -267,7 +267,7 @@ The deterministic Simulation seed is 20260827.
    - **Recovery:** If data are stale, unavailable, nonfinite, or outside limits, stop the Simulator, correct the runtime or binding problem, restart, and repeat the baseline check.
    - **Record:** Retain the initial SP, PV, applied MV, Manual command, weight, objective, mode, and prediction before opening Test.
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment = Observe without excitation**, **Amplitude = 0 (disabled)**, and **Maximum duration (s) = 56.5**. The reviewed authority is `P1.ExperimentEnabled`; Test must change only that Boolean from false to true and restore false.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **56.5**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Test must change only that Boolean from false to true and restore false.
    - **Decision before action:** Before selecting **Review test**, verify the plan does not write SP or weight. The project enters Auto at SP 80 degC through 5.0 seconds, steps SP to 85 degC at 5.1 seconds, observes through 55.0 seconds, then selects Manual zero from 55.1 seconds until the applied valve reaches zero.
    - **Successful evidence:** Select **Review test**, verify the Boolean authority, duration, false restoration, and stop conditions, then select **Confirm and start**. Require **Running**, an available **Abort test**, retained boundary samples, terminal completion, experiment authority false, and complete Manual-zero restoration.
    - **Recovery:** If the run is rejected, stale, unavailable, failed, or aborted, keep or return the authority false, wait for Manual zero and current data, then review a fresh test. Never claim six-run comparison evidence from this one UI runtime.

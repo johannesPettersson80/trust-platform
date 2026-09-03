@@ -94,7 +94,7 @@ Divide by $H$ and define steady gain
 $K_h=P_{100}/(100H)$ and time constant $\tau_h=C/H$. This gives
 $\tau_h\,d\Delta T/dt+\Delta T=K_h\Delta u_h$, and therefore
 $\Delta T(s)/\Delta U_h(s)=K_h/(\tau_hs+1)$. The configured values are
-$K_h=0.2\ ^\circ\mathrm C/\%$ and $\tau_h=5$ s. A 20-percentage-point command
+$K_h=0.2\,^\circ\mathrm C/\%$ and $\tau_h=5$ s. A 20-percentage-point command
 therefore has a 4 °C final rise. Dividing temperature deviation by that 4 °C
 rise and command by its 20-percentage-point step produces the normalized model
 $G(s)=1/(5s+1)$ used in the matching exercise. On real equipment, $C$ and
@@ -180,7 +180,7 @@ same parameters.
 The normalized heater response ($y(t)$) is the fraction of its final
 temperature rise completed at time $t$, where time is measured in seconds. The
 normalized heater model is $G(s)=1/(5s+1)$. Its pole is the denominator root
-$s=-1/5=-0.2\ \mathrm{s^{-1}}$. A unit step has response
+$s=-1/5=-0.2\,\mathrm{s^{-1}}$. A unit step has response
 $y(t)=1-e^{-t/5}$, so at one time constant,
 $y(5)=1-e^{-1}=0.63212$. The negative exponential decays without changing
 sign, which predicts a monotonic rise to equilibrium.
@@ -199,7 +199,7 @@ $s^2+2\zeta\omega_n s+\omega_n^2$. Its roots are
 $p=-\zeta\omega_n\pm j\omega_n\sqrt{1-\zeta^2}.$
 
 With $\omega_n=1$ rad/s and $\zeta=0.2$, the roots are
-$-0.2\pm j0.9799\ \mathrm{s^{-1}}$. The imaginary part causes oscillation;
+$-0.2\pm j0.9799\,\mathrm{s^{-1}}$. The imaginary part causes oscillation;
 the negative real part makes its envelope decay. The damped angular frequency
 ($\omega_d=\omega_n\sqrt{1-\zeta^2}$) determines when the sinusoid reaches its
 first peak. The peak time ($t_p$), measured in seconds, is
@@ -283,7 +283,7 @@ then reveal the identities. The deterministic Simulation seed is 20260829.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm the bearing force remains zero in this UI run.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm the bearing force remains zero in this UI run.
    - **Decision before action:** Before selecting **Review test**, write the expected heater fraction, tank slope, drive peak, crane tail, and boiler initial/final signs. Confirm tank level remains within 0–100 cm and heater temperature within 0–100 °C. These are response-class experiments; do not Identify, Tune, or Apply.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Response must show five physical commands rise together, bearing force remain zero, and all commands return to zero afterward.
    - **Recovery:** Abort for stale, nonfinite, invalid, or out-of-range data. Confirm authority false and every physical command zero before reviewing a new test.

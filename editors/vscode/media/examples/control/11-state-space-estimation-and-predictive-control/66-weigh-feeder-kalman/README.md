@@ -111,7 +111,7 @@ This procedure observes the nominal $Q=0.1$, $R=3$ estimator record. The project
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **30.1**. The affected signal is **Experiment authority**. Amplitude zero is intentional: Test writes only `P1.ExperimentEnabled`, while the project owns the 5-to-10-percent command event.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns the 5-to-10-percent command event.
    - **Decision before action:** Before selecting **Review test**, predict the rise after 5 seconds and the relative motion of the measurement, prediction, and correction. Confirm the scheduled command and expected mass-flow values remain inside their declared limits.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero requested and applied command, wait for current data, and review a new test.

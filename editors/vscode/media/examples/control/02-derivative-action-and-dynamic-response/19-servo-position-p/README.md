@@ -56,7 +56,7 @@ $\tau_{requested}=K_p e=K_p(r-\theta)$
 
 The drive produces the **applied motor torque** after its amplitude limit:
 
-$\tau_{applied}=clamp(\tau_{requested},-10,10)\ N\cdot m$
+$\tau_{applied}=clamp(\tau_{requested},-10,10)\,\text{N·m}$
 
 Because displacement from the target creates a restoring torque, $K_p$ behaves
 like a virtual spring stiffness. This analogy becomes exact in the unsaturated
@@ -140,17 +140,17 @@ Here $J=1$ kg·m², $B=1$ N·m·s/rad, and the initial error is 1 rad.
 
 For $K_p=2$ N·m/rad:
 
-$\tau_0=K_p e=2\times1=2\ N\cdot m$
+$\tau_0=K_p e=2\times1=2\,\text{N·m}$
 
-$\omega_n=\sqrt{2/1}=1.414\ rad/s$
+$\omega_n=\sqrt{2/1}=1.414\,\text{rad/s}$
 
 $\zeta=1/[2\sqrt{1\times2}]=0.354$
 
 For $K_p=8$ N·m/rad:
 
-$\tau_0=8\times1=8\ N\cdot m$
+$\tau_0=8\times1=8\,\text{N·m}$
 
-$\omega_n=\sqrt{8/1}=2.828\ rad/s$
+$\omega_n=\sqrt{8/1}=2.828\,\text{rad/s}$
 
 $\zeta=1/[2\sqrt{1\times8}]=0.177$
 
@@ -219,10 +219,10 @@ Simulation seed is 20260828.
    - **Record:** Retain initial SP, PV, velocity, torque, gain, mode, and prediction.
 
 2. **Test** — Restart from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Select **Observe without excitation**. Confirm **Amplitude = 0** (disabled), **Maximum duration = 20.02 seconds**, and the sole affected signal is `P1.ExperimentEnabled`.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **20.02**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`).
    - **Decision before action:** Confirm the project-owned move stays inside position -4 to +4 rad, velocity -20 to +20 rad/s, and torque -10 to +10 N·m. Confirm false restoration returns SP to 0 rad and Manual zero torque.
-   - **Successful evidence:** Select **Review test**, inspect the Boolean write, bounds, aborts, duration, and restoration, then **Confirm and start**. Observe $K_p=8$, SP = 1 rad, Auto mode, the initial positive torque, target crossing, negative braking torque, and decaying oscillation. At 20.02 seconds confirm authority false, $K_p=2$, SP = 0 rad, Manual mode, and applied torque 0 N·m.
-   - **Recovery:** Abort on invalid position or velocity, a hard-limit violation, stale data, or unexpected authority. Restart from zero position and velocity; do not weaken a criterion.
+   - **Successful evidence:** Select **Review test**, inspect the Boolean write, bounds, aborts, duration, and restoration, then **Confirm and start**. Observe $K_p=8$, SP = 1 rad, Auto mode, the initial positive torque, target crossing, negative braking torque, and decaying oscillation. At 20.02 seconds confirm authority false, $K_p=2$, SP = 0 rad, Manual mode, and applied torque 0 N·m. Keep **Abort test** visible.
+   - **Recovery:** Select **Abort test** if position or velocity is invalid, there is a hard-limit violation, data is stale, or authority is unexpected. Restart from zero position and velocity; do not weaken a criterion.
    - **Record:** Retain the terminal state, restoration, seed, selected response, and the native two-run evidence below.
 
 ## Evidence and decision

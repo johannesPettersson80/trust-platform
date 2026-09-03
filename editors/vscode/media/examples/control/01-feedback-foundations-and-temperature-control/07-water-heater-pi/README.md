@@ -94,23 +94,23 @@ The early window is 60.1–75.0 seconds; the final window is 110.1–120.0 secon
 The **recovery time** starts at the 60-second load and ends at the first sample
 where absolute error is at most 0.2 degrees Celsius and remains there:
 
-$recovery\ time = t_{\mathrm{first\ sustained}} - 60.0\,s$
+$\text{recovery time} = t_{\text{first sustained}} - 60.0\,s$
 
 The **post-load overshoot** is the largest positive excursion above setpoint
 from 60.1 through 120.0 seconds; negative excursions do not count as overshoot:
 
-$post\text{-}load\ overshoot = \max_k\left(\max(PV_k-SP_k,0)\right)$
+$\text{post-load overshoot} = \max_k\left(\max(PV_k-SP_k,0)\right)$
 
 The **cumulative applied-output movement** is total actuator travel after the
 load:
 
-$applied\ movement = \sum_k |MV_{\mathrm{applied},k}-MV_{\mathrm{applied},k-1}|$
+$\text{applied movement} = \sum_k |MV_{\mathrm{applied},k}-MV_{\mathrm{applied},k-1}|$
 
 Absolute values make upward and downward movement add instead of cancel. The
 unit is percentage points. The **saturation duration** is the number of samples
 at the lower or upper output limit multiplied by the 0.1-second cycle:
 
-$saturation\ duration = N_{\mathrm{limited}} \times dt$
+$\text{saturation duration} = N_{\mathrm{limited}} \times dt$
 
 **Validity prerequisite:** every normal candidate must use Kp 8 and differ only
 in Ki; it must use the same plant, 50-second Manual preparation at the measured
@@ -203,7 +203,7 @@ therefore Manual zero output. The deterministic Simulation seed is 20260828.
    - **Record:** Write down the initial SP, PV, requested and applied output, both gains, both increments, measured holding output, mode, and your predicted 81% first request before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120**. The sole reviewed write is Boolean **P1.ExperimentEnabled**. Control Studio sets it true; the project derives Auto mode and owns selected Kp 8, selected Ki 4, the measured holding-output preload, and the timed load event. The native sweep restores the Manual holding condition before starting each additional candidate and restores every run at 120.1 seconds to Manual with zero requested and applied output.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Control Studio sets it true; the project derives Auto mode and owns selected Kp 8, selected Ki 4, the measured holding-output preload, and the timed load event. The native sweep restores the Manual holding condition before starting each additional candidate and restores every run at 120.1 seconds to Manual with zero requested and applied output.
    - **Decision before action:** Before selecting **Review test**, predict the response to Cold-water flow increases at 60 s in the normal comparison. Confirm the live values are current and the reviewed plan stays inside Outlet-water temperature 0 degC to 80 degC; Applied heater power 0 % to 100 %.
    - **Successful evidence:** Select **Review test**, verify **P1.ExperimentEnabled**, the timeout, stop conditions, and false restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, the project derives Auto mode, the first unsaturated request is predicted as 81%, and completion restores experiment authority false, Auto false, and zero requested and applied output.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the safe Manual-zero initial state, and review a new test.

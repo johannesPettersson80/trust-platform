@@ -29,9 +29,7 @@ carry parameter and prediction uncertainty into a purpose-limited verdict.
 
 The **measured outlet temperature ($PV_{\mathrm{measured}}$)** is the recorded plant value in degrees Celsius. The **model-predicted outlet temperature ($PV_{\mathrm{predicted}}$)** is the frozen model output for the recorded applied valve position. The **sample number ($k$)** identifies one update. The **residual ($r_{k}$)** is measured minus predicted temperature:
 
-\[
-r_k=PV_{\mathrm{measured},k}-PV_{\mathrm{predicted},k}.
-\]
+$r_k=PV_{\mathrm{measured},k}-PV_{\mathrm{predicted},k}.$
 
 The **root-mean-square prediction error** is
 $RMSE=\sqrt{(1/N)\sum r_k^2}$ in a declared window. **Residual bias** is
@@ -50,7 +48,7 @@ prediction from all declared parameter-interval corners, expanded by the
 gain interval alone predicts $5(0.47)=2.35$ to $5(0.53)=2.65$ °C movement; the
 noise expansion makes that 2.05 to 2.95 °C. During the transient, time-constant
 and delay corners also change the bounds. **Envelope coverage** is
-$N_{inside}/N_{qualified}$. A narrow envelope is credible only if independent
+$N_{\mathrm{inside}}/N_{\mathrm{qualified}}$. A narrow envelope is credible only if independent
 data achieve its declared coverage.
 
 **Interpolation** predicts between conditions represented by qualified evidence. **Extrapolation** predicts beyond tested input, disturbance, or operating conditions. **Model mismatch** is repeatable plant behavior absent from the candidate. The **validity region** names the inputs, outputs, disturbances, modes, and operating points supported by validation.
@@ -104,7 +102,7 @@ time-zero conditions reproducible. The deterministic Simulation seed is
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **160.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm all requested/applied valves = 20% and all temperatures near 50 °C.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **160.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm all requested/applied valves = 20% and all temperatures near 50 °C.
    - **Decision before action:** Before selecting **Review test**, record the local 2.5 °C equilibrium prediction, 1.580 °C one-time-constant prediction, −2 °C load residual, and −1.25 °C high-flow residual. Confirm all commands and temperatures remain inside declared bounds. Do not refit, Tune, or Apply from validation evidence.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe the common applied input and three different temperature responses, followed by 20% restoration.
    - **Recovery:** Abort for stale, invalid, nonfinite, gapped, clipped, altered-model, reused-estimation, or out-of-range evidence. Confirm authority false and all valves 20% before retrying.

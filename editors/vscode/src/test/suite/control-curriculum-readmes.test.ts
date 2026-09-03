@@ -26,6 +26,47 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** Blank out fenced code blocks and strip inline code spans, keeping line numbers intact. */
+function stripFencedAndInlineCode(markdown: string): string[] {
+  let inFence = false;
+  return markdown.split("\n").map((line) => {
+    if (/^```/.test(line)) {
+      inFence = !inFence;
+      return "";
+    }
+    return inFence ? "" : line.replace(/`[^`]*`/g, "");
+  });
+}
+
+const previewMathSpec = "Specification 38 §2.1.4 (docs/specs/38-control-engineering-curriculum.md)";
+
+/** Find every VS Code preview-unsafe mathematics usage in one lesson README. */
+function findPreviewUnsafeMathViolations(readmePath: string, controlRoot: string): string[] {
+  const relative = path.relative(controlRoot, readmePath);
+  const violations: string[] = [];
+  stripFencedAndInlineCode(fs.readFileSync(readmePath, "utf8")).forEach((line, index) => {
+    const lineNumber = index + 1;
+    const report = (rule: string): void => {
+      violations.push(`${relative}:${lineNumber}: ${rule} — ${previewMathSpec}`);
+    };
+    if (line.includes("\\(")) {
+      report("uses a \\( delimiter; the VS Code preview renders only $ mathematics");
+    }
+    if (line.includes("\\[")) {
+      report("uses a \\[ delimiter; the VS Code preview renders only $ mathematics");
+    }
+    if (line.includes("$$")) {
+      report("uses $$; a standalone relationship must be its own left-aligned paragraph holding one $...$ expression");
+    }
+    for (const match of line.matchAll(/\$([^$]*)\$/g)) {
+      if (match[0].includes("\\ ")) {
+        report(`${match[0]} contains \\ (backslash-space); textual labels must use \\text{} or \\operatorname{}`);
+      }
+    }
+  });
+  return violations;
+}
+
 const canonicalLessonSections = [
   "The problem",
   "What we need",
@@ -247,17 +288,18 @@ suite("Control curriculum pedagogical READMEs", () => {
 
     const loop = JSON.parse(fs.readFileSync(path.join(root, "control-loop.json"), "utf8"));
     assert.deepStrictEqual(loop.signals.manipulatedVariable, {
-      symbol: "P1.ManualDemand", address: "%ML8", iecType: "LREAL", direction: "write", unit: "%",
+      symbol: "P1.ManualDemand", address: "%ML8", iecType: "LREAL", direction: "read", unit: "%",
       range: { minimum: 0, maximum: 150 },
-    }, "Control Studio Test must write the reviewed operator request, not bypass the PLC clamp");
+    }, "the project, not Control Studio Test, must drive the reviewed operator request through the PLC clamp");
     assert.deepStrictEqual(loop.signals.actuator, {
       symbol: "P1.ManipulatedValue", address: "%QL0", iecType: "LREAL", direction: "read", unit: "%",
       range: { minimum: 0, maximum: 100 },
     }, "the applied compressor demand must remain separately observable after the clamp");
     assert.deepStrictEqual(loop.experiment, {
-      execution: "control-studio", kind: "mv_step", amplitude: 150,
-      durationSeconds: 20, seed: 20260828,
-    }, "Lesson 1 Test must execute the stated 20-second manual request through Control Studio");
+      execution: "project-scripted", kind: "observation", amplitude: 0,
+      durationSeconds: 120.1, seed: 20260828,
+      activation: { symbol: "P1.ExperimentEnabled", address: "%MX24.0", iecType: "BOOL", direction: "write" },
+    }, "Lesson 1 Test must only enable the project-owned 120.1-second observation sequence");
     const experimentApi = require("../../controlStudio/experiment") as {
       buildControlExperimentPlan(input: unknown): { kind: string; plan?: any; reason?: string };
     };
@@ -271,7 +313,7 @@ suite("Control curriculum pedagogical READMEs", () => {
         manipulatedVariable: { ...loop.signals.manipulatedVariable, value: 0, quality: "good" },
         outputLimits: { minimum: 0, maximum: 150 }, rateLimits: {}, saturation: "none", recording: true,
       },
-      kind: "mv_step", amplitude: 150, durationSeconds: 20, seed: 20260828,
+      kind: "project_sequence", amplitude: 0, durationSeconds: 120.1, seed: 20260828,
     });
     assert.strictEqual(plan.kind, "accepted", `Lesson 1 reviewed Test must be executable: ${plan.reason ?? "unknown"}`);
     assert.deepStrictEqual({
@@ -279,11 +321,11 @@ suite("Control curriculum pedagogical READMEs", () => {
       to: plan.plan?.to, restorationValue: plan.plan?.restorationValue,
       durationMs: plan.plan?.durationMs,
     }, {
-      affectedSignal: "P1.ManualDemand", address: "%ML8", to: 150,
-      restorationValue: 0, durationMs: 20_000,
+      affectedSignal: "P1.ExperimentEnabled", address: "%MX24.0", to: true,
+      restorationValue: false, durationMs: 120_100,
     });
     assert.match(readme,
-      /Experiment.*Manual output step.*Amplitude.*150.*Maximum duration.*20[\s\S]*return to Monitor[\s\S]*120\.0 seconds/is,
+      /Experiment.*Observe without excitation.*Amplitude.*0.*Maximum duration.*120\.1[\s\S]*door event/is,
       "Lesson 1 must tell the learner how to execute the cooling interval and continue through the door event");
     assert.doesNotMatch(readme, /^3\. \*\*Validate\*\*/m,
       "Lesson 1 must not send a beginner to a disabled shared PID validation stage");
@@ -350,7 +392,7 @@ suite("Control curriculum pedagogical READMEs", () => {
     assert.match(readme, /IF AutoMode THEN/);
     assert.match(readme, /ManipulatedValue := LREAL#100\.0/);
     assert.match(readme, /ManipulatedValue := LREAL#0\.0/);
-    assert.match(readme, /AutoMode AT %MX16\.0/,
+    assert.match(readme, /ExperimentEnabled AT %MX16\.2/,
       "the controller excerpt must show the mode binding used by the shipped project");
     assert.match(readme, /disable Auto.*0 percent.*safe restoration/is);
     assert.match(readme, /eight.*crossings.*seven.*transitions/is);
@@ -405,7 +447,7 @@ suite("Control curriculum pedagogical READMEs", () => {
 
     const loop = JSON.parse(fs.readFileSync(path.join(root, "control-loop.json"), "utf8"));
     assert.deepStrictEqual(loop.experiment.activation, {
-      symbol: "P1.AutoMode", address: "%MX16.0", iecType: "BOOL", direction: "write",
+      symbol: "P1.ExperimentEnabled", address: "%MX16.2", iecType: "BOOL", direction: "write",
     }, "Confirm and start must actually enable the shipped ON/OFF law and restore it disabled");
     const experimentApi = require("../../controlStudio/experiment") as {
       buildControlExperimentPlan(input: unknown): { kind: string; plan?: any; reason?: string };
@@ -421,7 +463,7 @@ suite("Control curriculum pedagogical READMEs", () => {
         manipulatedVariable: { ...loop.signals.manipulatedVariable, value: 0, quality: "good" },
         outputLimits: { minimum: 0, maximum: 100 }, rateLimits: {}, saturation: "none", recording: true,
       },
-      kind: "project_sequence", amplitude: 0, durationSeconds: 120, seed: 20260828,
+      kind: "project_sequence", amplitude: 0, durationSeconds: 120.1, seed: 20260828,
     });
     assert.strictEqual(plan.kind, "accepted", `Lesson 2 reviewed Test must be executable: ${plan.reason ?? "unknown"}`);
     assert.deepStrictEqual({
@@ -429,11 +471,11 @@ suite("Control curriculum pedagogical READMEs", () => {
       address: plan.plan?.address, from: plan.plan?.from, to: plan.plan?.to,
       restorationValue: plan.plan?.restorationValue, durationMs: plan.plan?.durationMs,
     }, {
-      kind: "project_sequence", affectedSignal: "P1.AutoMode", address: "%MX16.0",
-      from: false, to: true, restorationValue: false, durationMs: 120_000,
+      kind: "project_sequence", affectedSignal: "P1.ExperimentEnabled", address: "%MX16.2",
+      from: false, to: true, restorationValue: false, durationMs: 120_100,
     });
     assert.match(readme,
-      /Observe without excitation[\s\S]*Amplitude.*0.*disabled[\s\S]*Maximum duration.*120[\s\S]*lesson experiment authority[\s\S]*AutoMode/is,
+      /Observe without excitation[\s\S]*Amplitude.*0.*disabled[\s\S]*Maximum duration.*120\.1[\s\S]*AutoMode[\s\S]*experiment authority/is,
       "Lesson 2 must explain exactly what the project-scripted Test controls");
     assert.doesNotMatch(readme, /^3\. \*\*Validate\*\*/m);
     assert.doesNotMatch(readme, /For a sump pump, pressure switch, or domestic thermostat/,
@@ -462,7 +504,7 @@ suite("Control curriculum pedagogical READMEs", () => {
       assert.ok(lesson.signals.some((signal: { name: string }) => signal.name === signalName),
         `lesson metadata must expose ${signalName}`);
     }
-    assert.strictEqual(lesson.experiment.durationSeconds, 120);
+    assert.strictEqual(lesson.experiment.durationSeconds, 120.1);
     assert.ok(lesson.acceptance.some((metric: { metric: string }) => metric.metric === "temperature_range"));
     assert.ok(lesson.acceptance.some((metric: { metric: string }) => metric.metric === "switch_count"));
     assert.ok(lesson.acceptance.some((metric: { metric: string }) => metric.metric === "noise_crossing_transitions"));
@@ -582,7 +624,7 @@ suite("Control curriculum pedagogical READMEs", () => {
       "Lesson 3 must not send the learner to disabled shared PID validation");
     const loop = JSON.parse(fs.readFileSync(path.join(root, "control-loop.json"), "utf8"));
     assert.deepStrictEqual(loop.experiment.activation, {
-      symbol: "P1.AutoMode", address: "%MX44.0", iecType: "BOOL", direction: "write",
+      symbol: "P1.ExperimentEnabled", address: "%MX44.4", iecType: "BOOL", direction: "write",
     }, "Confirm and start must enable the shipped dwell candidate and restore it disabled");
     for (const [symbol, address] of [
       ["P1.RequestedCooling", "%MX44.1"],
@@ -607,7 +649,7 @@ suite("Control curriculum pedagogical READMEs", () => {
         manipulatedVariable: { ...loop.signals.manipulatedVariable, value: 0, quality: "good" },
         outputLimits: { minimum: 0, maximum: 100 }, rateLimits: {}, saturation: "none", recording: true,
       },
-      kind: "project_sequence", amplitude: 0, durationSeconds: 120, seed: 20260828,
+      kind: "project_sequence", amplitude: 0, durationSeconds: 120.1, seed: 20260828,
     });
     assert.strictEqual(plan.kind, "accepted", `Lesson 3 reviewed Test must be executable: ${plan.reason ?? "unknown"}`);
     assert.deepStrictEqual({
@@ -615,8 +657,8 @@ suite("Control curriculum pedagogical READMEs", () => {
       address: plan.plan?.address, from: plan.plan?.from, to: plan.plan?.to,
       restorationValue: plan.plan?.restorationValue, durationMs: plan.plan?.durationMs,
     }, {
-      kind: "project_sequence", affectedSignal: "P1.AutoMode", address: "%MX44.0",
-      from: false, to: true, restorationValue: false, durationMs: 120_000,
+      kind: "project_sequence", affectedSignal: "P1.ExperimentEnabled", address: "%MX44.4",
+      from: false, to: true, restorationValue: false, durationMs: 120_100,
     });
     assert.match(readme,
       /Test runs the shipped hysteresis-with-dwell\s+candidate.*retained three-candidate comparison.*native evidence test/is,
@@ -627,7 +669,7 @@ suite("Control curriculum pedagogical READMEs", () => {
     assert.strictEqual(objective, lesson.objective);
     assert.strictEqual(lesson.plant.seed, 20260828);
     assert.strictEqual(lesson.experiment.seed, 20260828);
-    assert.strictEqual(lesson.experiment.durationSeconds, 120);
+    assert.strictEqual(lesson.experiment.durationSeconds, 120.1);
     const temperatureLimit = lesson.safety.hardLimits.find(
       (limit: { signal: string }) => limit.signal === "Cold-room air temperature"
     );
@@ -724,7 +766,7 @@ suite("Control curriculum pedagogical READMEs", () => {
     assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     const loop = JSON.parse(fs.readFileSync(path.join(root, "control-loop.json"), "utf8"));
     assert.deepStrictEqual(loop.experiment.activation, {
-      symbol: "P1.AutoMode", address: "%MX16.0", iecType: "BOOL", direction: "write",
+      symbol: "P1.ExperimentEnabled", address: "%MX24.1", iecType: "BOOL", direction: "write",
     });
     assert.ok(loop.signals.additional.some((signal: { symbol: string; address: string; direction: string }) =>
       signal.symbol === "P1.ProportionalGain" && signal.address === "%ML8" && signal.direction === "read"),
@@ -743,7 +785,7 @@ suite("Control curriculum pedagogical READMEs", () => {
         manipulatedVariable: { ...loop.signals.manipulatedVariable, value: 0, quality: "good" },
         outputLimits: { minimum: 0, maximum: 100 }, rateLimits: {}, saturation: "none", recording: true,
       },
-      kind: "project_sequence", amplitude: 0, durationSeconds: 120, seed: 20260824,
+      kind: "project_sequence", amplitude: 0, durationSeconds: 120.1, seed: 20260824,
     });
     assert.strictEqual(plan.kind, "accepted", `Lesson 4 reviewed Test must be executable: ${plan.reason ?? "unknown"}`);
     assert.deepStrictEqual({
@@ -751,8 +793,8 @@ suite("Control curriculum pedagogical READMEs", () => {
       address: plan.plan?.address, from: plan.plan?.from, to: plan.plan?.to,
       restorationValue: plan.plan?.restorationValue, durationMs: plan.plan?.durationMs,
     }, {
-      kind: "project_sequence", affectedSignal: "P1.AutoMode", address: "%MX16.0",
-      from: false, to: true, restorationValue: false, durationMs: 120_000,
+      kind: "project_sequence", affectedSignal: "P1.ExperimentEnabled", address: "%MX24.1",
+      from: false, to: true, restorationValue: false, durationMs: 120_100,
     });
     assert.match(readme,
       /Test runs the shipped Kp 8.*retained\s+three-gain comparison.*native evidence\s+test/is);
@@ -842,7 +884,7 @@ suite("Control curriculum pedagogical READMEs", () => {
     assert.match(source, /AppliedHeaterPower/);
     const loop = JSON.parse(fs.readFileSync(path.join(root, "control-loop.json"), "utf8"));
     assert.deepStrictEqual(loop.experiment.activation, {
-      symbol: "P1.AutoMode", address: "%MX16.0", iecType: "BOOL", direction: "write",
+      symbol: "P1.ExperimentEnabled", address: "%MX40.1", iecType: "BOOL", direction: "write",
     });
     assert.ok(loop.signals.additional.some((signal: { symbol: string; address: string; direction: string }) =>
       signal.symbol === "P1.ProportionalGain" && signal.address === "%ML8" && signal.direction === "read"),
@@ -861,7 +903,7 @@ suite("Control curriculum pedagogical READMEs", () => {
         manipulatedVariable: { ...loop.signals.manipulatedVariable, value: 0, quality: "good" },
         outputLimits: { minimum: 0, maximum: 100 }, rateLimits: {}, saturation: "none", recording: true,
       },
-      kind: "project_sequence", amplitude: 0, durationSeconds: 120, seed: 20260828,
+      kind: "project_sequence", amplitude: 0, durationSeconds: 120.1, seed: 20260828,
     });
     assert.strictEqual(plan.kind, "accepted", `Lesson 5 reviewed Test must be executable: ${plan.reason ?? "unknown"}`);
     assert.deepStrictEqual({
@@ -869,8 +911,8 @@ suite("Control curriculum pedagogical READMEs", () => {
       address: plan.plan?.address, from: plan.plan?.from, to: plan.plan?.to,
       restorationValue: plan.plan?.restorationValue, durationMs: plan.plan?.durationMs,
     }, {
-      kind: "project_sequence", affectedSignal: "P1.AutoMode", address: "%MX16.0",
-      from: false, to: true, restorationValue: false, durationMs: 120_000,
+      kind: "project_sequence", affectedSignal: "P1.ExperimentEnabled", address: "%MX40.1",
+      from: false, to: true, restorationValue: false, durationMs: 120_100,
     });
     assert.match(readme,
       /Test\s+runs the shipped measured-bias candidate.*retained manual trials and\s+zero-bias comparison.*native evidence test/is);
@@ -978,7 +1020,7 @@ suite("Control curriculum pedagogical READMEs", () => {
     assert.match(source, /InitialState\.NominalOutput := MeasuredHoldingOutput/);
     const loop = JSON.parse(fs.readFileSync(path.join(root, "control-loop.json"), "utf8"));
     assert.deepStrictEqual(loop.experiment.activation, {
-      symbol: "P1.AutoMode", address: "%MX16.0", iecType: "BOOL", direction: "write",
+      symbol: "P1.ExperimentEnabled", address: "%MX48.1", iecType: "BOOL", direction: "write",
     });
     assert.ok(loop.signals.additional.some((signal: { symbol: string; address: string; direction: string }) =>
       signal.symbol === "P1.MeasuredHoldingOutput" && signal.address === "%ML40" && signal.direction === "read"),
@@ -997,7 +1039,7 @@ suite("Control curriculum pedagogical READMEs", () => {
         manipulatedVariable: { ...loop.signals.manipulatedVariable, value: 0, quality: "good" },
         outputLimits: { minimum: 0, maximum: 100 }, rateLimits: {}, saturation: "none", recording: true,
       },
-      kind: "project_sequence", amplitude: 0, durationSeconds: 120, seed: 20260828,
+      kind: "project_sequence", amplitude: 0, durationSeconds: 120.1, seed: 20260828,
     });
     assert.strictEqual(plan.kind, "accepted", `Lesson 6 reviewed Test must be executable: ${plan.reason ?? "unknown"}`);
     assert.deepStrictEqual({
@@ -1005,8 +1047,8 @@ suite("Control curriculum pedagogical READMEs", () => {
       address: plan.plan?.address, from: plan.plan?.from, to: plan.plan?.to,
       restorationValue: plan.plan?.restorationValue, durationMs: plan.plan?.durationMs,
     }, {
-      kind: "project_sequence", affectedSignal: "P1.AutoMode", address: "%MX16.0",
-      from: false, to: true, restorationValue: false, durationMs: 120_000,
+      kind: "project_sequence", affectedSignal: "P1.ExperimentEnabled", address: "%MX48.1",
+      from: false, to: true, restorationValue: false, durationMs: 120_100,
     });
     assert.match(readme,
       /Test\s+runs the shipped integral-only candidate.*retained\s+biased-P comparison.*native\s+evidence test/is);
@@ -1094,7 +1136,7 @@ suite("Control curriculum pedagogical READMEs", () => {
     assert.match(source, /InitialState\.NominalOutput := MeasuredHoldingOutput/);
     const loop = JSON.parse(fs.readFileSync(path.join(root, "control-loop.json"), "utf8"));
     assert.deepStrictEqual(loop.experiment.activation, {
-      symbol: "P1.AutoMode", address: "%MX16.0", iecType: "BOOL", direction: "write",
+      symbol: "P1.ExperimentEnabled", address: "%MX64.0", iecType: "BOOL", direction: "write",
     });
     assert.ok(loop.signals.additional.some((signal: { symbol: string; address: string; direction: string }) =>
       signal.symbol === "P1.MeasuredHoldingOutput" && signal.address === "%ML56" && signal.direction === "read"),
@@ -1121,7 +1163,7 @@ suite("Control curriculum pedagogical READMEs", () => {
       address: plan.plan?.address, from: plan.plan?.from, to: plan.plan?.to,
       restorationValue: plan.plan?.restorationValue, durationMs: plan.plan?.durationMs,
     }, {
-      kind: "project_sequence", affectedSignal: "P1.AutoMode", address: "%MX16.0",
+      kind: "project_sequence", affectedSignal: "P1.ExperimentEnabled", address: "%MX64.0",
       from: false, to: true, restorationValue: false, durationMs: 120_000,
     });
     assert.match(readme,
@@ -1690,7 +1732,8 @@ suite("Control curriculum pedagogical READMEs", () => {
       "Lesson 11 four-panel evidence must fit the rendered lesson viewport");
   });
 
-  test("Lesson 12 selects proportional setpoint weight from qualified servo and regulatory evidence", () => {
+  test("Lesson 12 selects proportional setpoint weight from qualified servo and regulatory evidence", function () {
+    this.timeout(30000);
     const root = lessonRoot("01-feedback-foundations-and-temperature-control/12-reactor-setpoint-weighting");
     const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
     const prose = pedagogicalText(readme);
@@ -2137,14 +2180,14 @@ suite("Control curriculum pedagogical READMEs", () => {
     );
     assert.deepStrictEqual(
       lesson.signals
-        .filter((signal: { name: string }) => /input validity|Test authority|Manual mode/i.test(signal.name))
+        .filter((signal: { name: string }) => /input validity|Experiment authority|Manual mode/i.test(signal.name))
         .map((signal: { name: string; binding: string }) => [signal.name, signal.binding]),
       [
-        ["Input validity", "%MX20.1"],
-        ["Test authority enabled", "%MX20.2"],
-        ["Manual mode active", "%MX20.3"],
+        ["Input validity", "%MX40.1"],
+        ["Experiment authority", "%MX40.2"],
+        ["Manual mode active", "%MX40.3"],
       ],
-      "Lesson 15 must expose executable input validity, Test authority, and Manual restoration state"
+      "Lesson 15 must expose executable input validity, Experiment authority, and Manual restoration state"
     );
     assert.ok(lesson.acceptance.some((entry: { metric: string; window: string }) =>
       entry.metric === "final_window_equilibrium_error" && entry.window === "29.0 s through 30.0 s"));
@@ -2383,10 +2426,10 @@ suite("Control curriculum pedagogical READMEs", () => {
     ]) assert.match(prose, contract);
     assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.experiment.kind, "observation");
-    assert.strictEqual(lesson.experiment.signal, "Test authority enabled");
+    assert.strictEqual(lesson.experiment.signal, "Experiment authority");
     assert.strictEqual(lesson.experiment.amplitude, 0);
     assert.match(prose, /complete learner workflow is Monitor\s*→\s*Test/is);
-    assert.match(prose, /sole reviewed write.*P1\.ExperimentEnabled/is);
+    assert.match(prose, /reviewed authority.*Experiment authority.*P1\.ExperimentEnabled/is);
     assert.match(prose, /project owns.*scans 1 through 100.*scans 101 through 500/is);
     assert.doesNotMatch(readme, /^3\. \*\*Identify\*\*/m);
     assert.doesNotMatch(readme, /^4\. \*\*Validate\*\*/m);
@@ -2473,7 +2516,7 @@ suite("Control curriculum pedagogical READMEs", () => {
     assert.ok(validateReadme.indexOf(
       "r_{k} = PV_{\\mathrm{measured},k} - PV_{\\mathrm{predicted},k}"
     ) > validateReadme.search(/prediction residual/i));
-    assert.match(validateReadme, /TestAuthorityEnabled/);
+    assert.match(validateReadme, /ExperimentEnabled/);
     assert.match(validateReadme, /SafetyAbort OR NOT InputsValid/);
     assert.match(validateReadme, /Input\.Mode := PIDMode#Manual/);
     assert.match(validateReadme, /60\.10 seconds.*Manual.*20\.00 percent/is);
@@ -2481,11 +2524,11 @@ suite("Control curriculum pedagogical READMEs", () => {
     assert.match(validateReadme, /Simulation evidence.*not.*physical/is);
     assert.deepStrictEqual(validateLesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(validateLesson.experiment.kind, "observation");
-    assert.strictEqual(validateLesson.experiment.signal, "Test authority enabled");
+    assert.strictEqual(validateLesson.experiment.signal, "Experiment authority");
     assert.strictEqual(validateLesson.experiment.amplitude, 0);
     assert.strictEqual(validateLesson.experiment.durationSeconds, 60.1);
     assert.match(validateProse, /complete learner workflow is Monitor\s*→\s*Test/is);
-    assert.match(validateProse, /sole reviewed write.*P1\.TestAuthorityEnabled/is);
+    assert.match(validateProse, /reviewed authority.*Experiment authority.*P1\.ExperimentEnabled/is);
     assert.match(validateProse, /project owns.*scans 1 through 100.*scans 101 through 600/is);
     assert.doesNotMatch(validateReadme, /^3\. \*\*Identify\*\*/m);
     assert.doesNotMatch(validateReadme, /^4\. \*\*Validate\*\*/m);
@@ -2506,7 +2549,7 @@ suite("Control curriculum pedagogical READMEs", () => {
         ["Applied heater power", "%QL0"],
       ]
     );
-    for (const signal of ["Test authority enabled", "Safety abort active", "Input validity", "Manual mode active"]) {
+    for (const signal of ["Experiment authority", "Safety abort active", "Input validity", "Manual mode active"]) {
       assert.ok(validateLesson.signals.some((candidate: { name: string }) => candidate.name === signal));
     }
 
@@ -2581,11 +2624,11 @@ suite("Control curriculum pedagogical READMEs", () => {
     assert.match(tuneReadme, /212\.79 percentage points/is);
     assert.deepStrictEqual(tuneLesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(tuneLesson.experiment.kind, "observation");
-    assert.strictEqual(tuneLesson.experiment.signal, "Experiment authority enabled");
+    assert.strictEqual(tuneLesson.experiment.signal, "Experiment authority");
     assert.strictEqual(tuneLesson.experiment.amplitude, 0);
     assert.strictEqual(tuneLesson.experiment.durationSeconds, 120.1);
     assert.match(tuneProse, /complete learner workflow is Monitor\s*→\s*Test/is);
-    assert.match(tuneProse, /sole reviewed write.*P1\.ExperimentEnabled/is);
+    assert.match(tuneProse, /reviewed authority.*Experiment authority.*P1\.ExperimentEnabled/is);
     assert.match(tuneProse, /rising edge.*generates the candidate.*applies it.*grants run authority/is);
     assert.match(tuneProse, /falling edge.*removes run authority.*rollback.*empirical gains/is);
     assert.doesNotMatch(tuneReadme, /^3\. \*\*Identify\*\*/m);
@@ -2672,7 +2715,7 @@ suite("Control curriculum pedagogical READMEs", () => {
       `Lesson 19 must derive mechanics and measures before practice: ${derivation}`);
     assert.deepStrictEqual(positionLesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(positionLesson.experiment.kind, "observation");
-    assert.strictEqual(positionLesson.experiment.signal, "Experiment authority enabled");
+    assert.strictEqual(positionLesson.experiment.signal, "Experiment authority");
     assert.strictEqual(positionLesson.experiment.amplitude, 0);
     assert.strictEqual(positionLesson.experiment.durationSeconds, 20.02);
     assert.match(positionProse, /complete learner workflow is Monitor\s*→\s*Test/is);
@@ -2697,7 +2740,7 @@ suite("Control curriculum pedagogical READMEs", () => {
       `Lesson 20 must derive damping and measures before practice: ${derivation}`);
     assert.deepStrictEqual(pdLesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(pdLesson.experiment.kind, "observation");
-    assert.strictEqual(pdLesson.experiment.signal, "Experiment authority enabled");
+    assert.strictEqual(pdLesson.experiment.signal, "Experiment authority");
     assert.strictEqual(pdLesson.experiment.amplitude, 0);
     assert.strictEqual(pdLesson.experiment.durationSeconds, 15.02);
     assert.match(pdProse, /learner workflow is exactly Monitor\s*→\s*Test/is);
@@ -2725,7 +2768,7 @@ suite("Control curriculum pedagogical READMEs", () => {
       `Lesson 21 must derive gravity equilibrium and integral dynamics before practice: ${derivation}`);
     assert.deepStrictEqual(loadedLesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(loadedLesson.experiment.kind, "observation");
-    assert.strictEqual(loadedLesson.experiment.signal, "Experiment authority enabled");
+    assert.strictEqual(loadedLesson.experiment.signal, "Experiment authority");
     assert.strictEqual(loadedLesson.experiment.amplitude, 0);
     assert.strictEqual(loadedLesson.experiment.durationSeconds, 30.02);
     assert.match(loadedProse, /complete learner workflow is exactly Monitor\s*→\s*Test/is);
@@ -2798,5 +2841,32 @@ suite("Control curriculum pedagogical READMEs", () => {
     const recovery = fs.readFileSync(path.join(lessonRoot("03-production-quality-digital-pid/30-booster-pump-invalid-data"), "README.md"), "utf8");
     assert.match(recovery, /acknowledgement scan.*count.*zero/is);
     assert.match(recovery, /valid scan 1.*valid scan 2.*valid scan 3/is);
+  });
+
+  test("all lesson READMEs use preview-safe left-aligned mathematics", () => {
+    const controlRoot = path.join(repositoryRoot(), "examples", "control");
+    const readmes: string[] = [];
+    const visit = (directory: string): void => {
+      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+        const candidate = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+          visit(candidate);
+        } else if (
+          entry.name === "README.md"
+          && directory !== controlRoot
+          && fs.existsSync(path.join(directory, "lesson.json"))
+        ) {
+          readmes.push(candidate);
+        }
+      }
+    };
+    visit(controlRoot);
+    assert.strictEqual(readmes.length, 84, "the preview-safe mathematics check must cover all 84 lessons");
+    const violations = readmes.sort()
+      .flatMap((readmePath) => findPreviewUnsafeMathViolations(readmePath, controlRoot));
+    assert.ok(
+      violations.length === 0,
+      `preview-unsafe mathematics in lesson READMEs:\n${violations.join("\n")}`
+    );
   });
 });

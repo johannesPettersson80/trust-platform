@@ -41,9 +41,7 @@ measured outlet temperature ($PV$) is the sensor value, also in degrees Celsius.
 The control error ($e$) is setpoint ($SP$) minus measured outlet temperature ($PV$).
 A positive error means the product is colder than desired.
 
-\[
-e=SP-PV.
-\]
+$e=SP-PV.$
 
 The operating-point bias is the valve position needed to hold 50 degrees
 Celsius at zero error. Here it is 20 percent. The proportional gain
@@ -59,9 +57,7 @@ action removes persistent error, but too much can cause overshoot, oscillation,
 saturation, and difficult recovery. The integral time ($T_i$) is the proportional
 gain divided by integral gain:
 
-\[
-T_i=\frac{K_p}{K_i}.
-\]
+$T_i=\frac{K_p}{K_i}.$
 
 The derivative gain ($K_d$) has units of valve percentage-point seconds per degree
 Celsius. The derivative time ($T_d$) is derivative gain divided by proportional
@@ -74,10 +70,7 @@ This controller uses the parallel positional form: bias, the present-error
 contribution, the accumulated-error contribution, and the measured-rate
 contribution are combined into one requested command. In symbolic form:
 
-\[
-MV_{\mathrm{requested}}=Bias+K_pe+I-K_d\frac{dPV}{dt},
-\qquad \frac{dI}{dt}=K_ie.
-\]
+$MV_{\mathrm{requested}}=Bias+K_pe+I-K_d\frac{dPV}{dt},\qquad \frac{dI}{dt}=K_ie.$
 
 The applied manipulated variable ($MV_{\mathrm{applied}}$) is the command after the
 controller's 0-to-100-percent limit. Saturation means the requested command
@@ -105,7 +98,7 @@ govern acceptance.
 
 Manual proportional control uses a 20% bias and $K_p=2.0$. Let $\Delta y$ be
 the final temperature rise. The plant gives
-$\Delta y=K_{plant}\Delta MV=0.5(2e)=e$, while
+$\Delta y=K_{\mathrm{plant}}\Delta MV=0.5(2e)=e$, while
 $e=\Delta SP-\Delta y=2.5-\Delta y$. Solving
 $\Delta y=2.5-\Delta y$ gives $\Delta y=1.25$ °C and $e=1.25$ °C. This derives
 the proportional offset instead of merely observing it.
@@ -161,7 +154,7 @@ Simulation seed is 20260829.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **180.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm common setpoint = 50 °C and every applied valve near 20%.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **180.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm common setpoint = 50 °C and every applied valve near 20%.
    - **Decision before action:** Before selecting **Review test**, record the 1.25 °C proportional offset and the derived manual/historical PI gains. Confirm every valve remains within 0–100% and every temperature within 40–60 °C. This is simulation-only; do not Apply.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe all four responses under the common setpoint and the restored 50 °C setpoint.
    - **Recovery:** Abort for stale, invalid, nonfinite, mismatched, or out-of-range data. Confirm authority false, setpoint 50 °C, and safe valve outputs before retrying.

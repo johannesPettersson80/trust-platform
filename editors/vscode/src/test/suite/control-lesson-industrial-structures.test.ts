@@ -73,7 +73,7 @@ suite("Industrial control-structure curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 53);
     assert.deepStrictEqual(lesson.prerequisites, ["control-automatic-tuning-sequence"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Identify", "Tune", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_feedforward_compensates_measured_oven_speed_before_feedback_error");
 
@@ -136,7 +136,7 @@ suite("Industrial control-structure curriculum lessons", () => {
     assert.strictEqual(lesson.sequence, 54);
     assert.deepStrictEqual(lesson.prerequisites, ["control-conveyor-oven-feedforward"]);
     assert.strictEqual(lesson.nextLesson, "control-blending-ratio");
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Identify", "Tune", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_cascade_commissions_inner_loop_before_rejecting_reactor_utility_disturbance");
     assertRetainedLessonEvidence(lessonRoot, source, "reactor-cascade-evidence");
@@ -577,7 +577,7 @@ suite("Industrial control-structure curriculum lessons", () => {
       /determinant.*0\.44.*Relative Gain Array.*1\.2727.*-0\.2727/i,
       /diagonal pairing.*eligible.*cross pairing.*negative/i,
       /open-loop interaction-identification lesson.*shall not.*centralized controller/i,
-      /Control Studio Monitor.*Simulation.*Manual.*0\.1-second/i,
+      /Control Studio.*Monitor.*Simulation.*Manual.*0\.1-second/i,
       /change only reflux.*new run.*change only reboiler steam/i,
       /zero-input baseline for 20 seconds/i,
       /change only reflux.*hold it for 180 seconds/i,
@@ -652,7 +652,7 @@ suite("Industrial control-structure curriculum lessons", () => {
       /prediction.*overhead-only.*static.*transient.*dynamic/i,
       /two real Control\.PID.*StaticDecoupler2x2.*two.*Control\.LowPass/i,
       /architecture selector.*direct.*static.*dynamic/i,
-      /Control Studio Monitor.*Simulation.*Auto.*requested.*applied/i,
+      /Control Studio.*Monitor.*Simulation.*Auto.*requested.*applied/i,
       /overhead-only.*0.*\+2.*restore.*bottoms-only/i,
       /feed-composition disturbance.*perturbed interaction model/i,
       /primary-loop integral absolute error.*cross-output peak excursion/i,
@@ -728,7 +728,7 @@ suite("Industrial control-structure curriculum lessons", () => {
       /direct decentralized PI.*static decoupling.*centralized constraint coordinator/i,
       /common scale factor \(alpha\).*preserved/i,
       /not model predictive control.*no prediction horizon.*optimizer/i,
-      /Control Studio Monitor.*Simulation.*requested and applied/i,
+      /Control Studio.*Monitor.*Simulation.*requested and applied/i,
       /Identify.*uncertainty set.*singular values/i,
       /overhead-only.*bottoms-only.*simultaneous.*feed-composition/i,
       /\+2\/\+2.*Infeasible/i,
@@ -794,7 +794,7 @@ suite("Industrial control-structure curriculum lessons", () => {
       /model residual \(epsilon_model\).*operating-region transition.*schedule/i,
       /diagnostic hypothesis.*discriminating test.*Inconclusive/i,
       /healthy baseline.*poor controller tuning.*valve stiction.*transmitter drift.*saturation.*upstream disturbance.*interaction.*model\/schedule mismatch/i,
-      /Control Studio.*Monitor.*Test.*Identify.*Tune\/Design.*Validate/i,
+      /Control Studio.*Monitor.*Test/i,
       /correct diagnosis count.*incorrect diagnosis count.*justified inconclusive count.*remedy-selection accuracy/i,
       /Simulation.*not.*physical-plant evidence/i,
       /Lesson 76.*capstone/i,

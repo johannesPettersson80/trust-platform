@@ -52,7 +52,7 @@ degree Celsius times degrees Celsius per second on the left.
 The outdoor-loss time constant ($\tau_o=R_oC_z$) is 600 seconds. The inter-zone
 coupling time constant ($\tau_{12}=R_{12}C_z$) is 1800 seconds. The heater-rate
 coefficient ($k_h=P_{100}/(100C_z)$) is
-$1/3000\ ^\circ\mathrm C/(\%\,s)$. The occupancy forecast ($q_i$) is expressed
+$1/3000\,^\circ\mathrm{C}/(\%\,s)$. The occupancy forecast ($q_i$) is expressed
 as the equivalent temperature difference that would drive the same heat
 through $R_o$, so $Q_{i,\mathrm{occ}}/C_z=q_i/\tau_o$. Divide the energy balance
 by $C_z$ and substitute those definitions:
@@ -123,8 +123,8 @@ three convert an equivalent degree-Celsius input to degrees Celsius.
 
 At 21 degrees Celsius in both zones, neighbour exchange is zero. With outdoor
 temperature 5 degrees Celsius, outdoor loss is
-$(5-21)/600=-0.026667\ ^\circ\mathrm C/s$. An 80-percent heater contributes
-$80/3000=+0.026667\ ^\circ\mathrm C/s$. The two rates cancel, which derives the
+$(5-21)/600=-0.026667\,^\circ\mathrm{C}/s$. An 80-percent heater contributes
+$80/3000=+0.026667\,^\circ\mathrm{C}/s$. The two rates cancel, which derives the
 initial equilibrium used by the prediction.
 
 ![Building-HVAC predictive-control signal path](figures/building-hvac-mpc-signal-path.svg)
@@ -180,7 +180,7 @@ The sample index ($k$) identifies the current one-minute state, and $k+1$
 identifies its first predicted successor. For the zero-move sequence, the first
 prediction for zone one is:
 
-$\begin{aligned} T_{1,k+1}={}&0.875659571463(21)+0.029177846573(21)\\ &+0.018727354703(80)+0.000305161690(80)\\ &+0.095162581964(5)=21.00000\,{}^\circ\mathrm{C} \end{aligned}$
+$\begin{aligned} T_{1,k+1}={}&0.875659571463(21)+0.029177846573(21)\\&+0.018727354703(80)+0.000305161690(80)\\&+0.095162581964(5)=21.00000\,{}^\circ\mathrm{C} \end{aligned}$
 
 The five contributions are 18.38885, 0.61273, 1.49819, 0.02441, and
 0.47581 degrees Celsius; their sum is 21.00000 degrees Celsius. Zone two is
@@ -231,7 +231,7 @@ This procedure observes the nominal 20-minute MPC schedule. The project owns out
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **1200.1**. The affected signal is **Experiment authority**. Amplitude zero is intentional: Test writes only `P1.ExperimentEnabled`; the project owns the weather, occupancy, and tariff schedule.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **1200.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns the weather, occupancy, and tariff schedule.
    - **Decision before action:** Before selecting **Review test**, predict why forecasts may change heater requests before the corresponding disturbance becomes current. Confirm every scheduled input and predicted/applied heater command remains inside its declared limits.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero applied heat and restored environmental inputs, wait for current data, and review a new test.

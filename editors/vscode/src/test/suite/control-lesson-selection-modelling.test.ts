@@ -309,7 +309,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 33);
     assert.deepStrictEqual(lesson.prerequisites, ["control-plant-response-classes"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_conservation_balances_predict_tank_and_heater");
 
@@ -382,7 +382,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 34);
     assert.deepStrictEqual(lesson.prerequisites, ["control-tank-heater-conservation"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_gravity_tank_linearization_is_local_and_unit_consistent");
     for (const requirement of [
@@ -447,7 +447,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 35);
     assert.deepStrictEqual(lesson.prerequisites, ["control-gravity-tank-linearization"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_pole_zero_maps_predict_six_real_plant_responses");
 
@@ -521,7 +521,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 36);
     assert.deepStrictEqual(lesson.prerequisites, ["control-pole-zero-plant-classes"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_two_tank_state_space_exposes_hidden_stored_water");
     for (const requirement of [
@@ -600,7 +600,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 37);
     assert.deepStrictEqual(lesson.prerequisites, ["control-two-tank-state-space"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_safe_heat_exchanger_plan_rejects_executes_and_restores");
 
@@ -631,7 +631,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
       /late-window.*within 0\.35 degrees Celsius.*5-degree prediction/i,
       /54\.676 degrees Celsius.*50\.099 degrees Celsius.*reason code 1/i,
       /aborted run.*safety evidence.*invalid identification evidence/i,
-      /do not use Identify, Tune, or Apply/i,
+      /Do not Identify, Tune, or Apply/i,
       /Lesson 38.*excitation shapes/i,
     ]) assert.match(readme, requirement);
     for (const heading of canonicalLessonReadmeHeadings) assert.match(source, new RegExp(`^##(?:#)? ${heading}$`, "m"));
@@ -678,7 +678,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 38);
     assert.deepStrictEqual(lesson.prerequisites, ["control-safe-heat-exchanger-experiment"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_excitation_methods_match_heater_and_flexible_drive_dynamics");
 
@@ -751,7 +751,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 39);
     assert.deepStrictEqual(lesson.prerequisites, ["control-excitation-methods"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Identify", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_dryer_selects_simplest_model_from_independent_prediction");
 
@@ -780,7 +780,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
       /Not applicable.*Not identifiable.*Rejected/i,
       /FOPDT.*gain.*0\.03.*time constant.*1\.5.*dead time.*0\.5/i,
       /validation RMSE.*0\.10.*residual bias.*0\.03/i,
-      /do not Tune or Apply/i,
+      /no separate shared Identify or disabled Validate stage/i,
       /not because.*simulator configuration.*lowest training error/i,
       /Lesson 40.*unidentifiable/i,
     ]) assert.match(readme, requirement);
@@ -824,7 +824,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 40);
     assert.deepStrictEqual(lesson.prerequisites, ["control-dryer-model-selection"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Identify"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_poor_excitation_rejects_unidentifiable_records");
 
@@ -850,7 +850,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
       /10-percentage-point.*5 degrees Celsius.*33\.33/i,
       /same physical parameters.*distinct.*noise streams/i,
       /requested and applied.*controller-used measurement/i,
-      /Do not.*Tune.*Apply/i,
+      /no shared Identify stage/i,
       /rejected record.*no accepted model.*parameter estimate/i,
       /Data inadequate/i,
       /Lesson 41.*independent/i,
@@ -895,7 +895,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 41);
     assert.deepStrictEqual(lesson.prerequisites, ["control-poor-excitation"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Identify", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_heat_exchanger_validation_classifies_scope_and_uncertainty");
 
@@ -1058,7 +1058,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 45);
     assert.deepStrictEqual(lesson.prerequisites, ["control-model-based-tuning"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Tune", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.plant.parameters.find(
       (parameter: { name: string }) => parameter.name === "stable_gain"
     )?.unit, "%/m");
@@ -1077,7 +1077,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
       /s\^3.*\[1, 3\].*s\^2.*\[2, K\].*\(6 - K\) \/ 2/i,
       /0 < K < 6/i,
       /K = 4.*zero sign changes.*K = 6.*marginal.*K = 8.*two sign changes/i,
-      /Control Studio.*Monitor.*Tune.*Test.*Validate/i,
+      /Control Studio.*Monitor.*Test/i,
       /same.*initial.*displacement.*zero setpoint.*natural response/i,
       /change only.*proportional gain.*model.*sample.*duration.*limits.*seed/i,
       /position-envelope ratio.*late window.*early window/i,
@@ -1116,7 +1116,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 46);
     assert.deepStrictEqual(lesson.prerequisites, ["control-crane-routh-stability"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Tune", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_root_locus_lead_design_meets_servo_damping_and_time_requirements");
     for (const requirement of [
@@ -1134,7 +1134,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
       /50.*s\+2\.5.*s\+15.*s\^3 \+ 17.*80.*125/i,
       /-3\.235.*1\.186.*-10\.530.*0\.939/i,
       /complete.*transfer function.*zero.*3\.2 percent.*1\.36.*50[- ]percent/i,
-      /Control Studio.*Monitor.*Tune.*Test.*Validate/i,
+      /Control Studio.*Monitor.*Test/i,
       /change only.*controller structure.*plant.*initial state.*sample.*duration.*limits.*seed/i,
       /percent overshoot.*peak position.*commanded position change/i,
       /2-percent settling time.*remains.*plus\/minus 2 percent/i,
@@ -1171,7 +1171,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 47);
     assert.deepStrictEqual(lesson.prerequisites, ["control-servo-root-locus"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Identify", "Tune", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_bode_measurement_exposes_flexible_drive_resonance_and_margins");
     for (const requirement of [
@@ -1193,7 +1193,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
       /unshaped.*gain.*5.*2\.99 rad\/s.*6\.9 degrees/i,
       /resonance-shaped.*1\.44 rad\/s.*112\.6 degrees/i,
       /pole-zero cancellation.*model-dependent.*perturb/i,
-      /Control Studio.*Monitor.*Test.*Identify.*Tune.*Validate/i,
+      /Control Studio.*Monitor.*Test/i,
       /requested.*applied torque.*separately/i,
       /change only probe frequency.*hold plant.*operating point.*sample schedule.*limits.*seed equal/i,
       /fit.*sinusoidal fundamental.*steady-state window/i,
@@ -1233,7 +1233,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 48);
     assert.deepStrictEqual(lesson.prerequisites, ["control-flexible-drive-bode"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Identify", "Tune", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_nyquist_count_predicts_delayed_oven_stability");
     for (const requirement of [
@@ -1256,7 +1256,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
       /60 s.*-357\.72 degrees/i,
       /60 s phase wraps to \+2\.28 degrees.*false apparent margin.*182\.28 degrees/i,
       /requested.*applied.*heater command.*separately/i,
-      /Control Studio.*Monitor.*Test.*Identify.*Tune.*Validate/i,
+      /Control Studio.*Monitor.*Test/i,
       /change only transport delay/i,
       /wrapped phase.*unwrapped phase.*every.*encirclement/i,
       /equilibrium-deviation envelope.*early window.*late window/i,
@@ -1300,7 +1300,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 49);
     assert.deepStrictEqual(lesson.prerequisites, ["control-delayed-thermal-nyquist"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Identify", "Tune", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_loop_shaping_balances_motor_sensitivity_and_effort");
     for (const requirement of [
@@ -1330,7 +1330,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
       /bandwidth.*3\.43.*2\.83 rad\/s/i,
       /10 rad\/s.*0\.0420.*0\.0247.*0\.4168.*0\.2449/i,
       /requested.*applied torque.*separately/i,
-      /Control Studio.*Monitor.*Test.*Identify.*Tune.*Validate/i,
+      /Control Studio.*Monitor.*Test/i,
       /change only the controller/i,
       /overshoot.*settling time.*load.*departure.*torque total variation/i,
       /simulation evidence.*not.*physical/i,
@@ -1373,7 +1373,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 50);
     assert.deepStrictEqual(lesson.prerequisites, ["control-motor-sensitivity-loop-shaping"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Identify", "Tune", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_z_plane_predicts_sampled_axis_failure_and_recovery");
     for (const requirement of [
@@ -1398,7 +1398,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
       /corrected case.*Kp = 1.*Kd = 0\.4/i,
       /314\.16 rad\/s.*31\.416 rad\/s.*40 rad\/s.*22\.832 rad\/s/i,
       /requested.*pending.*applied force.*separately/i,
-      /Control Studio.*Monitor.*Test.*Identify.*Tune.*Validate/i,
+      /Control Studio.*Monitor.*Test/i,
       /same mechanics.*fine controller.*10 ms.*coarse baseline.*100 ms.*corrected controller/i,
       /overshoot.*settling.*final-window position error.*force total variation.*abort.*controlled stop/i,
       /simulation evidence.*not.*physical/i,
@@ -1545,7 +1545,7 @@ suite("Controller selection and modelling curriculum lessons", () => {
       /separation principle.*exact linear model.*limits.*robustness/i,
       /0\.8333.*1\.0000.*radians per second/i,
       /requested.*applied.*current.*requested.*applied.*torque/i,
-      /Control Studio.*Monitor.*Identify.*Tune\/Design.*Test/i,
+      /Control Studio.*Monitor.*Test/i,
       /position-only.*Not settled.*state feedback.*observer.*damping-mismatch/i,
       /observer.*model states.*not.*truth|observer outputs?.*not.*sensor/i,
       /physical magnetic-bearing.*explicit approval/i,

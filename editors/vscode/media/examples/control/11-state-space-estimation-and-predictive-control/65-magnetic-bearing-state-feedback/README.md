@@ -45,8 +45,8 @@ The local magnetic acceleration coefficient ($a_b$) is measured in inverse
 seconds squared. It is positive because a small displacement increases the
 unbalanced force away from centre. The current-to-acceleration coefficient
 ($b_b$) is measured in millimetres per second squared per ampere. This scaled
-training model configures $a_b=4\ \mathrm{s^{-2}}$ and
-$b_b=1\ \mathrm{mm/(s^2 A)}$.
+training model configures $a_b=4\,\mathrm{s^{-2}}$ and
+$b_b=1\,\mathrm{mm/(s^2 A)}$.
 
 These are configured Simulation values, not measurements of a bearing. A real
 design obtains initial values from rotor mass, pole geometry, air gap, bias
@@ -124,7 +124,7 @@ $J_m\dot\omega_m=u_m-c_m\omega_m-d_m.$
 
 The nominal record treats load torque as constant, so $\dot d_m=0$. Dividing
 the balance by $J_m$ produces the speed row. The scaled training values make
-$c_m/J_m=1\ \mathrm{s^{-1}}$ and convert both torque terms to speed rate with
+$c_m/J_m=1\,\mathrm{s^{-1}}$ and convert both torque terms to speed rate with
 unit numerical coefficients. On physical equipment, inertia begins with rotor
 and load geometry, the drive torque scale comes from calibrated current-to-
 torque data, damping is estimated from a coast-down or torque-step record, and
@@ -175,8 +175,8 @@ The desired poles give $(s+4)(s+5)=s^2+9s+20$. Coefficient matching therefore gi
 $\mathbf{L}=\begin{bmatrix}8&-20\end{bmatrix}^{T}$. The load correction is negative because a positive physical load reduces speed; when measured speed falls below predicted speed, the observer must raise its positive load estimate. A continuous pole ($\lambda$), measured in inverse seconds, becomes a sampled pole ($z$), which is dimensionless. Forward Euler with the 0.1-second interval maps them by $z=1+0.1\lambda$, so -4 and -5 become 0.6 and 0.5. Their magnitudes are below one, which means the sampled estimation errors decay in the ideal model.
 
 The motor speed-feedback gain ($K_m$) is 2 newton metres per unit of radians
-per second, written $2\ \mathrm{N\,m/(rad/s)}$. The motor reference gain
-($N_m$) is $3\ \mathrm{N\,m/(rad/s)}$. The motor reference ($r_m$) is desired
+per second, written $2\,\mathrm{N\,m/(rad/s)}$. The motor reference gain
+($N_m$) is $3\,\mathrm{N\,m/(rad/s)}$. The motor reference ($r_m$) is desired
 speed, estimated speed ($\hat{\omega}$) is the observer's speed state, and
 estimated load ($\hat d$) is its load state:
 
@@ -232,7 +232,7 @@ This procedure observes the nominal design without asking Control Studio to synt
    - **Record:** Write down the initial measured and estimated states, the Simulation-truth label, both requested/applied outputs, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **200.1**. The affected signal is **Experiment authority**. Amplitude zero is intentional: Test writes only `P1.ExperimentEnabled`; the project, not the generic experiment generator, owns every reference change.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **200.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project, not the generic experiment generator, owns every reference change.
    - **Decision before action:** Before selecting **Review test**, predict four visible intervals: bearing regulation at zero reference, +0.1-millimetre reference tracking after 80 seconds, return to zero after 160 seconds, and motor regulation at 1 radian per second throughout. Confirm all predicted values remain inside the reviewed displacement, velocity, current, speed, and torque limits.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero applied current and torque and zero references, wait for current data, and review a new test.

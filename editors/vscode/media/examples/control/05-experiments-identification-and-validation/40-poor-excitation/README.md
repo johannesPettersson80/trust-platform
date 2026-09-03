@@ -34,9 +34,7 @@ to support a model before fitting or interpreting parameters.
 
 **Input span** is the maximum applied input minus the minimum applied input, measured here in percentage points. **Expected response amplitude ($A_{\mathrm{response}}$)** is the predicted repeatable temperature change in degrees Celsius. **Measurement-noise amplitude ($A_{\mathrm{noise}}$)** is the declared ordinary sensor variation in degrees Celsius. The **response-to-noise ratio ($SNR$)** compares those two amplitudes:
 
-\[
-SNR=\frac{A_{\mathrm{response}}}{A_{\mathrm{noise}}}.
-\]
+$SNR=\frac{A_{\mathrm{response}}}{A_{\mathrm{noise}}}.$
 
 For this lesson, data qualification requires SNR at least 5, input span at least 5 percentage points, valid finite samples, no clipping or saturation, and a response window of at least 63 seconds. The 63 seconds cover the 3-second dead time plus three 20-second time constants.
 
@@ -50,19 +48,14 @@ An **exogenous excitation** is a reviewed input change selected independently of
 
 The third experiment uses 2 percentage points of valve request per degree Celsius of temperature error:
 
-\[
-\Delta MV=2(50-PV_{\mathrm{used}}).
-\]
+$\Delta MV=2(50-PV_{\mathrm{used}}).$
 
 If $PV_{\mathrm{used}}=PV_{\mathrm{true}}+n$, substitution puts the term
 $-2n$ directly into valve deviation. Positive measurement noise therefore
 causes a negative valve change. The **correlation coefficient** makes that
 signed association measurable:
 
-\[
-\rho_{xy}=\frac{\sum_k(x_k-\bar x)(y_k-\bar y)}
-{\sqrt{\sum_k(x_k-\bar x)^2\sum_k(y_k-\bar y)^2}}.
-\]
+$\rho_{xy}=\frac{\sum_k(x_k-\bar x)(y_k-\bar y)}{\sqrt{\sum_k(x_k-\bar x)^2\sum_k(y_k-\bar y)^2}}.$
 
 It ranges from minus one to plus one. A magnitude near one means strong
 association, not causation.
@@ -127,7 +120,7 @@ seed is 20260829.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **70.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm all requested/applied valves = 20% and all temperatures near 50 °C.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **70.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm all requested/applied valves = 20% and all temperatures near 50 °C.
    - **Decision before action:** Before selecting **Review test**, record the predicted SNRs 0.67 and 33.33 and the expected negative feedback correlation. Confirm all valves remain within 0–100% and temperatures within 40–60 °C.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe the three distinct requested/applied records and all valves returning to 20%.
    - **Recovery:** Abort for stale, invalid, nonfinite, clipped, saturated, gapped, or out-of-range data. Confirm authority false and all requested/applied valves 20% before retrying.

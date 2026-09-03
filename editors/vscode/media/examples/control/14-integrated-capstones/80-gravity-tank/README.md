@@ -224,7 +224,7 @@ qualification, comparison, faults, and pass/fail result.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **420.1**. Control Studio writes only `P1.ExperimentEnabled`; the project owns all setpoint boundaries at 30, 120, 240, 330, and 420 seconds.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **420.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns all setpoint boundaries at 30, 120, 240, 330, and 420 seconds.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Fixed-PI measured level 0.2 m to 0.9 m; Scheduled-PI measured level 0.2 m to 0.9 m; Fixed-PI applied pump flow 0 m3/s to 0.06 m3/s; Scheduled-PI applied pump flow 0 m3/s to 0.06 m3/s.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, remove experiment authority. The project closes the pump, restores valid scheduling inputs, and restores the 0.30-metre request.

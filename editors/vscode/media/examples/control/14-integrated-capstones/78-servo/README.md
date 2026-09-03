@@ -256,7 +256,7 @@ qualification calculations.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **30.01**. Control Studio writes only `P1.ExperimentEnabled`; amplitude zero is intentional because the project owns reference, load, and restoration.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30.01**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns reference, load, and restoration.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside PID raw encoder position -1.5 rad to 1.5 rad; PID applied motor torque -10 N m to 10 N m; Coarse PID raw encoder position -1.5 rad to 1.5 rad; Coarse PID applied motor torque -10 N m to 10 N m.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, remove experiment authority. The project enters the reviewed zero-torque state and restores zero reference and load before another run.

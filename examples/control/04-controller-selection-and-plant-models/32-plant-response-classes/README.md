@@ -74,53 +74,43 @@ The plots retain those physical commands and PV units.
 
 The heated vessel starts at 50 °C. A self-regulating first-order step follows
 
-\[
-T(t)=T_0+K\Delta MV(1-e^{-t/\tau}).
-\]
+$T(t)=T_0+K\Delta MV(1-e^{-t/\tau}).$
 
-The final change is \(K\Delta MV=0.2(20)=4^\circ\mathrm{C}\), so equilibrium
-is 54 °C. At 12 seconds, \(t/\tau=12/3=4\):
+The final change is $K\Delta MV=0.2(20)=4^\circ\mathrm{C}$, so equilibrium
+is 54 °C. At 12 seconds, $t/\tau=12/3=4$:
 
-\[
-T(12)=50+4(1-e^{-4})=53.927^\circ\mathrm{C}.
-\]
+$T(12)=50+4(1-e^{-4})=53.927^\circ\mathrm{C}.$
 
 The exponential term shrinks toward zero, explaining both the finite
 equilibrium and the decreasing late slope.
 
 The tank starts at 50 cm. Its open-loop balance is
-\(dL/dt=K_i\Delta MV\). Thus \(dL/dt=0.1(10)=1\) cm/s. Integrating the constant
+$dL/dt=K_i\Delta MV$. Thus $dL/dt=0.1(10)=1$ cm/s. Integrating the constant
 slope gives
 
-\[
-L(t)=L_0+(1\ \mathrm{cm/s})t,
-\]
+$L(t)=L_0+(1\text{ cm/s})t,$
 
-so \(L(12)=50+12=62\) cm. No loss term appears to create an equilibrium.
+so $L(12)=50+12=62$ cm. No loss term appears to create an equilibrium.
 
 The oven starts at 80 °C. Its 4-second transport delay means elapsed response
-time is \(t-L\), not \(t\). Its final change is \(0.25(20)=5^\circ\mathrm{C}\).
-For \(t>4\),
+time is $t-L$, not $t$. Its final change is $0.25(20)=5^\circ\mathrm{C}$.
+For $t>4$,
 
-\[
-T(t)=80+5(1-e^{-(t-4)/2}).
-\]
+$T(t)=80+5(1-e^{-(t-4)/2}).$
 
 At 12 seconds, the dynamic part has run for 8 seconds, or four time constants:
-\(T(12)=80+5(1-e^{-4})=84.908^\circ\mathrm{C}\).
+$T(12)=80+5(1-e^{-4})=84.908^\circ\mathrm{C}$.
 
 The drive has unit static gain, natural frequency 1 rad/s, and damping ratio
-\(\zeta=0.2\). A standard underdamped second-order step has fractional
+$\zeta=0.2$. A standard underdamped second-order step has fractional
 overshoot
 
-\[
-M_p=e^{-\zeta\pi/\sqrt{1-\zeta^2}}.
-\]
+$M_p=e^{-\zeta\pi/\sqrt{1-\zeta^2}}.$
 
 This comes from evaluating the exponentially decaying oscillation envelope at
 its first peak. Substitution gives
-\(M_p=e^{-0.2\pi/\sqrt{0.96}}=0.5266\), or 52.7%. A unit final position
-therefore predicts a first peak near \(1+0.5266=1.527\) rad.
+$M_p=e^{-0.2\pi/\sqrt{0.96}}=0.5266$, or 52.7%. A unit final position
+therefore predicts a first peak near $1+0.5266=1.527$ rad.
 
 <details>
 <summary>Reveal the plant identities</summary>
@@ -151,7 +141,7 @@ Do not fit a model and do not tune a controller in this lesson.
 ## Experiment in Control Studio
 
 Test writes one reviewed Boolean authority,
-\(\mathtt{P1.ExperimentEnabled}\), for 12.1 seconds. The project maps authority
+$\mathtt{P1.ExperimentEnabled}$, for 12.1 seconds. The project maps authority
 true to the normalized command 1 and then to all four physical actuator steps.
 Authority false maps to normalized command 0 and restores the four baseline
 commands. There is no feedback controller in either state. The deterministic
@@ -167,7 +157,7 @@ Simulation seed is 20260829.
    - **Record:** Write down every initial physical command/PV, the four calculated responses, and the observable classification rule for each trace.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **12.1**. The reviewed authority is \(\mathtt{P1.ExperimentEnabled}\); the project owns normalized and physical commands.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **12.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns normalized and physical commands.
    - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Check vessel 0–100 °C, tank 0–100 cm, oven 0–150 °C, and drive ±5 rad. Keep model identities hidden until classifications are written.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, all stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe the common command edge, four physical commands, all response signatures, and restoration.
    - **Recovery:** Abort for nonfinite/out-of-range data, incorrect physical scaling, or any active feedback controller. Confirm authority false and all baseline commands before retrying.
@@ -181,23 +171,20 @@ the measured classification; Monitor and Test expose the same open-loop step.
 ### Measures and comparison
 
 **Response delay** is
-\(L=t_{\mathrm{first\ resolvable\ PV}}-t_{\mathrm{input\ step}}\). Requiring a
+$L=t_{\text{first resolvable PV}}-t_{\text{input step}}$. Requiring a
 change larger than sensor resolution prevents noise or rounding from being
 called physical response.
 
 **Late slope** is
-\(m_{\mathrm{late}}=(PV_{\mathrm{end}}-PV_{\mathrm{start}})/
-(t_{\mathrm{end}}-t_{\mathrm{start}})\), in PV units per second. A steady value
+$m_{\mathrm{late}}=(PV_{\mathrm{end}}-PV_{\mathrm{start}})/
+(t_{\mathrm{end}}-t_{\mathrm{start}})$, in PV units per second. A steady value
 is eligible only when this remaining rate is sufficiently close to zero.
 
 **Overshoot** is
-\[
-M_p=100\frac{PV_{\mathrm{peak}}-PV_{\mathrm{steady}}}
-{PV_{\mathrm{steady}}-PV_0}.
-\]
+$M_p=100\frac{PV_{\mathrm{peak}}-PV_{\mathrm{steady}}} {PV_{\mathrm{steady}}-PV_0}.$
 Dividing excess peak by the intended steady change makes the measure relative;
 it is valid only when a steady value is eligible. **Crossing count** counts
-sign changes of \(PV-PV_{\mathrm{steady}}\) after first arrival, revealing
+sign changes of $PV-PV_{\mathrm{steady}}$ after first arrival, revealing
 oscillation rather than one-sided approach.
 
 | Module | Evidence | Classification |

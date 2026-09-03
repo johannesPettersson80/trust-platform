@@ -58,18 +58,13 @@ per percentage point. The time constant ($T$) is 20 seconds. The dead time ($L$)
 The predicted final temperature change ($\Delta PV_{\mathrm{final}}$) is the local process
 gain multiplied by the planned valve change:
 
-\[
-\Delta PV_{\mathrm{final}}=K\Delta MV.
-\]
+$\Delta PV_{\mathrm{final}}=K\Delta MV.$
 
 A 10-percentage-point step therefore predicts
 $0.5\times10=5$ °C change and a 55 °C final temperature. The delayed
 first-order prediction is
 
-\[
-PV(t)=PV_0+K\Delta MV
-\left(1-e^{-(t-L)/T}\right),\qquad t\ge L.
-\]
+$PV(t)=PV_0+K\Delta MV \left(1-e^{-(t-L)/T}\right),\qquad t\ge L.$
 
 After three time constants, the completed fraction is
 $1-e^{-3}=0.9502$, or about 95%. Three time constants take
@@ -147,7 +142,7 @@ state. The deterministic Simulation seed is 20260829.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **160.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm requested/applied valve = 60%, temperature = 50 °C, good quality, allowed mode, and no confounding disturbance.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **160.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm requested/applied valve = 60%, temperature = 50 °C, good quality, allowed mode, and no confounding disturbance.
    - **Decision before action:** Before selecting **Review test**, confirm Plan A predicts 54.751 °C at 63 seconds and remains inside 40–80% valve and 45–58 °C temperature limits. The project, not the Test form, owns the physical step. Do not Identify, Tune, or Apply.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe the 10-second baseline, 70% requested/applied valve, delayed temperature rise, 60% restoration, and completed terminal state.
    - **Recovery:** Abort for stale or bad quality, forbidden mode, confounding disturbance, nonfinite data, or a hard-limit violation. Confirm authority false and requested/applied valve 60% before retrying.

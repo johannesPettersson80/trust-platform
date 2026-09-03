@@ -39,9 +39,7 @@ tank area ($A$) in square metres, level ($h$) in metres, inlet flow ($q$) in
 cubic metres per second, and outlet coefficient ($c$) in
 $\mathrm{m^2\sqrt{m}/s}$. The physical balance is
 
-\[
-A\frac{dh}{dt}=q-c\sqrt h.
-\]
+$A\frac{dh}{dt}=q-c\sqrt h.$
 
 The left side is stored-volume change: area times level rate has units
 $\mathrm{m^3/s}$. The two terms on the right are inlet and outlet volume flow
@@ -52,27 +50,19 @@ flow.
 An **operating point** is a constant inlet flow ($q_0$) and level ($h_0$) at
 which accumulation is zero. Setting the derivative to zero gives
 
-\[
-0=q_0-c\sqrt{h_0},\qquad q_0=c\sqrt{h_0}.
-\]
+$0=q_0-c\sqrt{h_0},\qquad q_0=c\sqrt{h_0}.$
 
 Define deviations from that equilibrium by $\Delta h=h-h_0$ and
 $\Delta q=q-q_0$. A **first-order Taylor approximation** replaces the curved
 outlet relation with its tangent. Since the derivative of $c\sqrt h$ is
 $c/(2\sqrt h)$, near $h_0$
 
-\[
-c\sqrt h\approx c\sqrt{h_0}
- +\frac{c}{2\sqrt{h_0}}\Delta h.
-\]
+$c\sqrt h\approx c\sqrt{h_0} +\frac{c}{2\sqrt{h_0}}\Delta h.$
 
 Substitute $h=h_0+\Delta h$ and $q=q_0+\Delta q$ into the physical balance.
 The equilibrium terms cancel because $q_0=c\sqrt{h_0}$:
 
-\[
-\frac{d\Delta h}{dt}
-=-\frac{c}{2A\sqrt{h_0}}\Delta h+\frac{1}{A}\Delta q.
-\]
+$\frac{d\Delta h}{dt}=-\frac{c}{2A\sqrt{h_0}}\Delta h+\frac{1}{A}\Delta q.$
 
 The approximation is local because its tangent slope was evaluated at one
 $h_0$. Terms involving $(\Delta h)^2$ and higher powers were discarded, so
@@ -81,27 +71,18 @@ error grows as the level moves farther from that point.
 The **Laplace transform**, with zero initial deviation, turns the time
 derivative into multiplication by the complex-frequency variable $s$:
 
-\[
-\left(As+\frac{c}{2\sqrt{h_0}}\right)\Delta H(s)=\Delta Q(s).
-\]
+$\left(As+\frac{c}{2\sqrt{h_0}}\right)\Delta H(s)=\Delta Q(s).$
 
 Divide output by input, then divide numerator and denominator by
 $c/(2\sqrt{h_0})$:
 
-\[
-\frac{\Delta H(s)}{\Delta Q(s)}
-=\frac{2\sqrt{h_0}/c}{(2A\sqrt{h_0}/c)s+1}
-=\frac{K}{\tau s+1}.
-\]
+$\frac{\Delta H(s)}{\Delta Q(s)}=\frac{2\sqrt{h_0}/c}{(2A\sqrt{h_0}/c)s+1}=\frac{K}{\tau s+1}.$
 
 The static gain $K$ is final output deviation divided by a constant input
 deviation. The time constant $\tau$ sets the local exponential response speed.
 Comparing the two denominator forms derives
 
-\[
-K=\frac{2\sqrt{h_0}}{c},\qquad
-\tau=\frac{2A\sqrt{h_0}}{c}.
-\]
+$K=\frac{2\sqrt{h_0}}{c},\qquad\tau=\frac{2A\sqrt{h_0}}{c}.$
 
 Model **order** counts independent dynamic modes. A **pole** locates such a
 mode, a **zero** shapes how the input appears at the output, and **dead time**
@@ -111,18 +92,12 @@ that model form is familiar.
 
 ## Prediction
 
-Use $A=0.5\ \mathrm{m^2}$ and
-$c=0.02\ \mathrm{m^2\sqrt m/s}$. At $h_0=0.25$ m, for example,
+Use $A=0.5\,\mathrm{m^2}$ and
+$c=0.02\,\mathrm{m^2\sqrt m/s}$. At $h_0=0.25$ m, for example,
 
-\[
-q_0=0.02\sqrt{0.25}=0.010000\ \mathrm{m^3/s},
-\]
+$q_0=0.02\sqrt{0.25}=0.010000\,\mathrm{m^3/s},$
 
-\[
-K=\frac{2\sqrt{0.25}}{0.02}=50.000\
-\frac{\mathrm m}{\mathrm{m^3/s}},\qquad
-\tau=\frac{2(0.5)\sqrt{0.25}}{0.02}=25.000\ \mathrm s.
-\]
+$K=\frac{2\sqrt{0.25}}{0.02}=50.000\,\frac{\mathrm m}{\mathrm{m^3/s}},\qquad\tau=\frac{2(0.5)\sqrt{0.25}}{0.02}=25.000\,\mathrm s.$
 
 The same substitutions at all three operating points give:
 
@@ -132,20 +107,18 @@ The same substitutions at all three operating points give:
 | 0.50 | 0.014142 | 70.711 | 35.355 | -0.028284 |
 | 0.81 | 0.018000 | 90.000 | 45.000 | -0.022222 |
 
-For a constant small change $\Delta q=0.001\ \mathrm{m^3/s}$, the local
+For a constant small change $\Delta q=0.001\,\mathrm{m^3/s}$, the local
 steady change is $\Delta h=K\Delta q$. The predicted rises are therefore
 0.05000, 0.07071, and 0.09000 m, or **5.000, 7.071, and 9.000 cm**.
 
 The exact nonlinear equilibrium follows by solving
 $q_0+\Delta q=c\sqrt{h_\mathrm{eq}}$:
 
-\[
-h_\mathrm{eq}=\left(\frac{q_0+\Delta q}{c}\right)^2.
-\]
+$h_\mathrm{eq}=\left(\frac{q_0+\Delta q}{c}\right)^2.$
 
 It predicts rises of 5.250, about 7.321, and 9.250 cm. Thus each small-step
 tangent prediction is about 0.250 cm low. At the low operating point, a larger
-$0.005\ \mathrm{m^3/s}$ step gives a local rise of $50(0.005)=0.25$ m, while
+$0.005\,\mathrm{m^3/s}$ step gives a local rise of $50(0.005)=0.25$ m, while
 the nonlinear equation gives
 $((0.010+0.005)/0.02)^2-0.25=0.3125$ m. The 6.25 cm error shows why the
 discarded curvature matters away from the operating point.
@@ -174,9 +147,9 @@ from the same physical parameters and operating points.
 
 Control Studio exposes the common small-step case. Test writes one reviewed
 Boolean, `P1.ExperimentEnabled`, for 300.1 seconds. While it is true, the
-project applies $\Delta q=0.001\ \mathrm{m^3/s}$ to all three tanks and local
+project applies $\Delta q=0.001\,\mathrm{m^3/s}$ to all three tanks and local
 models. When it becomes false, the project restores $\Delta q=0$. A fresh
-native run owns the separate $0.005\ \mathrm{m^3/s}$ low-level boundary case,
+native run owns the separate $0.005\,\mathrm{m^3/s}$ low-level boundary case,
 because it needs a fresh equilibrium and a different excitation. The
 deterministic Simulation seed is 20260829.
 
@@ -190,7 +163,7 @@ deterministic Simulation seed is 20260829.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **300.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **300.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false.
    - **Decision before action:** Before selecting **Review test**, predict all three final changes and confirm the project-owned commands keep Low-tank level inside 0–1 m, Middle-tank level inside 0–1 m, and High-tank level inside 0–1.2 m. Use the run only to test the local approximations; do not Identify, Tune, or Apply.
    - **Successful evidence:** Select **Review test**, verify the Boolean authority, timeout, false restoration, and stop conditions, then select **Confirm and start**. Keep **Abort test** available. Response must show the same 0.001 m³/s deviation in all three physical and local models, followed by restoration to zero.
    - **Recovery:** Abort for stale, invalid, nonfinite, or out-of-range data. Confirm authority false and flow deviation zero, wait for current data, then review a new test.
@@ -206,10 +179,7 @@ expose the common small-step case.
 
 For operating point $i$, **local-model prediction error** is
 
-\[
-e_i(t)=100\left|h_{\mathrm{nonlinear},i}(t)
--h_{\mathrm{local},i}(t)\right|\ \mathrm{cm}.
-\]
+$e_i(t)=100\left|h_{\mathrm{nonlinear},i}(t)-h_{\mathrm{local},i}(t)\right|\,\mathrm{cm}.$
 
 The factor 100 converts metres to centimetres; the absolute value prevents
 positive and negative differences from cancelling. A final error is called an

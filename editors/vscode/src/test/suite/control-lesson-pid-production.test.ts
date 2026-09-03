@@ -272,7 +272,7 @@ suite("Production PID curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 42);
     assert.deepStrictEqual(lesson.prerequisites, ["control-independent-model-validation"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Tune", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_manual_and_historical_pi_expose_their_tradeoffs");
     assertRetainedTuningEvidence(lessonRoot, source, "manual-historical-tuning-comparison");
@@ -350,7 +350,7 @@ suite("Production PID curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 43);
     assert.deepStrictEqual(lesson.prerequisites, ["control-manual-historical-tuning"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Tune"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_feedback_relay_qualifies_cycles_before_producing_candidate");
     assertRetainedTuningEvidence(lessonRoot, source, "relay-autotuning-comparison");
@@ -419,7 +419,7 @@ suite("Production PID curriculum lessons", () => {
     assert.strictEqual(lesson.schemaVersion, 4);
     assert.strictEqual(lesson.sequence, 44);
     assert.deepStrictEqual(lesson.prerequisites, ["control-relay-autotuning"]);
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Tune", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(lesson.change.applied, false);
     assert.strictEqual(lesson.proof.nativeTest,
       "control_curriculum_simc_targets_are_model_qualified_and_remain_unapplied");

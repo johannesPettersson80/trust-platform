@@ -74,9 +74,9 @@ After defining those physical quantities, their relationships are:
 A rate is position change divided by time. Multiplying both sides by the
 positive update time gives the greatest permitted change during one update:
 
-$maximum\ opening\ change = r_{\mathrm{open}} \times dt$
+$\text{maximum opening change} = r_{\mathrm{open}} \times dt$
 
-$maximum\ closing\ change = r_{\mathrm{close}} \times dt$
+$\text{maximum closing change} = r_{\mathrm{close}} \times dt$
 
 Opening adds its permitted change to the previous position; closing subtracts
 its permitted change. Intersect those two motion bounds with the valve's 0-to-
@@ -115,7 +115,7 @@ Directional limit exposure is the number of samples at the relevant rate bound
 multiplied by $dt$. If $t_{restore}=15.1$ seconds and $t_{closed}$ is the first
 later sample with applied position equal to zero, then:
 
-$return\text{-}to\text{-}closed\ time = t_{closed}-t_{restore}$
+$\text{return-to-closed time} = t_{closed}-t_{restore}$
 
 All measures require finite signals, positive synchronized $dt$, no abort,
 applied position within 0 through 100 percent, and a reproduced measured rate
@@ -211,7 +211,7 @@ and zero requested and applied position. The deterministic Simulation seed is
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **90.1**. The reviewed authority is **P1.ExperimentEnabled**. Its false-to-true transition starts one project-owned sequence: 0.1 s safe Manual zero; SP 10 L/min in Auto through 15.1 s; SP 0 in Auto through 90.0 s so the slower closing motion can finish; and Manual zero at 90.1 s.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **90.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Its false-to-true transition starts one project-owned sequence: 0.1 s safe Manual zero; SP 10 L/min in Auto through 15.1 s; SP 0 in Auto through 90.0 s so the slower closing motion can finish; and Manual zero at 90.1 s.
    - **Decision before action:** Before selecting **Review test**, confirm the plan changes only experiment authority. Predict requested position moving first, applied position opening at no more than 1.5 %/s, then closing at no more than 0.5 %/s after SP restoration.
    - **Successful evidence:** Select **Review test**, verify **P1.ExperimentEnabled**, the 90.1-second timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** visible. Response must show the 15-second request, asymmetric ramps, return to a closed valve, and Manual-zero completion.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason. Confirm experiment authority false, SP 0, a closed valve, Manual mode, and zero output before reviewing a new test.

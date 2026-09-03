@@ -78,7 +78,7 @@ lies below the lower bound.
 Back calculation asks the stored state to close this gap over $T_t$ seconds.
 The correction rate needed to close $e_{\mathrm{sat}}$ in the tracking time is
 
-$correction\ rate = e_{\mathrm{sat}} / T_t$
+$\text{correction rate} = e_{\mathrm{sat}} / T_t$
 
 in percentage points per second. One update lasts $dt$ seconds. Multiplying the
 rate by that duration gives the correction for one update:
@@ -262,7 +262,7 @@ comparison. The deterministic Simulation seed is 20260824.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment = Observe without excitation**, **Amplitude = 0 (disabled)**, and **Maximum duration (s) = 50.1**. The reviewed authority is `P1.ExperimentEnabled`. Its false-to-true transition runs this project sequence: retain the initial Manual sample with SP = 0 and zero trim; enter Auto at SP = 0; request 4.5 degrees Celsius beginning at 1.0 seconds; restore SP = 0 at 20.0 seconds without resetting controller state; continue the automatic recovery observation through 50.0 seconds; and select Manual zero at 50.1 seconds. This includes the initial Manual sample, final Manual sample, and Auto-to-Manual transition in complete-run travel.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **50.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Its false-to-true transition runs this project sequence: retain the initial Manual sample with SP = 0 and zero trim; enter Auto at SP = 0; request 4.5 degrees Celsius beginning at 1.0 seconds; restore SP = 0 at 20.0 seconds without resetting controller state; continue the automatic recovery observation through 50.0 seconds; and select Manual zero at 50.1 seconds. This includes the initial Manual sample, final Manual sample, and Auto-to-Manual transition in complete-run travel.
    - **Decision before action:** Before selecting **Review test**, confirm that the plan changes only experiment authority. Predict requested trim will reach the positive limit first, PV will rise, and BackCalculation will remove stored unavailable demand after SP restoration. Confirm the declared PV, requested-output, and applied-trim bounds.
    - **Successful evidence:** Select **Review test**, verify `P1.ExperimentEnabled`, the 50.1-second timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** visible. Response must show the baseline, unreachable request, restoration, recovery, and final Manual-zero state. The terminal state must confirm completion and authority restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason. Confirm experiment authority false, SP zero, Manual mode, and zero output before reviewing a new test.

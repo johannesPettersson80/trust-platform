@@ -44,9 +44,7 @@ describes the main response lag. Effective dead time ($L$), in seconds, describe
 delay before the useful response appears. After defining those quantities, the
 SIMC proportional gain is
 
-\[
-K_p=\frac{T}{K(\lambda+L)}.
-\]
+$K_p=\frac{T}{K(\lambda+L)}.$
 
 The integral time ($T_i$) is the time in seconds used to scale integral action.
 For a general eligible first-order model, SIMC uses
@@ -54,18 +52,13 @@ $T_i=\min(T,4(\lambda+L))$. For the three response ranges here this minimum is
 $T$, preventing integral action from becoming faster than the dominant plant
 lag. The parallel integral gain used by `Control.PID` is then
 
-\[
-K_i=\frac{K_p}{T_i}.
-\]
+$K_i=\frac{K_p}{T_i}.$
 
 An integrating process never reaches a new steady output while net input stays
 nonzero. Its integrating rate gain (Kprime) is output change per unit input per
 second, not a steady-state gain. For the tank, the eligible equations are
 
-\[
-K_p=\frac{1}{K'(\lambda+L)},\qquad
-T_i=4(\lambda+L).
-\]
+$K_p=\frac{1}{K'(\lambda+L)},\qquad T_i=4(\lambda+L).$
 
 and again $K_i = K_p / T_i$.
 
@@ -86,14 +79,14 @@ $(5.769, 1.154)$, and $(3.261, 0.652)$.
 
 For an integrating model Fast equals its positive effective delay. The buffer
 tank has $K'=0.05$ level-%/(valve-%·s) and effective dead time
-$L = 0.5 s$. That effective delay comes from the already taught reduction of
+$L = 0.5\,\text{s}$. That effective delay comes from the already taught reduction of
 the physical 1.0-second valve lag. Fast, Balanced, and Robust use lambda values of 0.5,
 1.0, and 2.0 seconds. Balanced gives
 $K_p=1/[0.05(1+0.5)]=13.333$, $T_i=4(1.5)=6$ s, and
 $K_i=13.333/6=2.222$. Their pairs are $(20.000, 5.000)$, $(13.333, 2.222)$,
 and $(8.000, 0.800)$.
 
-The dryer has $K = 0.40 dryness-\%/heater-\%$, $T = 20.0 s$, and $L = 8.0 s$.
+The dryer has $K = 0.40\,\text{dryness-\%/heater-\%}$, $T = 20.0\,\text{s}$, and $L = 8.0\,\text{s}$.
 Here Fast is $\max(8,20/3)=8$ s. Balanced gives
 $K_p=20/[0.4(16+8)]=2.083$, $T_i=20$ s, and $K_i=0.104$. Its lambda values are 8.0, 16.0, and 32.0 seconds. Its pairs are
 $(3.125, 0.156)$, $(2.083, 0.104)$, and $(1.250, 0.063)$.
@@ -145,7 +138,7 @@ Simulation seed is 20260829.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **220.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm heater/tank/dryer setpoints = 20 °C/50%/40% and applied outputs = 20%/50%/30%.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **220.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm heater/tank/dryer setpoints = 20 °C/50%/40% and applied outputs = 20%/50%/30%.
    - **Decision before action:** Before selecting **Review test**, independently calculate all three Balanced gain sets and predict their response directions. Confirm every project-owned output remains within 0–100% and every PV within its declared limit. Do not Apply a candidate.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe the three linked setpoint responses and all baselines restored when authority ends.
    - **Recovery:** Abort for stale, forced, invalid, nonfinite, mismatched-model, or out-of-range data. Confirm authority false and all three setpoints restored before retrying.

@@ -170,10 +170,10 @@ is 20260829.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **300.1**. Confirm the only writable signal is **Experiment authority** (`P1.ExperimentEnabled`, `%MX32.0`). The project selects upstream pump and downstream sensor, holds zero for 20 seconds, applies +1 litre per minute to 200 seconds, then restores zero flow.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **300.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project selects upstream pump and downstream sensor, holds zero for 20 seconds, applies +1 litre per minute to 200 seconds, then restores zero flow.
    - **Decision before action:** Before selecting **Review test**, predict the immediate Tank-1 and delayed Tank-2 responses and confirm flow can remain within -2 through +2 litres per minute and both levels within -10 through +10 centimetres.
-   - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must distinguish the installed downstream measurement from both Simulation truth states. At termination authority clears and both pump outputs are zero.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the reason, confirm authority is false and both pump paths restored to zero, wait for current data, and review a new observation.
+   - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must distinguish the installed downstream measurement from both Simulation truth states. At termination authority clears and both pump outputs are zero. Keep **Abort test** visible.
+   - **Recovery:** Select **Abort test** if the test is rejected, stale, unsafe, unavailable, failed, or aborted. Read the reason, confirm authority is false and both pump paths restored to zero, wait for current data, and review a new observation.
    - **Record:** Compare physical movement with the rank prediction and retain terminal state, restoration, and seed **20260829**. The native lesson test owns the bypass and hidden-state cases and numeric verdict; this observation does not create generic Identify or Validate evidence.
 
 ## Evidence and decision
