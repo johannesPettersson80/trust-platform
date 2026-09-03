@@ -169,20 +169,21 @@ unapplied candidate. The deterministic Simulation seed is 20260829.
    - **Decision before action:** Both copies begin at the identical 20 %
      valve position and 50 degC reading with no controller running, so any
      visible movement before Test starts means the baseline is not safe to
-     trust. Use this decision rule: Derive a candidate only when
-     feedback-dependent cycles satisfy amplitude, noise, repeatability,
-     limit, quality, and restoration criteria.
+     trust. Use this decision rule: Derive a candidate only when feedback-dependent cycles satisfy amplitude, noise, repeatability, limit, quality, and restoration criteria.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **180.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm both applied valves = 20% and temperatures near 50 °C.
-   - **Decision before action:** Before selecting **Review test**, record the 2/38% strong levels, 19.8/20.2% weak levels, 49.92/50.08 °C thresholds, and all qualification gates. Confirm valves remain within 0–100% and temperature within 40–60 °C. Do not run this on a physical plant or Apply a result.
+   - **Decision before action:** Before selecting **Review test**, record the 2/38% strong levels, 19.8/20.2% weak levels, 49.92/50.08 °C thresholds, and all qualification gates. Confirm valves remain within 0–100% and temperature within 40–60 °C. Do not run this on a physical plant or Apply a result. This run is made so that repeated manual gain changes near sustained oscillation are imprecise and potentially hazardous on physical equipment is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Verify valve changes occur after temperature threshold crossings—not on a fixed clock—and both valves restore to 20%.
    - **Recovery:** Abort for stale, forced, invalid, nonfinite, mismatched, or out-of-range data. Confirm authority false and both applied valves 20% before retrying.
-   - **Record:** Retain terminal state, restoration, thresholds, applied transitions, extrema, crossing times, cycle measures, SNR, failed criteria, seed, and candidate state.
-
+   - **Record:** Retain terminal state, restoration, thresholds, applied transitions, extrema, crossing times, cycle
+     measures, SNR, failed criteria, seed, and candidate state. The deterministic seed is
+     **20260829**. The decision this run supports is: Derive a candidate only when feedback-
+     dependent cycles satisfy amplitude, noise, repeatability, limit, quality, and restoration
+     criteria.
 ## Evidence and decision
 
 For each record retain the applied high and low valve levels, every transition

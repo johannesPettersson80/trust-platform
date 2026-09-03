@@ -225,8 +225,10 @@ action here. The deterministic Simulation seed is 20260829.
    - **Decision before action:** Before selecting **Review test**, predict which valve each signed demand should select and confirm all three temperatures can remain inside 72 through 88 degrees Celsius and all valve requests inside 0 through 100 percent.
    - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and Response shows the complete project-owned sequence. At termination the authority bit clears and the setpoint is 80 degrees Celsius.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, confirm the authority bit is false and the setpoint has restored to 80 degrees Celsius, wait for current data, and review a new observation.
-   - **Record:** Compare each mapping with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**. Use the native lesson test for the declared numeric verdicts; this observation does not create a generic identification, tuning, or validation result.
-
+   - **Record:** Compare each mapping with your prediction and retain the terminal state, restoration result, and
+     deterministic seed **20260829**. Use the native lesson test for the declared numeric verdicts;
+     this observation does not create a generic identification, tuning, or validation result. The
+     inherited limitation under test is: A dead zone removes authority near neutral while overlap consumes opposing utilities and drifts when their installed gains differ.
 ## Evidence and decision
 
 Hold the plant equations, initial state, PI tuning, setpoint sequence, sample

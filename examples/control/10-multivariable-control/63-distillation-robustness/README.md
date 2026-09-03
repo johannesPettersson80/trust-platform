@@ -180,8 +180,11 @@ sequence. The seed is 20260829.
    - **Decision before action:** Before selecting **Review test**, predict when common scale should stay one and when it must fall below one. Confirm applied inputs remain within -10 through +10 points and product deviations within -6 through +6 points, because either boundary would leave the local linear model this lesson's predictions depend on.
    - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must show requested and applied input direction together with common scale. At termination authority clears, both controllers enter Manual with zero outputs, and all event signals return to zero. Keep **Abort test** visible.
    - **Recovery:** Select **Abort test** if the test is rejected, stale, unsafe, unavailable, failed, or aborted. Read the reason, confirm authority is false and Manual zero restoration is active, wait for current data, and review a new observation.
-   - **Record:** Classify the second target as infeasible rather than failed control. Retain terminal state, restoration, and seed **20260829**. The native test owns the full architecture/uncertainty verdict; this observation does not create generic Identify, Tune, or Validate evidence.
-
+   - **Record:** Classify the second target as infeasible rather than failed control. Retain terminal state,
+     restoration, and seed **20260829**. The native test owns the full architecture/uncertainty
+     verdict; this observation does not create generic Identify, Tune, or Validate evidence. The
+     inherited limitation under test is: Separate diagonal-loop behavior does not reveal weak combined directions, interaction uncertainty, or joint input feasibility. The decision this run
+     supports is: Select the least coupled architecture that passes every normal-envelope record on both models; retain the +2/+2 record as Infeasible rather than ranking it.
 ## Evidence and decision
 
 Final-window combined absolute error is the mean of the two absolute setpoint-minus-process-value errors over the final 10 seconds, after both outputs qualify as settled. Its unit is composition percentage points and smaller is better.

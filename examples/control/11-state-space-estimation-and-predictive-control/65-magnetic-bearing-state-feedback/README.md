@@ -248,8 +248,12 @@ This procedure observes the nominal design without asking Control Studio to synt
    - **Decision before action:** Before selecting **Review test**, predict four visible intervals: bearing regulation at zero reference, +0.1-millimetre reference tracking after 80 seconds, return to zero after 160 seconds, and motor regulation at 1 radian per second throughout. Confirm all predicted values remain inside the reviewed displacement, velocity, current, speed, and torque limits, because a prediction that already violates a declared limit signals a modelling or gain error before any current reaches the rig.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured bearing displacement and velocity, motor speed, estimated motor state, and requested/applied current and torque sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero applied current and torque and zero references, wait for current data, and review a new test.
-   - **Record:** Stop recording only after Test reports restoration. Compare each interval with the derivations above, distinguish estimate from truth, and retain the terminal state, restoration result, and deterministic seed **20260829**. Use the native test evidence below for the alternative architectures and mismatch case; do not claim that this one visible run executed them.
-
+   - **Record:** Stop recording only after Test reports restoration. Compare each interval with the derivations
+     above, distinguish estimate from truth, and retain the terminal state, restoration result, and
+     deterministic seed **20260829**. Use the native test evidence below for the alternative
+     architectures and mismatch case; do not claim that this one visible run executed them. The
+     inherited limitation under test is: Position-only bearing feedback does not settle, and a motor controller that assumes zero load retains speed error. The decision this run supports is:
+     Accept the nominal gains only after executed mode, estimation, limit, and mismatch evidence agrees with the reviewed model.
 ## Evidence and decision
 
 Bearing settling time is the first time after which absolute displacement error is at most 0.002 millimetres and absolute velocity is at most 0.005 millimetres per second for two continuous seconds. A response that never meets both conditions is **Not settled**. Final bearing error is the mean absolute displacement error over the final two seconds and is reported only for a settled record.

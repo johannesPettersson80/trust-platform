@@ -255,8 +255,10 @@ deterministic Simulation seed is 20260828.
    - **Decision before action:** Confirm that the reviewed plan changes only experiment authority and that the project owns every timed SP, mode, and output transition. The 45-degree target is intentionally unreachable in Simulation, but applied heater power remains bounded from 0 to 100 percent.
    - **Successful evidence:** Select **Review test**, verify **P1.ExperimentEnabled**, the 95.1-second timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** visible. The Response plot must show Manual preparation, the Auto baseline, SP rising at 55.1 seconds, requested power exceeding 100 percent while applied power stops at 100 percent, SP returning to 35 degrees Celsius at 65.1 seconds, and Manual zero at completion.
    - **Recovery:** Select **Abort test** if any signal is nonfinite, PV leaves 0 to 80 degrees Celsius, applied heater power leaves 0 to 100 percent, or the UI reports unsafe or stale data. Confirm authority false, SP 35 degrees Celsius, Manual mode, and zero requested and applied power before retrying.
-   - **Record:** Compare required power, first request, applied power, and saturation error with your predictions. Retain peak request, peak saturation error, post-restoration saturation hold, recovery time, terminal state, and false restoration.
-
+   - **Record:** Compare required power, first request, applied power, and saturation error with your predictions.
+     Retain peak request, peak saturation error, post-restoration saturation hold, recovery time,
+     terminal state, and false restoration. The deterministic seed is **20260828**. The inherited
+     limitation under test is: Lesson 7 measured a 159 percent preliminary request while the physical heater applied only 100 percent during its separate unreachable-setpoint exposure; the stored demand and recovery consequence still require diagnosis.
 ## Evidence and decision
 
 Apply the reachability, peak, saturation-hold, recovery, validity, and decision

@@ -180,7 +180,9 @@ and deadline faults. The deterministic Simulation seed is 20260829.
    - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. The injected reversed limits must be rejected before configuration or PID arithmetic. Pressure must remain within 0–12 bar and valve output within 0–100%.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe code 5 latch, safe 30%, acknowledgement without clear, counts 1/2/3 on separate scans, reset without Auto, and later renewed Auto.
    - **Recovery:** Abort if an invalid scan calls PID/configure, changes revision, leaves 30%, clears on acknowledgement, counts the acknowledgement scan, or grants Auto during reset. Confirm authority false and safe 30% before retrying.
-   - **Record:** Retain terminal state, restoration, every sequence scan, fault code/latch, call flags, revision, acknowledgement, recovery count, reset, Auto authority, output step, and seed.
+   - **Record:** Retain terminal state, restoration, every sequence scan, fault code/latch, call flags, revision,
+     acknowledgement, recovery count, reset, Auto authority, output step, and seed. The
+     deterministic seed is **20260829**. The inherited limitation under test is: Without a guard, reversed output limits could reach configuration arithmetic or partially replace the active record. The decision this run supports is: Reject the scan before any PID call, latch the first cause, command the safe output, and require acknowledgement, qualified data, reset, state initialization, and renewed Auto authority.
 
 There is no separate disabled Validate stage. Native tests own the isolated
 fault-code matrix; Monitor and Test expose the complete code-5 recovery path.

@@ -120,8 +120,11 @@ The native lesson test uses two independently restored runs so that only one inp
    - **Decision before action:** Before selecting **Review test**, predict all four response signs and confirm inputs can remain within -10 through +10 percentage points and purity deviations within -6 through +6 points, because a saturated input or an excursion past those limits would leave the local linear gain model this lesson depends on.
    - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must show that the non-excited input remains zero in each window. At termination authority clears and both requested inputs return to zero. Keep **Abort test** visible.
    - **Recovery:** Select **Abort test** if the test is rejected, stale, unsafe, unavailable, failed, or aborted. Read the reason, confirm authority is false and both inputs restored to zero, wait for current data, and review a new observation.
-   - **Record:** Calculate each settled change and compare it with your prediction. Retain terminal state, restoration, and seed **20260829**. The native lesson test owns the qualified gain matrix and RGA verdict; this observation does not create generic Identify, Tune, or Validate evidence.
-
+   - **Record:** Calculate each settled change and compare it with your prediction. Retain terminal state,
+     restoration, and seed **20260829**. The native lesson test owns the qualified gain matrix and
+     RGA verdict; this observation does not create generic Identify, Tune, or Validate evidence. The
+     inherited limitation under test is: Tag names and isolated direct gains do not show how closing the second loop changes the effective gain and feedback direction. The decision this run
+     supports is: Accept the diagonal overhead-to-reflux and bottoms-to-reboiler pairing only from four valid measured gains and reject the negative-relative-gain cross pairing.
 ## Evidence and decision
 
 Define every measure before reading the result:

@@ -158,6 +158,20 @@ step. The native lesson test owns the internal automatic stage sequence and its
 failure branches. The 220.1-second timeout lets project restoration finish
 first. The deterministic Simulation seed is 20260829.
 
+Three failures are part of this lesson, and each stops the sequence honestly
+rather than producing a controller. Three failures are part of this lesson,
+and each stops the sequence honestly rather than producing a controller.
+Remove the selected saved plant and the run stops before any measurement,
+because there is nothing to qualify against. Give the plant a negative gain
+and Identify accepts no model, because a heater that cools contradicts the
+declared operating region. Request excitation the safety envelope does not
+allow and the plan is rejected before it runs. Confirm each stop states its
+reason, leaves the controller revision unchanged, and applies nothing. Each
+stop names its own reason: poor recording data stops qualification before a
+model is fitted, an unusable model stops tuning before any candidate exists,
+and Validate reports **No acceptable controller found** when every candidate
+misses a declared requirement.
+
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
@@ -169,20 +183,9 @@ first. The deterministic Simulation seed is 20260829.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **220.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The observed lesson signal is **Water-temperature setpoint**. It does not inject a second process event.
-   - **Decision before action:** Before selecting **Review test**, predict the response to A minus-1-degC equilibrium-temperature load at 100 s. Confirm the live values are current and the reviewed plan stays inside Current applied heater power 0 % to 100 %; Candidate applied heater power 0 % to 100 %; Current water temperature 0 degC to 60 degC; Candidate water temperature 0 degC to 60 degC.
+   - **Decision before action:** Before selecting **Review test**, predict the response to A minus-1-degC equilibrium-temperature load at 100 s. Confirm the live values are current and the reviewed plan stays inside Current applied heater power 0 % to 100 %; Candidate applied heater power 0 % to 100 %; Current water temperature 0 degC to 60 degC; Candidate water temperature 0 degC to 60 degC. This run is made so that a manually reviewed controller does not yet prove that the complete automatic evidence, candidate, failure, and recovery sequence is inspectable and fail-closed is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
-   - **Taught failures:** Three failures are part of this lesson, and each stops the
-     sequence honestly rather than producing a controller. Remove the selected saved
-     plant and the run stops before any measurement, because there is nothing to
-     qualify against. Give the plant a negative gain and Identify accepts no model,
-     because a heater that cools contradicts the declared operating region. Request
-     excitation the safety envelope does not allow and the plan is rejected before it
-     runs. Confirm each stop states its reason, leaves the controller revision
-     unchanged, and applies nothing. Each stop names its own reason: poor recording
-     data stops qualification before a model is fitted, an unusable model stops
-     tuning before any candidate exists, and Validate reports **No acceptable
-     controller found** when every candidate misses a declared requirement.
 
    - **Record:** Compare both heater copies with the derived gains and predictions, then retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test must execute the internal `Test → Identify → Tune → Validate` sequence, every fail-closed branch, the unchanged-controller-revision check, and the unapplied result. Those internal service stages are evidence owned by the test; they are not extra student screens in this lesson.
 

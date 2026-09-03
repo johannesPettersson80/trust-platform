@@ -171,10 +171,12 @@ Simulation seed is 20260829.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **12.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns normalized and physical commands.
-   - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Check vessel 0–100 °C, tank 0–100 cm, oven 0–150 °C, and drive ±5 rad. Keep model identities hidden until classifications are written.
+   - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Check vessel 0–100 °C, tank 0–100 cm, oven 0–150 °C, and drive ±5 rad. Keep model identities hidden until classifications are written. This run is made so that a short view makes slow, delayed, and integrating traces appear compatible with the same low-gain stable process assumption is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, all stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe the common command edge, four physical commands, all response signatures, and restoration.
    - **Recovery:** Abort for nonfinite/out-of-range data, incorrect physical scaling, or any active feedback controller. Confirm authority false and all baseline commands before retrying.
-   - **Record:** Retain terminal state, restoration, command/PV traces, first response times, late slopes, steady-value eligibility, overshoot, crossing count, classifications, and seed.
+   - **Record:** Retain terminal state, restoration, command/PV traces, first response times, late slopes, steady-
+     value eligibility, overshoot, crossing count, classifications, and seed. The deterministic seed
+     is **20260829**.
 
 There is no separate disabled Validate stage. The project/native evidence owns
 the measured classification; Monitor and Test expose the same open-loop step.

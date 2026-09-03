@@ -266,8 +266,8 @@ The learner-facing workflow is exactly **Monitor → Test**. The visible project
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Primary steam flow 0 t/h to 120 t/h; Reference steam flow 0 t/h to 120 t/h; Requested valve demand 0 % to 100 %; Applied valve-stem position 0 % to 100 %; Upstream header pressure 0 bar to 16 bar. Predicting the healthy record's own timing first gives the baseline band that every degraded record is later judged against.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows steam flow holding near 50 t/h through 10 s, a bounded setpoint step to 60 t/h from 10 s through 40 s, and recovery back to 50 t/h through 60 s.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason and remove experiment authority. The project disables the controller and restores the 50 t/h setpoint before another run.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
+   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and
+     deterministic seed **20260829**. The decision this run supports is: Use synchronized causal signatures and a discriminating test to select the responsible engineering action; report Inconclusive when required evidence is absent.
 ## Evidence and decision
 
 Define every measure before reading its value:

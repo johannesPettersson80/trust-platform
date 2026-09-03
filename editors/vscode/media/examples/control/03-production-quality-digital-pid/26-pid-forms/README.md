@@ -182,7 +182,9 @@ fresh controller states and frozen input samples to own the exact 2 N·m,
    - **Decision before action:** Confirm that the plan writes only the Boolean and restores it false. Require table position within ±4 rad, torque within ±10 N·m, temperature within 0–80 °C, and heater power within 0–100%.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe both gain changes, the selected-form indicators, the rejected diagnostic remaining disconnected, and final Manual-zero restoration.
    - **Recovery:** Abort for nonfinite, stale, out-of-limit data or any indication that the rejected diagnostic drives an output. Confirm authority false, safe setpoints, Manual mode, and zero outputs before retrying.
-   - **Record:** Retain the terminal state, restoration, gain-change timestamp, both plant traces, selected forms, diagnostic values, limit states, and seed.
+   - **Record:** Retain the terminal state, restoration, gain-change timestamp, both plant traces, selected forms,
+     diagnostic values, limit states, and seed. The deterministic seed is **20260829**. The
+     inherited limitation under test is: At unchanged nonzero error, the rejected incremental-P recurrence calculates zero output increment and remains at its arbitrary retained output after a proportional-gain change. The decision this run supports is: Let the shipped controller select positional P when integral gain is zero and incremental PI when integral gain is nonzero; do not expose a user form switch.
 
 There is no separate disabled Validate stage. The native test owns the exact
 unchanged-error calculation; Monitor and Test expose the safe live sequence.

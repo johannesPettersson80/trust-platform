@@ -153,8 +153,9 @@ state. The deterministic Simulation seed is 20260829.
    - **Decision before action:** Before selecting **Review test**, confirm Plan A predicts 54.751 °C at 63 seconds and remains inside 40–80% valve and 45–58 °C temperature limits, because Review test is the last checkpoint before the valve moves. The project, not the Test form, owns the physical step. Do not Identify, Tune, or Apply.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe the 10-second baseline, 70% requested/applied valve, delayed temperature rise, 60% restoration, and completed terminal state.
    - **Recovery:** Abort for stale or bad quality, forbidden mode, confounding disturbance, nonfinite data, or a hard-limit violation. Confirm authority false and requested/applied valve 60% before retrying.
-   - **Record:** Retain terminal state, plan decision, baseline measures, requested/applied valve, temperature, prediction error, restoration, reason codes, and seed **20260829**.
-
+   - **Record:** Retain terminal state, plan decision, baseline measures, requested/applied valve, temperature,
+     prediction error, restoration, reason codes, and seed **20260829**. The decision this run
+     supports is: Collect data only after plan bounds, baseline qualification, aborts, restoration, evidence class, and approval boundary are explicit.
 ## Evidence and decision
 
 Define every measure before reading a result. **Baseline temperature range** is

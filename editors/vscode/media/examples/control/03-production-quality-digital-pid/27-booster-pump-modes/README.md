@@ -169,7 +169,9 @@ four independent initial states. The deterministic Simulation seed is 20260829.
    - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Require raw/filtered pressure within 0–12 bar and all valve values within 0–100%. Auto must not become active before ready and three settled samples.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe one initialization, three Manual settling updates, Auto at 40%, stable 6 bar pressure, and final Disabled 30% restoration.
    - **Recovery:** Abort for nonfinite, stale, out-of-range data or premature Auto authority. Confirm authority false, station Disabled, and requested safe command 30% before retrying.
-   - **Record:** Retain terminal state, false restoration, initialization sample, readiness/settling sequence, first Auto request, equilibrium drift, active authority, limits, and seed.
+   - **Record:** Retain terminal state, false restoration, initialization sample, readiness/settling sequence, first
+     Auto request, equilibrium drift, active authority, limits, and seed. The deterministic seed is
+     **20260829**. The inherited limitation under test is: Arbitrary zero controller and filter histories produce a first request of 10 percent and filtered pressure of 0.198 bar on a pump already operating at 40 percent and 6 bar. The decision this run supports is: Copy current pressure, setpoint, and actual valve position into filter and controller histories atomically, retain Manual authority until the filter is qualified, then permit Auto.
 
 There is no separate disabled Validate stage. The native test owns the unsafe
 baseline and all three equilibria; Monitor and Test expose the safe 40% start.

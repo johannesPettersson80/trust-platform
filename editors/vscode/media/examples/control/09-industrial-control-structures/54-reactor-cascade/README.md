@@ -223,8 +223,11 @@ fresh separate authority-loss case. The deterministic Simulation seed is
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Direct valve request 0 % to 100 %; Fast-cascade valve request 0 % to 100 %; Slow-cascade valve request 0 % to 100 %; Fast-cascade jacket temperature 45 degC to 90 degC; Fast-cascade reactor temperature 60 degC to 95 degC.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Heating-utility disturbance to 0 degC, wait for current data, and review a new test.
-   - **Record:** Compare event order, settling, reactor error, and valve movement with the prediction. Retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test owns the fresh commissioning comparison, authority-loss case, metrics, and verdicts; disabled Identify, Tune, or Validate controls are not evidence.
-
+   - **Record:** Compare event order, settling, reactor error, and valve movement with the prediction. Retain the
+     terminal state, restoration result, and deterministic seed **20260829**. The native lesson test
+     owns the fresh commissioning comparison, authority-loss case, metrics, and verdicts; disabled
+     Identify, Tune, or Validate controls are not evidence. The inherited limitation under test is:
+     Direct reactor-temperature PI cannot act until the slow product temperature has already changed.
 ## Evidence and decision
 
 Change only controller structure between direct PI and commissioned cascade.

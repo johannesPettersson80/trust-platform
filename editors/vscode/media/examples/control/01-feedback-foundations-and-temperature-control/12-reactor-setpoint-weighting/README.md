@@ -276,10 +276,13 @@ The deterministic Simulation seed is 20260827.
    - **Record:** Retain the initial SP, PV, applied MV, Manual command, weight, objective, mode, and prediction before opening Test.
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **56.5**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Test must change only that Boolean from false to true and restore false.
-   - **Decision before action:** Before selecting **Review test**, verify the plan does not write SP or weight. The project enters Auto at SP 80 degC through 5.0 seconds, steps SP to 85 degC at 5.1 seconds, observes through 55.0 seconds, then selects Manual zero from 55.1 seconds until the applied valve reaches zero.
+   - **Decision before action:** Before selecting **Review test**, verify the plan does not write SP or weight. The project enters Auto at SP 80 degC through 5.0 seconds, steps SP to 85 degC at 5.1 seconds, observes through 55.0 seconds, then selects Manual zero from 55.1 seconds until the applied valve reaches zero. This run is made so that full proportional setpoint response produces 1 is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify the Boolean authority, duration, false restoration, and stop conditions, then select **Confirm and start**. Require **Running**, an available **Abort test**, retained boundary samples, terminal completion, experiment authority false, and complete Manual-zero restoration.
    - **Recovery:** If the run is rejected, stale, unavailable, failed, or aborted, keep or return the authority false, wait for Manual zero and current data, then review a fresh test. Never claim six-run comparison evidence from this one UI runtime.
-   - **Record:** Compare the observed initial movement and overshoot with the prediction. Retain terminal state, restoration result, selected weight 0.5, and seed 20260827.
+   - **Record:** Compare the observed initial movement and overshoot with the prediction. Retain terminal state,
+     restoration result, selected weight 0.5, and seed 20260827. The inherited limitation under test
+     is: Full proportional setpoint response produces 1.049 degC overshoot and fails the declared 1.0 degC servo requirement despite acceptable regulatory recovery. The decision this run
+     supports is: Change only proportional setpoint weight, restart after each initialization-only setting change, retain true-error integral action, and repeat both objective tests from fresh identical initial states.
 
 The native regulatory comparison is separate. In each fresh objective-1 runtime,
 SP remains 80 degC in Auto, the retained 60.0-second boundary precedes the

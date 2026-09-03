@@ -183,8 +183,10 @@ is 20260829.
    - **Decision before action:** Before selecting **Review test**, predict the immediate Tank-1 and delayed Tank-2 responses and confirm flow can remain within -2 through +2 litres per minute and both levels within -10 through +10 centimetres, because leaving that range would leave the local linear model this lesson's rank and slope predictions depend on.
    - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must distinguish the installed downstream measurement from both Simulation truth states. At termination authority clears and both pump outputs are zero. Keep **Abort test** visible.
    - **Recovery:** Select **Abort test** if the test is rejected, stale, unsafe, unavailable, failed, or aborted. Read the reason, confirm authority is false and both pump paths restored to zero, wait for current data, and review a new observation.
-   - **Record:** Compare physical movement with the rank prediction and retain terminal state, restoration, and seed **20260829**. The native lesson test owns the bypass and hidden-state cases and numeric verdict; this observation does not create generic Identify or Validate evidence.
-
+   - **Record:** Compare physical movement with the rank prediction and retain terminal state, restoration, and seed
+     **20260829**. The native lesson test owns the bypass and hidden-state cases and numeric
+     verdict; this observation does not create generic Identify or Validate evidence. The decision
+     this run supports is: Accept full-state controller/observer design only for a layout whose independent matrices and executed movement/measurement evidence agree.
 ## Evidence and decision
 
 The first one-second state-rate slope is a **least-squares** level slope immediately after the pump event, in centimetres per second. A least-squares fit finds the straight line that minimizes the sum of squared vertical distances between the line and a set of sampled points; for a short noisy window this slope is a steadier estimate of the local rate of change than dividing two raw samples. As a tiny worked example, three points $(0,0)$, $(1,2)$, and $(2,3)$ have mean time 1 and mean value 1.6667; the least-squares slope is $[(-1)(-1.6667)+(0)(0.3333)+(1)(1.3333)]/[(-1)^2+0^2+1^2]=3/2=1.5$ units per second.

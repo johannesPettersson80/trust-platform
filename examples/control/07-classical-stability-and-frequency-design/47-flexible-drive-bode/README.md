@@ -119,9 +119,9 @@ Before running, calculate three responses:
 
 | Probe frequency | Predicted magnitude | Predicted phase |
 |---:|---:|---:|
-| 0.5 rad/s | $1/\sqrt{3.75^2+0.1^2}=0.267$ rpm/% | $-\operatorname{atan2}(0.1,3.75)=-1.5^\circ$ |
-| 2 rad/s | $1/\sqrt{0^2+0.4^2}=2.500$ rpm/% | $-\operatorname{atan2}(0.4,0)=-90.0^\circ$ |
-| 8 rad/s | $1/\sqrt{(-60)^2+1.6^2}=0.0167$ rpm/% | $-\operatorname{atan2}(1.6,-60)=-178.5^\circ$ |
+| 0.5 rad/s | $1/\sqrt{3.75^2+0.1^2}=0.267$ rpm/% | $-\operatorname{atan2}(0.1,3.75)=-1.5 degrees$ |
+| 2 rad/s | $1/\sqrt{0^2+0.4^2}=2.500$ rpm/% | $-\operatorname{atan2}(0.4,0)=-90.0 degrees$ |
+| 8 rad/s | $1/\sqrt{(-60)^2+1.6^2}=0.0167$ rpm/% | $-\operatorname{atan2}(1.6,-60)=-178.5 degrees$ |
 
 At 2 rad/s, the stiffness term and inertia term cancel in the real part of the
 denominator. Only the small damping term remains, so the flexible mode amplifies
@@ -132,8 +132,8 @@ $|L(j\omega)|=1$. Squaring that condition gives
 $(4-\omega^2)^2+(0.2\omega)^2=25$. Letting $x=\omega^2$ produces
 $x^2-7.96x-9=0$. Its positive root is $x=8.964$, so
 $\omega=2.99$ rad/s. The loop phase there is
-$-\operatorname{atan2}(0.598,-4.964)=-173.1^\circ$. Phase margin is the distance
-to $-180^\circ$, hence $180-173.1=6.9^\circ$. This is very little allowance for
+$-\operatorname{atan2}(0.598,-4.964)=-173.1 degrees$. Phase margin is the distance
+to $-180 degrees$, hence $180-173.1=6.9 degrees$. This is very little allowance for
 extra lag or model error.
 
 The resonance-shaped candidate is
@@ -149,11 +149,12 @@ Its crossover equation is
 $(4-\omega^2)^2+(3.2\omega)^2=25$. With $x=\omega^2$, this becomes
 $x^2+2.24x-9=0$. The positive root is $x=2.082$, hence
 $\omega=1.44$ rad/s. The phase is
-$-\operatorname{atan2}(4.62,1.92)=-67.4^\circ$, giving
-$180-67.4=112.6^\circ$ phase margin. This nominal result is much better, but
-the cancellation is exact only if the shaft model is exact. The candidate
-therefore remains unapplied until the native test perturbs damping and natural
-frequency.
+$-\operatorname{atan2}(4.62,1.92)=-67.4 degrees$, giving
+$180-67.4=112.6 degrees$ phase margin. This nominal result is much better, but it
+rests on pole-zero cancellation: the compensator's zeros are placed on the
+shaft's resonant poles, so the improvement is model-dependent and vanishes as
+soon as the real shaft differs from the model. The candidate therefore remains
+unapplied until the native test perturbs damping and natural frequency.
 
 ## Implementation
 
@@ -193,7 +194,7 @@ its complete window first. The deterministic Simulation seed is 20260829.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The observed lesson signal is **Low applied motor torque**. It does not inject a second process event.
-   - **Decision before action:** Before selecting **Review test**, predict the response to Low applied motor torque. Confirm the live values are current and the reviewed plan stays inside Low applied motor torque -100 % to 100 %; Resonant applied motor torque -100 % to 100 %; High applied motor torque -100 % to 100 %; Low-frequency load speed 990 rpm to 1010 rpm; Resonant load speed 990 rpm to 1010 rpm; High-frequency load speed 990 rpm to 1010 rpm.
+   - **Decision before action:** Before selecting **Review test**, predict the response to Low applied motor torque. Confirm the live values are current and the reviewed plan stays inside Low applied motor torque -100 % to 100 %; Resonant applied motor torque -100 % to 100 %; High applied motor torque -100 % to 100 %; Low-frequency load speed 990 rpm to 1010 rpm; Resonant load speed 990 rpm to 1010 rpm; High-frequency load speed 990 rpm to 1010 rpm. This run is made so that the unshaped loop has a large resonant peak and approximately 6 is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
    - **Record:** Compare each measured magnitude and phase with your hand calculation and retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test owns fitting windows, coherence, every crossover, perturbed-model checks, and final eligibility; a disabled Identify, Tune, or Validate screen is not evidence.

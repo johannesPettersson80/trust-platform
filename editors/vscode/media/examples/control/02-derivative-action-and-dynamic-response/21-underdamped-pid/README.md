@@ -375,7 +375,7 @@ separate Validate screen for this project-owned comparison.
    - **Decision before action:** Confirm that Test will not inject a second
      setpoint. The sole Boolean must authorize the project's complete gain
      selection, 0.5 rad move, and safe restoration. Select **Review test** and
-     verify authority, limits, duration, restoration, and stop conditions.
+     verify authority, limits, duration, restoration, and stop conditions. This run is made so that pD needs position error to request the angle-dependent gravity torque, so the loaded table remains below its setpoint is measured rather than assumed.
    - **Successful evidence:** Select **Confirm and start**. Test reports "Test
      running. Live values and limits remain visible above; Abort is
      available.", **Abort test** remains available, and Response shows the
@@ -385,9 +385,8 @@ separate Validate screen for this project-owned comparison.
    - **Recovery:** Select **Abort test** if the test is rejected, stale,
      unsafe, failed, or aborted; confirm authority false, SP zero, Manual
      mode, and applied torque 0 N m before reviewing a new test.
-   - **Record:** Retain the terminal state, restoration result, seed 20260828,
-     and observed response. Do not present retained artifacts as a new run.
-
+   - **Record:** Retain the terminal state, restoration result, seed 20260828,      and observed response. Do not
+     present retained artifacts as a new run. The inherited limitation under test is: PD needs position error to request the angle-dependent gravity torque, so the loaded table remains below its setpoint. The decision this run supports is: Keep P and D fixed; accept integral action only if final-window error falls below 0.01 rad, overshoot remains bounded and applied torque respects its limit.
 ## Evidence and decision
 
 In the fresh-runtime comparison, PD final-window MAE is 0.164582 rad. This

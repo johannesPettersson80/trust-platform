@@ -172,10 +172,11 @@ Simulation seed is 20260829.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **300.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false.
-   - **Decision before action:** Before selecting **Review test**, predict both equilibrium levels and confirm they remain within 0–1 m. Use this run only to test the derived state model; do not Identify, Tune, or Apply.
+   - **Decision before action:** Before selecting **Review test**, predict both equilibrium levels and confirm they remain within 0–1 m. Use this run only to test the derived state model; do not Identify, Tune, or Apply. This run is made so that identical current downstream readings and inputs do not reveal different upstream stored-water states is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Response must show pump flow 0.1 m³/s, upstream level moving first, downstream level following, and pump flow returning to zero.
    - **Recovery:** Abort for stale, invalid, nonfinite, or out-of-range data. Confirm authority false and pump flow zero before reviewing another test.
-   - **Record:** Retain terminal state, restoration, both main states, pump flow, matrices, equilibrium errors, and seed **20260829**.
+   - **Record:** Retain terminal state, restoration, both main states, pump flow, matrices, equilibrium errors, and
+     seed **20260829**. The inherited limitation under test is: Identical current downstream readings and inputs do not reveal different upstream stored-water states.
 
 There is no separate disabled Validate stage. Native executable evidence owns
 the fresh Empty-versus-Upstream-charged comparison and its peak calculation;

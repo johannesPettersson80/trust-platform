@@ -225,11 +225,13 @@ and zero requested and applied position. The deterministic Simulation seed is
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **90.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Its false-to-true transition starts one project-owned sequence: 0.1 s safe Manual zero; SP 10 L/min in Auto through 15.1 s; SP 0 in Auto through 90.0 s so the slower closing motion can finish; and Manual zero at 90.1 s.
-   - **Decision before action:** Before selecting **Review test**, confirm the plan changes only experiment authority. Predict requested position moving first, applied position opening at no more than 1.5 %/s, then closing at no more than 0.5 %/s after SP restoration.
+   - **Decision before action:** Before selecting **Review test**, confirm the plan changes only experiment authority. Predict requested position moving first, applied position opening at no more than 1.5 %/s, then closing at no more than 0.5 %/s after SP restoration. This run is made so that the in-range PID position request can change faster than the geared valve can physically travel is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify **P1.ExperimentEnabled**, the 90.1-second timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** visible. Response must show the 15-second request, asymmetric ramps, return to a closed valve, and Manual-zero completion.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason. Confirm experiment authority false, SP 0, a closed valve, Manual mode, and zero output before reviewing a new test.
-   - **Record:** Compare both per-scan movements and both measured slopes with your predictions. Retain the maximum gap, 5-second flow, directional exposure, return-to-closed time, terminal state, restoration result, and deterministic seed **20260824**.
-
+   - **Record:** Compare both per-scan movements and both measured slopes with your predictions. Retain the maximum
+     gap, 5-second flow, directional exposure, return-to-closed time, terminal state, restoration
+     result, and deterministic seed **20260824**. The inherited limitation under test is: The in-
+     range PID position request can change faster than the geared valve can physically travel. The inherited limitation under test is: The in-range PID position request can change faster than the geared valve can physically travel.
 ## Evidence and decision
 
 Apply the decision measures, validity prerequisites, and direction declared

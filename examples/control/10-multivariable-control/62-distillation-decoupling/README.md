@@ -137,8 +137,10 @@ comparisons. The deterministic Simulation seed is 20260829.
    - **Decision before action:** Before selecting **Review test**, predict the compensating reboiler direction and confirm both inputs can remain within -10 through +10 points and both product deviations within -6 through +6 points, because leaving that local linear region would invalidate the static and dynamic decoupling gains derived above.
    - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must expose virtual, requested, and applied commands separately. At termination authority clears, architecture returns to direct, and both setpoints and the disturbance return to zero. Keep **Abort test** visible.
    - **Recovery:** Select **Abort test** if the test is rejected, stale, unsafe, unavailable, failed, or aborted. Read the reason, confirm authority is false and every project-owned event signal restored to zero, wait for current data, and review a new observation.
-   - **Record:** Compare the cross response with your prediction and retain terminal state, restoration, and seed **20260829**. The native lesson test owns the direct/static/dynamic, load, and mismatch verdicts; this observation does not create generic Identify, Tune, or Validate evidence.
-
+   - **Record:** Compare the cross response with your prediction and retain terminal state, restoration, and seed
+     **20260829**. The native lesson test owns the direct/static/dynamic, load, and mismatch
+     verdicts; this observation does not create generic Identify, Tune, or Validate evidence. The
+     inherited limitation under test is: The RGA-selected diagonal PI loops remain coupled because each physical actuator still moves both products. The decision this run supports is: Use the simplest architecture whose nominal and perturbed executed evidence satisfies the declared cross-response, primary-loop, effort, limit, and restoration requirements.
 ## Evidence and decision
 
 Define the measures before inspecting results:

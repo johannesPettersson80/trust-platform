@@ -209,7 +209,10 @@ comparison in the evidence table. Seed 20260828 is deterministic.
    - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Require load position within ±4 rad, motor velocity within ±20 rad/s, and applied torque within ±2.5 N·m. Predict which trace changes first at the 10-second reversal.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** available. Response must show the profiled move to +0.5 rad, the -0.5 rad reversal, and the requested-torque trace, followed by complete safe restoration; the plant-evidence panel shows the applied/state separation.
    - **Recovery:** Select **Abort test** for nonfinite, stale, or out-of-limit data; confirm authority false, target/profile state reset to 0 rad, Manual mode, and zero requested torque before retrying.
-   - **Record:** Retain the synchronized reversal traces, terminal state, restoration, seed, reversal delay, peak following error, torque gap and variation, state durations, and settling disposition.
+   - **Record:** Retain the synchronized reversal traces, terminal state, restoration, seed, reversal delay, peak
+     following error, torque gap and variation, state durations, and settling disposition. The
+     deterministic seed is **20260828**. The inherited limitation under test is: The ideal servo response does not explain delayed reversal, requested-to-applied torque separation, or actuator-state flags seen after real drive and transmission effects are introduced. The
+     decision this run supports is: Classify each synchronized signature before choosing trajectory redesign, constraint-aware control, characterized compensation, inspection, or mechanical maintenance; do not retune PID merely because error increased.
 
 There is no separate disabled Validate stage. The native test owns the
 one-effect matrix; Monitor and Test expose the checked-in combined case.

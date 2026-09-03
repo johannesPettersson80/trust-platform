@@ -320,10 +320,13 @@ validation belongs to Lesson 17.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **50.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Its false-to-true transition starts 10.0 seconds at 20%, then 40.0 seconds at 30%; false restoration produces the separate 50.10-second sample at 20%.
-   - **Decision before action:** Confirm that Test changes only Boolean authority, the project owns every timed power request, applied power remains bounded 0–100%, temperature remains bounded 0–40 degC, and completion restores the same 20-percent Manual operating point.
+   - **Decision before action:** Confirm that Test changes only Boolean authority, the project owns every timed power request, applied power remains bounded 0–100%, temperature remains bounded 0–40 degC, and completion restores the same 20-percent Manual operating point. This run is made so that the first-principles derivation depends on physical parameters that may be unavailable or inaccurate on installed equipment is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify the Boolean signal, 50.1-second timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** available. Response must show 20% through 10.00 seconds, 30% from 10.10 through 50.00 seconds, and 20% after authority returns false at 50.10 seconds.
    - **Recovery:** Select **Abort test** for nonfinite or bad-quality data, a sample gap above 0.15 seconds, PV outside 0–40 degC, power outside 0–100%, clipping, saturation, unexpected mode, or an unapproved event. Confirm authority false and requested/applied power restored to 20% before retrying. A safety abort overrides normal restoration and commands zero.
-   - **Record:** Compare the observed direction and timing with your prediction. Retain the terminal state, false authority restoration, 500 active samples, separate restoration sample, deterministic seed **20260827**, and the project-owned qualification and model evidence.
+   - **Record:** Compare the observed direction and timing with your prediction. Retain the terminal state, false
+     authority restoration, 500 active samples, separate restoration sample, deterministic seed
+     **20260827**, and the project-owned qualification and model evidence. The inherited limitation
+     under test is: The first-principles derivation depends on physical parameters that may be unavailable or inaccurate on installed equipment. The decision this run supports is: Estimate from immutable time/MV/PV/quality samples only, retain all candidates and uncertainty, and leave the selected preview unaccepted until independent validation.
 
 Repeating this procedure on a physical heater requires a separately reviewed
 plan, independent protection, and explicit approval from an authorised heater

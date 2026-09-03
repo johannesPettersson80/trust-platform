@@ -298,11 +298,13 @@ restoration. The deterministic Simulation seed is 20260827.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **56.5**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Its false-to-true transition enters Auto at SP 80 degC through 5.0 seconds, steps SP to 85 degC at 5.1 seconds, observes the servo response through 55.0 seconds, then selects Manual zero from 55.1 seconds until the applied valve reaches zero. The initial Manual sample and complete restoration ramp are retained.
-   - **Decision before action:** Before selecting **Review test**, verify that the plan changes only experiment authority. Repeat the rate-limited ramp prediction — 5 percentage points per scan toward a 90-percent demand, reached about 1.5 seconds after the step — and confirm the declared 60-to-100-degree-Celsius PV and 0-to-100-percent valve bounds.
+   - **Decision before action:** Before selecting **Review test**, verify that the plan changes only experiment authority. Repeat the rate-limited ramp prediction — 5 percentage points per scan toward a 90-percent demand, reached about 1.5 seconds after the step — and confirm the declared 60-to-100-degree-Celsius PV and 0-to-100-percent valve bounds. This run is made so that the regulatory-focused PI produces servo overshoot above the declared 1 is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify `P1.ExperimentEnabled`, the 56.5-second timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** visible. Response must show the 80-to-85-degree-Celsius step, PV and valve response, and complete Manual-zero restoration. The terminal state must confirm completion and authority restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason. Confirm experiment authority false, SP 80 degC, Manual mode, and zero valve before reviewing a new test.
-   - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260827**.
-
+   - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result,
+     and deterministic seed **20260827**. The inherited limitation under test is: The regulatory-
+     focused PI produces servo overshoot above the declared 1.0 degC requirement when full
+     proportional action responds to the setpoint step. The decision this run supports is: Restore the same initial condition, hold SP fixed, and apply the independent load without changing controller, plant, limits, timing, or seed. The inherited limitation under test is: The regulatory-focused PI produces servo overshoot above the declared 1.0 degC requirement when full proportional action responds to the setpoint step.
 ## Evidence and decision
 
 Apply the equations, windows, tolerances, persistence conditions, and separate

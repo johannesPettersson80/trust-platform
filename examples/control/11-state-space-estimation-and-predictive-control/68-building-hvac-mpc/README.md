@@ -232,8 +232,10 @@ This procedure observes the nominal 20-minute MPC schedule. The project owns out
    - **Decision before action:** Before selecting **Review test**, predict why forecasts may change heater requests before the corresponding disturbance becomes current. Confirm every scheduled input and predicted/applied heater command remains inside its declared limits, because a scheduled forecast that would force a command outside those limits signals an infeasible or misconfigured horizon before it reaches the heaters.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured zone-one and zone-two temperature and applied-heat sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero applied heat and restored environmental inputs, wait for current data, and review a new test.
-   - **Record:** Stop recording only after restoration. Retain the solver counts, feasible count, first moves, objective, constraint and fallback states, terminal state, restoration result, and seed **20260829**. Use native evidence for PI and abnormal cases; do not claim this visible run executed them.
-
+   - **Record:** Stop recording only after restoration. Retain the solver counts, feasible count, first moves,
+     objective, constraint and fallback states, terminal state, restoration result, and seed
+     **20260829**. Use native evidence for PI and abnormal cases; do not claim this visible run
+     executed them. The inherited limitation under test is: The reactive PI pair cannot choose three future coupled moves from tariff, weather and occupancy forecasts or prove predicted comfort feasibility. The decision this run supports is: Use the first move only after all 729 sequences complete and at least one satisfies every hard constraint; otherwise use the explicitly identified PI fallback.
 ## Evidence and decision
 
 Zone absolute-error integral is the sum of absolute setpoint-minus-temperature error multiplied by 60 seconds, in degree-Celsius seconds. Comfort violation records both accumulated magnitude and duration below 20.0 or above 22.5 degrees Celsius.

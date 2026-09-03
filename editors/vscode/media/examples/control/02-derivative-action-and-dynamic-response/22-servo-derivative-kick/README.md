@@ -239,7 +239,7 @@ separate Validate screen for this project-owned comparison.
    - **Decision before action:** Confirm that Test will not inject a second
      setpoint. The Boolean must authorize the project's selected $c=0$ setup,
      0.5 rad move, and restoration. Select **Review test** and verify authority,
-     limits, duration, restoration, and stop conditions.
+     limits, duration, restoration, and stop conditions. This run is made so that differentiating the full setpoint step creates a requested torque above 70 N m even though the drive can apply only 10 N m is measured rather than assumed.
    - **Successful evidence:** Select **Confirm and start**. Test reports "Test
      running. Live values and limits remain visible above; Abort is
      available.", **Abort test** remains available, and Response shows SP, PV,
@@ -251,9 +251,8 @@ separate Validate screen for this project-owned comparison.
    - **Recovery:** Select **Abort test** if the test is rejected, stale,
      unsafe, failed, or aborted; confirm authority false, SP zero, Manual
      mode, and both torques zero before reviewing a new test.
-   - **Record:** Retain the terminal state, restoration result, seed 20260828,
-     selected first requested/applied samples, and final endpoint error.
-
+   - **Record:** Retain the terminal state, restoration result, seed 20260828,      selected first requested/applied
+     samples, and final endpoint error. The inherited limitation under test is: Differentiating the full setpoint step creates a requested torque above 70 N m even though the drive can apply only 10 N m. The decision this run supports is: Select c equal to zero only if the initial requested torque is at most 5 N m, applied torque remains bounded, and final position still tracks within 0.02 rad.
 ## Evidence and decision
 
 The fresh-runtime evidence matches the complete prediction. First requested

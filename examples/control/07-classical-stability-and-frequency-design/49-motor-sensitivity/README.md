@@ -48,11 +48,11 @@ loop response ($L$):
 
 $L(s) = C(s)G(s)$
 
-The sensitivity function describes how much opposing load torque or model
-error still reaches motor speed after feedback acts; call it sensitivity
-($S$). The complementary-sensitivity function describes how much a
-speed-setpoint change or encoder-noise reading still reaches motor speed after
-feedback acts; call it complementary sensitivity ($T$). Both paths use the
+The sensitivity function describes how much an output disturbance, here
+opposing load torque, or model error still reaches motor speed; call it
+sensitivity ($S$). The complementary-sensitivity function describes how much a
+speed-setpoint change or encoder measurement noise still reaches motor speed;
+call it complementary sensitivity ($T$). Both paths use the
 same feedback denominator:
 
 $S(s) = 1 / (1 + L(s))$
@@ -216,7 +216,7 @@ timeout lets restoration finish first. The deterministic Simulation seed is
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The observed lesson signal is **Baseline opposing load torque**. It does not inject a second process event.
-   - **Decision before action:** Before selecting **Review test**, predict the response to Identical 10 rad/s, 0.02 rpm measured-speed interference on both encoder channels. Confirm the live values are current and the reviewed plan stays inside Baseline applied torque -20 % to 20 %; Shaped applied torque -20 % to 20 %; Baseline measured speed deviation -5 rpm to 5 rpm; Shaped measured speed deviation -5 rpm to 5 rpm.
+   - **Decision before action:** Before selecting **Review test**, predict the response to Identical 10 rad/s, 0.02 rpm measured-speed interference on both encoder channels. Confirm the live values are current and the reviewed plan stays inside Baseline applied torque -20 % to 20 %; Shaped applied torque -20 % to 20 %; Baseline measured speed deviation -5 rpm to 5 rpm; Shaped measured speed deviation -5 rpm to 5 rpm. This run is made so that the stable proportional loop crosses near the compliant mode with large sensitivity peaks, ringing, and encoder-noise torque activity is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
    - **Record:** Compare the observed speed and torque trade-off with your frequency and equilibrium predictions. Retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test owns the common frequency grid, maxima, crossings, time metrics, and verdicts; disabled Identify, Tune, or Validate controls are not evidence.

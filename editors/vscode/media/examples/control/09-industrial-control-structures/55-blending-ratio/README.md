@@ -220,8 +220,10 @@ seed is 20260829.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Feedback-only additive request 0 L/min to 60 L/min; Ratio-controlled additive request 0 L/min to 60 L/min; Feedback-only blend ratio 0.1 (dimensionless) to 0.5 (dimensionless); Ratio-controlled blend ratio 0.1 (dimensionless) to 0.5 (dimensionless).
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Actual wild-stream flow to 100 L/min, wait for current data, and review a new test.
-   - **Record:** Compare immediate demand, downstream ratio, trim, and additive movement with the prediction. Retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test owns meter-bias and fallback cases, metrics, and verdicts; disabled Identify, Tune, or Validate controls are not evidence.
-
+   - **Record:** Compare immediate demand, downstream ratio, trim, and additive movement with the prediction. Retain
+     the terminal state, restoration result, and deterministic seed **20260829**. The native lesson
+     test owns meter-bias and fallback cases, metrics, and verdicts; disabled Identify, Tune, or
+     Validate controls are not evidence. The inherited limitation under test is: Downstream composition feedback cannot move additive flow until mixing lag has produced a measured ratio error.
 ## Evidence and decision
 
 For feedback-only and ratio-plus-trim, hold plant equations, initial state, PI

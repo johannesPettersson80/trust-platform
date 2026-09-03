@@ -1288,7 +1288,10 @@ suite("Controller selection and modelling curriculum lessons", () => {
     for (const forbidden of ["Nyquist", "Encirclement", "RightHalfPlane", "StableLabel", "PhaseMargin"]) {
       assert.ok(!executableProgram.includes(forbidden), `ST must not embed analysis result '${forbidden}'`);
     }
-    assert.ok(pedagogicalCoreWordCount(source) <= 1_700);
+    // The strict review found this lesson asserting encirclement counts without
+    // teaching how to count them. Teaching that costs roughly 450 words, so the
+    // budget reflects the lesson's required content rather than its former size.
+    assert.ok(pedagogicalCoreWordCount(source) <= 2_100);
   });
 
   test("teaches sensitivity trade-offs on an executable precision motor", () => {
@@ -1334,7 +1337,10 @@ suite("Controller selection and modelling curriculum lessons", () => {
       /C_base\(s\) = 0\.4.*%\/rpm/i,
       /C_shape\(s\).*0\.3.*3.*0\.8.*0\.08.*8/i,
       /0\.01 rad\/s.*0\.200.*0\.201/i,
-      /M_s.*3\.197.*1\.724.*M_t.*3\.009.*1\.334/i,
+      // The retained summary holds 3.194549 and 1.723293 for the sensitivity peak and
+      // 3.001983 and 1.333250 for its complement; the older 3.197 and 3.009 were not
+      // derivable from that data.
+      /M_s.*3\.195.*1\.723.*M_t.*3\.002.*1\.333/i,
       /2\.187.*1\.706 rad\/s.*19\.13.*44\.11 degrees/i,
       /bandwidth.*3\.43.*2\.83 rad\/s/i,
       /10 rad\/s.*0\.0420.*0\.0247.*0\.4168.*0\.2449/i,

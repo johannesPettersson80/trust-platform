@@ -180,10 +180,12 @@ automatic selector. The deterministic Simulation seed is 20260829.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns the four setpoint and mode changes.
-   - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Check every physical range and require compressor output exactly 0 or 100% with at least five seconds between changes.
+   - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Check every physical range and require compressor output exactly 0 or 100% with at least five seconds between changes. This run is made so that pID cannot be realized by the binary compressor and adds unjustified dynamic state or noise sensitivity to loops whose requirements are met by simpler structures is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, all stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe protected cold-room cycling, heater rejection of the 60-second loss event, tank convergence, table damping/tracking, and safe restoration.
    - **Recovery:** Abort for any nonfinite/out-of-limit signal, compressor dwell violation, unexpected mode, or structure code change. Confirm authority false and all four safe outputs before retrying.
-   - **Record:** Retain terminal state, restoration, all SP/PV/MV traces, structure codes, compressor transitions, heater event, limits, final-window measures, and seed.
+   - **Record:** Retain terminal state, restoration, all SP/PV/MV traces, structure codes, compressor transitions,
+     heater event, limits, final-window measures, and seed. The deterministic seed is **20260829**.
+     The inherited limitation under test is: PID cannot be realized by the binary compressor and adds unjustified dynamic state or noise sensitivity to loops whose requirements are met by simpler structures. The decision this run supports is: Require every candidate to pass all declared requirements, then choose the eligible structure with the fewest justified dynamic mechanisms.
 
 There is no separate disabled Validate stage. The native evidence owns the
 candidate matrix; Monitor and Test expose the four selected structures.

@@ -197,10 +197,9 @@ requested-output trace.
 The proportional gain ($K_p$) is 0.667 requested percentage points per bar. The
 integral gain ($K_i$) is 0.667 requested percentage points per bar-second. The
 derivative gain ($K_d$) is zero. Both gains are a configured teaching baseline,
-declared in `lesson.json`, chosen to give a brisk response on this reduced-order
-plant without the model-based design tools introduced later: Lesson 18 derives
-comparable gains from a plant's gain, time constant, and dead time once Lesson
-15 has taught that model. A rapid controller-process-value increment
+declared in `lesson.json`, chosen to give a brisk response on this plant without
+the model-based design tools introduced later: from Lesson 15 onward the course
+derives comparable gains from a measured plant model instead of choosing them. A rapid controller-process-value increment
 therefore contributes an immediate proportional valve increment in the
 opposite direction. Filtering reduces that noise transmission, but it also
 delays genuine pressure information.
@@ -379,10 +378,13 @@ Simulation seed is 20260824.
    - **Record:** Retain initial SP, raw PV, controller PV, applied MV, filter selection, mode, and prediction before opening Test.
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **40.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Test changes only that Boolean from false to true and restores false.
-   - **Decision before action:** Before **Review test**, verify the plan does not write SP or filter selection. The project enters Auto at SP 0 bar through 5.0 seconds, steps SP to 1 bar at 5.1 seconds, observes through 40.0 seconds, then selects Manual zero at 40.1 seconds.
+   - **Decision before action:** Before **Review test**, verify the plan does not write SP or filter selection. The project enters Auto at SP 0 bar through 5.0 seconds, steps SP to 1 bar at 5.1 seconds, observes through 40.0 seconds, then selects Manual zero at 40.1 seconds. This run is made so that broadband transmitter noise reaches PI feedback and creates unnecessary recycle-valve movement is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify the Boolean authority, duration, false restoration, and stop conditions, then select **Confirm and start**. Require **Running**, an available **Abort test**, retained boundary samples, terminal completion, experiment authority false, and Manual zero.
    - **Recovery:** If the run is rejected, stale, unavailable, failed, or aborted, keep or return authority false, wait for Manual zero and current data, then review a fresh test. Never claim the three-run comparison from this one UI runtime.
-   - **Record:** Compare the selected first-order response with the prediction and retain terminal state, restoration, filter selection 1, and seed 20260824.
+   - **Record:** Compare the selected first-order response with the prediction and retain terminal state,
+     restoration, filter selection 1, and seed 20260824. The inherited limitation under test is:
+     Broadband transmitter noise reaches PI feedback and creates unnecessary recycle-valve movement.
+     The decision this run supports is: Run bypass, one pole, and two cascaded poles with the same deterministic noise and change no plant, controller, timing, event, axis, or limit; select the fewest poles satisfying attenuation, lag, and bias requirements. Filter selection is initialization-only and requires a restart.
 
 The native comparison starts three independently initialized runtimes with
 selection 0, 1, and 2. Each uses the same noise seed, PI settings, timing,

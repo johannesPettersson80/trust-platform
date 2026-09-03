@@ -242,10 +242,13 @@ deterministic Simulation seed is 20260828.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **20.02**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project, not the generic Test form, owns the 0.5-rad setpoint step and filter selection.
-   - **Decision before action:** Confirm that the plan writes only the Boolean authority, restores it false, and keeps raw/controller PV inside -4 to 4 rad and applied torque inside -10 to 10 N·m. Expect less late torque activity than bypass, but a positive separation between raw and controller-facing PV during motion.
+   - **Decision before action:** Confirm that the plan writes only the Boolean authority, restores it false, and keeps raw/controller PV inside -4 to 4 rad and applied torque inside -10 to 10 N·m. Expect less late torque activity than bypass, but a positive separation between raw and controller-facing PV during motion. This run is made so that derivative on the noisy raw encoder produces excessive scan-to-scan motor-torque changes is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify the authority, timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** available. Response must show authority true, SP rising to 0.5 rad, Auto response, distinct raw and filtered PV consistent with the selected first-order 0.05 s filter, and the complete safe restoration.
    - **Recovery:** Select **Abort test** if a value becomes nonfinite, either PV leaves -4 to 4 rad, torque leaves -10 to 10 N·m, or data becomes stale. Confirm authority false, SP 0 rad, Filter bypass, Manual mode, and zero applied torque before retrying.
-   - **Record:** Retain terminal state, false restoration, selected-case SP/raw PV/controller PV/torque traces, late torque-increment RMS, early lag area, final mean error, and seed.
+   - **Record:** Retain terminal state, false restoration, selected-case SP/raw PV/controller PV/torque traces, late
+     torque-increment RMS, early lag area, final mean error, and seed. The deterministic seed is
+     **20260828**. The inherited limitation under test is: Derivative on the noisy raw encoder produces excessive scan-to-scan motor-torque changes. The decision this run supports is:
+     Require torque-increment RMS at or below 0.250 N m and positive lag area at or below 0.020 rad s; among qualifying candidates choose the simplest filter and then the smallest time constant.
 
 There is no separate disabled Validate stage. The runnable project and its
 native test own the declared comparison; Monitor and Test expose the selected

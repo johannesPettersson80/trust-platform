@@ -341,7 +341,9 @@ requested and 0.00 percent applied heater power.
    - **Decision before action:** Before **Review test**, verify the plan names the 30.00-second active sample, 30.10-second safe-restoration sample, false restoration, PV and applied-power hard limits, and abort conditions. Confirm no physical or model parameter changes during the run.
    - **Successful evidence:** Select **Review test**, verify the Boolean authority, duration, restoration, and stop conditions, then select **Confirm and start**. Require **Running**, an available **Abort test**, a 20.00-percent project-owned request while active, retained prediction times, terminal completion, Test authority false, Manual mode, and requested/applied power both 0.00 percent at 30.10 seconds.
    - **Recovery:** If the run is rejected, stale, unavailable, unsafe, failed, or aborted, keep or return authority false, wait for Manual zero and current data, then review a fresh test. Do not present a disabled Validate action or the retained table as newly executed evidence.
-   - **Record:** Retain the 6.00-second PV, final-window samples, derived values, validity, terminal state, 30.10-second restoration, provenance, and seed 20260824.
+   - **Record:** Retain the 6.00-second PV, final-window samples, derived values, validity, terminal state,
+     30.10-second restoration, provenance, and seed 20260824. The inherited limitation under test
+     is: Earlier lessons stated observed/configured dynamic parameters without deriving their physical cause or validity region. The decision this run supports is: Derive K and tau before running a 0 to 20 percent manual-power step; compare the prediction with, but do not relabel it as, configured simulation truth.
 
 Only Monitor and Test are used in Control Studio. Validate and Identify are not
 used: there is no executable shared-candidate validation action and no unknown

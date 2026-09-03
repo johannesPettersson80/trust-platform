@@ -395,11 +395,12 @@ authority, not a direct SP, MV, or disturbance write. The deterministic seed is
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project, not Control Studio, owns the selected-tuning lifecycle and timed cold-flow event.
-   - **Decision before action:** Confirm the reviewed plan will start at 30.2 °C and 20 percent heater power, request 30.6 °C, apply the 29.8 °C cold-flow condition at 60 seconds, stay inside PV 0–80 °C and applied MV 0–100%, then remove authority at 120.10 seconds.
+   - **Decision before action:** Confirm the reviewed plan will start at 30.2 °C and 20 percent heater power, request 30.6 °C, apply the 29.8 °C cold-flow condition at 60 seconds, stay inside PV 0–80 °C and applied MV 0–100%, then remove authority at 120.10 seconds. This run is made so that the empirical tuning works but does not expose a reproducible model assumption or explicit robustness-speed target is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, inspect the Boolean write, duration, abort conditions, and restoration, then select **Confirm and start**. While authority is true, observe the Lambda gains $K_p=5$, $K_i=1$, Automatic mode, and the response through the 60-second load event. At 120.10 seconds, confirm `P1.ExperimentEnabled=false`, `RunApproved=false`, `CandidateApplied=false`, empirical gains restored, Manual mode active, and applied heater power 0%. Keep **Abort test** visible.
    - **Recovery:** Select **Abort test** if inputs are stale or invalid, there is a hard-limit violation, model provenance is mismatched, or authority is unexpected. Restart from the declared initial state; never weaken a gate to make the run pass.
-   - **Record:** Retain the terminal state, restoration result, seed, response plot, and the native comparison evidence below.
-
+   - **Record:** Retain the terminal state, restoration result, seed, response plot, and the native comparison
+     evidence below. The deterministic seed is **20260824**. The inherited limitation under test is:
+     The empirical tuning works but does not expose a reproducible model assumption or explicit robustness-speed target. The decision this run supports is: Calculate an unapplied candidate from frozen K/T/L and Lambda, then compare it against the empirical tuning with one common nominal and perturbed plan.
 ## Evidence and decision
 
 This common-axis plot changes only the controller tuning. Both runs use the

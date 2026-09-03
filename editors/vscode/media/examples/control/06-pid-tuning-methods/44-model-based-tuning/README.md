@@ -162,20 +162,20 @@ Every candidate remains unapplied. The deterministic Simulation seed is
    - **Decision before action:** The project links all three setpoints to one
      heater command: raising heater SP to 25 degC also raises tank SP to 52 %
      and dryer SP to 45 %, so one authority write drives three simultaneous,
-     comparable step responses. Use this decision rule: Retain all
-     model-qualified candidates and validation evidence for review; do not
-     select or apply a winner in the PLC program.
+     comparable step responses. Use this decision rule: Retain all model-qualified candidates and validation evidence for review; do not select or apply a winner in the PLC program.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **220.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm heater/tank/dryer setpoints = 20 °C/50%/40% and applied outputs = 20%/50%/30%.
-   - **Decision before action:** Before selecting **Review test**, independently calculate all three Balanced gain sets and predict their response directions. Confirm every project-owned output remains within 0–100% and every PV within its declared limit. Do not Apply a candidate.
+   - **Decision before action:** Before selecting **Review test**, independently calculate all three Balanced gain sets and predict their response directions. Confirm every project-owned output remains within 0–100% and every PV within its declared limit. Do not Apply a candidate. This run is made so that a critical-point estimate does not expose a deliberate closed-loop speed-versus-robustness target or distinguish self-regulating from integrating tuning equations is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe heater temperature move toward 25 degC, tank level toward 52 %, and dryer dryness toward 45 % together, then all three baselines restored when authority ends.
    - **Recovery:** Abort for stale, forced, invalid, nonfinite, mismatched-model, or out-of-range data. Confirm authority false and all three setpoints restored before retrying.
-   - **Record:** Retain terminal state, restoration, model parameters, target, gains, SP/PV/requested/applied MV traces, response metrics, events, seed, and unapplied state.
-
+   - **Record:** Retain terminal state, restoration, model parameters, target, gains, SP/PV/requested/applied MV
+     traces, response metrics, events, seed, and unapplied state. The deterministic seed is
+     **20260829**. The decision this run supports is: Retain all model-qualified candidates and
+     validation evidence for review; do not select or apply a winner in the PLC program.
 ## Evidence and decision
 
 Define every measure and its gate before looking at the results:

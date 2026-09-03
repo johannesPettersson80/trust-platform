@@ -175,7 +175,7 @@ This procedure observes the aggressive baseline and selected robust controller o
 
 ### Control Studio actions
 
-1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Wing-root bending setpoint (SP) reads 0 g, Nominal-loop and Robust-loop wing-root bending (PV) both read 0 g, and Nominal/Robust requested and applied surface position all read 0 %, because Controller enabled remains false until Experiment authority (`P1.ExperimentEnabled`) is granted; with zero gust and zero surface command this is a genuine equilibrium, so nothing should drift while Monitor is open. The unresolved baseline problem is: Aggressive nominal proportional control ignores the sampled delay and loses damping or stability over the declared flexible-mode set.
    - **Decision before action:** Because only the robust design is expected to survive the shared gust without saturating, decide now what should distinguish the two loops when Test runs: the nominal loop should oscillate and its applied surface should reach its ±15 % limit, while the robust loop should stay well inside that limit and settle. Use this decision rule: Accept only a candidate whose three weighted paths and sampled poles pass at every declared structured case; retain all peak locations and time-domain costs.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.

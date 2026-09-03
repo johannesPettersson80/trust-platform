@@ -156,7 +156,9 @@ is 20260829.
    - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Require pressure within 0–12 bar and applied output within 0–100%. No mixed configuration or post-limit sum may enter the plant path.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe one complete revision change and 55.3% result, then the reinitialized feedforward case with a 60% target and 42% constrained output, followed by safe restoration.
    - **Recovery:** Abort for nonfinite/out-of-range data, a mixed active record, or output outside the displayed rate interval. Confirm authority false and safe 30% output before retrying.
-   - **Record:** Retain terminal state, restoration, scan/revision/parameter snapshot, applied output before/after, feedforward, unconstrained target, rate bounds, limit flags, and seed.
+   - **Record:** Retain terminal state, restoration, scan/revision/parameter snapshot, applied output before/after,
+     feedforward, unconstrained target, rate bounds, limit flags, and seed. The deterministic seed
+     is **20260829**. The inherited limitation under test is: A sequential update exposes new proportional gain with old integral gain and produces a 15.1 percentage-point first increment that belongs to neither complete configuration. The decision this run supports is: Assign the complete candidate record, call Configure once, and pass feedforward through PIDInput so the controller's anti-windup and output constraints remain authoritative.
 
 There is no separate disabled Validate stage. The native test owns rejected
 diagnostics; Monitor and Test expose only the production paths.

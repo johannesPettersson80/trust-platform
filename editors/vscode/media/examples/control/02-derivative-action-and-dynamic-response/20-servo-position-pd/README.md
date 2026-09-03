@@ -363,7 +363,7 @@ Validate screen for this project-owned comparison.
      will not inject a second setpoint change. The reviewed Boolean must start
      the complete project-owned gain selection, move, and restoration. Then
      select **Review test** and verify the authority write, limits, duration,
-     restoration, and stop conditions.
+     restoration, and stop conditions. This run is made so that the stiff proportional controller reaches the target quickly but overshoots and continues oscillating is measured rather than assumed.
    - **Successful evidence:** Select **Confirm and start**. Test reports "Test
      running. Live values and limits remain visible above; Abort is
      available.", **Abort test** remains available, and Response shows the
@@ -373,10 +373,9 @@ Validate screen for this project-owned comparison.
    - **Recovery:** Select **Abort test** if the test is rejected, stale,
      unsafe, failed, or aborted; confirm authority false, setpoint zero,
      Manual mode, and applied torque 0 N m before reviewing a new test.
-   - **Record:** Retain the terminal state, restoration result, seed 20260828,
-     and observed response. Do not use a retained table as proof of a newly
-     executed run.
-
+   - **Record:** Retain the terminal state, restoration result, seed 20260828,      and observed response. Do not use
+     a retained table as proof of a newly      executed run. The inherited limitation under test is:
+     The stiff proportional controller reaches the target quickly but overshoots and continues oscillating. The decision this run supports is: Keep proportional stiffness fixed and accept derivative action only if it materially reduces overshoot and late position movement without violating the torque limit.
 ## Evidence and decision
 
 The retained plot places P and PD position on the same scale and aligns their

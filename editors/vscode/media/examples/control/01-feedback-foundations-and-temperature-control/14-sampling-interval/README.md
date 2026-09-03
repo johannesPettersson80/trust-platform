@@ -420,7 +420,12 @@ retains each recovery boundary after the 30-second response.
    - **Decision before action:** Before **Review test**, verify the plan names the 10/11/301/302/303/304/305/306 scan boundaries, the 0.3-second invalid interval, the reviewed 0.25-second ceiling, Manual reset, separate Auto re-enable, abort limits, and final Manual-zero restoration.
    - **Successful evidence:** Select **Review test**, verify the Boolean authority, 30.6-second duration, false restoration, and stop conditions, then select **Confirm and start**. Require **Running**, an available **Abort test**, retained samples on every named boundary, terminal completion, experiment authority false, SP 0 degC, and Manual zero.
    - **Recovery:** If the run is rejected, stale, unavailable, failed, or aborted, keep or return experiment authority false, wait for valid 0.1-second timing, latch false, Manual zero, and current data, then review a fresh test. Never claim the native multi-runtime comparison from this one UI run.
-   - **Record:** Retain the first request, invalid-interval zero, valid-but-latched zero, Manual reset, reset-removed Manual sample, separate Auto resumption, final safe sample, terminal state, and seed 20260824.
+   - **Record:** Retain the first request, invalid-interval zero, valid-but-latched zero, Manual reset, reset-removed
+     Manual sample, separate Auto resumption, final safe sample, terminal state, and seed 20260824.
+     The inherited limitation under test is: A hard-coded nominal interval applies half the intended integral increment during a 200 ms scan. The decision this run supports is: Pass measured
+     elapsed time inside 0 < dt <= 250 ms; outside that envelope, latch the timing fault, do not
+     update PID state, command zero trim, and require valid Manual reset plus separate automatic re-
+     enable. The decision this run supports is: Pass measured elapsed time inside 0 < dt <= 250 ms; outside that envelope, latch the timing fault, do not update PID state, command zero trim, and require valid Manual reset plus separate automatic re-enable.
 
 The native comparison starts a fresh, independently initialized runtime for
 each fixed, jittered, nominal-time, and invalid-interval case. Every fresh case

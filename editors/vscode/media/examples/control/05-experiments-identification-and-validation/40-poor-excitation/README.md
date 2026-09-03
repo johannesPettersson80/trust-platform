@@ -134,11 +134,12 @@ evidence but never become accepted fits. The deterministic Simulation seed is
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **70.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm all requested/applied valves = 20% and all temperatures near 50 °C.
-   - **Decision before action:** Before selecting **Review test**, record the predicted SNRs 0.67 and 33.33 and the expected negative feedback correlation. Confirm all valves remain within 0–100% and temperatures within 40–60 °C.
+   - **Decision before action:** Before selecting **Review test**, record the predicted SNRs 0.67 and 33.33 and the expected negative feedback correlation. Confirm all valves remain within 0–100% and temperatures within 40–60 °C. This run is made so that finite fitted values can look credible even when weak excitation or feedback correlation makes their interpretation invalid is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe the three distinct requested/applied records and all valves returning to 20%.
    - **Recovery:** Abort for stale, invalid, nonfinite, clipped, saturated, gapped, or out-of-range data. Confirm authority false and all requested/applied valves 20% before retrying.
-   - **Record:** Retain terminal state, restoration, all input/output samples, controller-used temperature, timing, quality, seed, and the pre-run qualification predictions.
-
+   - **Record:** Retain terminal state, restoration, all input/output samples, controller-used temperature, timing,
+     quality, seed, and the pre-run qualification predictions. The deterministic seed is
+     **20260829**.
 ## Evidence and decision
 
 Compare the three synchronized records. Only the qualified open-loop record

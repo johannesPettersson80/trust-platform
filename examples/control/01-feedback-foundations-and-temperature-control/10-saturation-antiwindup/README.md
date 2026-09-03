@@ -325,8 +325,8 @@ comparison. The deterministic Simulation seed is 20260824.
    - **Decision before action:** Before selecting **Review test**, confirm that the plan changes only experiment authority. Predict requested trim will reach the positive limit first, PV will rise, and BackCalculation will remove stored unavailable demand after SP restoration. Confirm the declared PV, requested-output, and applied-trim bounds.
    - **Successful evidence:** Select **Review test**, verify `P1.ExperimentEnabled`, the 50.1-second timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** visible. Response must show the baseline, unreachable request, restoration, recovery, and final Manual-zero state. The terminal state must confirm completion and authority restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason. Confirm experiment authority false, SP zero, Manual mode, and zero output before reviewing a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260824**.
-
+   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and
+     deterministic seed **20260824**. The inherited limitation under test is: The PI controller accumulates unavailable demand because only the downstream valve clamp knows the physical limit. The decision this run supports is: Give the unchanged shipped PI controller the real valve limits and compare its BackCalculation and Combined equations, using Tt=dt to realise signal clamping.
 ## Evidence and decision
 
 Apply the definitions, validity requirements, eligibility thresholds, and tie

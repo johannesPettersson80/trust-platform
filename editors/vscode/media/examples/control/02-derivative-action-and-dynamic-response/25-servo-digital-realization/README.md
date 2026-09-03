@@ -191,10 +191,12 @@ delayed 10 ms comparisons; one UI run cannot claim that matrix (seed
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **20.01**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns SP, method, interval, delay selection, and control enable.
-   - **Decision before action:** Confirm that the plan writes only that Boolean and restores it false. Require PV within ±4 rad, velocity within ±20 rad/s, and torque within ±10 N·m. Expect one torque update followed by nine held 10 ms plant scans.
+   - **Decision before action:** Confirm that the plan writes only that Boolean and restores it false. Require PV within ±4 rad, velocity within ±20 rad/s, and torque within ±10 N·m. Expect one torque update followed by nine held 10 ms plant scans. This run is made so that the fastest Tustin run is not evidence that Euler alternatives, slower updates, quantized measurements, aliased interference, or delayed application remain acceptable is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** available. Response must show SP rising to 0.5 rad, torque held flat between the 100 ms updates consistent with the selected Tustin/100 ms case, quantized PV showing interference near 2 Hz, and safe restoration.
    - **Recovery:** Select **Abort test** for nonfinite, stale, out-of-limit, or incorrectly timed data; confirm authority false, SP zero, control disabled, and held torque zero before retrying.
-   - **Record:** Retain terminal state, restoration, actual update timestamps, maximum interval/jitter, hold duration, SP/PV/torque, sampled spectrum, estimated alias, and seed.
+   - **Record:** Retain terminal state, restoration, actual update timestamps, maximum interval/jitter, hold
+     duration, SP/PV/torque, sampled spectrum, estimated alias, and seed. The deterministic seed is
+     **20260828**. The inherited limitation under test is: The fastest Tustin run is not evidence that Euler alternatives, slower updates, quantized measurements, aliased interference, or delayed application remain acceptable. The decision this run supports is: Accept only a method and interval whose actual update timing, held output, tracking, torque, finite-state, quantization, alias, and delay evidence satisfy the declared requirements.
 
 There is no separate disabled Validate stage. The native comparison owns the
 method, interval, and delay matrix; Monitor and Test expose one declared case.

@@ -175,9 +175,7 @@ candidate is applied; seed 20260829 is deterministic.
      starts means the baseline is not safe to trust; write down your
      predicted 1.25 degC manual-P offset and historical-PI gains now, because
      comparing them against the live traces afterward is what proves the
-     calculation. Use this decision rule: Prefer the least aggressive
-     candidate that meets final accuracy and overshoot requirements while
-     retaining every failed trial and actuator-use trade-off.
+     calculation. Use this decision rule: Prefer the least aggressive candidate that meets final accuracy and overshoot requirements while retaining every failed trial and actuator-use trade-off.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
@@ -187,8 +185,11 @@ candidate is applied; seed 20260829 is deterministic.
    - **Decision before action:** Before selecting **Review test**, record the 1.25 °C proportional offset and the derived manual/historical PI gains. Confirm every valve remains within 0–100% and every temperature within 40–60 °C. Do not run this on a physical plant or Apply a result.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe all four responses under the common setpoint and the restored 50 °C setpoint.
    - **Recovery:** Abort for stale, invalid, nonfinite, mismatched, or out-of-range data. Confirm authority false, setpoint 50 °C, and safe valve outputs before retrying.
-   - **Record:** Retain terminal state, restoration, all SP/PV/MV traces, gains, timing, noise, events, peak/period measures, response measures, valve travel, seed, and candidate state.
-
+   - **Record:** Retain terminal state, restoration, all SP/PV/MV traces, gains, timing, noise, events, peak/period
+     measures, response measures, valve travel, seed, and candidate state. The deterministic seed is
+     **20260829**. The decision this run supports is: Prefer the least aggressive candidate that
+     meets final accuracy and overshoot requirements while retaining every failed trial and
+     actuator-use trade-off.
 ## Evidence and decision
 
 Define every decision measure and its pass direction before reading the

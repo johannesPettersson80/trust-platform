@@ -135,7 +135,10 @@ independent counterfactuals. The deterministic Simulation seed is 20260829.
    - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Require pressure within 0–12 bar and every valve value within 0–100%. Tracking quality must remain current through the handover.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe external output and tracking move together to 60%, Track active before Auto, the transition sample, and final Disabled safe restoration.
    - **Recovery:** Abort for stale tracking, nonfinite/out-of-range data, a binding limit, or unexpected ownership. Confirm authority false, station Disabled, and safe 30% command before retrying.
-   - **Record:** Retain terminal state, restoration, tracking source/quality, last applied output, first Auto request, transition step, authority states, subsequent recovery, limits, and seed.
+   - **Record:** Retain terminal state, restoration, tracking source/quality, last applied output, first Auto
+     request, transition step, authority states, subsequent recovery, limits, and seed. The
+     deterministic seed is **20260829**. The inherited limitation under test is: The inactive controller remains at 40 percent while external authority moves the valve to 60 percent, creating a 20 percentage-point step when Auto takes authority. The decision this run supports
+     is: Feed independently observed applied output to Track throughout external authority, then change only authority to Auto.
 
 There is no separate disabled Validate stage. The native test owns all exact
 aligned and unaligned comparisons; Monitor and Test expose the safe handover.

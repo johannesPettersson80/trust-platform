@@ -163,7 +163,7 @@ state and seed. The deterministic Simulation seed is 20260829.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm servo requested/applied torque = 0 N·m.
-   - **Decision before action:** Before selecting **Review test**, predict a response maximum near the 0.955 Hz mode and confirm project-owned torque remains within ±0.2 N·m and shaft position within ±0.35 rad. Compare only qualified records; do not Identify, Tune, or Apply.
+   - **Decision before action:** Before selecting **Review test**, predict a response maximum near the 0.955 Hz mode and confirm project-owned torque remains within ±0.2 N·m and shaft position within ±0.35 rad. Compare only qualified records; do not Identify, Tune, or Apply. This run is made so that one sustained low-frequency input does not expose every time scale or resonant mode efficiently is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe five seconds at baseline, the 20-second chirp, five seconds restored, and a final zero torque.
    - **Recovery:** Abort for stale, invalid, nonfinite, or out-of-range data. Confirm authority false and requested/applied torque zero before retrying.
    - **Record:** Retain terminal state, restoration, requested/applied torque, shaft position, instantaneous frequency, peak frequency, bounds, and seed **20260829**.

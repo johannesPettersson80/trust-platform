@@ -286,8 +286,8 @@ Simulation seed is 20260828.
    - **Decision before action:** Confirm the project-owned move stays inside position -4 to +4 rad, velocity -20 to +20 rad/s, and torque -10 to +10 N·m, because the plant will abort rather than silently exceed a physical limit. Confirm false restoration returns SP to 0 rad and Manual zero torque.
    - **Successful evidence:** Select **Review test**, inspect the Boolean write, bounds, aborts, duration, and restoration, then **Confirm and start**. Observe SP = 1 rad, Auto mode, an initial torque step of about 8 N·m consistent with the selected higher gain, target crossing, negative braking torque, and decaying oscillation. At 20.02 seconds confirm authority false, SP = 0 rad, Manual mode, and applied torque 0 N·m. Keep **Abort test** visible.
    - **Recovery:** Select **Abort test** if position or velocity is invalid, there is a hard-limit violation, data is stale, or authority is unexpected; confirm authority false, SP 0 rad, Manual mode, and applied torque 0 N·m before retrying. Do not weaken a criterion.
-   - **Record:** Retain the terminal state, restoration, seed, selected response, and the native two-run evidence below.
-
+   - **Record:** Retain the terminal state, restoration, seed, selected response, and the native two-run evidence
+     below. The deterministic seed is **20260828**. The inherited limitation under test is: Low proportional stiffness reaches the target slowly; increasing gain is the obvious next experiment. The decision this run supports is: Change only proportional gain and reject the faster candidate if its overshoot, oscillation or peak torque is unacceptable.
 ## Evidence and decision
 
 The native evidence changes only proportional gain and uses unrounded retained

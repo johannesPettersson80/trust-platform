@@ -180,10 +180,12 @@ The deterministic Simulation seed is 20260829.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns both physical input changes.
-   - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Require tank level and heater temperature within 0–100 in their stated units. Use the run only to test the balances; do not Identify, Tune, or Apply.
+   - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Require tank level and heater temperature within 0–100 in their stated units. Use the run only to test the balances; do not Identify, Tune, or Apply. This run is made so that integrating and self-regulating labels describe curve shapes but do not explain their physical causes or parameter dependence is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe net flow 2 L/s, heater 20%, tank ramp, delayed heater response, and restored zero inputs.
    - **Recovery:** Abort for nonfinite/out-of-range data, invalid parameters, or mismatched sampling. Confirm authority false, equal flow, and zero heater command before retrying.
-   - **Record:** Retain terminal state, restoration, all physical inputs/PVs, 20-second tank level, late slope, six-second heater temperature, final slope/equilibrium, model parameters, and seed.
+   - **Record:** Retain terminal state, restoration, all physical inputs/PVs, 20-second tank level, late slope, six-
+     second heater temperature, final slope/equilibrium, model parameters, and seed. The
+     deterministic seed is **20260829**. The inherited limitation under test is: Integrating and self-regulating labels describe curve shapes but do not explain their physical causes or parameter dependence.
 
 There is no separate disabled Validate stage. The native evidence owns the
 independent equal-flow case; Monitor and Test expose the unequal-flow run.

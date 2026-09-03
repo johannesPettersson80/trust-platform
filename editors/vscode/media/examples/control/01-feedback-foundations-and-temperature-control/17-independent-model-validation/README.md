@@ -255,10 +255,14 @@ validation experiment.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **60.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Its false-to-true transition starts 10.0 seconds at 20%, then 50.0 seconds at 25%. The simulation applies the declared cold-flow load at 30.00 seconds. False restoration produces the separate 60.10-second sample at 20%.
-   - **Decision before action:** Confirm that Test changes only Boolean authority, the project owns every power transition, the model cannot refit, and completion restores the 20-percent Manual point. Keep the fixed-flow and cold-flow decisions separate.
+   - **Decision before action:** Confirm that Test changes only Boolean authority, the project owns every power transition, the model cannot refit, and completion restores the 20-percent Manual point. Keep the fixed-flow and cold-flow decisions separate. This run is made so that low error on the recording used to estimate parameters cannot establish prediction on unseen amplitude or disturbance data is measured rather than assumed.
    - **Successful evidence:** Select **Review test**, verify the Boolean signal, 60.1-second timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** available. Response must show 20% through 10.00 seconds, 25% from 10.10 through 60.00 seconds, the measured temperature departing below the frozen prediction after 30.00 seconds, and 20% after authority returns false at 60.10 seconds.
    - **Recovery:** Select **Abort test** if any value is nonfinite, quality or timing fails, model parameters change, estimation samples are reused, PV leaves 0–40 degC, power leaves 0–100%, or an unexpected event occurs. Safety abort commands zero. Before retrying, confirm authority false and normal Manual restoration at 20%.
-   - **Record:** Compare the new-step response and post-load residual with your predictions. Retain 600 active samples, the separate restoration sample, frozen-model provenance, terminal state, false authority restoration, seed **20260827**, calculated windows, plots, and purpose verdict.
+   - **Record:** Compare the new-step response and post-load residual with your predictions. Retain 600 active
+     samples, the separate restoration sample, frozen-model provenance, terminal state, false
+     authority restoration, seed **20260827**, calculated windows, plots, and purpose verdict. The
+     inherited limitation under test is: Low error on the recording used to estimate parameters cannot establish prediction on unseen amplitude or disturbance data. The decision this run
+     supports is: Accept fixed-flow command response when its independent RMSE passes, but restrict load prediction when post-load residual bias fails.
 
 A physical heater requires a separately reviewed plan, independent protection,
 and explicit approval from an authorised heater controls engineer. Simulation
