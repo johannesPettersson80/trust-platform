@@ -6,7 +6,9 @@ simulated plant and an approved physical plant, while always showing which
 source produced the evidence.
 
 Use [Simulation](simulation.md) to create and connect a simulated plant first.
-Open Control Studio from the selected plant in **Devices & Connections**.
+Select target **Simulator**, choose **Run**, then open **Control Studio** from
+the truST sidebar. A configured plant's contextual action opens the same
+editor.
 
 ## Monitor before changing anything
 
@@ -25,14 +27,24 @@ value.
 
 ## Run a bounded test
 
-1. Open **Test** and enter the requested amplitude and duration.
+1. Open **Test** and enter the requested amplitude and duration. A
+   project-scripted lesson instead locks **Experiment** to **Observe without
+   excitation** with **Amplitude** fixed at `0` and disabled: the runnable
+   project owns the setpoint, disturbance, and timing, not Control Studio.
 2. Choose **Review test**.
 3. Check the affected signal, start and requested values, allowed range,
-   timeout, stop conditions, and restoration value.
-4. Choose **Approve and run** only when the displayed plan is correct.
+   timeout, stop conditions, and restoration value. For a project-scripted
+   lesson the affected signal is its Boolean experiment-authority signal (for
+   example `P1.ExperimentEnabled`), not a new excitation.
+4. Choose **Confirm and start** only when the displayed plan is correct. For a
+   project-scripted lesson this is the authority signal's false-to-true
+   transition — the single write that grants the runnable project permission
+   to run its own scripted sequence.
 5. Watch SP, PV, MV, limits, and the plot while the test runs.
-6. Choose **Abort** whenever the response is unexpected.
-7. Confirm the stop reason and restoration result.
+6. Choose **Abort test** whenever the response is unexpected.
+7. Confirm the stop reason and restoration result. Restoration returns the
+   authority signal to false and every requested value to its declared safe
+   state.
 
 Reviewing a plan does not start it. Approval applies only to the displayed
 plan, and the live loop does not disappear behind the test controls.

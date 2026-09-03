@@ -12,6 +12,18 @@ import {
   type ValidationRequirement,
   type ValidationRequirementRow,
 } from "../validation";
+import {
+  experimentRestoringMessage,
+  experimentTerminalMessage,
+  modelKindLabel,
+  staleCandidateNotice,
+} from "../failureMessages";
+import {
+  experimentApprovalButtonClass,
+  experimentFormMatchesReviewedPlan,
+  type ExperimentFormSnapshot,
+} from "../planPresentation";
+import { formatLocalTimestamp } from "../timestampFormat";
 
 type Mode = "Monitor" | "Test" | "Identify" | "Tune" | "Validate";
 
@@ -208,21 +220,49 @@ window.addEventListener("trust-control-studio-design-edit", (event) => {
 document.querySelector("[data-validate-run]")?.addEventListener("click", () => {
   post("control-studio.validate.run"); setText("[data-validate-state]", "Comparing current and candidate controllers…");
 });
+// The plan card must always describe exactly the form that was reviewed (W-17):
+// the form is frozen the moment a plan is pending, and the reviewed snapshot is
+// re-checked immediately before Approve is allowed to fire.
+const experimentFormFields = ["#test-kind", "#test-amplitude", "#test-duration", "[data-physical-topology-reviewed]"]
+  .map((selector) => document.querySelector<HTMLInputElement | HTMLSelectElement>(selector))
+  .filter((field): field is HTMLInputElement | HTMLSelectElement => field !== null);
+const experimentFormFieldsInitiallyDisabled = new Map(experimentFormFields.map((field) => [field, field.disabled]));
+// The snapshot submitted with the last "Review test" click; promoted to
+// reviewedExperimentForm only once the runtime actually accepts that exact
+// submission, so a rejected re-review can never leave a stale plan approvable.
+let lastSubmittedExperimentForm: ExperimentFormSnapshot | undefined;
+let reviewedExperimentForm: ExperimentFormSnapshot | undefined;
+
+function currentExperimentFormSnapshot(): ExperimentFormSnapshot {
+  return {
+    kind: document.querySelector<HTMLSelectElement>("#test-kind")?.value ?? "setpoint_step",
+    amplitude: Number(document.querySelector<HTMLInputElement>("#test-amplitude")?.value),
+    durationSeconds: Number(document.querySelector<HTMLInputElement>("#test-duration")?.value),
+  };
+}
+
+function setExperimentFormLocked(locked: boolean): void {
+  for (const field of experimentFormFields) {
+    field.disabled = locked ? true : (experimentFormFieldsInitiallyDisabled.get(field) ?? false);
+  }
+}
+
 document.querySelector("[data-test-review]")?.addEventListener("click", () => {
-  const kind = document.querySelector<HTMLSelectElement>("#test-kind")?.value ?? "setpoint_step";
-  const amplitude = Number(document.querySelector<HTMLInputElement>("#test-amplitude")?.value);
-  const durationSeconds = Number(document.querySelector<HTMLInputElement>("#test-duration")?.value);
+  const form = currentExperimentFormSnapshot();
   const physicalTopologyReviewed = document.querySelector<HTMLInputElement>(
     "[data-physical-topology-reviewed]"
   )?.checked === true;
-  post("control-studio.experiment.review", {
-    kind, amplitude, durationSeconds, physicalTopologyReviewed,
-  });
+  lastSubmittedExperimentForm = form;
+  post("control-studio.experiment.review", { ...form, physicalTopologyReviewed });
   setText("[data-test-state]", "Checking current runtime evidence and safety limits…");
 });
 document.querySelector("[data-test-approve]")?.addEventListener("click", () => {
   const planId = root?.dataset.experimentPlanId;
   if (!planId) return;
+  if (!experimentFormMatchesReviewedPlan(currentExperimentFormSnapshot(), reviewedExperimentForm)) {
+    setText("[data-test-state]", "The form changed after review. Review the test again before approving.");
+    return;
+  }
   post("control-studio.experiment.approve", {
     planId,
     physicalApproved: root?.dataset.experimentSource === "physical",
@@ -328,13 +368,21 @@ window.addEventListener("message", (event: MessageEvent) => {
       message.loopId === current.loopId && message.expectedLoopRevision === current.expectedLoopRevision) {
     const payload = message.payload as Record<string, unknown> | undefined;
     const phase = String(message.phase ?? "failed");
+    // W-16: an opened/restored saved result is historical evidence, not a live
+    // reading. The flag lives on the shared studio root so chart.ts (which owns
+    // the live-value strip) can badge and dim it; it is cleared for every other
+    // phase, since those do not change what is currently on screen.
+    if (root) {
+      if (phase === "restored" || phase === "opened") root.dataset.controlStudioHistoricalResult = "true";
+      else delete root.dataset.controlStudioHistoricalResult;
+    }
     if (Array.isArray(payload?.history)) renderResultHistory(payload.history as Record<string, unknown>[]);
     if ((phase === "restored" || phase === "opened") && payload?.result && typeof payload.result === "object") {
       const result = payload.result as Record<string, unknown>;
       const candidate = result.candidate as Record<string, unknown> | undefined;
       if (candidate) { renderApplicationCandidate(candidate); setWorkflowActionAvailability({ candidate: true }); }
       const model = result.model as Record<string, unknown> | undefined;
-      if (model) { setText("[data-identify-state]", `Restored ${String(model.kind)} · gain ${formatEngineeringNumber(model.gain, 5)} · normalized error ${formatEngineeringNumber(model.normalizedError, 4)}`); setWorkflowActionAvailability({ model: true }); }
+      if (model) { setText("[data-identify-state]", `Restored ${modelKindLabel(String(model.kind))} · gain ${formatEngineeringNumber(model.gain, 5)} · normalized error ${formatEngineeringNumber(model.normalizedError, 4)}`); setWorkflowActionAvailability({ model: true }); }
       const validation = result.validation as Record<string, unknown> | undefined;
       if (validation && Array.isArray(validation.requirements)) {
         setWorkflowActionAvailability({ result: true });
@@ -349,9 +397,14 @@ window.addEventListener("message", (event: MessageEvent) => {
         const disclosure = document.querySelector<HTMLElement>("[data-saved-tuning-comparison]");
         if (disclosure) disclosure.hidden = false;
       }
-      setText("[data-result-state]", `${phase === "opened" ? "Opened" : "Restored"} revision ${String(result.resultRevision ?? "—")} · ${String(result.source ?? "Unknown source")} · ${String(result.createdAt ?? "unknown time")}.`);
+      const openedAt = formatLocalTimestamp(String(result.createdAt ?? ""));
+      if (root) root.dataset.controlStudioHistoricalResultAt = openedAt.display;
+      setText("[data-result-state]",
+        `${phase === "opened" ? "Opened" : "Restored"} · Saved result from ${openedAt.display} · revision ${String(result.resultRevision ?? "—")} · ${String(result.source ?? "Unknown source")}.`,
+        openedAt.title);
     } else if (phase === "saved") {
-      setText("[data-result-state]", `Saved revision ${String(payload?.resultRevision ?? "—")} at ${String(payload?.createdAt ?? "now")}.`);
+      const savedAt = formatLocalTimestamp(String(payload?.createdAt ?? ""));
+      setText("[data-result-state]", `Saved revision ${String(payload?.resultRevision ?? "—")} at ${savedAt.display}.`, savedAt.title);
     } else if (phase === "compared" && payload?.comparison && typeof payload.comparison === "object") {
       const comparison = payload.comparison as Record<string, unknown>;
       const left = comparison.left as Record<string, unknown>;
@@ -373,7 +426,11 @@ window.addEventListener("message", (event: MessageEvent) => {
     if (stage === "tune" && payload?.methodEvidence && typeof payload.methodEvidence === "object") {
       renderTuningMethodEvidence(payload.methodEvidence as Record<string, unknown>);
     }
-    if (payload?.status !== "complete") setText(selector, String(payload?.reason ?? `${stage} failed`));
+    if (payload?.status !== "complete") {
+      const reason = String(payload?.reason ?? `${stage} failed`);
+      setText(selector, reason);
+      if (stage === "tune") markSharedApplicationCandidateStale(reason);
+    }
     else if (stage === "identify") {
       const identifyPhase = String(payload.phase ?? "");
       const estimationQualification = payload.estimationQualification as Record<string, unknown> | undefined;
@@ -395,12 +452,12 @@ window.addEventListener("message", (event: MessageEvent) => {
         renderIdentificationModel(model, payload.fit as Record<string, unknown> | undefined);
         renderIdentificationPresentation(payload.presentation as Record<string, unknown> | undefined);
         if (identifyPhase === "validation_required") {
-          setText(selector, `Preview only · ${String(model.kind)} · normalized estimation error ${formatEngineeringNumber(model.normalizedError, 4)}. Record and qualify a distinct validation run.`);
+          setText(selector, `Preview only · ${modelKindLabel(String(model.kind))} · normalized estimation error ${formatEngineeringNumber(model.normalizedError, 4)}. Record and qualify a distinct validation run.`);
         } else if (identifyPhase === "acceptance_required") {
-          setText(selector, `${String(payload.source)} · ${String(model.kind)} · validation error ${formatEngineeringNumber(model.normalizedValidationError, 4)}. Review the evidence before acceptance.`);
+          setText(selector, `${String(payload.source)} · ${modelKindLabel(String(model.kind))} · normalized validation error ${formatEngineeringNumber(model.normalizedValidationError, 4)}. Review the evidence before acceptance.`);
           setHidden("[data-identify-accept]", false);
         } else if (identifyPhase === "accepted") {
-          setText(selector, `Accepted for design · ${String(payload.source)} · ${String(model.kind)} · validation error ${formatEngineeringNumber(model.normalizedValidationError, 4)}`);
+          setText(selector, `Accepted for design · ${String(payload.source)} · ${modelKindLabel(String(model.kind))} · normalized validation error ${formatEngineeringNumber(model.normalizedValidationError, 4)}`);
           markModeComplete("Identify");
           setWorkflowActionAvailability({ model: true });
         }
@@ -447,6 +504,7 @@ window.addEventListener("message", (event: MessageEvent) => {
       stage.textContent = `${name} · ${completed.includes(name) ? "Complete" : name === failed ? "Failed" : "Waiting"}`;
     }
     showError(`${String(payload?.error ?? "Automatic Tune failed.")} ${String(payload?.recovery ?? "")}`.trim());
+    markSharedApplicationCandidateStale(String(payload?.error ?? "Automatic Tune failed."));
     return;
   }
   const result = payload.result as Record<string, unknown>;
@@ -519,13 +577,13 @@ function renderIdentificationModel(model: Record<string, unknown>, fit?: Record<
   const range = fit?.operatingRange as Record<string, unknown> | undefined;
   const warnings = Array.isArray(fit?.warnings) ? fit.warnings.map(String).join("; ") : "None";
   replaceEvidenceRows("[data-identify-model-rows]", [
-    ["Structure", String(model.kind)],
+    ["Structure", modelKindLabel(String(model.kind))],
     ["Gain", formatEngineeringNumber(model.gain, 6)],
     ["Time constants", [model.timeConstantSeconds, model.secondTimeConstantSeconds]
       .filter((item) => typeof item === "number").map((item) => `${formatEngineeringNumber(item, 5)} s`).join(" / ") || "None"],
     ["Dead time", `${formatEngineeringNumber(model.deadTimeSeconds ?? 0, 5)} s`],
-    ["Estimation error", formatEngineeringNumber(model.normalizedEstimationError ?? model.normalizedError, 5)],
-    ["Validation error", typeof model.normalizedValidationError === "number"
+    ["Normalized estimation error", formatEngineeringNumber(model.normalizedEstimationError ?? model.normalizedError, 5)],
+    ["Normalized validation error", typeof model.normalizedValidationError === "number"
       ? formatEngineeringNumber(model.normalizedValidationError, 5) : "Not evaluated"],
     ["Validation RMSE", fit ? `${formatEngineeringNumber(fit.rootMeanSquareError, 5)} ${String(fit.outputUnit)}` : "Not evaluated"],
     ["Operating range", range
@@ -649,7 +707,9 @@ function renderResultHistory(items: readonly Record<string, unknown>[]): void {
     for (const item of items) {
       const option = document.createElement("option");
       option.value = String(item.resultRevision);
-      option.textContent = `Revision ${String(item.resultRevision)} · ${String(item.source)} · ${String(item.method)} · ${String(item.createdAt)}`;
+      const createdAt = formatLocalTimestamp(String(item.createdAt));
+      option.textContent = `Revision ${String(item.resultRevision)} · ${String(item.source)} · ${String(item.method)} · ${createdAt.display}`;
+      option.title = createdAt.title;
       select.append(option);
     }
     if ([...select.options].some((option) => option.value === selected)) select.value = selected;
@@ -679,14 +739,24 @@ function renderExperimentResult(message: Record<string, unknown>): void {
       ? "Physical test ready. Confirming will authorize this exact plan once."
       : "Simulation test ready. Confirm this exact bounded plan.");
     if (preview) preview.hidden = false;
-    if (approve) approve.hidden = false;
+    if (approve) {
+      approve.hidden = false;
+      const treatment = experimentApprovalButtonClass(plan.source === "physical" ? "physical" : "simulation");
+      approve.classList.toggle("danger", treatment === "danger");
+      approve.classList.toggle("primary", treatment === "primary");
+    }
     if (review) review.disabled = false;
+    reviewedExperimentForm = lastSubmittedExperimentForm;
+    setExperimentFormLocked(true);
     return;
   }
   if (phase === "review") {
     setText("[data-test-state]", String(payload?.reason ?? "The test cannot start."));
     if (approve) approve.hidden = true;
     if (review) review.disabled = false;
+    if (root) delete root.dataset.experimentPlanId;
+    reviewedExperimentForm = undefined;
+    setExperimentFormLocked(false);
     return;
   }
   if (phase === "running") {
@@ -699,23 +769,34 @@ function renderExperimentResult(message: Record<string, unknown>): void {
     return;
   }
   if (phase === "restoring") {
-    setText("[data-test-state]",
-      `${String(payload?.status ?? "Stopped")} · ${String(payload?.stop_reason ?? "runtime stop")} · confirming restoration…`);
+    setText("[data-test-state]", experimentRestoringMessage(
+      String(payload?.status ?? "unknown"), String(payload?.stop_reason ?? "unknown")));
     if (abort) abort.disabled = true;
     if (review) review.disabled = true;
     return;
   }
   if (phase === "terminal") {
-    setText("[data-test-state]",
-      `${String(payload?.status ?? "Stopped")} · ${String(payload?.stop_reason ?? "runtime stop")} · restoration ${String(payload?.restoration ?? "unknown")}`);
-    if (root) delete root.dataset.experimentId;
+    const restorationReason = typeof payload?.restoration_reason === "string" && payload.restoration_reason.length > 0
+      ? payload.restoration_reason : undefined;
+    setText("[data-test-state]", experimentTerminalMessage({
+      status: String(payload?.status ?? "unknown"),
+      stopReason: String(payload?.stop_reason ?? "unknown"),
+      restoration: String(payload?.restoration ?? "unknown"),
+      ...(restorationReason ? { restorationReason } : {}),
+    }));
+    if (root) { delete root.dataset.experimentId; delete root.dataset.experimentPlanId; }
+    reviewedExperimentForm = undefined;
     if (abort) abort.disabled = true;
     if (review) review.disabled = false;
+    setExperimentFormLocked(false);
     return;
   }
   setText("[data-test-state]", String(payload?.reason ?? "The runtime test failed."));
+  if (root) delete root.dataset.experimentPlanId;
+  reviewedExperimentForm = undefined;
   if (abort) abort.disabled = true;
   if (review) review.disabled = false;
+  setExperimentFormLocked(false);
 }
 
 function formatExperimentValue(value: unknown): string {
@@ -728,9 +809,11 @@ function openAutomaticTune(): void {
   if (plan) plan.hidden = false;
 }
 
-function setText(selector: string, value: unknown): void {
+function setText(selector: string, value: unknown, title?: string): void {
   const element = document.querySelector<HTMLElement>(selector);
-  if (element) element.textContent = String(value ?? "—");
+  if (!element) return;
+  element.textContent = String(value ?? "—");
+  if (title !== undefined) element.title = title;
 }
 
 function setHidden(selector: string, hidden: boolean): void {
@@ -741,18 +824,25 @@ function setHidden(selector: string, hidden: boolean): void {
 function renderResultComparison(left: Record<string, unknown>, right: Record<string, unknown>): void {
   const element = document.querySelector<HTMLElement>("[data-result-compare-state]");
   if (!element) return;
-  const identity = (side: Record<string, unknown>) =>
-    `Revision ${String(side.resultRevision)} · ${String(side.source)} · ${String(side.method)} · ` +
-    `controller ${compactRevisionLabel(String(side.controllerRevision))} · created ${String(side.createdAt)}`;
+  const identity = (side: Record<string, unknown>) => {
+    const createdAt = formatLocalTimestamp(String(side.createdAt));
+    return {
+      text: `Revision ${String(side.resultRevision)} · ${String(side.source)} · ${String(side.method)} · ` +
+        `controller ${compactRevisionLabel(String(side.controllerRevision))} · created ${createdAt.display}`,
+      title: createdAt.title,
+    };
+  };
   const leftConclusion = String(left.conclusion ?? "No conclusion recorded.");
   const rightConclusion = String(right.conclusion ?? "No conclusion recorded.");
-  const conclusions = leftConclusion === rightConclusion
+  const conclusions = (leftConclusion === rightConclusion
     ? [`Conclusion (both): ${leftConclusion}`]
     : [`Revision ${String(left.resultRevision)}: ${leftConclusion}`,
-      `Revision ${String(right.resultRevision)}: ${rightConclusion}`];
-  element.replaceChildren(...[identity(left), identity(right), ...conclusions].map((value) => {
+      `Revision ${String(right.resultRevision)}: ${rightConclusion}`]
+  ).map((text) => ({ text, title: undefined as string | undefined }));
+  element.replaceChildren(...[identity(left), identity(right), ...conclusions].map(({ text, title }) => {
     const line = document.createElement("div");
-    line.textContent = value;
+    line.textContent = text;
+    if (title !== undefined) line.title = title;
     return line;
   }));
 }
@@ -794,7 +884,22 @@ function showError(message?: string): void {
   error.textContent = message ?? "";
 }
 
+// W-15: a failed Tune or Automatic Tune attempt must not leave a candidate on
+// screen that looks like it belongs to the failure. Spec §14 requires an error
+// to preserve earlier valid results, so the candidate is marked stale (dimmed,
+// with an explicit note) rather than cleared.
+function markSharedApplicationCandidateStale(reason: string): void {
+  const section = document.querySelector<HTMLElement>("[data-shared-application-review]");
+  const state = document.querySelector<HTMLElement>("[data-shared-application-state]");
+  if (!section || section.hidden || !state) return;
+  state.textContent = staleCandidateNotice("Tune", reason);
+  state.title = "This candidate predates the latest failed attempt; earlier valid results are preserved.";
+  section.style.opacity = "0.6";
+}
+
 function renderApplicationCandidate(candidate: Record<string, unknown>): void {
+  const review = document.querySelector<HTMLElement>("[data-shared-application-review]");
+  if (review) review.style.opacity = "";
   const settings = candidate.parameters as Record<string, unknown> | undefined;
   setText("[data-application-source]", candidate.source);
   setText("[data-application-structure]", candidate.structure);
@@ -837,6 +942,16 @@ function readManualPidSettings(): Record<string, unknown> {
     if (name) result[name] = name === "antiWindup" ? input.value : Number(input.value);
   }
   return result;
+}
+
+// V-16: the acceptance-evidence requirement table is the evidence a learner must
+// judge, so it starts open (the learner can still collapse it); the apply path
+// stays available but visually secondary to the primary validation action.
+document.querySelector<HTMLElement>("[data-validation-requirements]")?.closest("details")?.setAttribute("open", "");
+const candidateReviewButton = document.querySelector<HTMLButtonElement>("[data-candidate-review]");
+if (candidateReviewButton) {
+  candidateReviewButton.classList.remove("primary");
+  candidateReviewButton.classList.add("secondary");
 }
 
 updateTuneMethod();

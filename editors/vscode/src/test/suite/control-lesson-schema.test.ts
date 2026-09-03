@@ -41,19 +41,26 @@ suite("Control lesson schema", () => {
     }
   });
 
-  test("presents pedagogical lesson stages in the specified causal order", () => {
+  test("presents the nine canonical README sections and the real Control Studio workflow", () => {
     const api = require("../../examples/controlLesson") as {
       controlLessonPresentation?: (lesson: unknown) => Array<{ title: string; paragraphs: string[] }>;
     };
-    const sections = api.controlLessonPresentation?.(pedagogicalLesson());
+    const lesson = { ...pedagogicalLesson(), workflowStages: ["Monitor", "Test"] };
+    const sections = api.controlLessonPresentation?.(lesson);
 
     assert.deepStrictEqual(sections?.map((section) => section.title), [
-      "Context", "Reason", "Theory", "Worked prediction", "Practical preparation",
-      "Baseline", "Change", "Comparison", "Validation", "Explanation", "Transfer",
+      "The problem", "What we need", "The new idea", "Prediction", "Implementation",
+      "Experiment in Control Studio", "Evidence and decision", "Conclusion",
+      "Reason for the next lesson", "Control Studio workflow",
     ]);
-    assert.ok(sections?.every((section) => section.paragraphs.length > 0));
-    assert.strictEqual(sections?.[2].paragraphs[0],
-      "Identify SP, PV, MV, disturbance, feedback direction, limits, and safe state.");
+    assert.deepStrictEqual(
+      sections?.find((section) => section.title === "Control Studio workflow")?.paragraphs,
+      ["Monitor -> Test"]
+    );
+    assert.ok(
+      sections?.slice(0, 9).every((section) => section.paragraphs.length === 0),
+      "the outline names README structure; it must not duplicate the README's own teaching prose"
+    );
   });
 
   test("derives the visible lesson position from the loaded curriculum size", () => {
@@ -336,7 +343,6 @@ suite("Control lesson schema", () => {
   test("keeps the P-control reference lesson focused and words before symbols", () => {
     const api = require("../../examples/controlLesson") as {
       evaluateControlLessonAvailability?: (raw: unknown, id: string) => any;
-      controlLessonPresentation?: (lesson: unknown) => Array<{ title: string; paragraphs: string[] }>;
     };
     const lessonPath = packagedLessonPath("01-feedback-foundations-and-temperature-control", "04-water-heater-p");
     const raw = JSON.parse(fs.readFileSync(lessonPath, "utf8"));
@@ -396,10 +402,6 @@ suite("Control lesson schema", () => {
         `Lesson 4 must not teach later model theory: ${laterLessonTheory}`
       );
     }
-
-    const sections = api.controlLessonPresentation?.(availability.lesson);
-    const theorySection = sections?.find((section) => section.title === "Theory");
-    assert.deepStrictEqual(theorySection?.paragraphs, availability.lesson.learning.theory);
 
     const repositoryRoot = process.env.TRUST_REPOSITORY_ROOT
       ? path.resolve(process.env.TRUST_REPOSITORY_ROOT)

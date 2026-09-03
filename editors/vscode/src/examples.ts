@@ -2,14 +2,16 @@ import * as vscode from "vscode";
 
 import {
   compactExampleDescription,
-  CONTROL_COURSES,
   controlLessonPositionLabel,
+  controlLessonProgressState,
+  controlModuleId,
+  controlModulesFromEntries,
   hardwareBadge,
   isExampleCopyable,
   type ExampleEntry,
   type GalleryView,
 } from "./examples/model";
-import { copyExample } from "./examples/copy";
+import { copyExample, openPendingControlLessonReadme } from "./examples/copy";
 import {
   controlLessonPresentation,
   retainControlLessonProgress,
@@ -32,6 +34,9 @@ export function registerExamples(context: vscode.ExtensionContext): void {
       openExamplesGallery(context)
     )
   );
+  // After "Create project" reloads the window into the new lesson folder (W-06), land the
+  // learner on the lesson text instead of an empty Explorer.
+  void openPendingControlLessonReadme(context);
 }
 
 async function openExamplesGallery(context: vscode.ExtensionContext): Promise<void> {
@@ -97,7 +102,7 @@ class ExamplesGalleryPanel {
         await this.postState();
         return;
       case "openControlCourse":
-        if (CONTROL_COURSES.some((course) => course.id === msg.id)) {
+        if (controlModulesFromEntries(this.entries).some((module) => module.id === msg.id)) {
           this.view = { kind: "course", id: msg.id as string };
           await this.postState();
         }
@@ -126,11 +131,14 @@ class ExamplesGalleryPanel {
         if (entry && isExampleCopyable(entry)) {
           const copied = await copyExample(this.context, entry);
           if (copied && entry.lesson) {
-            const completed = new Set(this.completedLessonIds());
-            completed.add(entry.id);
+            // Retained signal: a project folder now exists for this lesson. This is real, but
+            // it is not evidence of a finished Monitor -> Test run — see controlLessonProgressState
+            // (W-05), which is what turns this id list into the honest per-lesson label.
+            const created = new Set(this.completedLessonIds());
+            created.add(entry.id);
             await this.context.globalState.update(
               COMPLETED_CONTROL_LESSONS_KEY,
-              Array.from(completed).sort()
+              Array.from(created).sort()
             );
             await this.postState();
           }
@@ -159,9 +167,8 @@ class ExamplesGalleryPanel {
     if (this.view.kind === "lesson") {
       const lessonId = this.view.id;
       const lesson = this.entries.find((entry) => entry.id === lessonId);
-      return lesson?.lesson
-        ? { kind: "course", id: lesson.lesson.level.toLowerCase() }
-        : { kind: "control" };
+      const moduleId = lesson?.lesson ? controlModuleId(lesson.path) : undefined;
+      return moduleId ? { kind: "course", id: moduleId } : { kind: "control" };
     }
     if (this.view.kind === "course") {
       return { kind: "control" };
@@ -171,12 +178,13 @@ class ExamplesGalleryPanel {
 
   private async postState(): Promise<void> {
     const controlLessonCount = this.controlLessons().length;
+    const createdProjectIds = this.completedLessonIds();
     await this.panel.webview.postMessage({
       type: "state",
       view: this.view,
-      courses: CONTROL_COURSES,
+      courses: controlModulesFromEntries(this.entries),
       topics: EXAMPLE_TOPICS.map(({ id, title, description }) => ({ id, title, description })),
-      completedLessonIds: this.completedLessonIds(),
+      completedLessonIds: createdProjectIds,
       examples: this.entries.map((entry) => ({
         id: entry.id,
         title: entry.title,
@@ -187,15 +195,13 @@ class ExamplesGalleryPanel {
         lesson: entry.lesson
           ? {
               ...entry.lesson,
-              estimatedMinutes:
-                CONTROL_COURSES.find(
-                  (course) => course.id === entry.lesson?.level.toLowerCase()
-                )?.minutes ?? 35,
+              module: controlModuleId(entry.path),
               positionLabel: controlLessonPositionLabel(
                 entry.lesson.sequence,
                 controlLessonCount
               ),
               presentation: controlLessonPresentation(entry.lesson),
+              progressState: controlLessonProgressState(entry.id, createdProjectIds),
             }
           : undefined,
         lessonAvailability: entry.lessonAvailability
@@ -552,6 +558,18 @@ class ExamplesGalleryPanel {
       return example.lessonAvailability && example.lessonAvailability.kind === "available";
     }
 
+    // Honest per-lesson progress (W-05): a project folder is real, retained evidence that it
+    // exists, but it is not evidence of a finished Monitor -> Test run, so it is never "Completed".
+    function progressLabel(example) {
+      return example.lesson && example.lesson.progressState === "project_created"
+        ? "Project created"
+        : "Not started";
+    }
+
+    function moduleFor(example) {
+      return example.lesson ? courses.find((course) => course.id === example.lesson.module) : undefined;
+    }
+
     function appendLessonAvailability(parent, example) {
       if (!example.lesson) { return; }
       const status = document.createElement("p");
@@ -750,7 +768,7 @@ class ExamplesGalleryPanel {
       control.appendChild(controlTitle);
       const controlMeta = document.createElement("div");
       controlMeta.className = "badges";
-      for (const label of ["84 practical lessons", "5 courses", "No hardware"]) {
+      for (const label of ["84 practical lessons", courses.length + " modules", "No hardware"]) {
         const badge = document.createElement("span");
         badge.className = "badge";
         badge.textContent = label;
@@ -758,7 +776,7 @@ class ExamplesGalleryPanel {
       }
       control.appendChild(controlMeta);
       const controlDescription = document.createElement("p");
-      controlDescription.textContent = "Progress from feedback fundamentals to modelling, industrial PID, digital control, and modern methods.";
+      controlDescription.textContent = "Progress lesson by lesson through all " + courses.length + " modules, from feedback fundamentals to modern control.";
       control.appendChild(controlDescription);
       const controlActions = document.createElement("div");
       controlActions.className = "actions";
@@ -820,20 +838,20 @@ class ExamplesGalleryPanel {
     }
 
     function renderProgress(parent, lessons) {
-      const completed = lessons.filter((lesson) => completedLessonIds.includes(lesson.id)).length;
+      const created = lessons.filter((lesson) => completedLessonIds.includes(lesson.id)).length;
       const row = document.createElement("div");
       row.className = "progress-row";
       const label = document.createElement("span");
       label.className = "meta";
-      label.textContent = completed + " of " + lessons.length + " lessons completed";
+      label.textContent = created + " of " + lessons.length + " projects created";
       const progress = document.createElement("progress");
       progress.max = lessons.length;
-      progress.value = completed;
+      progress.value = created;
       progress.setAttribute("aria-label", "Course progress");
       row.appendChild(label);
       row.appendChild(progress);
       parent.appendChild(row);
-      return completed;
+      return created;
     }
 
     function renderControlCurriculum() {
@@ -852,7 +870,7 @@ class ExamplesGalleryPanel {
       const courseGrid = document.createElement("div");
       courseGrid.className = "course-grid";
       for (const course of courses) {
-        const courseLessons = lessons.filter((lesson) => lesson.lesson.level.toLowerCase() === course.id);
+        const courseLessons = lessons.filter((lesson) => lesson.lesson.module === course.id);
         const done = courseLessons.filter((lesson) => completedLessonIds.includes(lesson.id)).length;
         const card = document.createElement("article");
         card.className = "card course-card";
@@ -861,17 +879,14 @@ class ExamplesGalleryPanel {
         card.appendChild(heading);
         const meta = document.createElement("p");
         meta.className = "meta";
-        meta.textContent = course.range + " · " + courseLessons.length + " lessons · about " + course.minutes + " min each";
+        meta.textContent = course.range + " · " + courseLessons.length + " lessons";
         card.appendChild(meta);
-        const description = document.createElement("p");
-        description.textContent = course.summary;
-        card.appendChild(description);
         const status = document.createElement("p");
-        status.textContent = done + " of " + courseLessons.length + " completed";
+        status.textContent = done + " of " + courseLessons.length + " projects created";
         card.appendChild(status);
         const cardActions = document.createElement("div");
         cardActions.className = "actions";
-        cardActions.appendChild(actionButton("Open course", true, "openControlCourse", course.id));
+        cardActions.appendChild(actionButton("Open module", true, "openControlCourse", course.id));
         card.appendChild(cardActions);
         courseGrid.appendChild(card);
       }
@@ -888,12 +903,13 @@ class ExamplesGalleryPanel {
     function renderControlCourse(courseId) {
       resetSurface();
       const course = courses.find((candidate) => candidate.id === courseId);
-      const lessons = controlLessons().filter((lesson) => lesson.lesson.level.toLowerCase() === courseId);
+      const lessons = controlLessons().filter((lesson) => lesson.lesson.module === courseId);
       if (!course || !lessons.length) {
         renderControlCurriculum();
         return;
       }
-      setHeader("Control engineering / " + course.range, course.title, course.summary);
+      setHeader("Control engineering / " + course.range, course.title,
+        course.lessonCount + (course.lessonCount === 1 ? " lesson in this module." : " lessons in this module."));
       renderProgress(content, lessons);
       const list = document.createElement("div");
       list.className = "lesson-list";
@@ -906,7 +922,7 @@ class ExamplesGalleryPanel {
         card.appendChild(heading);
         const meta = document.createElement("p");
         meta.className = "meta";
-        meta.textContent = example.lesson.equipment + " · about " + example.lesson.estimatedMinutes + " min";
+        meta.textContent = example.lesson.equipment;
         card.appendChild(meta);
         const technique = document.createElement("p");
         technique.textContent = example.lesson.principalTechnique;
@@ -921,10 +937,10 @@ class ExamplesGalleryPanel {
         if (lessonIsAvailable(example)) {
           cardActions.appendChild(actionButton("Create project", true, "useExample", example.id));
         }
-        if (completedLessonIds.includes(example.id)) {
+        if (example.lesson.progressState === "project_created") {
           const done = document.createElement("span");
           done.className = "badge ok";
-          done.textContent = "Completed";
+          done.textContent = "Project created";
           cardActions.appendChild(done);
         }
         card.appendChild(cardActions);
@@ -946,17 +962,19 @@ class ExamplesGalleryPanel {
       current.className = "card lesson-detail";
       current.dataset.exampleId = example.id;
       current.setAttribute("aria-current", "step");
-      setHeader("Control engineering / " + example.lesson.level, example.lesson.positionLabel, example.title.replace(/^Control · /, ""));
+      const module = moduleFor(example);
+      setHeader("Control engineering / " + (module ? module.title : "Control engineering"),
+        example.lesson.positionLabel, example.title.replace(/^Control · /, ""));
       const description = document.createElement("p");
       description.textContent = example.description;
       current.appendChild(description);
       const details = document.createElement("dl");
       for (const pair of [
+        ["Module", module ? module.title : "—"],
         ["Equipment", example.lesson.equipment],
         ["Technique", example.lesson.principalTechnique],
-        ["Estimated time", "About " + example.lesson.estimatedMinutes + " minutes"],
         ["Prerequisite", prerequisiteLabel(example)],
-        ["Progress", completedLessonIds.includes(example.id) ? "Completed" : "Not completed"],
+        ["Progress", progressLabel(example)],
       ]) {
         const term = document.createElement("dt");
         term.textContent = pair[0];
@@ -979,7 +997,7 @@ class ExamplesGalleryPanel {
         const flow = document.createElement("section");
         flow.className = "card lesson-flow section";
         const heading = document.createElement("h2");
-        heading.textContent = "Learning sequence";
+        heading.textContent = "Lesson outline";
         flow.appendChild(heading);
         const stages = document.createElement("ol");
         for (const stage of example.lesson.presentation) {

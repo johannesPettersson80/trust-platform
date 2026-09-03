@@ -510,9 +510,10 @@ function auxiliaryMonitorSignals(value: unknown): boolean {
   if (value === undefined) return true;
   return Array.isArray(value) && value.length <= 256 && value.every((signal) =>
     record(signal) && monitorSignal(signal) && nonempty(signal.id) && nonempty(signal.channel) &&
+    nonempty(signal.displayName) &&
     ["SP", "PV", "MV", "actuator", "disturbance", "state", "quality", "schedule"]
       .includes(String(signal.role)) &&
-    Object.keys(signal).sort().join(",") === "address,channel,id,quality,role,symbol,unit,value");
+    Object.keys(signal).sort().join(",") === "address,channel,displayName,id,quality,role,symbol,unit,value");
 }
 
 function monitorSignal(value: unknown): boolean {

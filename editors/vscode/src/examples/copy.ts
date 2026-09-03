@@ -3,6 +3,12 @@ import * as vscode from "vscode";
 import { FOCUS_MAIN_KEY } from "../newProject";
 import type { ExampleEntry } from "./model";
 
+// After Create project scaffolds a lesson + reloads the window (which reopens the folder),
+// this globalState key tells the next activation which README to land the learner on (W-06:
+// "the learner lands in an empty Explorer and must know to open README.md ... the lesson text
+// is the entire course"). Mirrors newProject.ts's FOCUS_MAIN_KEY reload handoff.
+export const OPEN_LESSON_README_KEY = "trust.examples.openLessonReadme";
+
 export async function copyExample(
   context: vscode.ExtensionContext,
   entry: ExampleEntry
@@ -51,11 +57,45 @@ export async function copyExample(
     FOCUS_MAIN_KEY,
     vscode.Uri.joinPath(dest, "src", "Main.st").fsPath
   );
+  if (entry.lesson) {
+    // Same reload handoff, for the lesson's README preview (W-06).
+    await context.globalState.update(
+      OPEN_LESSON_README_KEY,
+      vscode.Uri.joinPath(dest, "README.md").fsPath
+    );
+  }
   if (automation?.openFolder === false) {
     return true;
   }
   await vscode.commands.executeCommand("vscode.openFolder", dest, false);
   return true;
+}
+
+/**
+ * Consumes the reload handoff written above: after "Create project" reloads the window into
+ * the new lesson folder, open its README in preview so the learner lands on the lesson text
+ * instead of an empty Explorer (W-06). No-op when there is no pending README, it no longer
+ * exists, or it does not belong to the workspace that just opened.
+ */
+export async function openPendingControlLessonReadme(
+  context: vscode.ExtensionContext
+): Promise<void> {
+  const pending = context.globalState.get<string>(OPEN_LESSON_README_KEY);
+  if (!pending) {
+    return;
+  }
+  const uri = vscode.Uri.file(pending);
+  try {
+    await vscode.workspace.fs.stat(uri);
+  } catch {
+    await context.globalState.update(OPEN_LESSON_README_KEY, undefined);
+    return;
+  }
+  if (!vscode.workspace.getWorkspaceFolder(uri)) {
+    return;
+  }
+  await context.globalState.update(OPEN_LESSON_README_KEY, undefined);
+  await vscode.commands.executeCommand("markdown.showPreview", uri);
 }
 
 async function promptExampleDestination(): Promise<vscode.Uri | undefined> {

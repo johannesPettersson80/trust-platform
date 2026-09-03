@@ -1,3 +1,7 @@
+import { displayEngineeringUnit } from "./unitDisplay";
+
+export { displayEngineeringUnit };
+
 export type ControlChartValue = number | null;
 export type SampleQuality = "good" | "uncertain" | "stale" | "bad";
 export type PlotProvenance = "measured" | "estimated" | "analytical" | "simulated";
@@ -337,12 +341,6 @@ export function decodeControlChartSession(value: unknown, boundary: string): Con
 
 const CONTROL_STAGES: readonly ControlWorkflowStage[] = ["Monitor", "Test", "Identify", "Tune", "Validate"];
 
-/** Converts configuration-safe unit spellings to compact engineering notation. */
-export function displayEngineeringUnit(unit: string): string {
-  const normalized = unit.trim();
-  return normalized === "degC" ? "°C" : normalized;
-}
-
 /** Units implied by the parallel-form Control.PID equations in Specification 32. */
 export function pidEngineeringUnits(processUnit: string, outputUnit: string): {
   proportional: string;
@@ -476,8 +474,27 @@ export function identificationOutputAxisRange(values: readonly number[]): {
   return { minimum: minimum - padding, maximum: maximum + padding };
 }
 
+/** Keeps the live SP/PV trace off the plot frame edge instead of autoscaling tight to the
+ * current data, which reads as a trace "pinned to the ceiling" on the first live plot a
+ * student sees (finding V-08). Returns undefined when there is no finite data yet, so a
+ * caller can leave the axis on its default range rather than forcing a degenerate one. */
+export function liveResponseAxisRange(values: readonly (number | null | undefined)[]): {
+  minimum: number;
+  maximum: number;
+} | undefined {
+  const finite = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  if (finite.length === 0) return undefined;
+  const minimum = Math.min(...finite);
+  const maximum = Math.max(...finite);
+  const span = maximum - minimum;
+  const padding = span > 0 ? span * 0.08 : Math.max(Math.abs(maximum) * 0.05, 1e-6);
+  return { minimum: minimum - padding, maximum: maximum + padding };
+}
+
 export const CONTROL_CHART_SIGNALS = [
-  { id: "sp", name: "SP", axis: 0, line: "solid" as const, symbol: "diamond" as const },
+  // SP is dashed (not solid) so it stays visible drawn on top of a coinciding solid PV
+  // trace instead of being hidden underneath it (finding V-08).
+  { id: "sp", name: "SP", axis: 0, line: "dashed" as const, symbol: "diamond" as const },
   { id: "pv", name: "PV", axis: 0, line: "solid" as const, symbol: "circle" as const },
   { id: "mv", name: "MV", axis: 1, line: "solid" as const, symbol: "rect" as const },
   { id: "disturbance", name: "Disturbance", axis: 1, line: "dotted" as const, symbol: "triangle" as const },
@@ -642,7 +659,10 @@ export function parseGraphicalGain(
   return { ok: true, value };
 }
 
-function automaticFractionDigits(magnitude: number): number {
+/** The same bucket of decimal places `formatEngineeringNumber` picks automatically for a
+ * single value, exposed so an axis formatter can derive one shared digit count from an
+ * axis's overall span instead of from each tick's coincidental magnitude. */
+export function automaticFractionDigits(magnitude: number): number {
   if (magnitude >= 1_000) return 0;
   if (magnitude >= 100) return 1;
   if (magnitude >= 1) return 2;

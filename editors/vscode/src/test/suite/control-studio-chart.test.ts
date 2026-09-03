@@ -13,6 +13,16 @@ import {
 } from "../../controlStudio/chartContract";
 import * as chartContractModule from "../../controlStudio/chartContract";
 
+// panel.ts's markup and styles were split out into panelTemplate.ts and panelStyles.ts;
+// every test below that inspects the shipped document or CSS reads all of them together
+// so it keeps validating the same rendered surface regardless of which file currently
+// owns a given fragment.
+function readControlStudioPanelSource(extensionRoot: string): string {
+  return ["panel.ts", "panelTemplate.ts", "panelStyles.ts", "stageAvailability.ts"]
+    .map((file) => fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", file), "utf8"))
+    .join("\n");
+}
+
 suite("Control Studio chart contract", () => {
   test("formats engineering values compactly for bounded metric cards", () => {
     const format = (chartContractModule as unknown as {
@@ -55,7 +65,7 @@ suite("Control Studio chart contract", () => {
       showLegend: true, showAxisNames: true,
     });
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "panel.ts"), "utf8");
+    const panel = readControlStudioPanelSource(extensionRoot);
     assert.match(panel, /\.plot-view>\.analysis-plot\{position:absolute;inset:0\}/,
       "single-panel direct analysis plots must fill the dominant plot region");
     assert.doesNotMatch(panel, /html,body(?:,\.studio)?\{[^}]*overflow-x:clip/,
@@ -72,7 +82,7 @@ suite("Control Studio chart contract", () => {
 
   test("keeps direct charts readable and their states visible in constrained layouts", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "panel.ts"), "utf8");
+    const panel = readControlStudioPanelSource(extensionRoot);
     const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
 
     assert.match(panel, /@media\(max-width:720px\)\{[\s\S]*?\.studio\{height:100%;min-height:0;display:block;overflow-y:auto;overflow-x:hidden\}/,
@@ -181,7 +191,7 @@ suite("Control Studio chart contract", () => {
 
   test("keeps unavailable analysis compact and blocks impossible workflow actions", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "panel.ts"), "utf8");
+    const panel = readControlStudioPanelSource(extensionRoot);
     const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
     const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "workflow.ts"), "utf8");
     assert.match(panel, /\.studio\[data-plot-available=false\]\{grid-template-rows:auto auto minmax\(180px,24vh\)/,
@@ -278,13 +288,22 @@ suite("Control Studio chart contract", () => {
     const engineering = chart.slice(chart.indexOf("class EngineeringChartAdapter"), chart.indexOf("class MimoChartAdapter"));
     assert.match(engineering, /addEventListener\("trust-control-studio-plot-shown"/,
       "direct engineering plots must react when their previously hidden host becomes visible");
-    assert.match(engineering, /requestAnimationFrame\(\(\) => this\.resize\(\)\)/,
-      "engineering canvases must resize after the browser has laid out the visible direct plot");
+    // A chart initialized (or last drawn) while hidden cannot be trusted to redraw
+    // correctly from a bare resize(); replaying the retained evidence through
+    // setEvidence is the same pattern already proven for MimoChartAdapter (finding V-03).
+    assert.match(engineering, /requestAnimationFrame\(\(\) => \{[\s\S]*?if \(this\.lastEvidence\) this\.setEvidence\(this\.lastEvidence\);[\s\S]*?else this\.resize\(\);/,
+      "engineering canvases must fully re-render (not merely resize) after their previously hidden host becomes visible");
+    assert.match(engineering, /private lastEvidence: EngineeringPlotMessageEvidence \| undefined;/,
+      "the last qualified evidence must be retained so a hidden-then-shown plot can be replayed");
+    const identification = chart.slice(chart.indexOf("class IdentificationChartAdapter"), chart.indexOf("function initEngineeringChart"));
+    assert.match(identification, /addEventListener\("trust-control-studio-plot-shown"/,
+      "identification plots (Fit, Residuals, Validation data, Poles and zeros) must also react when their previously hidden host becomes visible");
+    assert.match(identification, /if \(this\.lastEvidence\) this\.setEvidence\(this\.lastEvidence\);/);
   });
 
   test("presents magnitude and phase as one coordinated Bode figure", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "panel.ts"), "utf8");
+    const panel = readControlStudioPanelSource(extensionRoot);
     const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
     const engineering = chart.slice(chart.indexOf("class EngineeringChartAdapter"), chart.indexOf("class MimoChartAdapter"));
     assert.match(panel, /class="analysis-grid bode-grid"/,
@@ -312,7 +331,7 @@ suite("Control Studio chart contract", () => {
       ok: false, reason: "Enter a finite value from 0.01 to 20.",
     });
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "panel.ts"), "utf8");
+    const panel = readControlStudioPanelSource(extensionRoot);
     const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
     assert.match(panel, /data-design-exact="proportionalGain"[^>]*type="number"/,
       "graphical Kp must have a keyboard-exact numeric input");
@@ -324,7 +343,7 @@ suite("Control Studio chart contract", () => {
 
   test("shows candidate margins from the same engineering evidence update", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "panel.ts"), "utf8");
+    const panel = readControlStudioPanelSource(extensionRoot);
     const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
     assert.match(panel, /data-design-gain-margin/);
     assert.match(panel, /data-design-phase-margin/);
@@ -355,7 +374,9 @@ suite("Control Studio chart contract", () => {
       { id: "limit", name: "Limit", axis: 0 },
     ]);
     assert.deepStrictEqual(CONTROL_CHART_SIGNALS.map((signal) => signal.line), [
-      "solid",
+      // SP is dashed (not solid) so it stays visible drawn on top of a coinciding solid
+      // PV trace instead of being hidden underneath it (finding V-08).
+      "dashed",
       "solid",
       "solid",
       "dotted",
@@ -573,7 +594,7 @@ suite("Control Studio chart contract", () => {
 
   test("rebuilds direct engineering plots when a compatible saved result is reopened", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "panel.ts"), "utf8");
+    const panel = readControlStudioPanelSource(extensionRoot);
     assert.match(panel, /async function postRestoredEngineeringPlots/,
       "saved results need an explicit direct-plot restoration path");
     assert.match(panel, /buildEngineeringPlotEvidence\(result\.model, current, result\.candidate\)/,
@@ -585,7 +606,7 @@ suite("Control Studio chart contract", () => {
 
   test("renders one direct chart workspace without a tools disclosure or plot catalogue", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "panel.ts"), "utf8");
+    const panel = readControlStudioPanelSource(extensionRoot);
     const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
     const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "workflow.ts"), "utf8");
     assert.doesNotMatch(panel, /<details class="plot-tools"/);
@@ -598,7 +619,7 @@ suite("Control Studio chart contract", () => {
     assert.match(panel, /data-engineering-sensitivity/);
     assert.match(panel, /data-engineering-requirements/);
     assert.match(panel, /data-design-handle="proportionalGain"/);
-    assert.match(panel, /\.monitor\{display:grid;grid-template-columns:minmax\(0,1fr\);grid-template-rows:auto minmax\(0,1fr\)/,
+    assert.match(panel, /\.monitor\{display:grid;grid-template-columns:minmax\(0,1fr\);grid-template-rows:auto minmax\(\d+px,1fr\)/,
       "the compact live strip must not take horizontal width away from the dominant plot");
     assert.match(panel, /\.plot-column\{grid-row:2/);
     assert.match(panel, /\.values\{grid-row:1/);

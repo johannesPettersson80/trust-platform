@@ -29,6 +29,12 @@ export interface EngineeringPlotEvidence {
   rootLocus: { status: "qualified"; branches: readonly {
     gain: number; poles: readonly { real: number; imaginary: number }[];
   }[] } | { status: "unavailable"; reason: string; branches: readonly [] };
+  // The exact open-loop point where the candidate crosses 0 dB (used to read phase
+  // margin on the phase/Nichols plot) and, when resolved, where it crosses -180 degrees
+  // (used to read gain margin on the magnitude/Nichols plot). A loop with no delay and no
+  // phase crossover leaves phaseCrossover undefined, matching an unbounded gain margin.
+  gainCrossover: FrequencyPoint;
+  phaseCrossover: FrequencyPoint | undefined;
   requirements: readonly {
     name: string;
     plot: "response" | "bode" | "sensitivity" | "constraints";
@@ -181,7 +187,10 @@ function point(frequencyRadPerSecond: number, value: Complex): FrequencyPoint {
   };
 }
 
-function stabilityMargins(points: readonly FrequencyPoint[], deadTimeSeconds: number): { gainMarginDb: number; phaseMarginDegrees: number } {
+function stabilityMargins(points: readonly FrequencyPoint[], deadTimeSeconds: number): {
+  gainMarginDb: number; phaseMarginDegrees: number;
+  gainCrossover: FrequencyPoint; phaseCrossover: FrequencyPoint | undefined;
+} {
   const unwrapped = unwrapPhase(points);
   const gainCross = crossing(unwrapped, (point) => point.magnitudeDb);
   const phaseCross = crossing(unwrapped, (point) => point.phaseDegrees + 180);
@@ -192,6 +201,8 @@ function stabilityMargins(points: readonly FrequencyPoint[], deadTimeSeconds: nu
   return {
     gainMarginDb: phaseCross ? -phaseCross.magnitudeDb : Number.POSITIVE_INFINITY,
     phaseMarginDegrees: 180 + gainCross.phaseDegrees,
+    gainCrossover: gainCross,
+    phaseCrossover: phaseCross,
   };
 }
 
@@ -347,13 +358,25 @@ function buildUncertaintyEnvelope(
   });
   return {
     status: "evaluated",
-    method: model.uncertainty?.method ?? "declared model set",
+    method: uncertaintyMethodLabel(model.uncertainty?.method),
     points: nominal.map((point, index) => {
       const values = [point.candidatePv, ...traces.map((trace) => trace[index])];
       return { timeSeconds: point.timeSeconds, lower: Math.min(...values),
         nominal: point.candidatePv, upper: Math.max(...values) };
     }),
   };
+}
+
+const UNCERTAINTY_METHOD_LABELS: Record<string, string> = {
+  "sample-resolution-envelope": "sample-resolution envelope from the estimation record",
+  "grid-resolution-and-validation-residual": "grid-resolution and held-out-residual interval",
+};
+
+/** Maps the uncertainty method's internal identifier to words a student reads; no raw
+ * enum value may reach the plot legend or its accessible description (finding V-17). */
+function uncertaintyMethodLabel(method: NonNullable<IdentifiedModel["uncertainty"]>["method"] | undefined): string {
+  if (!method) return "declared model set";
+  return UNCERTAINTY_METHOD_LABELS[method] ?? method;
 }
 
 function uncertaintyCornerModels(model: IdentifiedModel): IdentifiedModel[] {

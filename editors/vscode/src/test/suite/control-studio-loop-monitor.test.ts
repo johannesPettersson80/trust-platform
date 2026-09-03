@@ -172,9 +172,9 @@ suite("Control Studio live loop monitor", () => {
 
     assert.strictEqual(sample.availability, "available");
     assert.deepStrictEqual(sample.additional, [
-      { id: "feed-flow", channel: "reactor", role: "disturbance", symbol: "FeedFlow",
+      { id: "feed-flow", channel: "reactor", role: "disturbance", symbol: "FeedFlow", displayName: "Feed flow",
         address: "%QL8", value: 27.5, unit: "%", quality: "good" },
-      { id: "feed-quality", channel: "reactor", role: "quality", symbol: "FeedQuality",
+      { id: "feed-quality", channel: "reactor", role: "quality", symbol: "FeedQuality", displayName: "Feed quality",
         address: "%MX1.0", value: 1, unit: "state", quality: "good" },
     ]);
     const messages = require("../../controlStudio/messages") as any;
@@ -221,6 +221,16 @@ suite("Control Studio live loop monitor", () => {
       { action: "stop", messageId: "command-1" }
     );
     assert.strictEqual(messages.decodeLoopRecordingCommand({ ...command("control-studio.recording.start"), extra: true }, expected), undefined);
+  });
+
+  test("humanizes a lesson signal id for display while keeping the ST symbol available", () => {
+    const api = monitorApi();
+    assert.strictEqual(api.humanizeSignalIdentifier("door-open-indication"), "Door open indication");
+    assert.strictEqual(api.humanizeSignalIdentifier("effective-surrounding-temperature"), "Effective surrounding temperature");
+    assert.strictEqual(api.humanizeSignalIdentifier("feed_flow_rate"), "Feed flow rate");
+    assert.strictEqual(api.humanizeSignalIdentifier("SETPOINT"), "Setpoint");
+    assert.strictEqual(api.humanizeSignalIdentifier("gust"), "Gust");
+    assert.strictEqual(api.humanizeSignalIdentifier(""), "");
   });
 });
 

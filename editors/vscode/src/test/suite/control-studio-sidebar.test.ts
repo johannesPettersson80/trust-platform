@@ -49,7 +49,7 @@ suite("Control Studio sidebar destination", () => {
     assert.strictEqual(loop.signals.setpoint.address, "%ML0");
     assert.strictEqual(loop.signals.processVariable.address, "%IL0");
     assert.strictEqual(loop.signals.manipulatedVariable.address, "%QL0");
-    assert.strictEqual(loop.controller.modeSignal, "%MX16.0");
+    assert.strictEqual(loop.controller.modeSignal, "%MX24.0");
     assert.strictEqual(loop.plantId, "first_order_dead_time");
   });
 
@@ -74,9 +74,13 @@ suite("Control Studio sidebar destination", () => {
     assert.strictEqual(loop.signals.setpoint.address, "%ML8");
     assert.strictEqual(loop.signals.processVariable.address, "%IL0");
     assert.strictEqual(loop.signals.manipulatedVariable.address, "%ML0");
-    assert.strictEqual(loop.signals.manipulatedVariable.direction, "write");
+    assert.strictEqual(loop.signals.manipulatedVariable.direction, "read");
     assert.strictEqual(loop.signals.actuator.address, "%QL0");
     assert.strictEqual(loop.signals.actuator.direction, "read");
+    assert.strictEqual(loop.experiment.activation.symbol, "P1.ExperimentEnabled");
+    assert.strictEqual(loop.experiment.activation.address, "%MX16.0");
+    assert.strictEqual(loop.experiment.activation.iecType, "BOOL");
+    assert.strictEqual(loop.experiment.activation.direction, "write");
     assert.match(source, /AutoMode\s*:\s*BOOL\s*:=\s*FALSE/);
     assert.match(source, /Input\.ManualOutput\s*:=\s*ExperimentInput/);
     assert.doesNotMatch(source, /TestAuthorityEnabled/);

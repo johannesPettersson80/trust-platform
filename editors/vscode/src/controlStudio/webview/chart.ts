@@ -22,6 +22,7 @@ import {
   controlChartSaturationEvent,
   controlOutputAxisRange,
   identificationOutputAxisRange,
+  liveResponseAxisRange,
   controlOutputLimitLines,
   compactRevisionLabel,
   type ControlSaturationState,
@@ -56,6 +57,20 @@ import { decodeLoopMonitorEnvelope, decodePlantMonitorEnvelope } from "../messag
 import type { LoopMonitorSample } from "../loopMonitor";
 import type { EngineeringPlotMessageEvidence } from "../engineeringPlots";
 import type { IdentifiedModelPresentation } from "../identification";
+import { readableSignalName } from "../signalNaming";
+import { axisTickFormatter, frequencyAxisTickFormatter, linearAxisFractionDigits } from "./axisFormat";
+import {
+  magnitudeCrossoverMarkers,
+  magnitudeReferenceLines,
+  nicholsCrossoverMarkers,
+  nicholsReferenceLines,
+  phaseCrossoverMarkers,
+  phaseReferenceLines,
+  type MarginMarkerInput,
+} from "./marginMarkers";
+import { uncertaintyBandDescription, uncertaintyBandSeries } from "./uncertaintyBand";
+import { emptyAxesOption, plotStateMessage, plotStateOverlay, type PlotStateTheme } from "./plotStates";
+import { valueStripHistoricalState, type ValueStripHistoricalState } from "./valueStripState";
 
 echarts.use([
   LineChart,
@@ -119,7 +134,20 @@ class ControlChartAdapter {
     this.samples = [...samples];
     this.selectedSample = samples.length > 0 ? samples.length - 1 : -1;
     const displayed = displayedControlSamples(samples, 4000);
+    const elapsedValues = displayed.map((sample) => sample.elapsedSeconds);
+    const spPvValues = displayed.flatMap((sample) => [sample.sp, sample.pv]);
+    // 5-10% headroom keeps PV off the frame edge instead of the tight autoscale that
+    // reads as a trace "pinned to the ceiling" (finding V-08).
+    const range = liveResponseAxisRange(spPvValues);
     this.chart.setOption({
+      xAxis: { axisLabel: { formatter: axisTickFormatter(linearAxisFractionDigits(elapsedValues)) } },
+      yAxis: [
+        {
+          axisLabel: { formatter: axisTickFormatter(linearAxisFractionDigits(spPvValues)) },
+          ...(range ? { min: range.minimum, max: range.maximum } : {}),
+        },
+        {},
+      ],
       series: [
         { id: "sp", data: displayed.map((sample) => [sample.elapsedSeconds, sample.sp]) },
         { id: "pv", data: displayed.map((sample) => [sample.elapsedSeconds, sample.pv]) },
@@ -167,7 +195,10 @@ class ControlChartAdapter {
     const lines = controlOutputLimitLines(minimum, maximum);
     const range = controlOutputAxisRange(minimum, maximum);
     this.chart.setOption({
-      yAxis: [{}, { min: range.minimum, max: range.maximum }],
+      yAxis: [{}, {
+        min: range.minimum, max: range.maximum,
+        axisLabel: { formatter: axisTickFormatter(linearAxisFractionDigits([minimum, maximum])) },
+      }],
       series: [{ id: "mv", markLine: { silent: true, symbol: "none",
         label: { show: false }, lineStyle: { type: "dashed", width: 1 },
         data: lines.map((line) => ({
@@ -222,7 +253,7 @@ class ControlChartAdapter {
         nameLocation: "middle",
         nameGap: 28,
         nameTextStyle: { color: theme.muted },
-        axisLabel: { color: theme.muted, formatter: formatEngineeringNumber },
+        axisLabel: { color: theme.muted, formatter: axisTickFormatter() },
         axisLine: { lineStyle: { color: theme.border } },
         splitLine: { show: true, lineStyle: { color: theme.border, opacity: 0.28 } },
       },
@@ -231,9 +262,13 @@ class ControlChartAdapter {
           type: "value",
           name: "SP / PV (engineering unit)",
           nameTextStyle: { color: theme.muted },
-          axisLabel: { color: theme.muted, formatter: formatEngineeringNumber },
+          axisLabel: { color: theme.muted, formatter: axisTickFormatter() },
           axisLine: { show: true, lineStyle: { color: theme.border } },
           splitLine: { lineStyle: { color: theme.border, opacity: 0.28 } },
+          // Fixed at the same tick count as the MV axis below so their gridlines stay
+          // meaningful for both scales at once instead of two independently "nice"
+          // tick sets that happen to overlap at misleading heights (finding V-08).
+          splitNumber: 5,
         },
         {
           type: "value",
@@ -242,14 +277,20 @@ class ControlChartAdapter {
           nameGap: 42,
           nameRotate: -90,
           nameTextStyle: { color: theme.muted },
-          axisLabel: { color: theme.muted, formatter: formatEngineeringNumber },
+          axisLabel: { color: theme.muted, formatter: axisTickFormatter() },
           axisLine: { show: true, lineStyle: { color: theme.border } },
           splitLine: { show: false },
+          splitNumber: 5,
         },
       ],
       series: [
-        ...CONTROL_CHART_SIGNALS.slice(0, 3).map((signal) =>
-          line(signal.id, signal.name, signal.axis, signal.line, signal.symbol)),
+        // Drawn in this explicit order (not CONTROL_CHART_SIGNALS' own order) so PV
+        // renders first and SP — dashed — renders on top of it; a dashed line on top of
+        // a coinciding solid one stays visible, the reverse does not (finding V-08).
+        ...(["pv", "sp", "mv"] as const).map((id) => {
+          const signal = CONTROL_CHART_SIGNALS.find((candidate) => candidate.id === id)!;
+          return line(signal.id, signal.name, signal.axis, signal.line, signal.symbol);
+        }),
       ],
     });
   }
@@ -768,8 +809,16 @@ class ControlChartWorkspace {
     const signals = [
       ...(sample.setpoint ? [{ id: "sp", name: "Setpoint", role: "SP", channel: "Primary loop", ...sample.setpoint }] : []),
       { id: "pv", name: "Process value", role: "PV", channel: "Primary loop", ...sample.processVariable },
-      { id: "mv", name: "Controller output", role: "MV", channel: "Primary loop", ...sample.manipulatedVariable },
-      ...(sample.additional ?? []).map((signal) => ({ name: signal.symbol, ...signal })),
+      // The friendly name comes from the loop contract's own bound symbol instead of a
+      // fixed "Controller output": Lesson 1 has no controller (the MV is the operator's
+      // manual demand) and Lesson 8 binds the clamped applied actuator reading, so a
+      // fixed label taught the opposite of what is actually bound (finding W-09).
+      { id: "mv", name: readableSignalName(sample.manipulatedVariable.symbol), role: "MV",
+        channel: "Primary loop", ...sample.manipulatedVariable },
+      // The loop contract now humanises each auxiliary signal's own declared id
+      // (displayName) upstream in loopMonitor.ts; the bound runtime symbol remains
+      // visible as the row's secondary text below.
+      ...(sample.additional ?? []).map((signal) => ({ name: signal.displayName, ...signal })),
     ];
     host.replaceChildren(...signals.map((signal) => {
       const row = document.createElement("label");
@@ -787,7 +836,8 @@ class ControlChartWorkspace {
       const name = document.createElement("span"); name.textContent = signal.name;
       const role = document.createElement("span"); role.className = "signal-secondary";
       role.textContent = `${signal.role} · ${signal.symbol}`;
-      const value = document.createElement("span"); value.textContent = `${formatEngineeringNumber(signal.value)} ${signal.unit}`;
+      const value = document.createElement("span");
+      value.textContent = `${formatEngineeringNumber(signal.value)} ${displayEngineeringUnit(signal.unit)}`;
       const quality = document.createElement("span"); quality.className = "signal-secondary"; quality.textContent = signal.quality;
       row.append(checked, name, role, value, quality);
       return row;
@@ -799,7 +849,7 @@ class ControlChartWorkspace {
     const candidate = copyValue(this.history.current.candidate);
     candidate.parameters.proportionalGain = value;
     const active = document.querySelector<HTMLElement>("[data-active-design]");
-    if (active) active.textContent = `Candidate · Kp ${formatEngineeringNumber(value, 4)} · Updating`;
+    if (active) active.textContent = `Candidate · Kp ${formatEngineeringNumber(value)} · Updating`;
     if (this.editTimer !== undefined) window.clearTimeout(this.editTimer);
     this.editTimer = window.setTimeout(() => {
       window.dispatchEvent(new CustomEvent("trust-control-studio-design-edit", {
@@ -842,14 +892,14 @@ class ControlChartWorkspace {
     const active = document.querySelector<HTMLElement>("[data-active-design]");
     if (active && this.history) {
       const value = this.history.current.candidate;
-      active.textContent = `Candidate ${this.history.current.revision} · ${value.structure} · Kp ${formatEngineeringNumber(value.parameters.proportionalGain, 4)}`;
+      active.textContent = `Candidate ${this.history.current.revision} · ${value.structure} · Kp ${formatEngineeringNumber(value.parameters.proportionalGain)}`;
     }
     const host = document.querySelector<HTMLElement>("[data-pinned-designs]");
     if (host) {
       host.replaceChildren(...this.pins.map((pin) => {
         const chip = document.createElement("span");
         chip.className = "design-chip";
-        chip.textContent = `Pinned ${pin.candidate.revision} · Kp ${formatEngineeringNumber(pin.candidate.candidate.parameters.proportionalGain, 4)}`;
+        chip.textContent = `Pinned ${pin.candidate.revision} · Kp ${formatEngineeringNumber(pin.candidate.candidate.parameters.proportionalGain)}`;
         return chip;
       }));
     }
@@ -913,6 +963,10 @@ class EngineeringChartAdapter {
   private readonly section: HTMLElement;
   private readonly summary: HTMLElement;
   private readonly table: HTMLTableSectionElement;
+  // The candidate's last qualified plot evidence, kept so a plot that was hidden (and so
+  // never reliably laid out) at the time setEvidence ran can be fully re-rendered — not
+  // merely resized — once it actually becomes visible (finding V-03).
+  private lastEvidence: EngineeringPlotMessageEvidence | undefined;
 
   constructor(timeHost: HTMLElement, magnitudeHost: HTMLElement, phaseHost: HTMLElement) {
     this.section = requiredElement<HTMLElement>("[data-engineering-plots]");
@@ -937,12 +991,50 @@ class EngineeringChartAdapter {
       requiredElement<HTMLElement>("[data-engineering-requirements]")]) {
       new ResizeObserver(() => this.resize()).observe(host);
     }
+    this.applyBaselineAxes();
     window.addEventListener("trust-control-studio-plot-shown", () => {
-      window.requestAnimationFrame(() => this.resize());
+      window.requestAnimationFrame(() => {
+        // A chart that was initialized (or last rendered) while its host was hidden or
+        // mid-transition cannot be trusted to redraw correctly from a bare resize() —
+        // replaying the full option from the retained evidence is what MimoChartAdapter
+        // already relies on, and it has no matching blank-plot finding.
+        if (this.lastEvidence) this.setEvidence(this.lastEvidence);
+        else this.resize();
+      });
     });
   }
 
+  private applyBaselineAxes(): void {
+    const theme = chartTheme();
+    for (const [chart, xName, yName] of [
+      [this.time, "Time (s)", "Response"],
+      [this.magnitude, "Frequency (rad/s)", "Magnitude (dB)"],
+      [this.phase, "Frequency (rad/s)", "Phase (°)"],
+      [this.rootLocus, "Real axis", "Imaginary axis"],
+      [this.nyquist, "Real", "Imaginary"],
+      [this.nichols, "Open-loop phase (°)", "Open-loop magnitude (dB)"],
+      [this.sensitivity, "rad/s", "Magnitude (dB)"],
+      [this.requirements, "Time (s)", "Normalized response"],
+    ] as const) {
+      chart.setOption(emptyAxesOption(xName, yName, theme));
+    }
+  }
+
+  /** Shows exactly one explanatory sentence on every engineering plot without discarding
+   * whatever axes or series they already have (Specification 35 S5.7). */
+  showFailure(reason: string): void {
+    const theme = chartTheme();
+    const message = plotStateMessage(reason, "The candidate engineering analysis failed.");
+    for (const chart of [this.time, this.magnitude, this.phase, this.rootLocus,
+      this.nyquist, this.nichols, this.sensitivity, this.requirements]) {
+      chart.setOption({ graphic: [plotStateOverlay("engineering-failure", message, theme)] });
+    }
+    this.summary.textContent = message;
+    this.resize();
+  }
+
   setEvidence(evidence: EngineeringPlotMessageEvidence): void {
+    this.lastEvidence = evidence;
     const theme = chartTheme();
     const shared = {
       animation: false,
@@ -953,10 +1045,20 @@ class EngineeringChartAdapter {
         axisPointer: { type: "cross", label: { color: theme.foreground } } },
       grid: { left: 58, right: 50, top: 38, bottom: 44 },
       dataZoom: [{ type: "inside", filterMode: "none" }],
+      graphic: [plotStateOverlay("engineering-failure", undefined, theme)],
+    };
+    const marginInput: MarginMarkerInput = {
+      gainMarginDb: evidence.gainMarginDb === "unbounded" ? Number.POSITIVE_INFINITY : evidence.gainMarginDb,
+      phaseMarginDegrees: evidence.phaseMarginDegrees,
+      gainCrossover: evidence.gainCrossover,
+      phaseCrossover: evidence.phaseCrossover,
     };
     this.time.setOption({ ...shared,
-      xAxis: axis("Time (s)", "value", theme),
-      yAxis: [axis("PV", "value", theme), axis("MV", "value", theme)],
+      xAxis: axis("Time (s)", "value", theme, evidence.timeResponse.map((point) => point.timeSeconds)),
+      yAxis: [
+        axis("PV", "value", theme, evidence.timeResponse.flatMap((point) => [point.currentPv, point.candidatePv])),
+        axis("MV", "value", theme, evidence.timeResponse.flatMap((point) => [point.currentMv, point.candidateMv])),
+      ],
       series: [
         engineeringLine("Current PV", 0, evidence.timeResponse.map((point) => [point.timeSeconds, point.currentPv]), "solid"),
         engineeringLine("Candidate PV", 0, evidence.timeResponse.map((point) => [point.timeSeconds, point.candidatePv]), "dashed"),
@@ -964,23 +1066,31 @@ class EngineeringChartAdapter {
         engineeringLine("Candidate MV", 1, evidence.timeResponse.map((point) => [point.timeSeconds, point.candidateMv]), "dashed"),
       ],
     });
+    const magnitudeValues = [...evidence.plantBode, ...evidence.candidateOpenLoopBode].map((point) => point.magnitudeDb);
     this.magnitude.setOption({ ...shared,
       xAxis: { ...axis("", "log", theme), axisLabel: { show: false } },
-      yAxis: axis("Magnitude (dB)", "value", theme),
-      series: bodeSeries(evidence, "magnitudeDb"),
+      // A fixed 20 dB step (instead of an auto-picked count) keeps the margin grid
+      // legible and comparable across candidates (finding V-05).
+      yAxis: { ...axis("Magnitude (dB)", "value", theme, magnitudeValues), interval: 20 },
+      series: bodeSeries(evidence, "magnitudeDb",
+        marginMarkOptions(magnitudeReferenceLines(marginInput), magnitudeCrossoverMarkers(marginInput), theme)),
     });
+    const phaseValues = [...evidence.plantBode, ...evidence.candidateOpenLoopBode].map((point) => point.phaseDegrees);
     this.phase.setOption({ ...shared,
       legend: { show: false },
-      xAxis: axis("Frequency (rad/s)", "log", theme), yAxis: axis("Phase (°)", "value", theme),
-      series: bodeSeries(evidence, "phaseDegrees"),
+      xAxis: axis("Frequency (rad/s)", "log", theme),
+      yAxis: { ...axis("Phase (°)", "value", theme, phaseValues), interval: 45 },
+      series: bodeSeries(evidence, "phaseDegrees",
+        marginMarkOptions(phaseReferenceLines(marginInput), phaseCrossoverMarkers(marginInput), theme)),
     });
     requiredElement<HTMLOutputElement>("[data-design-gain-margin]").value =
-      `${formatEngineeringNumber(evidence.gainMarginDb, 2)} dB`;
+      `${formatEngineeringNumber(evidence.gainMarginDb)} dB`;
     requiredElement<HTMLOutputElement>("[data-design-phase-margin]").value =
-      `${formatEngineeringNumber(evidence.phaseMarginDegrees, 1)}°`;
+      `${formatEngineeringNumber(evidence.phaseMarginDegrees)}°`;
     this.renderRootLocus(evidence, shared, theme);
     this.nyquist.setOption({ ...shared,
-      xAxis: axis("Real", "value", theme), yAxis: axis("Imaginary", "value", theme),
+      xAxis: axis("Real", "value", theme, [...evidence.nyquist.map((point) => point.real), -1]),
+      yAxis: axis("Imaginary", "value", theme, [...evidence.nyquist.map((point) => point.imaginary), 0]),
       series: [
         engineeringLine("Open-loop contour", 0, evidence.nyquist.map((point) => [point.real, point.imaginary]), "solid"),
         { name: "Critical point −1 + 0j", type: "line", showSymbol: true, symbol: "diamond",
@@ -988,13 +1098,17 @@ class EngineeringChartAdapter {
       ],
     });
     this.nichols.setOption({ ...shared,
-      xAxis: axis("Open-loop phase (°)", "value", theme),
-      yAxis: axis("Open-loop magnitude (dB)", "value", theme),
-      series: [engineeringLine("Candidate", 0,
-        evidence.nichols.map((point) => [point.phaseDegrees, point.magnitudeDb]), "solid")],
+      xAxis: axis("Open-loop phase (°)", "value", theme, evidence.nichols.map((point) => point.phaseDegrees)),
+      yAxis: axis("Open-loop magnitude (dB)", "value", theme, evidence.nichols.map((point) => point.magnitudeDb)),
+      series: [{ ...engineeringLine("Candidate", 0,
+        evidence.nichols.map((point) => [point.phaseDegrees, point.magnitudeDb]), "solid"),
+        ...marginMarkOptions(nicholsReferenceLines(), nicholsCrossoverMarkers(marginInput), theme) }],
     });
+    const sensitivityValues = [...evidence.sensitivity.map((point) => point.sensitivityMagnitudeDb),
+      ...evidence.sensitivity.map((point) => point.complementarySensitivityMagnitudeDb),
+      ...evidence.sensitivity.map((point) => point.controlSensitivityMagnitudeDb)];
     this.sensitivity.setOption({ ...shared,
-      xAxis: axis("rad/s", "log", theme), yAxis: axis("Magnitude (dB)", "value", theme),
+      xAxis: axis("rad/s", "log", theme), yAxis: axis("Magnitude (dB)", "value", theme, sensitivityValues),
       series: [
         engineeringLine("Sensitivity S", 0, evidence.sensitivity.map((point) =>
           [point.frequencyRadPerSecond, point.sensitivityMagnitudeDb]), "solid"),
@@ -1006,7 +1120,7 @@ class EngineeringChartAdapter {
     });
     this.renderRequirements(evidence, shared, theme);
     this.summary.textContent = `${evidence.evidence}; ${evidence.timeResponse.length} time points; `
-      + `gain margin ${formatEngineeringNumber(evidence.gainMarginDb, 2)} dB; phase margin ${formatEngineeringNumber(evidence.phaseMarginDegrees, 1)} degrees.`;
+      + `gain margin ${formatEngineeringNumber(evidence.gainMarginDb)} dB; phase margin ${formatEngineeringNumber(evidence.phaseMarginDegrees)} degrees.`;
     const stride = Math.max(1, Math.ceil(evidence.timeResponse.length / 25));
     this.table.replaceChildren(...evidence.timeResponse.filter((_, index) => index % stride === 0).map((point) => {
       const row = document.createElement("tr");
@@ -1030,8 +1144,10 @@ class EngineeringChartAdapter {
       return;
     }
     const branchCount = Math.max(...evidence.rootLocus.branches.map((branch) => branch.poles.length));
+    const poles = evidence.rootLocus.branches.flatMap((branch) => branch.poles);
     this.rootLocus.setOption({ ...shared,
-      xAxis: axis("Real axis", "value", theme), yAxis: axis("Imaginary axis", "value", theme),
+      xAxis: axis("Real axis", "value", theme, poles.map((pole) => pole.real)),
+      yAxis: axis("Imaginary axis", "value", theme, poles.map((pole) => pole.imaginary)),
       series: Array.from({ length: branchCount }, (_, index) => engineeringLine(
         `Pole branch ${index + 1}`, 0,
         evidence.rootLocus.status === "qualified"
@@ -1048,25 +1164,30 @@ class EngineeringChartAdapter {
     theme: ReturnType<typeof chartTheme>
   ): void {
     const uncertainty = evidence.uncertainty.points;
-    const lower = uncertainty.map((point) => [point.timeSeconds, point.lower]);
-    const span = uncertainty.map((point) => [point.timeSeconds, point.upper - point.lower]);
     this.requirements.setOption({ ...shared,
-      xAxis: axis("Time (s)", "value", theme), yAxis: axis("Normalized response", "value", theme),
+      xAxis: axis("Time (s)", "value", theme, evidence.timeResponse.map((point) => point.timeSeconds)),
+      yAxis: axis("Normalized response", "value", theme, [
+        ...evidence.timeResponse.map((point) => point.candidatePv),
+        ...uncertainty.flatMap((point) => [point.lower, point.upper]),
+      ]),
       series: [
         engineeringLine("Candidate", 0,
           evidence.timeResponse.map((point) => [point.timeSeconds, point.candidatePv]), "solid"),
-        ...(uncertainty.length > 0 ? [
-          { name: "Uncertainty lower", type: "line" as const, stack: "uncertainty", showSymbol: false,
-            lineStyle: { width: 1, type: "dashed" }, areaStyle: { opacity: 0 }, data: lower },
-          { name: `Uncertainty · ${evidence.uncertainty.method}`, type: "line" as const,
-            stack: "uncertainty", showSymbol: false, lineStyle: { width: 0 },
-            areaStyle: { opacity: 0.14 }, data: span },
-        ] : []),
+        ...uncertaintyBandSeries(evidence.uncertainty.method, uncertainty, theme.foreground),
+      ],
+      // Keeps the engineering-failure overlay's hidden state explicit here too: an
+      // omitted graphic id is left exactly as ECharts last rendered it, and a stale
+      // failure message must not persist over a plot that just received good evidence.
+      graphic: [
+        plotStateOverlay("engineering-failure", undefined, theme),
+        plotStateOverlay("requirements-uncertainty-state",
+          uncertainty.length > 0 ? undefined : "Uncertainty: Not evaluated.", theme),
       ],
     });
     const summary = evidence.requirements.map((item) =>
       `${item.name}: ${item.status} (${formatEngineeringNumber(item.value)} ${item.unit}; ${item.direction} ${formatEngineeringNumber(item.limit)} ${item.unit})`).join(". ");
-    requiredElement<HTMLElement>("[data-engineering-requirements]").setAttribute("aria-description", summary);
+    requiredElement<HTMLElement>("[data-engineering-requirements]").setAttribute("aria-description",
+      `${summary} ${uncertaintyBandDescription(evidence.uncertainty.method, uncertainty.length)}`);
   }
 
   private resize(): void {
@@ -1180,7 +1301,7 @@ class MimoChartAdapter {
       const row = document.createElement("tr");
       const label = document.createElement("th"); label.scope = "row"; label.textContent = `${output.name} (${output.unit})`; row.append(label);
       evidence.relativeGainArray[rowIndex].forEach((value) => {
-        const cell = document.createElement("td"); cell.textContent = formatEngineeringNumber(value, 3); row.append(cell);
+        const cell = document.createElement("td"); cell.textContent = formatEngineeringNumber(value); row.append(cell);
       });
       body.append(row);
     });
@@ -1208,6 +1329,9 @@ class IdentificationChartAdapter {
   private readonly validation: echarts.ECharts;
   private readonly polesZeros: echarts.ECharts;
   private readonly summary: HTMLElement;
+  // Retained so a plot switched to while hidden — the same class of bug reported for
+  // Nichols in V-03 — can be fully re-rendered once it actually becomes visible.
+  private lastEvidence: IdentifiedModelPresentation | undefined;
 
   constructor(host: HTMLElement) {
     this.summary = requiredElement<HTMLElement>("[data-identification-fit-summary]");
@@ -1218,12 +1342,37 @@ class IdentificationChartAdapter {
     for (const chartHost of document.querySelectorAll<HTMLElement>("[data-identification-plot]")) {
       new ResizeObserver(() => this.resize()).observe(chartHost);
     }
+    const theme = chartTheme();
+    this.fit.setOption(emptyAxesOption("Time (s)", "PV", theme));
+    this.residuals.setOption(emptyAxesOption("Time (s)", "Residual", theme));
+    this.validation.setOption(emptyAxesOption("Time (s)", "PV", theme));
+    this.polesZeros.setOption(emptyAxesOption("Real axis (1/s)", "Imaginary axis (1/s)", theme));
+    window.addEventListener("trust-control-studio-plot-shown", () => {
+      window.requestAnimationFrame(() => {
+        if (this.lastEvidence) this.setEvidence(this.lastEvidence);
+        else this.resize();
+      });
+    });
+  }
+
+  /** Shows exactly one explanatory sentence on every identification plot without
+   * discarding whatever axes or series they already have (Specification 35 S5.7). */
+  showFailure(reason: string): void {
+    const theme = chartTheme();
+    const message = plotStateMessage(reason, "Identification failed.");
+    for (const chart of [this.fit, this.residuals, this.validation, this.polesZeros]) {
+      chart.setOption({ graphic: [plotStateOverlay("identification-failure", message, theme)] });
+    }
+    this.summary.textContent = message;
+    this.resize();
   }
 
   setEvidence(evidence: IdentifiedModelPresentation): void {
+    this.lastEvidence = evidence;
     const theme = chartTheme();
     const outputRange = identificationOutputAxisRange(evidence.predictedResponse.flatMap((point) =>
       [point.measured, point.predicted]));
+    const timeValues = evidence.predictedResponse.map((point) => point.timeSeconds);
     const shared = {
       animation: false,
       aria: { enabled: true, decal: { show: true } },
@@ -1231,10 +1380,11 @@ class IdentificationChartAdapter {
       legend: { top: 4, textStyle: { color: theme.muted } },
       tooltip: { trigger: "axis", confine: true, valueFormatter: formatChartValue },
       grid: { left: 58, right: 58, top: 38, bottom: 44 },
+      graphic: [plotStateOverlay("identification-failure", undefined, theme)],
     };
     this.fit.setOption({ ...shared,
-      xAxis: axis("Time (s)", "value", theme),
-      yAxis: { ...axis(`PV (${evidence.units.output})`, "value", theme),
+      xAxis: axis("Time (s)", "value", theme, timeValues),
+      yAxis: { ...axis(`PV (${evidence.units.output})`, "value", theme, [outputRange.minimum, outputRange.maximum]),
         min: outputRange.minimum, max: outputRange.maximum },
       series: [
         engineeringLine("Measured PV", 0,
@@ -1244,14 +1394,15 @@ class IdentificationChartAdapter {
       ],
     });
     this.residuals.setOption({ ...shared,
-      xAxis: axis("Time (s)", "value", theme),
-      yAxis: axis(`Residual (${evidence.units.output})`, "value", theme),
+      xAxis: axis("Time (s)", "value", theme, timeValues),
+      yAxis: axis(`Residual (${evidence.units.output})`, "value", theme,
+        evidence.predictedResponse.map((point) => point.residual)),
       series: [engineeringLine("Prediction residual", 0,
         evidence.predictedResponse.map((point) => [point.timeSeconds, point.residual]), "solid")],
     });
     this.validation.setOption({ ...shared,
-      xAxis: axis("Time (s)", "value", theme),
-      yAxis: { ...axis(`PV (${evidence.units.output})`, "value", theme),
+      xAxis: axis("Time (s)", "value", theme, timeValues),
+      yAxis: { ...axis(`PV (${evidence.units.output})`, "value", theme, [outputRange.minimum, outputRange.maximum]),
         min: outputRange.minimum, max: outputRange.maximum },
       series: [
         engineeringLine("Validation measurement", 0,
@@ -1262,7 +1413,7 @@ class IdentificationChartAdapter {
     });
     this.polesZeros.setOption({ ...shared,
       tooltip: { trigger: "item", confine: true, valueFormatter: formatChartValue },
-      xAxis: axis("Real axis (1/s)", "value", theme),
+      xAxis: axis("Real axis (1/s)", "value", theme, [...evidence.poles, ...evidence.zeros]),
       yAxis: axis("Imaginary axis (1/s)", "value", theme),
       series: [
         pointSeries("Poles", evidence.poles.map((value) => [value, 0]), "cross"),
@@ -1270,8 +1421,8 @@ class IdentificationChartAdapter {
       ],
     });
     this.summary.textContent = `${evidence.predictedResponse.length} measured and predicted points; ` +
-      `estimation residual lag-one correlation ${formatEngineeringNumber(evidence.estimation.residualLagOneCorrelation, 4)}; ` +
-      `validation residual lag-one correlation ${formatEngineeringNumber(evidence.validation.residualLagOneCorrelation, 4)}.`;
+      `estimation residual lag-one correlation ${formatEngineeringNumber(evidence.estimation.residualLagOneCorrelation)}; ` +
+      `validation residual lag-one correlation ${formatEngineeringNumber(evidence.validation.residualLagOneCorrelation)}.`;
     this.resize();
   }
 
@@ -1284,9 +1435,22 @@ function initEngineeringChart(selector: string): echarts.ECharts {
   return echarts.init(requiredElement<HTMLElement>(selector), undefined, { renderer: "canvas" });
 }
 
-function axis(name: string, type: "value" | "log", theme: ReturnType<typeof chartTheme>) {
+// A log-scaled axis (frequency) keeps formatEngineeringNumber's own per-tick magnitude
+// policy through frequencyAxisTickFormatter, since one shared digit count would be wrong
+// across several decades. A linear axis derives one digit count from its own value span
+// (when the caller has the plotted values at hand) so nearby ticks cannot disagree on
+// precision (finding V-01).
+function axis(
+  name: string,
+  type: "value" | "log",
+  theme: ReturnType<typeof chartTheme>,
+  values?: readonly (number | null | undefined)[]
+) {
+  const formatter = type === "log"
+    ? frequencyAxisTickFormatter()
+    : axisTickFormatter(values ? linearAxisFractionDigits(values) : undefined);
   return { type, name, nameLocation: "middle", nameGap: 30, nameTextStyle: { color: theme.muted },
-    axisLabel: { color: theme.muted, formatter: formatEngineeringNumber, hideOverlap: true, margin: 8 },
+    axisLabel: { color: theme.muted, formatter, hideOverlap: true, margin: 8 },
     axisLine: { show: false }, axisTick: { show: false }, splitNumber: 5,
     splitLine: { lineStyle: { color: theme.border, opacity: 0.18 } } };
 }
@@ -1300,12 +1464,47 @@ function pointSeries(name: string, data: number[][], symbol: "circle" | "cross")
     lineStyle: { width: 0 }, data };
 }
 
-function bodeSeries(evidence: EngineeringPlotMessageEvidence, field: "magnitudeDb" | "phaseDegrees") {
+function bodeSeries(
+  evidence: EngineeringPlotMessageEvidence,
+  field: "magnitudeDb" | "phaseDegrees",
+  candidateMarks?: Record<string, unknown>
+) {
   return [
     engineeringLine("Plant", 0, evidence.plantBode.map((point) => [point.frequencyRadPerSecond, point[field]]), "solid"),
-    engineeringLine("Candidate open loop", 0,
+    { ...engineeringLine("Candidate open loop", 0,
       evidence.candidateOpenLoopBode.map((point) => [point.frequencyRadPerSecond, point[field]]), "dashed"),
+      ...(candidateMarks ?? {}) },
   ];
+}
+
+/** Converts the plain reference-line and crossover-marker data from marginMarkers.ts into
+ * the ECharts markLine/markPoint option a candidate series carries directly on the plot,
+ * instead of margins existing only as text in the design-row chip (finding V-05). */
+function marginMarkOptions(
+  lines: readonly { name: string; xAxis?: number; yAxis?: number }[],
+  points: readonly { name: string; coord: readonly [number, number]; value: string }[],
+  theme: ReturnType<typeof chartTheme>
+) {
+  return {
+    markLine: {
+      symbol: "none", silent: true,
+      lineStyle: { type: "dashed", width: 1, color: theme.muted },
+      label: { formatter: (param: { data: { name: string } }) => param.data.name, color: theme.muted, fontSize: 10 },
+      data: lines.map((entry) => ({
+        name: entry.name,
+        ...(entry.xAxis !== undefined ? { xAxis: entry.xAxis } : {}),
+        ...(entry.yAxis !== undefined ? { yAxis: entry.yAxis } : {}),
+      })),
+    },
+    markPoint: {
+      symbol: "circle", symbolSize: 7, itemStyle: { color: theme.foreground },
+      label: {
+        formatter: (param: { data: { value: string } }) => param.data.value,
+        color: theme.foreground, fontSize: 10, position: "top",
+      },
+      data: points.map((entry) => ({ name: entry.name, coord: entry.coord, value: entry.value })),
+    },
+  };
 }
 
 function line(
@@ -1446,12 +1645,20 @@ window.addEventListener("message", (event) => {
     if (typeof limits?.minimum === "number" && typeof limits.maximum === "number") {
       adapter.setOutputLimits(limits.minimum, limits.maximum);
     }
-    setText("[data-control-studio-quality]", `${String(last?.quality ?? "Unavailable")} · Output ${formatEngineeringNumber(limits?.minimum)}…${formatEngineeringNumber(limits?.maximum)} ${String(units?.mv ?? "")}`);
+    // Quality capitalisation, the "Output limit" name, and the unit must match the live
+    // reading below exactly; a saved result is stale evidence, not a different vocabulary
+    // (finding W-11).
+    setText("[data-control-studio-quality]",
+      `${titleCase(String(last?.quality ?? "Unavailable"))} · Output limit ${formatEngineeringNumber(limits?.minimum)}…${formatEngineeringNumber(limits?.maximum)} ${displayEngineeringUnit(String(units?.mv ?? ""))}`);
     const revision = document.querySelector<HTMLElement>("[data-control-studio-controller-revision]");
     if (revision) {
       revision.textContent = compactRevisionLabel(String(controller?.revision ?? "Unavailable"));
       revision.title = String(controller?.revision ?? "Unavailable");
     }
+    // workflow.ts already marked the shared studio root historical; the live-value strip
+    // is chart.ts's own surface, so it applies its own badge and dimmed state here rather
+    // than reading workflow.ts's DOM write back (finding W-16 follow-up).
+    applyValueStripHistoricalState(valueStripHistoricalState(true, studio.dataset.controlStudioHistoricalResultAt));
     return;
   }
   if (raw?.kind === "control-studio.engineering.result" && raw.stage === "tune" &&
@@ -1463,6 +1670,11 @@ window.addEventListener("message", (event) => {
       workspace?.setModelAvailable(true);
       workspace?.setConstraintsAvailable(true);
       if (payload.candidate) workspace?.setCandidate(payload.candidate as unknown as ControlPidCandidate);
+    } else if (payload?.status === "failed" || payload?.status === "unavailable") {
+      // A failed or unavailable tune must still leave the engineering plots showing one
+      // explanation instead of silently keeping (or never showing) stale evidence
+      // (finding V-10).
+      engineering?.showFailure(typeof payload.reason === "string" ? payload.reason : "");
     }
     return;
   }
@@ -1473,6 +1685,11 @@ window.addEventListener("message", (event) => {
     if (payload?.status === "complete" && payload.presentation) {
       identification?.setEvidence(payload.presentation as unknown as IdentifiedModelPresentation);
       workspace?.setModelAvailable(true);
+    } else if (payload?.status === "failed") {
+      // Keeps the Fit/Residuals/Validation/Poles-and-zeros axes visible with one
+      // explanation instead of an entirely blank plot after a failed identification
+      // attempt (finding V-10).
+      identification?.showFailure(typeof payload.reason === "string" ? payload.reason : "");
     }
     return;
   }
@@ -1565,6 +1782,14 @@ function renderLoopSample(
   setText("[data-control-studio-source]", snapshot.source === "Physical" ? "Physical plant" : "Simulation");
   const studio = document.querySelector<HTMLElement>("[data-control-studio]");
   if (studio) studio.dataset.controlSource = snapshot.source.toLowerCase();
+  // A live loop-monitor sample means the studio is watching the running loop again, not a
+  // saved result — clear the shared historical flag and this surface's own badge/dim
+  // state regardless of how it was set (finding W-16 follow-up).
+  if (studio) {
+    delete studio.dataset.controlStudioHistoricalResult;
+    delete studio.dataset.controlStudioHistoricalResultAt;
+  }
+  applyValueStripHistoricalState(undefined);
   const physicalTopology = document.querySelector<HTMLElement>("[data-physical-topology]");
   if (physicalTopology) physicalTopology.hidden = snapshot.source !== "Physical";
   if (snapshot.source !== "Physical") {
@@ -1612,8 +1837,11 @@ function renderLoopSample(
   setText("[data-control-studio-pv]", reading(snapshot.processVariable));
   setText("[data-control-studio-mv]", reading(snapshot.manipulatedVariable));
   const qualityText = quality === "good" ? "Good" : "Forced signal";
+  // "Output limit" (not bare "Output") names what the range actually is, and the
+  // saturation word is title-cased to match the quality word instead of a raw lowercase
+  // enum in the same sentence (finding W-11).
   setText("[data-control-studio-quality]",
-    `${qualityText} · Output ${formatEngineeringNumber(snapshot.outputLimits.minimum)}…${formatEngineeringNumber(snapshot.outputLimits.maximum)} ${displayEngineeringUnit(snapshot.manipulatedVariable.unit)} · Saturation ${snapshot.saturation}`);
+    `${qualityText} · Output limit ${formatEngineeringNumber(snapshot.outputLimits.minimum)}…${formatEngineeringNumber(snapshot.outputLimits.maximum)} ${displayEngineeringUnit(snapshot.manipulatedVariable.unit)} · Saturation ${titleCase(snapshot.saturation)}`);
   const start = document.querySelector<HTMLButtonElement>("[data-control-studio-record-start]");
   const stop = document.querySelector<HTMLButtonElement>("[data-control-studio-record-stop]");
   if (start) start.disabled = snapshot.recording;
@@ -1643,6 +1871,29 @@ function savedReading(value: unknown, unit: unknown): string {
 
 function setText(selector: string, value: string): void {
   requiredElement<HTMLElement>(selector).textContent = value;
+}
+
+/** Applies (or clears) the live-value strip's "Saved result" badge and dimmed state. Owns
+ * only DOM wiring; valueStripHistoricalState decides what to show. */
+function applyValueStripHistoricalState(state: ValueStripHistoricalState | undefined): void {
+  const container = document.querySelector<HTMLElement>(".values");
+  if (!container) return;
+  let badge = container.querySelector<HTMLElement>("[data-historical-result-badge]");
+  if (!state) {
+    if (badge) badge.hidden = true;
+    container.style.opacity = "";
+    return;
+  }
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.dataset.historicalResultBadge = "true";
+    badge.style.cssText = "display:inline-block;margin:0 0 4px;padding:1px 6px;border-radius:3px;"
+      + "font-size:11px;background:var(--vscode-badge-background);color:var(--vscode-badge-foreground);";
+    container.prepend(badge);
+  }
+  badge.hidden = false;
+  badge.textContent = state.badgeText;
+  container.style.opacity = "0.72";
 }
 
 function first(values: readonly number[]): number | null {

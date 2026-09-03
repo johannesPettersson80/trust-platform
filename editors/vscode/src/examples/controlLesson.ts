@@ -335,24 +335,44 @@ export function retainControlLessonProgress(
   return completedIds.filter((id) => known.has(id));
 }
 
-/** Returns the single product-owned teaching order used by every rendered view. */
+/**
+ * The nine canonical learner-facing README sections, in their mandatory order
+ * (Specification 38 §2.1). This is structure, not content: the lesson's own
+ * README is the one place its teaching prose lives, so no paragraph text is
+ * duplicated here.
+ */
+const CANONICAL_LESSON_SECTIONS: ReadonlyArray<string> = [
+  "The problem",
+  "What we need",
+  "The new idea",
+  "Prediction",
+  "Implementation",
+  "Experiment in Control Studio",
+  "Evidence and decision",
+  "Conclusion",
+  "Reason for the next lesson",
+];
+
+/**
+ * Returns the single product-owned outline used by every rendered view
+ * (W-03): the nine canonical README sections above, followed by the lesson's
+ * real, executable Control Studio workflow (Specification 38 §2.1 restricts
+ * every lesson to `workflowStages`, normally exactly Monitor -> Test) rather
+ * than the retired eleven-stage Context/Reason/Theory/.../Transfer sequence.
+ */
 export function controlLessonPresentation(
   lesson: ControlLessonMetadata
 ): ControlLessonPresentationSection[] {
-  if (!("schemaVersion" in lesson) || lesson.schemaVersion !== 4) return [];
-  const learning = lesson.learning;
+  if (!("schemaVersion" in lesson)) return [];
+  const sections: ControlLessonPresentationSection[] = CANONICAL_LESSON_SECTIONS.map(
+    (title) => ({ title, paragraphs: [] })
+  );
+  if (!lesson.workflowStages.length) {
+    return sections;
+  }
   return [
-    { title: "Context", paragraphs: [learning.context] },
-    { title: "Reason", paragraphs: [learning.reason] },
-    { title: "Theory", paragraphs: [...learning.theory] },
-    { title: "Worked prediction", paragraphs: [learning.workedPrediction] },
-    { title: "Practical preparation", paragraphs: [...learning.practicalPreparation] },
-    { title: "Baseline", paragraphs: [learning.baseline] },
-    { title: "Change", paragraphs: [learning.change] },
-    { title: "Comparison", paragraphs: [learning.comparison] },
-    { title: "Validation", paragraphs: [learning.validation] },
-    { title: "Explanation", paragraphs: [learning.explanation] },
-    { title: "Transfer", paragraphs: [learning.transfer] },
+    ...sections,
+    { title: "Control Studio workflow", paragraphs: [lesson.workflowStages.join(" -> ")] },
   ];
 }
 

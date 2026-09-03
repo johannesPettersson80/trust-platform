@@ -22,6 +22,8 @@ export interface ControlMonitorAuxiliarySignal extends ControlMonitorSignal {
   id: string;
   channel: string;
   role: ControlAuxiliarySignalRole;
+  /** Human-readable label derived from the declared signal id; the ST symbol stays available alongside it. */
+  displayName: string;
 }
 
 export interface AvailableLoopSample {
@@ -219,7 +221,24 @@ function readAuxiliarySignal(
   state: IoState
 ): ControlMonitorAuxiliarySignal | undefined {
   const signal = readSignal(binding, state);
-  return signal ? { id: binding.id, channel: binding.channel, role: binding.role, ...signal } : undefined;
+  return signal
+    ? { id: binding.id, channel: binding.channel, role: binding.role, displayName: humanizeSignalIdentifier(binding.id), ...signal }
+    : undefined;
+}
+
+/**
+ * Turns a kebab- or snake-case lesson signal id (e.g. "door-open-indication") into a
+ * readable label ("Door open indication") so Monitor -> Signals does not force the
+ * learner to translate the loop's ST symbols back into the lesson's own vocabulary.
+ */
+export function humanizeSignalIdentifier(id: string): string {
+  const words = id.split(/[-_]+/).filter((word) => word.length > 0);
+  if (words.length === 0) return id;
+  return words.map((word, index) => (index === 0 ? capitalizeWord(word) : word.toLowerCase())).join(" ");
+}
+
+function capitalizeWord(word: string): string {
+  return word.length === 0 ? word : `${word[0].toUpperCase()}${word.slice(1).toLowerCase()}`;
 }
 
 function numericIoValue(value: string): number {
