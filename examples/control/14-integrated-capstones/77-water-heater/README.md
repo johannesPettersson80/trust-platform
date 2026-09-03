@@ -1,20 +1,17 @@
 # Commission a recirculating water-heater PI loop
 
-Course position: Lesson 77 of 84.
-Prerequisite: `control-capstone-cold-storage`.
+Course position: Lesson 77 of 84. Previous lesson: [Commission a walk-in cold-storage thermostat](../76-cold-storage/README.md). Next lesson: [Commission a flexible rotary indexing servo](../78-servo/README.md).
 
 **Lesson objective:** Derive, identify, validate, tune, and abnormally qualify one unapplied PI recommendation for a continuously modulated recirculating water heater.
 
-Plant: Recirculating electric water heater.
-
-This is Lesson 77, the process-control capstone. It combines the earlier
-water-heater, modelling, identification, tuning, and commissioning lessons into
-one decision. The recommendation remains unapplied. All runs are deterministic
-**Simulation evidence**, not physical commissioning evidence.
+**Evidence class:** Simulation evidence. All runs in this lesson are deterministic Simulation evidence, not physical commissioning evidence.
 
 ## The problem
 
-The equipment in this lesson is Recirculating electric water heater.
+The equipment in this lesson is Recirculating electric water heater. This is
+Lesson 77, the process-control capstone: it combines the earlier water-heater,
+modelling, identification, tuning, and commissioning lessons into one
+decision, and the recommendation remains unapplied.
 
 The desired outlet-water temperature is `35 degrees Celsius`. Heater request
 and applied power are limited from `0` through `100 percent`. The heater can add
@@ -31,11 +28,16 @@ lag, interlock, saturate, or fail.
 
 The nominal local model has process gain `0.2 degrees Celsius per percent`,
 time constant `5 seconds`, dead time `1 second`, and `100 millisecond` controller
-interval. Zero heater power tends toward `20 degrees Celsius`. Holding
+interval. These four values are the same declared heater plant Lessons 4
+through 8 already used; this capstone inherits them unchanged rather than
+re-measuring them. Zero heater power tends toward `20 degrees Celsius`. Holding
 `35 degrees Celsius` nominally requires `75 percent` heater power. A colder-
 water load lowers the zero-power equilibrium by `3 degrees Celsius` at
-`100 seconds`. Sensor interference is a deterministic `0.02 degree Celsius`,
-`0.5 hertz` sine.
+`100 seconds`; that load magnitude and timing are new values configured for
+this capstone's abnormal-event schedule. Sensor interference is a
+deterministic `0.02 degree Celsius`, `0.5 hertz` sine, also a new configured
+teaching value chosen to exercise the derivative-rejection decision below
+without dominating the measured response.
 
 ![Water-heater capstone signal path](figures/water-heater-capstone-signal-path.svg)
 Four equivalent plant copies expose P plus bias, historical PI, Robust SIMC PI,
@@ -69,7 +71,7 @@ process gain ($K$) multiplied by applied-power change.
 The required holding power ($MV_{\mathrm{hold}}$) is the desired temperature rise divided
 by steady process gain. The zero-power temperature is $T_{\mathrm{zero}}$:
 
-$MV_{\mathrm{hold}} = (SP - T_{\mathrm{zero}})/K = (35 - 20)/0.2 = 75 percent$
+$MV_{\mathrm{hold}} = (SP - T_{\mathrm{zero}})/K = (35 - 20)/0.2 = 75$ percent
 
 This prediction assumes the declared flow, heat loss, heater efficiency, and
 operating region. It is not a universal heater equation.
@@ -126,20 +128,22 @@ controller's requested output remains bounded from `0` through `100 percent`.
 
 Robust SIMC uses proportional gain `3.26087` and integral gain `0.65217`.
 Balanced SIMC uses proportional gain `5.76923` and integral gain `1.15385`.
-The historical PI uses `4` and `0.8`; it remains a genuine candidate, not a
+The historical PI uses `4` and `0.8` — a configured pre-engineering plant
+setting retained as the fourth candidate, not Lesson 7's own selected `8` and
+`4` result on this identical plant — and it remains a genuine candidate, not a
 straw candidate selected to lose.
 
 Balanced tuning is expected to reduce error area and response time while using
 more actuator movement and robustness reserve. Robust tuning is expected to
 trade some nominal speed for lower activity and more tolerance to model error.
 
-These values come from the FOPDT SIMC PI equations:
+These values come from the FOPDT SIMC PI equations. Here $K$ converts power to
+temperature, $T$ describes thermal inertia, $L$ is transport delay, and the
+chosen closed-loop time $\lambda$ expresses the speed-versus-robustness trade:
 
 $K_p=T/[K(\lambda+L)],\qquad T_i=\min[T,4(\lambda+L)],\qquad K_i=K_p/T_i$
 
-Here $K$ converts power to temperature, $T$ describes thermal inertia, $L$ is
-transport delay, and the chosen closed-loop time $\lambda$ expresses the
-speed-versus-robustness trade. Robust uses $\lambda=6.667$ seconds, so
+Robust uses $\lambda=6.667$ seconds, so
 $K_p=5/[0.2(6.667+1)]=3.26087$, $T_i=5$ seconds, and
 $K_i=3.26087/5=0.65217$. Balanced uses $\lambda=3.333$ seconds, so
 $K_p=5/[0.2(3.333+1)]=5.76923$, $T_i=5$ seconds, and
@@ -216,8 +220,6 @@ generic panels cannot establish a model, tuning, or validation result.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 Model-fitting score and independent validation score are separate. A model that
 fits one record but predicts the second poorly is rejected.
 
@@ -233,24 +235,30 @@ saturated, not settled, or invalid. Only eligible runs enter the ranking. The
 decision then balances final-window error, overshoot, integrated absolute error,
 total variation, saturation recovery, and robustness.
 
-### Validation
-
 The native executable test compiles this Structured Text with the shared
 Control library and runs the four equivalent plants under nominal, low-gain,
 high-gain, and increased-delay scenarios. Independent calculations reproduce
 the physical holding power, identified FOPDT coefficients, Robust and Balanced
 SIMC gains, plant dynamics, final-window measures, error area, movement,
-saturation, manual tracking, and unchanged revision.
+saturation, manual tracking, and unchanged revision. Identification recovers a
+gain, time constant, and dead time consistent with the nominal `0.2`, `5.0`,
+and `1.0` values before either SIMC tuning is trusted; that check passes in
+this run, but the retained tabulated and plotted evidence below reports only
+the two ranked candidates, so no invented identified-coefficient figure is
+printed here. P plus bias is rejected on structural grounds alone: fixed bias
+cannot track the changed thermal equilibrium after the load event, so its
+final-window error necessarily stays above the declared `1-degree-Celsius`
+ineligibility limit; that structural argument does not need a retained curve.
+Historical PI shares the eligible PI structure with Robust and Balanced and is
+not rejected on structural grounds, but it is not part of the retained
+tabulated or plotted ranking in this run, which compares only the two
+SIMC-derived candidates against each other.
 
 The retained deterministic run gives the following evidence. Values are rounded
 only for presentation; the native test evaluates the unrounded samples.
 
 | Evidence | Measured result | Engineering meaning |
 | --- | ---: | --- |
-| Identified process gain | `0.1994 degrees Celsius per percent` | Agrees with the nominal `0.2` local gain within the declared identification tolerance. |
-| Identified time constant | `4.90 seconds` | Agrees with the nominal `5.0 seconds` thermal time constant. |
-| Identified dead time | `1.10 seconds` | Agrees with the nominal `1.0 second` transport delay at the `0.1 second` sample interval. |
-| P-plus-bias final-window load error | `2.143 degrees Celsius` | The changed load requires a different equilibrium power, so fixed bias plus P is ineligible. |
 | Robust PI integrated absolute error | `23.93 degree-Celsius-seconds` | Eligible, but slower than Balanced PI over the declared comparison window. |
 | Balanced PI integrated absolute error | `14.17 degree-Celsius-seconds` | Eligible and faster by the declared error-area measure. |
 | Robust PI applied-power total variation | `28.7 percentage points` | Eligible and lower actuator movement. |

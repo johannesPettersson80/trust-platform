@@ -1,12 +1,10 @@
 # Measure distillation interaction and select an RGA pairing
 
-**Equipment:** Continuous binary distillation column.
-
-Course position: Lesson 61 of 84. Prerequisite: valve characterization and stiction diagnosis. Next lesson: decentralized proportional-integral control and decoupling on the same column.
-
-This project operates a simulated column. It does not operate a physical distillation plant.
+Course position: Lesson 61 of 84. Previous lesson: [Valve stiction diagnosis](../../09-industrial-control-structures/60-valve-stiction/README.md). Next lesson: [Distillation decoupling comparison](../62-distillation-decoupling/README.md).
 
 **Lesson objective:** Measure all four local input-output gains, calculate the Relative Gain Array, and select a defensible decentralized pairing before designing controllers.
+
+**Evidence class:** Simulation evidence. This lesson operates a simulated distillation column; it is not approved for a physical column.
 
 ## The problem
 
@@ -38,15 +36,21 @@ For example, the gain from reflux-valve change to overhead purity deviation is g
 
 Loop interaction means that one controller's action changes the plant seen by the other controller. An open-loop gain is measured while the other input is fixed. After the other output is regulated, its controller moves that input and changes the first path's effective gain. In a strongly interacting plant, the effective gain can become much larger or even reverse sign.
 
-The Relative Gain Array ($\boldsymbol{\Lambda}$) compares the open-loop gains with their closed-loop effective gains when the other output is held by ideal feedback. First invert the gain matrix. Then transpose that inverse by exchanging its rows and columns. Finally use element-by-element multiplication, rather than ordinary matrix multiplication:
+The Relative Gain Array ($\boldsymbol{\Lambda}$) compares the open-loop gains with their closed-loop effective gains: each path's gain once ideal feedback holds the other output fixed at its target. Consider a small change in input 1 while output 2 is held by an ideal companion loop. That change alone would move output 2 by $g_{21}$ times itself; to cancel that movement, the companion loop must move input 2 by $-g_{21}/g_{22}$ times the same change. That companion movement then adds $g_{12}$ times $-g_{21}/g_{22}$ to output 1. The closed-loop effective gain from input 1 to output 1 is therefore the open-loop gain plus this correction, $g_{11}-g_{12}g_{21}/g_{22}$, and the relative gain is the open-loop gain divided by that effective gain:
+
+$\lambda_{11}=\dfrac{g_{11}}{g_{11}-g_{12}g_{21}/g_{22}}=\dfrac{g_{11}g_{22}}{g_{11}g_{22}-g_{12}g_{21}}$
+
+The denominator $g_{11}g_{22}-g_{12}g_{21}$ recurs for every entry of $\boldsymbol{\Lambda}$; it is called the **determinant ($\det(G)$)** of the gain matrix. Physically, the determinant tests whether the two inputs create genuinely different output directions: a zero determinant means both columns of $G$ point along the same output direction, so no combination of the two inputs can separate their effects. The **inverse ($G^{-1}$)** answers the reverse physical question, which input change would produce a desired output change, $u=G^{-1}y$, and it exists only when the determinant is nonzero:
+
+$\det(G)=g_{11}g_{22}-g_{12}g_{21}$
+
+$G^{-1}=\det(G)^{-1}\begin{bmatrix}g_{22}&-g_{12}\\-g_{21}&g_{11}\end{bmatrix}$
+
+Repeating the derivation above for every input-output pair is exactly what this matrix formula does in one step: first invert the gain matrix. Then transpose that inverse by exchanging its rows and columns. Finally use element-by-element multiplication, rather than ordinary matrix multiplication, to combine it with $G$:
 
 $\boldsymbol{\Lambda}=\mathbf{G}\circ\left(\mathbf{G}^{-1}\right)^{T}$
 
-For a two-by-two matrix, the determinant is
-$\det(G)=g_{11}g_{22}-g_{12}g_{21}$. Its inverse is
-$G^{-1}=\det(G)^{-1}\begin{bmatrix}g_{22}&-g_{12}\\-g_{21}&g_{11}\end{bmatrix}$.
-The determinant must be nonzero because division by zero would mean the two
-input directions cannot be separated by a unique inverse.
+Ordinary matrix multiplication combines rows with columns: entry $(i,j)$ of a product is the sum of row-$i$ entries of the first matrix times the matching column-$j$ entries of the second — for example $\begin{bmatrix}1&2\\3&4\end{bmatrix}\begin{bmatrix}5&6\\7&8\end{bmatrix}$ has top-left entry $1(5)+2(7)=19$, not $1(5)=5$. Element-by-element multiplication instead pairs each entry only with the entry already in the same row and column, with no cross terms, so $\lambda_{11}=g_{11}\times\left(G^{-1}\right)^{T}_{11}=g_{11}g_{22}/\det(G)$ reproduces the ratio derived above directly.
 
 Each row and column should sum to one. A relative gain near +1 usually indicates a pairing that changes little when the other loop closes. Large magnitudes indicate strong interaction. A negative relative gain warns that the effective feedback direction reverses. The calculation is invalid for a singular matrix and untrustworthy when a path is unsettled, poorly excited, missing, or measured at another operating point.
 
@@ -59,6 +63,8 @@ Lesson 61 uses the final settled changes for pairing. It still retains these une
 The predicted settled gain matrix is:
 
 $\mathbf{G}=\begin{bmatrix}0.8&-0.4\\-0.3&0.7\end{bmatrix}$
+
+These four gains and four response times are **declared teaching values** for this simulation: they are configured directly in the plant model, not calculated from column geometry, transcribed from a vendor data sheet, or fitted to a measured experiment. A learner obtaining them from a real column would run the same bounded, independently restored step used later in this lesson's own experiment — move one valve at a time, wait for both compositions to settle, and calculate each gain from the measured change, exactly as the Executable reference result below does from the shipped test.
 
 A +5-percentage-point reflux move should change overhead and bottoms purity by +4.00 and -1.50 composition-percentage-point respectively. In a separately restored run, a +5-percentage-point reboiler move should change them by -2.00 and +3.50 composition-percentage-point.
 
@@ -98,25 +104,25 @@ separation, the reboiler step, and zero restoration. Control Studio writes only
 one Boolean authority signal. The complete observation lasts 400.1 seconds and
 uses deterministic Simulation seed 20260829.
 
+The native lesson test uses two independently restored runs so that only one input moves at a time. Each run starts with a zero-input baseline for 20 seconds. The first run then continues to change only reflux and hold it for 180 seconds. A new run starts with its own zero-input baseline for 20 seconds, then continues to change only reboiler steam and hold it for 180 seconds. The interactive Test below reproduces both windows in one continuous 400.1-second session for convenience.
+
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm both purity deviations and both requested/applied input changes, including units, limits, Manual mode, quality, and the 0.1-second interval. The initial point is zero for all four quantities. Retain a 20-second zero baseline, the 20-to-200-second reflux-only window, the 200-to-220-second restored window, and the 220-to-400-second reboiler-only window. Use a final 10-second mean only when each composition varies by no more than 0.02 percentage points. If a path is missing or invalid, report the matrix and pairing as Unconfirmed.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept the diagonal overhead-to-reflux and bottoms-to-reboiler pairing only from four valid measured gains and reject the negative-relative-gain cross pairing.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm both purity deviations and both requested/applied input changes, including units, limits, Manual mode, quality, and the 0.1-second interval. The initial point is zero for all four quantities. Retain a 20-second zero baseline, the 20-to-200-second reflux-only window, the 200-to-220-second restored window, and the 220-to-400-second reboiler-only window. Use a mean over the final 10 seconds only when each composition varies by no more than 0.02 composition percentage points. If a path is missing or invalid, report the matrix and pairing as Unconfirmed.
+   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept the diagonal overhead-to-reflux and bottoms-to-reboiler pairing only from four valid measured gains and reject the negative-relative-gain cross pairing, because a diagonal relative gain near one means that pairing changes little when the other loop closes, while a negative cross relative gain means closing the other loop would reverse that pairing's effective direction.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the initial reflux and reboiler requested and applied changes, both purity deviations, Manual mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **400.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project excites only reflux from 20 to 200 seconds, restores both inputs for 20 seconds, then excites only reboiler steam from 220 to 400 seconds.
-   - **Decision before action:** Before selecting **Review test**, predict all four response signs and confirm inputs can remain within -10 through +10 percentage points and purity deviations within -6 through +6 points.
+   - **Decision before action:** Before selecting **Review test**, predict all four response signs and confirm inputs can remain within -10 through +10 percentage points and purity deviations within -6 through +6 points, because a saturated input or an excursion past those limits would leave the local linear gain model this lesson depends on.
    - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must show that the non-excited input remains zero in each window. At termination authority clears and both requested inputs return to zero. Keep **Abort test** visible.
    - **Recovery:** Select **Abort test** if the test is rejected, stale, unsafe, unavailable, failed, or aborted. Read the reason, confirm authority is false and both inputs restored to zero, wait for current data, and review a new observation.
    - **Record:** Calculate each settled change and compare it with your prediction. Retain terminal state, restoration, and seed **20260829**. The native lesson test owns the qualified gain matrix and RGA verdict; this observation does not create generic Identify, Tune, or Validate evidence.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Define every measure before reading the result:
 
@@ -127,8 +133,6 @@ Define every measure before reading the result:
 - **Relative gain** is one element of the Relative Gain Array calculated from the qualified measured matrix. Retain four elements and every row and column sum.
 
 Classify settling, excitation, signal quality, limits, completeness, and restoration before comparing pairings.
-
-### Validation
 
 The executable reference test must identify all four gains within 0.01 composition percentage points per valve percentage point of the prediction. Each 63.2-percent response time must be within 1.0 second of its prediction; this tolerance accounts for estimating settled change from the finite 180-second record rather than an infinite-time asymptote. Each non-excited input must remain fixed. Every Relative Gain Array row and column must sum to one within 0.001.
 

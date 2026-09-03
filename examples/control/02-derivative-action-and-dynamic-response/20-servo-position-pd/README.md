@@ -1,16 +1,13 @@
 # Position-table proportional-derivative control
 
-Course position: Lesson 20 of 84. Previous lesson:
-[Position-table proportional control](../19-servo-position-p/README.md).
-Next lesson: [Loaded position-table PID control](../21-underdamped-pid/README.md).
+Course position: Lesson 20 of 84. Previous lesson: [Position-table proportional control](../19-servo-position-p/README.md). Next lesson: [Loaded position-table PID control](../21-underdamped-pid/README.md).
 
 **Lesson objective:** Add derivative action to the position controller, then
 explain from the mechanics why velocity feedback reduces overshoot without
 changing the proportional stiffness.
 
-This lesson uses simulation. Its results are not physical-axis evidence.
-
-**Equipment:** Motor-driven industrial positioning table.
+**Evidence class:** Simulation evidence. The noise-free encoder in this lesson
+isolates the damping effect and is not a qualified physical measurement.
 
 ## The problem
 
@@ -54,7 +51,10 @@ the position error $e$:
 $e = SP - PV$
 
 The proportional gain $K_p$ tells us how many newton metres of restoring torque
-to request for each radian of error. Therefore the proportional contribution is
+to request for each radian of error. This lesson writes torque as $T$ and
+angular velocity as $\omega$ rather than Lesson 19's $\tau$ and $\dot\theta$;
+both notations name the same physical quantities. Therefore the proportional
+contribution is
 
 $T_P = K_p e$
 
@@ -75,10 +75,20 @@ cancels seconds and radians, leaving N m, so $T_D$ really is a torque. When the
 table moves positively, $T_D$ is negative; when it moves negatively, $T_D$ is
 positive. In either case it opposes motion.
 
-The derivative setpoint weight is zero, so this lesson differentiates measured
-position, not the setpoint. A step in the requested angle is instantaneous and
-would have an unbounded ideal derivative. Measuring physical velocity instead
-lets derivative action respond to motion that the table actually makes.
+The **derivative setpoint weight ($c$)**, dimensionless from 0 to 1, chooses
+how much of a setpoint change the derivative term differentiates; Lesson 22
+explains it fully. This lesson fixes $c=0$ (`DerivativeSetpointWeight :=
+LREAL#0.0`), so the controller differentiates only measured position, not the
+setpoint. A step in the requested angle is instantaneous and would have an
+unbounded ideal derivative if differentiated directly.
+
+The controller does not read the encoder's published velocity signal for
+this. It calculates $\omega$ itself as a backward difference of consecutive
+position samples, $\omega_k=(PV_k-PV_{k-1})/\Delta t$, so derivative action
+responds only to motion the table's position samples actually show. The
+encoder's separately published `P1.Velocity` is independent plant evidence
+used only to check the controller's calculation against the simulated
+physics, not an input the controller itself consumes.
 
 Before the drive limit, the requested torque is the sum of the two controller
 contributions:
@@ -138,19 +148,31 @@ while the stiffness term $K_p$ remains unchanged.
 
 ### Phase lead and energy removal
 
-For a sinusoidal displacement $x=A\sin(\omega t)$, differentiation gives
-$\dot{x}=A\omega\cos(\omega t)$. Cosine reaches each corresponding point one
-quarter cycle before sine. This is the meaning of **phase lead** here: the
-velocity path reacts while the table is moving, before displacement reaches its
-later peak.
+The table's actual decaying oscillation is well approximated near one swing by
+a plain sinusoid, so consider a generic oscillation frequency $\omega$ here
+(a stand-in for whatever frequency the table is actually swinging at, not the
+undamped natural frequency $\omega_n$ defined above). For a sinusoidal
+displacement $x=A\sin(\omega t)$, differentiation gives
+$\dot{x}=A\omega\cos(\omega t)$: velocity is largest where displacement
+crosses zero and zero where displacement peaks. Cosine reaches each
+corresponding point one quarter cycle before sine. This is the meaning of
+**phase lead** here: the velocity path reacts while the table is moving,
+before displacement reaches its later peak.
 
 We can also prove that the derivative term removes stored mechanical energy.
-For displacement $x$ and velocity $\omega=\dot{x}$, define
+For displacement $x$ and velocity $\omega=\dot{x}$, define the total stored
+energy as kinetic energy (a moving mass's stored energy, one-half inertia
+times velocity squared) plus the position-error store (energy the virtual
+spring holds, one-half proportional gain times displacement squared):
 
 $E=\tfrac{1}{2}J\omega^2+\tfrac{1}{2}K_px^2$
 
 The first term is kinetic energy and the second is the energy associated with
-the proportional restoring action. Differentiate with respect to time:
+the proportional restoring action. Each term changes at a rate found by
+differentiating it and multiplying by the rate of change of the quantity
+squared inside it (the chain rule): the kinetic term's rate is inertia times
+velocity times acceleration, and the position term's rate is proportional
+gain times displacement times velocity. Differentiate with respect to time:
 
 $\frac{dE}{dt}=J\omega\dot{\omega}+K_px\dot{x}$
 
@@ -192,14 +214,19 @@ because both fresh runs use the same plant, initial state, setpoint, sampling,
 limits, seed, and measurement windows.
 
 Accept the PD result only if its overshoot is at most 0.100 rad with a 0.001 rad
-tolerance, its overshoot ratio is at most 0.25 with a 0.01 tolerance, its late-
-span ratio is at most 0.20 with a 0.01 tolerance, and applied torque remains
-within 10 N m with a 0.01 N m tolerance. All samples must be finite. These rules
-are declared now so the graph cannot persuade us to move the goalposts later.
+tolerance (a tenth of the 1-rad move, small enough to call the response well
+damped), its overshoot ratio is at most 0.25 with a 0.01 tolerance (PD must
+cut overshoot to at most a quarter of the P baseline, not merely reduce it),
+its late-span ratio is at most 0.20 with a 0.01 tolerance (residual late
+motion must shrink by the same margin), and applied torque remains within
+10 N m with a 0.01 N m tolerance (the drive's own physical limit). All samples
+must be finite. These rules are declared now so the graph cannot persuade us
+to move the goalposts later.
 
 ## Prediction
 
-For this table, $J=1$ kg m², $B=1$ N m s/rad, and $K_p=8$ N m/rad. Both cases
+For this table, $J=1$ kg m², $B=1$ N m s/rad, and $K_p=8$ N m/rad, all
+inherited unchanged from Lesson 19 as configured teaching values. Both cases
 therefore have the same natural frequency:
 
 $\omega_n=\sqrt{8/1}=2.828\,\text{rad/s}$
@@ -212,8 +239,10 @@ With $K_d=3$ N m s/rad,
 
 $\zeta_{PD}=(1+3)/(2\sqrt{1\times8})=0.707$
 
-Thus both controllers have natural frequency 2.828 rad/s, while derivative
-action raises damping ratio from 0.177 to 0.707.
+$K_d=3$ was chosen so that $\zeta_{PD}=0.707$, the damping ratio that gives a
+small, well-controlled overshoot with fast settling; it is not an arbitrary
+round number. Thus both controllers have natural frequency 2.828 rad/s, while
+derivative action raises damping ratio from 0.177 to 0.707.
 
 At the instant of the 1 rad step, velocity is still zero. Both cases initially
 request $8\times1=8$ N m, so derivative action has not weakened the initial
@@ -231,11 +260,25 @@ The project starts safely with $K_d=0$, setpoint zero, Manual mode, and zero
 torque. The Test surface does not write the setpoint or gain directly. Its sole
 reviewed write is the Boolean authority `P1.ExperimentEnabled`.
 
+Startup configures the fixed proportional gain and the zero derivative
+setpoint weight once:
+
+```st
+Parameters.ProportionalGain := LREAL#8.0;
+Parameters.DerivativeGain := DerivativeGain;
+(* c=0 differentiates measured position, so this damping term reacts to
+   physical motion without differentiating the reference step. *)
+Parameters.DerivativeSetpointWeight := LREAL#0.0;
+Controller.Configure(Parameters := Parameters);
+```
+
 On that Boolean's rising edge, the project selects $K_d=3$, sets the 1 rad
-target, reconfigures the controller from the measured state, and enters Auto.
-While authority remains true, the project owns the move. When authority returns
-false, the project restores $K_d=0$, setpoint zero, Manual mode, and zero torque.
-Invalid position or velocity and `SafetyAbort` also fail closed to Manual zero.
+target, reconfigures the controller from the measured state, and enters Auto;
+while authority stays true it keeps requesting the 1 rad target in Auto
+without repeating the reconfiguration. When authority returns false, the
+project restores $K_d=0$, setpoint zero, Manual mode, and zero torque.
+Invalid position or velocity and `SafetyAbort` also fail closed to Manual
+zero. This is the complete edge-handling and update logic, quoted verbatim:
 
 ```st
 IF ExperimentEnabled AND NOT ExperimentWasEnabled THEN
@@ -243,6 +286,9 @@ IF ExperimentEnabled AND NOT ExperimentWasEnabled THEN
     Setpoint := LREAL#1.0;
     AutoMode := TRUE;
     ReconfigureRequested := TRUE;
+ELSIF ExperimentEnabled THEN
+    Setpoint := LREAL#1.0;
+    AutoMode := TRUE;
 ELSIF ExperimentWasEnabled THEN
     DerivativeGain := LREAL#0.0;
     Setpoint := LREAL#0.0;
@@ -250,13 +296,36 @@ ELSIF ExperimentWasEnabled THEN
     ReconfigureRequested := TRUE;
 END_IF;
 
-Parameters.ProportionalGain := LREAL#8.0;
-Parameters.DerivativeGain := DerivativeGain;
-Parameters.DerivativeSetpointWeight := LREAL#0.0;
+InputsValid := Position >= LREAL#-4.0 AND Position <= LREAL#4.0
+    AND Velocity >= LREAL#-20.0 AND Velocity <= LREAL#20.0;
+IF ReconfigureRequested THEN
+    Parameters.DerivativeGain := DerivativeGain;
+    Controller.Configure(Parameters := Parameters);
+    InitialState.Setpoint := Setpoint;
+    InitialState.ProcessValue := Position;
+    InitialState.NominalOutput := MotorTorque;
+    InitialState.SaturatedOutput := MotorTorque;
+    Controller.Initialize(State := InitialState);
+END_IF;
+
+Input.Setpoint := Setpoint;
+Input.ProcessValue := Position;
+IF AutoMode AND InputsValid AND NOT SafetyAbort THEN
+    Input.Mode := PIDMode#Auto;
+ELSE
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := LREAL#0.0;
+END_IF;
+Input.CycleTime := LREAL#0.02;
 MotorTorque := Controller.Update(Input := Input);
+IF SafetyAbort OR NOT InputsValid OR NOT AutoMode THEN
+    MotorTorque := LREAL#0.0;
+END_IF;
 ```
 
-One running UI project produces the selected PD run. The native test owns the
+`ReconfigureRequested` is set only on the two edges, so the controller is
+reinitialized exactly once per transition, not every scan. One running UI
+project produces the selected PD run. The native test owns the
 P-versus-PD comparison by creating two fresh runtimes and applying the same
 initial conditions and measurement plan to both; the lesson never pretends one
 already-configured controller produced two independent traces.
@@ -296,14 +365,15 @@ Validate screen for this project-owned comparison.
      the complete project-owned gain selection, move, and restoration. Then
      select **Review test** and verify the authority write, limits, duration,
      restoration, and stop conditions.
-   - **Successful evidence:** Select **Confirm and start**. The state changes to
-     **Running**, **Abort test** remains available, and Response shows the
+   - **Successful evidence:** Select **Confirm and start**. Test reports "Test
+     running. Live values and limits remain visible above; Abort is
+     available.", **Abort test** remains available, and Response shows the
      SP/PV/velocity/MV sequence. Completion is valid only when Test reports
      restoration and Monitor shows authority false, setpoint zero, Manual mode,
      and zero motor torque.
-   - **Recovery:** If the test is rejected, stale, unsafe, failed, or aborted,
-     read the displayed reason, restore the safe baseline, wait for current
-     data, and review a new test.
+   - **Recovery:** Select **Abort test** if the test is rejected, stale,
+     unsafe, failed, or aborted; confirm authority false, setpoint zero,
+     Manual mode, and applied torque 0 N m before reviewing a new test.
    - **Record:** Retain the terminal state, restoration result, seed 20260828,
      and observed response. Do not use a retained table as proof of a newly
      executed run.
@@ -322,6 +392,10 @@ criteria: damping improved while proportional gain, natural frequency, plant,
 move, and limits remained fixed.
 
 ![Derivative action adds damping](figures/position-pd.svg)
+
+The PD trace reaches the same initial slope as the P trace, then damps out
+almost immediately instead of ringing, while the torque trace shows the
+opposing derivative contribution appearing only while the table is moving.
 
 [Retained samples](figures/position-pd-trace.csv) ·
 [Decision summary](figures/position-pd-summary.csv)

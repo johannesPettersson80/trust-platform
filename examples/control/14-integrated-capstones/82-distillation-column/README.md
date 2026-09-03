@@ -1,9 +1,10 @@
 # Commission a multivariable distillation control architecture
 
-Course position: Lesson 82 of 84.
-Prerequisite: `control-capstone-conveyor-oven`.
+Course position: Lesson 82 of 84. Previous lesson: [Select delay compensation for a conveyor oven](../81-conveyor-oven/README.md). Next lesson: [Decide whether predictive building control earns its complexity](../83-building-hvac/README.md).
 
 **Lesson objective:** Identify all four local paths and select an unapplied direct, statically decoupled, or centrally constrained architecture from common nominal, interaction, constraint, and abnormal evidence.
+
+**Evidence class:** Simulation evidence. The nominal and stronger-interaction gain matrices, the singular-value and sensitivity sweeps, and the infeasible +2/+2 challenge in this lesson are deterministic Simulation evidence and are not approved for a physical distillation column.
 
 Plant: Continuous binary distillation column.
 
@@ -130,7 +131,7 @@ Its singular values are 1.7512 and 0.2512, its condition number is 6.97, and its
 
 The interaction uncertainty ($\Delta\mathbf{M}$) is the actual normalized matrix minus the nominal normalized matrix. Its largest singular value measures the worst directional size of the model difference.
 
-$DeltaM = M_{1} - M_{0}$
+$\Delta\mathbf{M} = \mathbf{M}_{1} - \mathbf{M}_{0}$
 
 The uncertainty size is 0.30. This is smaller than the nominal minimum singular value of 0.5364, so this bounded set is not predicted to lose invertibility. That test does not promise good conditioning or good closed-loop performance.
 
@@ -181,10 +182,13 @@ the experiment variable.
 Automatic uses the selected qualified mapping. Manual applies reviewed reflux
 and reboiler values while both PI histories track the independently observed
 applied valves through that mapping. ControlledStop returns both applied valve
-changes toward zero. Safe closes both commands for invalid composition quality
-or unavailable valve authority. An unqualified decoupler falls back to direct
-paired feedback. The return to Automatic must be bumpless against applied
-commands; revision 82 remains unapplied.
+changes toward zero. The static decoupler is qualified only when its
+configured nominal gain-matrix model is invertible beyond the declared
+singularity tolerance; an invalid model disqualifies the decoupler and the
+architecture falls back to direct paired feedback. Safe separately closes both
+commands for invalid composition quality or unavailable valve authority. The
+return to Automatic must be bumpless against applied commands; revision 82
+remains unapplied.
 
 ## Prediction
 
@@ -203,15 +207,45 @@ The shipped program runs these actual components:
 ```st
 VirtualCommand.First := OverheadController.Update(Input := OverheadInput);
 VirtualCommand.Second := BottomsController.Update(Input := BottomsInput);
-CoupledCommand := StaticDecoupler.ToActuators(VirtualCommand := VirtualCommand);
+VirtualOverheadCorrection := VirtualCommand.First;
+VirtualBottomsCorrection := VirtualCommand.Second;
 
-RequestedPeak := MAX(ABS(RefluxRequested), ABS(ReboilerRequested));
-CommonScale := MIN(LREAL#1.0, LREAL#10.0 / RequestedPeak);
-RefluxApplied := CommonScale * RefluxRequested;
-ReboilerApplied := CommonScale * ReboilerRequested;
+IF ArchitectureActive >= INT#1 THEN
+    CoupledCommand := StaticDecoupler.ToActuators(VirtualCommand := VirtualCommand);
+    RefluxRequested := CoupledCommand.First;
+    ReboilerRequested := CoupledCommand.Second;
+ELSE
+    RefluxRequested := VirtualCommand.First;
+    ReboilerRequested := VirtualCommand.Second;
+END_IF;
 ```
 
-The actual source contains exactly two `Control.PID` objects and one
+The static-inverse mapping shown above applies only when the active
+architecture is decoupled or centrally coordinated; direct decentralized PI
+skips it entirely. The common-scale block is likewise conditional on the
+active architecture, not unconditional:
+
+```st
+RequestedPeak := MAX(ABS(RefluxRequested), ABS(ReboilerRequested));
+IF ArchitectureActive = INT#2
+    AND (RequestedPeak > LREAL#0.0)
+THEN
+    (* One common scale preserves the requested two-valve direction when
+       the physical magnitude must be reduced. *)
+    CommonScale := MIN(LREAL#1.0, LREAL#10.0 / RequestedPeak);
+    RefluxApplied := CommonScale * RefluxRequested;
+    ReboilerApplied := CommonScale * ReboilerRequested;
+ELSE
+    CommonScale := LREAL#1.0;
+    RefluxApplied := LIMIT(LREAL#-10.0, RefluxRequested, LREAL#10.0);
+    ReboilerApplied := LIMIT(LREAL#-10.0, ReboilerRequested, LREAL#10.0);
+END_IF;
+```
+
+Only the central-coordination candidate (`ArchitectureActive = 2`) with a
+nonzero requested peak reaches the shared scale factor; direct and static
+decoupling instead clip each valve independently at plus or minus 10
+percentage points. The actual source contains exactly two `Control.PID` objects and one
 `Control.StaticDecoupler2x2`. It guards division by zero, chooses direct,
 static, or centrally constrained operation explicitly, and exposes
 `ArchitectureRequested`, `ArchitectureActive`, `ArchitectureQualified`, `OverheadSetpoint`,
@@ -230,7 +264,7 @@ seed is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Overhead purity setpoint (SP, pp) and Bottoms purity setpoint (SP, pp); Overhead light-product purity deviation (PV, pp) and Bottoms heavy-product purity deviation (PV, pp); Requested reflux change (MV, pp) and Requested reboiler steam change (MV, pp), including units, limits, mode, and quality. The initial operating point is Overhead purity setpoint = 0 pp, Bottoms purity setpoint = 0 pp, Applied reflux change = 0 pp, Applied reboiler steam change = 0 pp, Applied feed-composition disturbance = 0 pp. The unresolved baseline problem is: The identified diagonal pairing and separate PI loops do not by themselves prove weak-direction robustness, interaction uncertainty, or joint input feasibility.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Select static decoupling only after four-path identification, RGA pairing and common robustness evidence; retain direct feedback as invalid-mapping fallback and the +2/+2 record as Infeasible.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
@@ -239,14 +273,17 @@ seed is 20260829.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **720.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns the single-axis, simultaneous, feed-disturbance, infeasible, invalid-quality, unavailable-valve, Manual, ControlledStop, and restoration intervals.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the complete project sequence remains inside Overhead purity setpoint -4 pp to 4 pp; Bottoms purity setpoint -4 pp to 4 pp; Applied reflux change -10 pp to 10 pp; Applied reboiler steam change -10 pp to 10 pp; Overhead light-product purity deviation -6 pp to 6 pp; Bottoms heavy-product purity deviation -6 pp to 6 pp.
+   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the complete project sequence remains inside Overhead purity setpoint -4 pp to 4 pp; Bottoms purity setpoint -4 pp to 4 pp; Applied reflux change -10 pp to 10 pp; Applied reboiler steam change -10 pp to 10 pp; Overhead light-product purity deviation -6 pp to 6 pp; Bottoms heavy-product purity deviation -6 pp to 6 pp. Enabling **Experiment authority** is the correct action, and a manual Control Studio setpoint step is not, because only the project can hold one input fixed while independently exciting the other, which four-path identification requires.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, confirm `P1.ExperimentEnabled = FALSE`, and wait for the project to restore both setpoints and applied valve changes to zero before reviewing a new test.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
 
-## Evidence and decision
+Identify, Tune, and Validate are not learner steps. The native executable test
+owns four-path identification, the RGA pairing, the singular-value,
+sensitivity, and infeasibility evidence, and the architecture decision;
+disabled generic panels are not evidence.
 
-### Measures and comparison
+## Evidence and decision
 
 Final-window combined absolute error is the mean of the two absolute setpoint-minus-process-value errors over the final 10 seconds, after both outputs qualify as settled. Its unit is composition percentage points and smaller is better.
 
@@ -266,16 +303,35 @@ sensitivity peak over 0.002 through 2 radians per second.
 
 A normal record passes only when combined final error is at most 0.10, single-axis cross peak is at most 0.20, input-limit time is at most 0.5 seconds, restoration error is at most 0.02, and sensitivity peak is at most 1.20. The simplest architecture wins. A more centralized candidate needs at least 20 percent improvement in eligible error or input travel, or it must turn a failed normal requirement into a pass without breaking another limit.
 
-### Validation
+Final-window combined absolute error is the mean of the two absolute setpoint-minus-process-value errors over the final 10 seconds, after both outputs qualify as settled. Its unit is composition percentage points and smaller is better.
 
-The executable comparison retained every record, including failures. The most decision-relevant results are:
+Unintended cross peak is the largest absolute movement of the product whose setpoint was unchanged during a single-axis test. Its unit is composition percentage points and smaller is better.
+
+Combined integral absolute error (combined IAE) is the 0.1-second time sum of
+both absolute errors over the event. Its unit is composition-percentage-point
+seconds. Applied-input total variation is the sum of the absolute changes
+between consecutive samples of both applied inputs. Its unit is valve
+percentage points.
+
+Also retain four-path fit and validation error, determinant, RGA with
+uncertainty, time at an input limit, minimum common scale, restoration error,
+matrix singular values, condition number, inverse amplification, requested-
+versus-applied mismatch, command-direction error, and the multivariable
+sensitivity peak over 0.002 through 2 radians per second.
+
+A normal record passes only when combined final error is at most 0.10, single-axis cross peak is at most 0.20, input-limit time is at most 0.5 seconds, restoration error is at most 0.02, and sensitivity peak is at most 1.20. The simplest architecture wins. A more centralized candidate needs at least 20 percent improvement in eligible error or input travel, or it must turn a failed normal requirement into a pass without breaking another limit.
+
+The executable comparison retained every record, including failures. The
+retained trace and summary CSVs carry three of the compared measures at full
+precision; the nominal simultaneous final error and the strong-interaction
+sensitivity peak are separate native-test acceptance measures (see the
+requirement above) not retained in the shipped CSV, so they are not tabulated
+here. The most decision-relevant retained results are:
 
 | Evidence case | Direct PI | Static decoupling | Central constraint coordination |
 | --- | ---: | ---: | ---: |
-| Nominal simultaneous final error | 0.0161 pp | 0.0041 pp | 0.0041 pp |
 | Strong-interaction simultaneous final error | 0.1728 pp | 0.0767 pp | 0.0767 pp |
 | Worst strong-interaction single-axis cross peak | 0.1891 pp | 0.0752 pp | 0.0752 pp |
-| Strong-interaction sensitivity peak | 1.0067 | 1.0071 | 1.0071 |
 | Infeasible +2/+2 final error | 1.0275 pp | 0.4174 pp | 0.2747 pp |
 
 Every static and centrally coordinated normal-envelope record passed final

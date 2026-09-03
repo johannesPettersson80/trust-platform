@@ -4,6 +4,8 @@ Course position: Lesson 53 of 84. Previous lesson: [Automatic Tune](../../08-tun
 
 **Lesson objective:** Use measured conveyor speed to design static and dynamic feedforward, compare both with feedback-only proportional-integral control, and decide whether early compensation justifies its actuator movement and dependence on a plant model.
 
+**Evidence class:** Simulation evidence. The three-oven comparison, feedforward gains, and speed disturbance in this lesson are not physical-plant qualification evidence for a real oven.
+
 ## The problem
 
 A continuous conveyor carries product through an industrial heating zone. The
@@ -15,8 +17,7 @@ speed is measured as a ratio to nominal production speed: 1.0 is nominal and
 The desired temperature is 120 degrees Celsius. At nominal speed, 70 percent
 heater power holds that temperature. The controller runs every 0.1 seconds.
 Three equivalent simulated ovens let us change only the feedforward structure:
-feedback-only, static feedforward, or dynamic feedforward. This is Simulation
-evidence, not physical-plant evidence.
+feedback-only, static feedforward, or dynamic feedforward.
 
 Lesson 52 validated a complete tuning workflow, but a qualified feedback
 controller can still accumulate load-disturbance error. Feedback must wait
@@ -57,7 +58,11 @@ temperature error. The **process path** describes how heater power changes
 temperature. The **disturbance path** describes how conveyor speed changes
 temperature.
 
-The requested heater command combines both actions:
+The **feedback contribution ($MV_{\mathrm{feedback}}$)** is the heater command the PI
+controller calculates from measured temperature error, in percent. The
+**feedforward contribution ($MV_{\mathrm{feedforward}}$)** is the heater command calculated
+from measured conveyor speed before temperature error appears, also in
+percent. The requested heater command combines both actions:
 
 $MV_{\mathrm{requested}} = MV_{\mathrm{feedback}} + MV_{\mathrm{feedforward}}$
 
@@ -73,13 +78,22 @@ The **steady disturbance-path gain ($\mathbf{K}_{\mathrm{d}}$)** is the eventual
 for one unit of relative speed. It is -20.0 degrees Celsius: faster product
 removes more heat from the controlled zone.
 
-Static feedforward cancels the predicted final disturbance effect:
+$K_{u}$ and $K_{d}$ are **configured teaching values**: set directly in the
+plant model, not measured from a physical oven. A learner would instead run
+two step tests at the nominal point — hold speed fixed and step heater power
+for $K_u$, then hold heater power fixed and step speed for $K_d$ — waiting for
+temperature to settle before reading each steady-state change.
+
+Static feedforward cancels the predicted final disturbance effect. At steady
+state the heater-path contribution and the disturbance-path contribution must
+sum to zero, $K_{u} \cdot MV_{\mathrm{feedforward\,static}} + K_{\mathrm{d}} \cdot \Delta d = 0$;
+solving for the feedforward term gives:
 
 $MV_{\mathrm{feedforward\,static}} = -(K_{\mathrm{d}} / K_{u}) \cdot \Delta d$
 
 For a speed change from 1.0 to 2.0:
 
-$MV_{\mathrm{feedforward\,static}} = -(-20 / 2) \cdot 1 = 10.0 percentage points$
+$MV_{\mathrm{feedforward\,static}} = -(-20 / 2) \cdot 1 = 10.0\text{ percentage points}$
 
 This is the correct final correction for the local model. It does not yet say
 how quickly that correction should appear.
@@ -88,7 +102,9 @@ how quickly that correction should appear.
 
 The **heater-path time constant ($T_{u}$)** is 10.0 seconds. The **disturbance-path
 time constant ($\mathbf{T}_{\mathrm{d}}$)** is 4.0 seconds. Conveyor speed therefore affects product
-temperature faster than ordinary heater power does.
+temperature faster than ordinary heater power does. Like $K_u$ and $K_d$,
+$T_u$ and $T_d$ are configured teaching values obtained from the same two
+step tests by timing each response to 63 percent of its final change.
 
 The **filtered disturbance deviation ($z$)** is a first-order representation of
 the four-second disturbance path. After these quantities have been defined, the
@@ -104,9 +120,12 @@ sum to zero: $G_uMV_{ff}+G_d\Delta d=0$. Therefore
 $\frac{MV_{ff}}{\Delta d}=-\frac{G_d}{G_u}
 =10\frac{10s+1}{4s+1}.$
 
-To implement that ratio, divide it into a direct term and a filtered term:
+To implement that ratio, divide it into a direct term and a filtered term.
+Write the numerator in terms of the denominator: $10s+1=2.5(4s+1)-1.5$, because
+$2.5(4s+1)=10s+2.5$ and subtracting $1.5$ leaves $10s+1$. Multiplying by 10
+gives the coefficients used below:
 
-$10\frac{10s+1}{4s+1}=25-\frac{15}{4s+1}.$
+$10\frac{10s+1}{4s+1}=10\left(2.5-\frac{1.5}{4s+1}\right)=25-\frac{15}{4s+1}.$
 
 If $z$ is the output of the filter $1/(4s+1)$, then
 $4\,dz/dt+z=\Delta d$. Substitution gives the executable form:
@@ -120,6 +139,12 @@ feedforward therefore requests a 25 percentage-point increase. As the filtered
 value approaches 1.0, the correction approaches 10 percentage points. The
 large initial action is compensation for the slower heater path, not an
 arbitrary kick.
+
+The **dynamic feedforward scale** multiplies this entire command. A scale of
+1.0 uses the model exactly; a scale below 1.0 represents a model-gain
+mismatch — the feedforward model understating the real oven's gain — used
+below to show that feedback trim remains necessary even with an imperfect
+model.
 
 Feedback trim remains active in every case. It removes residual error caused by
 model mismatch and unmeasured heat loss. Speed data that are stale, forced,
@@ -147,18 +172,40 @@ Predict the following order before viewing the plots:
 The program uses three real `Control.PID` instances and one
 `Control.LowPass`. All controllers have $K_p = 0.8 \%/{}^\circ\mathrm{C}$,
 $K_i = 0.08 \%/({}^\circ\mathrm{C} \cdot s)$, zero derivative action, a 70-percent initialized
-output, identical limits, and the same 0.1-second cycle.
+output, identical limits, and the same 0.1-second cycle. These are
+**configured teaching gains**, chosen for a stable, moderately damped baseline
+so the comparison isolates feedforward structure rather than tuning method; a
+physical oven would instead use Lesson 44's model-qualified SIMC procedure on
+the identified heater path.
 
-The important implementation is deliberately short:
+The important implementation is deliberately short. This is the shipped code
+verbatim; the dynamic command deliberately uses the filter's retained value
+from the previous scan before advancing it, so the first post-event command
+matches the predicted 25-point jump:
 
 ```st
-StaticFeedforward := LREAL#10.0 * DisturbanceDeviation;
+IF SpeedValid THEN
+    DisturbanceDeviation := MeasuredLineSpeed - LREAL#1.0;
+    StaticFeedforward := LREAL#10.0 * DisturbanceDeviation;
+ELSE
+    (* Invalid disturbance data removes feedforward authority while the three
+       ordinary feedback controllers continue to operate. *)
+    DisturbanceDeviation := LREAL#0.0;
+    StaticFeedforward := LREAL#0.0;
+END_IF;
+
+IF SpeedValid THEN
+    DynamicFeedforward := DynamicFeedforwardScale
+        * (LREAL#25.0 * DisturbanceDeviation - LREAL#15.0 * FilteredDisturbance);
+ELSE
+    DynamicFeedforward := LREAL#0.0;
+END_IF;
+(* Use the retained filter state for this command, then advance it for the next
+   controller sample. This preserves the predicted 25-point first action. *)
 FilteredDisturbance := DisturbanceFilter.Update(
     Input := DisturbanceDeviation,
     CycleTime := LREAL#0.1
 );
-DynamicFeedforward := DynamicFeedforwardScale
-    * (LREAL#25.0 * DisturbanceDeviation - LREAL#15.0 * FilteredDisturbance);
 
 StaticInput.FeedForward := StaticFeedforward;
 DynamicInput.FeedForward := DynamicFeedforward;
@@ -196,8 +243,6 @@ seed is 20260829.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 For the nominal comparison, change only feedforward structure. Keep plant,
 initial state, PI settings, speed event, timing, limits, seed, duration, and
 metric windows identical. For the mismatch run, change only the dynamic scale.
@@ -217,8 +262,6 @@ Define every decision measure before opening the result:
   degrees Celsius and applied-heater range is at most 0.10 percentage points in
   that window; otherwise report `Not settled`.
 
-### Validation
-
 First qualify every run: values must be finite, heater power must remain from 0
 through 100 percent, and accepted comparisons must not depend on saturation.
 Then require static event IAE below feedback-only event IAE and dynamic event
@@ -231,6 +274,20 @@ The 0.8-scale case must show more residual error than the nominal dynamic case,
 recover through PI, remain bounded, and still improve on feedback-only. With
 invalid speed data, static and dynamic feedforward must both remain zero and all
 three ovens must follow the feedback-only response.
+
+The measured event-window IAE is 122.21 degC*s for feedback-only, 48.13 degC*s
+for static feedforward, and 0.60 degC*s for dynamic feedforward, confirming the
+predicted ordering. Peak temperature deviation falls from 9.07 to 4.14 to 0.05
+degrees Celsius across the same three cases, while cumulative applied-heater
+movement rises from 12.29 to 18.54 to 39.99 percentage points: the smaller
+error costs more actuator movement. The measured dynamic feedforward reaches
+25.00 percentage points at 30.1 s and settles to 10.00 percentage points by
+90.0 s, matching the predicted values exactly. The static case's final-window
+PV span exceeds the settling rule, so its final error is reported as
+`Not settled`, as predicted. The 0.8-scale mismatch run measures 24.32 degC*s
+of event IAE — worse than nominal dynamic compensation but still far below
+feedback-only — and its final mean absolute error of 0.0024 degrees Celsius
+after PI recovery is within the settling qualification.
 
 ### Retained evidence
 

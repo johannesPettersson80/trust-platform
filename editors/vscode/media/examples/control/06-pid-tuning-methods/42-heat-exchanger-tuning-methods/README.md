@@ -12,19 +12,18 @@ copies.
 ## The problem
 
 A steam valve controls the outlet temperature of a plate heat exchanger. Four
-independent copies represent the same accepted local operating region. They
-compare manual proportional-only, manual proportional-integral, critical
-proportional-only, and historical proportional-integral control. Every copy is
-simulated.
+independent copies of the same accepted local operating region compare
+manual proportional-only, manual proportional-integral, critical
+proportional-only, and historical proportional-integral control; every copy
+is simulated.
 
 Each copy begins at 50 degrees Celsius with the valve at 20 percent —
-Lesson 41's accepted local operating point. The plant itself is Lesson 41's
-validated model, inherited unchanged: a gain of 0.5 degrees Celsius per valve
-percentage point, a 20-second time constant, and a 3-second dead time. The
-controller runs every 0.1 seconds against independent 0.05-degree-Celsius
-measurement noise, a configured value for this comparison. The valve is
-limited to 0 through 100 percent. The evidence is Simulation evidence, not
-physical-plant evidence.
+Lesson 41's accepted operating point. The plant is Lesson 41's validated
+model, inherited unchanged: gain 0.5 degrees Celsius per valve percentage
+point, 20-second time constant, 3-second dead time. The controller runs
+every 0.1 seconds against independent 0.05-degree-Celsius measurement noise,
+configured for this comparison. The valve is limited to 0 through 100
+percent; the evidence is Simulation evidence, not physical-plant evidence.
 
 A valid model still does not decide how fast the loop should respond, how
 much overshoot is acceptable, or how much valve movement is justified. This
@@ -33,10 +32,9 @@ them with an intentionally aggressive historical rule.
 
 ## What we need
 
-We need to compare manual proportional-only, manual proportional-integral,
-critical proportional-only, and historical proportional-integral control under
-equivalent heat-exchanger conditions and explain what each added term changes
-physically and numerically.
+We need to compare all four candidates under equivalent heat-exchanger
+conditions and explain what each added term changes physically and
+numerically.
 
 ## The new idea
 
@@ -48,25 +46,24 @@ A positive error means the product is colder than desired.
 $e=SP-PV.$
 
 The operating-point bias is the valve position needed to hold 50 degrees
-Celsius at zero error. Here it is 20 percent. The proportional gain
-($K_p$) states how many requested valve percentage points are added for each
-degree Celsius of present error. Proportional action is immediate. More gain
-reduces offset and speeds the response, but a delayed process can begin another
-correction before the earlier valve movement is visible at the sensor.
+Celsius at zero error — 20 percent here. The proportional gain ($K_p$)
+states how many requested valve percentage points are added per degree
+Celsius of present error: immediate action that reduces offset and speeds
+response, though a delayed process can begin another correction before
+earlier valve movement reaches the sensor.
 
 The integral contribution ($I$) represents accumulated past error as a valve
-command, in percentage points. The integral gain ($K_i$) states how many valve
-percentage points per degree Celsius per second are accumulated. Integral
-action removes persistent error, but too much can cause overshoot, oscillation,
-saturation, and difficult recovery. The integral time ($T_i$) is the proportional
-gain divided by integral gain:
+command, in percentage points. The integral gain ($K_i$) states how many
+valve percentage points per degree Celsius per second accumulate; too much
+causes overshoot, oscillation, saturation, and difficult recovery. The
+integral time ($T_i$) is proportional gain divided by integral gain:
 
 $T_i=\frac{K_p}{K_i}.$
 
-The derivative gain ($K_d$) has units of valve percentage-point seconds per degree
-Celsius. The derivative time ($T_d$) is derivative gain divided by proportional
-gain. Derivative action can add damping by responding to measured rate, but it
-also amplifies measurement noise. This slow thermal loop already meets its
+The derivative gain ($K_d$) has units of valve percentage-point seconds per
+degree Celsius; the derivative time ($T_d$) is derivative gain divided by
+proportional gain. Derivative action adds damping by responding to measured
+rate but also amplifies measurement noise; this slow loop already meets its
 requirements with proportional-integral control, so the lesson does not add
 derivative action merely to make a three-term controller.
 
@@ -75,7 +72,7 @@ present-error contribution, the accumulated-error contribution, and the
 measured-rate contribution combine into one requested command. In symbolic
 form:
 
-$MV_{\mathrm{requested}}=Bias+K_pe+I-K_d\frac{dPV}{dt},\qquad \frac{dI}{dt}=K_ie.$
+$MV_{\mathrm{requested}}=Bias+K_pe+I-K_d \cdot d(PV)/dt,\qquad \frac{dI}{dt}=K_ie.$
 
 Manual P and critical P calculate this law directly each scan (Lesson 26's
 positional realization). Manual PI and historical PI run inside
@@ -83,14 +80,14 @@ positional realization). Manual PI and historical PI run inside
 once integral gain is nonzero: the same three terms are summed by adding one
 increment per scan instead of recomputing the whole command.
 
-The applied manipulated variable ($MV_{\mathrm{applied}}$) is the command after the
-controller's 0-to-100-percent limit. Saturation means the requested command
-cannot be applied completely. Requested and applied values must therefore not
-be confused.
+The applied manipulated variable ($MV_{\mathrm{applied}}$) is the command
+after the controller's 0-to-100-percent limit; saturation means the requested
+command cannot be applied completely, so requested and applied values must
+not be confused.
 
 Manual tuning changes one term at a time: establish bias, adjust proportional
-action, add integral only when persistent error remains, and add derivative
-only when measured damping evidence justifies its noise cost.
+action, add integral only when error persists, and add derivative only when
+damping evidence justifies its noise cost.
 
 The ultimate gain ($K_u$) is the proportional-only gain that produces an
 approximately constant-amplitude oscillation in one declared experiment. The
@@ -116,7 +113,7 @@ still govern acceptance.
 Manual proportional control uses a 20% bias and $K_p=2.0$, chosen so the
 plant's 2.5-degree-Celsius setpoint step requests about 5 valve percentage
 points of proportional action ($K_p \times 2.5=5$) — enough authority to move
-the valve visibly without saturating it. Let $\Delta y$ be
+the valve without saturating it. Let $\Delta y$ be
 the final temperature rise. The plant gives
 $\Delta y=K_{\mathrm{plant}}\Delta MV=0.5(2e)=e$, while
 $e=\Delta SP-\Delta y=2.5-\Delta y$. Solving
@@ -124,16 +121,14 @@ $\Delta y=2.5-\Delta y$ gives $\Delta y=1.25$ °C and $e=1.25$ °C. This derives
 the proportional offset instead of merely observing it.
 
 At 100 seconds a common load strikes the manual PI and historical PI copies:
-their equilibrium outlet temperature shifts down by 1 degree Celsius, as if
+their equilibrium outlet temperature shifts down 1 degree Celsius, as if
 colder feedwater lowered the exchanger's steady output at the same valve
-position, against independent 0.05-degree-Celsius measurement noise on every
-copy. The first manual PI trial keeps $K_p = 2.0$ and uses $K_i = 0.05$,
-chosen for a deliberately slow 40-second integral time — about twice the
-plant's own 20-second time constant — as a first, cautious trial. Predict
-that it will miss the
-0.10-degree-Celsius recovery requirement after the load. Change only integral
-gain to $K_i = 0.10$, giving $T_i = 20$ seconds, for the second manual
-candidate.
+position. The first manual PI trial keeps $K_p = 2.0$ and uses $K_i = 0.05$,
+giving a deliberately slow $T_i = 40$ seconds — about twice the plant's
+20-second time constant — for a first, cautious trial. Predict that it will
+miss the 0.10-degree-Celsius recovery requirement after the load. Change only
+integral gain to $K_i = 0.10$, giving $T_i = 20$ seconds, for the second
+manual candidate.
 
 Using $K_u = 22.24$ and $P_u = 11.35$ (above), the historical PI candidate is
 $K_p = 10.01$ %/°C, $T_i = 9.46$ s, and $K_i = 1.06$ %/(°C·s). Predict a much
@@ -142,8 +137,8 @@ faster response and substantially more valve movement than manual PI.
 ## Implementation
 
 The shipped Structured Text uses explicit proportional laws for manual P and
-critical P. It uses one real `Control.PID` for manual PI and one real
-`Control.PID` for historical PI. The essential manual configuration is:
+critical P, and one real `Control.PID` each for manual PI and historical PI.
+The essential manual configuration is:
 
 ```st
 ManualPiParameters.ProportionalGain := LREAL#2.0;
@@ -158,19 +153,18 @@ ManualPiInput.CycleTime := LREAL#0.1;
 ManualPiApplied := ManualPiController.Update(Input := ManualPiInput);
 ```
 
-The historical instance differs only in its declared proportional and integral
-gains. Both use the same limits, anti-windup, cycle time, and initial state.
+The historical instance differs only in its proportional and integral gains;
+both share the same limits, anti-windup, cycle time, and initial state.
 
 ## Experiment in Control Studio
 
 Control Studio exposes the four-candidate comparison. Test writes one reviewed
 Boolean, `P1.ExperimentEnabled`, for 180.1 seconds: a common 10-second
 baseline at 50 °C precedes the setpoint step, the common 100-second load
-follows on schedule, and every copy is observed through 180 seconds before
-restoring 50 °C. Native evidence owns the exact setpoint and load timing, the
-separately compiled $K_i=0.05$ trial, peak/period calculation, and candidate
-decision. No candidate is applied. The deterministic Simulation seed is
-20260829.
+follows on schedule, and every copy runs through 180 seconds before restoring
+50 °C. Native evidence owns exact setpoint and load timing, the separately
+compiled $K_i=0.05$ trial, peak/period calculation, and candidate decision. No
+candidate is applied; seed 20260829 is deterministic.
 
 ### Control Studio actions
 
@@ -190,7 +184,7 @@ decision. No candidate is applied. The deterministic Simulation seed is
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **180.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm common setpoint = 50 °C and every applied valve near 20%.
-   - **Decision before action:** Before selecting **Review test**, record the 1.25 °C proportional offset and the derived manual/historical PI gains. Confirm every valve remains within 0–100% and every temperature within 40–60 °C. This is simulation-only; do not Apply.
+   - **Decision before action:** Before selecting **Review test**, record the 1.25 °C proportional offset and the derived manual/historical PI gains. Confirm every valve remains within 0–100% and every temperature within 40–60 °C. Do not run this on a physical plant or Apply a result.
    - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe all four responses under the common setpoint and the restored 50 °C setpoint.
    - **Recovery:** Abort for stale, invalid, nonfinite, mismatched, or out-of-range data. Confirm authority false, setpoint 50 °C, and safe valve outputs before retrying.
    - **Record:** Retain terminal state, restoration, all SP/PV/MV traces, gains, timing, noise, events, peak/period measures, response measures, valve travel, seed, and candidate state.
@@ -225,7 +219,7 @@ this lesson then prefers whichever uses less valve movement.
 
 ![Manual and historical heat-exchanger tuning](figures/manual-historical-tuning-comparison.svg)
 
-The generated figure and its [complete retained trace](figures/manual-historical-tuning-comparison-trace.csv)
+The figure and its [complete retained trace](figures/manual-historical-tuning-comparison-trace.csv)
 come from the executable simulation. The [decision summary](figures/manual-historical-tuning-comparison-summary.csv)
 retains the exact gains, assumptions, results, and unapplied decisions.
 
@@ -240,13 +234,13 @@ The executable simulation gives these decision results:
 | Historical PI | 0.01 degrees Celsius final error; 3.00-second rise; 1,102.27 percentage points valve movement |
 
 Both accepted PI candidates meet the final-error limit. Historical PI's valve
-movement is more than five times manual PI's — comfortably past the
-confirmatory floor — while the critical experiment separately clears its own
+movement is more than five times manual PI's, past the
+confirmatory floor, while the critical experiment clears its
 peak-count and period gates (at least six alternating peaks, 9 to 14 seconds)
-even though proportional-only control is never an accepted candidate. Manual
-PI also meets the overshoot limit with materially lower actuator activity, so
-it is preferred over the also-accepted but far more valve-intensive
-historical candidate. No candidate is applied automatically.
+though proportional-only control is never accepted alone. Manual PI meets
+the overshoot limit with much lower actuator activity, so it is preferred
+over the historical candidate. No candidate is applied
+automatically.
 
 ## Conclusion
 

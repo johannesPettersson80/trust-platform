@@ -7,7 +7,7 @@
   "equipment": "Jacketed stirred reactor, product-temperature transmitter, and jacket heating valve",
   "physicalPurpose": "Reduce setpoint overshoot without weakening the already acceptable cold-feed disturbance rejection of the reactor PI loop.",
   "principalTechnique": "Two-degree-of-freedom proportional setpoint weight with true-error integral action",
-  "objective": "Configure and compare proportional setpoint weights of one, one-half, and zero on the same jacketed-reactor PI loop; predict each controller's immediate valve response to a setpoint step; use retained servo and regulatory evidence to select the largest weight that satisfies the setpoint-overshoot requirement without changing the fixed-setpoint disturbance path; and explain why proportional setpoint weighting cannot remove measurement-noise transmission.",
+  "objective": "Configure and compare proportional setpoint weights of one, one-half, and zero on the same jacketed-reactor PI loop; predict each controller's immediate valve response to a setpoint step; and use retained servo and regulatory evidence to select the largest weight that satisfies the setpoint-overshoot requirement without changing the fixed-setpoint disturbance path.",
   "prerequisites": ["control-reactor-servo-regulatory"],
   "nextLesson": "control-measurement-noise",
   "signals": [

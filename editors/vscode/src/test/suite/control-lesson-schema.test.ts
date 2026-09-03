@@ -749,13 +749,19 @@ suite("Control lesson schema", () => {
       /applied manipulated variable \(mv_applied\).*heater receives.*0.*100 percent/,
       /integral gain \(ki\).*percentage points.*per degree celsius-second/,
       /cycle time \((?:dt|δt)\).*seconds between controller updates/,
-      /integral contribution \(ui\).*stored part.*heater command/,
+      /integral contribution \(u_i\).*stored part.*heater command/,
     ]) {
       assert.match(integralText, definition);
     }
-    const integralEquation = integralText.indexOf("ui,new = ui,old + ki × e × dt");
+    // Findings L06-1/L06-2 (docs/internal/reviews/control-course-review-2026-09-03.md):
+    // the README now writes the integral state as u_I (LaTeX subscript) instead
+    // of the former bare "uI", and its per-scan update uses sample indices k and
+    // k-1 (matching the k/k-1 convention Lesson 7 already uses) instead of a
+    // "new"/"old" pair, so the literal normalized equation below is
+    // "u_i,k = u_i,k-1 + ki × e_k × δt", not the former "ui,new = ui,old + ki × e × dt".
+    const integralEquation = integralText.indexOf("u_i,k = u_i,k-1 + ki × e_k × δt");
     assert.ok(integralEquation > 0, "Lesson 6 must present the per-scan integral equation");
-    for (const definition of ["error (e)", "integral gain (ki)", "cycle time (dt)", "integral contribution (ui)"]) {
+    for (const definition of ["error (e)", "integral gain (ki)", "cycle time (dt)", "integral contribution (u_i)"]) {
       assert.ok(integralText.indexOf(definition) < integralEquation,
         `${definition} must precede the integral equation`);
     }
@@ -816,7 +822,10 @@ suite("Control lesson schema", () => {
     assert.match(rate, /configured nominal interval.*not a scheduler-derived measurement/);
     assert.match(rate, /task interval is 100 ms.*cycle_interval_ms is 100.*configuredcycletime is 0\.1 second/);
     assert.match(rate, /lesson 14 adds measured elapsed time and jitter/);
-    const rateEquation = rate.indexOf("mv_low = max(0%, mv_previous - r_close × dt)");
+    // L09-2: cycle time now reads Delta t (not dt); this file's local
+    // pedagogicalText renders \Delta as the literal Greek letter, lowercased
+    // to "δt" by the normalized() wrapper above.
+    const rateEquation = rate.indexOf("mv_low = max(0%, mv_previous - r_close × δt)");
     assert.ok(rateEquation > rate.indexOf("lowest admissible position (mv_low)"));
 
     for (const definition of [

@@ -1,12 +1,13 @@
 # Execute constrained two-zone building MPC
 
-Course position: Lesson 68 of 84. Prerequisite: `control-suspension-lqr`.
-Next lesson: `control-pendulum-lyapunov`.
+Course position: Lesson 68 of 84. Previous lesson: [Design and qualify active-suspension LQR/LQG](../67-suspension-lqr/README.md). Next lesson: [Certify a nonlinear inverted pendulum locally](../../12-nonlinear-adaptive-and-robust-control/69-pendulum-lyapunov/README.md).
 
 **Equipment:** Two thermally coupled office zones with a shared heating-power
 limit.
 
 **Lesson objective:** Formulate and execute all 729 constrained heater-move sequences online, compare the resulting MPC with qualified PI, and distinguish feasible, infeasible, invalid, fallback, and recovery states.
+
+**Evidence class:** Simulation evidence. The thermal coefficients are configured teaching values, not measurements of a physical building.
 
 ## The problem
 
@@ -194,23 +195,19 @@ Now raise the comfort minimum to 22 degrees Celsius without changing state or li
 
 ## Implementation
 
-The shipped Structured Text computes PI fallback from fresh measurements, then performs six nested move loops. Each complete combination increments `CandidateCount` before its predictions and constraints are evaluated:
+The shipped Structured Text computes PI fallback from fresh measurements, then performs six nested move loops inside the `FiniteGridMpcController` function block. Each complete combination increments `Result.CandidateCount` before its predictions and constraints are evaluated:
 
 ```st
-FOR I10 := DINT#0 TO DINT#2 DO
-    FOR I20 := DINT#0 TO DINT#2 DO
-        FOR I11 := DINT#0 TO DINT#2 DO
-            FOR I21 := DINT#0 TO DINT#2 DO
-                FOR I12 := DINT#0 TO DINT#2 DO
-                    FOR I22 := DINT#0 TO DINT#2 DO
-                        CandidateCount := CandidateCount + DINT#1;
-                        (* Predict, reject constraints, and compare objective. *)
-                    END_FOR;
-                END_FOR;
-            END_FOR;
-        END_FOR;
-    END_FOR;
-END_FOR;
+IF Request.Enable AND Result.ConfigurationValid THEN
+    (* Each pair of nested choices selects one move for each room at each of
+       three future intervals: 3^6 = 729 complete candidate sequences. *)
+    FOR I10 := DINT#0 TO DINT#2 DO
+        FOR I20 := DINT#0 TO DINT#2 DO
+            FOR I11 := DINT#0 TO DINT#2 DO
+                FOR I21 := DINT#0 TO DINT#2 DO
+                    FOR I12 := DINT#0 TO DINT#2 DO
+                        FOR I22 := DINT#0 TO DINT#2 DO
+                            Result.CandidateCount := Result.CandidateCount + DINT#1;
 ```
 
 `ConfigurationValid`, `SolverComplete`, `SolverFeasible`, `Infeasible`, and `FallbackActive` describe different facts. `FeasibleCandidateCount` and `BestObjective` expose the decision. `Zone1HeatRequested` and `Zone2HeatRequested` are the selected first moves; `Zone1HeatApplied` and `Zone2HeatApplied` are the bounded plant inputs.
@@ -223,31 +220,27 @@ This procedure observes the nominal 20-minute MPC schedule. The project owns out
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm both temperatures and setpoints, requested/applied heat, current disturbances, all three forecast positions, objective weights, candidate and feasible counts, solver status, active constraints, fallback state, units, limits, mode, and quality. Before authority is granted, both applied heater commands are zero and outdoor and occupancy inputs are restored to 5, 0, and 0 degrees Celsius respectively.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Use the first move only after all 729 sequences complete and at least one satisfies every hard constraint; otherwise use the explicitly identified PI fallback.
+   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Use the first move only after all 729 sequences complete and at least one satisfies every hard constraint; otherwise use the explicitly identified PI fallback, because an unconstrained or partially searched result cannot prove that every future comfort and shared-power limit is actually satisfied.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the initial zone-one and zone-two temperature setpoints and temperatures, requested/applied zone-one and zone-two heating, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **1200.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns the weather, occupancy, and tariff schedule.
-   - **Decision before action:** Before selecting **Review test**, predict why forecasts may change heater requests before the corresponding disturbance becomes current. Confirm every scheduled input and predicted/applied heater command remains inside its declared limits.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
+   - **Decision before action:** Before selecting **Review test**, predict why forecasts may change heater requests before the corresponding disturbance becomes current. Confirm every scheduled input and predicted/applied heater command remains inside its declared limits, because a scheduled forecast that would force a command outside those limits signals an infeasible or misconfigured horizon before it reaches the heaters.
+   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured zone-one and zone-two temperature and applied-heat sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero applied heat and restored environmental inputs, wait for current data, and review a new test.
    - **Record:** Stop recording only after restoration. Retain the solver counts, feasible count, first moves, objective, constraint and fallback states, terminal state, restoration result, and seed **20260829**. Use native evidence for PI and abnormal cases; do not claim this visible run executed them.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Zone absolute-error integral is the sum of absolute setpoint-minus-temperature error multiplied by 60 seconds, in degree-Celsius seconds. Comfort violation records both accumulated magnitude and duration below 20.0 or above 22.5 degrees Celsius.
 
 Tariff-weighted heating use is $\sum\left(p_{k} \cdot (u1_{k}+u2_{k}) \cdot 60\right)$ in relative cost-percent seconds. Heater movement is total variation, the sum of absolute changes in both applied commands, in percentage points. Also retain peak individual and shared power, active-constraint duration, fallback duration, completed solve count, infeasible solve count, and failed solve count.
 
 Every measure retains source signals, units, window, schedule revision, sampled model, weights, horizon, move grid, sample count, and evidence class.
-
-### Validation
 
 The independent oracle and shipped Structured Text must agree on evaluated count, feasible count, first move, and objective for the worked case and every normal MPC interval. Every applied command must satisfy individual, rate, and shared limits.
 
@@ -268,7 +261,7 @@ The shipped native execution produced the following Simulation evidence under th
 | Qualified PI | Eligible | 158.67 degC*s | 0.00 degC*s, 0 s | 46,624 relative cost-percent seconds | 18.7 percentage points | 166.3 percent | 0 s |
 | Finite-grid MPC | Eligible | 146.72 degC*s | 0.00 degC*s, 0 s | 46,200 relative cost-percent seconds | 160.0 percentage points | 160.0 percent | 0 s |
 
-Both controllers maintained comfort. The MPC reduced absolute-error integral by 7.5 percent and tariff-weighted heating by 0.9 percent, but required about 8.6 times as much applied-heater movement. The result is therefore a tradeoff, not a universal MPC victory. The selected weights value tracking and tariff cost enough to accept substantially more actuator movement; a real design review would have to decide whether that wear cost is acceptable before application.
+Both controllers maintained comfort. The MPC reduced absolute-error integral by 7.5 percent and tariff-weighted heating by 0.9 percent, but required about 8.5 times as much applied-heater movement. The result is therefore a tradeoff, not a universal MPC victory. The selected weights value tracking and tariff cost enough to accept substantially more actuator movement; a real design review would have to decide whether that wear cost is acceptable before application.
 
 For the deliberately infeasible case, the shipped solver evaluated all 729 sequences, found zero feasible sequences, reported infeasibility, and selected bounded PI fallback. With negative temperature weight it rejected the configuration before enumeration and used fallback without falsely labelling the problem infeasible. Restoring nominal settings recovered a complete feasible solve on the next interval.
 

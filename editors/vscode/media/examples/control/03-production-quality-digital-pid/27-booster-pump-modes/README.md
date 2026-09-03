@@ -84,7 +84,7 @@ pressure this simplified model predicts for a constant valve command, also in
 bar. The simulator's local equilibrium says that discharge pressure rises by
 0.1 bar for every percentage point of valve position, above a 2 bar base:
 
-$PV_{\mathrm{eq}} = 2\ \mathrm{bar} + 0.1\ \mathrm{bar/\%} \times MV.$
+$PV_{\mathrm{eq}} = 2\,\mathrm{bar} + 0.1\,\mathrm{bar/\%} \times MV.$
 
 This is a bounded first-order teaching model, not a pump curve. The 2 bar base
 and 0.1 bar/% slope are configured teaching values chosen for this simulated

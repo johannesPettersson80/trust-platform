@@ -2,21 +2,21 @@
 
 Course position: Lesson 28 of 84. Previous lesson:
 [Booster-pump initialization and modes](../27-booster-pump-modes/README.md). Next
-lesson: Atomic parameter updates and signal ordering.
+lesson: [Atomic parameter updates and signal ordering](../29-booster-pump-atomic-update/README.md).
 
 **Lesson objective:** Transfer valve authority between an external station,
 Auto, and Manual without an avoidable command step and identify boundaries
 where exact bumpless transfer is infeasible.
 
-This lesson uses simulation. Its results are not physical-plant evidence.
+**Evidence class:** Simulation evidence. Its results are not physical-plant
+evidence.
 
 **Equipment:** Variable-speed booster pump with external valve authority.
 
 ## The problem
 
-Lesson 27 made the booster-pump controller truthful at startup. That is only
-the first handover. The booster-pump pressure controller was initialized correctly in Lesson 27.
-An external station can nevertheless take valve authority and move the valve
+Lesson 27 made the booster-pump controller truthful at startup, but that is
+only the first handover. An external station can nevertheless take valve authority and move the valve
 while the pressure controller is inactive. The controller must remain aligned
 if it may take authority again.
 
@@ -49,9 +49,9 @@ before ownership changes. The **transition instant ($t_{\mathrm{transfer}}$)** i
 controller update at which the new authority begins.
 
 **Bumpless transfer** means that the first requested output from the new
-authority equals the last physically applied output within a declared
-tolerance. It does not mean pressure is already at SP or that later feedback
-increments must be zero.
+authority ($MV_{\mathrm{first}}$) equals the last physically applied output
+($MV_{\mathrm{last}}$) within a declared tolerance. It does not mean pressure
+is already at SP or that later feedback increments must be zero.
 
 With integral action, Track first writes
 $u_{\mathrm{nominal},k-1}=MV_{\mathrm{track}}$, then evaluates the incremental
@@ -122,9 +122,9 @@ independent counterfactuals. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm pressure = SP = 6 bar, external/tracking values = 40%, station Disabled, requested safe command = 30%, and experiment authority false. Add requested/active authority, SP/PV, actual external output, tracking input and quality, requested/applied output, limit state, and authority to **Signals**.
-   - **Decision before action:** Write the tracked prediction $|60-60|=0$ and the untracked counterfactual $|40-60|=20$ percentage points. Confirm tracking comes from applied output, not an unconstrained request.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
+   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm pressure = SP = 6 bar, external/tracking values = 40%, station Disabled, and requested safe command = 30%. Add SP/PV, external applied output, tracking input, manual station output, requested authority, and experiment authority to **Signals**.
+   - **Decision before action:** Write the tracked prediction $|60-60|=0$ and the untracked counterfactual $|40-60|=20$ percentage points. Confirm tracking comes from applied output, not an unconstrained request, because only the physically applied value describes what the new authority must match.
    - **Successful evidence:** The plot advances, values are finite/current, quality is good, and **Start recording** is enabled. Select **Start recording**.
    - **Recovery:** For stale, unavailable, nonfinite, or poor-quality data, stop the Simulator, correct the displayed fault, restart, and repeat the baseline check.
    - **Record:** Note the initial physical state, owner, tracking source, and both predictions.
@@ -141,11 +141,9 @@ aligned and unaligned comparisons; Monitor and Test expose the safe handover.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 The **authority-transition output step** is
 
-$\Delta MV_{\mathrm{transfer}}= |MV_{\mathrm{new,first}}-MV_{\mathrm{last,applied}}|.$
+$\Delta MV_{\mathrm{transfer}}= |MV_{\mathrm{first}}-MV_{\mathrm{last}}|.$
 
 The absolute value measures bump size regardless of opening or closing
 direction, in percentage points.
@@ -170,8 +168,6 @@ state is aligned.
 [Retained run](figures/bumpless-transfer-run.csv) ·
 [Plot data](figures/bumpless-transfer-trace.csv) ·
 [Decision summary](figures/bumpless-transfer-summary.csv)
-
-### Validation
 
 Require the tracked and aligned steps to be at most 0.001 percentage points.
 The diagnostic untracked and unaligned cases must expose at least 20 and

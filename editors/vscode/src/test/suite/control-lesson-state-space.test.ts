@@ -345,7 +345,10 @@ suite("State-space control curriculum lessons", () => {
       /motor torque accelerates inertia.*gravity.*viscous friction/i,
       /local model.*linear approximation.*operating angle.*local gravity stiffness/i,
       /natural frequency \(omega_n\).*5 rad\/s.*damping ratio \(zeta\).*0\.8/i,
-      /15\.190.*16\.904.*21\.445 N.m\/rad.*7\.800 N.m.s\/rad/i,
+      // L70-8: units moved out of math (spelled out in prose, not abbreviated
+      // "N.m/rad" inside $...$) per Specification 38 §2.1.4; regex updated to
+      // the corrected wording rather than the stale abbreviated form.
+      /15\.190.*16\.904.*21\.445.*newton metres per radian.*7\.800.*newton metre seconds per radian/i,
       /gain scheduling.*interpolat.*validated local (?:controller )?designs.*measurable scheduling variable/i,
       /absolute setpoint angle.*integral gain.*12 N.m\/\(rad.s\).*clamp/i,
       /interpolation does not prove stability.*between.*transition/i,
@@ -622,7 +625,9 @@ suite("State-space control curriculum lessons", () => {
       "control_curriculum_pumping_faults_isolate_degrade_and_recover");
     for (const heading of canonicalLessonReadmeHeadings) assert.match(source, new RegExp(`^##(?:#)? ${heading}$`, "m"));
     for (const requirement of [
-      /two physical discharge pressure transmitters.*100 ms.*reservoir level.*500 ms.*drive-speed feedback.*200 ms/i,
+      // L74-9: the transmitters and feedback are Simulation devices, not physical
+      // instruments; the README now says "simulated" rather than "physical".
+      /two simulated discharge pressure transmitters.*100 ms.*reservoir level.*500 ms.*drive-speed feedback.*200 ms/i,
       /multirate sampling.*different intervals.*resampling.*controller.*timeline/i,
       /zero-order hold.*does not make.*new.*source timestamp.*age/i,
       /freshness.*pressure.*0\.25 s.*level.*1\.0 s.*drive.*0\.40 s/i,
@@ -632,7 +637,9 @@ suite("State-space control curriculum lessons", () => {
       /pressure discrepancy \(r_AB\).*model residuals \(r_A\).*\(r_B\)/i,
       /0\.30 bar.*three consecutive.*0\.50 bar.*degraded single-sensor/i,
       /conservative available level \(level_safe\).*0\.5 percentage points (?:\/s|per second).*20 percent.*30 percent/i,
-      /actuator tracking residual \(r_u\).*5 percentage points.*three consecutive.*0\.6 s/i,
+      // L74-4: "0.6-s" is the correct hyphenated compound-adjective form before "requirement"
+      // (matches Lesson 8's "2.0-second dwell window"); the README is right, the regex was wrong.
+      /actuator tracking residual \(r_u\).*5 percentage points.*three consecutive.*0\.6-s/i,
       /fault detection.*isolation.*graceful degradation.*safe state/i,
       /acknowledgement.*does not clear.*ten consecutive.*reset approval/i,
       /Control Studio.*Monitor.*Test/i,
@@ -644,7 +651,10 @@ suite("State-space control curriculum lessons", () => {
       /r_AB = \|p_A - p_B\|.*r_A = \|p_A - p_hat\|.*r_B = \|p_B - p_hat\|/i,
       /prediction uses preceding evidence only.*preceding predicted pressure.*preceding applied speed/i,
       /level_safe = level_sample - v_level\*age_level/i,
-      /r_u = \|u_requested - u_feedback\|/i,
+      // L74-5: the residual compares the previous-scan protected APPLIED speed
+      // (src PreviousProtectedApplied), not a "requested" value; the README now
+      // names and typesets it as previous applied pump speed (u_applied,k-1).
+      /r_u = \|u_applied,k-1 - u_feedback\|/i,
     ]) assert.match(equations, equation);
     assert.ok(readme.indexOf("Pressure discrepancy") < readme.indexOf("r_AB ="));
     assert.ok(readme.indexOf("Conservative available level") < readme.indexOf("level_safe ="));

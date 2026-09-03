@@ -4,7 +4,7 @@ Course position: Lesson 2 of 84. Previous lesson: [Loop anatomy](../01-cold-stor
 
 **Lesson objective:** Derive a Boolean ON/OFF law, run it on the cold-storage room, measure temperature range and switch count, and explain why one noisy threshold causes chatter.
 
-This lesson retains **Simulation evidence**. The intentionally unprotected
+**Evidence class:** Simulation evidence. The intentionally unprotected
 switching law and its results are not compressor, food-safety, or
 physical-plant qualification evidence.
 
@@ -170,9 +170,9 @@ deterministic seed is 20260828.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Cold-room temperature setpoint (SP, degC); Cold-room air temperature (PV, degC); Compressor demand (MV, %), including units, limits, mode, and quality. The initial operating point is PV = 4 degC, MV = 0 %. The unresolved baseline problem is: Manual observation from Lesson 1 cannot regulate temperature after an unplanned load change.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Command 100% cooling when PV is at or above SP and 0% otherwise.
+   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Command 100% cooling when PV is at or above SP and 0% otherwise. This is the rule to use because it keeps the compressor demand a direct, uncomplicated function of the measured error.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
@@ -185,8 +185,6 @@ deterministic seed is 20260828.
    - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260828**.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Use the temperature-range and switching-frequency definitions established
 before the experiment. The switch count includes applied compressor-demand
@@ -210,8 +208,12 @@ available. It therefore separates a numerically valid result from physical
 acceptance instead of calling the result safe or unsafe for real equipment.
 
 The door-event range uses 60.0–89.9 seconds and must be no more than 0.05 °C
-with 0.01 °C tolerance. Maximum temperature uses the same window and must be no
-more than 3.00 °C with 0.05 °C tolerance. Switch count uses 0.1–120.0 seconds.
+with 0.01 °C tolerance: five times the sensor's declared 0.01 °C resolution,
+tight enough to prove regulation rather than sensor rounding. Maximum
+temperature uses the same window and must be no more than 3.00 °C with
+0.05 °C tolerance, a design choice comfortably above the 1.89 °C open-loop
+rise Lesson 1 measured with no control, so a compliant run must still
+outperform that uncontrolled case by a clear margin. Switch count uses 0.1–120.0 seconds.
 Switching frequency uses 20.0–60.0 seconds. The controlled sensor-input result
 uses the eight declared noise values and requires exactly seven transitions.
 All of these windows, limits, and directions are declared before viewing the
@@ -244,8 +246,6 @@ The focused crossing evidence holds the underlying temperature constant and
 makes the isolated measurement-noise mechanism readable at its actual values:
 
 ![Noisy threshold crossings cause compressor chatter](figures/threshold-chatter.svg)
-
-### Validation
 
 From the retained recording, confirm that every temperature is finite, compressor demand is
 always exactly 0 or 100 percent, door indication and effective surroundings

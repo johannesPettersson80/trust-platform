@@ -4,7 +4,7 @@ Course position: Lesson 14 of 84. Previous lesson: [Measurement filtering](../13
 
 **Lesson objective:** Configure and validate measured elapsed time for a simulated conveyor-oven temperature loop; predict its effect on time-scaled PI calculations, compare equivalent fixed and jittered runs, and prove that a missed scan latches safe zero trim until reviewed reset and explicit automatic re-enable.
 
-Everything measured here is **Simulation evidence**, not evidence from a
+**Evidence class:** Simulation evidence. These results are not evidence from a
 physical conveyor oven, PLC scheduler, temperature sensor, or power stage. The
 deterministic harness supplies the declared intervals. It does not claim to
 reproduce operating-system scheduler jitter. Simulation evidence is not
@@ -125,7 +125,9 @@ therefore the reciprocal of the actual interval:
 
 $f_s = \frac{1}{\Delta t_{\mathrm{actual}}}$
 
-One complete sinusoidal cycle has a positive half and a negative half. At least
+Lesson 13 defined a sinusoid as a signal that oscillates smoothly and repeats
+after a fixed period. One complete sinusoidal cycle has a positive half and a
+negative half. At least
 two samples per cycle are required even to distinguish those two halves, so the
 highest representable frequency is half the sampling frequency. This is the
 Nyquist frequency:
@@ -192,9 +194,15 @@ It is measured in seconds. A measured-time case must be no greater than 1e-12
 second. The instructional nominal-time baseline is expected to expose 0.1
 second and is therefore ineligible.
 
-**Peak overshoot** counts only process-value travel above the 1-degree-Celsius
-target. Dividing by the 1-degree-Celsius step and multiplying by 100 expresses
-that excess as percent:
+**Peak overshoot ($M_p$)** counts only process-value travel above the
+1-degree-Celsius target, evaluated over the response from the 1.1-second
+setpoint step through the 30.0-second end of the qualified timing response,
+before the invalid-interval exposure begins. The **peak process value
+($PV_{max}$)** is the largest retained temperature-deviation sample over that
+window, and the **setpoint step ($\Delta SP$)** is the 1-degree-Celsius change
+applied at 1.1 seconds. Dividing the excess
+above target by the step and multiplying by 100 expresses that excess as
+percent:
 
 $M_p=100\max\!\left(0,\frac{PV_{max}-SP}{|\Delta SP|}\right)$
 
@@ -240,17 +248,49 @@ Its proportional gain is 0.667 percentage points per degree Celsius, its
 integral gain is 0.667 percentage points per degree-Celsius second, derivative
 gain is zero, proportional setpoint weight is one, and bias is zero. Combined
 anti-windup and minus-10 to plus-10 percentage-point output limits remain
-unchanged in every run.
+unchanged in every run. Both gains are the same configured teaching baseline
+carried over from Lesson 13's pressure loop, declared in `lesson.json`; their
+derivation from a plant model is deferred to Lesson 18. The 0.25-second
+maximum interval is a reviewed engineering ceiling, more than twice the
+0.1-second nominal schedule, chosen so a single stretched scan is treated as a
+fault instead of silently absorbed. The 20-percent overshoot and 8-second
+settling limits and the 0.02-degree-Celsius settled band are configured
+teaching acceptance values for this comparison, matched to the same gains and
+plant across every timing case so that only the timing treatment changes.
 
-This is the governing timing and safety path from `src/Main.st`:
+The relevant declared variables are:
 
 ```st
 ExperimentEnabled : BOOL := FALSE;
+ExperimentWasEnabled : BOOL := FALSE;
 ExperimentCycle : DINT := 0;
 TimingCase : INT := 1;
+```
 
+This is the governing timing and safety path from `src/Main.st`, quoted
+verbatim including the scan that restores a valid interval while deliberately
+leaving Auto requested (302) and the scan that removes Auto while requesting
+reset (303) and then leaves Manual with reset removed (304):
+
+```st
 IF ExperimentEnabled THEN
+    IF NOT ExperimentWasEnabled THEN
+        ExperimentCycle := 0;
+        TimingCase := 1;
+        Setpoint := LREAL#0.0;
+        ActualCycleTime := LREAL#0.1;
+        MaximumCycleTime := LREAL#0.25;
+        UseActualCycleTime := TRUE;
+        ResetTimingFault := FALSE;
+        AutoMode := FALSE;
+    END_IF;
+
     ExperimentCycle := ExperimentCycle + 1;
+    BeltSpeed := LREAL#0.5;
+    MaximumCycleTime := LREAL#0.25;
+    UseActualCycleTime := TRUE;
+    ResetTimingFault := FALSE;
+
     IF ExperimentCycle <= 10 THEN
         ActualCycleTime := LREAL#0.1;
         Setpoint := LREAL#0.0;
@@ -261,18 +301,38 @@ IF ExperimentEnabled THEN
         AutoMode := TRUE;
     ELSIF ExperimentCycle = 301 THEN
         ActualCycleTime := LREAL#0.3;
+        Setpoint := LREAL#1.0;
+        AutoMode := TRUE;
+    ELSIF ExperimentCycle = 302 THEN
+        ActualCycleTime := LREAL#0.1;
+        Setpoint := LREAL#1.0;
         AutoMode := TRUE;
     ELSIF ExperimentCycle = 303 THEN
         ActualCycleTime := LREAL#0.1;
+        Setpoint := LREAL#1.0;
         AutoMode := FALSE;
         ResetTimingFault := TRUE;
+    ELSIF ExperimentCycle = 304 THEN
+        ActualCycleTime := LREAL#0.1;
+        Setpoint := LREAL#1.0;
+        AutoMode := FALSE;
     ELSIF ExperimentCycle = 305 THEN
+        ActualCycleTime := LREAL#0.1;
+        Setpoint := LREAL#1.0;
         AutoMode := TRUE;
     ELSE
+        ActualCycleTime := LREAL#0.1;
         Setpoint := LREAL#0.0;
         AutoMode := FALSE;
     END_IF;
+ELSIF ExperimentWasEnabled THEN
+    ExperimentCycle := 0;
+    ActualCycleTime := LREAL#0.1;
+    Setpoint := LREAL#0.0;
+    AutoMode := FALSE;
+    ResetTimingFault := FALSE;
 END_IF;
+ExperimentWasEnabled := ExperimentEnabled;
 
 TimingValid := ActualCycleTime > LREAL#0.0
     AND ActualCycleTime <= MaximumCycleTime
@@ -349,7 +409,7 @@ retains each recovery boundary after the 30-second response.
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait for **Simulation**, **Running**, and current data. Confirm SP = 0 degC, PV near 0 degC, requested and applied trim = 0 pp, belt speed = 0.5 m/s, actual and controller cycle time = 0.1 s, use-actual-time true, timing valid true, timing-fault latch false, timing case = 1, Manual mode, and experiment authority false. Verify units, limits, quality, controller revision, and the Simulation label.
+   - **Baseline check:** Wait for **Simulation**, **Running**, and current data. Confirm SP = 0 degC, PV near 0 degC, requested and applied trim = 0 pp, belt speed = 0.5 m/s, actual and controller cycle time = 0.1 s, use-actual-time true, timing valid true, timing-fault latch false, timing case = 1, Manual mode, and experiment authority false. Verify units, limits, quality, and the Simulation label.
    - **Decision before action:** State the predicted 0.7337-percentage-point first PI request at scan 11: 0.667 pp proportional change plus 0.0667 pp integral contribution. Also state the required fault sequence: the 0.3-second interval must latch zero, a later valid interval must not resume heat, Manual reset must clear the latch without enabling Auto, and only the separate Auto action may resume a positive request.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
@@ -393,8 +453,6 @@ criteria, tolerances, fault/recovery state, revision, seed, and evidence class.
 The upper-right line joins retained PV samples only as a visual guide; it is not
 an intersample temperature measurement. The orange heater trace is drawn as a
 hold because that value remains applied between controller updates.
-
-### Validation
 
 All four measured-time runs are numerically valid and timing-qualified. Their
 controller interval agrees with actual elapsed time within 1e-12 second, they

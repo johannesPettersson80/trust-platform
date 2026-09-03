@@ -14,8 +14,7 @@ not tune a controller or fit a curve here.
 ## The problem
 
 Lesson 32 identified integrating and self-regulating shapes from data. Those
-labels do not explain why the shapes occur. The equipment is a constant-area
-buffer tank and electrically heated vessel: two independent real-world
+labels do not explain why the shapes occur. The equipment is a constant-area buffer tank and electrically heated vessel: two independent real-world
 modules. The tank receives measured inlet flow, loses measured outlet flow,
 and reports liquid level. The vessel is electrically heated and well-mixed; it
 receives a one-sided 0–100% heater command and reports temperature while
@@ -56,7 +55,7 @@ Tank volume is $V=Ah$. With constant area,
 $dV/dt=A\,dh/dt$. Combining this with
 $dV/dt=q_{\mathrm{in}}-q_{\mathrm{out}}$ gives
 
-$A\frac{dh}{dt}=q_{\mathrm{in}}-q_{\mathrm{out}}.$
+$A \cdot dh/dt = q_{\mathrm{in}} - q_{\mathrm{out}}.$
 
 The liquid-level rate $dh/dt$ is the change in level per second. On the left,
 m² times m/s gives m³/s, matching both flow terms. Equal flows
@@ -74,7 +73,7 @@ $E=C(T-T_{\mathrm{ambient}})$. With constant capacitance and ambient,
 $dE/dt=C\,dT/dt$. Linear heat loss is
 $H(T-T_{\mathrm{ambient}})$, so
 
-$C\frac{dT}{dt}=P_{\mathrm{heater}}-H(T-T_{\mathrm{ambient}}).$
+$C \cdot dT/dt = P_{\mathrm{heater}} - H \cdot (T - T_{\mathrm{ambient}}).$
 
 Because kJ/°C times °C/s equals kJ/s = kW, every term is power. The temperature
 rate $dT/dt$ is zero at equilibrium. Equilibrium therefore

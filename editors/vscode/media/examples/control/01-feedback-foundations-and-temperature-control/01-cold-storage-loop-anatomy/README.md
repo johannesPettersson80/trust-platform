@@ -1,14 +1,13 @@
 # Cold-storage loop anatomy
 
-Course position: Lesson 1 of 84. Next lesson:
-[ON/OFF control](../02-cold-storage-on-off/README.md).
+Course position: Lesson 1 of 84. Next lesson: [ON/OFF control](../02-cold-storage-on-off/README.md).
 
 **Lesson objective:** Identify every part of a control loop and use one bounded
 manual experiment to determine the direction and delay of a cold room's
 temperature response.
 
-This lesson uses simulation. Its results are not food-safety, compressor, or
-physical-plant qualification evidence.
+**Evidence class:** Simulation evidence. These results are not food-safety,
+compressor, or physical-plant qualification evidence.
 
 ## The problem
 
@@ -100,8 +99,11 @@ an outdoor thermometer reading.
 The **operating point** is the set of steady conditions before an experiment:
 the room begins at 4.00 °C with 0.0 percent compressor demand. The **safe state**
 for this simulated test is manual operation with the compressor command at
-zero percent (0.0%). The lesson abort range is -10.0–10.0 °C; real food and compressor
-protection must be designed independently.
+zero percent (0.0%). The lesson abort range is -10.0–10.0 °C: a configured
+teaching envelope wide enough to hold the whole predicted response and stop
+the simulator only on an obviously wrong trace, not a food-safety or
+compressor specification; real food and compressor protection must be
+designed independently.
 
 This plant has **reverse process direction**: more compressor demand removes
 more heat and produces a lower temperature. A heater has the opposite process
@@ -134,7 +136,7 @@ manual request and applies the compressor's physical range:
 
 ```st
 ManualDemand : LREAL := 0.0;
-IF ExperimentEnabled THEN
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
     ExperimentScan := ExperimentScan + ULINT#1;
     IF ExperimentScan <= ULINT#200 THEN
         ManualDemand := LREAL#150.0;
@@ -147,6 +149,10 @@ ELSE
 END_IF;
 ManipulatedValue := MIN(MAX(ManualDemand, LREAL#0.0), LREAL#100.0);
 ```
+
+The guard also requires valid inputs and no active safety abort, not only the
+reviewed experiment authority; either condition failing safely returns the
+manual demand to zero.
 
 Control Studio writes only the Boolean experiment authority at `%MX24.0`. The
 project writes the scheduled operator request at `%ML8`. The applied command at
@@ -166,7 +172,7 @@ deterministic Simulation seed is 20260828.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Cold-room air temperature (PV, degC) and Operator manual demand (MV, %), including units, limits, mode, and quality. Because this is an open-loop manual experiment, the Response view does not invent a closed-loop setpoint. Open **Monitor → Signals** and confirm Desired cold-room temperature = 2.0 °C, Applied compressor demand = 0 percent, Door-open indication = 0, and Effective surrounding temperature = 4.0 °C. The initial operating point is PV = 4 degC, requested MV = 0 %, and applied MV = 0 %. The unresolved baseline problem is: Watching temperature without changing compressor demand reveals the process but cannot regulate it.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Apply one bounded cooling interval, return the compressor demand to its safe zero state, then observe the scheduled door disturbance without automatic correction.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
@@ -182,8 +188,6 @@ deterministic Simulation seed is 20260828.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 The retained plot comes from the shipped Structured Text and simulator. The
 upper panel shows the gradual temperature response together with the effective
 surrounding temperature and door-open interval. The lower panel shows why the
@@ -196,11 +200,15 @@ The **cooling endpoint** is the process value at 20.0 seconds, immediately
 before restoration. It must be at or below 1.50 °C. The **recovery change** is
 the process value at 40.0 seconds minus the cooling endpoint. It must be at
 least 1.50 °C. The **door-load rise** is the process value at 89.9 seconds minus
-the process value at 59.9 seconds; it must be at least 1.50 °C. Each temperature
-criterion permits a 0.05 °C numerical tolerance for sampled simulation
-comparison. These endpoint measures establish direction, visible delay, and
-the failure of observation-only operation to reject a load; they are not
-settling or identified-model measures.
+the process value at 59.9 seconds; it must be at least 1.50 °C. The same
+1.50 °C appears in all three because each is a configured teaching threshold
+chosen only to be clearly larger than ordinary sampling variation, so a
+passing run visibly moved rather than merely drifted; none of the three is a
+food-safety or compressor specification. Each temperature criterion permits a
+0.05 °C numerical tolerance for sampled simulation comparison. These endpoint
+measures establish direction, visible delay, and the failure of
+observation-only operation to reject a load; they are not settling or
+identified-model measures.
 
 | Evidence | Requirement | Recorded result |
 | --- | ---: | ---: |
@@ -212,8 +220,6 @@ settling or identified-model measures.
 | Effective surroundings, 60.0–89.9 s | 6.0 °C | 6.0 °C |
 | Door-load rise, 59.9–89.9 s | ≥ 1.50 °C | 1.89 °C |
 
-### Validation
-
 Compare the two recordings with the predeclared measures above. Confirm that
 every value is finite, applied demand remains inside 0.0–100.0 percent,
 temperature moves downward while cooling is applied, temperature rises after
@@ -221,8 +227,9 @@ restoration and during the open-door load, the door and effective-surroundings
 signals change at the declared times, and each run ends with both requested and
 applied demand at the 0.0 percent safe state. Reject a recording if any
 condition fails; do not infer process direction or load response from invalid
-evidence. Shared PID validation is intentionally absent because Lesson 1 has no
-PID controller or controller candidate.
+evidence. Shared PID (proportional-integral-derivative controller) validation
+is intentionally absent because Lesson 1 has no PID controller or controller
+candidate.
 
 ## Conclusion
 

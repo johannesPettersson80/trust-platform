@@ -1,10 +1,10 @@
 # Protect compressor flow margin with tracked override
 
-Course position: Lesson 57 of 84. Prerequisite: reactor split-range control in Lesson
-56. Every result is **Simulation evidence**. It is not anti-surge or machinery-
-protection evidence and does not authorize operation of a physical compressor.
+Course position: Lesson 57 of 84. Previous lesson: [Coordinate reactor heating and cooling](../56-reactor-split-range/README.md). Next lesson: [Schedule PI control across a gravity tank's operating range](../58-gravity-tank-scheduling/README.md).
 
 **Lesson objective:** Configure a recycle-valve high selector that gives minimum-flow margin priority over discharge-pressure production demand.
+
+**Evidence class:** Simulation evidence. It is not anti-surge or machinery-protection evidence and does not authorize operation of a physical compressor.
 
 ## The problem
 
@@ -40,7 +40,12 @@ difference is **pressure error ($e_{p}$)**, all in bar.
 
 Desired minimum-flow margin is the **minimum-flow-margin setpoint ($SP_{m}$)**,
 measured margin is the **minimum-flow-margin process value ($PV_{m}$)**, and their
-difference is **margin error ($\mathbf{e}_{m}$)**, in percentage points.
+difference is **margin error ($\mathbf{e}_{m}$)**, in percentage points. $SP_{m}$ is
+14 percent margin, a declared teaching value configured directly as
+`MarginControlSetpoint` in `src/Main.st`; it is not a measured plant limit, and
+it equals the takeover threshold introduced below because the protective
+controller is designed to hold margin at the same point where protection
+engages.
 
 Pressure control calculates the **normal recycle request ($MV_{\mathrm{normal}}$)** and
 margin control calculates the **protective recycle request ($MV_{\mathrm{protect}}$)**. The
@@ -72,6 +77,16 @@ This regulatory override is not a trip, safety-instrumented function, or
 compressor-map surge controller. Actual machinery protection remains
 independently engineered.
 
+**Margin quality** reports whether the measured minimum-flow margin is
+trustworthy enough to decide takeover or release. **Invalid margin quality**
+means that measurement is not trustworthy, so the selector cannot make that
+decision safely. Automatic protection authority is then removed, and **the
+fallback** is the reviewed response to that condition: both the normal and
+protective candidates Track to a fixed 30-percent recycle position
+(`LREAL#30.0` in `src/Main.st`), independent of the untrustworthy margin
+reading. A safe-looking valve position during the fallback is therefore not
+protection evidence, because no trustworthy margin measurement supports it.
+
 ### Inactive windup and external tracking
 
 An unselected integral controller still sees error. If it does not know the
@@ -94,11 +109,18 @@ margin PI tracks $MV_{\mathrm{applied}}$. Their modes exchange when protection i
 The **takeover threshold ($M_{\mathrm{on}}$)** is 14 percent margin. The **release threshold
 ($M_{\mathrm{off}}$)** is 16 percent. Protection latches when $PV_{m}$ is at or below $M_{\mathrm{on}}$. It
 can release only after $PV_{m}$ reaches $M_{\mathrm{off}}$ and normal demand is high enough that
-transfer will not close the valve.
+transfer will not close the valve:
 
-This two-percentage-point **release hysteresis** prevents chatter around one
-threshold. It does not redefine the protected physical minimum, which remains
-12 percent.
+$MV_{\mathrm{normal}} \geq MV_{\mathrm{protect}}$
+
+$M_{\mathrm{on}}$ is fixed 2 percentage points above the protected physical minimum of 12
+percent so that one sampled margin reading and one 0.1-second control interval
+of continuing decline cannot let the true margin fall below 12 percent before
+protection engages. $M_{\mathrm{off}}$ is set 2 points above $M_{\mathrm{on}}$, not at $M_{\mathrm{on}}$ itself,
+because a margin signal that is merely noisy around one threshold would
+otherwise release and re-latch repeatedly. This two-percentage-point
+**release hysteresis** prevents that chatter around one threshold. It does
+not redefine the protected physical minimum, which remains 12 percent.
 
 ### Local compressor model
 
@@ -174,7 +196,7 @@ authority signal. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Discharge-pressure setpoint (SP, bar); Normal-only discharge pressure (PV, bar); Normal-only recycle request (MV, %), including units, limits, mode, and quality. The initial operating point is Discharge-pressure setpoint = 8 bar, Tracked normal recycle demand = 30 %, Tracked protective recycle demand = 30 %, Normal-only discharge pressure = 8 bar, Normal-only flow margin = 20 %, Untracked discharge pressure = 8 bar, Untracked flow margin = 20 %, Tracked discharge pressure = 8 bar. The unresolved baseline problem is: Normal pressure control violates margin, while an untracked inactive protection integral may take over late or return with a bump. In Control Studio Monitor retain the production, override, and restored authority boundaries at 20.0 s, 80.0 s, and 140.0 s.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept override only when common-unit direction, quality, tracked inactive state, one takeover, one release and transition-step limits are all proven.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
@@ -189,8 +211,6 @@ authority signal. The deterministic Simulation seed is 20260829.
    - **Record:** Compare the three cases with your prediction and retain the terminal state, restoration result, and seed **20260829**. The native lesson test owns the numeric selector verdict and invalid-quality case; this observation does not create generic Identify, Tune, or Validate evidence.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Hold plant equations, initial state, normal and protective tuning, setpoint
 cycle, thresholds, sample schedule, duration, limits, and seed equal. Change
@@ -217,8 +237,6 @@ Define measures before revealing results:
 
 Final-window pressure and margin error from 130 through 140 seconds are eligible
 only after declared pressure, margin, and valve spans show settling.
-
-### Validation
 
 Normal-only control must cross 12 percent and prove the conflict. The untracked
 selector must retain its late takeover or larger bump; eventual recovery does

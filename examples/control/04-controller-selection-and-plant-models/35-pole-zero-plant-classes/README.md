@@ -7,15 +7,12 @@ linearization](../34-gravity-tank-linearization/README.md). Next lesson:
 **Lesson objective:** Predict and justify six qualitative open-loop responses
 from pole-zero locations and validate each match against executable evidence.
 
-All results are simulation evidence, not physical-plant evidence.
+**Evidence class:** Simulation evidence for all six models, not physical-plant
+evidence.
 
 ## The problem
 
-**Equipment:** Heated vessel, storage tank, flexible drive, overhead crane,
-magnetic bearing, and boiler drum.
-
-The workshop contains a heated vessel, storage tank, flexible motor drive,
-overhead crane, magnetic bearing, and boiler drum. One normalized test request
+The equipment is a heated vessel, storage tank, flexible drive, overhead crane, magnetic bearing, and boiler drum. One normalized test request
 is converted into physical heater command, net flow, torque, force, bearing
 force, and feedwater change. Outputs retain temperature, level, position,
 displacement, and drum-level units.
@@ -93,8 +90,10 @@ $C\frac{d\Delta T}{dt}=\frac{P_{100}}{100}\Delta u_h-H\Delta T.$
 Divide by $H$ and define steady gain
 $K_h=P_{100}/(100H)$ and time constant $\tau_h=C/H$. This gives
 $\tau_h\,d\Delta T/dt+\Delta T=K_h\Delta u_h$, and therefore
-$\Delta T(s)/\Delta U_h(s)=K_h/(\tau_hs+1)$. The configured values are
-$K_h=0.2\,^\circ\mathrm C/\%$ and $\tau_h=5$ s. A 20-percentage-point command
+$\Delta T(s)/\Delta U_h(s)=K_h/(\tau_hs+1)$. Substituting Lesson 33's
+configured vessel values $C=50$ kJ/°C, $H=10$ kW/°C, and $P_{100}=200$ kW
+gives $K_h=200/(100\times10)=0.2\,^\circ\mathrm C/\%$ and
+$\tau_h=50/10=5$ s. A 20-percentage-point command
 therefore has a 4 °C final rise. Dividing temperature deviation by that 4 °C
 rise and command by its 20-percentage-point step produces the normalized model
 $G(s)=1/(5s+1)$ used in the matching exercise. On real equipment, $C$ and
@@ -106,8 +105,10 @@ and net-flow deviation ($\Delta q$) in litres per second. The constant tank
 cross-sectional area ($A$) is measured in square metres. Constant area means
 that added volume can change only the level. Conservation of volume gives
 $A\,d\Delta h/dt=\Delta q$ after consistent conversion of litres, metres, and
-centimetres. The configured geometry and unit conversion give
-$d\Delta h/dt=0.2\Delta q$, so a 1 L/s imbalance raises level at 0.2 cm/s.
+centimetres. Substituting Lesson 33's configured tank area $A=0.5$ m² and
+converting units ($1\,\mathrm{L/s}=0.001\,\mathrm{m^3/s}$, then metres to
+centimetres) gives $d\Delta h/dt=(0.001/0.5)\times100=0.2\Delta q$, so a 1 L/s
+imbalance raises level at 0.2 cm/s.
 Taking the zero-initial-deviation Laplace transform gives
 $\Delta H(s)/\Delta Q(s)=0.2/s$. A real value is found from the measured tank
 cross-sectional area, not selected by tuning the controller.
@@ -121,15 +122,17 @@ $J\ddot\theta+c\dot\theta+k\theta=\tau_m$. Dividing by $J$ shows that natural
 frequency is $\omega_n=\sqrt{k/J}$ and damping ratio is
 $\zeta=c/(2\sqrt{kJ})$. The scaled training values $J=1$, $c=0.4$, and $k=1$
 give $\omega_n=1$ rad/s, $\zeta=0.2$, and
-$G(s)=1/(s^2+0.4s+1)$. On a real drive, inertia and stiffness come from geometry
+$G(s)=1/(s^2+0.4s+1)$, whose denominator has complex roots. The **imaginary
+unit ($j$)** satisfies $j^2=-1$ and marks the oscillatory part of such a
+pole; Prediction below extracts this drive's actual complex poles from that
+denominator. On a real drive, inertia and stiffness come from geometry
 and component data or a torque-to-motion test; damping is normally estimated
 from free-decay or frequency-response data.
 
 For the overhead crane, payload-position deviation ($x_c$) is measured in
 metres and trolley-force deviation ($F_c$) in newtons. This lesson uses a
 reduced fitted modal model rather than claiming that a complete crane has only
-three states. The imaginary unit ($j$) satisfies $j^2=-1$ and marks the
-oscillatory part of a pole. The configured teaching model selects a slow
+three states. The configured teaching model selects a slow
 translation pole at -0.1 1/s and a damped swing pair at -1 plus or minus
 $j4$ 1/s, values that a real small-force modal test would have to identify.
 Multiplying their factors gives
@@ -179,18 +182,20 @@ same parameters.
 
 The normalized heater response ($y(t)$) is the fraction of its final
 temperature rise completed at time $t$, where time is measured in seconds. The
-normalized heater model is $G(s)=1/(5s+1)$. Its pole is the denominator root
-$s=-1/5=-0.2\,\mathrm{s^{-1}}$. A unit step has response
-$y(t)=1-e^{-t/5}$, so at one time constant,
-$y(5)=1-e^{-1}=0.63212$. The negative exponential decays without changing
-sign, which predicts a monotonic rise to equilibrium.
+normalized heater model is $G(s)=1/(5s+1)$. Its pole is $p = -0.2\,\mathrm{s^{-1}}$,
+the denominator root $s=-1/5$. A unit step has response
+$y(t)=1-e^{-t/5}$, so at one time constant, that is, at **five seconds**,
+$y(5)=1-e^{-1}=0.63212$, or **63.2 percent** of the final rise. The negative
+exponential decays without changing sign, which predicts a monotonic rise to
+equilibrium.
 
 The storage-tank level deviation in the Laplace domain ($\Delta H(s)$) is the
 transform of $\Delta h(t)$, while its input is a 1 L/s net-flow step. Its model
 is $G(s)=0.2/s$. A unit step has transform $1/s$, so
 $\Delta H(s)=0.2/s^2$. The inverse transform is
 $\Delta h(t)=0.2t$: its origin pole retains
-a **0.2 cm/s** slope instead of creating a finite equilibrium.
+a **0.2 centimetres per second** slope instead of creating a finite
+equilibrium.
 
 The flexible-drive pole ($p$) is a root of its denominator. The flexible drive
 denominator has the second-order form
@@ -199,7 +204,7 @@ $s^2+2\zeta\omega_n s+\omega_n^2$. Its roots are
 $p=-\zeta\omega_n\pm j\omega_n\sqrt{1-\zeta^2}.$
 
 With $\omega_n=1$ rad/s and $\zeta=0.2$, the roots are
-$-0.2\pm j0.9799\,\mathrm{s^{-1}}$. The imaginary part causes oscillation;
+$-0.2\pm j0.980\,\mathrm{s^{-1}}$. The imaginary part causes oscillation;
 the negative real part makes its envelope decay. The damped angular frequency
 ($\omega_d=\omega_n\sqrt{1-\zeta^2}$) determines when the sinusoid reaches its
 first peak. The peak time ($t_p$), measured in seconds, is
@@ -209,7 +214,7 @@ derives the peak-overshoot fraction ($M_p$), which is the amount above the final
 value divided by that final value:
 
 $M_p=e^{-\pi\zeta/\sqrt{1-\zeta^2}}
-=e^{-\pi(0.2)/\sqrt{0.96}}=0.5266.$
+=e^{-\pi(0.2)/\sqrt{0.96}}=0.5266,$ that is, **52.7 percent** overshoot.
 
 The predicted peak is therefore $1+M_p=1.527$, with repeated crossings of the
 final value.
@@ -220,28 +225,34 @@ faster pair at $-1\pm j4$. Their envelopes decay as $e^{-0.1t}$ and $e^{-t}$.
 At five seconds their remaining fractions are $e^{-0.5}=0.6065$ and
 $e^{-5}=0.00674$. The oscillatory pair is therefore prominent early but is
 about 90 times smaller than the slow contribution by five seconds, so the slow
-pole controls the tail.
+pole dominates the tail response.
 
 The magnetic-bearing displacement deviation is $x_b$, its applied force is
 $F_b$, its force coefficient is $b_b=1$ m/(N s), and its local state equation
-is $\dot x_b=0.4x_b+b_bF_b$. Its positive pole makes the
-homogeneous term $e^{0.4t}$ grow. From $x_b(0)=0$ under the declared
+is $\dot x_b=0.4x_b+b_bF_b$. Its pole is $+0.4$, a positive pole that makes
+the homogeneous term $e^{0.4t}$ grow. From $x_b(0)=0$ under the declared
 $F_b=0.0001$ N input,
 
 $x_b(t)=\frac{b_bF_b}{0.4}(e^{0.4t}-1).$
 
 Solving $x_b=0.010$ m gives
 $t=\ln(1+0.4(0.010)/0.0001)/0.4=\ln(41)/0.4=9.28$ s. The test must abort at
-10 mm; this plant is never included in the ordinary 30-second UI run.
+10 millimetres (10 mm); this plant is never included in the ordinary
+30-second UI run.
 
 The boiler model derived above is
 $G(s)=\frac{-0.4s+0.025}{(s+0.05)(s+0.5)}$ cm/%.
 
-Its poles are stable, its zero solves $-0.4s+0.025=0$, giving
-$s=+0.0625$, and its steady unit-step value is $G(0)=1$. For a step input,
-the initial slope is the high-frequency coefficient
-$\lim_{s\to\infty}sG(s)=-0.4$, so level moves negative immediately even
-though its final change is positive. This is inverse response, not dead time.
+Its poles are stable, and its zero is $z = +0.0625\,\mathrm{s^{-1}}$, the root
+of $-0.4s+0.025=0$. Its steady unit-step value is $G(0)=1$. The slow and fast
+mode states are each an ordinary first-order step response of unit steady
+gain, so for a unit step in feedwater, $x_s(t)=1-e^{-0.05t}$ and
+$x_f(t)=1-e^{-0.5t}$, giving
+$y_b(t)=2x_s(t)-x_f(t)=1-2e^{-0.05t}+e^{-0.5t}$. Differentiating and
+evaluating at $t=0$ gives an initial slope of $0.1-0.5=-0.4$: the fast,
+negatively weighted mode reacts before the slow, positively weighted mode
+does. Level is therefore initially negative even though its final change is
+positive. This is inverse response, not dead time.
 
 ## Implementation
 
@@ -280,7 +291,10 @@ then reveal the identities. The deterministic Simulation seed is 20260829.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept each map-to-response match only when the learner predicts and cites an observable causal signature.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the six initial physical commands and process
+     values, the normalized experiment value, and your predicted heater
+     fraction, tank slope, drive peak, crane tail ratio, and boiler
+     initial/final signs before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm the bearing force remains zero in this UI run.
@@ -295,10 +309,13 @@ Test expose the five bounded response classes.
 
 ## Evidence and decision
 
-### Measures and comparison
+The crane, magnetic bearing, and boiler drum appear for the first time in
+this course; none of the three has appeared in any earlier lesson.
 
-**Monotonicity** requires every resolved increment
-$y_{k+1}-y_k$ after the step to have the expected sign. **Late slope** over
+![Simple schematics of the overhead crane, magnetic bearing, and boiler drum](figures/pole-zero-plant-classes-topology.svg)
+
+**Monotonicity** requires every pair of successive output increments,
+$y_{k+1}-y_k$, after the step to have the expected sign. **Late slope** over
 $[t_a,t_b]$ is $(y(t_b)-y(t_a))/(t_b-t_a)$. **Overshoot** is
 $(y_{\max}-y_\infty)/|y_\infty-y_0|$ when a finite steady value is eligible.
 **Crossing count** counts sign changes of $y-y_\infty$.
@@ -344,8 +361,6 @@ Now compare those committed matches with the executed responses:
 [Retained run](figures/pole-zero-plant-classes-run.csv) ·
 [Plot data](figures/pole-zero-plant-classes-trace.csv) ·
 [Decision summary](figures/pole-zero-plant-classes-summary.csv)
-
-### Validation
 
 The native executable run measured:
 

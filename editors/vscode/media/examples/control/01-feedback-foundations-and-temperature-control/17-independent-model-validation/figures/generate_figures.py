@@ -78,6 +78,7 @@ def residual():
     x = lambda value: left + value / 60.0 * width
     y = lambda value: top + height / 2 - value / 1.2 * height / 2
     ticks = "".join(f'<text x="{x(t):.2f}" y="363" text-anchor="middle" class="small">{t}</text>' for t in range(0, 61, 10))
+    time_label = f'<text x="{x(30):.2f}" y="382" text-anchor="middle" class="small muted">time (s)</text>'
     fixed_rmse = float(SUMMARY["fixed_flow_rmse"]["value"])
     bias = float(SUMMARY["post_load_residual_bias"]["value"])
     rho = float(SUMMARY["fixed_flow_lag_one_correlation"]["value"])
@@ -87,6 +88,7 @@ def residual():
 <text x="48" y="65" class="body muted">Prediction residual = measured temperature minus frozen-model prediction</text>
 <text x="{left}" y="94" class="heading">Prediction residual (degC)</text>
 <rect x="{left}" y="{top}" width="{width}" height="{height}" class="panel"/>{common_grid(x, top, height)}{ticks}
+{time_label}
 <line x1="{left}" y1="{y(0):.2f}" x2="{left+width}" y2="{y(0):.2f}" class="zero"/>
 <polyline points="{path(TRACE, x, y, 'residual_degc')}" class="residual"/>
 <line x1="{x(30):.2f}" y1="{top}" x2="{x(30):.2f}" y2="{top+height}" class="event"/>

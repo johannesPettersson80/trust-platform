@@ -8,7 +8,8 @@ Next lesson: [Initialization and operating modes](../27-booster-pump-modes/READM
 realization without integral action and incremental realization with integral
 action.
 
-This lesson uses simulation. Its results are not physical-plant evidence.
+**Evidence class:** Simulation evidence. Its results are not physical-plant
+evidence.
 
 **Equipment:** Industrial positioning table and recirculating water heater.
 
@@ -55,30 +56,35 @@ The **sample interval ($T_{s}$)** is 0.02 seconds between updates. The **output 
 ($u_{0}$)** is the actuator request at zero error when integral action is disabled.
 The **proportional gain ($K_p$)** states how much output is requested per unit of
 error. The **integral gain ($K_i$)** states how much output is added per unit of
-error per second.
+error per second. The 0.02 s sample interval and the 4, 8, and 0.8 gain values
+are configured teaching values carried from Lessons 19–25's positioning table
+and Lessons 6–18's water heater, not values measured on new equipment here.
 
 The **positional form** calculates the complete output from the present terms.
 For the P controller in this lesson:
 
-$u_k=u_0+K_pe_k.$
+$u_{k} = u_{0} + K_{p} \times e_{k}.$
 
 This follows directly from proportional action: multiply the present error by
 output-per-error gain and add the zero-error bias. No previous output is needed.
 
 The **incremental form**, also called the **velocity form**, adds calculated
-increments to the previous output. Start with a positional PI equation at two
-successive samples:
+increments to the previous output. It needs one more retained quantity: the
+**retained integral contribution ($T_{I,k}$)** is the part of controller
+output accumulated from past error up to update $k$, in the same unit as $u$;
+Lessons 6 and 7 called this same accumulated quantity $u_I$. Start with a
+positional PI equation at two successive samples:
 
-$u_k=u_0+K_pe_k+T_{I,k},$
+$u_{k} = u_{0} + K_{p}e_{k} + T_{I,k},$
 
-$u_{k-1}=u_0+K_pe_{k-1}+T_{I,k-1}.$
+$u_{k-1} = u_{0} + K_{p}e_{k-1} + T_{I,k-1}.$
 
 Subtract the second equation from the first. The unchanged bias cancels,
 the proportional difference becomes $K_p(e_k-e_{k-1})=K_p\Delta e_k$, and
 backward-Euler integration gives
 $T_{I,k}-T_{I,k-1}=K_iT_se_k$. Therefore
 
-$u_k=u_{k-1}+K_p\Delta e_k+K_iT_se_k.$
+$u_{k} = u_{k-1} + K_{p} \times \Delta e_{k} + K_{i} \times T_s \times e_{k}.$
 
 At constant nonzero error, $e_{k} = e_{k-1}$, so $\Delta e_{k} = 0$. An incremental P
 calculation with $K_i = 0$ then adds nothing. It can remain stuck at an arbitrary
@@ -125,11 +131,22 @@ integral increment.
 ## Implementation
 
 The actual lesson sets zero integral gain for the table and nonzero integral
-gain for the heater, then invokes the same product function block:
+gain for the heater once, at cold initialization. Every scan then reconfigures
+both controllers with the current gains before calling the same product
+function block:
 
 ```st
-PositionParameters.IntegralGain := LREAL#0.0;
+PositionParameters.ProportionalGain := PositionProportionalGain;
+PositionController.Configure(Parameters := PositionParameters);
+HeaterParameters.ProportionalGain := HeaterProportionalGain;
 HeaterParameters.IntegralGain := HeaterIntegralGain;
+HeaterController.Configure(Parameters := HeaterParameters);
+```
+
+The per-scan input assembly and Manual/Auto mode selection are omitted here;
+both controllers then update from the same per-scan inputs:
+
+```st
 PositionTorque := PositionController.Update(Input := PositionInput);
 HeaterPower := HeaterController.Update(Input := HeaterInput);
 ```
@@ -152,9 +169,9 @@ fresh controller states and frozen input samples to own the exact 2 N·m,
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm table SP = 0 rad, heater SP = 20 °C, both outputs = 0, Manual mode, both gains = 4, and experiment authority false. Add both SP/PV/MV triples, both gains, both selected-form indicators, the rejected diagnostic, positional prediction, mode, and authority to **Signals**.
-   - **Decision before action:** Write the exact fixed-sample predictions: positional P 2→4 N·m, rejected incremental P 1→1 N·m, and PI integral increment 0.24%. State that moving-plant samples cannot substitute for the fixed-sample native proof.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
+   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm table SP = 0 rad, heater SP = 20 °C, both outputs = 0, and Manual mode; gains and selected form are not bound signals and are confirmed from the written plan instead. Add both SP/PV/MV triples, the rejected diagnostic, positional prediction, and experiment authority to **Signals**.
+   - **Decision before action:** Write the exact fixed-sample predictions: positional P 2→4 N·m, rejected incremental P 1→1 N·m, and PI integral increment 0.24%. State that moving-plant samples cannot substitute for the fixed-sample native proof because only the native comparison holds inputs exactly constant across the gain change.
    - **Successful evidence:** The plot advances, values are finite/current, quality is good, and **Start recording** is enabled. Select **Start recording**.
    - **Recovery:** For stale, unavailable, nonfinite, or poor-quality data, stop the Simulator, correct the displayed fault, restart, and repeat the baseline check.
    - **Record:** Note the complete initial state and the three written predictions.
@@ -171,24 +188,24 @@ unchanged-error calculation; Monitor and Test expose the safe live sequence.
 
 ## Evidence and decision
 
-### Measures and comparison
+Over the exact fixed-input native comparison, define the **immediate
+gain-change output difference** as the change in output caused by one
+controller update immediately after the gain edit:
 
-Over the exact fixed-input native comparison, define immediate output change as
-
-$\Delta u_{\mathrm{gain}}=u_{\mathrm{after}}-u_{\mathrm{before}}.$
+$\Delta u_{\mathrm{gain}} = u_{\mathrm{after}} - u_{\mathrm{before}}.$
 
 For positional P this must be $4-2=2$ N·m. Define rejected-state error as
 
 $e_{\mathrm{state}}= |u_{\mathrm{positional,prediction}}-u_{\mathrm{rejected}}|.$
 
 The absolute value measures disagreement regardless of sign; here it is
-$|4-1|=3$ N·m. Finally remove the expected integral contribution from the PI
-change:
+$|4-1|=3$ N·m. Finally define the **PI output discontinuity** by removing the
+expected integral increment from the observed change:
 
-$d_{\mathrm{PI}}= \Delta u_{\mathrm{observed}}-K_iT_se.$
+$d_{\mathrm{PI}} = \Delta u_{\mathrm{observed}} - K_{i} \times T_s \times e.$
 
 A value of zero means the gain edit introduced no extra jump beyond the
-ordinary 0.24% integral increment.
+expected integral increment.
 
 | Observation | Executable result | Required interpretation |
 | --- | ---: | --- |
@@ -204,8 +221,6 @@ ordinary 0.24% integral increment.
 
 These measures are invalid if saturation or rate limiting is active; report the
 limit state instead of attributing a bounded output to the unrestricted law.
-
-### Validation
 
 Repeat from identical initial state. Require the positional P output difference
 to equal 2 N m, its prediction error to be within 0.000000001 N m, the rejected

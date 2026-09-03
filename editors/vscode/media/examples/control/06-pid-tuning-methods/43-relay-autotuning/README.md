@@ -1,7 +1,7 @@
 # Estimate critical behavior with feedback relay
 
-Course position: Lesson 43 of 84. Previous lesson:
-[deliberate manual and historical heat-exchanger tuning](../42-heat-exchanger-tuning-methods/README.md).
+Course position: Lesson 43 of 84. Previous lesson: [deliberate manual and
+historical heat-exchanger tuning](../42-heat-exchanger-tuning-methods/README.md).
 Next lesson: [model-based tuning with an explicit robustness-speed target](../44-model-based-tuning/README.md).
 
 **Equipment:** Plate heat exchanger with qualified and deliberately weak
@@ -15,8 +15,10 @@ A steam valve controls the outlet temperature of the same plate heat exchanger
 used in Lessons 40 through 42. Two independent simulated copies begin at 50
 degrees Celsius (°C) with the valve at 20 percent (%). Each local plant has gain 0.5
 degrees Celsius per valve percentage point, time constant 20 seconds, dead time
-3 seconds, 0.1-second sampling, and deterministic 0.05-degree-Celsius sensor
-noise.
+3 seconds, and 0.1-second sampling. Both copies carry deterministic
+0.05-degree-Celsius measurement noise: a smaller configured value than
+Lessons 40 and 41's measured 0.15-degree-Celsius RMS sensor noise, chosen so
+the amplitude and signal-to-noise gates below stay easy to verify by hand.
 
 The qualified copy moves the valve 18 percentage points above or below its
 holding position. The deliberately weak copy moves only 0.20 percentage
@@ -41,14 +43,18 @@ The relay bias is the valve position that holds the initial operating point,
 in percent. It is 20 percent here. The relay amplitude ($d$) is the positive
 distance from bias to either relay output, in valve percentage points. The high
 output is bias plus amplitude, and the low output is bias minus amplitude. A
-18-point amplitude therefore gives 38 percent and 2 percent.
+18-point amplitude therefore gives 38 percent and 2 percent — chosen so the
+low output stays just clear of the valve's 0-percent limit while the high
+output stays well clear of 100 percent, the largest safe swing at this bias.
 
 The relay center is the outlet temperature around which switching occurs, in
 degrees Celsius. It is 50 degrees Celsius here. The hysteresis half-width
 ($\varepsilon$) is the temperature distance from the center to either switching
-threshold, in degrees Celsius. A 0.08-degree-Celsius half-width gives an upper
-threshold of 50.08 degrees Celsius and a lower threshold of 49.92 degrees
-Celsius.
+threshold, in degrees Celsius. A 0.08-degree-Celsius half-width — about 1.6
+times the 0.05-degree-Celsius noise standard deviation, wide enough to reject
+noise-driven chatter without distorting the measured amplitude — gives an
+upper threshold of 50.08 degrees Celsius and a lower threshold of 49.92
+degrees Celsius.
 
 The relay retains its present output while temperature remains inside the
 band. At the upper threshold it selects the low output. At the lower threshold
@@ -59,23 +65,33 @@ A limit cycle is a repeatable closed-loop oscillation sustained by the feedback
 relay. The measured process amplitude ($a$) is half the difference between the
 qualified upper and lower temperature extrema, in degrees Celsius. The measured
 relay period ($P_u$) is the mean time between equivalent-direction threshold
-crossings, in seconds, after initial transient cycles are discarded.
+crossings, in seconds, after the first two transient cycles are discarded —
+enough for the relay's own switching to settle before any cycle is measured.
 
 For cycle amplitudes $a_i$ with mean $\bar a$, amplitude variation is
 $\max|a_i-\bar a|/\bar a$. Period variation applies the same formula to
 periods $P_i$. At least six complete evaluation cycles are
 required, and amplitude and period variation must each be no more than 10
-percent.
+percent, so the averaged amplitude and period are not set by one noisy or
+drifting cycle.
 
 The oscillation signal-to-noise ratio compares measured process amplitude with
-the sensor-noise standard deviation. It must be at least 5. The measured
-amplitude must also exceed four hysteresis half-widths. Those two checks stop
-noise and the switching band from being mistaken for plant response.
+the sensor-noise standard deviation. It must be at least 5, so the measured
+swing is unambiguously larger than the noise's random scatter. The measured
+amplitude must also exceed four hysteresis half-widths, so it is not merely
+tracing the switching band itself. Those two checks stop noise and the
+switching band from being mistaken for plant response.
 
-The ideal symmetric-relay describing-function approximation estimates the
-critical gain ($K_u$), in valve percentage points per degree Celsius. After relay
-amplitude and measured process amplitude have been defined, its relationship
-is:
+The relay's square-wave output, seen by the plant, behaves mostly like its
+fundamental sine component: a square wave switching between plus and minus
+the relay amplitude ($d$) has a first-harmonic sine amplitude of $4d/\pi$.
+Driven by that effective sine input, the plant returns the measured process
+amplitude ($a$), so the plant's own gain at the oscillation frequency is that
+output divided by that input, $a/(4d/\pi)$. The relay's switching already
+supplies the phase lag that sits the loop at its critical point, so the
+ideal symmetric-relay describing-function approximation estimates the
+critical gain ($K_u$), in valve percentage points per degree Celsius, as the
+reciprocal of that plant gain:
 
 $K_u=\frac{4d}{\pi a}.$
 
@@ -101,10 +117,12 @@ should be near Lesson 42's 11.35 seconds, while its critical-gain estimate
 should be in the same engineering region as 22.24 percentage points per degree
 Celsius.
 
-For the measured strong-cycle amplitude 1.293 °C, the later calculation should
-give $K_u=4(18)/(\pi(1.293))=17.72$ %/°C. With measured period 11.938 s, the
-historical PI rule then gives $K_p=0.45K_u=7.98$ %/°C,
-$T_i=11.938/1.2=9.95$ s, and $K_i=K_p/T_i=0.80$ %/(°C·s).
+Before running the experiment, predict the qualified amplitude from Lesson
+42's model-derived critical gain: solving $K_u=4d/(\pi a)$ for $a$ gives
+$a=4d/(\pi K_u)=4(18)/(\pi(22.24))=1.03$ °C. If the measured amplitude and
+period land near that predicted 1.03 °C and near 11.35 s, the
+$K_u=4d/(\pi a)$ calculation on the measured amplitude should recover
+something near 22.24 %/°C.
 
 The weak record's measured amplitude is 0.085 °C, so its
 $SNR=0.085/0.05=1.7<5$ and its amplitude is also below
@@ -147,7 +165,12 @@ unapplied candidate. The deterministic Simulation seed is 20260829.
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Qualified relay outlet temperature (PV, degC) and Weak relay outlet temperature (PV, degC); Qualified relay applied valve position (MV, %) and Weak relay applied valve position (MV, %), including units, limits, mode, and quality. The initial operating point is Qualified relay applied valve position = 20 %, Weak relay applied valve position = 20 %, Qualified relay outlet temperature = 50 degC, Weak relay outlet temperature = 50 degC. The unresolved baseline problem is: Repeated manual gain changes near sustained oscillation are imprecise and potentially hazardous on physical equipment.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Derive a candidate only when feedback-dependent cycles satisfy amplitude, noise, repeatability, limit, quality, and restoration criteria.
+   - **Decision before action:** Both copies begin at the identical 20 %
+     valve position and 50 degC reading with no controller running, so any
+     visible movement before Test starts means the baseline is not safe to
+     trust. Use this decision rule: Derive a candidate only when
+     feedback-dependent cycles satisfy amplitude, noise, repeatability,
+     limit, quality, and restoration criteria.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
@@ -159,12 +182,7 @@ unapplied candidate. The deterministic Simulation seed is 20260829.
    - **Recovery:** Abort for stale, forced, invalid, nonfinite, mismatched, or out-of-range data. Confirm authority false and both applied valves 20% before retrying.
    - **Record:** Retain terminal state, restoration, thresholds, applied transitions, extrema, crossing times, cycle measures, SNR, failed criteria, seed, and candidate state.
 
-There is no shared Tune stage. Native executable evidence qualifies the strong
-record, rejects the weak record, derives the candidate, and leaves it unapplied.
-
 ## Evidence and decision
-
-### Measures and comparison
 
 For each record retain the applied high and low valve levels, every transition
 and threshold-crossing time, upper and lower temperature extrema, measured
@@ -172,10 +190,14 @@ process amplitude, mean period, amplitude variation, period variation,
 signal-to-noise ratio, saturation duration, invalid samples, stop reason, and
 restoration result. Units and evaluation windows belong with each value.
 
-The qualified record requires at least six complete cycles, no more than 10
-percent amplitude or period variation, signal-to-noise ratio at least 5,
-amplitude greater than 0.32 degrees Celsius, no limit or quality violation, and
-confirmed restoration. An unqualified record retains its data and failed
+Accept the strong record only if it switches because temperature crosses the
+declared thresholds, applies exactly 38 and 2 percent, restores exactly 20
+percent, completes at least six cycles with no more than 10 percent amplitude
+or period variation, measures a 9-to-14-second period, keeps signal-to-noise
+ratio at least 5 and amplitude greater than 0.32 degrees Celsius, shows no
+limit or quality violation, and estimates critical gain within 20 percent of
+Lesson 42's model-derived reference value plus a declared 1-percentage-point
+numerical tolerance. An unqualified record retains its data and failed
 criteria but exposes no gain or tuning candidate.
 
 ![Qualified and rejected feedback-relay tests](figures/relay-autotuning-comparison.svg)
@@ -184,14 +206,6 @@ The [complete retained trace](figures/relay-autotuning-comparison-trace.csv)
 preserves both experiments. The [decision summary](figures/relay-autotuning-comparison-summary.csv)
 records qualification inputs, rejection, restoration, and the explicitly
 unapplied candidate.
-
-### Validation
-
-Accept the strong record only if it switches because temperature crosses the
-declared thresholds, applies exactly 38 and 2 percent, restores exactly 20
-percent, measures a 9-to-14-second period, satisfies both repeatability checks,
-and estimates critical gain within 20 percent of Lesson 42's independent
-critical experiment, with the declared 1-percentage-point numerical tolerance.
 
 The retained executable run produced:
 
@@ -206,9 +220,9 @@ The retained executable run produced:
 | Critical-gain estimate | 17.73 percentage points per degree Celsius | No tuning candidate |
 | Restoration | 20.0 percent confirmed | 20.0 percent confirmed |
 
-The qualified estimate is 20.27 percent below the independent Lesson 42 value,
-inside the 20-percent gate plus its declared 1-percentage-point tolerance. The
-historical rule therefore gives proportional gain 7.98 percentage points per
+The qualified estimate is 20.27 percent below Lesson 42's model-derived
+reference, inside the declared gate. The historical rule therefore gives
+proportional gain 7.98 percentage points per
 degree Celsius, integral time 9.95 seconds, and integral gain 0.80 percentage
 points per degree Celsius per second. These values remain an unapplied
 Simulation candidate.

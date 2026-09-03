@@ -1,15 +1,16 @@
 # Place bearing modes and observe motor load
 
-Course position: Lesson 65 of 84. Prerequisite:
-`control-two-tank-observability`. Next lesson: `control-weigh-feeder-kalman`.
+Course position: Lesson 65 of 84. Previous lesson: [Check two-tank actuator and sensor feasibility](../64-two-tank-observability/README.md). Next lesson: [Qualify a weigh-feeder Kalman estimate](../66-weigh-feeder-kalman/README.md).
 
 **Equipment:** Active magnetic-bearing training rig and loaded conveyor motor.
 
 **Lesson objective:** Calculate and execute bearing feedback and motor observer gains, validate their modes and limits, and expose observer bias under declared plant-model mismatch.
 
+**Evidence class:** Simulation evidence. The magnetic-bearing and motor benches are configured teaching models; this lesson does not qualify a physical bearing or motor.
+
 ## The problem
 
-This lesson contains two linked real-world benches. The active magnetic-bearing rig measures rotor displacement in millimetres and rotor velocity in millimetres per second. Its bidirectional actuator is coil-current deviation in amperes. The local model is valid only within -0.5 to +0.5 millimetres and -2 to +2 millimetres per second. Applied current is limited to -2 to +2 amperes.
+The equipment is the active magnetic-bearing training rig and loaded conveyor motor: two linked real-world benches. The active magnetic-bearing rig measures rotor displacement in millimetres and rotor velocity in millimetres per second. Its bidirectional actuator is coil-current deviation in amperes. The local model is valid only within -0.5 to +0.5 millimetres and -2 to +2 millimetres per second. Applied current is limited to -2 to +2 amperes.
 
 The loaded conveyor motor measures shaft speed with an encoder in radians per second. Drive torque is measured in newton metres and limited to -3 to +3 newton metres. Physical load torque is not instrumented. The simulator exposes it as a **Simulation-only truth channel** so you can check the observer; the controller never reads that channel.
 
@@ -174,13 +175,24 @@ $s^2+(1+l_1)s-l_2$.
 The desired poles give $(s+4)(s+5)=s^2+9s+20$. Coefficient matching therefore gives $1+l_1=9$ and $-l_2=20$, or
 $\mathbf{L}=\begin{bmatrix}8&-20\end{bmatrix}^{T}$. The load correction is negative because a positive physical load reduces speed; when measured speed falls below predicted speed, the observer must raise its positive load estimate. A continuous pole ($\lambda$), measured in inverse seconds, becomes a sampled pole ($z$), which is dimensionless. Forward Euler with the 0.1-second interval maps them by $z=1+0.1\lambda$, so -4 and -5 become 0.6 and 0.5. Their magnitudes are below one, which means the sampled estimation errors decay in the ideal model.
 
-The motor speed-feedback gain ($K_m$) is 2 newton metres per unit of radians
-per second, written $2\,\mathrm{N\,m/(rad/s)}$. The motor reference gain
-($N_m$) is $3\,\mathrm{N\,m/(rad/s)}$. The motor reference ($r_m$) is desired
-speed, estimated speed ($\hat{\omega}$) is the observer's speed state, and
-estimated load ($\hat d$) is its load state:
+The motor reference ($r_m$) is desired speed, estimated speed
+($\hat{\omega}$) is the observer's speed state, and estimated load ($\hat d$)
+is its load state. The motor speed-feedback gain ($K_m$) and motor reference
+gain ($N_m$) place the compensated motor loop the same way $\mathbf K_b$ and
+$N_b$ placed the bearing: choose a desired closed-loop pole and match it. Only
+after choosing that pole do we write the requested-torque law:
 
 $u_{m,\mathrm{requested}} =N_m r_m-K_m\hat{\omega}+\hat{d}$
+
+With a converged observer ($\hat\omega=\omega_m$, $\hat d=d_m$) and
+unsaturated torque, substituting this law into $\dot\omega_m=u_m-\omega_m-d_m$
+cancels the load terms and leaves $\dot\omega_m=-(K_m+1)\omega_m+N_m r_m$: a
+single first-order pole at $s=-(K_m+1)$. Reusing the same $-3\,\mathrm{s^{-1}}$
+pole already chosen for the bearing gives $K_m+1=3$, hence the motor
+speed-feedback gain is 2 newton metres per unit of radians per second,
+written $K_m=2\,\mathrm{N\,m/(rad/s)}$. At equilibrium the requested speed
+must equal the reference ($\omega_m=r_m$), so $0=-(K_m+1)r_m+N_m r_m$ gives
+the motor reference gain $N_m=K_m+1=3\,\mathrm{N\,m/(rad/s)}$.
 
 At equilibrium the motor equation is $0=-\omega-d+u$. With $r_m=1$, real load $d=0.5$, and a controller that assumes $\hat d=0$, substitution of $u=3-2\omega$ gives $0=2.5-3\omega$, hence $\omega=0.8333$ radians per second. With a converged nominal observer, $\hat d=d=0.5$; the load terms cancel and $0=3-3\omega$, hence $\omega=1.0000$ radians per second. If real damping is 1.2 while the observer models 1.0, the missing damping at $\omega\approx1$ looks like another $0.2$ newton metres of opposing load. The observer can therefore estimate about 0.7 while the physical load remains 0.5.
 
@@ -189,8 +201,8 @@ The separation principle says feedback and observer-error poles can be selected 
 ## Prediction
 
 Before running, calculate the position-only poles, $\mathbf K_{\mathrm{b}}$,
-$N_{\mathrm{b}}$, $\mathbf L$, both continuous and discrete observer-error
-poles, and both motor equilibria.
+$N_{\mathrm{b}}$, $\mathbf L$, $K_m$, $N_m$, both continuous and discrete
+observer-error poles, and both motor equilibria.
 
 Predict that position-only bearing feedback is **Not settled**, while state feedback restores the initial displacement and tracks the reference. Predict that nominal load estimation removes the motor bias. For a motor whose real damping is 1.2 while the observer retains 1.0, predict good speed regulation but a load estimate about 0.2 newton metres above physical load near 1 radian per second.
 
@@ -224,31 +236,27 @@ This procedure observes the nominal design without asking Control Studio to synt
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Bearing displacement reference (SP, mm) and Motor speed reference (SP, rad/s); Bearing displacement (PV, mm) and Measured motor speed (PV, rad/s); requested and applied bearing current; requested and applied motor torque; estimated speed and load; innovation; and the separately labelled Simulation-truth load. Confirm their units, limits, mode, and quality. Before authority is granted, both controllers are disabled and both applied outputs are zero.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept the nominal gains only after executed mode, estimation, limit, and mismatch evidence agrees with the reviewed model.
+   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept the nominal gains only after executed mode, estimation, limit, and mismatch evidence agrees with the reviewed model, because a smooth trace alone cannot distinguish a correctly placed pole from a coincidentally similar-looking but wrong one.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial measured and estimated states, the Simulation-truth label, both requested/applied outputs, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **200.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project, not the generic experiment generator, owns every reference change.
-   - **Decision before action:** Before selecting **Review test**, predict four visible intervals: bearing regulation at zero reference, +0.1-millimetre reference tracking after 80 seconds, return to zero after 160 seconds, and motor regulation at 1 radian per second throughout. Confirm all predicted values remain inside the reviewed displacement, velocity, current, speed, and torque limits.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
+   - **Decision before action:** Before selecting **Review test**, predict four visible intervals: bearing regulation at zero reference, +0.1-millimetre reference tracking after 80 seconds, return to zero after 160 seconds, and motor regulation at 1 radian per second throughout. Confirm all predicted values remain inside the reviewed displacement, velocity, current, speed, and torque limits, because a prediction that already violates a declared limit signals a modelling or gain error before any current reaches the rig.
+   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured bearing displacement and velocity, motor speed, estimated motor state, and requested/applied current and torque sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero applied current and torque and zero references, wait for current data, and review a new test.
    - **Record:** Stop recording only after Test reports restoration. Compare each interval with the derivations above, distinguish estimate from truth, and retain the terminal state, restoration result, and deterministic seed **20260829**. Use the native test evidence below for the alternative architectures and mismatch case; do not claim that this one visible run executed them.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Bearing settling time is the first time after which absolute displacement error is at most 0.002 millimetres and absolute velocity is at most 0.005 millimetres per second for two continuous seconds. A response that never meets both conditions is **Not settled**. Final bearing error is the mean absolute displacement error over the final two seconds and is reported only for a settled record.
 
 Motor final speed error is the final five-second mean absolute difference between reference and encoder speed. Nominal load-estimation error is the final five-second mean absolute difference between estimated load and Simulation truth. Estimation settling time requires speed-estimation error at most 0.01 radians per second and load-estimation error at most 0.02 newton metres for two continuous seconds.
 
 For each record also retain peak displacement or speed, peak innovation, peak requested and applied output, time at the applied limit, and cumulative applied-output movement calculated as the sum of absolute changes between consecutive samples.
-
-### Validation
 
 The position-only bearing record must be **Not settled**. State-feedback regulation and reference tracking must settle within 4 seconds, finish within 0.002 millimetres, and avoid sustained current limiting.
 

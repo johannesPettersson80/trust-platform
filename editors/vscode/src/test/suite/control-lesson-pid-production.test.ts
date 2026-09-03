@@ -326,7 +326,7 @@ suite("Production PID curriculum lessons", () => {
       /Lesson 43.*relay/i,
     ]) assert.match(readme, requirement);
     assert.match(readme, /Ti = Kp \/ Ki/);
-    assert.match(readme, /MV_requested = Bias \+ Kp\s*\*\s*e \+ I - Kd\s*\*\s*d\(PV\)\/dt/);
+    assert.match(readme, /MV_requested\s*=\s*Bias\s*\+\s*Kpe\s*\+\s*I\s*-\s*Kd\s*\*\s*d\(PV\)\s*\/\s*dt/);
     assert.strictEqual((program.match(/Control\.PID;/g) ?? []).length, 2);
     assert.match(program, /HistoricalKp\s*:\s*LREAL\s*:=\s*10\.005/);
     assert.match(program, /HistoricalKi\s*:\s*LREAL\s*:=\s*1\.057/);
@@ -389,12 +389,12 @@ suite("Production PID curriculum lessons", () => {
       /signal-to-noise ratio.*amplitude.*noise.*at least 5/i,
       /0\.20.*relay amplitude.*rejected.*No tuning candidate/i,
       /38 percent.*2 percent.*50\.08.*49\.92/i,
-      /Control Studio.*Monitor.*Test.*Tune/i,
+      /Control Studio.*Monitor.*Test/i,
       /Do not.*physical plant.*Apply/i,
       /restor.*20 percent/i,
       /Lesson 44.*robustness-speed/i,
     ]) assert.match(readme, requirement);
-    assert.match(readme, /Ku = 4\s*\*\s*d\/\(pi\s*\*\s*a\)/);
+    assert.match(readme, /Ku\s*=\s*4d\s*\/\s*pi\s+a/i);
     assert.match(program, /QualifiedTemperature >= LREAL#50\.08/);
     assert.match(program, /QualifiedTemperature <= LREAL#49\.92/);
     assert.match(program,
@@ -448,10 +448,10 @@ suite("Production PID curriculum lessons", () => {
       /## What we need[\s\S]*calculate and validate.*Fast.*Balanced.*Robust.*eligible models.*unapplied/i,
       /desired closed-loop time \(lambda\).*seconds.*smaller.*faster.*larger.*robust/i,
       /self-regulating plant gain \(K\).*output change.*input change/i,
-      /integrating rate gain \(Kprime\).*per second.*not.*steady-state gain/i,
+      /integrating rate gain \(K'\).*per second.*not.*steady-state gain/i,
       /dominant time constant \(T\).*seconds.*effective dead time \(L\).*seconds/i,
-      /Kp = T \/ \(K.*lambda \+ L\)/i,
-      /Kp = 1 \/ \(Kprime.*lambda \+ L\)/i,
+      /Kp = T \/ K\(lambda \+ L\)/i,
+      /Kp = 1 \/ K'\(lambda \+ L\)/i,
       /Ti = 4.*lambda \+ L/i,
       /parallel integral gain \(Ki\).*Ki = Kp \/ Ti/i,
       /internal-model-control.*feedback PI.*not.*model-predictive/i,
@@ -459,7 +459,7 @@ suite("Production PID curriculum lessons", () => {
       /heater.*0\.20.*5\.0.*1\.0/i,
       /buffer tank.*0\.05.*0\.5.*1\.0.*valve lag/i,
       /dryer.*0\.40.*20\.0.*8\.0/i,
-      /Control Studio.*Monitor.*Tune.*Validate/i,
+      /Control Studio.*Monitor.*Test/i,
       /change only.*response target.*same.*plant.*initial state.*events.*sample/i,
       /rise time.*10.*90.*settling.*Not settled/i,
       /cumulative applied.*sum.*absolute.*percentage points/i,

@@ -1,10 +1,10 @@
 # Compensate conveyor-oven transport delay with a Smith predictor
 
-Course position: Lesson 59 of 84. Prerequisite: gravity-tank gain scheduling in Lesson
-58. Every result is **Simulation evidence**. It is not evidence from a physical
-oven and does not authorize operation of a belt or heater.
+Course position: Lesson 59 of 84. Previous lesson: [Schedule PI control across a gravity tank's operating range](../58-gravity-tank-scheduling/README.md). Next lesson: [Characterize a cooling-water valve and diagnose stiction](../60-valve-stiction/README.md).
 
 **Lesson objective:** Qualify the strongest acceptable ordinary proportional-integral controller, design a Smith predictor from an independently validated delayed plant model, and decide whether its nominal benefit remains acceptable when process gain, time constant, or transport delay differs from that model.
+
+**Evidence class:** Simulation evidence. It is not evidence from a physical oven and does not authorize operation of a belt or heater.
 
 ## The problem
 
@@ -109,6 +109,18 @@ The **model correction ($\mathbf{c}_{m}$)** is measured temperature minus delaye
 temperature. The **predicted current temperature ($y_{\mathrm{pred}}$)** is delay-free model
 temperature plus that correction. All four temperatures use degrees Celsius.
 
+![Smith-predictor signal path for the heated-air duct](figures/heated-air-duct-smith-signal-path.svg)
+
+The delay-free model alone would drift: nothing in its own calculation ever
+compares it against the real oven, so an unmodelled disturbance or a small
+model error could push it away from the truth indefinitely. Correction fixes
+this by measuring how far the *delayed* model (which predicts what the sensor
+should show right now) has drifted from the real sensor, then applying that
+same measured drift to the delay-free model. Because the delayed model shares
+its dynamics with the delay-free model, this correction anchors the fast
+estimate to the sensor without waiting the full 16 seconds for the sensor to
+confirm it directly:
+
 $c_m = y_{\mathrm{meas}} - y_{\mathrm{mL}}$
 
 $y_{\mathrm{pred}} = y_{\mathrm{m0}} + c_m$
@@ -138,7 +150,11 @@ sensor.
 
 **Model mismatch** means actual process gain, time constant, or delay differs
 from the retained internal model. The delayed model then disagrees with the
-sensor and correction grows. **Predictor availability** means all history,
+sensor and correction grows. This lesson tests two declared mismatch cases
+while the controller keeps the same retained 0.8 degC/%, 12 s, 16 s model:
+**moderate mismatch** sets the actual plant to gain 0.76 degC/%, time constant
+13 s and delay 17 s, and **severe mismatch** sets it to gain 0.60 degC/%, time
+constant 18 s and delay 22 s. **Predictor availability** means all history,
 quality, model, and envelope conditions permit predicted feedback.
 **Measured-feedback fallback** means ordinary sensor feedback deterministically
 owns the loop when any condition fails.
@@ -195,7 +211,7 @@ Simulation seed is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Product-temperature setpoint (SP, degC); Downstream product temperature (PV, degC); Heater-power request (MV, %), including units, limits, mode, and quality. The initial operating point is Product-temperature setpoint = 20 degC, Downstream product temperature = 20 degC, Predicted current product temperature = 20 degC, Heater-power request = 0 %. The unresolved baseline problem is: The highest-bandwidth ordinary PI that passes the robustness envelope still reacts only after the downstream sensor sees transported heater action. Retain 10 s at the 35 degC baseline, then the 70 s event and the 180 s restoration boundary before opening Test.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept prediction only when its nominal improvement, mismatch degradation, correction limit and deterministic measured-feedback fallback are all visible.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
@@ -210,8 +226,6 @@ Simulation seed is 20260829.
    - **Record:** Compare the response with your prediction and retain terminal state, restoration, and seed **20260829**. The native lesson test owns the ordinary-candidate sweep and mismatch verdicts; this observation does not create generic Identify, Tune, or Validate evidence.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Hold initial state, setpoint and disturbance events, limits, 0.1-second sample
 schedule, 180-second duration, noise seed, and metric windows equal. During the
@@ -232,8 +246,6 @@ absolute correction, correction-limit duration, and fallback count.
 Final error is the mean absolute error from 170 through 180 seconds and is
 eligible only if temperature and heater spans prove settling. Predictor metrics
 during invalid or fallback samples are not ranked as Smith performance.
-
-### Validation
 
 The accepted ordinary PI must pass every declared nominal and perturbation
 condition. The next-more-aggressive candidate must fail at least one, proving

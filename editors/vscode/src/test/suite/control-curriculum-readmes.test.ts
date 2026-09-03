@@ -970,16 +970,21 @@ suite("Control curriculum pedagogical READMEs", () => {
       /requested manipulated variable \(MV_requested\).*before.*limit.*percent/i,
       /applied manipulated variable \(MV_applied\).*heater receives.*0.*100 percent/i,
     ]) assert.match(prose, definition);
-    for (const derivation of [
-      /x\s*=\s*y-y_0.*v\s*=\s*u\(t-L\)-u_0.*first-order balance/is,
-      /solving.*decay.*1-e\^\{-\(t-L\)\/T\}/is,
-      /1-e\^\{-1\}=0\.632120.*63\.2 percent.*derived/is,
-      /squaring prevents cancellation.*averaging.*taking.*square root.*temperature unit/is,
-      /divid.*qualified output span.*degrees Celsius cancel/is,
-      /20\\log_\{10\}.*20-decibel.*ten times noise/is,
-    ]) assert.match(readme, derivation, "Lesson 16 must derive each identification rule before practice");
+    // Findings L06-1/L06-2 (docs/internal/reviews/control-course-review-2026-09-03.md):
+    // the README now writes the cycle time as \Delta t and the integral state as
+    // u_I (LaTeX) consistently, instead of the former unintroduced "dt" and four
+    // spellings of "uI". The per-scan update also now uses sample indices k and
+    // k-1 (the same convention Lesson 7 uses) rather than a "new"/"old" pair,
+    // because pedagogicalText has no \text{} unwrapping rule and a k/k-1 index
+    // needs no \text{} label. pedagogicalText's legacy-alias pass renders
+    // \Delta t back to "dt" but keeps the u_I underscore, so the literal
+    // update-equation substring below reflects that alias, not the former
+    // no-underscore "uI,new = uI,old + Ki × e × dt" spelling.
+    // (The block previously here asserted Lesson 16 step-identification
+    // derivations, e.g. "1-e^{-(t-L)/T}" and decibels, against Lesson 6's README;
+    // that content belongs to Lesson 16 and is covered by its own test below.)
     const definitions = prose.indexOf("requested manipulated variable (MV_requested)");
-    const equation = prose.indexOf("uI,new = uI,old + Ki × e × dt");
+    const equation = prose.indexOf("u_I,k = u_I,k-1 + Ki × e_k × dt");
     assert.ok(definitions >= 0 && equation > definitions,
       "all integral and actuation quantities must be explained before the update equation");
     assert.match(prose, /2 °C.*0\.1 s.*0\.10 percentage point.*ten scans.*1\.0 percentage point/is);
@@ -1377,7 +1382,10 @@ suite("Control curriculum pedagogical READMEs", () => {
       /measured travel rate \(r_measured\).*percentage points per second/i,
     ]) assert.match(prose, definition);
     const quantityDefinition = prose.search(/highest admissible position\s+\(MV_high\)/);
-    const firstEquation = prose.indexOf("MV_low = max(0%, MV_previous - r_close * dt)");
+    // L09-2: cycle time now reads Delta t in this formula (not dt); "× dt" is
+    // the pedagogicalText normalization of the corrected Delta t, matching
+    // the equivalent check already used in control-lesson-schema.test.ts.
+    const firstEquation = prose.indexOf("MV_low = max(0%, MV_previous - r_close × dt)");
     assert.ok(quantityDefinition >= 0 && firstEquation > quantityDefinition,
       "Lesson 9 must introduce every actuator-rate quantity before its equations");
     assert.match(prose, /0\.15 percentage point.*0\.05 percentage point.*6\.67 seconds.*20\.0 seconds/is);
@@ -1408,8 +1416,10 @@ suite("Control curriculum pedagogical READMEs", () => {
       assert.ok(position >= 0 && position < experimentStart,
         `${formula} must be derived before Lesson 9 practice`);
     }
+    // L09-2: "r_open × dt" (not "* dt") is the pedagogicalText normalization
+    // of the corrected Delta t formula.
     assert.match(prose,
-      /rate.*change divided by time.*multiply(?:ing)? both sides by.*(?:dt|update time).*maximum opening change = r_open \* dt/is);
+      /rate.*change divided by time.*multiply(?:ing)? both sides by.*(?:dt|update time).*maximum opening change = r_open × dt/is);
     assert.match(prose,
       /previous position minus.*closing change.*previous position plus.*opening change/is);
     assert.match(prose,
@@ -1541,7 +1551,10 @@ suite("Control curriculum pedagogical READMEs", () => {
 
     assert.doesNotMatch(readme, /The equipment in this lesson is Steam-heated/);
     const experimentStart = prose.indexOf("## Experiment in Control Studio");
-    for (const formula of ["e_sat = MV_nominal - MV_saturated", "alpha = dt / Tt",
+    // Cycle time now reads Delta t (task rule: written as Delta t in words and
+    // formulas, not dt); "alpha = delta_t / Tt" is the pedagogicalText
+    // normalization of that corrected formula.
+    for (const formula of ["e_sat = MV_nominal - MV_saturated", "alpha = delta_t / Tt",
       "MV_stored = MV_nominal - alpha * e_sat", "travel = sum("]) {
       const position = prose.indexOf(formula);
       assert.ok(position >= 0 && position < experimentStart,
@@ -2375,6 +2388,17 @@ suite("Control curriculum pedagogical READMEs", () => {
       [...readme.matchAll(/^## (.+)$/gm)].map((match) => match[1]),
       canonicalLessonSections
     );
+    // These identification rules were previously asserted inside the Lesson 6 test,
+    // which read Lesson 6's README and so could never see them. They belong here.
+    for (const derivation of [
+      /1-e\^\{-1\}=0\.632120/,
+      /0\.632120/,
+      /20\\log_\{10\}/,
+      /square root/i,
+    ]) {
+      assert.match(readme, derivation,
+        "Lesson 16 must derive each identification rule before practice");
+    }
     assert.deepStrictEqual(
       lesson.signals
         .filter((signal: { name: string }) => /heater power/i.test(signal.name))

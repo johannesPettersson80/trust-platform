@@ -1,7 +1,6 @@
 # Design and qualify active-suspension LQR/LQG
 
-Course position: Lesson 67 of 84. Prerequisite: `control-weigh-feeder-kalman`.
-Next lesson: `control-building-hvac-mpc`.
+Course position: Lesson 67 of 84. Previous lesson: [Qualify a weigh-feeder Kalman estimate](../66-weigh-feeder-kalman/README.md). Next lesson: [Execute constrained two-zone building MPC](../68-building-hvac-mpc/README.md).
 
 **Equipment:** Reduced body-bounce mode of an active road-vehicle suspension.
 
@@ -22,6 +21,13 @@ $\dot{v}=-4z-1.2v+0.5u+d$
 The state vector ($x$) contains deflection and velocity: $x=[z,v]^T$. State matrix ($A$) describes the unforced spring and damper. Actuator matrix ($B$) describes hydraulic-force influence. Disturbance matrix ($E$) describes road influence:
 
 $\mathbf{A}=\begin{bmatrix}0&1\\-4&-1.2\end{bmatrix},\qquad \mathbf{B}=\begin{bmatrix}0\\0.5\end{bmatrix},\qquad \mathbf{E}=\begin{bmatrix}0\\1\end{bmatrix}$
+
+These coefficients are a configured teaching approximation of one corner's
+body-bounce mode, not measurements of a specific vehicle. A real design would
+begin with that corner's sprung mass, spring rate, and damper rate from the
+vehicle's data sheets or a corner test rig, or would fit them from a
+controlled bump or chirp test on an instrumented corner, then validate the
+fitted model against an independent road event before using it for design.
 
 Requested and applied force are separate. Applied hydraulic force is limited to -5 through +5 kilonewtons. The local model is valid only while absolute deflection is at most 0.08 metres, absolute velocity at most 0.50 metres per second, and absolute road acceleration at most 2 metres per squared second. The controller runs every 0.1 seconds.
 
@@ -54,9 +60,17 @@ Raw numerical weights depend on engineering units. A value written in millimetre
 
 Normalize deflection by 0.05 metres, velocity by 0.25 metres per second, and force by 5 kilonewtons before expressing a preference. If the normalized penalties are $q_z(z/0.05)^2$, $q_v(v/0.25)^2$, and $r_u(u/5)^2$, expansion shows that the dimensional weights are $Q_{zz}=q_z/0.05^2$, $Q_{vv}=q_v/0.25^2$, and $R=r_u/5^2$. This division by the squared engineering scale is why changing metres to millimetres without transforming the weight changes the controller.
 
+These normalization scales are chosen as representative fractions of the
+declared local-model range and the actuator's full rating: 0.05 metres and
+0.25 metres per second are well inside the declared 0.08-metre and
+0.50-metre-per-second local bounds, so a normalized penalty of one
+corresponds to a deflection or velocity a rider would already notice, while 5
+kilonewtons is the actuator's full rated force, so a normalized penalty of one
+corresponds to spending the entire available force.
+
 ### From cost to feedback
 
-Riccati matrix (P) relates the present state to future optimal cost—the least cost achievable by the declared unconstrained linear problem. First confirm that actuator force can stabilize every unstable state. The continuous algebraic Riccati equation then finds P:
+Riccati matrix (P) relates the present state to future optimal cost—the least cost achievable by the declared unconstrained linear problem. First confirm that actuator force can stabilize every unstable state: stacking the actuator matrix with its one-step reach, $[\mathbf B\ \ \mathbf A\mathbf B]=\begin{bmatrix}0&0.5\\0.5&-0.6\end{bmatrix}$, gives determinant $-0.25\neq0$, so Lesson 64's rank test confirms this pair is controllable and every state can be moved by hydraulic force alone. The continuous algebraic Riccati equation then finds P:
 
 $\mathbf{A}^{T}\mathbf{P}+\mathbf{P}\mathbf{A} -\mathbf{P}\mathbf{B}\mathbf{R}^{-1}\mathbf{B}^{T}\mathbf{P} +\mathbf{Q}=0$
 
@@ -66,7 +80,7 @@ $\mathbf{K}=\mathbf{R}^{-1}\mathbf{B}^{T}\mathbf{P}$
 
 $u_{\mathrm{requested}}=-\mathbf{K}\mathbf{x}$
 
-The Riccati equation is solved for the symmetric matrix $P$; it is not a guessed gain. Because $B=[0,0.5]^T$, the gain relation becomes $K=[0.5P_{12}/R,\;0.5P_{22}/R]$. For the balanced case, the numerical Riccati solution has $P_{12}=4.39607806$ and $P_{22}=3.81444278$, so with $R=1$ it gives $K=[2.19803903,1.90722139]$. Substitution into the Riccati equation and a stability check of $A-BK$ are the independent checks that those numbers solve the declared problem.
+The Riccati equation is solved for the symmetric matrix $P$ with a standard iterative numerical Riccati solver—successive algebraic iteration to convergence, the same class of method any linear-quadratic-regulator toolbox uses; it is not a guessed gain. Because $B=[0,0.5]^T$, the gain relation becomes $K=[0.5P_{12}/R,\;0.5P_{22}/R]$. For the balanced case, the numerical Riccati solution has $P_{12}=4.39607806$ and $P_{22}=3.81444278$, so with $R=1$ it gives $K=[2.19803903,1.90722139]$. Substitution into the Riccati equation and a stability check of $A-BK$ are the independent checks that those numbers solve the declared problem.
 
 This solution is optimal for the declared linear model, quadratic cost, complete state, and unconstrained calculation. Saturation breaks the unconstrained optimum. Two candidates designed with different Q and R also have different private cost definitions, so their private J values cannot rank one another. Compare them using the same physical measures.
 
@@ -96,6 +110,15 @@ These matrices come from exact zero-order-hold sampling: $A_d=e^{A\Delta t}$, $B
 Measured position ($y$) is the noisy sensor sample. Predicted state estimate ($x_{\mathrm{prior}}$) is the state expected from the previous corrected estimate and applied inputs. Innovation ($\nu$) is measured position minus predicted position. Estimator gain ($L$) says how much of that surprise corrects deflection and velocity.
 
 Process-noise covariance ($W$) declares model uncertainty. Measurement-noise covariance ($V$) declares position-sensor uncertainty. For $W=diag(1e-7,1e-4)$ and $V=4e-6$, the independent discrete Riccati calculation gives $L=[0.58488259,2.24682847]^T$.
+
+$V=4\times10^{-6}\,\mathrm{m^2}$ is exactly the declared 0.002-metre
+position-sensor standard deviation squared ($0.002^2=0.000004$), obtained
+directly from the same stationary noise record already declared for this
+sensor, not a separately invented number. $W$ is a configured teaching
+covariance representing small trusted-model uncertainty; a real design would
+instead estimate it from residual state-prediction error on an independent
+road event, validated against a held-out record, the same route Lesson 66
+used for its process-noise variance.
 
 $\hat{\mathbf{x}}_{k\mid k-1} =\mathbf{A}_d\hat{\mathbf{x}}_{k-1\mid k-1} +\mathbf{B}_d u_{k-1}+\mathbf{E}_d d_{k-1}$
 
@@ -145,23 +168,21 @@ This procedure observes the balanced position-only LQG design under the nominal 
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm clean validation state, noisy position, estimated state, innovation, requested/applied force, requested/applied road acceleration, design selector, saturation, units, limits, mode, and quality. Confirm Simulation-truth velocity is labelled as validation data and is not an estimator input. Before authority is granted, applied force and road acceleration are zero.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Select a regulator only from common physical tradeoff measures, then accept position-only LQG only when estimator and abnormal-case evidence remain inside declared bounds.
+   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Select a regulator only from common physical tradeoff measures, then accept position-only LQG only when estimator and abnormal-case evidence remain inside declared bounds, because a private quadratic cost can rank two designs oppositely from how they perform on the shared physical measures a rider would feel.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the initial noisy position, estimated deflection and velocity, innovation, requested/applied hydraulic force, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **12.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns the road pulse and balanced-LQG selection.
-   - **Decision before action:** Before selecting **Review test**, predict that positive road acceleration first drives positive body velocity and deflection, while the feedback requests opposing force. Confirm the scheduled pulse and expected response remain inside the force, road, deflection, and velocity limits.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
+   - **Decision before action:** Before selecting **Review test**, predict that positive road acceleration first drives positive body velocity and deflection, while the feedback requests opposing force. Confirm the scheduled pulse and expected response remain inside the force, road, deflection, and velocity limits, because a predicted excursion outside those bounds would mean the balanced design is already operating outside the model it was derived from.
+   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured suspension-deflection and applied-force sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero applied force and road acceleration, wait for current data, and review a new test.
    - **Record:** Stop recording only after restoration. Compare the nominal LQG response and estimate with your prediction, then retain the terminal state, restoration result, and deterministic seed **20260829**. Use the native evidence below for the other designs and abnormal cases; do not claim this visible run executed them.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Suspension-deflection root-mean-square value is the square root of mean squared deflection from 1 through 12 seconds, in metres. Body-velocity root-mean-square value uses the same calculation and window, in metres per second. Body-acceleration root-mean-square value is calculated from the declared state equation, in metres per squared second.
 
@@ -170,8 +191,6 @@ Hydraulic-force energy is $\sum\left(u_{\mathrm{applied}}^{2} \cdot 0.1\right)$ 
 Return time begins after the road pulse. It is the first point for which the next continuous second remains within 0.002 metres deflection and 0.01 metres per second velocity. Report **Not returned** if that prerequisite is never met.
 
 For LQG, position- and velocity-estimation root-mean-square errors compare estimated state with synchronized Simulation truth from 1 through 12 seconds. Innovation mean over the same window checks persistent position prediction bias. Retain source signals, units, window, sample count, mode, model, seed, and evidence class with every value.
-
-### Validation
 
 The native executable test must independently solve all four continuous Riccati designs and the discrete estimator Riccati equation before comparing gains. Every regulator pole and estimator pole must lie inside its applicable stability boundary. Every run must remain finite and inside force and local-model limits.
 

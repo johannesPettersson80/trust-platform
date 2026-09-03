@@ -1,8 +1,10 @@
 # Supervise adaptive pressure control on a polymer extruder
 
-Course position: Lesson 71 of 84. Prerequisite: nonlinear robot-joint control. Next lesson: robust control of a flexible airframe.
+Course position: Lesson 71 of 84. Previous lesson: [Select scheduled or model-linearised robot-joint control](../70-robot-joint-nonlinear/README.md). Next lesson: [Qualify robust load alleviation on a flexible-wing test rig](../72-flexible-airframe-robust/README.md).
 
 **Lesson objective:** Select fixed, recipe-scheduled or supervised adaptive PI from common extruder evidence and prove that adaptation freezes safely when information or pressure quality is lost.
+
+**Evidence class:** Simulation evidence. No physical extruder, motor, heater, die, or polymer material is operated in this lesson.
 
 ## The problem
 
@@ -38,7 +40,7 @@ After those quantities are defined, the first-order pressure balance is:
 
 $\tau_{p} \cdot dp/dt=K \cdot u_{\mathrm{applied}}+B-p$
 
-This lesson uses a known pressure time constant of 5 seconds. It estimates effective gain and pressure bias. Estimating both matters: if bias were silently fixed at zero, a sensor or operating-point offset could be misreported as gain.
+This lesson uses a known pressure time constant of 5 seconds — a **declared teaching value**, representative of the barrel and die volume being compressed by the screw; a learner would obtain it on a real extruder the same way Lesson 37 obtained the heat exchanger's time constant, from a bounded open-loop step test at fixed screw speed while pressure settles. It estimates effective gain and pressure bias. Estimating both matters: if bias were silently fixed at zero, a sensor or operating-point offset could be misreported as gain.
 
 Online parameter estimation means updating a model from synchronized measured input and output while the plant runs. It is not direct access to plant truth.
 
@@ -54,11 +56,13 @@ $z/100=\theta_{K} \cdot (u_{\mathrm{previous}}/100)+\theta_{B}$
 
 Estimated process gain ($\hat{K}$) equals $\theta_{K}$. Estimated pressure bias ($\hat{B}$) equals 100 times $\theta_{B}$.
 
-Recursive least squares (RLS) is an online estimator that corrects parameters from prediction error and an uncertainty matrix. Regressor vector ($\phi$) contains previous applied speed divided by 100 and a constant one. Scaled observation ($y_{\mathrm{id}}$) is z divided by 100. Innovation ($\varepsilon$) is the measured observation minus the model prediction. Covariance matrix (P) represents remaining parameter uncertainty. Forgetting factor ($\lambda$) states how much older evidence is retained; it is 0.98 here. A geometric record retains roughly $1/(1-\lambda)=50$ effective samples. At 0.1 second per sample this is about 5 seconds, short enough to follow the declared slow material drift without treating one sample as truth.
+**Least squares** means choosing the parameter values that make predicted output match measured output as closely as possible, in the sense of the smallest sum of squared prediction errors over the observed data. Recursive least squares (RLS) is an online estimator that corrects parameters from prediction error and an uncertainty matrix, one sample at a time, rather than solving that minimization over a stored batch. Regressor vector ($\phi$) contains previous applied speed divided by 100 and a constant one, so the model $z/100=\theta_K\cdot(u_{previous}/100)+\theta_B$ above is $y_{id}=\phi^T\theta$ in vector form. Scaled observation ($y_{\mathrm{id}}$) is z divided by 100. Innovation ($\varepsilon$) is the measured observation minus the model prediction. Covariance matrix (P) represents remaining parameter uncertainty. Forgetting factor ($\lambda$) states how much older evidence is retained; it is 0.98 here. A geometric record retains roughly $1/(1-\lambda)=50$ effective samples. At 0.1 second per sample this is about 5 seconds, short enough to follow the declared slow material drift without treating one sample as truth.
 
 The estimator first calculates estimator gain vector ($L$), then corrects parameter vector ($\theta$), then updates covariance:
 
 $L=P \cdot \phi/(\lambda+\phi^T \cdot P \cdot \phi)$
+
+$L$ is the correction applied per unit of innovation: it grows when $P$ (remaining uncertainty) is large relative to $\lambda$ (the weight already given to past data), and shrinks as the estimate becomes confident. With a single scalar parameter and regressor $\phi=1$, this reduces to $L=P/(\lambda+P)$ — the same shape as the Kalman gain $K=P/(P+R)$ that Lesson 66 used to weigh a new measurement against prior confidence, with $\lambda$ here playing the role Lesson 66 gave to measurement-noise variance $R$.
 
 $\theta_{\mathrm{next}}=\theta+L \cdot \varepsilon$
 
@@ -68,7 +72,7 @@ A forgetting factor below one allows slow tracking, but it can also let paramete
 
 Persistent excitation means the measured input has enough independent variation to distinguish gain from bias. A constant screw speed cannot distinguish gain from bias: many identical input rows still describe only one direction in the two-parameter problem.
 
-The estimator retains a two-by-two information matrix ($R$). Each healthy unsaturated sample adds the outer product of the regressor while older information is multiplied by 0.98:
+The estimator retains a two-by-two information matrix ($R$). Each healthy unsaturated sample adds the **outer product** of the regressor — the matrix formed by multiplying $\phi$ by its own transpose, $\phi\phi^T=\begin{bmatrix}\phi_1^2&\phi_1\\\phi_1&1\end{bmatrix}$ for this lesson's two-element $\phi=[\phi_1,1]^T$ — while older information is multiplied by 0.98. Its three distinct entries are exactly the shipped `Information11`, `Information12`, and `Information22`:
 
 $R_{\mathrm{next}}=0.98 \cdot R+\phi \cdot \phi^T$
 
@@ -80,19 +84,19 @@ Persistent excitation is accepted only when the information determinant is at le
 
 Persistent excitation is a data condition, not permission to keep experimenting. The bounded probe window must also be explicitly authorized before an estimate may update. Otherwise, a controller-gain change can move screw speed, the estimator can mistake that self-induced motion for fresh experimental evidence, and adaptation can sustain its own apparent excitation. Removing probe authorization therefore freezes estimation immediately even if old information keeps the determinant above 0.10 for a while.
 
-Parameter projection means restricting a candidate estimate to a reviewed physical set. Estimated gain is limited to 0.5 through 1.5 bar/%. Estimated bias is limited to -20 through +20 bar. ProjectionActive reports when a candidate reaches a boundary; clipping is not presented as successful identification. An estimate sitting exactly on either boundary is not qualified for adaptive controller authority.
+Parameter projection means restricting a candidate estimate to a reviewed physical set. Estimated gain is limited to 0.5 through 1.5 bar/%, a **declared teaching bound** wide enough to cover both resin grades' 0.6375-1.15 bar/% Simulation range with margin, yet narrow enough to reject a grossly wrong fit; on a real line this would come from the resin suppliers' data sheets. Estimated bias is limited to -20 through +20 bar, generously covering plausible sensor and operating-point offsets without permitting an unbounded runaway. ProjectionActive reports when a candidate reaches a boundary; clipping is not presented as successful identification. An estimate sitting exactly on either boundary is not qualified for adaptive controller authority.
 
-Estimator confidence uses covariance trace, which is covariance element $P_{11}$ plus covariance element $P_{22}$. An estimate becomes qualified only after at least 20 informative updates reduce covariance trace to 10.0 or less while data and parameter bounds remain valid. A small covariance trace does not prove the model structure is correct; it only qualifies this declared estimator under this experiment.
+The estimator starts from an initial covariance ($P_0$) of $\mathrm{diag}(10,10)$ — trace 20 — representing high initial uncertainty in both gain and bias before any data arrive. Estimator confidence uses covariance trace, which is covariance element $P_{11}$ plus covariance element $P_{22}$. An estimate becomes qualified only after at least 20 informative updates reduce covariance trace to 10.0 or less — a **declared teaching threshold** set at half the initial trace, so qualification demands the estimator has genuinely halved its starting uncertainty, not merely accumulated a handful of samples — while data and parameter bounds remain valid. A small covariance trace does not prove the model structure is correct; it only qualifies this declared estimator under this experiment.
 
 Supervised adaptation is the state machine around RLS. Adaptation may update only when it is requested, control is enabled, pressure data are healthy, the previous applied output is not saturated, persistent excitation is present, and the bounded probe window is authorized. Loss of excitation authorization freezes the last qualified estimate. Bad pressure quality freezes estimation and applies the zero-speed safe output. Before qualification, an adaptive request uses recipe-scheduled PI instead of an unqualified estimate.
 
-Indirect adaptive control means estimating a plant parameter and deriving ordinary controller settings from it. Closed-loop design time ($\lambda_{\mathrm{c}}$) is the desired model-based response time and is 3 seconds. Design gain ($K_{\mathrm{design}}$) is fixed at 1.0 for fixed PI, selected as 1.0 or 0.75 for scheduled PI, and taken from qualified projected $K_{\mathrm{hat}}$ for adaptive PI. Proportional gain ($K_p$) uses %/bar. Integral gain ($K_i$) uses %/(bar*s).
+Indirect adaptive control means estimating a plant parameter and deriving ordinary controller settings from it. Closed-loop design time ($\lambda_{\mathrm{c}}$) is the desired model-based response time and is 3 seconds — a **declared teaching choice**, faster than the 5-second open-loop time constant but not so aggressive that probe-driven screw-speed movement becomes excessive. Design gain ($K_{\mathrm{design}}$) is fixed at 1.0 for fixed PI, selected as 1.0 or 0.75 for scheduled PI, and taken from qualified projected $\hat{K}$ for adaptive PI. The nominal values 1.0 and 0.75 bar/% are the midpoints of each grade's declared viscosity-multiplier range (0.85 through 1.15): grade A's midpoint is exactly 1.0, and grade B's is exactly $0.75\times(0.85+1.15)/2=0.75$. A learner would obtain each grade's nominal gain the same way Lesson 44 selected one representative design point for a self-regulating plant: a bounded open-loop step test at that grade's typical operating condition. Proportional gain ($K_p$) uses %/bar. Integral gain ($K_i$) uses %/(bar*s).
 
 $K_p=\tau_{p}/(K_{\mathrm{design}} \cdot \lambda_{\mathrm{c}})$
 
 $K_i=1/(K_{\mathrm{design}} \cdot \lambda_{\mathrm{c}})$
 
-These equations ask the first-order plant to follow the desired closed-loop time $\lambda_c$. The proportional term is the plant time constant divided by process gain and desired response time. The integral gain is $K_p/\tau_p$, so substituting the proportional expression gives $K_i=1/(K_{design}\lambda_c)$.
+This is the Lambda/IMC rule Lesson 18 derived for a first-order self-regulating plant with no measured dead time: choosing $K_p=\tau/(K(\lambda+L))$ with $L=0$, and $K_i=K_p/\tau$, makes the closed loop itself behave like a first-order response with time constant $\lambda$. These equations ask the first-order plant to follow the desired closed-loop time $\lambda_c$. The proportional term is the plant time constant divided by process gain and desired response time. The integral gain is $K_p/\tau_p$, so substituting the proportional expression gives $K_i=1/(K_{design}\lambda_c)$.
 
 Fixed PI, scheduled PI, and adaptive PI all use the same shared Control.PID function block, zero derivative gain, combined anti-windup, the same probe, and the same applied-speed limits.
 
@@ -100,21 +104,21 @@ Fixed PI, scheduled PI, and adaptive PI all use the same shared Control.PID func
 
 For grade A, fixed and scheduled PI both use design gain 1.0 bar/%. They calculate:
 
-$K_p=5/(1.0 \cdot 3)=1.667 \%/bar$
+$K_p=5/(1.0 \cdot 3)=1.667\text{ %/bar}$
 
-$K_i=1/(1.0 \cdot 3)=0.333 \%/(bar \cdot s)$
+$K_i=1/(1.0 \cdot 3)=0.333\text{ %/(bar s)}$
 
 For grade B, scheduled PI uses design gain 0.75 bar/%:
 
-$K_p=5/(0.75 \cdot 3)=2.222 \%/bar$
+$K_p=5/(0.75 \cdot 3)=2.222\text{ %/bar}$
 
-$K_i=1/(0.75 \cdot 3)=0.444 \%/(bar \cdot s)$
+$K_i=1/(0.75 \cdot 3)=0.444\text{ %/(bar s)}$
 
-If a qualified adaptive estimate is 0.65 bar/%, adaptive PI calculates 2.564 %/bar and 0.513 %/(bar*s). If an update or forced test requests 2.3 bar/%, projection retains 1.5 bar/% and reports the boundary. Predict that removing probe authorization freezes $K_{\mathrm{hat}}$ and $B_{\mathrm{hat}}$ immediately. On the separate constant-grade plant, the information determinant then decays below 0.10 because no deliberate or naturally varying excitation remains.
+If a qualified adaptive estimate is 0.65 bar/%, adaptive PI calculates 2.564 %/bar and 0.513 %/(bar*s). If an update or forced test requests 2.3 bar/%, projection retains 1.5 bar/% and reports the boundary. Predict that removing probe authorization freezes $\hat{K}$ and $\hat{B}$ immediately. On the separate constant-grade plant, the information determinant then decays below 0.10 because no deliberate or naturally varying excitation remains.
 
 ## Implementation
 
-The shipped Structured Text contains one Control.PID instance. The estimator and supervisor remain visible around it:
+The shipped Structured Text contains one Control.PID instance, configured and invoked inside the `AdaptiveExtruderController` function block (`src/AdaptiveExtruderController.st`). `Main.st` only supplies inputs and reads outputs; the estimator and supervisor logic below is this shipped excerpt, with `...` marking elided lines that do not change the governing choice:
 
 ```st
 InformationDeterminant := Information11 * Information22
@@ -128,15 +132,17 @@ AdaptationActive := Enabled
 IF NOT ProbeEnabled THEN
     AdaptationActive := FALSE;
 END_IF;
-
+...
 IF AdaptationActive THEN
+    ...
     Denominator := LREAL#0.98 + Phi1 * PTimesPhi1 + PTimesPhi2;
     EstimatorGain1 := PTimesPhi1 / Denominator;
     EstimatorGain2 := PTimesPhi2 / Denominator;
     CandidateGain := EstimatedGain + EstimatorGain1 * Innovation;
     CandidateBiasScaled := BiasScaled + EstimatorGain2 * Innovation;
+    ...
 END_IF;
-
+...
 ActiveProportionalGain := LREAL#5.0 / (DesignGain * LREAL#3.0);
 ActiveIntegralGain := LREAL#1.0 / (DesignGain * LREAL#3.0);
 Controller.Configure(Parameters := Parameters);
@@ -144,7 +150,7 @@ ScrewSpeedRequested := Controller.Update(Input := Input);
 ScrewSpeedApplied := LIMIT(LREAL#0.0, ScrewSpeedRequested, LREAL#100.0);
 ```
 
-RequestedArchitecture selects fixed, scheduled, or adaptive PI. ActiveArchitecture reports what actually controls the plant. AdaptationRequested controls estimator updates separately from controller selection. AdaptationActive, EstimateFrozen, PersistentExcitation, EstimateQualified, FallbackActive, ProjectionActive, and FrozenReason explain every supervision decision. The program contains no actual effective gain and no built-in performance verdict.
+RequestedArchitecture selects fixed, scheduled, or adaptive PI. ActiveArchitecture reports what actually controls the plant. AdaptationRequested controls estimator updates separately from controller selection. AdaptationActive, EstimateFrozen, PersistentExcitation, EstimateQualified, FallbackActive, ProjectionActive, and FrozenReason explain every supervision decision. FrozenReason reports which single condition is currently blocking adaptation, checked in this order: `1` adaptation not requested, `2` control not enabled, `3` pressure data not healthy, `4` previous applied output was saturated, `5` probe window not authorized, `6` persistent excitation not present (information determinant below 0.10), and `0` when none of those block it. The program contains no actual effective gain and no built-in performance verdict.
 
 ## Experiment in Control Studio
 
@@ -176,15 +182,15 @@ Settling time is valid only after absolute pressure error remains at most 0.5 ba
 
 Applied-speed total variation is the sum of absolute changes between consecutive $u_{\mathrm{applied}}$ samples, in percentage points. It exposes the cost of probing and changing controller gains. Also retain peak requested and applied speed, saturation duration, projection count, informative-update count, frozen duration, covariance trace, $D_{R}$, architecture transitions, and exact parameter change during frozen windows.
 
-Estimate root-mean-square error compares $K_{\mathrm{hat}}$ with effective gain reconstructed independently from Simulation configuration over qualified samples. This metric is available only to the native Simulation oracle. A real extruder does not reveal true effective gain, so a field workflow must use independent validation data instead.
+Estimate root-mean-square error compares $\hat{K}$ with effective gain reconstructed independently from Simulation configuration over qualified samples. This metric is available only to the native Simulation oracle. A real extruder does not reveal true effective gain, so a field workflow must use independent validation data instead.
 
 ### Validation
 
 The shipped native test must match every RLS state and active PI gain against an independent oracle. Estimated gain must remain within 0.5 through 1.5 bar/% and estimated bias within -20 through +20 bar. Covariance and all commands must remain finite.
 
-Under the common record, scheduled PI must improve the grade-B transition over fixed PI. After qualification, adaptive $K_{\mathrm{hat}}$ must have Simulation-only root-mean-square error no greater than 0.08 bar/% and adaptive grade-B pressure error must not exceed scheduled PI error. Any additional probe or adaptation movement remains part of the decision.
+Under the common record, scheduled PI must improve the grade-B transition over fixed PI. After qualification, adaptive $\hat{K}$ must have Simulation-only root-mean-square error no greater than 0.08 bar/% and adaptive grade-B pressure error must not exceed scheduled PI error. Any additional probe or adaptation movement remains part of the decision.
 
-When probe authorization is removed, $K_{\mathrm{hat}}$ and $B_{\mathrm{hat}}$ must stop changing immediately within 1e-12. The constant-grade record must then demonstrate loss of persistent excitation. Bad pressure quality must preserve the estimates and apply exactly zero speed. Restored healthy authorized excitation must resume bounded updates. A 2.3 bar/% candidate must project to 1.5 bar/%. Disabled output must be zero.
+When probe authorization is removed, $\hat{K}$ and $\hat{B}$ must stop changing immediately within 1e-12. The constant-grade record must then demonstrate loss of persistent excitation. Bad pressure quality must preserve the estimates and apply exactly zero speed. Restored healthy authorized excitation must resume bounded updates. A 2.3 bar/% candidate must project to 1.5 bar/%. Disabled output must be zero.
 
 The focused native Simulation run produced:
 
@@ -208,7 +214,7 @@ The lower adaptive IAE is useful, but it is not a complete win: none of the thre
 
 The known resin-grade transition changes scheduled PI gains because grade identity is a reviewed measurable variable. The unmeasured viscosity multiplier appears instead as model innovation. Probe variation creates independent regressor directions, which raises information determinant. Only then may RLS convert innovation into a bounded gain-and-bias correction.
 
-Once a qualified $K_{\mathrm{hat}}$ becomes $K_{\mathrm{design}}$, the same model-based equations adjust ordinary PI gains. This is indirect adaptation, not a new mysterious controller. Its benefit must be compared with probe-driven screw movement, estimator lag, projection, and model assumptions.
+Once a qualified $\hat{K}$ becomes $K_{\mathrm{design}}$, the same model-based equations adjust ordinary PI gains. This is indirect adaptation, not a new mysterious controller. Its benefit must be compared with probe-driven screw movement, estimator lag, projection, and model assumptions.
 
 When probe authorization is removed, continuing to update would let controller-induced motion, forgetting, and noise masquerade as experimental evidence. Freezing immediately preserves the last evidenced controller. The later determinant decay independently shows that the constant-grade record no longer distinguishes gain from bias. Bad pressure quality is more severe: neither adaptive nor fallback feedback may safely act on a corrupt pressure value, so the lesson applies zero speed.
 

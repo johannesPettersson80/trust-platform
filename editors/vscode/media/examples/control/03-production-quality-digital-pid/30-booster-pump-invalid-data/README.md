@@ -8,8 +8,9 @@ signal ordering](../29-booster-pump-atomic-update/README.md). Next lesson:
 prove the invalid scan cannot update the PID, and restore Auto only after
 acknowledgement, valid evidence, and state reinitialization.
 
-This lesson uses simulation. Its fault injections are not physical-plant
-evidence and shall not be reproduced on a running pump for training.
+**Evidence class:** Simulation evidence. Its fault injections are not
+physical-plant evidence and shall not be reproduced on a running pump for
+training.
 
 **Equipment:** Variable-speed booster pump with recirculation valve.
 
@@ -46,8 +47,9 @@ from 0 through 0.5 seconds are both required.
 
 The **measured cycle time ($\Delta t$)** is actual elapsed time between controller
 updates. A **deadline** is the latest acceptable completion time. A
-**watchdog** independently detects a missed deadline. This lesson accepts `dt`
-above zero through 0.2 seconds and separately rejects a missed-deadline input.
+**watchdog** independently detects a missed deadline. This lesson accepts
+$\Delta t$ above zero through 0.2 seconds and separately rejects a
+missed-deadline input.
 
 A **fault cause** identifies the invalid class. The **first-fault latch** keeps
 the first detected cause visible even if another fault appears later. The
@@ -59,9 +61,12 @@ preserve the action that created a hazard. The reviewed teaching topology
 therefore chooses a **safe output** of 30 percent recirculation. A real plant
 requires its own process-safety review.
 
-Nonfinite data is rejected by the runtime's typed I/O boundary before the PLC
-scan. The station guard then rejects finite but implausible values. Pressure
-must be 0 through 12 bar and valve feedback must be 0 through 100 percent.
+The station's own range guard rejects both nonfinite and finite-but-implausible
+values with one ordered-comparison test, before any value reaches PID
+arithmetic. Pressure must be 0 through 12 bar and valve feedback must be
+0 through 100 percent; these limits are configured teaching values matching
+this simulated station's declared operating range, not measurements from
+rated equipment.
 
 Each range check is a conjunction. For example,
 
@@ -69,9 +74,9 @@ $PV_{\mathrm{valid}}=(PV\ge0)\land(PV\le12).$
 
 Both comparisons must be true. Positive infinity fails the upper bound;
 negative infinity fails the lower bound; and an unordered NaN comparison is
-not true. The runtime boundary remains the first defense, while the station
-range guard prevents physically implausible finite values from reaching PID
-arithmetic.
+not true. This single conjunction is therefore the guard's complete defense:
+it rejects nonfinite values and physically implausible finite values alike,
+before either can reach PID arithmetic.
 
 The stable diagnostic map is: code 1 means invalid numeric or physical range;
 code 2 means stale or bad-quality measurement; code 3 means invalid cycle
@@ -82,7 +87,9 @@ An invalid scan does not call the PID and does not call `Configure`. It cannot
 advance the active revision. Recovery requires acknowledgement, three
 consecutive valid scans after the acknowledgement scan, explicit reset, state
 initialization, and a separate renewed Auto request on a later scan. The
-acknowledgement scan clears no fault and leaves the recovery count at zero.
+**recovery count ($N$)** is the number of consecutive qualifying valid scans
+counted since acknowledgement, capped at three. The acknowledgement scan
+clears no fault and leaves the recovery count at zero.
 
 ## Prediction
 
@@ -98,32 +105,51 @@ The recovery counter follows
 $N_k=\begin{cases}\min(N_{k-1}+1,3), & \text{acknowledged and every input valid},\\0, & \text{otherwise}.\end{cases}$
 
 The acknowledgement scan is deliberately excluded, so it leaves the count at
-zero. Valid scans 1, 2, and 3 produce counts 1, 2, and 3. Reset is accepted only
-when
+zero. Valid scan 1 advances the count to one, valid scan 2 to two, and
+valid scan 3 to three. Reset is accepted only when
 
 $\text{acknowledged}\land(N=3)\land\text{reset request}.$
 
-Reset copies present SP, PV, and actual valve feedback into controller state.
-With actual feedback at 30%, the reset scan therefore holds 30%. It calls
+Reset copies the present setpoint, present process value, and actual valve
+feedback into controller state. With actual feedback at 30%, the reset scan
+therefore holds 30%. It calls
 Configure and Initialize but not PID Update. At zero error, the separate later
 Auto scan starts from the retained 30% and also predicts 30%.
 
 ## Implementation
 
-The station guard owns validity and authority. The same single `Control.PID`
-from previous lessons is called only on a valid, authorized scan:
+The station guard owns validity and authority. A latched fault commands the
+safe output immediately, before any acknowledgement or recovery counting:
 
 ```st
 IF FaultLatched THEN
     ValveCommand := LREAL#30.0;
-ELSIF ControllerReady AND EnableAutoRequest THEN
-    ValveCommand := Controller.Update(Input := Input);
-END_IF;
+
+    IF AcknowledgeRequest THEN
+        (* Acknowledgement records awareness; it never clears the fault. *)
+        FaultAcknowledged := TRUE;
+    END_IF;
+```
+
+The acknowledgement, recovery-count, and qualified-reset statements that
+follow are omitted here; they are described above. On a scan with no active
+fault, the same single `Control.PID` from previous lessons is called only when
+the controller is ready and Auto is requested; otherwise the guard holds the
+actual valve position instead of calling `Update`:
+
+```st
+    IF ControllerReady AND EnableAutoRequest THEN
+        ValveCommand := Controller.Update(Input := Input);
+        AutoAuthorized := TRUE;
+    ELSE
+        ValveCommand := ActualValvePosition;
+        AutoAuthorized := FALSE;
+    END_IF;
 ```
 
 Qualified reset configures the last accepted active record and calls
-`Controller.Initialize` with current SP, PV, and actual valve output. It does
-not call `Update` or grant Auto on that scan.
+`Controller.Initialize` with the present setpoint, present process value, and
+actual valve output. It does not call `Update` or grant Auto on that scan.
 
 ## Experiment in Control Studio
 
@@ -141,9 +167,9 @@ and deadline faults. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm SP/PV = 6 bar, safe valve command = 30%, Auto unauthorized, controller not ready, fault code/count = 0, and experiment authority false. Add quality, age, cycle time, deadline, candidate limits, revision, fault/latch/acknowledgement, recovery count/readiness, call flags, Auto authority, output, and experiment authority to **Signals**.
-   - **Decision before action:** Write the code-5 prediction: no PID/configure call, revision unchanged, and 30% safe output. Write the required recovery count sequence 0→1→2→3, reset hold 30%, and later Auto hold 30%.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
+   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm SP/PV = 6 bar, safe valve command = 30%, and fault code and recovery count both 0. Add sensor age, measured cycle time, fault code, recovery valid count, applied output, and experiment authority to **Signals**.
+   - **Decision before action:** Write the code-5 prediction: no PID/configure call, revision unchanged, and 30% safe output. Write the required recovery count sequence 0→1→2→3, reset hold 30%, and later Auto hold 30%, because acknowledgement alone must not be able to restore control.
    - **Successful evidence:** The plot advances, values are finite/current, quality is good, and **Start recording** is enabled. Select **Start recording**.
    - **Recovery:** For stale, unavailable, nonfinite, or poor-quality baseline data, stop the Simulator, correct the displayed fault, restart, and repeat the baseline check. Do not begin with an unexplained active fault.
    - **Record:** Note the initial validity, state, ownership, output, and predictions.
@@ -160,8 +186,6 @@ fault-code matrix; Monitor and Test expose the complete code-5 recovery path.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 **Diagnostic correctness** is exact equality between the injected fault class
 and published code on the first fault scan.
 
@@ -177,7 +201,8 @@ percentage points.
 **Reset acceptance** requires acknowledgement, qualification, and reset request
 together.
 
-The **recovery output step** is
+The **recovery output step** is the absolute difference between the first
+renewed-Auto output and the reset-scan output:
 $\Delta MV_{\mathrm{recovery}}=
 |MV_{\mathrm{Auto,first}}-MV_{\mathrm{reset}}|$. Comparing adjacent authority
 states isolates the handover bump from later feedback movement.
@@ -189,14 +214,18 @@ states isolates the handover bump from later feedback movement.
 | 0 s cycle time | 3 | 0 / 0 | 30.000% |
 | Missed deadline | 4 | 0 / 0 | 30.000% |
 | Reversed limits | 5 | 0 / 0 | 30.000% |
+| Qualified reset | 0 | 1 / 0 | 30.000% |
+| Renewed Auto | 0 | 0 / 1 | 30.000% |
+
+The reset-scan output is 30.000 percent and the first renewed-Auto output is
+also 30.000 percent, so the recovery output step is zero: state
+reinitialization from actual feedback makes the handover bumpless.
 
 ![Recovery authority advances in separate qualified scans](figures/invalid-data-recovery.svg)
 
 [Retained run](figures/invalid-data-recovery-run.csv) ·
 [Plot data](figures/invalid-data-recovery-trace.csv) ·
 [Decision summary](figures/invalid-data-recovery-summary.csv)
-
-### Validation
 
 Require the exact code for every isolated injection, zero invalid-scan state
 mutations, unchanged revision 0, and safe-output error at or below 0.001

@@ -14,8 +14,7 @@ evidence. All four loops run in one shared simulator.
 
 Lessons 1–30 built controller mechanisms and made their implementation safe.
 Now the student must choose which mechanisms a loop actually needs. The
-equipment is a cold room, recirculating water heater, buffer tank, and loaded
-positioning table running together. They do not interact; their different
+equipment is a cold room, recirculating water heater, buffer tank, and loaded positioning table running together. They do not interact; their different
 physics and actuators let us ask the same engineering question four times:
 what mechanism is actually needed?
 

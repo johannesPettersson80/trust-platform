@@ -4,12 +4,12 @@ Course position: Lesson 15 of 84. Previous lesson: [Sampling and jitter](../../0
 
 **Lesson objective:** Derive a local dynamic model of a recirculating water heater from stated equipment properties, predict one bounded temperature response, and decide whether the configured simulator is consistent with that model without presenting the result as identified or physical-plant evidence.
 
-This lesson produces **model evidence** and **Simulation evidence**. It does not
+**Evidence class:** Model evidence and Simulation evidence. This lesson does not
 produce evidence from an identified or physical water heater.
 
 ## The problem
 
-The equipment in this lesson is Well-mixed recirculating vessel, electric heater, outlet-temperature sensor, and power stage.
+The equipment in this lesson is a well-mixed recirculating vessel, electric heater, outlet-temperature sensor, and power stage.
 
 The plant is a well-mixed recirculating vessel. A one-sided electric heater can
 add heat but cannot actively cool the water; its thermal range is 0 to 200
@@ -59,10 +59,6 @@ between water and surroundings, measured in kilowatts per degree Celsius. The
 Celsius. The **rated heater power ($P_{100}$)** is the heater's thermal power at a
 100-percent command, measured in kilowatts.
 
-In a spoken review, read the symbols explicitly as water temperature (T) and
-ambient temperature (Tambient) so that the physical quantities do not disappear
-behind notation.
-
 The **requested heater command ($MV_{\mathrm{requested}}$)** is what the program asks the
 power stage to apply, measured in percent. The **applied heater command
 ($MV_{\mathrm{applied}}$)** is the bounded command that physically enters the simulated
@@ -73,7 +69,12 @@ The **equilibrium temperature ($T_{\mathrm{eq}}$)** is the temperature at which 
 stops changing because heat entering equals heat leaving. The **static gain
 ($K$)** is the equilibrium temperature change in degrees Celsius per percentage
 point of applied heater command—degrees Celsius per percent heater power on
-this scale. The **time constant ($\tau$)** is the time in
+this scale. Lesson 8 used the symbols $K_h$ and $T_0$ for this same kind of
+steady heater gain and ambient temperature on the same water heater without
+deriving them; this lesson derives $K$ and $T_{\mathrm{ambient}}$ from first
+principles instead. A **first-order** response is one whose dynamics are fully described by a
+single stored quantity, here stored thermal energy; it has no other memory of
+its own history. The **time constant ($\tau$)** is the time in
 seconds for this first-order response to complete about 63.2 percent of its
 eventual change after it begins. The **apparent dead time ($L$)** is the time in
 seconds between changing the heater command and the measured response beginning.
@@ -132,7 +133,23 @@ second, so the time constant is the reciprocal of that rate:
 
 $\tau = \frac{C}{H}$
 
-The solution says that the remaining fraction after the apparent dead time is
+Lesson 9 measured a rate as change divided by elapsed time; the same
+finite-difference idea applies to $x=T-T_{eq}$. Dividing the balance above by
+$C$ gives the rate $dx/dt=-x/\tau$, so over one small step $dt$ the difference
+changes by approximately $-x_k\,dt/\tau$, leaving
+
+$x_{k+1}\approx x_k(1-dt/\tau)$
+
+Repeating that same small step $N$ times leaves a fraction $(1-dt/\tau)^N$ of
+the original difference, because each step multiplies what remains by the same
+factor. Now let the step shrink while $N$ grows so that $N\,dt$ always equals
+the elapsed time $t$: the repeated-multiplication limit
+$(1-t/(N\tau))^N$ approaches a fixed numerical value as $N$ grows without
+bound. That limiting value defines **Euler's number ($e$)**, approximately
+2.71828, through $\lim_{N\to\infty}(1-t/(N\tau))^N=e^{-t/\tau}$. Substituting
+$t=0$ into $e^{-t/\tau}$ gives $e^0=1$, the whole original difference, exactly
+as the balance requires before any time has passed; this check confirms the
+solution is consistent with its starting condition. The solution says that the remaining fraction after the apparent dead time is
 an exponential:
 
 $\frac{T_{eq}-T(t)}{T_{eq}-T(0)}=e^{-(t-L)/\tau}$
@@ -173,7 +190,18 @@ inspection.
 
 The vessel has a thermal capacitance of 50 kilojoules per degree Celsius. Its
 effective heat-loss coefficient is 10 kilowatts per degree Celsius, and the
-heater supplies 200 kilowatts at full power.
+heater supplies 200 kilowatts at full power. These three values are declared
+configured teaching values, chosen to keep the arithmetic below exact and
+round. On real equipment the same three quantities have a measurement route:
+thermal capacitance is mass times specific heat, $C=m\,c_p$ with water's
+$c_p\approx4.18$ kilojoules per kilogram-degree-Celsius; rated heater power is
+read from the element's nameplate; and heat-loss coefficient is estimated from
+a holding-power test, dividing the steady heater power needed to hold a fixed
+temperature above ambient by that temperature difference. The one-second
+apparent dead time is a separate transport and sensor-response delay, not a
+quantity the C, H, P_100 energy balance can produce; on real equipment it is
+measured directly, as the elapsed time between a heater step and the first
+detectable outlet-temperature change.
 
 Full-scale power per percentage point is $200/100=2$ kilowatts per percentage
 point. Dividing by the 10-kilowatt-per-degree-Celsius loss gives
@@ -232,18 +260,10 @@ checks pass.
 ## Implementation
 
 The shipped Structured Text validates the physical parameters, limits the
-one-sided actuator, and derives the prediction from applied power:
+one-sided actuator, and derives the prediction from applied power. It is
+quoted verbatim, in its shipped order:
 
 ```st
-ExperimentEnabled : BOOL := FALSE;
-
-IF ExperimentEnabled THEN
-    RequestedHeaterPower := LREAL#20.0;
-ELSE
-    RequestedHeaterPower := LREAL#0.0;
-END_IF;
-ManualMode := NOT ExperimentEnabled;
-
 ModelValid := ThermalCapacitance > LREAL#0.0
     AND ThermalCapacitance <= LREAL#1.0E6
     AND EffectiveHeatLoss > LREAL#0.0
@@ -253,12 +273,17 @@ ModelValid := ThermalCapacitance > LREAL#0.0
     AND AmbientTemperature >= LREAL#0.0
     AND AmbientTemperature <= LREAL#80.0;
 
+IF ExperimentEnabled THEN
+    RequestedHeaterPower := LREAL#20.0;
+ELSE
+    RequestedHeaterPower := LREAL#0.0;
+END_IF;
+ManualMode := NOT ExperimentEnabled;
+
 InputsValid := ProcessValue >= LREAL#0.0
     AND ProcessValue <= LREAL#80.0
     AND RequestedHeaterPower >= LREAL#-1000.0
     AND RequestedHeaterPower <= LREAL#1000.0;
-
-ManualMode := NOT ExperimentEnabled;
 
 IF ModelValid THEN
     TimeConstant := ThermalCapacitance / EffectiveHeatLoss;
@@ -276,9 +301,7 @@ IF ModelValid AND InputsValid AND ExperimentEnabled THEN
     ELSE
         AppliedHeaterPower := RequestedHeaterPower;
     END_IF;
-
-    PredictedEquilibrium := AmbientTemperature
-        + StaticGain * AppliedHeaterPower;
+    PredictedEquilibrium := AmbientTemperature + StaticGain * AppliedHeaterPower;
 ELSE
     AppliedHeaterPower := LREAL#0.0;
     IF ModelValid THEN
@@ -348,8 +371,6 @@ from retained evidence before reading the status column.
 *Figure 2. The executable evidence overlay marks the delay, the six-second
 prediction, the equilibrium, and safe restoration. It distinguishes a derived
 model curve from configured simulator truth.*
-
-### Validation
 
 Recalculate the table from `figures/heater-model-trace.csv` and
 `figures/heater-model-summary.csv`. First decide whether the run and final

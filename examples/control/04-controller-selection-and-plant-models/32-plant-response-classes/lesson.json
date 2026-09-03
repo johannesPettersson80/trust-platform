@@ -31,6 +31,7 @@
       { "name": "tank_integrating_gain", "value": 0.1, "unit": "cm/(%*s)" },
       { "name": "oven_gain", "value": 0.25, "unit": "degC/%" },
       { "name": "oven_delay", "value": 4, "unit": "s" },
+      { "name": "oven_time_constant", "value": 2, "unit": "s" },
       { "name": "drive_static_gain", "value": 1, "unit": "rad/(N m)" },
       { "name": "drive_natural_frequency", "value": 1, "unit": "rad/s" },
       { "name": "drive_damping_ratio", "value": 0.2, "unit": "1" }

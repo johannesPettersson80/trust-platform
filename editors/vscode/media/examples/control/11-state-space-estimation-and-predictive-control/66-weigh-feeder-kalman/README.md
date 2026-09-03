@@ -1,17 +1,22 @@
 # Qualify a weigh-feeder Kalman estimate
 
-Course position: Lesson 66 of 84. Prerequisite:
-`control-magnetic-bearing-state-feedback`. Next lesson: `control-suspension-lqr`.
+Course position: Lesson 66 of 84. Previous lesson: [Place bearing modes and observe motor load](../65-magnetic-bearing-state-feedback/README.md). Next lesson: [Design and qualify active-suspension LQR/LQG](../67-suspension-lqr/README.md).
 
 **Equipment:** Dry-material weigh-belt feeder with noisy load cell.
 
 **Lesson objective:** Compare fixed, nominal Kalman, sensor-overtrust, sensor-distrust, biased-sensor, and invalid-covariance cases against synchronized Simulation truth.
 
+**Evidence class:** Simulation evidence. The feeder gain, time constant, and noise parameters are configured teaching values; this lesson does not qualify a physical weigh belt or load cell.
+
 ## The problem
 
 The equipment is a dry-material weigh-belt feeder. Belt-speed command is measured in percent, and mass flow is measured in kilograms per second. The local feeder gain is one kilogram per second for each percent of belt command, and its time constant is one second. Command and mass-flow truth are limited to 0 through 20 in their respective units.
 
+The feeder gain and time constant are configured teaching values, not measurements of a physical belt. A real design would obtain initial values from the feeder motor's rated speed-to-mass-flow curve or a loaded weigh test, then estimate the response time constant from a command-step record and validate both against an independent loaded run.
+
 Two equivalent simulated feeders receive the same applied belt command. One publishes noise-free mass flow as **Simulation-only truth**. The second represents the load-cell measurement and adds deterministic approximate-white noise with zero mean and standard deviation 1.73205 kilograms per second. A separate fault case adds a 1.0-kilogram-per-second sensor bias. Both estimators read the same noisy measurement; neither reads truth.
+
+The measurement-noise standard deviation and the 1.0-kilogram-per-second bias fault are also configured teaching values. A real design would estimate load-cell noise from a stationary zero-flow record (repeated static weighings) and would discover a bias fault from periodic zero-calibration checks against a certified test weight, not from a single run.
 
 ![Weigh-feeder filtering and Kalman-estimation path](figures/weigh-feeder-estimation-signal-path.svg)
 The models omit transport delay, load-cell dynamics, impacts, slip, changing material density, colored noise, and outliers. The approximate-white generator is a repeatable teaching source, not proof that physical noise is Gaussian.
@@ -56,9 +61,11 @@ $P_{k\mid k}=(1-K_k)P_{k\mid k-1}$
 
 Normalized innovation squared ($NIS$) is $\nu^{2}/S$. Both numerator and denominator have units of squared kilograms per squared second, so their ratio is dimensionless. For an exact scalar model with independent zero-mean Gaussian uncertainty, its long-record mean is expected near one. Persistent innovation mean, excessive normalized innovation, or correlated successive innovations warns that the model or noise assumptions are inconsistent. This short deterministic lesson uses engineering bands; it is not a universal statistical proof.
 
-The fixed-filter coefficient ($\alpha$) is 0.2. Its update has no model input or covariance:
+The fixed-filter coefficient ($\alpha$) is 0.2, a configured teaching value chosen only as a plausible plant-side smoothing constant for comparison; it is not derived from this feeder's dynamics, which is exactly the weakness the Kalman filter below corrects. Its update has no model input or covariance:
 
 $\hat{x}_{\mathrm{simple},k}=\hat{x}_{\mathrm{simple},k-1} +\alpha\left(z_k-\hat{x}_{\mathrm{simple},k-1}\right)$
+
+The process-noise variance ($Q=0.1$) and measurement-noise variance ($R=3$) used below are configured teaching values. A real design would estimate $R$ from that same stationary load-cell noise record's sample variance, and would tune $Q$ from residual model-versus-truth mismatch on an independent excitation, then validate both against held-out data.
 
 With previous covariance 1.9, process-noise variance 0.1, and measurement-noise variance 3, the first calculation is:
 
@@ -73,6 +80,11 @@ $P_{\mathrm{post}}=(1-0.35561)(1.65559)=1.06684$.
 For a 5-kilogram-per-second innovation, the Kalman correction is $K\nu=0.35561(5)=1.77807$ kilograms per second. The fixed-filter correction is $0.2(5)=1.00000$ kilogram per second. These calculations show exactly where the two different measurement weights come from.
 
 ## Prediction
+
+Before running, confirm the first nominal correction worked out above:
+$P_{\mathrm{prior}}=1.65559$, $K=0.35561$, $P_{\mathrm{post}}=1.06684$, and a
+$1.77807$ kilogram-per-second correction for a 5-kilogram-per-second
+innovation.
 
 Reducing measurement-noise variance to $R=0.25$ creates sensor-overtrust: gain and estimate movement should increase. Increasing it to $R=12$ creates sensor-distrust: gain should fall and response should be no faster. Increasing Q increases gain because model prediction is declared less certain.
 
@@ -103,29 +115,25 @@ This procedure observes the nominal $Q=0.1$, $R=3$ estimator record. The project
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm noisy load-cell measurement, separately labelled Simulation truth, requested and applied command, fixed and Kalman estimates, selected estimate, $Q$, $R$, predicted and corrected covariance, gain, innovation, innovation variance, NIS, validity, units, limits, mode, and quality. Before authority is granted, the drive is disabled and both requested and applied commands are zero.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept covariance settings only when truth-error, response, movement, innovation and fault evidence agree with the declared model and noise assumptions.
+   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept covariance settings only when truth-error, response, movement, innovation and fault evidence agree with the declared model and noise assumptions, because a covariance pair that merely looks smooth on screen can still be statistically inconsistent with the declared noise.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the initial load-cell measurement, fixed and Kalman estimates, $Q$, $R$, gain, innovation, requested/applied belt command, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns the 5-to-10-percent command event.
-   - **Decision before action:** Before selecting **Review test**, predict the rise after 5 seconds and the relative motion of the measurement, prediction, and correction. Confirm the scheduled command and expected mass-flow values remain inside their declared limits.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
+   - **Decision before action:** Before selecting **Review test**, predict the rise after 5 seconds and the relative motion of the measurement, prediction, and correction. Confirm the scheduled command and expected mass-flow values remain inside their declared limits, because a predicted excursion outside 0 through 20 kilograms per second would indicate the wrong model or command schedule before the belt moves.
+   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured load-cell, estimate, and innovation-diagnosis sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero requested and applied command, wait for current data, and review a new test.
    - **Record:** Stop recording only after restoration. Compare the observed nominal trace with the calculation above and retain the terminal state, restoration result, and deterministic seed **20260829**. Use the native evidence below for the alternative covariance and fault cases; do not claim this visible run executed them.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 Root-mean-square estimation error is the square root of mean squared estimate-minus-truth error from 5 through 30 seconds, in kilograms per second. Persistent measurement noise makes a rule requiring every sample to stay inside a narrow settling band misleading: a correctly centred estimate can cross that band repeatedly. Instead, two-second mean 90-percent response time is the first 20-sample window after the 5-to-10-percent command step whose arithmetic-mean estimate reaches at least 9.5 kilograms per second. It is valid only when requested and applied command steps agree and every sample in the window is finite; otherwise report **Not reached**.
 
 Estimate movement is total variation: the sum of absolute changes between consecutive estimate samples, in kilograms per second. Innovation diagnostics are innovation mean, innovation root-mean-square value, mean NIS, and lag-one correlation over the same 5-through-30-second window. Retain the sample count, window, Q, R, seed, validity, and Simulation evidence class with every result.
-
-### Validation
 
 The first nominal calculation must reproduce 1.65559 predicted covariance, 0.35561 gain, 1.06684 corrected covariance, and 1.77807 correction. Every valid covariance must remain finite and nonnegative, and every valid innovation variance must remain positive.
 

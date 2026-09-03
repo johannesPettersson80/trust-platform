@@ -1,13 +1,14 @@
 # Atomic PID updates and signal ordering on a booster pump
 
 Course position: Lesson 29 of 84. Previous lesson: [Bumpless authority
-transfer](../28-booster-pump-bumpless-transfer/README.md). Next lesson: Invalid
-data and [safe behavior](../30-booster-pump-invalid-data/README.md).
+transfer](../28-booster-pump-bumpless-transfer/README.md). Next lesson:
+[Invalid data and safe recovery](../30-booster-pump-invalid-data/README.md).
 
 **Lesson objective:** Apply a complete PID configuration as one revision and
 distinguish the valid internal feedforward path from an invalid post-limit sum.
 
-This lesson uses simulation. Its results are not physical-plant evidence.
+**Evidence class:** Simulation evidence. Its results are not physical-plant
+evidence.
 
 **Equipment:** Variable-speed booster pump with recirculation valve.
 
@@ -54,6 +55,12 @@ PI/feedforward target before anti-windup and limits. It is evidence only and
 cannot command the plant. The **applied output ($MV_{\mathrm{applied}}$)** is the valve
 command after anti-windup, amplitude limits, and rate limits. The **previous
 applied output ($MV_{\mathrm{previous\,applied}}$)** anchors the next allowed rate interval.
+Lesson 9 first bounded actuator travel per second with distinct opening and
+closing limits; this booster-pump valve uses one symmetric bound named here as
+the **maximum rate of output change ($r_{\mathrm{max}}$)**, in percentage
+points per second. It bounds the allowed interval to the previous applied
+output plus or minus $r_{\mathrm{max}}\Delta t$; the interval's upper bound is
+the **maximum allowed output ($MV_{\mathrm{allowed,max}}$)**.
 
 An atomic update performs one record assignment and one `Configure` call before
 the next update. The order inside the authoritative path is:
@@ -71,7 +78,10 @@ used by the next scan.
 
 The previous applied valve output is 40 percent. The old proportional gain is
 5 percent per bar and the old integral gain is 1 percent per bar-second. The
-candidate values are 15 and 3. The sample interval is 0.1 seconds.
+candidate values are 15 and 3. The sample interval is 0.1 seconds. These old
+and candidate gains are configured teaching values carried from the booster
+pump's Lesson 27/28 setup, chosen to make a mixed-record scan visibly wrong
+rather than calculated or identified from equipment.
 
 For a 1 bar setpoint increase with unchanged pressure,
 $\Delta e=1-0=1$ bar. The incremental proportional contribution is
@@ -82,10 +92,11 @@ The new error is also 1 bar, so the integral contribution is
 
 $\Delta MV_I=K_i\Delta t\,e =(3\text{ \%/(bar s)})(0.1\text{ s})(1\text{ bar})=0.3\%.$
 
-The coherent increment is $15+0.3=15.3$ points, so the output moves from
-40% to 55.3%. A mixed scan using new $K_p=15$ but old $K_i=1$ would instead
-calculate $15+1(0.1)(1)=15.1$ and 55.1%. That number belongs to neither
-complete revision.
+The coherent increment is 15.3 percentage points ($15+0.3=15.3$), so the
+output moves from 40% to 55.3%. A mixed scan using new $K_p=15$ but old
+$K_i=1$ would instead calculate an increment of 15.1 percentage points
+($15+1(0.1)(1)=15.1$) and 55.1%. That number belongs to neither complete
+revision.
 
 For the ordering case, start at zero error and 40% applied output. The
 controller's unconstrained feedforward target is $40+20=60\%$. The permitted
@@ -95,7 +106,7 @@ $\Delta MV_{\max}=r_{\max}\Delta t=(20\%/\mathrm{s})(0.1\text{ s})=2\%.$
 
 Therefore the current allowed interval is
 
-$[MV_{\mathrm{previous}}-2, MV_{\mathrm{previous}}+2]=[38,42]\%.$
+$[MV_{\mathrm{previous\,applied}}-2,\,MV_{\mathrm{previous\,applied}}+2]=[38,42]\%.$
 
 The controller must return 42%. Adding feedforward after a returned 40% would
 produce 60%, outside that interval and invisible to anti-windup state.
@@ -132,9 +143,9 @@ is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm SP/PV = 6 bar, station safe output = 30%, feedforward = 0, controller not ready, active revision 0, and experiment authority false. Add candidate and active parameters, revision, configured-this-scan, mixed diagnostic, feedforward, unconstrained target, rate bounds, applied output, limit flags, and authority to **Signals**.
-   - **Decision before action:** Write the coherent 55.3%, mixed 55.1%, constrained 42%, and rejected 60% predictions. Confirm only the coherent and constraint-aware paths may drive the valve.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
+   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm SP/PV = 6 bar, station safe output = 30%, feedforward = 0, and active revision 0. Add active gains, active revision, feedforward, the unconstrained target diagnostic, applied output, and experiment authority to **Signals**.
+   - **Decision before action:** Write the coherent 55.3%, mixed 55.1%, constrained 42%, and rejected 60% predictions. Confirm only the coherent and constraint-aware paths may drive the valve, because the mixed record and the post-limit sum are retained only as rejected diagnostics.
    - **Successful evidence:** The plot advances, values are finite/current, quality is good, and **Start recording** is enabled. Select **Start recording**.
    - **Recovery:** For stale, unavailable, nonfinite, or poor-quality data, stop the Simulator, correct the displayed fault, restart, and repeat the baseline check.
    - **Record:** Note the initial record, revision, applied output, rate interval, and four predictions.
@@ -151,12 +162,11 @@ diagnostics; Monitor and Test expose only the production paths.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 **Configuration coherence** is true only when all active fields match either
 the complete old revision or the complete new revision at every update.
 
-The **first-update increment** is
+The **first-update increment** is the applied output immediately after the
+atomic update minus the applied output immediately before it:
 $\Delta MV_1=MV_{\mathrm{after}}-MV_{\mathrm{before}}$, in percentage
 points. It preserves direction; use its absolute value only when the
 requirement concerns size rather than opening versus closing.
@@ -166,7 +176,8 @@ $v_{\mathrm{external}}=\max(MV_{\mathrm{rejected}}-MV_{\mathrm{allowed,max}},0)$
 The maximum with zero means a value inside the limit has no violation; here it
 is $60-42=18$ percentage points.
 
-The **applied-output rate** is
+The **applied-output rate** is the difference between consecutive applied
+outputs divided by the measured cycle time between them:
 $r_k=(MV_k-MV_{k-1})/\Delta t_k$. Division by measured elapsed time converts
 each output change to percent per second. Opening rate must not exceed the
 positive limit and closing rate must not be more negative than the negative
@@ -191,8 +202,6 @@ state remains true on all six scans.
 [Retained run](figures/atomic-update-run.csv) ·
 [Plot data](figures/atomic-update-trace.csv) ·
 [Decision summary](figures/atomic-update-summary.csv)
-
-### Validation
 
 Accept the production update only when every controller scan sees a complete
 old or complete new record. The mixed case must be labelled invalid, not

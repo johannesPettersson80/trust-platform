@@ -4,7 +4,7 @@ Course position: Lesson 11 of 84. Previous lesson: [Anti-windup](../10-saturatio
 
 **Lesson objective:** Distinguish setpoint and load paths, calculate objective-specific metrics, and demonstrate that one unchanged tuning can pass regulatory requirements while failing servo overshoot.
 
-The retained results are **Simulation evidence**, not evidence from a physical reactor.
+**Evidence class:** Simulation evidence. Not evidence from a physical reactor.
 
 ## The problem
 
@@ -23,6 +23,20 @@ It omits reaction heat, composition changes, fouling, utility-pressure changes,
 valve nonlinearities, independent trips, relief protection, and runaway
 chemistry. A physical reactor experiment requires a separate hazards review and
 explicit authorization immediately before action.
+
+The **plant gain** is 0.25 degree Celsius of equilibrium temperature per
+percentage point of valve opening. This is a **declared teaching value** for
+this local model, valid only near the 80-degree-Celsius, 50-percent operating
+point stated above; it is not transcribed from a heat-exchanger datasheet or
+calculated from reactor geometry. A learner characterizing a real reactor
+would obtain it the way Lesson 5 obtained the water heater's holding output:
+hold the valve at two nearby steady openings, measure the resulting
+equilibrium temperatures, and divide the temperature difference by the
+opening difference. The reactor also does not reach a new equilibrium the
+instant the valve moves: it waits briefly and then continues changing
+gradually for some seconds afterward; a learner would characterize that
+delayed, gradual shape the way Lesson 16 characterizes the water heater's,
+from a measured step response applied to the same event.
 
 Lesson 10 used a setpoint-restoration experiment to compare anti-windup
 strategies. That result did not prove how the controller rejects an independent
@@ -51,6 +65,13 @@ time ($\Delta t$)** is the 0.1-second interval between updates. The **event-elap
 ($t_{\mathrm{event},k}$)** is the time in seconds from the setpoint or disturbance event to
 sample k.
 
+The controller's output also obeys a **rate limit**: $MV_{\mathrm{applied}}$ cannot
+change by more than 50 percentage points per second in either direction, the
+same amplitude-versus-rate distinction Lesson 9 introduced for a valve
+actuator. Here the limit constrains the controller's own calculated output
+directly, before it reaches the valve, so a large calculated proportional
+demand still reaches the plant as a ramp rather than a step.
+
 Only after those physical meanings are clear do we write the sampled error:
 
 $e_{k} = SP_{k} - PV_{k}$
@@ -62,8 +83,9 @@ rejects a process load. Because the two changes enter through different paths,
 they need separate experiments, windows, requirements, and decisions.
 
 One retained sample represents an error-time rectangle. Its height is the error
-magnitude $|e_k|$ in degrees Celsius and its width is $dt$ in seconds. Its area
-is therefore $|e_k|dt$ in degree-Celsius seconds. Summing every rectangle gives
+magnitude $|e_k|$ in degrees Celsius and its width is the cycle time
+($\Delta t$) in seconds. Its area is therefore $|e_k|\Delta t$ in
+degree-Celsius seconds. Summing every rectangle gives
 the **integral of absolute error ($IAE$)**:
 
 $IAE=\sum_k |e_k|\,\Delta t$
@@ -71,15 +93,16 @@ $IAE=\sum_k |e_k|\,\Delta t$
 Absolute value makes positive and negative error contribute equally. If large
 errors should count more strongly, square the error before calculating each
 rectangle. Doubling error then multiplies its contribution by four. Summing
-those squared-error rectangles gives the **integral of squared error ($ISE$)**
-in degree-Celsius squared seconds:
+those squared-error rectangles gives the **integral of squared error ($ISE$)**,
+in degree-Celsius squared seconds — that is, squared-degree-
+Celsius seconds:
 
-$ISE = \sum\left(e_{k}^{2} \cdot dt\right)$
+$ISE = \sum\left(e_{k}^{2} \cdot \Delta t\right)$
 
 If late error should cost more than early error, multiply each absolute-error
-rectangle by event-elapsed time $t_{\mathrm{event},k}$. The extra seconds factor makes
-the unit degree-Celsius seconds squared. Summing gives the **time-weighted
-integral of absolute error ($ITAE$)**:
+rectangle by event-elapsed time $t_{\mathrm{event},k}$. Summing those weighted
+rectangles gives the **time-weighted integral of absolute error ($ITAE$)**.
+The extra seconds factor makes the unit degree-Celsius seconds squared:
 
 $ITAE=\sum_k t_{\mathrm{event},k}|e_k|\,\Delta t$
 
@@ -121,10 +144,15 @@ For the servo test, the setpoint rises by 5 degrees Celsius. The proportional
 gain requests 8 percentage points of additional valve opening for every degree
 Celsius of error. The initial proportional contribution is therefore:
 
-$5 {}^\circ\mathrm{C} \cdot 8 percentage points/{}^\circ\mathrm{C} = 40 percentage points$
+$5\,{}^\circ\mathrm{C} \cdot 8\text{ percentage points}/{}^\circ\mathrm{C} = 40\text{ percentage points}$
 
-Adding that contribution to the 50-percent operating value predicts an initial
-90-percent valve command before the current integral update. We predict a fast
+Adding that contribution to the 50-percent operating value predicts a
+calculated demand of about 90 percent before the current integral update. The
+50-percentage-point-per-second rate limit prevents $MV_{\mathrm{applied}}$ from
+reaching that demand instantly: it can move at most 5 percentage points per
+0.1-second scan, so predict a visible ramp — 55, 60, 65, 70, 75, 80 percent
+over the first six scans after the step — reaching the roughly 90-percent
+demand only about 1.5 seconds later, not immediately. We predict a fast
 response with a risk of overshoot because the thermal process continues to
 respond after earlier valve action has been applied.
 
@@ -133,7 +161,7 @@ removes heat from the local equilibrium. Near this operating point, one
 additional percentage point of valve opening contributes 0.25 degree Celsius
 to equilibrium temperature. The additional steady valve opening is therefore:
 
-$5 {}^\circ\mathrm{C} / 0.25 {}^\circ\mathrm{C} per percentage point = 20 percentage points$
+$5\,{}^\circ\mathrm{C} / 0.25\,{}^\circ\mathrm{C}\text{ per percentage point} = 20\text{ percentage points}$
 
 Adding 20 percentage points to the 50-percent operating value predicts about
 70 percent steady valve opening after recovery. We predict that temperature
@@ -148,6 +176,17 @@ plot labels are presentation only.
 The 0.5-degree-Celsius settling band has a 0.01-degree-Celsius numerical
 comparison tolerance. Servo settling time has a 0.1-second reproduction
 tolerance but no physical acceptance threshold in this lesson.
+
+Every threshold below is a declared teaching value with a stated reason, not
+a physical specification. The 1.0-degree-Celsius overshoot bound is twice the
+0.5-degree-Celsius settling band, distinguishing a controller that merely
+enters the band from one that visibly overshoots past it. The 40.0-second
+regulatory recovery bound is long enough for the reactor's gradual response,
+declared above, to settle from this size of disturbance. The 1.0-degree-Celsius
+regulatory-peak-deviation floor is chosen so the disturbance is clearly large
+enough to exercise rejection rather than being lost in numerical tolerance,
+and the 0.5-degree-Celsius final-window bound is set no looser than the servo
+settling band so neither objective is judged by a weaker standard.
 
 - Servo overshoot uses PV from 5.1 through 55.0 seconds. It fails when the
   derived overshoot exceeds the 1.0-degree-Celsius upper bound after applying
@@ -181,7 +220,12 @@ tolerance but no physical acceptance threshold in this lesson.
 Both experiments execute this configuration from the shipped Structured Text
 program. The controller is an incremental PI: integral action is enabled,
 derivative action is disabled, and the complete setpoint change enters
-proportional action.
+proportional action. $K_p = 8$ and $K_i = 2$ are not inherited from an
+earlier lesson's plant; the shipped source states their purpose directly:
+this is deliberately a regulatory-focused tuning that rejects the feed-load
+disturbance promptly, and running it with full proportional setpoint weight
+is what exposes the servo overshoot Lesson 12 addresses without retuning the
+PI.
 
 ```st
 ProportionalGainUsed := LREAL#8.0;
@@ -198,6 +242,9 @@ Parameters.ProportionalSetpointWeight := ProportionalSetpointWeightUsed;
 Parameters.Bias := BiasUsed;
 Parameters.OutputMinimum := LREAL#0.0;
 Parameters.OutputMaximum := LREAL#100.0;
+Parameters.RateMinimum := LREAL#-50.0;
+Parameters.RateMaximum := LREAL#50.0;
+Parameters.TrackingTime := LREAL#1.0;
 Parameters.AntiWindup := PIDAntiWindup#Combined;
 Controller.Configure(Parameters := Parameters);
 
@@ -211,6 +258,17 @@ ManipulatedValue := Controller.Update(Input := Input);
 The program uses the same proportional gain, integral gain, zero derivative
 gain, bias, limits, anti-windup strategy, and cycle time in both runs. Changing
 one of those values would invalidate the comparison.
+
+The ±50-percentage-point-per-second rate limit is a **declared teaching
+value** representing how far a real jacket valve actuator can travel in one
+update; it is what produces the ramp predicted above instead of an instant
+step. The **tracking time ($T_t = 1.0$ second)** is also a declared teaching
+value: Lesson 10 showed one rule for choosing it, $T_t = T_i = K_p / K_i$,
+which would give $8 / 2 = 4$ seconds here, but this lesson uses a shorter
+1.0-second value instead of that inherited rule, so a learner should not
+assume $T_t$ was simply carried over. A learner tuning $T_t$ on real
+equipment would still start from $K_p / K_i$ and then shorten or lengthen it
+against measured recovery, the same comparison Lesson 10 performed.
 
 ## Experiment in Control Studio
 
@@ -231,23 +289,21 @@ restoration. The deterministic Simulation seed is 20260827.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm SP = 80 degC, PV = 80 degC, applied valve = 50%, Manual command = 50%, selected objective = 0, Manual mode, and experiment authority false. Verify units, limits, current quality, and Simulation source. The unresolved problem is that full proportional setpoint action may violate the 1.0-degree-Celsius servo-overshoot requirement even though the unchanged PI rejects the independent load acceptably.
-   - **Decision before action:** Read **Prediction** and state that the 5-degree-Celsius SP step should add 40 percentage points to the 50-percent operating command, producing about 90 percent initially. Predict PV will rise and may cross 85 degrees Celsius.
+   - **Decision before action:** Read **Prediction** and state that the 5-degree-Celsius SP step should add 40 percentage points to the 50-percent operating command, producing a calculated demand near 90 percent that the 50-percentage-point-per-second rate limit spreads into a visible ramp reaching that demand about 1.5 seconds later, not instantly. Predict PV will rise and may cross 85 degrees Celsius.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **56.5**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Its false-to-true transition enters Auto at SP 80 degC through 5.0 seconds, steps SP to 85 degC at 5.1 seconds, observes the servo response through 55.0 seconds, then selects Manual zero from 55.1 seconds until the applied valve reaches zero. The initial Manual sample and complete restoration ramp are retained.
-   - **Decision before action:** Before selecting **Review test**, verify that the plan changes only experiment authority. Repeat the 90-percent initial-command prediction and confirm the declared 60-to-100-degree-Celsius PV and 0-to-100-percent valve bounds.
+   - **Decision before action:** Before selecting **Review test**, verify that the plan changes only experiment authority. Repeat the rate-limited ramp prediction — 5 percentage points per scan toward a 90-percent demand, reached about 1.5 seconds after the step — and confirm the declared 60-to-100-degree-Celsius PV and 0-to-100-percent valve bounds.
    - **Successful evidence:** Select **Review test**, verify `P1.ExperimentEnabled`, the 56.5-second timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** visible. Response must show the 80-to-85-degree-Celsius step, PV and valve response, and complete Manual-zero restoration. The terminal state must confirm completion and authority restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason. Confirm experiment authority false, SP 80 degC, Manual mode, and zero valve before reviewing a new test.
    - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260827**.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Apply the equations, windows, tolerances, persistence conditions, and separate
 servo/regulatory requirements declared in **Prediction**. The native evidence

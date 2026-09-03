@@ -1,27 +1,34 @@
 # Loaded position-table PID control
 
-Course position: Lesson 21 of 84. Previous lesson:
-[Position-table proportional-derivative control](../20-servo-position-pd/README.md).
-Next lesson: [Derivative kick and setpoint weighting](../22-servo-derivative-kick/README.md).
+Course position: Lesson 21 of 84. Previous lesson: [Position-table proportional-derivative control](../20-servo-position-pd/README.md). Next lesson: [Derivative kick and setpoint weighting](../22-servo-derivative-kick/README.md).
 
 **Lesson objective:** Add integral action to the gravity-loaded position
 controller, then explain why stored error can supply the holding torque that PD
 cannot produce at zero current error.
 
-This lesson uses simulation. Its results are not physical-axis evidence.
-
-**Equipment:** Payload-loaded industrial positioning table.
+**Evidence class:** Simulation evidence. The off-centre payload and its
+gravity torque are a configured teaching model, not a qualified physical load.
 
 ## The problem
 
 The payload-loaded industrial positioning table is the same rigid table used in
-Lessons 19 and 20, but its payload is now off-centre. Gravity therefore creates
-an opposing torque that changes with table angle. The simulated joint uses
+Lessons 19 and 20, but its payload is now off-centre: it hangs at a fixed
+distance from the rotation axis (a lever arm) instead of on the axis itself.
+Gravity pulls straight down on that payload with constant force, but the
+sideways lever-arm component of that pull about the axis changes with table
+angle, so the resulting **gravity torque ($T_g$)**, the load-caused twisting
+effort opposing the drive, is largest broadside and zero when the payload
+hangs straight down. The simulated joint uses
 
 $T_g=G\sin(\theta)$
 
 where $\theta$ is table angle and $G=4$ N m is the **peak gravity-torque
-coefficient**. This does not mean that gravity always applies 4 N m. At zero
+coefficient**, the gravity torque's value at the 90-degree broadside angle
+where $\sin(\theta)=1$. $G$ is a configured teaching value for this
+Simulation, equal in the underlying model to payload weight times lever-arm
+length; on a physical table it would be found by weighing the payload and
+measuring its offset from the axis, or by measuring the holding torque needed
+at a known angle. This does not mean that gravity always applies 4 N m. At zero
 angle the torque is zero; at the 0.5 rad target it is
 $4\sin(0.5)=1.918$ N m. Making that distinction is essential because it
 explains the retained response.
@@ -107,7 +114,11 @@ $K_p(r-\theta_{ss})=G\sin(\theta_{ss})$
 
 This nonlinear equation has no elementary algebraic solution. For a useful
 prediction at modest angles, use the small-angle approximation
-$\sin(\theta)\approx\theta$:
+$\sin(\theta)\approx\theta$, valid below roughly 0.5 rad: at 0.5 rad,
+$\sin(0.5)=0.479$, a 4 percent difference from $\theta$ itself, and the error
+shrinks quickly at smaller angles. This lesson's 0.5-rad target sits right at
+that boundary, which is why Prediction below also solves the exact equation
+numerically:
 
 $K_p(r-\theta_{ss})\approx G\theta_{ss}$
 
@@ -151,15 +162,29 @@ target. Linearize gravity with
 
 $\sin(r+x)\approx\sin(r)+\cos(r)x$
 
-The constant $G\sin(r)$ term is cancelled by equilibrium integral torque. For
-small deviations, the remaining motion equation and integral-state equation
-are
+The constant $G\sin(r)$ term is cancelled by equilibrium integral torque. The
+**integral-state deviation ($i$)** is how far the stored integral state sits
+from its equilibrium value $I_{ss}$, in rad s: $i=I-I_{ss}$. Because $I_{ss}$
+is constant, $i$ changes at the same rate $I$ does; the integral state's own
+definition accumulates error, so $\dot I=e$, and since $e=r-\theta=-x$, the
+deviation obeys $\dot{i}=-x$. For small deviations, the remaining motion
+equation and integral-state equation are
 
 $J\ddot{x}+(B+K_d)\dot{x}+(K_p+G\cos r)x-K_ii=0$
 
 $\dot{i}=-x$
 
-Differentiate the motion equation and substitute $\dot{i}=-x$:
+To ask whether a small deviation from equilibrium grows or decays, try a
+trial solution of the form $x=e^{st}$, where $s$ is a number, possibly
+complex, that the equation must determine. Substituting that trial form turns
+each time-derivative into an extra factor of $s$, and dividing out the
+common, never-zero factor $e^{st}$ turns the differential equation into an
+ordinary polynomial in $s$ called the **characteristic polynomial**: each of
+its roots is a value of $s$ for which $e^{st}$ actually solves the linearized
+equation, and the response is stable exactly when every root has a negative
+real part, so that $e^{st}$ decays rather than grows. Differentiate the
+motion equation and substitute $\dot{i}=-x$ to collect every term into one
+such polynomial:
 
 $J\dddot{x}+(B+K_d)\ddot{x}+(K_p+G\cos r)\dot{x}+K_ix=0$
 
@@ -167,8 +192,15 @@ The associated characteristic polynomial is
 
 $Js^3+(B+K_d)s^2+(K_p+G\cos r)s+K_i=0$
 
-The $s^3$ term reveals the added third state. For a cubic
-$a_3s^3+a_2s^2+a_1s+a_0$, the Routh table's first column is
+The $s^3$ term reveals the added third state. Finding a cubic's three roots
+directly is possible but awkward, and only their sign matters here. The
+**Routh table** is a mechanical arrangement of the polynomial's own
+coefficients into a short array whose first column reveals, by its signs
+alone, how many roots have positive real part, without solving for any root;
+Lesson 45 derives its construction and the general Routh-Hurwitz criterion in
+full, and the minimum needed here is just its rule that the response is
+stable exactly when every first-column entry shares the same sign. For a
+cubic $a_3s^3+a_2s^2+a_1s+a_0$, the Routh table's first column is
 $a_3$, $a_2$, $(a_2a_1-a_3a_0)/a_2$, and $a_0$. All must be positive for the
 linearized response to be stable. Substituting this lesson's coefficients gives
 
@@ -201,11 +233,21 @@ SP returns from 2.0 to 0.5 rad at 5 seconds and ends at the first block of 50
 consecutive samples—one full second—within 0.02 rad of SP with torque below
 9.9 N m.
 
-Before practice, require PD MAE at least 0.100 rad, PID MAE at most 0.010 rad
-and no more than one tenth of PD MAE, PID overshoot at most 0.150 rad, finite
-samples, and $|T_{applied}|\le10$ N m. Numerical comparison tolerances are
-0.001 rad for error, range, and overshoot; 0.01 for the dimensionless ratio;
-and 0.01 N m for torque.
+Before practice, require PD MAE at least 0.100 rad (confirming PD really does
+retain a substantial gravity-load offset), PID MAE at most 0.010 rad and no
+more than one tenth of PD MAE (integral action must remove, not merely
+shrink, that offset), PID overshoot at most 0.150 rad (the added stored state
+must not reintroduce the ringing Lesson 20 removed), finite samples, and
+$|T_{applied}|\le10$ N m. Numerical comparison tolerances are 0.001 rad for
+error, range, and overshoot; 0.01 for the dimensionless ratio; and 0.01 N m
+for torque.
+
+$K_i=2$ N m/(rad s) was chosen so that the **integral time**
+($T_i=K_p/K_i$), the time constant with which integral action acts relative
+to proportional action, is $8/2=4$ s: slow enough, next to the roughly 1-to-2
+second settling implied by Lesson 20's damping ratios, to stay well inside
+the stability margin derived above while still supplying the holding torque
+within the 30-second observation.
 
 ## Prediction
 
@@ -217,8 +259,18 @@ $\theta_{ss}\approx\frac{8\times0.5}{8+4}=0.3333\,\text{rad}$
 $e_{ss}\approx\frac{4\times0.5}{8+4}=0.1667\,\text{rad}$
 
 Solving the exact sine equation numerically gives about 0.3354 rad position and
-0.1646 rad error. Those values, rather than 0.5 rad error, are what the actual
-robot-joint gravity model predicts.
+0.1646 rad error. Those values, rather than 0.5 rad error, are what the
+exact sine gravity model predicts.
+
+A separate native recovery run also requests 2.0 rad before returning to 0.5
+rad. Once settled at 2.0 rad, the required holding torque is only
+$4\sin(2.0)=3.637$ N m, well inside the ±10 N m limit, so 2.0 rad is
+statically reachable. The transient request during the move there is not:
+starting near 0.5 rad, the initial error is about 1.5 rad, so proportional
+action alone requests roughly $8\times1.5=12$ N m before integral and
+derivative contributions add further, which exceeds the 10 N m limit.
+Predict a brief transient saturation on the way to 2.0 rad, not a permanently
+unreachable target.
 
 With $K_i=2$ N m/(rad s), PID needs at the target
 
@@ -246,6 +298,9 @@ IF ExperimentEnabled AND NOT ExperimentWasEnabled THEN
     Setpoint := LREAL#0.5;
     AutoMode := TRUE;
     ReconfigureRequested := TRUE;
+ELSIF ExperimentEnabled THEN
+    Setpoint := LREAL#0.5;
+    AutoMode := TRUE;
 ELSIF ExperimentWasEnabled THEN
     IntegralGain := LREAL#0.0;
     Setpoint := LREAL#0.0;
@@ -253,17 +308,37 @@ ELSIF ExperimentWasEnabled THEN
     ReconfigureRequested := TRUE;
 END_IF;
 
-Parameters.ProportionalGain := LREAL#8.0;
-Parameters.IntegralGain := IntegralGain;
-Parameters.DerivativeGain := LREAL#3.0;
+InputsValid := Position >= LREAL#-4.0 AND Position <= LREAL#4.0
+    AND Velocity >= LREAL#-20.0 AND Velocity <= LREAL#20.0;
+IF ReconfigureRequested THEN
+    Parameters.IntegralGain := IntegralGain;
+    Controller.Configure(Parameters := Parameters);
+    InitialState.Setpoint := Setpoint;
+    InitialState.ProcessValue := Position;
+    InitialState.NominalOutput := MotorTorque;
+    InitialState.SaturatedOutput := MotorTorque;
+    Controller.Initialize(State := InitialState);
+END_IF;
+
+Input.Setpoint := Setpoint;
+Input.ProcessValue := Position;
+IF AutoMode AND InputsValid AND NOT SafetyAbort THEN
+    Input.Mode := PIDMode#Auto;
+ELSE
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := ManualHoldingTorque;
+END_IF;
+Input.CycleTime := LREAL#0.02;
 MotorTorque := Controller.Update(Input := Input);
 ```
 
-The rising edge selects $K_i=2$, SP 0.5 rad, and Auto, then initializes from
-the measured state for a bumpless start. The falling edge restores $K_i=0$, SP
-zero, Manual mode, and zero torque. Invalid position or velocity and
-`SafetyAbort` leave automatic control. On physical equipment, mechanical
-support must be established before relying on a zero-torque state.
+The rising edge selects $K_i=2$, SP 0.5 rad, and Auto, then reinitializes the
+controller from the measured position and held output without an output
+jump (a "bumpless" start; Lesson 28 develops bumpless transfer fully). The
+falling edge restores $K_i=0$, SP zero, Manual mode, and zero torque. Invalid
+position or velocity and `SafetyAbort` leave automatic control. On physical
+equipment, mechanical support must be established before relying on a
+zero-torque state.
 
 The selected UI run demonstrates PID. The native comparison creates separate
 fresh PD and PID runtimes and a third fresh saturation-recovery runtime. One
@@ -302,14 +377,15 @@ separate Validate screen for this project-owned comparison.
      setpoint. The sole Boolean must authorize the project's complete gain
      selection, 0.5 rad move, and safe restoration. Select **Review test** and
      verify authority, limits, duration, restoration, and stop conditions.
-   - **Successful evidence:** Select **Confirm and start**. The state changes to
-     **Running**, **Abort test** remains available, and Response shows the
+   - **Successful evidence:** Select **Confirm and start**. Test reports "Test
+     running. Live values and limits remain visible above; Abort is
+     available.", **Abort test** remains available, and Response shows the
      SP/PV/velocity/MV sequence. Completion counts only when Test reports
      restoration and Monitor shows authority false, SP zero, Manual mode, and
      zero torque.
-   - **Recovery:** If the test is rejected, stale, unsafe, failed, or aborted,
-     read the displayed reason, establish the safe zero-angle baseline, wait
-     for current data, and review a new test.
+   - **Recovery:** Select **Abort test** if the test is rejected, stale,
+     unsafe, failed, or aborted; confirm authority false, SP zero, Manual
+     mode, and applied torque 0 N m before reviewing a new test.
    - **Record:** Retain the terminal state, restoration result, seed 20260828,
      and observed response. Do not present retained artifacts as a new run.
 
@@ -324,16 +400,27 @@ is 0.000000 rad. Applied torque remains within ±10 N m.
 
 ![Integral action removes gravity-load position error](figures/loaded-position-pid.svg)
 
+PD's position trace settles visibly short of the 0.5 rad target while PID's
+trace closes on it; the torque traces show PID's holding torque converging
+to the predicted 1.918 N m instead of decaying to zero. (Configured
+Simulation evidence.)
+
 [Retained samples](figures/loaded-position-pid-trace.csv) ·
 [Decision summary](figures/loaded-position-pid-summary.csv)
 
-The separate native recovery experiment deliberately requests an unreachable
-2.0 rad position and restores SP to 0.5 rad at 5 seconds. Torque is saturated
-for 7 samples, or $7\times0.02=0.14$ s. The first qualifying 50-sample recovery
-block begins 1.94 seconds after restoration, and final position error is
-0.000166 rad.
+The separate native recovery experiment requests the statically reachable
+but transiently saturating 2.0 rad position predicted above, then restores
+SP to 0.5 rad at 5 seconds. Torque is saturated for 7 samples, or
+$7\times0.02=0.14$ s, during the initial move, not while approaching or
+holding 2.0 rad. The first qualifying 50-sample recovery block begins 1.94
+seconds after restoration, and final position error is 0.000166 rad.
 
 ![Bounded PID recovers after torque saturation](figures/loaded-position-recovery.svg)
+
+The torque trace pins at the ±10 N m limit only during the initial move,
+confirming the predicted transient saturation, and position recovers to
+within 0.02 rad of SP well before the 30-second window ends. (Configured
+Simulation evidence.)
 
 [Recovery samples](figures/loaded-position-recovery-trace.csv) ·
 [Recovery summary](figures/loaded-position-recovery-summary.csv)

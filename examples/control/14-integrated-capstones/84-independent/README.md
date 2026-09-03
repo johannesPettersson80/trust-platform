@@ -1,9 +1,10 @@
 # Defend an independent compressed-air control-system recommendation
 
-Course position: Lesson 84 of 84.
-Prerequisite: `control-capstone-building-hvac`.
+Course position: Lesson 84 of 84. Previous lesson: [Decide whether predictive building control earns its complexity](../83-building-hvac/README.md).
 
 **Lesson objective:** Commission and defend the simplest unapplied controller satisfying the compressed-air reference requirements, then apply the same evidence discipline to a learner-selected platform-supported plant.
+
+**Evidence class:** Simulation evidence. The shipped compressed-air receiver comparison and its uncertainty-plant copies in this lesson are deterministic Simulation evidence and are not approved for a physical compressor, receiver, or air network.
 
 Plant: Factory compressed-air receiver supplied by one variable-speed compressor.
 
@@ -63,7 +64,7 @@ delivery exceeds plant demand, falls when demand exceeds delivery, and remains
 constant when the flows balance.
 
 The header pressure ($p$) is the receiver pressure in bar. Actual compressor
-delivery ($q_{\mathrm{c}}$) is delivered air in percent of design flow. Plant demand ($\mathbf{q}_{\mathrm{d}}$)
+delivery ($q_{\mathrm{c}}$) is delivered air in percent of design flow. Plant demand ($q_{\mathrm{d}}$)
 is consumed air in percent of design flow. The receiver rate gain ($K_{r}$) states
 how quickly pressure changes for each percentage point of delivery-demand
 imbalance, in bar per percent-flow second.
@@ -149,12 +150,12 @@ compressor delivery ($MV_{\mathrm{requested}}$) is the controller's total comman
 plant authority. The applied compressor request ($MV_{\mathrm{applied}}$) is the bounded
 command delivered to the simulated drive.
 
-Both candidates use proportional gain $K_p = 40 percent/bar$, integral gain
-$K_i = 1.0 percent/(bar \cdot s)$, a 50-percent bias, zero derivative, combined
+Both candidates use proportional gain $K_p = 40$ percent/bar, integral gain
+$K_i = 1.0$ percent/(bar·s), a 50-percent bias, zero derivative, combined
 anti-windup, one second update, and actual-delivery tracking during external
-authority. The integrated candidate uses:
+authority. The integrated candidate uses, in percent:
 
-$MV_{\mathrm{feedforward}} = q_{\mathrm{d}} - 50 percent$
+$MV_{\mathrm{feedforward}} = q_{\mathrm{d}} - 50$
 
 $MV_{\mathrm{requested}} = MV_{\mathrm{feedback}} + MV_{\mathrm{feedforward}}$
 

@@ -1,10 +1,10 @@
 # Coordinate reactor heating and cooling
 
-Course position: Lesson 56 of 84. Prerequisite: blending ratio control in Lesson 55.
-Every result is **Simulation evidence** and does not authorize operation of a
-physical reactor.
+Course position: Lesson 56 of 84. Previous lesson: [Blending ratio](../55-blending-ratio/README.md). Next lesson: [Compressor override](../57-compressor-override/README.md).
 
 **Lesson objective:** Convert one signed reactor-temperature controller demand into heating and cooling valve requests.
+
+**Evidence class:** Simulation evidence. These results do not authorize operation of a physical reactor.
 
 ## The problem
 
@@ -55,6 +55,10 @@ $e = SP - PV$
 
 $D = TemperaturePI(e)$
 
+Here $TemperaturePI(\cdot)$ denotes the complete recursive PI algorithm from
+Lessons 6-8, including its retained integral state, not a memoryless function
+of the instantaneous error alone.
+
 $H_{\mathrm{requested}} = \max\left(D, 0\right)$
 
 $C_{\mathrm{requested}} = \max\left(-D, 0\right)$
@@ -64,7 +68,7 @@ negative opening, so the first expression passes positive demand and replaces
 negative demand with zero. Cooling must act for negative demand, so the second
 expression first reverses the sign and then applies the same one-sided rule.
 
-The **split point** is $D = 0 percent$. At +30 percent demand, heating is 30
+The **split point** is $D = 0\text{ percent}$. At +30 percent demand, heating is 30
 percent and cooling is zero. At -20 percent demand, heating is zero and cooling
 is 20 percent. At zero, both close. The PI owns temperature feedback; the
 mapper owns actuator selection. Two independent PIs fighting through opposing
@@ -73,7 +77,7 @@ valves are not this structure.
 ### Dead zone
 
 A **dead zone** is a demand interval in which neither valve responds. With a
-four-point half-width called $g$, this lesson uses:
+four-point half-width $g = 4\text{ percent}$, this lesson uses:
 
 $H = \max\left(D - g, 0\right)$
 
@@ -109,6 +113,13 @@ heating gain ($K_{H}$)**. Its cooling counterpart is the **installed cooling gai
 ($K_{C}$)**. Here $K_{H}$ is 0.04 and $K_{C}$ is 0.06 degrees Celsius per second per valve
 percent.
 
+$K_{H}$ and $K_{C}$ are **configured teaching values**: set directly in the
+plant model, not measured from a physical reactor. A learner would obtain
+them from two separate single-valve step tests — open only the heating valve
+by a known amount and time the initial temperature rate, then repeat for the
+cooling valve alone — reading each rate at the start of the response, before
+ambient loss and the other valve affect it.
+
 For equal signed demands to have equal thermal authority, positive demand maps
 directly to heating while negative demand scales cooling:
 
@@ -118,7 +129,7 @@ This scale follows by equating the magnitudes of the two initial thermal rates:
 $K_C C=K_H(-D)$. Dividing both sides by $K_C$ gives
 $C=(-D)K_H/K_C$, and the measured ratio is $0.04/0.06=2/3$.
 
-Thus $D = -20 percent$ becomes 13.33 percent cooling, with the same initial
+Thus $D = -20\text{ percent}$ becomes 13.33 percent cooling, with the same initial
 thermal magnitude as +20 percent heating. This is a local characterization; it
 does not compensate stiction, utility-pressure changes, or a nonlinear valve
 curve.
@@ -134,7 +145,12 @@ $dx_{T}/dt = -0.05 \cdot x_{T} + 0.04 \cdot u_{H} - 0.06 \cdot u_{C}$
 
 Each term is a temperature rate. The first term removes five percent of the
 current deviation each second, the second adds the measured heating rate, and
-the third subtracts the measured cooling rate. At a constant operating point
+the third subtracts the measured cooling rate. The 0.05-per-second **thermal
+loss rate** is also a configured teaching value representing lumped heat loss
+to ambient through the reactor wall and insulation, not measured from a
+physical reactor. A learner would obtain it from an open-loop cooldown test:
+remove both utilities, let the reactor drift toward ambient from a known
+offset, and fit the exponential decay rate of that drift. At a constant operating point
 the left side is zero, so the equilibrium deviation is
 $x_{T,eq}=(0.04u_H-0.06u_C)/0.05$. This makes clear why opening unequal valves
 together shifts temperature even when controller demand is zero.
@@ -147,13 +163,10 @@ automatic authority tracks signed demand to zero while aligning controller
 setpoint with current temperature; all valve requests close before authority
 may return.
 
-Initialization preserves the externally supplied authority state, so an
-unavailable signal on the first scan cannot be replaced by the normal default.
-
 ## Prediction
 
-Before running, map $D = +30 percent$, $D = 0 percent$, and $D = -20 percent$
-through all three candidates.
+Before running, map $D = +30\text{ percent}$, $D = 0\text{ percent}$, and
+$D = -20\text{ percent}$ through all three candidates.
 
 - Dead zone maps +30 to 26 percent heating and -20 to 16 percent cooling. It
   closes both valves inside the four-point gap.
@@ -169,15 +182,20 @@ time, and excessive utility throughput before seeing the plots.
 ## Implementation
 
 The project uses three real `Control.PID` instances with identical signed PI
-tuning. The mapping happens afterward:
+tuning. The mapping happens afterward, guarded by the same authority signal
+that closes all three valves on loss of automatic control (dead-zone and
+overlap mirror this pattern and are omitted here):
 
 ```st
 CharacterizedDemand := CharacterizedController.Update(Input := CharacterizedInput);
-CharacterizedHeatingRequest := MAX(CharacterizedDemand, LREAL#0.0);
-CharacterizedCoolingRequest := MAX(
-    -CharacterizedDemand * LREAL#0.6666666666666667,
-    LREAL#0.0
-);
+
+IF AutomaticAvailable THEN
+    CharacterizedHeatingRequest := MAX(CharacterizedDemand, LREAL#0.0);
+    CharacterizedCoolingRequest := MAX(-CharacterizedDemand * LREAL#0.6666666666666667, LREAL#0.0);
+ELSE
+    CharacterizedHeatingRequest := LREAL#0.0;
+    CharacterizedCoolingRequest := LREAL#0.0;
+END_IF;
 ```
 
 The program exposes all three signed demands and six valve requests. It has no
@@ -188,13 +206,15 @@ timed setpoint event, performance score, or preferred-mapping flag.
 This procedure observes the project's complete declared comparison under
 controlled conditions. The project, not Control Studio, owns the setpoint
 sequence, the installed-gain mapping, and restoration to 80 degrees Celsius.
-Control Studio writes only one Boolean authority signal. The deterministic
-Simulation seed is 20260829.
+Control Studio writes only one Boolean authority signal. A separate native
+case removes automatic authority and proves closed valves with zero tracked
+demand; that authority-loss case is native-only and is not a Control Studio
+action here. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Reactor-temperature setpoint (SP, degC); Dead-zone reactor temperature (PV, degC); Dead-zone heating request (MV, %), including units, limits, mode, and quality. The initial operating point is Reactor-temperature setpoint = 80 degC, Dead-zone signed demand = 0 %, Overlap signed demand = 0 %, Characterized signed demand = 0 %, Dead-zone reactor temperature = 80 degC, Overlap reactor temperature = 80 degC, Characterized reactor temperature = 80 degC, Dead-zone heating request = 0 %. The unresolved baseline problem is: A dead zone removes authority near neutral while overlap consumes opposing utilities and drifts when their installed gains differ. In Control Studio Monitor retain the actuator-map boundaries at 20.0 s, 80.0 s, 140.0 s, and 200.0 s.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Reactor-temperature setpoint (SP, degC); Dead-zone reactor temperature (PV, degC); Dead-zone heating request (MV, %), including units, limits, mode, and quality. The initial operating point is Reactor-temperature setpoint = 80 degC, Dead-zone signed demand = 0 %, Overlap signed demand = 0 %, Characterized signed demand = 0 %, Dead-zone reactor temperature = 80 degC, Overlap reactor temperature = 80 degC, Characterized reactor temperature = 80 degC, Dead-zone heating request = 0 %. The unresolved baseline problem is: A dead zone removes authority near neutral because neither valve responds inside the gap, while overlap consumes opposing utilities and drifts when their installed gains differ. In Control Studio Monitor retain the actuator-map boundaries at 20.0 s, 80.0 s, 140.0 s, and 200.0 s.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept the mutually exclusive mapping only when installed-gain scaling balances local authority, zero demand closes both valves, and crossover and authority-loss evidence are bounded.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
@@ -208,8 +228,6 @@ Simulation seed is 20260829.
    - **Record:** Compare each mapping with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**. Use the native lesson test for the declared numeric verdicts; this observation does not create a generic identification, tuning, or validation result.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Hold the plant equations, initial state, PI tuning, setpoint sequence, sample
 schedule, duration, limits, and seed equal. Change only the mapping. Do not
@@ -237,8 +255,6 @@ Also retain peak deviation, two-percent settling time, saturation, authority,
 abort, and restoration state. A final-window error is eligible only after the
 declared temperature and valve-span settling conditions pass.
 
-### Validation
-
 Classify each result before ranking it. Report `Not settled`, `Saturated`,
 `Invalid`, or `Aborted` when applicable.
 
@@ -249,6 +265,16 @@ valves during loss of authority. The dead-zone run must expose its lost-
 authority time. The overlap run must expose simultaneous duration and greater
 utility throughput instead of being selected merely for a smooth transition.
 The accepted mapping must also meet the declared crossover-bump tolerance.
+
+Measured dead-zone exposure is 16.7 seconds (167 samples) with zero
+simultaneous-utility time. The overlap candidate shows zero dead-zone
+exposure but 166.1 seconds (1,661 samples) of simultaneous heating and
+cooling, and its utility throughput of 1699.44 percent-seconds is more than
+twice the characterized candidate's 741.40. The characterized mapping shows
+zero dead-zone exposure and zero simultaneous-utility exposure, as predicted.
+Peak temperature deviation is close across all three candidates — 8.05, 7.88,
+and 7.99 degrees Celsius for dead-zone, overlap, and characterized — so the
+mapping choice is decided by exposure and throughput, not peak error alone.
 
 ### Retained evidence
 

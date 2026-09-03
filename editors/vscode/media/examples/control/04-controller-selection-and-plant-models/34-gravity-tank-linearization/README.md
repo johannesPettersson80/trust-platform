@@ -43,7 +43,7 @@ tank area ($A$) in square metres, level ($h$) in metres, inlet flow ($q$) in
 cubic metres per second, and outlet coefficient ($c$) in
 $\mathrm{m^2\sqrt{m}/s}$. The physical balance is
 
-$A\frac{dh}{dt}=q-c\sqrt h.$
+$A \cdot dh/dt = q - c\sqrt h.$
 
 The left side is stored-volume change: area times level rate has units
 $\mathrm{m^3/s}$. The two terms on the right are inlet and outlet volume flow
@@ -61,7 +61,7 @@ Define **level deviation ($\Delta h$)** as the departure from that
 equilibrium level, $\Delta h=h-h_0$, and **inlet-flow deviation ($\Delta q$)**
 as the departure from that equilibrium flow, $\Delta q=q-q_0$. A **first-order
 Taylor approximation** replaces the curved
-outlet relation with its tangent. Since the derivative of $c\sqrt h$ is
+outlet-flow relation with its tangent. Since the derivative of $c\sqrt h$ is
 $c/(2\sqrt h)$, near $h_0$
 
 $c\sqrt h\approx c\sqrt{h_0} +\frac{c}{2\sqrt{h_0}}\Delta h.$
@@ -111,7 +111,8 @@ $q_0=0.02\sqrt{0.25}=0.010000\,\mathrm{m^3/s},$
 
 $K=\frac{2\sqrt{0.25}}{0.02}=50.000\,\frac{\mathrm m}{\mathrm{m^3/s}},\qquad\tau=\frac{2(0.5)\sqrt{0.25}}{0.02}=25.000\,\mathrm s.$
 
-The same substitutions at all three operating points give:
+The three declared operating levels are 0.25, 0.50, and 0.81 metres. The same
+substitutions at all three operating points give:
 
 | $h_0$ (m) | $q_0$ (m³/s) | $K$ (m/(m³/s)) | $\tau$ (s) | pole $-1/\tau$ (1/s) |
 |---:|---:|---:|---:|---:|
@@ -119,17 +120,22 @@ The same substitutions at all three operating points give:
 | 0.50 | 0.014142 | 70.711 | 35.355 | -0.028284 |
 | 0.81 | 0.018000 | 90.000 | 45.000 | -0.022222 |
 
+The three equilibrium flows are therefore 0.010000, 0.014142, and 0.018000
+cubic metres per second, and the three time constants are 25.000, 35.355, and
+45.000 seconds.
+
 For a constant small change $\Delta q=0.001\,\mathrm{m^3/s}$, the local
 steady change is $\Delta h=K\Delta q$. The predicted rises are therefore
-0.05000, 0.07071, and 0.09000 m, or **5.000, 7.071, and 9.000 cm**.
+0.05000, 0.07071, and 0.09000 m, or **5.000, 7.071, and 9.000 centimetres**.
 
 The exact nonlinear equilibrium follows by solving
 $q_0+\Delta q=c\sqrt{h_\mathrm{eq}}$:
 
 $h_\mathrm{eq}=\left(\frac{q_0+\Delta q}{c}\right)^2.$
 
-It predicts rises of 5.250, about 7.321, and 9.250 cm. Thus each small-step
-tangent prediction is about 0.250 cm low. At the low operating point, a larger
+It predicts rises of 5.250, about 7.321, and 9.250 cm. Each tangent
+prediction is therefore about **0.250 centimetres** low across all three
+small-step operating points. At the low operating point, a larger
 $0.005\,\mathrm{m^3/s}$ step gives a local rise of $50(0.005)=0.25$ m, while
 the nonlinear equation gives
 $((0.010+0.005)/0.02)^2-0.25=0.3125$ m. The 6.25 cm error shows why the
@@ -189,7 +195,8 @@ expose the common small-step case.
 
 ## Evidence and decision
 
-For operating point $i$, **local-model prediction error** is
+For operating point $i$, **local-model prediction error** is the absolute
+difference between the nonlinear level and the local-model level:
 
 $e_i(t)=100\left|h_{\mathrm{nonlinear},i}(t)-h_{\mathrm{local},i}(t)\right|\,\mathrm{cm}.$
 

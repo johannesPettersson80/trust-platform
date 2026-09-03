@@ -14,9 +14,10 @@ physical steam-valve move.
 
 ## The problem
 
-A plate heat exchanger uses steam to warm a flowing product. The actuator is a
-steam-side control valve. The sensor measures product outlet temperature. The
-normal operating point is 50 degrees Celsius at 60 percent valve position.
+The equipment is a plate heat exchanger with steam-side valve and product
+outlet-temperature transmitter: it warms a flowing product; the valve is the
+actuator, the sensor measures outlet temperature. Normal operation is 50
+degrees Celsius at 60 percent valve position.
 
 The valve may operate only from 40 to 80 percent during this experiment. The
 product temperature must remain from 45 to 58 degrees Celsius.

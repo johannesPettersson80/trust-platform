@@ -1,17 +1,17 @@
 # Select delay compensation for a conveyor oven
 
-Course position: Lesson 81 of 84.
-Prerequisite: `control-capstone-gravity-tank`.
+Course position: Lesson 81 of 84. Previous lesson: [Commission full-range control of a gravity-drained tank](../80-gravity-tank/README.md). Next lesson: [Commission a multivariable distillation control architecture](../82-distillation-column/README.md).
 
 **Lesson objective:** Identify and validate the delayed oven, qualify ordinary PI, feedforward, and Smith candidates from time and frequency evidence, then retain an unapplied architecture that survives declared mismatch and fallback tests.
+
+**Evidence class:** Simulation evidence. The qualified upstream event, the moderate and severe model-mismatch cases, and the Bode/Nyquist margins in this lesson are deterministic Simulation evidence and are not approved for a physical oven.
 
 Plant: Continuous food-drying conveyor with recirculated heated-air duct.
 
 This is Lesson 81, the delay-control capstone. You will commission downstream
 temperature control for a continuous food-drying conveyor oven. Normal operation
 begins at 20 degrees Celsius and requests 35 degrees Celsius. Controller
-revision 81 remains unapplied. Every result is deterministic **Simulation
-evidence**, not physical oven evidence.
+revision 81 remains unapplied.
 
 ## The problem
 
@@ -31,9 +31,14 @@ after it begins. The transport delay ($L$) is the time before a heater change ca
 first affect the downstream sensor.
 
 Around the declared product, airflow, moisture, and belt-speed region, K is 0.8
-degrees Celsius per percent, T is 12 seconds, and L is 16 seconds. The
-controller runs every 0.1 seconds. Its deterministic sensor noise has a
-0.08-degree-Celsius standard deviation.
+degrees Celsius per percent, T is 12 seconds, and L is 16 seconds. These are
+declared configured Simulation values for this lesson's operating region
+(Specification 38 §3.15 Lesson 81), not a physical-oven measurement; the
+"Identify the delayed plant" procedure below is how a learner would establish
+the equivalent numbers on a real oven, and only that independently identified
+and validated model, not this declared value, may support a physical
+decision. The controller runs every 0.1 seconds. Its deterministic sensor
+noise has a 0.08-degree-Celsius standard deviation.
 
 The upstream inlet-temperature deviation ($D_{\mathrm{inlet}}$) is measured inlet
 temperature minus its normal value, in degrees Celsius. A qualified minus-
@@ -112,18 +117,19 @@ highest-bandwidth eligible ordinary controller, not a weak straw comparison.
 
 ### Read Bode and Nyquist evidence as stability evidence
 
-Angular frequency states how quickly a sinusoidal test repeats, in radians per
-second. Loop magnitude is the amplification around the loop. Loop phase is the
-angular lag around it. Crossover frequency is where loop magnitude equals one.
-Phase margin is the remaining phase before minus 180 degrees at crossover. Gain
-margin is the gain factor available at the minus-180-degree phase crossing.
-Delay margin is the additional pure delay predicted to consume the phase
-margin.
+Angular frequency ($\omega$) states how quickly a sinusoidal test repeats, in
+radians per second. Loop magnitude is the amplification around the loop. Loop
+phase is the angular lag around it. Crossover frequency ($\omega_{c}$) is
+where loop magnitude equals one, in radians per second. Phase margin
+($\phi_{m}$) is the remaining phase before minus 180 degrees at crossover, in
+degrees. Gain margin is the gain factor available at the minus-180-degree
+phase crossing. Delay margin ($T_{\mathrm{delay}}$) is the additional pure
+delay predicted to consume the phase margin, in seconds.
 
-After these meanings are established, delay margin is calculated from phase
-margin in radians divided by crossover angular frequency:
+After these meanings are established, delay margin is phase margin converted
+to radians and divided by crossover angular frequency:
 
-$delay margin = phase margin / crossover frequency$
+$T_{\mathrm{delay}} = (\phi_{m} \cdot \pi/180)/\omega_{c}$
 
 The accepted ordinary PI must retain at least 35 degrees phase margin and 2
 seconds delay margin over the declared model uncertainty. Its Bode plot must
@@ -142,11 +148,11 @@ The feedforward gain ($K_{\mathrm{ff}}$) is the required heater change per degre
 qualified inlet-temperature deviation. The oven heater gain is 0.8 degrees
 Celsius per percentage point, so compensation uses:
 
-$K_{\mathrm{ff}} = -1 / K = -1.25 percent per degree Celsius$
+$K_{\mathrm{ff}} = -1/K = -1.25$ percent per degree Celsius
 
 For $D_{\mathrm{inlet}}$ equal to minus 2 degrees Celsius:
 
-$MV_{\mathrm{ff}} = K_{\mathrm{ff}} \cdot D_{\mathrm{inlet}} = (-1.25) \cdot (-2) = 2.5 percent$
+$MV_{\mathrm{ff}} = K_{\mathrm{ff}} \cdot D_{\mathrm{inlet}} = (-1.25) \cdot (-2) = 2.5$ percent
 
 The contribution begins at 54 seconds so compensating heat and the physical
 load both reach the downstream product near 70 seconds. Invalid upstream
@@ -192,6 +198,18 @@ heater for invalid downstream temperature or unavailable heater authority.
 Invalid model evidence removes prediction but retains measured feedback;
 invalid upstream quality removes feedforward only.
 
+### Define the setpoint and regulatory error measures before predicting them
+
+Setpoint-window integrated absolute temperature error (setpoint-window IAE) is
+the sum of absolute setpoint-minus-measured error multiplied by the
+0.1-second sample interval, evaluated from the 10-second setpoint request
+through the 70-second arrival of the upstream load, in degree-Celsius-seconds.
+Regulatory integrated absolute temperature error (regulatory IAE) uses the
+same calculation evaluated from 70 through 180 seconds, after the upstream
+load has arrived downstream. Setpoint-window IAE scores how quickly and
+cleanly the setpoint change is tracked; regulatory IAE scores rejection of the
+upstream disturbance once it has arrived. Smaller is better for both.
+
 ## Prediction
 
 Before running, record these predictions:
@@ -216,23 +234,39 @@ Before running, record these predictions:
 
 The shipped `OvenController` composes one real `Control.PID` and one real
 `Control.SmithPredictorFOPDT`. Three instances compare accepted ordinary PI,
-ordinary PI plus feedforward, and Smith PI plus the same feedforward.
+ordinary PI plus feedforward, and Smith PI plus the same feedforward. The
+excerpt below is that function block's own `Update` method, so it uses the
+block's internal names `PredictionActive` and `UpstreamCompensation`; the
+top-level `Main.st` then republishes the integrated controller's same values
+under the external names `PredictorActive` and `FeedforwardContribution`
+listed below.
 
 ```st
-PredictorResult := Predictor.Update(Input := PredictorInput);
-IF PredictorActive THEN
+PredictionActive := PredictionEnabled AND PredictorResult.Active
+    AND PredictionEvidenceValid;
+PredictionFallback := PredictionEnabled AND (NOT PredictionActive);
+IF PredictionActive THEN
     PredictedTemperature := PredictorResult.PredictedProcessValue;
 ELSE
+    (* Prediction never outranks invalid evidence. Measured downstream
+       temperature owns fallback while the physical delay remains. *)
     PredictedTemperature := TemperatureMeasurement;
 END_IF;
 
+UpstreamCompensation := LREAL#0.0;
 IF FeedforwardEnabled AND UpstreamQualityGood THEN
-    FeedforwardContribution := LREAL#-1.25 * UpstreamTemperatureDeviation;
+    (* The qualified upstream signal moves one transport delay before its
+       load reaches the product; feedback trim remains active. *)
+    UpstreamCompensation := LREAL#-1.25 * UpstreamTemperatureDeviation;
 END_IF;
 
+FaultActive := (NOT TemperatureQualityGood) OR (NOT HeaterAvailable)
+    OR (CycleTime <= LREAL#0.0)
+    OR (TemperatureMeasurement < LREAL#15.0)
+    OR (TemperatureMeasurement > LREAL#60.0);
+ControllerInput.Setpoint := RequestedTemperature;
 ControllerInput.ProcessValue := PredictedTemperature;
-ControllerInput.FeedForward := FeedforwardContribution;
-RequestedHeaterPower := TemperatureController.Update(Input := ControllerInput);
+ControllerInput.FeedForward := UpstreamCompensation;
 ```
 
 The actual program exposes `OperatingMode`, `TemperatureSetpoint`,
@@ -253,7 +287,7 @@ The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Product-temperature setpoint (SP, degC); Ordinary-PI product temperature (PV, degC); Ordinary requested heater power (MV, %), including units, limits, mode, and quality. The initial operating point is Product-temperature setpoint = 20 degC, Ordinary-PI product temperature = 20 degC, Feedforward product temperature = 20 degC, Integrated product temperature = 20 degC, Ordinary applied heater power = 0 %, Feedforward applied heater power = 0 %, Integrated applied heater power = 0 %, Controller revision = 81 (dimensionless). The unresolved baseline problem is: The strongest ordinary PI that passes the robustness envelope still misses the required delayed setpoint rise and cannot act before a measured upstream load reaches the downstream sensor.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Use feedforward only for qualified upstream temperature and prediction only while model evidence is valid; otherwise retain the strongest robust measured-feedback PI.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
@@ -262,14 +296,17 @@ The deterministic Simulation seed is 20260829.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **180.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The runnable project requests 35 degC at 10 seconds, applies the qualified upstream event at 54 seconds, and owns all later mismatch, invalid-data, fallback, stop, and restoration cases.
-   - **Decision before action:** Before selecting **Review test**, confirm that enabling the Boolean authority is safe and predict what should happen at 10, 54, and 70 seconds. Check the declared temperature, heater, correction, quality, and availability limits; do not substitute a Control Studio setpoint step for the project sequence.
+   - **Decision before action:** Before selecting **Review test**, confirm that enabling the Boolean authority is safe and predict what should happen at 10, 54, and 70 seconds. Enabling **Experiment authority** is the correct action, and a manual Control Studio setpoint step is not, because the project — not Control Studio — owns the qualified setpoint, upstream-event, mismatch, and fallback sequence this lesson's evidence depends on; check the declared temperature, heater, correction, quality, and availability limits before proceeding.
    - **Successful evidence:** Select **Review test**, verify that the sole write is `P1.ExperimentEnabled`, the amplitude is zero, the duration is 180.1 seconds, and restoration is `FALSE`; then select **Confirm and start**. The terminal state must show completion and restoration while Response contains the project-owned SP/PV/MV sequence. Keep **Abort test** visible.
    - **Recovery:** Select **Abort test** if the test is rejected, stale, unsafe, unavailable, failed, or aborted. Read the displayed reason, confirm `P1.ExperimentEnabled = FALSE`, wait for the project to restore 20 degC, qualified inputs, measured-feedback authority, and safe heater state, then review a new test.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
 
-## Evidence and decision
+Identify, Tune, and Validate are not learner steps. The native executable test
+owns FOPDT identification, ordinary-candidate screening, Bode/Nyquist margins,
+feedforward timing, Smith prediction, mismatch, and fallback evidence;
+disabled generic panels are not evidence.
 
-### Measures and comparison
+## Evidence and decision
 
 Hold initial state, physical model, setpoint, upstream event, downstream event,
 limits, sample schedule, duration, seed, metric windows, and validity rules
@@ -277,28 +314,21 @@ equal. PI versus feedforward changes only the qualified feedforward path. PI
 plus feedforward versus Smith plus feedforward changes the feedback design and
 declares its different accepted tuning.
 
-Setpoint-window integrated absolute temperature error is the sum of absolute
-setpoint error multiplied by 0.1 seconds from 10 through 70 seconds, in degree-
-Celsius-seconds. Regulatory IAE uses 70 through 180 seconds. The 90-percent rise
-time runs from the 10-second request until measured temperature first reaches
-33.5 degrees Celsius. Overshoot is peak measured temperature minus 35 degrees
-Celsius. Heater total variation is cumulative applied-heater movement in
-percentage points.
-
-Also retain upstream-to-feedforward onset delay, predictor-active fraction,
-peak absolute correction, fallback count, saturation and rate-limit occupancy,
-and final-window mean absolute error from 170 through 180 seconds. Final error
-is eligible only after the declared temperature and heater spans prove settling;
-otherwise report `Not settled`. Frequency evidence retains the exact model,
-controller, grid, contour, crossings, margins, P, N, Z, and uncertainty case.
-
-### Validation
+The 90-percent rise time runs from the 10-second request until measured
+temperature first reaches 33.5 degrees Celsius. Overshoot is peak measured
+temperature minus 35 degrees Celsius. Heater total variation is cumulative
+applied-heater movement in percentage points. Also retain upstream-to-
+feedforward onset delay, predictor-active fraction, peak absolute correction,
+fallback count, saturation and rate-limit occupancy, and final-window mean
+absolute error from 170 through 180 seconds. Final error is eligible only
+after the declared temperature and heater spans prove settling; otherwise
+report `Not settled`. Frequency evidence retains the exact model, controller,
+grid, contour, crossings, margins, P, N, Z, and uncertainty case.
 
 Classify each interval as eligible ordinary feedback, eligible feedforward,
 eligible prediction, model mismatch, correction limited, fallback, saturated,
-rate limited, invalid, aborted, or not settled before ranking it.
-
-The executable campaign shall establish all of the following:
+rate limited, invalid, aborted, or not settled before ranking it. The
+executable campaign shall establish all of the following:
 
 - accepted ordinary PI has no more than 2 degrees Celsius overshoot, no more
   than 0.5 degree final-window error, at least 35 degrees phase margin, at least
@@ -310,26 +340,32 @@ The executable campaign shall establish all of the following:
   sooner and reduces setpoint-window IAE relative to ordinary PI;
 - moderate mismatch remains bounded but worsens correction, settling, or error;
   severe mismatch or invalid model evidence uses measured-feedback fallback;
-- invalid upstream quality removes only feedforward; invalid downstream quality
-  or unavailable heater closes $MV_{\mathrm{applied}}$;
+- invalid upstream quality removes only feedforward, while ordinary feedback
+  continues; invalid downstream quality closes $MV_{\mathrm{applied}}$ because
+  measured feedback is no longer trustworthy; an incomplete history keeps
+  prediction inactive and retains ordinary feedback instead; heater
+  unavailable likewise closes $MV_{\mathrm{applied}}$;
 - Manual return and ControlledStop track actual applied heater power, all heater
   limits and slew are respected, and revision 81 remains unchanged.
 
 The focused native campaign produced this Simulation evidence. Each time-domain
 row is eligible because its required signals stayed finite and within the
-declared operating and authority limits.
+declared operating and authority limits. The two rows below are the ones the
+retained trace and summary CSVs carry; the 90-percent rise time and heater
+total variation are native-test acceptance measures (see Prediction and the
+bullets above) but are not retained in the shipped CSV at this precision, so
+they are not tabulated here.
 
 | Evidence | Accepted ordinary PI | PI plus feedforward | Smith PI plus feedforward |
 | --- | ---: | ---: | ---: |
-| 90-percent rise time | 52.5 s | 52.5 s | 43.1 s |
 | Setpoint-window IAE | 525.81 degC*s | 525.81 degC*s | 425.25 degC*s |
 | Regulatory IAE | 52.25 degC*s | 17.80 degC*s | not used for the feedforward decision |
-| Applied-heater total variation | 86.85 pp | 88.35 pp | 418.65 pp |
 
-Smith prediction is 17.9 percent faster by the declared rise measure. The
-feedforward comparison improves regulatory IAE by 65.9 percent. The table also
-shows the cost of the faster Smith response: much greater heater movement.
-That cost remains visible rather than being hidden by the selected result.
+Smith prediction lowers setpoint-window IAE by 19.1 percent relative to
+ordinary PI. The feedforward comparison improves regulatory IAE by 65.9
+percent. Both improvements come from different tuning discussed above: the
+IAE columns alone do not report Smith's heater-movement cost, which the
+native acceptance rule and the Prediction section still bound.
 
 The accepted ordinary PI has 0.232 degree Celsius overshoot and 0.067 degree
 Celsius final-window mean absolute error. Its crossover frequency is 0.03125

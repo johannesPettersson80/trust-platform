@@ -68,7 +68,7 @@
     "signal": "Experiment authority",
     "baseline": 0,
     "amplitude": 0,
-    "durationSeconds": 120,
+    "durationSeconds": 120.1,
     "settlingSeconds": 50,
     "manualPreparationEndsSeconds": 50,
     "settlingWindow": "110.1-120.0 s",

@@ -188,31 +188,48 @@ the model reaches 35 degrees Celsius, transfers to Auto, requests 45 degrees
 Celsius for 10 seconds, restores 35 degrees Celsius, and finally restores
 Manual zero.
 
-The running Structured Text follows the signal path introduced above: configure the PI, initialize Auto from the Manual holding power, calculate requested power, clamp applied power, and publish the difference.
+The running Structured Text follows the signal path introduced above: configure the PI, initialize Auto from the Manual holding power, calculate requested power, clamp applied power, and publish the difference. This is the shipped code verbatim, after the one-time startup block that runs only once:
 
 ```st
+(* Control Studio gain edits reach both the diagnostics and PID at this scan
+   boundary without clearing the integral state. *)
 Parameters.ProportionalGain := ProportionalGain;
 Parameters.IntegralGain := IntegralGain;
 Controller.Configure(Parameters := Parameters);
 
-IF AutoMode AND NOT LastAutoMode THEN
-    // Start Auto from the power that was already holding 35 degC.
-    InitialState.NominalOutput := ManualHeaterPower;
-    InitialState.SaturatedOutput := ManualHeaterPower;
-    Controller.Initialize(State := InitialState);
+Input.Setpoint := Setpoint;
+Input.ProcessValue := ProcessValue;
+Input.ManualOutput := ManualHeaterPower;
+IF AutoMode THEN
+    IF NOT LastAutoMode THEN
+        (* Start Auto from the measured Manual holding command. This avoids
+           confusing saturation with a mode-transfer bump. *)
+        InitialState.Setpoint := PreviousSetpoint;
+        InitialState.ProcessValue := PreviousProcessValue;
+        InitialState.NominalOutput := ManualHeaterPower;
+        InitialState.SaturatedOutput := ManualHeaterPower;
+        Controller.Initialize(State := InitialState);
+    END_IF;
+    ProportionalIncrement := ProportionalGain
+        * ((Setpoint - PreviousSetpoint) - (ProcessValue - PreviousProcessValue));
+    IntegralIncrement := IntegralGain * (Setpoint - ProcessValue) * LREAL#0.1;
+    Input.Mode := PIDMode#Auto;
+ELSE
+    ProportionalIncrement := LREAL#0.0;
+    IntegralIncrement := LREAL#0.0;
+    Input.Mode := PIDMode#Manual;
 END_IF;
-
+Input.CycleTime := LREAL#0.1;
 RequestedHeaterPower := Controller.Update(Input := Input);
-
-// The plant receives the bounded command, not the unrestricted request.
 AppliedHeaterPower := MAX(MIN(RequestedHeaterPower, LREAL#100.0), LREAL#0.0);
 SaturationError := RequestedHeaterPower - AppliedHeaterPower;
 ```
 
 The project keeps the selected Lesson 7 gains fixed during this observation.
-It applies them on every 0.1-second scan without resetting the retained
-integral state. Any separate gain comparison belongs in a fresh restored native
-run; Control Studio writes only experiment authority here.
+Those values are live and take effect at the next 0.1-second scan without
+resetting the retained integral state. Any separate gain comparison belongs in
+a fresh restored native run; Control Studio writes only experiment authority
+here.
 
 ## Experiment in Control Studio
 

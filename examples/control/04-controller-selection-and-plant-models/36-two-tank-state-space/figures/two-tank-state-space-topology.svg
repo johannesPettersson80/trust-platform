@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="270" viewBox="0 0 520 270" role="img" aria-labelledby="title2 desc2">
+<title id="title2">Pump, upstream tank, inter-tank flow, downstream tank, drain</title>
+<desc id="desc2">An inlet pump feeds the upstream tank. Inter-tank flow carries water into the downstream tank, which drains to waste. Both tanks have level transmitters.</desc>
+<defs>
+  <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0072b2"/></marker>
+  <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#d55e00"/></marker>
+  <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#009e73"/></marker>
+</defs>
+<rect width="520" height="270" rx="14" fill="#f7f9fc" stroke="#d8e0eb"/>
+<g font-family="system-ui, sans-serif" fill="#243044">
+<line x1="30" y1="120" x2="90" y2="120" stroke="#0072b2" stroke-width="3" marker-end="url(#arrow-blue)"/><text x="20" y="108" font-size="13" fill="#0072b2">pump inlet (u)</text><rect x="90" y="70" width="130" height="150" rx="8" fill="#eaf2fb" stroke="#526078" stroke-width="2"/><text x="155" y="55" text-anchor="middle" font-size="15" font-weight="700">Upstream tank</text><text x="155" y="150" text-anchor="middle" font-size="13">level h1</text><line x1="220" y1="150" x2="290" y2="150" stroke="#d55e00" stroke-width="3" marker-end="url(#arrow-orange)"/><text x="222" y="140" font-size="12" fill="#d55e00">inter-tank flow (k12·h1)</text><rect x="290" y="90" width="130" height="150" rx="8" fill="#eaf2fb" stroke="#526078" stroke-width="2"/><text x="355" y="75" text-anchor="middle" font-size="15" font-weight="700">Downstream tank</text><text x="355" y="170" text-anchor="middle" font-size="13">level h2</text><line x1="420" y1="200" x2="480" y2="200" stroke="#009e73" stroke-width="3" marker-end="url(#arrow-green)"/><text x="422" y="190" font-size="12" fill="#009e73">drain (k2·h2)</text><text x="355" y="245" text-anchor="middle" font-size="12" fill="#8792a5">level transmitter (measured)</text><text x="155" y="240" text-anchor="middle" font-size="12" fill="#8792a5">level transmitter (measured)</text>
+</g>
+</svg>

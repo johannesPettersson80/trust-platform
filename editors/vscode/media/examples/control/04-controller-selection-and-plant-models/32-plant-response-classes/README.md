@@ -14,8 +14,7 @@ own approved step, limits, and abort procedure.
 ## The problem
 
 Lesson 31 selected controllers because each plant class was already known.
-This lesson removes that prior knowledge. The equipment is a modular skid with
-heated vessel, buffer tank, conveyor oven, and flexible drive. The first
+This lesson removes that prior knowledge. The equipment is a modular skid with heated vessel, buffer tank, conveyor oven, and flexible drive. The first
 seconds of their trends can all look like “a slow rise,” but the mechanisms
 are different.
 

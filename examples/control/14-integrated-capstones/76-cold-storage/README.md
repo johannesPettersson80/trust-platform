@@ -1,20 +1,16 @@
 # Commission a walk-in cold-storage thermostat
 
-Course position: Lesson 76 of 84.
-Prerequisite: `control-loop-diagnosis`.
+Course position: Lesson 76 of 84. Previous lesson: [Diagnose a steam-flow loop before retuning](../../13-networked-fault-aware-and-diagnostic-control/75-loop-diagnosis/README.md). Next lesson: [Commission a recirculating water-heater PI loop](../77-water-heater/README.md).
 
 **Lesson objective:** Select and validate the simplest discrete controller that maintains the qualified product-temperature band without short-cycling the compressor.
 
-Plant: Walk-in food cold-storage room.
-
-This is Lesson 76, the beginner capstone. You make the engineering choice; the
-lesson does not reveal a preferred candidate before the comparison. Every
-result is deterministic **Simulation evidence**, not physical evidence,
-food-safety evidence, or compressor-endurance evidence.
+**Evidence class:** Simulation evidence. Every result in this lesson is deterministic, not physical evidence, food-safety evidence, or compressor-endurance evidence.
 
 ## The problem
 
-The equipment in this lesson is Walk-in food cold-storage room.
+The equipment in this lesson is Walk-in food cold-storage room. This is
+Lesson 76, the beginner capstone: you make the engineering choice, because the
+lesson does not reveal a preferred candidate before the comparison.
 
 The desired room temperature is `2.0 degrees Celsius`. The accepted qualified
 air-temperature band is `1.0` through `3.0 degrees Celsius`. The compressor can
@@ -29,15 +25,29 @@ An electrical starter lockout or equipment fault can make them different.
 
 The simulated room has a cooling gain of `-0.05 degrees Celsius per percent`,
 a `20 second` time constant, and a closed-door no-cooling equilibrium of
-`4.0 degrees Celsius`. A door opening raises that equilibrium to
+`4.0 degrees Celsius`. These three values are the exact plant Lessons 1
+through 3 already measured and used; this capstone inherits them unchanged
+rather than re-deriving them. A door opening raises that equilibrium to
 `6.0 degrees Celsius` from `60` through `90 seconds`. The controller runs every
 `100 milliseconds`; qualified sensor noise has a `0.03 degrees Celsius`
 standard deviation and fixed seed `20260829`.
 
-The model states that temperature moves toward the current equilibrium plus
-the cooling effect:
+The room air temperature ($T$) is the same quantity already named process
+value ($PV$); the model below writes it $T$ only because it is the variable
+being differentiated. The no-cooling equilibrium ($T_{\mathrm{eq}}$) is the
+temperature the room would settle at with the compressor off, `4.0` or
+`6.0 degrees Celsius` as stated above. The cooling gain ($K_{\mathrm{cool}}$) is
+`-0.05 degrees Celsius per percent` of applied compressor command; it is
+renamed from the plant's earlier internal label to avoid colliding with the
+ultimate gain ($K_u$) that Lessons 42 and 43 already defined as a
+controller-tuning quantity with different units and meaning. The applied
+command ($u$) is the applied manipulated variable ($MV_{\mathrm{applied}}$)
+already introduced above, `0` or `100 percent`. The time constant ($\tau$) is
+the `20`-second lag already stated. Only after each of those five names has a
+symbol does the model state that temperature moves toward the current
+equilibrium plus the cooling effect:
 
-$dT/dt=(T_{\mathrm{eq}}+K_u u-T)/\tau$
+$dT/dt=(T_{\mathrm{eq}}+K_{\mathrm{cool}} u-T)/\tau$
 
 The numerator is the remaining temperature difference, and division by the
 time constant turns it into degrees Celsius per second. With the door closed
@@ -129,13 +139,19 @@ cycles.
 
 A `1.0 degree Celsius` symmetric hysteresis around `2.0 degrees Celsius`
 produces a switch-on threshold of `2.5 degrees Celsius` and a switch-off
-threshold of `1.5 degrees Celsius`. Each threshold retains
+threshold of `1.5 degrees Celsius`. The `1.0 degree Celsius` width and both
+thresholds are the same selected design Lesson 3 already validated on this
+plant; this capstone reuses that hysteresis unchanged. Each threshold retains
 `0.5 degrees Celsius` of static margin to the nearest product limit.
 
 The noise standard deviation of `0.03 degrees Celsius` is much smaller than
 the `1.0 degree Celsius` separation, so noise alone should not reverse the
-requested state. With minimum on and off times of `5.0 seconds`, every ordinary
-completed applied-state interval must last at least `5.0 seconds`.
+requested state. Minimum on and off times of `5.0 seconds` are a configured
+teaching value chosen for this capstone's compressor-protection requirement;
+they are deliberately shorter than Lesson 3's `8.0-second` dwell candidate, so
+the comparison must qualify a new eligible design rather than assume the
+earlier one still applies. Every ordinary completed applied-state interval
+must last at least `5.0 seconds`.
 
 Predict before running:
 
@@ -199,8 +215,6 @@ panels are not evidence.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 First mark each candidate eligible or rejected. Only then compare performance.
 
 | Measure | Signal and window | Unit | Preferred direction |
@@ -214,8 +228,6 @@ First mark each candidate eligible or rejected. Only then compare performance.
 
 A candidate that violates temperature, discrete-command, readiness, quality,
 or dwell criteria is rejected; a low transition count cannot make it eligible.
-
-### Validation
 
 The native test compiles this Structured Text and runs all candidates against
 the shipped simulated room. It independently checks thresholds, requested

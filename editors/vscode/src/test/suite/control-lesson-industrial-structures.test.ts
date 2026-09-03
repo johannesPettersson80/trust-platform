@@ -207,7 +207,7 @@ suite("Industrial control-structure curriculum lessons", () => {
       /measured wild-stream flow \(q_w\).*additive-flow request \(q_a\)/i,
       /ratio setpoint \(R_SP\).*measured blend ratio \(R_PV\).*ratio error \(e_R\)/i,
       /feedback trim \(q_trim\).*litres per minute/i,
-      /q_a,requested = R_SP \* q_w \+ q_trim/i,
+      /q_a = R_SP \* q_w \+ q_trim/i, // L55-2: fixed stray comma/undefined symbol variant in the ratio-station equation
       /flow ratio.*additive fraction.*R_SP \/ \(1 \+ R_SP\)/i,
       /100 L\/min.*30 L\/min.*120 L\/min.*36 L\/min/i,
       /downstream analyser PI.*trim.*meter bias.*concentration/i,
@@ -226,7 +226,7 @@ suite("Industrial control-structure curriculum lessons", () => {
       /Lesson 56.*heating.*final elements/i,
     ]) assert.match(readme, requirement);
     assert.ok(source.indexOf("measured wild-stream flow") <
-      source.indexOf("$q_{\\mathrm{a}},requested"));
+      source.indexOf("$q_{\\mathrm{a}} = R_{\\mathrm{SP}}")); // L55-2: fixed stray comma/undefined symbol variant
     assert.ok(source.indexOf("blend-ratio deviation") <
       source.indexOf("$2 \\cdot dx_{R}/dt"));
     assert.strictEqual((program.match(/Control\.PID;/g) ?? []).length, 2);
@@ -722,7 +722,9 @@ suite("Industrial control-structure curriculum lessons", () => {
       /stronger-interaction.*0\.8.*0\.7/i,
       /1\.7512.*0\.2512.*6\.97/i,
       /inverse-command amplification.*1\.86.*3\.98/i,
-      /interaction uncertainty \(DeltaM\).*0\.30.*0\.5364/i,
+      // L63-7: README now renders Delta-M with proper LaTeX (\Delta\mathbf{M}), which
+      // pedagogicalMarkdownText transforms to "delta_M", not the former literal "DeltaM".
+      /interaction uncertainty \(delta_M\).*0\.30.*0\.5364/i,
       /sensitivity matrix \(S\).*S\(s\) = inverse\(I \+ L\(s\)\)/i,
       /frequency and direction.*diagonal elements alone/i,
       /direct decentralized PI.*static decoupling.*centralized constraint coordinator/i,

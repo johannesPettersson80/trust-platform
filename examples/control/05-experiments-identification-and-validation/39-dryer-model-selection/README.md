@@ -8,17 +8,17 @@ methods](../38-excitation-methods/README.md). Next lesson:
 first-order-plus-dead-time (FOPDT), second-order, and integrating candidates for
 a conveyor dryer, then select or reject by predeclared evidence gates.
 
-**Equipment:** Continuous conveyor drying tunnel with heated-air demand and
-product-zone temperature measurement.
-
-This lesson produces simulation evidence, not physical-plant evidence.
+**Evidence class:** Simulation evidence, not physical-plant evidence. The
+continuous conveyor drying tunnel and its product-zone temperature sensor run
+on the shipped simulator.
 
 ## The problem
 
-A conveyor carries wet product through a heated-air drying tunnel. Heater
-demand is the manipulated input in percent. Product-zone temperature is the
-measured output in degrees Celsius. Air transport and sensor location delay the
-measurement after heater demand changes.
+The equipment is a continuous conveyor drying tunnel with heated-air demand
+and product-zone temperature measurement: a conveyor carries wet product
+through it. Heater demand is the manipulated input in percent; product-zone
+temperature is the measured output in degrees Celsius. Air transport and
+sensor location delay the measurement after heater demand changes.
 
 The normal operating point is 30 percent heater and 80 degrees Celsius. The
 local simulated response has gain 0.4 degrees Celsius per percentage point,
@@ -42,11 +42,14 @@ A **model structure** is the chosen form and number of dynamic relationships
 before numerical parameters are estimated. A **parameter estimate** is a
 numerical value chosen from data inside that structure. An **estimation
 dataset** contains samples used to choose parameters. A **validation dataset**
-is an independent experiment withheld from that choice.
+is an independent experiment withheld from that choice. Every candidate
+shares the same estimation window, the same weighting, and the same sample
+inclusion, so the comparison reflects model quality, not data treatment.
 
 The measured output ($y_{\mathrm{measured}}$) is dryer temperature. The model-predicted
 output ($y_{\mathrm{predicted}}$) is the temperature calculated by a candidate. Both use
-degrees Celsius. The residual ($r$) is measured minus predicted output:
+degrees Celsius. The **residual ($r$)** is measured minus predicted output:
+$r = y_{\mathrm{measured}} - y_{\mathrm{predicted}}$. For sample $k$:
 
 $r_k=y_{\mathrm{measured},k}-y_{\mathrm{predicted},k}.$
 
@@ -59,9 +62,9 @@ Squaring prevents positive and negative residuals from cancelling and
 penalizes large misses. Dividing by sample count makes records of different
 length comparable, and the square root returns the result to degrees Celsius.
 
-**Residual bias** is $\bar r=(1/N)\sum r_k$; it exposes a consistent
-overprediction or underprediction that RMSE cannot sign. At lag one,
-**residual autocorrelation** compares $r_k-\bar r$ with
+**Residual bias** is the mean residual, $\bar r=(1/N)\sum r_k$; it exposes a
+consistent overprediction or underprediction that RMSE cannot sign. At
+sample lag one, **residual autocorrelation** compares $r_k-\bar r$ with
 $r_{k-1}-\bar r$ across the record. Large correlation means adjacent errors
 carry repeatable structure rather than independent noise. Small RMSE with
 bias or correlation means repeatable dynamics remain unexplained.
@@ -85,16 +88,22 @@ equilibrium.
 noise assumptions. Compare fits on early and late estimation subsets and
 report their parameter spread; one optimiser result is not exact plant truth.
 
-Before looking at results, define **material validation improvement**. Relative
-improvement from a simpler candidate $s$ to a more complex candidate $c$ is
-$100(RMSE_s-RMSE_c)/RMSE_s$. Extra complexity is justified only when this is at
-least 10%, a repeatable residual feature disappears, and every added parameter
-remains physically plausible and sufficiently certain.
+Complexity is ordered by dynamic order — how many energy-storing states the
+equation needs — not raw parameter count: FOPDT is a first-order lag plus a
+delay, while second-order is genuinely higher-order, though both are fit
+with three numbers here. Before looking at results, define **material
+validation improvement**: relative improvement from simpler candidate $s$ to
+more complex candidate $c$ is $100(RMSE_s-RMSE_c)/RMSE_s$. Extra complexity
+is justified only when this is at least 10 percent, clearly more than noise
+alone could explain; a repeatable residual feature disappears; and every
+added parameter stays physically plausible and sufficiently certain.
 
 ## Prediction
 
-A 10-percentage-point step from 30 to 40 percent predicts
-$\Delta T=K\Delta u=0.4(10)=4$ °C, from 80 to 84 °C. For the FOPDT candidate,
+A 10-percentage-point step from 30 to 40 percent changes the heater input by
+the **input change ($\Delta u$)** and predicts the **output change ($\Delta T$)**,
+a 4-degree-Celsius rise from 80 to 84 degrees Celsius:
+$\Delta T=K\Delta u=0.4(10)=4$ °C. For the FOPDT candidate,
 
 $T(t)=80+4\left(1-e^{-(t-4)/12}\right),\qquad t\ge4\,\mathrm s.$
 
@@ -131,10 +140,14 @@ the Structured Text contains no hidden candidate score or accepted answer.
 
 Control Studio exposes the estimation step. Test writes one reviewed Boolean,
 `P1.ExperimentEnabled`, for 90.1 seconds. The project owns the 30-to-40% heater
-request and restoration to 30%. A fresh native run owns the independent
-5-point validation pulse and all frozen-candidate scoring; otherwise the
-validation record would no longer be withheld from fitting. The deterministic
-Simulation seed is 20260829.
+request and restoration to 30%. There is no separate shared Identify or
+disabled Validate stage in this lesson: a fresh native run owns the
+independent validation run, a 5-percentage-point pulse, and all
+frozen-candidate scoring,
+fitting the four candidates and testing them on the withheld pulse, because
+otherwise the validation record would no longer be withheld from fitting. The
+retained tables report that native result; they are not a substitute for a
+newly executed run. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -143,7 +156,7 @@ Simulation seed is 20260829.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Select the least complex physically plausible candidate that passes residual and independent-prediction gates.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the initial product-zone temperature, requested/applied heater demand, and your predicted 4-second dead window before a rise toward 84 °C.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **90.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm requested/applied heater = 30% and temperature = 80 °C.
@@ -152,18 +165,25 @@ Simulation seed is 20260829.
    - **Recovery:** Abort for stale, invalid, nonfinite, clipped, confounded, or out-of-range data. Confirm authority false and requested/applied heater 30% before retrying.
    - **Record:** Retain terminal state, restoration, estimation samples, timing, onset, input/output units, quality, seed, and the prediction made before the run.
 
-There is no separate shared Identify or disabled Validate stage in this lesson.
-Native executable evidence owns fitting the four frozen candidates and testing
-them on the withheld pulse. The retained tables report that native result; they
-are not a substitute for a newly executed run.
-
 ## Evidence and decision
 
-### Measures and comparison
+**Response onset** is the first rolling-mean crossing of 2 percent of the
+qualified change, reusing Lesson 16's threshold but smoothed since this
+record carries noise.
+**Delay-window absolute bias** is the absolute mean residual during the first 4
+seconds after the input step. **Parameter subset spread** is the maximum minus
+minimum estimate across the early and late qualified fits.
 
-The first plot compares every frozen candidate on the withheld pulse. The
-second plot shows why a single RMSE number is insufficient: delay error and
-failure to return to equilibrium have recognizable residual shapes.
+For each candidate retain parameter count, estimates, uncertainty ranges,
+estimation RMSE, validation RMSE, residual bias, lag-one residual
+autocorrelation, stability, equilibrium behavior, and physical plausibility.
+Use `Not applicable`, `Not identifiable`, or `Rejected` when a metric's
+prerequisite is absent. Do not invent a score to keep every row numeric.
+
+The first plot compares candidates on the estimation data; the second, on the
+withheld pulse, where a single training-error number is insufficient; the
+third shows residuals, where delay error and equilibrium failure have
+recognizable shapes.
 
 ![Dryer candidate predictions on estimation data](figures/dryer-model-estimation.svg)
 
@@ -181,19 +201,6 @@ failure to return to equilibrium have recognizable residual shapes.
 [Residual decisions](figures/dryer-model-residual-summary.csv) ·
 [Estimation, validation, candidate, uncertainty, and provenance evidence](figures/dryer-model-selection-evidence.json)
 
-For each candidate retain parameter count, estimates, uncertainty ranges,
-estimation RMSE, validation RMSE, residual bias, lag-one residual
-autocorrelation, stability, equilibrium behavior, and physical plausibility.
-
-**Delay-window absolute bias** is the absolute mean residual during the first 4
-seconds after the input step. **Parameter subset spread** is the maximum minus
-minimum estimate across the early and late qualified fits.
-
-Use `Not applicable`, `Not identifiable`, or `Rejected` when a metric's
-prerequisite is absent. Do not invent a score to keep every row numeric.
-
-### Validation
-
 The focused executable fit and independent pulse validation measured:
 
 | Evidence | Result |
@@ -203,6 +210,7 @@ The focused executable fit and independent pulse validation measured:
 | Selected FOPDT gain | 0.40 degrees Celsius per percentage point |
 | Selected FOPDT time constant | 12.0 seconds |
 | Selected FOPDT dead time | 4.0 seconds |
+| FOPDT early/late parameter subset spread | gain 0.00, time constant 0.00 s, dead time 0.5 s (4.0 s early, 4.5 s late) |
 | FOPDT validation RMSE | 0.0508 degrees Celsius |
 | FOPDT validation residual bias | -0.0004 degrees Celsius |
 | First-order validation RMSE | 0.1635 degrees Celsius |

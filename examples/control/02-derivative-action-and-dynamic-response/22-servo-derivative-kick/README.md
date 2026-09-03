@@ -1,15 +1,12 @@
 # Derivative kick and setpoint weighting
 
-Course position: Lesson 22 of 84. Previous lesson:
-[Loaded position-table PID control](../21-underdamped-pid/README.md).
-Next lesson: [Filtered derivative](../23-servo-filtered-derivative/README.md).
+Course position: Lesson 22 of 84. Previous lesson: [Loaded position-table PID control](../21-underdamped-pid/README.md). Next lesson: [Filtered derivative for an encoder servo](../23-servo-filtered-derivative/README.md).
 
 **Lesson objective:** Expose derivative kick, distinguish requested from applied
 torque, and select derivative on measurement without removing motion damping.
 
-This lesson uses simulation. Its results are not physical-axis evidence.
-
-**Equipment:** Payload-loaded industrial positioning table.
+**Evidence class:** Simulation evidence. The instantaneous software setpoint
+step used to expose derivative kick is not an approved physical motion profile.
 
 ## The problem
 
@@ -46,9 +43,9 @@ weight.
 The setpoint $SP$ is commanded angle and the process value $PV$ is measured
 angle. Both are in radians. The ordinary control error is $e=SP-PV$.
 
-Derivative setpoint weight $c$ is a dimensionless number from 0 to 1. It chooses
-how much setpoint enters the derivative path. Define the weighted derivative
-input
+The **weighted derivative input ($x_D$)** chooses how much of a setpoint
+change enters the derivative path, weighted by the **derivative setpoint
+weight ($c$)**, a dimensionless number from 0 to 1:
 
 $x_D=c\,SP-PV$
 
@@ -80,11 +77,13 @@ so the command-dependent derivative torque is
 
 $T_D=K_d\frac{c\,\Delta SP}{\Delta t}$
 
-The ideal continuous derivative of a perfect step is an impulse. A sampled
+The ideal continuous derivative of a perfect step is an impulse (an
+infinitely brief, infinitely tall spike). A sampled
 controller cannot represent an infinite impulse; it represents the change over
 one finite cycle. The formula shows why the resulting number can still be huge:
-it is inversely proportional to $\Delta t$. Halving cycle time while keeping
-the same one-sample command jump would double the calculated kick.
+it is inversely proportional to the controller cycle time ($\Delta t$).
+Halving cycle time while keeping the same one-sample command jump would
+double the calculated kick.
 
 When $c=1$, $x_D=SP-PV=e$, so this is **derivative on full error**. When $c=0$,
 $x_D=-PV$, so this is **derivative on measurement**. A setpoint step then adds
@@ -92,8 +91,10 @@ no derivative torque, but later physical PV motion still produces damping. At
 $c=0.5$, half of the command jump enters the derivative path.
 
 Because the proportional/integral command paths and derivative command path can
-be shaped separately, this is a **two-degree-of-freedom PID**. The feedback
-response to actual PV motion does not disappear when command weighting changes.
+be shaped separately, this is a **two-degree-of-freedom PID**: the setpoint
+path and the feedback path are each free to be weighted on their own, rather
+than being tied together as one fixed response. The feedback response to
+actual PV motion does not disappear when command weighting changes.
 
 ### Deriving the complete first request
 
@@ -134,11 +135,15 @@ reports distance from target regardless of direction. It is only an endpoint
 tracking check: without a settled-window qualification, it is not steady-state
 evidence.
 
-Before practice, require the $c=1$ first request to be at least 70 N m, the
-$c=0.5$ request to exceed the $c=0$ request by at least 30 N m, the $c=0$
-request to be at most 5 N m, every applied sample to remain within ±10 N m, and
-the $c=0$ final-sample error to be at most 0.020 rad. Use 0.01 N m torque
-tolerance and 0.001 rad error tolerance.
+Before practice, require the $c=1$ first request to be at least 70 N m (large
+enough to prove a real kick, not sampling noise), the $c=0.5$ request to
+exceed the $c=0$ request by at least 30 N m (proving the weight actually
+scales the kick), the $c=0$ request to be at most 5 N m (near the 4.02 N m
+proportional-plus-integral baseline, showing derivative contributes almost
+nothing to it), every applied sample to remain within ±10 N m (the drive's
+physical limit), and the $c=0$ final-sample error to be at most 0.020 rad
+(confirming damping still tracks the target). Use 0.01 N m torque tolerance
+and 0.001 rad error tolerance.
 
 ## Prediction
 
@@ -169,6 +174,8 @@ IF ExperimentEnabled AND NOT ExperimentWasEnabled THEN
     DerivativeSetpointWeight := LREAL#0.0;
     AutoMode := TRUE;
     ReconfigureRequested := TRUE;
+ELSIF ExperimentEnabled THEN
+    AutoMode := TRUE;
 ELSIF ExperimentWasEnabled THEN
     DerivativeSetpointWeight := LREAL#1.0;
     Setpoint := LREAL#0.0;
@@ -176,7 +183,17 @@ ELSIF ExperimentWasEnabled THEN
     ReconfigureRequested := TRUE;
 END_IF;
 
-Parameters.DerivativeSetpointWeight := DerivativeSetpointWeight;
+IF ReconfigureRequested THEN
+    Parameters.DerivativeSetpointWeight := DerivativeSetpointWeight;
+    Controller.Configure(Parameters := Parameters);
+    InitialState.Setpoint := Setpoint;
+    InitialState.ProcessValue := Position;
+    InitialState.NominalOutput := RequestedTorque;
+    InitialState.SaturatedOutput := AppliedTorque;
+    Controller.Initialize(State := InitialState);
+END_IF;
+IF ExperimentEnabled THEN Setpoint := LREAL#0.5; END_IF;
+
 RequestedTorque := Controller.Update(Input := Input);
 AppliedTorque := MAX(MIN(RequestedTorque, LREAL#10.0), LREAL#-10.0);
 ```
@@ -224,14 +241,17 @@ separate Validate screen for this project-owned comparison.
      setpoint. The Boolean must authorize the project's selected $c=0$ setup,
      0.5 rad move, and restoration. Select **Review test** and verify authority,
      limits, duration, restoration, and stop conditions.
-   - **Successful evidence:** Select **Confirm and start**. The state changes to
-     **Running**, **Abort test** remains available, and Response shows SP, PV,
+   - **Successful evidence:** Select **Confirm and start**. Test reports "Test
+     running. Live values and limits remain visible above; Abort is
+     available.", **Abort test** remains available, and Response shows SP, PV,
      velocity, requested torque, and applied torque. Completion counts only
      when Test reports restoration and Monitor shows authority false, SP zero,
-     $c=1$, Manual mode, and both torques zero.
-   - **Recovery:** If the test is rejected, stale, unsafe, failed, or aborted,
-     read the displayed reason, establish the safe zero-angle baseline, wait
-     for current data, and review a new test.
+     Manual mode, and both torques zero; `P1.DerivativeSetpointWeight` is not a
+     bound Monitor signal, so the restored $c=1$ is known from the design
+     above, not read back here.
+   - **Recovery:** Select **Abort test** if the test is rejected, stale,
+     unsafe, failed, or aborted; confirm authority false, SP zero, Manual
+     mode, and both torques zero before reviewing a new test.
    - **Record:** Retain the terminal state, restoration result, seed 20260828,
      selected first requested/applied samples, and final endpoint error.
 
@@ -248,6 +268,10 @@ $|0.5-0.490191|=0.009809$ rad. This passes the endpoint limit but is not called
 steady state. All applied samples remain within ±10 N m.
 
 ![Derivative setpoint handling removes the torque-command kick](figures/derivative-kick.svg)
+
+The requested-torque trace spikes to 79.02 and 41.52 N m for $c=1$ and 0.5 at
+the setpoint step while the $c=0$ trace shows no spike at all; the applied
+trace shows only the $c=1$ and 0.5 cases clipped at the ±10 N m drive limit.
 
 [Retained samples](figures/derivative-kick-trace.csv) ·
 [Decision summary](figures/derivative-kick-summary.csv)

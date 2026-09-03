@@ -1,8 +1,10 @@
 # Qualify network ownership at a remote pumping station
 
-Course position: Lesson 73 of 84. Prerequisite: robust flexible-wing control on a local sampled path. Next lesson: multirate and fault-aware pumping control.
+Course position: Lesson 73 of 84. Previous lesson: [Robust flexible-wing control](../../12-nonlinear-adaptive-and-robust-control/72-flexible-airframe-robust/README.md). Next lesson: [Multirate and fault-aware pumping control](../74-pumping-fault-aware/README.md).
 
 **Lesson objective:** Calculate the remote-loop delay reserve, reject ineligible command packets, and prove bounded transfer between remote coordination and local pressure control.
+
+**Evidence class:** Simulation evidence. The naive and protected receivers run against an injected packet record and a hypothetical remote-controller design check, not a measured network or a physical pumping station.
 
 ## The problem
 
@@ -34,7 +36,7 @@ Two clocks can remain slightly misaligned even after synchronization. Clock unce
 
 $age_{\mathrm{worst}} = age_{\mathrm{nominal}} + \varepsilon_{\mathrm{clock}}$
 
-A sender-provided Boolean such as “data fresh” is not evidence of freshness. The station calculates age from its own time, the source timestamp, and the synchronization bound. It also rejects a timestamp that lies farther in the future than the clock uncertainty permits.
+A sender-provided Boolean such as "data fresh" is not evidence of freshness. The station calculates age from its own time, the source timestamp, and the synchronization bound. It also rejects a timestamp that lies farther in the future than the clock uncertainty permits.
 
 ### Distinguish the communication failures
 
@@ -44,17 +46,27 @@ A sequence number ($n$) records production order within one declared communicati
 
 A jitter or resequencing buffer waits for packets so it can smooth arrival timing or restore production order. Waiting consumes delay margin. This station uses a zero-wait, latest-eligible policy: it rejects a late or reordered packet instead of waiting for a missing predecessor. Retaining one already accepted command until it expires is not a reorder buffer.
 
+### Relate pump speed to pressure
+
+Header pressure ($p$) is measured in bar. Applied pump speed ($u_{\mathrm{applied}}$) is measured in percent. Zero-speed pressure ($p_{0}$) is 4 bar, plant gain ($K_{\mathrm{plant}}$) is 0.04 bar per percent, and time constant ($\tau$) is 4 seconds. These three values are declared teaching values configured directly in this simulation's header model, not fitted from a measured experiment. A learner commissioning a real station would instead run a bump test at a fixed pump speed — the same step-identification method taught in Lessons 16 through 18 — and fit the resulting first-order response's steady gain and settling time. Pressure moves toward the equilibrium created by the current applied speed:
+
+$dp/dt = (p_{0} + K_{\mathrm{plant}} \cdot u_{\mathrm{applied}} - p) / \tau$
+
+At 50 percent speed, the equilibrium is 4 bar plus 0.04 bar per percent multiplied by 50 percent, which is 6 bar. That is why the shipped project starts both headers at 6 bar with 50 percent pump speed: it is already the model's steady operating point for the 6-bar setpoint.
+
 ### Calculate delay margin before choosing an age limit
 
 Delay margin ($L_{\mathrm{margin}}$) is the additional pure delay that brings the declared linear remote loop to its stability boundary. It is not a general network timeout.
 
-The pressure plant has transfer $P(s)=K_{plant}/(\tau s+1)$, with gain 0.04 bar per percent and time constant 4 seconds. The reviewed remote proportional controller has gain 200 percent per bar, so the loop magnitude is $K_{remote}K_{plant}/\sqrt{1+(\omega\tau)^2}$. Setting that magnitude to one and solving for frequency gives:
+This calculation is a hypothetical worst-case design check, not a description of the shipped code: the project does not implement a remote proportional controller and instead sends a fixed 50 percent demand from the remote side (`Main.st:44`). To choose a defensible age limit before any remote controller exists, this lesson reviews a hypothetical remote proportional controller with gain 200 percent per bar — a configured teaching value representing an aggressively tuned remote loop — and asks whether even that aggressive design keeps a positive delay margin. Combined with the plant gain above, the open-loop magnitude is $K_{\mathrm{remote}}K_{\mathrm{plant}}/\sqrt{1+(\omega\tau)^2}$.
+
+Gain crossover is the frequency at which that open-loop magnitude first falls to one. The crossover angular frequency ($\omega_{\mathrm{c}}$) is that frequency, measured in radians per second. Setting the magnitude to one and solving for frequency gives:
 
 $\omega_{\mathrm{c}} = \sqrt{(K_{\mathrm{remote}} \cdot K_{\mathrm{plant}})^{2} - 1} / \tau$
 
-At crossover the first-order plant phase is $-\arctan(\omega_c\tau)$. A pure delay adds phase $-\omega_cL$. The stability boundary is reached when their sum is $-\pi$; solving that equality for $L$ gives the model-based delay margin:
+At the crossover angular frequency the first-order plant contributes phase lag $-\arctan(\omega_c\tau)$. A pure delay of length $L$ adds further phase $-\omega_cL$. The stability boundary is reached when their sum equals $-\pi$. Solving that equality for $L$ gives the pure delay that consumes the remaining angle before instability — the model-based delay margin:
 
-$L_{\mathrm{margin}} = (pi - \arctan\left(\omega_{\mathrm{c}} \cdot \tau\right)) / \omega_{\mathrm{c}}$
+$L_{\mathrm{margin}} = (\pi - \arctan\left(\omega_{\mathrm{c}} \cdot \tau\right)) / \omega_{\mathrm{c}}$
 
 A latency budget lists every reviewed worst-case contribution. Measurement transport ($L_{\mathrm{measure}}$), remote calculation ($L_{\mathrm{compute}}$), command transport ($L_{\mathrm{command}}$), bounded jitter ($L_{\mathrm{jitter}}$), clock uncertainty ($\varepsilon_{\mathrm{clock}}$), and one local task interval ($T_{\mathrm{task}}$) give:
 
@@ -62,13 +74,7 @@ $L_{\mathrm{budget}} = L_{\mathrm{measure}} + L_{\mathrm{compute}} + L_{\mathrm{
 
 Delay reserve is the difference between the calculated margin and budget. A non-positive reserve rejects the remote design even when one favorable trace looks smooth.
 
-### Relate pump speed to pressure
-
-Header pressure ($p$) is measured in bar. Applied pump speed ($u_{\mathrm{applied}}$) is measured in percent. Zero-speed pressure ($p_{0}$) is 4 bar, plant gain ($K_{\mathrm{plant}}$) is 0.04 bar per percent, and time constant ($\tau$) is 4 seconds. Pressure moves toward the equilibrium created by the current applied speed:
-
-$dp/dt = (p_{0} + K_{\mathrm{plant}} \cdot u_{\mathrm{applied}} - p) / \tau$
-
-At 50 percent speed, the equilibrium is 4 bar plus 0.04 bar per percent multiplied by 50 percent, which is 6 bar.
+The receiver's 0.50-second maximum-age acceptance threshold is itself a configured teaching value, not the raw budget: it sits slightly above the 0.47-second latency budget (predicted below) so a packet meeting every budgeted contribution is not rejected on measurement slack, while it remains comfortably inside the 0.855-second delay margin — 0.355 seconds of margin still remain even at the oldest accepted packet. A learner commissioning a real station would instead measure the transport chain's actual worst-case age and set this threshold from that measurement plus the same clock-uncertainty bound. Clock uncertainty's own 0.05-second bound is a configured teaching value equal to the clock-uncertainty term already included in the budget above.
 
 ### Compare two ownership rules
 
@@ -76,25 +82,25 @@ The naive receiver applies every delivered command in arrival order and retains 
 
 The protected receiver calculates age locally. It requires good signal quality, synchronized clocks, clock uncertainty no greater than 0.05 seconds, conservative age no greater than 0.50 seconds, a strictly newer sequence, and a finite command inside 0 through 100 percent. An ineligible received packet latches a communication fault. Missing updates cause the retained command to expire.
 
-When remote ownership is invalid, the station uses its local pressure controller. The shipped Control.PID runs as proportional-integral control from the live local pressure. While the remote path owns the drive, the local controller runs in track mode so its internal output follows the applied command. This tracking supports a bumpless transfer instead of allowing the inactive integral state to drift.
+When remote ownership is invalid, the station uses its local pressure controller. The shipped Control.PID runs as proportional-integral control from the live local pressure, with proportional gain 10 percent per bar and integral gain 2 percent per bar-second (`NetworkedPumpSupervisor.st:50-51`). These gains are a configured teaching value chosen to give a stable, moderately fast local response at this operating point; a learner commissioning a real station would instead derive them from the identified plant gain and time constant above using the model-qualified method of Lesson 44, then verify the bounded response before qualifying the controller as the fallback. While the remote path owns the drive, the local controller runs in track mode so its internal output follows the applied command. This tracking supports a bumpless transfer instead of allowing the inactive integral state to drift. An approved recovery may differ from the current applied command by no more than 2.0 percentage points (`NetworkedPumpSupervisor.st:108`), a configured teaching value chosen to keep a qualified transfer imperceptible against ordinary pump-speed movement rather than a measured drive or water-hammer limit.
 
 Requested pump-speed command and applied pump-speed command are kept separate. A physical limit or later actuator behavior can make them differ.
 
 ## Prediction
 
-The remote loop's static gain is 200 percent per bar multiplied by 0.04 bar per percent, which equals 8. Therefore:
+The remote loop's static gain is 200 percent per bar multiplied by 0.04 bar per percent, which equals 8. Therefore the crossover angular frequency is:
 
-$\omega_{\mathrm{c}} = \sqrt{8^{2} - 1} / 4 = 1.984 rad/s$
+$\omega_{\mathrm{c}} = \sqrt{8^{2} - 1} / 4 = 1.984$ rad/s
 
-The plant phase lag at crossover is approximately 1.446 radians. The calculated delay margin is:
+The plant phase lag at the crossover angular frequency is approximately 1.446 radians. The calculated delay margin is:
 
-$L_{\mathrm{margin}} = (pi - 1.446) / 1.984 = 0.855 s$
+$L_{\mathrm{margin}} = (\pi - 1.446) / 1.984 = 0.855$ s
 
 The reviewed worst-case contributions are 0.10 seconds for measurement transport, 0.02 seconds for calculation, 0.15 seconds for command transport, 0.05 seconds for jitter, 0.05 seconds for clock uncertainty, and 0.10 seconds for one station task:
 
-$L_{\mathrm{budget}} = 0.10 + 0.02 + 0.15 + 0.05 + 0.05 + 0.10 = 0.47 s$
+$L_{\mathrm{budget}} = 0.10 + 0.02 + 0.15 + 0.05 + 0.05 + 0.10 = 0.47$ s
 
-The predicted model-based reserve is approximately 0.385 seconds. This is positive, but it covers only the declared linear model and budget.
+The predicted model-based reserve is approximately 0.385 seconds. This is positive, but it covers only the declared linear model and budget applied to the hypothetical 200-percent-per-bar remote controller, not the shipped project's fixed demand.
 
 Before running, predict the receiver decisions:
 
@@ -112,7 +118,7 @@ Predict that each protected fault transfer occurs within one 100-millisecond sta
 
 ## Implementation
 
-The following shortened excerpt is from `src/Main.st`. It is the logic that actually runs:
+The following shortened excerpt is from `src/NetworkedPumpSupervisor.st`, the function block that `Main.st` instantiates and calls every scan. It is the logic that actually runs:
 
 ```st
 NominalAgeSeconds := LocalTimeSeconds - RemoteSourceTimeSeconds;
@@ -141,7 +147,7 @@ END_IF;
 LocalControllerOutput := LocalController.Update(Input := LocalInput);
 ```
 
-Read the full program before the run. The complete code also checks clock uncertainty, impossible-future timestamps, command range, explicit recovery approval, retained-command expiry, requested outputs, applied outputs, and the fault latch.
+Read the full function block before the run. The complete code also checks clock uncertainty, impossible-future timestamps, command range, explicit recovery approval, retained-command expiry, requested outputs, applied outputs, and the fault latch.
 
 ## Experiment in Control Studio
 
@@ -149,23 +155,21 @@ This procedure observes protected remote ownership under a healthy project-owned
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Protected header pressure setpoint (SP, bar); Naive header pressure (PV, bar) and Protected header pressure (PV, bar); Naive requested pump speed (MV, %) and Naive applied pump speed (MV, %), including units, limits, mode, and quality. The initial operating point is Protected header pressure setpoint = 6 bar, Naive header pressure = 6 bar, Protected header pressure = 6 bar. The unresolved baseline problem is: The receiver applies every arrival and retains it indefinitely, so stale, reordered, poor-quality, and clock-invalid commands can own the pump.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept remote ownership only while locally calculated age, order, quality, synchronization, uncertainty, range, and recovery conditions all pass; otherwise use the tracked local PI controller.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Protected header pressure setpoint (SP, bar); Naive header pressure (PV, bar) and Protected header pressure (PV, bar); Naive requested pump speed (MV, %) and Naive applied pump speed (MV, %). The initial operating point is Protected header pressure setpoint = 6 bar, Naive header pressure = 6 bar, Protected header pressure = 6 bar. The unresolved baseline problem is: the receiver applies every arrival and retains it indefinitely, so stale, reordered, poor-quality, and clock-invalid commands can own the pump.
+   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: accept remote ownership only while locally calculated age, order, quality, synchronization, uncertainty, range, and recovery conditions all pass; otherwise use the tracked local PI controller. This matters because a receiver that only checks arrival order cannot tell a fresh command from a stale one — the decision must come from calculated age, not from where a packet sits in the stream.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **25.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns timestamps, sequences, receipt timing, and demand.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Naive applied pump speed 0 % to 100 %; Protected applied pump speed 0 % to 100 %; Naive header pressure 0 bar to 12 bar; Protected header pressure 0 bar to 12 bar.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
+   - **Decision before action:** Before selecting **Review test**, predict that the project delivers one new 50-percent packet every 0.4 seconds at 0.05-second measured age, that both header pressures stay flat at 6 bar, and that protected remote ownership reads true throughout — because a healthy, always-fresh, always-ordered stream is the one case where the naive and protected receivers must agree; any visible disagreement here would mean the protected logic is rejecting valid traffic. Confirm the requested change remains inside Naive applied pump speed 0 % to 100 %; Protected applied pump speed 0 % to 100 %; Naive header pressure 0 bar to 12 bar; Protected header pressure 0 bar to 12 bar.
+   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows both pressures flat at 6 bar, a new packet every 0.4 seconds, and protected remote ownership true for the entire run.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify local ownership and bounded pump command, wait for current data, and review a new test.
    - **Record:** Stop recording after local ownership is restored. Retain time, age, sequence, rejection, ownership, requested/applied commands, pressure, terminal state, restoration result, and seed **20260829**. Use native evidence for invalid packets and approved recovery; do not claim this visible run executed them.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Define every decision measure before inspecting the result:
 
@@ -175,7 +179,7 @@ Define every decision measure before inspecting the result:
 - **Pressure absolute-error area** is the sampled sum of absolute difference between the 6-bar setpoint and pressure, multiplied by the 0.10-second interval. Its unit is bar-seconds, and lower is better.
 - **Peak pressure departure** is the largest absolute difference between the 6-bar setpoint and pressure during the 25-second run. Its unit is bar, and lower is better.
 - **Applied pump-speed travel** is total variation: the sum of absolute changes between consecutive applied commands. Its unit is percentage points, and lower values indicate less drive movement when the other requirements pass.
-- **Remote availability** is the fraction of samples with qualified remote ownership. It is descriptive. It must not be improved by accepting invalid commands.
+- **Remote availability** is the fraction of samples with qualified remote ownership, when that per-sample ownership flag is retained. It is descriptive and must not be improved by accepting invalid commands.
 
 The native executable run produces this comparison from the same 250 samples
 for both receivers:
@@ -187,32 +191,27 @@ for both receivers:
 | Peak pressure departure | 0.3539 bar | 0.0000 bar |
 | Applied pump-speed travel | 550.0 percentage points | 0.0 percentage points |
 | Largest approved-recovery discontinuity | Not applicable | 0.0 percentage points |
-| Qualified remote availability | Not defined | 72.4 percent |
+| Qualified remote availability | Not retained in the shipped trace | Not retained in the shipped trace |
 
-The protected pressure remains exactly at the declared equilibrium because
-every eligible command and the local fallback both request 50 percent in this
-deterministic plant. That perfect value is Simulation evidence, not a promise
-about sensor noise, hydraulic disturbances, or a physical pump. Remote
-availability is lower by design during ineligible intervals; accepting an
-invalid command would not be a legitimate availability improvement.
+The protected pressure remains exactly at the declared equilibrium because every eligible command and the local fallback both request 50 percent in this deterministic plant — the same 50-percent, 6-bar equilibrium derived above. That perfect value is Simulation evidence, not a promise about sensor noise, hydraulic disturbances, or a physical pump. The shipped trace retains only the pressure and applied-command panels plotted below, so remote availability cannot be reported as a measured fraction here; it is bounded by construction to be no greater than the naive receiver's, because a protected packet must additionally pass every rejection test the naive path skips entirely.
 
-### Validation
+Do not call the protected path "more available" merely because the naive path never gives up authority. Authority without valid evidence is a failure, not availability.
+
+![Header pressure and applied pump-speed command for naive and validity-protected network control](figures/networked-pumping-evidence.svg)
+
+Both panels replay the same native 25-second packet record (`case: naive` / `case: protected`), so a difference in header pressure or applied command isolates the receiver policy rather than the packet stream. The pressure panel shows both headers holding flat at 6 bar because every eligible and every locally controlled command settles at the same 50-percent equilibrium. The command panel shows the naive applied speed following six stale or reordered packets in arrival order while the protected applied speed refuses every one of them and holds the tracked local value instead.
+
+[Complete trace](figures/networked-pumping-evidence-trace.csv) · [Decision summary](figures/networked-pumping-evidence-summary.csv)
 
 Accept the lesson only when all of these statements are supported by retained executable evidence:
 
-- The independent calculation gives approximately 1.984 rad/s crossover, 0.855 s delay margin, 0.47 s budget, and 0.385 s positive reserve.
+- The independent calculation gives approximately 1.984 rad/s crossover angular frequency, 0.855 s delay margin, 0.47 s budget, and 0.385 s positive reserve for the hypothetical remote controller.
 - The naive path accepts or indefinitely retains stale and reordered information, so the comparison is real.
 - No ineligible packet gains protected remote ownership.
 - Retained data expire and every received fault selects local control within one 100-millisecond scan.
 - Approved recovery is newer, eligible, explicitly approved, and no more than 2.0 percentage points from the current applied command.
 - Requested and applied speeds remain finite and inside 0 through 100 percent, while both pressures remain inside 0 through 12 bar.
 - An independent packet-policy oracle and independent first-order calculation agree with the shipped Structured Text and simulated plants.
-
-Do not call the protected path “more available” merely because the naive path never gives up authority. Authority without valid evidence is a failure, not availability.
-
-![Discharge pressure and applied command for naive and validity-protected network control](figures/networked-pumping-evidence.svg)
-
-[Complete trace](figures/networked-pumping-evidence-trace.csv) · [Decision summary](figures/networked-pumping-evidence-summary.csv)
 
 ## Conclusion
 
@@ -222,7 +221,9 @@ The naive receiver interprets arrival order as production order. A delayed older
 
 A larger reorder buffer might make an irregular packet stream look smoother, but every waiting interval consumes delay reserve. This design chooses zero waiting because the local controller provides a bounded alternative. That is an architecture decision, not a universal rule for every networked loop.
 
-The positive calculated delay reserve answers one linear stability question. It does not prove clock integrity, packet authenticity, session restart behavior, nonlinear hydraulics, pump protection, or real transport performance. Those require separate evidence at their owning boundaries.
+The lesson's declared safe manipulated value of 50 percent is not a separate fallback number: it is the local PI controller's own steady output at the 6-bar setpoint, the same equilibrium derived above, so transferring authority to local control converges to the value the lesson's safety declaration already lists.
+
+The positive calculated delay reserve answers one linear stability question built on a hypothetical worst-case remote controller, not the shipped project's fixed demand. It does not prove clock integrity, packet authenticity, session restart behavior, nonlinear hydraulics, pump protection, or real transport performance. Those require separate evidence at their owning boundaries.
 
 ## Reason for the next lesson
 

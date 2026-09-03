@@ -210,6 +210,8 @@ def render_concept():
         '<text x="610" y="201" class="label" fill="#d97706">held heater output</text>',
         '<text x="190" y="338" class="small" text-anchor="middle">sample instants</text>',
         '<text x="585" y="338" class="small" text-anchor="middle">blue dots are sampled; orange output is held between updates</text>',
+        '<text x="820" y="262" class="small" text-anchor="end">time (s) &#8594;</text>',
+        '<text x="40" y="165" class="small" text-anchor="middle" transform="rotate(-90 40 165)">temperature (degC) / heater output (%)</text>',
         '</svg>',
     ])
     CONCEPT_OUTPUT.write_text("\n".join(svg) + "\n", encoding="utf-8")

@@ -4,7 +4,7 @@ Course position: Lesson 10 of 84. Previous lesson: [Valve rate limitation](../09
 
 **Lesson objective:** Explain integral windup and direction, calculate tracking correction, and select anti-windup from measured recovery and actuator trade-offs rather than complexity.
 
-This lesson uses deterministic Simulation evidence. It is not physical evidence
+**Evidence class:** Simulation evidence. It is not physical evidence
 that a steam valve, vessel, interlock, or relief system is safe to operate.
 
 ## The problem
@@ -22,6 +22,22 @@ The simulated valve accepts only -3.5 through 3.5 percent trim. Feed
 temperature, steam pressure, vessel contents, controller gains, timing, and
 initial state remain identical across four fresh runs. Manual zero trim is the
 safe restoration state for this simulation.
+
+The **plant gain** is 1 degree Celsius of steady temperature deviation per
+percentage point of steam-valve trim. This is a **declared teaching value**
+for this local model, not a manufacturer's rating or a value calculated from
+vessel geometry; a learner characterizing a real vessel would instead run
+Lesson 16's step-identification procedure at the operating point and fit this
+relationship from the measured response. The vessel also does not settle at
+its new temperature the instant trim changes: it continues changing gradually
+for some time afterward, the same delayed, gradual response Lesson 15 later
+explains from first principles. Applying Lesson 8's reachability check: at 1
+degree Celsius per percentage point, a 4.5-degree-Celsius temperature request
+needs 4.5 percentage points of trim, but the valve accepts only ±3.5 percent,
+so that request is unreachable in steady state before any controller or
+anti-windup strategy is chosen. Anti-windup changes how the controller's
+stored state responds to an unreachable request; it does not make the request
+itself reachable.
 
 Lessons 8 and 9 showed that requested and applied actuator output can differ.
 They also exposed retained state: while a controller requests output the
@@ -80,16 +96,21 @@ The correction rate needed to close $e_{\mathrm{sat}}$ in the tracking time is
 
 $\text{correction rate} = e_{\mathrm{sat}} / T_t$
 
-in percentage points per second. One update lasts $dt$ seconds. Multiplying the
+in percentage points per second. One update lasts $\Delta t$ seconds. Multiplying the
 rate by that duration gives the correction for one update:
 
-$correction = (e_{\mathrm{sat}} / T_t) \cdot dt = (dt / T_t) \cdot e_{\mathrm{sat}}$
+$\text{correction} = (e_{\mathrm{sat}} / T_t) \cdot \Delta t = (\Delta t / T_t) \cdot e_{\mathrm{sat}}$
 
 The ratio is dimensionless and appears repeatedly, so define
 
-$\alpha = dt / T_t$
+$\alpha = \Delta t / T_t$
 
-and subtract the correction from nominal state:
+The **stored controller output ($MV_{\mathrm{stored}}$)** is the corrected
+value written back into the PI's retained state after the update, in percent
+— the same retained quantity Lesson 7 called $MV_{\mathrm{previous}}$ and
+Lesson 8 called the stored integral contribution ($u_I$), now adjusted for
+saturation instead of left to grow unchecked. Subtract the correction from
+nominal state:
 
 $MV_{\mathrm{stored}} = MV_{\mathrm{nominal}} - \alpha \cdot e_{\mathrm{sat}}$
 
@@ -98,7 +119,7 @@ Four state-handling configurations are compared:
 1. **No anti-windup.** The controller has deliberately wide internal limits.
    Only the downstream valve command is clamped, so the controller does not see
    the physical limit and stored nominal output can continue to grow.
-2. **Control-signal clamping.** Set $T_t = dt$. Then $\alpha = dt/dt = 1$.
+2. **Control-signal clamping.** Set $T_t = \Delta t$. Then $\alpha = \Delta t/\Delta t = 1$.
    Substituting $\alpha=1$ and
    $e_{\mathrm{sat}}=MV_{\mathrm{nominal}}-MV_{\mathrm{saturated}}$ gives
 
@@ -107,9 +128,9 @@ $MV_{\mathrm{stored}} = MV_{\mathrm{nominal}} - (MV_{\mathrm{nominal}} - MV_{\ma
    This substitution proves $MV_{\mathrm{stored}} = MV_{\mathrm{saturated}}$: the complete
    unavailable gap is removed in one update.
 3. **BackCalculation.** The derived stored-state equation removes a chosen
-   fraction of saturation error. A larger $T_t$ makes $dt/T_t$ smaller, so each
+   fraction of saturation error. A larger $T_t$ makes $\Delta t/T_t$ smaller, so each
    update corrects less of the gap. The implemented BackCalculation equation
-   does not silently limit $\alpha$ when $dt/T_t$ exceeds one.
+   does not silently limit $\alpha$ when $\Delta t/T_t$ exceeds one.
 4. **Combined.** The controller first tests the product
 
 $\Delta MV_I \cdot e_{\mathrm{sat}} > 0$
@@ -121,7 +142,17 @@ $\Delta MV_I \cdot e_{\mathrm{sat}} > 0$
    saturation error. Integration away from a limit remains permitted. It then
    applies back calculation with:
 
-$\alpha_{\mathrm{combined}} = \min\left(dt / T_t, 1\right)$
+$\alpha_{\mathrm{combined}} = \min\left(\Delta t / T_t, 1\right)$
+
+   giving the same stored-state update as back calculation,
+   $MV_{\mathrm{stored}} = MV_{\mathrm{nominal}} - \alpha_{\mathrm{combined}} \cdot e_{\mathrm{sat}}$,
+   but only on scans where the sign check passes; otherwise the nominal output
+   is retained unchanged. For the same 10-percentage-point gap and $T_t=3.25$
+   seconds used above, $\alpha_{\mathrm{combined}} = \min(0.1/3.25, 1) = 0.030769$
+   and the one-scan correction is $0.030769 \times 10 = 0.30769$ percentage
+   points — identical to back calculation's correction on a scan where both
+   strategies agree the controller is moving farther into saturation. The
+   strategies differ only in which scans apply that correction.
 
 Anti-windup changes controller state handling; it does not replace the physical
 valve limit. The same downstream -3.5 to 3.5 percent clamp remains active in
@@ -162,7 +193,7 @@ Before running anything, define how that prediction will be judged:
   reaches and remains within the band through that window.
 - **Post-restoration upper-limit duration** counts consecutive time after SP
   restoration while $MV_{\mathrm{applied}}$ remains at 3.5 percent. Multiplying the
-  number of consecutive samples by $dt$ converts the count to seconds.
+  number of consecutive samples by $\Delta t$ converts the count to seconds.
 - **Recovery undershoot** is the magnitude of the most negative PV after
   restoration. Taking the magnitude makes a downward excursion a positive
   quantity in degrees Celsius. Report zero if PV never crosses below the
@@ -172,7 +203,7 @@ Before running anything, define how that prediction will be judged:
   valve: each movement is the absolute difference between two consecutive
   applied positions, and those movements are summed:
 
-$travel = \sum\left(\left|MV_{\mathrm{applied},k} - MV_{\mathrm{applied},k-1}\right|\right)$
+$\text{travel} = \sum\left(\left|MV_{\mathrm{applied},k} - MV_{\mathrm{applied},k-1}\right|\right)$
 
   The complete run begins with the retained initial Manual sample and ends with
   the retained final Manual-zero sample, so the final Auto-to-Manual transition
@@ -199,11 +230,35 @@ travel. Travel differences smaller than 0.1 percentage point are also
 indistinguishable; only then prefer the simpler state equation. These are local
 Simulation comparison rules, not physical acceptance limits.
 
+Each threshold is a declared teaching value with a stated reason, not a
+physical specification: the 0.05-degree-Celsius recovery band and undershoot
+limit are both one-fifth of the 0.25-degree-Celsius overshoot criterion
+Lesson 7 already used, tight enough to require genuine settling; the
+1.0-second recovery-improvement requirement is ten 0.1-second cycles, large
+enough that a protected strategy's advantage cannot be a rounding artefact of
+this deterministic simulation; the 0.1-second upper-limit-hold and tie
+tolerances are one controller cycle, the smallest interval this 0.1-second
+simulation can resolve; and the 0.1-percentage-point travel tie tolerance is
+the same one-cycle resolution applied to actuator movement.
+
 ## Implementation
 
 The shipped program uses the same `Control.PID` instance and PI gains for every
 fresh run. Strategy selection is read during initialization and therefore
 requires a fresh run; it is not a live mid-run switch.
+
+$K_p = 2.83$ percentage points per degree Celsius and $K_i = 0.8708$
+percentage points per degree Celsius-second are **declared teaching values**
+for this plant, chosen so the unprotected baseline visibly winds up without
+the loop becoming unstable; they are not inherited from Lesson 9's flow-loop
+gains ($K_p = K_i = 0.667$, a different plant and units) and not derived from
+a tuning rule taught so far in this course — Module 6 later shows how to
+calculate PI gains from an identified plant model. The **tracking time
+($T_t$)** used by strategies 2 and 3 follows the rule $T_t = T_i = K_p / K_i$
+that Lesson 7 already established for integral time: $2.83 / 0.8708 = 3.25$
+seconds exactly. A learner would choose $T_t$ the same way on real equipment,
+from the controller's own already-selected integral time, rather than as an
+independent guess.
 
 ```st
 Parameters.ProportionalGain := LREAL#2.83;
@@ -213,9 +268,13 @@ Parameters.DerivativeGain := LREAL#0;
 IF SelectedStrategy > 0 THEN
     Parameters.OutputMinimum := LREAL#-3.5;
     Parameters.OutputMaximum := LREAL#3.5;
+    Parameters.RateMinimum := LREAL#-100;
+    Parameters.RateMaximum := LREAL#100;
 ELSE
     Parameters.OutputMinimum := LREAL#-1000000;
     Parameters.OutputMaximum := LREAL#1000000;
+    Parameters.RateMinimum := LREAL#-1000000;
+    Parameters.RateMaximum := LREAL#1000000;
 END_IF;
 
 IF SelectedStrategy = 1 THEN
@@ -254,7 +313,7 @@ comparison. The deterministic Simulation seed is 20260824.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm SP = 0 degC, PV = 0 degC, requested trim = 0%, applied trim = 0%, strategy = 2, tracking time = 3.25 s, configured cycle time = 0.1 s, Manual mode, and experiment authority false. Also show Kp, Ki, zero Kd, signal units, valve limits, quality, and Simulation source. The unresolved baseline problem is that downstream clamping alone can leave unavailable demand in controller state.
    - **Decision before action:** Read **Prediction**, calculate $\alpha=0.030769$ and the 0.30769-percentage-point correction for a 10-point gap, then predict an upward PV response followed by bounded recovery after SP restoration.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
@@ -270,13 +329,9 @@ comparison. The deterministic Simulation seed is 20260824.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 Apply the definitions, validity requirements, eligibility thresholds, and tie
 rules declared in **Prediction**. The unprotected baseline is evidence of the
 failure and is not a selectable anti-windup strategy.
-
-### Validation
 
 The native PI experiment retained these results:
 
@@ -300,6 +355,11 @@ is larger than 0.1 second. Combined is not selected merely because it is more
 elaborate; complexity is never an acceptance argument.
 
 ![Four anti-windup strategies on the same batch vessel](figures/anti-windup-response.svg)
+
+Notice that the unprotected trace (strategy 0) stays pinned at the 3.5 percent
+upper limit for 4.5 seconds after SP is restored, while every protected trace
+leaves the limit at the same instant SP returns to zero — the visible signature
+of stored demand that anti-windup removes before it can act.
 
 ## Conclusion
 

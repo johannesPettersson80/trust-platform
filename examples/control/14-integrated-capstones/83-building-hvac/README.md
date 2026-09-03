@@ -1,9 +1,10 @@
 # Decide whether predictive building control earns its complexity
 
-Course position: Lesson 83 of 84.
-Prerequisite: `control-capstone-distillation`.
+Course position: Lesson 83 of 84. Previous lesson: [Commission a multivariable distillation control architecture](../82-distillation-column/README.md). Next lesson: [Defend an independent compressed-air control-system recommendation](../84-independent/README.md).
 
 **Lesson objective:** Qualify the model and load estimator, screen the strongest eligible conventional baseline, execute all 729 constrained predictive sequences, and decide whether MPC improves the building enough to justify its additional actuator and lifecycle cost.
+
+**Evidence class:** Simulation evidence. The declared outdoor-loss mismatch plant, the 22-degree infeasibility case, and all 729 evaluated move sequences in this lesson are deterministic Simulation evidence and are not approved for a physical building.
 
 Plant: Two thermally coupled office zones with a shared heating-power limit.
 
@@ -31,6 +32,11 @@ The requested manipulated variables are the heater commands calculated by the
 controller before plant authority and constraints. The applied manipulated
 variables are the bounded commands actually delivered to the simulated
 heaters. Requested and applied heating are retained separately.
+
+![Two coupled zones share one controller and one heating-power limit](figures/building-hvac-capstone-topology.svg)
+One controller reads both measured temperatures and the shared forecast, then
+sends an independent heater command to each zone; outdoor loss and inter-zone
+heat exchange act on both zones regardless of which controller is selected.
 
 The nominal simulation uses two coupled heat balances. It omits humidity,
 solar radiation, wall states, ventilation and water-loop dynamics. A second
@@ -65,8 +71,19 @@ occupancy heat. Exact sampling of those continuous heat balances produces a
 rule that predicts the next temperature from the present temperatures and
 inputs.
 
-Write the continuous balances as $\dot{x}=A_cx+B_cu$. Holding the inputs
-constant for one minute gives the exact zero-order-hold conversion
+Write the continuous balances as $\dot{x}=A_{c}x+B_{c}u$, reusing the same
+two-zone conservation-of-energy derivation Lesson 68 established from outdoor
+thermal resistance, inter-zone thermal resistance, effective thermal
+capacitance, heater rating, and occupancy heat gain (Specification 38 §3.11
+Lesson 68). That derivation's continuous state matrix ($A_{c}$) and continuous
+input matrix ($B_{c}$), in inverse seconds and degrees Celsius per
+percentage-point second, are:
+
+$A_{c}=\begin{bmatrix}-1/450&1/1800\\1/1800&-1/450\end{bmatrix}$
+
+$B_{c}=\begin{bmatrix}1/3000&0&1/600&1/600&0\\0&1/3000&1/600&0&1/600\end{bmatrix}$
+
+Holding the inputs constant for one minute gives the exact zero-order-hold conversion
 $A_d=e^{A_c\Delta t}$ and
 $B_d=\int_0^{\Delta t}e^{A_c\tau}B_c\,d\tau$, with
 $\Delta t=60$ seconds. The exponential accounts for heat loss and zone
@@ -77,6 +94,20 @@ The sampled state-transition matrix ($\mathbf{A}_{\mathrm{d}}$) describes how th
 temperatures influence the two temperatures one minute later:
 
 $\mathbf{A}_d=\begin{bmatrix} 0.875659571463&0.029177846573\\0.029177846573&0.875659571463 \end{bmatrix}$
+
+$A_{c}$ has the special symmetric form $\begin{bmatrix}a&b\\b&a\end{bmatrix}$
+with $a=-1/450$ and $b=1/1800$ per second; a matrix of that form has two
+eigenvalues, $a+b$ and $a-b$, worth naming because they are the two
+independent decay rates the zone pair can show: a slower shared-loss mode and
+a faster differential mode. Here $a+b=-1/600$ and $a-b=-1/360$ per second.
+Applying the ordinary scalar exponential to each eigenvalue and averaging
+gives one worked entry of $A_{d}$ at $\Delta t=60$ seconds:
+
+$A_{d,11} = \left(e^{-60/600}+e^{-60/360}\right)/2 = (0.904837+0.846482)/2 = 0.875660$
+
+which matches the shown $\mathbf{A}_{\mathrm{d}}$ entry to the displayed
+precision and confirms the sampled matrix is calculated from the continuous
+balance rather than independently chosen.
 
 The sampled input matrix ($\mathbf{B}_{\mathrm{d}}$) describes how zone-one heating, zone-two
 heating, outdoor temperature, zone-one occupancy and zone-two occupancy affect
@@ -103,13 +134,14 @@ innovation ($\nu$) is their difference, in degrees Celsius:
 $\nu = T_{\mathrm{measured}} - T_{\mathrm{pred\,prev}}$
 
 The estimated thermal-load bias ($\hat{d}$) is an additive temperature correction
-per one-minute step, in degrees Celsius per step. The estimator gain (Ke) is
+per one-minute step, in degrees Celsius per step. The estimator gain ($K_{e}$) is
 the fraction of the latest innovation incorporated into the estimate and has
-the value 0.4. After those quantities are defined, the update is:
+the value 0.4. After those quantities are defined, the update is, in degrees
+Celsius per step:
 
-$d_{\mathrm{hat\,next}} = \operatorname{clamp}\left(\hat{d} + Ke \cdot \nu,-1,1\right) {}^\circ\mathrm{C}/\text{step}$
+$d_{\mathrm{hat\,next}} = \operatorname{clamp}\left(\hat{d} + K_{e} \cdot \nu,-1,1\right)$
 
-In this lesson, the estimator gain Ke remains 0.4.
+In this lesson, the estimator gain $K_{e}$ remains 0.4.
 
 That value accepts 40 percent of the newest prediction error and retains 60
 percent of the previous estimate. With a constant bias and no noise, the
@@ -232,7 +264,7 @@ deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Zone-one temperature setpoint (SP, degC) and Zone-two temperature setpoint (SP, degC); Zone-one temperature (PV, degC) and Zone-two temperature (PV, degC); Requested zone-one heating (MV, %) and Requested zone-two heating (MV, %), including units, limits, mode, and quality. The initial operating point is Zone-one temperature setpoint = 21 degC, Zone-two temperature setpoint = 21 degC, Zone-one temperature = 21 degC, Zone-two temperature = 21 degC, Applied zone-one heating = 80 %, Applied zone-two heating = 80 %, Applied outdoor temperature = 5 degC. The unresolved baseline problem is: The reactive PI pair cannot use forecast preview or prove predicted comfort feasibility, but it remains the strongest eligible conventional baseline because this plant has no qualified faster inner variable for cascade control.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Apply only the first move after all 729 sequences complete and at least one satisfies every hard constraint; compare qualified weight candidates with PI and retain the simplest controller meeting all declared comfort, energy, movement, robustness, and lifecycle requirements.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
@@ -241,14 +273,17 @@ deterministic Simulation seed is 20260829.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **1200.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project owns the one-minute schedule and every abnormal case.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Applied zone-one heating 0 % to 100 %; Applied zone-two heating 0 % to 100 %; Zone-one temperature 15 degC to 27 degC; Zone-two temperature 15 degC to 27 degC.
+   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Applied zone-one heating 0 % to 100 %; Applied zone-two heating 0 % to 100 %; Zone-one temperature 15 degC to 27 degC; Zone-two temperature 15 degC to 27 degC. Enabling **Experiment authority** is the correct action, and a manual Control Studio setpoint step is not, because only the project can drive the coordinated weather, occupancy, and tariff schedule that the estimator and optimizer both depend on.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, confirm `P1.ExperimentEnabled = FALSE`, and wait for the project to close both heaters and restore outdoor temperature, occupancy, quality, and availability before reviewing a new test.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
 
-## Evidence and decision
+Identify, Tune, and Validate are not learner steps. The native executable test
+owns the sampled-model qualification, the additive-load estimator, all 729
+evaluated move sequences, and the infeasibility, invalid-configuration, and
+mismatch evidence; disabled generic panels are not evidence.
 
-### Measures and comparison
+## Evidence and decision
 
 The zone absolute-error integral is the sum of absolute setpoint-minus-
 temperature error multiplied by the 60-second interval, in degree-Celsius
@@ -272,8 +307,6 @@ it. Before running, declare that an MPC candidate may use at most twice the
 qualified PI controller's applied-heater movement. A candidate outside that
 ratio is ineligible for application even if its private objective is smaller.
 
-### Validation
-
 The independent oracle and Structured Text must agree on candidate count,
 feasible count, first move and objective within declared tolerance. Applied
 heaters must remain within 0 through 100 percent, move by no more than 20
@@ -286,13 +319,14 @@ matching the precision used to communicate the result and preventing
 irrelevant last-bit floating-point differences between supported hosts from
 changing the lesson artifact.
 
-The retained nominal Simulation run produced:
+The retained nominal Simulation run produced (the trace and summary CSVs do
+not retain a peak-shared-heat column, so it is not tabulated here):
 
-| Controller | Status | Error integral | Comfort violation | Tariff-weighted heating | Applied-heater movement | Peak shared heat |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Qualified incremental PI | Eligible | 158.67 degC*s | 0.00 degC*s | 46,624 cost-percent-s | 18.7 pp | 166.3% |
-| Balanced finite-grid MPC | Eligible | 146.72 degC*s | 0.00 degC*s | 46,200 cost-percent-s | 160.0 pp | 160.0% |
-| Actuator-conservative MPC | Ineligible: movement | 221.57 degC*s | 0.00 degC*s | 45,660 cost-percent-s | 80.0 pp | 160.0% |
+| Controller | Status | Error integral | Comfort violation | Tariff-weighted heating | Applied-heater movement |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Qualified incremental PI | Eligible | 158.67 degC*s | 0.00 degC*s | 46,624 cost-percent-s | 18.7 pp |
+| Balanced finite-grid MPC | Eligible | 146.72 degC*s | 0.00 degC*s | 46,200 cost-percent-s | 160.0 pp |
+| Actuator-conservative MPC | Ineligible: movement | 221.57 degC*s | 0.00 degC*s | 45,660 cost-percent-s | 80.0 pp |
 
 In direct PI-versus-MPC order, the error integrals are 158.67 and 146.72
 degree-Celsius seconds, tariff-weighted heating values are 46,624 and 46,200
@@ -309,17 +343,16 @@ baseline. Neither MPC candidate satisfies the predeclared movement ratio.
 Qualified PI therefore remains the application recommendation; MPC remains an
 unapplied research candidate.
 
-On the declared outdoor-loss mismatch, uncorrected one-step residual
-root-mean-square value was 0.16434 degrees Celsius. Bias correction reduced it
-to 0.01363 degrees Celsius, while both estimates converged to -0.16335 degrees
-Celsius per interval. This qualifies the estimator for the declared mismatch;
-it does not authorize excessive innovation or invalid measurement quality.
-The 22-degree case must complete all 729 candidates and report zero feasible
-sequences. Negative weight must be invalid rather than infeasible. Bad quality
-or unavailable heating must remove plant authority. Manual return and
-ControlledStop must be bounded and tracked. Recovery requires restored inputs
-and a new complete feasible solve. Controller revision 83 must remain
-unchanged.
+On the declared outdoor-loss mismatch, the retained summary CSV records an
+uncorrected one-step residual root-mean-square value of 0.160 degrees
+Celsius, reduced by bias correction to 0.010 degrees Celsius. This qualifies
+the estimator for the declared mismatch; it does not authorize excessive
+innovation or invalid measurement quality. The 22-degree case must complete
+all 729 candidates and report zero feasible sequences. Negative weight must
+be invalid rather than infeasible. Bad quality or unavailable heater must
+remove plant authority. Manual return and ControlledStop must be bounded and
+tracked. Recovery requires restored inputs and a new complete feasible
+solve. Controller revision 83 must remain unchanged.
 
 ![Temperature error and actuator movement for PI and the two predictive-control candidates](figures/building-hvac-capstone-evidence.svg)
 

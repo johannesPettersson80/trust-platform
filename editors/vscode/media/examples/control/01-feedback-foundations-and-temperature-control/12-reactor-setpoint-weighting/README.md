@@ -2,19 +2,22 @@
 
 Course position: Lesson 12 of 84. Previous lesson: [Servo and regulatory objectives](../11-reactor-servo-regulatory/README.md). Next lesson: [Measurement filtering](../13-measurement-noise/README.md).
 
-**Lesson objective:** Configure and compare proportional setpoint weights of one, one-half, and zero on the same jacketed-reactor PI loop; predict each controller's immediate valve response to a setpoint step; use retained servo and regulatory evidence to select the largest weight that satisfies the setpoint-overshoot requirement without changing the fixed-setpoint disturbance path; and explain why proportional setpoint weighting cannot remove measurement-noise transmission.
+**Lesson objective:** Configure and compare proportional setpoint weights of one, one-half, and zero on the same jacketed-reactor PI loop; predict each controller's immediate valve response to a setpoint step; and use retained servo and regulatory evidence to select the largest weight that satisfies the setpoint-overshoot requirement without changing the fixed-setpoint disturbance path.
 
-The recorded results are **Simulation evidence**, not evidence from a physical
+**Evidence class:** Simulation evidence. Not evidence from a physical
 reactor. Do not reproduce either experiment on physical equipment without an
 independent process-safety review and explicit authorization immediately before
 the action.
 
 ## The problem
 
-The jacketed stirred reactor, product-temperature transmitter, and jacket heating valve are unchanged from Lesson 11. The transmitter measures product
+The jacketed stirred reactor, product-temperature transmitter, and jacket heating valve are unchanged from Lesson 11, including the ±50-percentage-point-per-second rate limit Lesson 11 already disclosed and used to predict a
+ramp rather than a step. The transmitter measures product
 temperature in degrees Celsius. The valve adds heat from 0 to 100 percent
-opening; it cannot actively cool the reactor and can move by at most 50
-percentage points per second in either direction.
+opening; it cannot actively cool the reactor. The 50-percentage-point-per-second
+figure is implemented as the controller's own `RateMinimum`/`RateMaximum`
+parameters, a declared teaching value standing in for how far a real valve
+actuator can travel in one update, not a separate downstream valve model.
 
 At the operating point, reactor temperature is 80 degrees Celsius and the valve
 is 50 percent open. Lesson 11 used one PI tuning for two independent tests. Its
@@ -187,7 +190,8 @@ qualifies:
 
 $MAE_{final}=\frac{1}{N}\sum_{k=1}^{N}|SP_k-PV_k|$
 
-It must not exceed 0.5 degree Celsius, with 0.001-degree-Celsius tolerance. The
+Here $N$ is the number of retained samples in the 110.1-through-120.0-second
+window. It must not exceed 0.5 degree Celsius, with 0.001-degree-Celsius tolerance. The
 mean prevents one convenient final sample from masquerading as equilibrium.
 
 Regulatory path disagreement is calculated separately for PV and
@@ -198,7 +202,11 @@ $\Delta PV_{max} = \max_k|PV_{candidate,k}-PV_{b=1,k}|$
 
 $\Delta MV_{max} = \max_k|MV_{applied,candidate,k}-MV_{applied,b=1,k}|$
 
-Each must be no greater than `1e-10` in its own unit. Missing or misaligned
+Each must be no greater than `1e-10` in its own unit — a declared
+floating-point agreement tolerance many orders below the 0.001-degree-Celsius
+final-window tolerance above, chosen to accept ordinary arithmetic rounding
+between two runs while still rejecting any genuine difference in the
+deterministic result. Missing or misaligned
 samples make the comparison Invalid, never zero. First decide numerical
 validity, then physical acceptability, then regulatory equivalence. Finally
 select the largest tested $b$ that passes the servo requirement and has complete
@@ -260,7 +268,7 @@ The deterministic Simulation seed is 20260827.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait for **Simulation**, **Running**, and current data. Confirm SP = 80 degC, PV = 80 degC, applied MV = 50%, Manual command = 50%, proportional setpoint weight = 0.5, selected objective = 0, Manual mode, and experiment authority false. Verify units, limits, quality, 0.1-second sampling, and Simulation source. The unresolved problem is Lesson 11's failed $b=1$ servo overshoot.
    - **Decision before action:** State the predicted 20-percentage-point proportional increment and preliminary 70-percent nominal valve position for $b=0.5$. Predict lower overshoot than $b=1$ while PV feedback and true-error integral remain unchanged.
    - **Successful evidence:** The Response plot advances with finite current values and **Start recording** is enabled. Select **Start recording** only then.
@@ -333,6 +341,10 @@ implementation, as predicted. The conclusion is bounded to this PI form,
 tuning, limits, initialization procedure, simulation, and local operating
 region. Another process or reference-tracking requirement may prefer another
 weight.
+
+Because it gives the controller two independent tuning handles — the ordinary
+feedback gains and this separate setpoint weight — instead of one, this
+technique is sometimes called **two-degree-of-freedom** control.
 
 ## Reason for the next lesson
 

@@ -1,12 +1,10 @@
 # Commission a jacketed-reactor cascade
 
-Course position: Lesson 54 of 84. Prerequisite:
-[measured-disturbance feedforward](../53-conveyor-oven-feedforward/) in Lesson
-53. Next lesson: [ratio control](../55-blending-ratio/). All results in this
-lesson are **Simulation evidence**. They do not
-authorize an experiment on a physical reactor.
+Course position: Lesson 54 of 84. Previous lesson: [Measured-disturbance feedforward](../53-conveyor-oven-feedforward/README.md). Next lesson: [Blending ratio](../55-blending-ratio/README.md).
 
 **Lesson objective:** Commission a jacket-temperature inner loop before closing a reactor-temperature outer loop.
+
+**Evidence class:** Simulation evidence. These results do not authorize an experiment on a physical reactor.
 
 ## The problem
 
@@ -70,6 +68,10 @@ $e_{\mathrm{secondary}} = SP_{\mathrm{secondary}} - PV_{\mathrm{secondary}}$
 
 $MV_{\mathrm{requested}}=PI_{\mathrm{inner}}\left(e_{\mathrm{secondary}}\right)$
 
+Here $PI_{\mathrm{outer}}(\cdot)$ and $PI_{\mathrm{inner}}(\cdot)$ denote the
+complete recursive PI algorithm from Lessons 6-8, including its retained
+integral state, not a memoryless function of the instantaneous error alone.
+
 The outer loop owns only the secondary setpoint. The inner loop has direct
 valve authority. If both controllers write independently to the valve, the
 structure is not cascade control.
@@ -90,11 +92,34 @@ $2 \cdot dx_{j}/dt = -x_{j} + 1.4 \cdot u_{v} + w$
 
 $12 \cdot dx_{r}/dt = -x_{r} + (8/7) \cdot x_{j}$
 
+The four coefficients (2, 1.4, 12, and 8/7) are **configured teaching values**
+set directly in the plant model, not measured from a physical reactor. A
+learner would instead obtain the jacket time constant and valve-to-jacket gain
+from a step test on the valve with the outer loop in Manual, and the reactor
+time constant and jacket-to-reactor gain from a step test on the jacket
+setpoint once the inner loop is commissioned, in each case timing the response
+to 63 percent of its final change.
+
 The open jacket path has a 2-second time constant; the product path has a
 12-second time constant. Those model numbers suggest an opportunity, but they
 do not prove the closed inner controller is fast enough. We require its
 measured settling time to be at least three times faster than the outer
 response under the tested operating conditions.
+
+This three-times factor is a standard process-control guideline for cascade
+loops, not derived from the plant equations above: if the inner loop is only
+marginally faster, the outer controller issues a new secondary setpoint
+before the inner loop settles the previous one, so the outer loop effectively
+commands a lagging actuator instead of a fast one. That erodes the
+disturbance-rejection benefit and can add oscillation, because the two nested
+feedback loops start interacting instead of acting on separated time scales. A
+comfortable margin — commonly three to five times — keeps the inner loop
+close enough to instantaneous, from the outer loop's view, to avoid that
+interaction. This lesson demonstrates the rule rather than only asserting it:
+the commissioned inner tuning settles the 5-degree jacket step in 3.1 seconds,
+while the intentionally slow inner tuning is built to violate the rule and
+never enters the 0.10-degree-Celsius settling band within the test window,
+failing the requirement outright.
 
 The coefficients also predict the direction and size of the required valve
 movement. At jacket equilibrium, $dx_j/dt=0$, so
@@ -122,30 +147,48 @@ with the value actually in authority. This supports a bumpless return.
 
 First predict the commissioning result. A 5-degree-Celsius jacket-setpoint
 step from 70 to 75 degrees Celsius should settle much faster with the
-commissioned tuning than with the intentionally slow tuning.
+commissioned tuning than with the intentionally slow tuning, and the valve
+should move by the calculated 3.57 percentage points once settled.
 
 Then predict the regulatory result. At 40.0 seconds, utility disturbance drops
 from 0 to -10 degrees Celsius. Jacket temperature should cross a 0.10-degree-
 Celsius deviation before reactor temperature. Direct PI initially sees almost
 no primary error and leaves the valve near 50 percent. The fast inner loop sees
-secondary error and opens the valve immediately, so it should accumulate less
+secondary error and opens the valve immediately by the calculated 7.14
+percentage points to reject the utility loss, so it should accumulate less
 reactor-temperature error. The slow inner loop should lose much of that
 benefit.
 
-Write these predictions down before revealing any trace.
+Write these predictions down before revealing any trace: 3.57 percentage
+points for the commissioning step, 7.14 percentage points for the utility
+rejection, faster settling for the commissioned tuning, and lower reactor
+event error for the fast cascade than for the direct or slow-inner cases.
 
 ## Implementation
 
 The shipped program contains five real `Control.PID` instances: one direct PI,
-two outer PIs, and fast and slow inner PIs. This is the governing structure:
+two outer PIs, and fast and slow inner PIs. Both the outer and inner update
+calls are guarded by a three-way mode selector — Track during commissioning,
+Track on loss of inner availability, Auto otherwise — shown in prose above.
+The excerpt below is the shipped code for the normal-automatic branch, the
+governing structure once cascade is closed; the two bracketed comments mark
+where the Track-mode branches were cut, they are not shipped source:
 
 ```st
 FastOuterInput.Setpoint := ReactorSetpoint;
 FastOuterInput.ProcessValue := FastReactorTemperature;
+FastOuterInput.FeedForward := LREAL#0.0;
+FastOuterInput.CycleTime := LREAL#0.1;
+(* commissioning- and authority-loss Track branches omitted; shown above *)
+FastOuterInput.Mode := PIDMode#Auto;
 FastJacketSetpoint := FastOuterController.Update(Input := FastOuterInput);
 
 FastInnerInput.Setpoint := FastJacketSetpoint;
 FastInnerInput.ProcessValue := FastJacketTemperature;
+FastInnerInput.FeedForward := LREAL#0.0;
+FastInnerInput.CycleTime := LREAL#0.1;
+(* authority-loss Track branch omitted; shown above *)
+FastInnerInput.Mode := PIDMode#Auto;
 FastValveRequest := FastInnerController.Update(Input := FastInnerInput);
 ```
 
@@ -169,7 +212,7 @@ fresh separate authority-loss case. The deterministic Simulation seed is
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Reactor-temperature setpoint (SP, degC); Direct reactor temperature (PV, degC); Direct valve request (MV, %), including units, limits, mode, and quality. The initial operating point is Reactor-temperature setpoint = 80 degC, Heating-utility disturbance = 0 degC, Jacket test setpoint = 70 degC, Direct reactor temperature = 80 degC, Direct jacket temperature = 70 degC, Fast-cascade reactor temperature = 80 degC, Fast-cascade jacket temperature = 70 degC, Slow-cascade reactor temperature = 80 degC. The unresolved baseline problem is: Direct reactor-temperature PI cannot act until the slow product temperature has already changed. In Control Studio Monitor select commissioning mode, retain the inner-loop boundary at 10.0 s, and retain the outer-loop boundary at 40.0 s.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Reactor-temperature setpoint (SP, degC); Direct reactor temperature (PV, degC); Direct valve request (MV, %), including units, limits, mode, and quality. The initial operating point is Reactor-temperature setpoint = 80 degC, Heating-utility disturbance = 0 degC, Jacket test setpoint = 70 degC, Direct reactor temperature = 80 degC, Direct jacket temperature = 70 degC, Fast-cascade reactor temperature = 80 degC, Fast-cascade jacket temperature = 70 degC, Slow-cascade reactor temperature = 80 degC. The unresolved baseline problem is: Direct reactor-temperature PI cannot act because the slow product temperature has not yet changed. In Control Studio Monitor select commissioning mode, retain the inner-loop boundary at 10.0 s, and retain the outer-loop boundary at 40.0 s.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept cascade only when the inner loop is commissioned first, detects the disturbance earlier, is at least three times faster, and improves equivalent reactor-temperature evidence.
    - **Successful evidence:** The Response plot advances and the displayed values are finite and current. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
@@ -183,8 +226,6 @@ fresh separate authority-loss case. The deterministic Simulation seed is
    - **Record:** Compare event order, settling, reactor error, and valve movement with the prediction. Retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test owns the fresh commissioning comparison, authority-loss case, metrics, and verdicts; disabled Identify, Tune, or Validate controls are not evidence.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Change only controller structure between direct PI and commissioned cascade.
 Change only inner tuning between the commissioned and deliberately slow
@@ -220,8 +261,6 @@ Define every measure before viewing results:
   Celsius. **Restoration bump** is the first applied-valve change after inner
   availability returns, in percentage points.
 
-### Validation
-
 Classify each run before ranking it. Use `Not settled` instead of a final-window
 number when its settling rule fails. Also report `Saturated`, `Invalid`, or
 `Aborted` where applicable.
@@ -236,6 +275,20 @@ not merely because its diagram contains two loops.
 The separate authority test passes only with numerical-zero tracking error, no
 abort, restored automatic authority, and a restoration bump no greater than 1
 percentage point.
+
+The measured commissioning settling time is 3.10 seconds for the fast inner
+tuning; the slow inner tuning never settles within the test window, confirming
+the predicted failure of the time-scale rule. For the utility event, reactor
+event IAE is 35.47 degC*s for direct PI, 5.19 degC*s for the commissioned
+cascade — 14.6 percent of direct PI, comfortably below the 70 percent
+threshold — and 110.14 degC*s for the slow-inner cascade, which loses the
+cascade benefit entirely. Peak reactor deviation falls from 2.44 to 0.38
+degrees Celsius for the commissioned case while the slow-inner case rises to
+4.22 degrees Celsius. Cumulative applied-valve movement is 8.55, 7.84, and 9.06
+percentage points for the direct, commissioned, and slow-inner cases. The
+separate authority-loss run measures zero secondary-setpoint and valve
+tracking error and a 0.20-percentage-point restoration bump, within the
+declared 1-percentage-point tolerance.
 
 ### Retained evidence
 

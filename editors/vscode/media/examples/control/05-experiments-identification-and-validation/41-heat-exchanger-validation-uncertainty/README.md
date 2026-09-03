@@ -4,15 +4,18 @@ Course position: Lesson 41 of 84. Previous lesson:
 [data qualification](../40-poor-excitation/README.md). Next lesson:
 [manual and historical tuning](../../06-pid-tuning-methods/42-heat-exchanger-tuning-methods/README.md).
 
-This produces **Simulation evidence**, not physical-plant approval.
-
 **Lesson objective:** Classify one frozen model as accepted, restricted, or rejected on independent amplitude, disturbance, and operating-point evidence.
+
+**Evidence class:** Simulation evidence, not physical-plant approval. All
+three plate-heat-exchanger validation copies run on the shipped simulator.
 
 ## The problem
 
-Lesson 40 produced qualified data for a plate heat exchanger near 20% hot-water valve position and 50.0 °C outlet temperature. The fitted first-order-plus-dead-time candidate has gain 0.5 °C per percentage point, time constant 20 s, and dead time 3 s. The identification result also reports gain interval 0.47–0.53 °C per percentage point, time-constant interval 18–22 s, and dead-time interval 2.5–3.5 s at a declared 95% confidence level.
+Lesson 40 produced qualified data for a plate heat exchanger near 20% hot-water valve position and 50.0 °C outlet temperature. The fitted first-order-plus-dead-time candidate has gain 0.5 °C per percentage point, time constant 20 s, and dead time 3 s. The identification result also reports gain interval 0.47–0.53 °C per percentage point, time-constant interval 18–22 s, and dead-time interval 2.5–3.5 s at a declared 95% confidence level. These parameters, intervals, and the confidence level are configured values for this lesson (`lesson.json` → `plant.parameters`), standing in for a fit-and-interval procedure performed on the Lesson 40 qualified record outside this lesson; only the frozen result, not the fitting method, is examined here.
 
-Three independent copies of the plate heat exchanger receive the same new 20-to-25% valve step. The local copy preserves the fitted condition. The cold-flow copy receives an unmodelled load at 90 s. The high-flow copy has lower heat-transfer gain at another operating point. Each has independent 0.15 °C measurement noise and 100 ms sampling.
+The equipment is a plate heat exchanger with local, cold-flow-load, and
+high-flow validation copies: three independent copies receive the same new
+20-to-25% valve step. The local copy preserves the fitted condition. The cold-flow copy receives an unmodelled load at 90 s. The high-flow copy has lower heat-transfer gain at another operating point. Each has independent 0.15 °C measurement noise and 100 ms sampling.
 
 Lesson 40 proved that the estimation record could distinguish model parameters. It did not prove that the fitted model predicts a new amplitude, an omitted disturbance, or another operating point. Reusing estimation samples or changing parameters after seeing validation errors would repeat fitting, not test prediction.
 
@@ -29,10 +32,11 @@ carry parameter and prediction uncertainty into a purpose-limited verdict.
 
 The **measured outlet temperature ($PV_{\mathrm{measured}}$)** is the recorded plant value in degrees Celsius. The **model-predicted outlet temperature ($PV_{\mathrm{predicted}}$)** is the frozen model output for the recorded applied valve position. The **sample number ($k$)** identifies one update. The **residual ($r_{k}$)** is measured minus predicted temperature:
 
-$r_k=PV_{\mathrm{measured},k}-PV_{\mathrm{predicted},k}.$
+$r_k = PV_{\mathrm{measured},k} - PV_{\mathrm{predicted},k}.$
 
-The **root-mean-square prediction error** is
-$RMSE=\sqrt{(1/N)\sum r_k^2}$ in a declared window. **Residual bias** is
+The **root-mean-square prediction error ($RMSE$)** is the square root of the
+mean squared residual over a declared window:
+$RMSE=\sqrt{(1/N)\sum r_k^2}$. **Residual bias** is
 $\bar r=(1/N)\sum r_k$. **Lag-one residual autocorrelation** applies the
 ordinary centered correlation formula to $(r_k,r_{k-1})$. RMSE measures typical
 error, bias exposes persistent offset, and autocorrelation exposes repeated
@@ -43,13 +47,18 @@ time structure. A small RMSE alone cannot show which kind of error remains.
 A **parameter uncertainty interval** is a range supported by the identification method and its assumptions. The **confidence level** describes the long-run coverage of the interval-producing procedure; it is not a guarantee that this realized interval contains the physical truth.
 
 The **prediction uncertainty envelope** is the minimum and maximum frozen-model
-prediction from all declared parameter-interval corners, expanded by the
-±0.30 °C measurement-noise allowance. At equilibrium for the 5-point step, the
+prediction from all declared parameter intervals' corners, expanded by the
+±0.30 °C measurement-noise allowance — twice the 0.15 °C measurement-noise
+amplitude, so the envelope also covers one sample's typical noise excursion
+either side of the model corners. At equilibrium for the 5-point step, the
 gain interval alone predicts $5(0.47)=2.35$ to $5(0.53)=2.65$ °C movement; the
 noise expansion makes that 2.05 to 2.95 °C. During the transient, time-constant
-and delay corners also change the bounds. **Envelope coverage** is
-$N_{\mathrm{inside}}/N_{\mathrm{qualified}}$. A narrow envelope is credible only if independent
-data achieve its declared coverage.
+and delay corners also change the bounds. **Envelope coverage** is the
+fraction of qualified samples that land inside that envelope: the **count of
+samples inside ($N_{\mathrm{inside}}$)** divided by the **count of qualified
+samples ($N_{\mathrm{qualified}}$)**, $N_{\mathrm{inside}}/N_{\mathrm{qualified}}$.
+A narrow envelope is credible only if independent data achieve its declared
+coverage.
 
 **Interpolation** predicts between conditions represented by qualified evidence. **Extrapolation** predicts beyond tested input, disturbance, or operating conditions. **Model mismatch** is repeatable plant behavior absent from the candidate. The **validity region** names the inputs, outputs, disturbances, modes, and operating points supported by validation.
 
@@ -57,19 +66,19 @@ An **accepted** verdict means every declared measure passes for a stated purpose
 
 ## Prediction
 
-The new 5-percentage-point step and frozen gain predict
-$0.5(5)=2.5$ °C equilibrium movement. One 20-second time constant after the
-3-second delay, the first-order response predicts
-$2.5(1-e^{-1})=1.580$ °C movement.
+The new 5-percentage-point step and frozen gain predict a 2.5 degrees Celsius
+equilibrium movement: $0.5(5)=2.5$ °C. One 20-second time constant after the
+3-second delay, the first-order response predicts a 1.58 degrees Celsius
+movement: $2.5(1-e^{-1})=1.580$ °C.
 
-Cold flow later lowers equilibrium by 2 °C. Because the frozen model has no cold-flow input, predict approximately minus-2-degree-Celsius residual bias. At high flow, the actual gain is 0.25 °C per percentage point, so the plant moves 1.25 degrees Celsius while the local model predicts 2.5 degrees Celsius. Predict a late residual near minus 1.25 degrees Celsius outside the local envelope.
+Two configured validation conditions (`lesson.json` → `plant.parameters`) test the frozen model outside its fitted scope. Cold flow later lowers equilibrium by 2 °C. Because the frozen model has no cold-flow input, predict approximately minus-2-degree-Celsius residual bias. At high flow, the configured actual gain is 0.25 °C per percentage point, so the plant moves 1.25 degrees Celsius while the local model predicts 2.5 degrees Celsius. Predict a late residual near minus 1.25 degrees Celsius outside the local envelope.
 
 ## Implementation
 
 The actual Structured Text produces the holdout inputs without containing a model or expected answer:
 
 ```st
-IF ExperimentEnabled THEN
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
     LocalRequested := LREAL#25.0;
     LoadRequested := LREAL#25.0;
     HighFlowRequested := LREAL#25.0;
@@ -84,13 +93,16 @@ Requested and applied valve positions remain separate. Each applied command is c
 
 ## Experiment in Control Studio
 
-Control Studio exposes the common 5-point holdout input. Test writes one
+Control Studio exposes the common 5-point holdout input. After a common
+10-second baseline at 20%, all three copies step to 25%; the cold-flow load
+begins at 90 seconds, and the record runs to 160 seconds. Test writes one
 reviewed Boolean, `P1.ExperimentEnabled`, for 160.1 seconds. The project owns
-all three 20-to-25% requests and restoration to 20%. Native evidence owns the
-frozen-model replay, interval-corner envelope, exact 90-second load timing, and
-accepted/restricted/rejected verdicts. This keeps validation arithmetic and
-time-zero conditions reproducible. The deterministic Simulation seed is
-20260829.
+all three 20-to-25% requests and restoration to 20%. There is no shared
+Identify or disabled Validate stage: native evidence owns the frozen-model
+replay, interval-corner envelope, exact 90-second load timing, and
+accepted/restricted/rejected verdicts, so validation arithmetic and
+time-zero conditions stay reproducible; the UI run only exposes the reviewed
+holdout inputs and responses. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -99,7 +111,7 @@ time-zero conditions reproducible. The deterministic Simulation seed is
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Issue separate accepted, restricted, and rejected purpose-and-region verdicts without refitting or averaging incompatible windows.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the initial local, load, and high-flow outlet temperatures, their requested/applied valve positions, and your 2.5 °C and 1.580 °C predictions before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **160.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It starts false and must restore false. Confirm all requested/applied valves = 20% and all temperatures near 50 °C.
@@ -108,13 +120,11 @@ time-zero conditions reproducible. The deterministic Simulation seed is
    - **Recovery:** Abort for stale, invalid, nonfinite, gapped, clipped, altered-model, reused-estimation, or out-of-range evidence. Confirm authority false and all valves 20% before retrying.
    - **Record:** Retain terminal state, restoration, all raw samples, model identity and intervals, predictions, residuals, envelope, operating conditions, seed, and predeclared verdict rules.
 
-There is no shared Identify or disabled Validate stage. Native executable
-evidence replays the unchanged model and calculates the three separate
-verdicts; the UI run only exposes the reviewed holdout inputs and responses.
-
 ## Evidence and decision
 
-### Measures and comparison
+For each record calculate RMSE, residual bias, lag-one residual autocorrelation, envelope width, envelope coverage, sample quality, gaps, clipping, saturation, late slope, and operating-region membership. Every measure retains its source, unit, sample window, validity rule, and preferred direction.
+
+Use 20 to 80 seconds for the local and cold-flow pre-load comparison. Use 130 to 160 seconds for the post-load and high-flow decisions. Do not average a passing region and failing region into one reassuring score.
 
 The response plot applies the same frozen model and uncertainty envelope to all
 three holdouts. The residual plot then separates random local error from the
@@ -132,17 +142,20 @@ point.
 [Residual decisions](figures/heat-exchanger-validation-residual-summary.csv) ·
 [Frozen-model provenance and complete validation runs](figures/heat-exchanger-validation-evidence.json)
 
-For each record calculate RMSE, residual bias, lag-one residual autocorrelation, envelope width, envelope coverage, sample quality, gaps, clipping, saturation, late slope, and operating-region membership. Every measure retains its source, unit, sample window, validity rule, and preferred direction.
+Recomputed directly from the retained trace over each record's declared window:
 
-Use 20 to 80 seconds for the local and cold-flow pre-load comparison. Use 130 to 160 seconds for the post-load and high-flow decisions. Do not average a passing region and failing region into one reassuring score.
+| Record | Window | RMSE | Bias | Lag-one correlation | Envelope coverage | Verdict |
+|---|---|---:|---:|---:|---:|---|
+| Local | 20–80 s | 0.149 °C | −0.002 °C | −0.013 | 99.8% | Accepted |
+| Cold-flow, pre-load | 20–80 s | 0.149 °C | −0.010 °C | −0.016 | 100.0% | Passes pre-load gates |
+| Cold-flow, post-load | 130–160 s | 1.875 °C | −1.867 °C | 0.252 | 0.0% | Restricted (fails post-load bias gate) |
+| High-flow | 130–160 s | 1.256 °C | −1.248 °C | −0.071 | 0.0% | Rejected (fails late bias and coverage gates) |
 
-### Validation
+The local fixed-flow record is **accepted** for 20-to-25% command prediction near 50 °C when RMSE is at most 0.20 °C, absolute bias at most 0.05 °C, absolute lag-one correlation at most 0.20, and envelope coverage at least 90%; the measured 0.149 °C, 0.002 °C, 0.013, and 99.8% all pass.
 
-The local fixed-flow record is **accepted** for 20-to-25% command prediction near 50 °C when RMSE is at most 0.20 °C, absolute bias at most 0.05 °C, absolute lag-one correlation at most 0.20, and envelope coverage at least 90%.
+The cold-flow record passes the same pre-load gates (0.149 °C, 0.010 °C, 0.016, 100.0%). Post-load bias magnitude 1.867 °C, inside the declared 1.8-to-2.1 °C range, makes the model **restricted**: accepted for fixed-flow command prediction and rejected for cold-flow disturbance prediction.
 
-The cold-flow record must first pass the same pre-load gates. Post-load bias magnitude from 1.8 to 2.1 °C makes the model **restricted**: accepted for fixed-flow command prediction and rejected for cold-flow disturbance prediction.
-
-High-flow late bias magnitude at least 0.9 °C and local-envelope coverage at most 20% make the model **rejected** for that operating point. The result does not invalidate its accepted local use.
+High-flow late bias magnitude 1.248 °C, at least the 0.9 °C limit, and 0.0% local-envelope coverage, at most the 20% limit, make the model **rejected** for that operating point. The result does not invalidate its accepted local use.
 
 Retain record and model identities, parameters, intervals, predictions, envelope, residuals, metrics, verdict, supported purpose, validity region, failed criteria, seed, and Simulation label.
 

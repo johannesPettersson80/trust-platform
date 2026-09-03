@@ -4,8 +4,8 @@ Course position: Lesson 9 of 84. Previous lesson: [Actuator saturation](../08-wa
 
 **Lesson objective:** Distinguish amplitude and rate constraints, calculate the admissible position interval per sample, and prove how actuator travel limits achievable loop response.
 
-This lesson uses deterministic Simulation evidence. It is not evidence that a
-physical heating valve moved at the declared rate or reached its safe state.
+**Evidence class:** Simulation evidence. It is not evidence that a physical
+heating valve moved at the declared rate or reached its safe state.
 
 ## The problem
 
@@ -18,7 +18,13 @@ can move only from fully closed at 0 percent to fully open at 100 percent.
 The simulated actuator opens no faster than 1.5 percentage points per second
 and closes no faster than 0.5 percentage point per second. The two rates differ
 because a real actuator can have direction-dependent gearing, loading, or
-safety behavior. These particular rates describe this lesson, not every valve.
+safety behavior. These particular rates describe this lesson, not every valve,
+and they are **declared teaching values** for this simulation: they are
+configured directly, not transcribed from a manufacturer's rating plate or
+calculated from a specific motor's torque and load. A learner qualifying a
+real valve would instead time full-stroke opening and closing travel with a
+stopwatch or logged position feedback and divide the 100-percentage-point
+range by each measured time to obtain the two rates.
 Upstream pressure remains fixed so actuator travel is the only changed cause.
 The experiment starts with zero flow and a closed valve. Its safe restoration
 is a controlled return to closed followed by Manual mode at zero output.
@@ -74,9 +80,9 @@ After defining those physical quantities, their relationships are:
 A rate is position change divided by time. Multiplying both sides by the
 positive update time gives the greatest permitted change during one update:
 
-$\text{maximum opening change} = r_{\mathrm{open}} \times dt$
+$\text{maximum opening change} = r_{\mathrm{open}} \times \Delta t$
 
-$\text{maximum closing change} = r_{\mathrm{close}} \times dt$
+$\text{maximum closing change} = r_{\mathrm{close}} \times \Delta t$
 
 Opening adds its permitted change to the previous position; closing subtracts
 its permitted change. Intersect those two motion bounds with the valve's 0-to-
@@ -84,16 +90,16 @@ its permitted change. Intersect those two motion bounds with the valve's 0-to-
 zero and previous position minus the closing change. The highest position is
 the smaller of 100 percent and previous position plus the opening change:
 
-$MV_{\mathrm{low}} = \max\left(0\%, MV_{\mathrm{previous}} - r_{\mathrm{close}} \cdot dt\right)$
+$MV_{\mathrm{low}} = \max\left(0\%, MV_{\mathrm{previous}} - r_{\mathrm{close}} \cdot \Delta t\right)$
 
-$MV_{\mathrm{high}} = \min\left(100\%, MV_{\mathrm{previous}} + r_{\mathrm{open}} \cdot dt\right)$
+$MV_{\mathrm{high}} = \min\left(100\%, MV_{\mathrm{previous}} + r_{\mathrm{open}} \cdot \Delta t\right)$
 
 $MV_{\mathrm{applied}} = \max\left(MV_{\mathrm{low}}, \min\left(MV_{\mathrm{requested}}, MV_{\mathrm{high}}\right)\right)$
 
 The measured travel rate ($r_{\mathrm{measured}}$) is the applied position change divided by
 the configured controller task interval, in percentage points per second:
 
-$r_{\mathrm{measured}} = (MV_{\mathrm{applied}} - MV_{\mathrm{previous}}) / dt$
+$r_{\mathrm{measured}} = (MV_{\mathrm{applied}} - MV_{\mathrm{previous}}) / \Delta t$
 
 A positive measured rate means the valve is opening. A negative measured rate
 means it is closing. On a physical installation, independent position feedback
@@ -101,23 +107,23 @@ would still be required to prove that the mechanism followed the command.
 
 This is a finite-difference measurement: take the change in applied position
 from the retained previous sample to the current sample, then divide by the
-positive configured $dt$. Retaining that exact previous value prevents the
+positive configured $\Delta t$. Retaining that exact previous value prevents the
 calculation from accidentally using the already-updated state.
 
 Define the decision measures before running. Maximum measured opening rate is
-the largest positive $r_{measured}$ during opening. Maximum closing magnitude is
-the absolute value of the most negative $r_{measured}$ after restoration.
+the largest positive $r_{\mathrm{measured}}$ during opening. Maximum closing magnitude is
+the absolute value of the most negative $r_{\mathrm{measured}}$ after restoration.
 Maximum unavailable-position gap is
-$\max|MV_{requested}-MV_{applied}|$. The 5-second flow is the PV sample at
+$\max|MV_{\mathrm{requested}}-MV_{\mathrm{applied}}|$. The 5-second flow is the PV sample at
 exactly 5.0 seconds; it is a transient value, not a steady-state measure.
 
 Directional limit exposure is the number of samples at the relevant rate bound
-multiplied by $dt$. If $t_{restore}=15.1$ seconds and $t_{closed}$ is the first
+multiplied by $\Delta t$. If $t_{restore}=15.1$ seconds and $t_{closed}$ is the first
 later sample with applied position equal to zero, then:
 
 $\text{return-to-closed time} = t_{closed}-t_{restore}$
 
-All measures require finite signals, positive synchronized $dt$, no abort,
+All measures require finite signals, positive synchronized $\Delta t$, no abort,
 applied position within 0 through 100 percent, and a reproduced measured rate
 from the retained previous and current positions.
 
@@ -125,18 +131,25 @@ from the retained previous and current positions.
 points per second, closing magnitude between 0.4 and 0.5, the requested/applied
 gap must reach at least 1 percentage point, 5-second flow must remain below 6
 litres per minute, both directional limits must be exercised, and the valve
-must return closed before Manual-zero restoration.
+must return closed before Manual-zero restoration. The 1.4-to-1.5 and
+0.4-to-0.5 bands are a declared ±0.1-percentage-point-per-second tolerance
+around the declared 1.5 and 0.5 rates, wide enough to accept discrete
+0.1-second sampling of a continuous ramp without accepting a materially
+different rate. The 6-litres-per-minute bound on the 5-second transient sample
+is a declared teaching ceiling confirming the valve has not yet reached a flow
+that would misrepresent a transient as a steady-state measurement; it is not a
+physical process or safety limit.
 
 ## Prediction
 
 During one 0.1-second update, the 1.5-percentage-point-per-second opening limit
 allows this movement:
 
-$1.5 pp/s \cdot 0.1 s = 0.15 percentage point$
+$1.5\text{ pp/s} \cdot 0.1\text{ s} = 0.15\text{ percentage point}$
 
 The 0.5-percentage-point-per-second closing limit allows:
 
-$0.5 pp/s \cdot 0.1 s = 0.05 percentage point$
+$0.5\text{ pp/s} \cdot 0.1\text{ s} = 0.05\text{ percentage point}$
 
 An uninterrupted 10-percentage-point move therefore needs at least 6.67
 seconds while opening and 20.0 seconds while closing. Increasing controller
@@ -203,7 +216,7 @@ and zero requested and applied position. The deterministic Simulation seed is
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm SP = 0 L/min, PV = 0 L/min, requested position = 0%, applied position = 0%, Manual mode, and experiment authority false. Show the opening and closing limits, configured interval, previous position used, low and high admissible positions, measured travel rate, units, limits, and quality. The unresolved problem is that an in-range request can change faster than the geared valve can travel.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Retain requested position and constrain applied position to the asymmetric interval calculated from the previous position used by the update and a task interval synchronized across ST and runtime configuration.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
@@ -219,13 +232,9 @@ and zero requested and applied position. The deterministic Simulation seed is
 
 ## Evidence and decision
 
-### Measures and comparison
-
 Apply the decision measures, validity prerequisites, and direction declared
 before the experiment. Numerical validity, satisfaction of a declared
 criterion, and the final engineering conclusion remain separate decisions.
-
-### Validation
 
 The native run retained 901 samples, including final Manual restoration:
 

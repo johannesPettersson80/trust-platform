@@ -1,10 +1,10 @@
 # Coordinate reactor heating and cooling
 
-Course position: Lesson 56 of 84. Prerequisite: blending ratio control in Lesson 55.
-Every result is **Simulation evidence** and does not authorize operation of a
-physical reactor.
+Course position: Lesson 56 of 84. Previous lesson: [Blending ratio](../55-blending-ratio/README.md). Next lesson: [Compressor override](../57-compressor-override/README.md).
 
 **Lesson objective:** Convert one signed reactor-temperature controller demand into heating and cooling valve requests.
+
+**Evidence class:** Simulation evidence. These results do not authorize operation of a physical reactor.
 
 ## The problem
 
@@ -64,7 +64,7 @@ negative opening, so the first expression passes positive demand and replaces
 negative demand with zero. Cooling must act for negative demand, so the second
 expression first reverses the sign and then applies the same one-sided rule.
 
-The **split point** is $D = 0 percent$. At +30 percent demand, heating is 30
+The **split point** is $D = 0\text{ percent}$. At +30 percent demand, heating is 30
 percent and cooling is zero. At -20 percent demand, heating is zero and cooling
 is 20 percent. At zero, both close. The PI owns temperature feedback; the
 mapper owns actuator selection. Two independent PIs fighting through opposing
@@ -109,6 +109,13 @@ heating gain ($K_{H}$)**. Its cooling counterpart is the **installed cooling gai
 ($K_{C}$)**. Here $K_{H}$ is 0.04 and $K_{C}$ is 0.06 degrees Celsius per second per valve
 percent.
 
+$K_{H}$ and $K_{C}$ are **configured teaching values**: set directly in the
+plant model, not measured from a physical reactor. A learner would obtain
+them from two separate single-valve step tests — open only the heating valve
+by a known amount and time the initial temperature rate, then repeat for the
+cooling valve alone — reading each rate at the start of the response, before
+ambient loss and the other valve affect it.
+
 For equal signed demands to have equal thermal authority, positive demand maps
 directly to heating while negative demand scales cooling:
 
@@ -118,7 +125,7 @@ This scale follows by equating the magnitudes of the two initial thermal rates:
 $K_C C=K_H(-D)$. Dividing both sides by $K_C$ gives
 $C=(-D)K_H/K_C$, and the measured ratio is $0.04/0.06=2/3$.
 
-Thus $D = -20 percent$ becomes 13.33 percent cooling, with the same initial
+Thus $D = -20\text{ percent}$ becomes 13.33 percent cooling, with the same initial
 thermal magnitude as +20 percent heating. This is a local characterization; it
 does not compensate stiction, utility-pressure changes, or a nonlinear valve
 curve.
@@ -152,8 +159,8 @@ unavailable signal on the first scan cannot be replaced by the normal default.
 
 ## Prediction
 
-Before running, map $D = +30 percent$, $D = 0 percent$, and $D = -20 percent$
-through all three candidates.
+Before running, map $D = +30\text{ percent}$, $D = 0\text{ percent}$, and
+$D = -20\text{ percent}$ through all three candidates.
 
 - Dead zone maps +30 to 26 percent heating and -20 to 16 percent cooling. It
   closes both valves inside the four-point gap.

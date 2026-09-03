@@ -1,27 +1,24 @@
 # Derive tank and heater models from conservation laws
 
 Course position: Lesson 33 of 84. Previous lesson: [Physical plant-response
-classification](../32-plant-response-classes/README.md). Next lesson: nonlinear
-[gravity-tank linearisation](../34-gravity-tank-linearization/README.md).
+classification](../32-plant-response-classes/README.md). Next lesson:
+[Nonlinear gravity-tank linearisation](../34-gravity-tank-linearization/README.md).
 
 **Lesson objective:** Derive an executable buffer tank and heated vessel model
 from conservation laws, predict their responses with units, and decide whether
 the simulator agrees.
 
-You will not tune a controller or fit a curve here.
-
-This is simulation evidence, not physical-plant evidence.
-
-**Equipment:** Constant-area buffer tank and electrically heated vessel.
+**Evidence class:** Simulation evidence, not physical-plant evidence. You will
+not tune a controller or fit a curve here.
 
 ## The problem
 
 Lesson 32 identified integrating and self-regulating shapes from data. Those
-labels do not explain why the shapes occur. The workshop contains two independent real-world modules. A constant-area
-buffer tank receives measured inlet flow, loses measured outlet flow, and
-reports liquid level. An electrically heated, well-mixed vessel receives a
-one-sided 0–100% heater command and reports temperature while losing heat to
-the room.
+labels do not explain why the shapes occur. The equipment is a constant-area buffer tank and electrically heated vessel: two independent real-world
+modules. The tank receives measured inlet flow, loses measured outlet flow,
+and reports liquid level. The vessel is electrically heated and well-mixed; it
+receives a one-sided 0–100% heater command and reports temperature while
+losing heat to the room.
 
 The tank has constant area, constant liquid density, perfectly mixed contents,
 and no overflow. Its two flows are independently specified. The heater has
@@ -58,7 +55,7 @@ Tank volume is $V=Ah$. With constant area,
 $dV/dt=A\,dh/dt$. Combining this with
 $dV/dt=q_{\mathrm{in}}-q_{\mathrm{out}}$ gives
 
-$A\frac{dh}{dt}=q_{\mathrm{in}}-q_{\mathrm{out}}.$
+$A \cdot dh/dt = q_{\mathrm{in}} - q_{\mathrm{out}}.$
 
 The liquid-level rate $dh/dt$ is the change in level per second. On the left,
 m² times m/s gives m³/s, matching both flow terms. Equal flows
@@ -76,7 +73,7 @@ $E=C(T-T_{\mathrm{ambient}})$. With constant capacitance and ambient,
 $dE/dt=C\,dT/dt$. Linear heat loss is
 $H(T-T_{\mathrm{ambient}})$, so
 
-$C\frac{dT}{dt}=P_{\mathrm{heater}}-H(T-T_{\mathrm{ambient}}).$
+$C \cdot dT/dt = P_{\mathrm{heater}} - H \cdot (T - T_{\mathrm{ambient}}).$
 
 Because kJ/°C times °C/s equals kJ/s = kW, every term is power. The temperature
 rate $dT/dt$ is zero at equilibrium. Equilibrium therefore
@@ -89,9 +86,13 @@ the final balance.
 
 ## Prediction
 
-The tank area is 0.5 square metres. It starts at 50 centimetres. Inlet flow is
-12 litres per second and outlet flow is 10 litres per second. Net inflow is 2
-litres per second, or **0.002 cubic metres per second**. Divide by area:
+The tank area is 0.5 square metres — inherited from Lesson 32's classification
+skid, whose tank cross-section a learner would obtain by measuring the vessel.
+It starts at 50 centimetres. Inlet flow is 12 litres per second and outlet
+flow is 10 litres per second; both are configured teaching values standing in
+for two independently metered plant flows a learner would read from the
+installed flowmeters. Net inflow is 2 litres per second, or **0.002 cubic
+metres per second**. Divide by area:
 
 $\frac{dh}{dt}=\frac{0.002\,\mathrm{m^3/s}}{0.5\,\mathrm{m^2}}=0.004\,\mathrm{m/s}=0.4\,\mathrm{cm/s}.$
 
@@ -100,31 +101,39 @@ constant rate gives $h(t)=h_0+(dh/dt)t$, so
 
 $h(20)=50+0.4(20)=58\,\mathrm{cm}.$
 
-With
+The tank therefore reaches 58 centimetres after 20 seconds. With
 equal inlet and outlet flows of 10 litres per second, predict zero level slope.
 
 The heater has 50 kilojoules per degree Celsius thermal capacitance, 10
 kilowatts per degree Celsius heat-loss coefficient, and 200 kilowatts at full
-output. Ambient and initial temperature are 20 °C. A 20-percent command gives
+output; these are configured teaching values for this vessel. On real
+equipment a learner would calculate thermal capacitance from mass and
+specific heat, obtain full-scale power from the heater's electrical rating,
+and estimate the heat-loss coefficient from a bounded step test (the same
+route Lesson 35 states for its own heated-vessel model). Ambient and initial
+temperature are 20 °C. A 20-percent command gives
 40 kilowatts. At equilibrium accumulation is zero:
 
 $0=P-H(T_{eq}-T_{ambient}),$
 
 $T_{eq}=T_{ambient}+P/H=20+40/10=24\,^\circ\mathrm{C}.$
 
-One percentage point produces $200/100=2$ kW, so static gain is
-$2/10=0.2\,^\circ\mathrm{C}/\%$. Dividing the balance by $C$ identifies the
+The vessel therefore equilibrates at 24 degrees Celsius. One percentage point produces $200/100=2$ kW, so static gain is
+$2/10=0.2\,^\circ\mathrm{C}/\%$, that is, **0.2 degrees Celsius per
+percentage point**. Dividing the balance by $C$ identifies the
 decay coefficient $H/C$. Matching it to $1/\tau$ gives
 
 $\tau=C/H=50/10=5\,\mathrm{s}.$
 
-After delay $L=1$ s, the response is
+The time constant is therefore **five seconds**. After delay $L=1$ s, the
+response is
 
 $T(t)=T_{eq}+(T_0-T_{eq})e^{-(t-L)/\tau}.$
 
 At $t=6$ s, it has evolved for one time constant, so
 $1-e^{-1}=0.63212$ of its four-degree rise is complete:
-$T(6)=20+0.63212(4)=22.528\,^\circ\mathrm{C}$.
+$T(6)=20+0.63212(4)=22.528\,^\circ\mathrm{C}$, that is, **22.53 degrees
+Celsius**.
 
 ## Implementation
 
@@ -181,16 +190,21 @@ independent equal-flow case; Monitor and Test expose the unequal-flow run.
 
 ## Evidence and decision
 
-### Measures and comparison
+Flow direction is the entire point of the conservation balance: inlet flow
+adds stored volume, outlet flow removes it, and heater power adds stored
+energy while heat loss to ambient removes it.
 
-With measured slope
+![Labeled inlet/outlet flow and heater-power/heat-loss paths](figures/tank-heater-conservation-topology.svg)
+
+With measured late-window slope
 $m=(h_{29.9}-h_{28.0})/(29.9-28.0)$, **tank level-rate error** is
-$e_m=|m-0.4|$ cm/s. **Tank 20-second prediction error** is
+$e_m=|m-0.4|$, compared against the predicted 0.4 centimetres per second.
+**Tank 20-second prediction error** is
 $e_{h,20}=|h_{\mathrm{measured}}(20)-58|$ cm. Absolute values compare size
 without allowing opposite-sign errors to cancel.
 
-**Equal-flow drift** is
-$\max(h)-\min(h)$ over the independent 20-second equal-flow run. Range is
+**Equal-flow drift** is the maximum level minus minimum level,
+$\max(h)-\min(h)$, over the independent 20-second equal-flow run. Range is
 used because an equal first and last sample could hide movement in between.
 
 **Heater six-second prediction error** is the absolute measured-minus-predicted
@@ -200,11 +214,14 @@ the 28.0-to-29.9-second slope is below 0.01 °C/s. Both use degrees Celsius.
 
 ![Conservation balances predict both accumulated level and stored heat](figures/tank-heater-conservation.svg)
 
+The tank trace climbs at a constant slope with no sign of levelling off, while
+the heater trace bends toward a finite ceiling after its one-second delay; the
+dashed prediction traces sit on top of the solid simulated traces in both
+panels.
+
 [Retained run](figures/tank-heater-conservation-run.csv) ·
 [Plot data](figures/tank-heater-conservation-trace.csv) ·
 [Decision summary](figures/tank-heater-conservation-summary.csv)
-
-### Validation
 
 The native executable run produced:
 

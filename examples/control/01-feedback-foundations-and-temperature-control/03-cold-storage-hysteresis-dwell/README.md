@@ -7,8 +7,8 @@ on the same cold-storage room, then select the simplest configuration that
 meets the common temperature and transition criteria, while separately proving
 whether the dwell candidate enforces its declared minimum durations.
 
-All retained results in this lesson are **Simulation evidence**. They are not
-compressor-life, food-safety, or physical-plant qualification evidence.
+**Evidence class:** Simulation evidence. They are not compressor-life,
+food-safety, or physical-plant qualification evidence.
 
 ## The problem
 
@@ -101,6 +101,13 @@ arrives before scan 80 is postponed; at scan 80 or later it may be applied.
 The lesson qualifies the initial safe-off dwell so the first cooling request
 can act immediately. Every later reversal must earn its full dwell time.
 
+This lesson sets both minimum times to 8.00 s and, in Prediction below, the
+hysteresis width to 1.00 °C. Both are configured teaching values chosen only
+to make the mechanism's effect visible within one 120-second run, not
+manufacturer-approved settings; a physical installation must select its own
+width and dwell times from sensor resolution, allowable process variation,
+and manufacturer data, as the closing section of this lesson repeats.
+
 The applied cooling state ($Cooling_{\mathrm{applied}}$) is the state actually sent to the
 compressor after dwell protection. Dwell inhibit means the requested state has
 changed but cannot yet be applied because the current on-time or off-time is
@@ -166,7 +173,15 @@ acted.
 Before running anything, declare the comparison rule. A candidate is eligible
 only if its door-event maximum is at most 3.00 °C with 0.05 °C tolerance, its
 door-event range is at most 1.30 °C with 0.01 °C tolerance, and it makes at
-most 12 applied transitions. The dwell candidate has an additional mechanism
+most 12 applied transitions. All three are design choices, not manufacturer
+limits: the 3.00 °C maximum reuses the same door-event bound Lesson 2 applied
+to this room; the 1.30 °C range is sized to admit the wider cycling this
+lesson's own 1.00 °C hysteresis band intentionally trades for fewer
+transitions, while still rejecting a candidate that drifts far more than that
+band explains; and 12 transitions is loose enough for the few threshold
+crossings one door event should produce under hysteresis, yet tight enough to
+reject the single-threshold candidate's chatter by close to two orders of
+magnitude. The dwell candidate has an additional mechanism
 check: its shortest completed on and off intervals must each be at least
 8.00 s with 0.001 s tolerance, and $N_{\mathrm{inhibit}}$ must be at least 1.
 Among eligible candidates, choose the least complex; use fewer transitions and
@@ -271,6 +286,9 @@ P1.AutoMode AT %MX44.0 : BOOL;
 P1.RequestedCooling AT %MX44.1 : BOOL;
 P1.CoolingEnabled AT %MX44.2 : BOOL;
 P1.DwellInhibit AT %MX44.3 : BOOL;
+P1.ExperimentEnabled AT %MX44.4 : BOOL;
+P1.SafetyAbort AT %MX44.5 : BOOL;
+P1.InputsValid AT %MX44.6 : BOOL;
 P1.ManipulatedValue AT %QL0 : LREAL;
 P1.ProcessValue AT %IL0 : LREAL;
 ```
@@ -287,9 +305,9 @@ owns the scheduled door event. The deterministic seed is 20260828.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Cold-room temperature setpoint (SP, degC); Cold-room air temperature (PV, degC); Compressor demand (MV, %); Requested cooling state; Applied cooling state; Dwell inhibit; Dwell elapsed; and Switch count, including units, limits, mode, and quality. The initial operating point is PV = 4 degC, MV = 0%. Requested and applied cooling are initially false. The unresolved baseline problem is: The Lesson 2 single threshold switches on every noisy crossing and can short-cycle the compressor.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Use separate 2.50 degC on and 1.50 degC off thresholds, then require eight complete seconds before an opposite transition.
+   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Use separate 2.50 degC on and 1.50 degC off thresholds, then require eight complete seconds before an opposite transition. This is the rule to use because separating the two thresholds is why a single noisy crossing can no longer reverse the command by itself.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
@@ -302,8 +320,6 @@ owns the scheduled door event. The deterministic seed is 20260828.
    - **Record:** Compare the observed thresholds, retained state, inhibited reversals, and door response with your prediction. Retain the terminal state, restoration result, and deterministic seed **20260828**. Use the predeclared measures above when reading the retained comparison; do not treat its table as a newly executed Control Studio run.
 
 ## Evidence and decision
-
-### Measures and comparison
 
 Apply the decision measures derived before the experiment before inspecting
 the retained plots or values.
@@ -362,8 +378,6 @@ The focused state sequence makes the requested-versus-applied difference easier
 to see than the full 120-second trace:
 
 ![Hysteresis state memory and delayed dwell transition](figures/threshold-memory.svg)
-
-### Validation
 
 From `figures/hysteresis-dwell-comparison.csv`, reproduce every table value in
 `figures/hysteresis-dwell-comparison.csv`. Confirm that the single-threshold

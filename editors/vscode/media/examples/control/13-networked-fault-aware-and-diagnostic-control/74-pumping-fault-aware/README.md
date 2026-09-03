@@ -1,14 +1,16 @@
 # Isolate multirate pumping faults and recover deliberately
 
-Course position: Lesson 74 of 84. Prerequisite: bounded network ownership at the remote pumping station. Next lesson: diagnose a degraded loop before retuning it.
+Course position: Lesson 74 of 84. Previous lesson: [Bounded network ownership at the remote pumping station](../73-networked-pumping/README.md). Next lesson: [Diagnose a degraded loop before retuning it](../75-loop-diagnosis/README.md).
 
 **Lesson objective:** Detect the declared sensor and actuator faults, isolate only supported causes, choose degraded or safe operation, and restore automatic control through explicit qualified authority.
 
+**Evidence class:** Simulation evidence. Every transmitter, level sample, and drive-feedback fault is a deterministic injected event; none of it is physical transmitter, drive, reservoir, or pump evidence.
+
 ## The problem
 
-The equipment is a high-zone pumping station with redundant pressure, suction level, and drive feedback. It is the station from Lesson 73. Two physical discharge pressure transmitters update every 100 ms. A suction-reservoir level transmitter updates every 500 ms. Independent drive-speed feedback updates every 200 ms. The station task runs every 100 ms.
+The equipment is a high-zone pumping station with redundant pressure, suction level, and drive feedback. It is the station from Lesson 73. Two simulated discharge pressure transmitters update every 100 ms. A simulated suction-reservoir level transmitter updates every 500 ms. Simulated drive-speed feedback updates every 200 ms. The station task runs every 100 ms.
 
-Pressure is measured in bar, reservoir level in percent full, and requested, applied, and measured pump speed in percent. The drive request is limited to 0 through 100 percent. During restoration it may change by no more than 10 percent per second.
+Pressure is measured in bar, reservoir level in percent full, and requested, applied, and measured pump speed in percent. The drive request is limited to 0 through 100 percent. Whenever the fault-aware controller holds automatic or degraded authority, its applied pump speed may also change by no more than 10 percent per second — not only during restoration — so no single scan can step the drive by more than the pump and downstream piping can absorb.
 
 Two equivalent simulated header paths make the comparison honest. The baseline controller always trusts pressure transmitter A. The fault-aware controller may select transmitter A, select transmitter B after justified isolation, or remove automatic authority. The sensor bias, missing updates, low level, and stuck actuator are deterministic Simulation injections. They are not physical transmitter, drive, reservoir, network, or pump evidence.
 
@@ -28,7 +30,7 @@ A sample interval is the time between new observations from one device. Multirat
 
 Resampling places those observations on the controller task timeline. A zero-order hold retains the latest qualified value between device updates. Holding a value does not make it new: its source timestamp and age continue to advance. Linear interpolation is not used to invent a future reservoir-safety observation.
 
-Freshness is the maximum permitted age of retained evidence. The pressure limit is 0.25 s, the level limit is 1.0 s, and the drive-feedback limit is 0.40 s. A watchdog is stateful supervision that detects when an expected update or execution event misses its deadline.
+Freshness is the maximum permitted age of retained evidence. The pressure limit is 0.25 s, the level limit is 1.0 s, and the drive-feedback limit is 0.40 s. Each limit is a configured teaching value set to roughly two to three device intervals — 0.25 s is 2.5 pressure intervals, 1.0 s is two level intervals, and 0.40 s is two drive-feedback intervals — so one missed update is tolerated but a second is not silently held as new. A learner commissioning a real station would instead set each limit from the transmitter and drive network's measured worst-case update jitter. A watchdog is stateful supervision that detects when an expected update or execution event misses its deadline.
 
 ### Test plausibility before using a number
 
@@ -46,7 +48,7 @@ $r_{A} = |p_{A} - \hat{p}|$
 
 $r_{B} = |p_{B} - \hat{p}|$
 
-The prediction uses preceding evidence only. The preceding predicted pressure is $p_{\mathrm{hat}}$[k-1], preceding applied speed is $u_{\mathrm{applied}}$[k-1], station interval is T, zero-speed pressure is $p_{0}$, plant gain is $K_{\mathrm{plant}}$, and pressure time constant is $\tau$. The executable Euler update is:
+The prediction uses preceding evidence only. The preceding predicted pressure is $\hat{p}_{k-1}$, preceding applied speed is $u_{\mathrm{applied},k-1}$, station interval is T, zero-speed pressure is $p_{0}$, plant gain is $K_{\mathrm{plant}}$, and pressure time constant is $\tau$. The executable Euler update is:
 
 $\hat{p}_{k} = \hat{p}_{k-1} + (T/\tau) \cdot (p_{0} + K_{\mathrm{plant}} \cdot u_{\mathrm{applied},k-1} - \hat{p}_{k-1})$
 
@@ -54,7 +56,7 @@ This expression comes from the same continuous pressure balance used in Lesson 7
 $d\hat{p}/dt=(p_0+K_{\mathrm{plant}}u-\hat{p})/\tau$. Over one short task interval, forward Euler approximates the derivative by
 $(\hat{p}_k-\hat{p}_{k-1})/T$. Substituting that approximation and solving for $\hat{p}_k$ produces the update above. Here $T/\tau=0.1/4=0.025$, which explains the literal `0.025` in the program. The predictor is diagnostic redundancy. It is not a hidden Simulation-truth input and does not drive the pressure controller directly.
 
-A pressure discrepancy greater than 0.30 bar for three consecutive new pressure samples confirms disagreement. If exactly one transmitter has a model residual greater than 0.50 bar while the other remains no greater than 0.50 bar, the larger-residual transmitter is isolated. The controller may continue from the other qualified transmitter in degraded single-sensor mode. If the evidence cannot distinguish a sensor, automatic authority is removed.
+A pressure discrepancy greater than 0.30 bar for three consecutive new pressure samples confirms disagreement. If exactly one transmitter has a model residual greater than 0.50 bar while the other remains no greater than 0.50 bar, the larger-residual transmitter is isolated. The controller may continue from the other qualified transmitter in degraded single-sensor mode. If the evidence cannot distinguish a sensor, automatic authority is removed. The 0.30-bar discrepancy and 0.50-bar residual thresholds are configured teaching values set well above an assumed ±0.05-bar transmitter noise band but well below the 1.0-bar bias this lesson injects, so genuine disagreement is confirmed without chattering on ordinary noise; a learner would instead set them from the transmitters' rated accuracy and the plant's normal reading-to-reading variation. Three consecutive samples, at the 100-ms pressure interval, reject one noisy reading before isolating a transmitter — the same three-sample pattern the actuator check below reuses.
 
 ### Protect a slow reservoir constraint
 
@@ -62,21 +64,23 @@ Retained level can fall between measurements. Conservative available level ($lev
 
 $level_{\mathrm{safe}} = level_{\mathrm{sample}} - v_{\mathrm{level}} \cdot age_{\mathrm{level}}$
 
-The subtraction follows from the worst allowed case: if the reservoir has fallen at its maximum rate for the entire unobserved interval, the true level can be lower than the held sample by at most $v_{\mathrm{level}}age_{\mathrm{level}}$. The low-suction trip is 20 percent. Recovery requires at least 30 percent. The conservative projection does not extend the 1.0-s freshness limit; stale level still removes authority.
+The subtraction follows from the worst allowed case: if the reservoir has fallen at its maximum rate for the entire unobserved interval, the true level can be lower than the held sample by at most $v_{\mathrm{level}}age_{\mathrm{level}}$. Maximum drawdown rate is a configured teaching value representing a conservatively fast credible reservoir drain; a learner would instead derive it from the reservoir's minimum cross-sectional area and the pump's maximum draw rate. The low-suction trip is 20 percent. Recovery requires at least 30 percent. Both are configured teaching values with a 10-percentage-point gap between trip and restore that prevents the safe state from chattering right at the trip point; a learner would instead set them from the suction pipe's minimum submergence level and the drawdown margin above. The conservative projection does not extend the 1.0-s freshness limit; stale level still removes authority.
 
 ### Check whether the drive moved
 
-The applied drive request ($u_{\mathrm{requested}}$) is the command sent after controller limits and restoration rate limiting. Measured drive speed ($u_{\mathrm{feedback}}$) comes from the independent feedback channel. Actuator tracking residual ($r_{u}$) is their absolute difference:
+Previous applied pump speed ($u_{\mathrm{applied},k-1}$) is the protected applied command the station sent on the previous scan — the shipped code's `PreviousProtectedApplied`, which is always rate-limited as declared above. Measured drive speed ($u_{\mathrm{feedback}}$) comes from the independent feedback channel, updated every 200 ms. Actuator tracking residual ($r_{u}$) is their absolute difference:
 
-$r_{u} = |u_{\mathrm{requested}} - u_{\mathrm{feedback}}|$
+$r_{u} = |u_{\mathrm{applied},k-1} - u_{\mathrm{feedback}}|$
 
-A residual greater than 5 percentage points for three consecutive new drive-feedback samples confirms an actuator tracking fault. Three samples occupy two 200-ms gaps from the first affected sample to the decision, or 0.4 s. The 0.6-s requirement is deliberately conservative because a fault can begin just after one update and wait almost 0.2 s before the first affected sample.
+A residual greater than 5 percentage points for three consecutive new drive-feedback samples confirms an actuator tracking fault. 5 percentage points is a configured teaching value set safely above ordinary drive-tracking error under healthy control (assumed within 1-2 points) but well below the actuator's full range, so a genuine stuck condition is confirmed without tripping on ordinary lag; a learner would instead set it from the drive's measured healthy tracking-error distribution. Three samples occupy two 200-ms gaps from the first affected sample to the decision, or 0.4 s. The 0.6-s requirement is deliberately conservative because a fault can begin just after one update and wait almost 0.2 s before the first affected sample.
 
 ### Separate the fault decisions
 
 Fault detection decides that evidence violated a rule. Fault isolation assigns the fault to a named component only when the evidence distinguishes it. Graceful degradation continues reduced service with one identified healthy pressure transmitter. A safe state removes automatic pump authority when evidence cannot support control.
 
-Acknowledgement records that an operator has seen the fault; it does not clear anything. Cause removal makes the input evidence healthy again. Recovery qualification requires ten consecutive healthy 100-ms scans. Reset approval is a separate explicit authority that clears the latch only after acknowledgement and qualification. Restored pump speed is then limited to 10 percent per second.
+Acknowledgement records that an operator has seen the fault; it does not clear anything. Cause removal makes the input evidence healthy again. Recovery qualification requires ten consecutive healthy 100-ms scans — a configured teaching value equal to one full second of continuous healthy evidence, long enough to reject a borderline flickering condition before authority returns. Reset approval is a separate explicit authority that clears the latch only after acknowledgement and qualification.
+
+The protected applied pump speed is limited to 10 percent per second continuously whenever automatic or degraded authority is held (`FaultAwarePumpSupervisor.st:296-305`), not only during restoration; the same permanent bound is simply most visible there, when the setpoint step is largest. It is a configured teaching value chosen so a full-range command step reaches the drive over at least ten scans, bounding actuator wear and downstream water-hammer risk on every applied-speed change. The naive baseline path carries no such limit, so any comparison of applied-speed movement between the two paths reflects this declared design choice as well as the fault response, not the fault response alone.
 
 ## Prediction
 
@@ -90,7 +94,7 @@ Adding 1.0 bar to transmitter A while leaving transmitter B unchanged predicts:
 
 The fault-aware controller should isolate A on the third new pressure sample. With a 100-ms pressure interval, that is 0.2 s elapsed from the first biased sample and no later than the declared 0.30-s limit. The baseline controller should incorrectly reduce pump speed because it interprets the false high pressure as physical pressure.
 
-Predict that loss of both pressure qualities removes authority on the detecting scan. A fresh 19-percent level sample should trip immediately. Missing level updates should trip on the first task after age exceeds 1.0 s. A stuck drive should be confirmed by the third new feedback residual above 5 percentage points. Acknowledgement alone and a premature reset must leave the fault latched. Approved restoration must change applied speed by no more than 1.0 percentage point per 100-ms scan.
+Predict that loss of both pressure qualities removes authority on the detecting scan. A fresh 19-percent level sample should trip immediately. Missing level updates should trip on the first task after age exceeds 1.0 s. A stuck drive should be confirmed by the third new feedback residual above 5 percentage points, 0.4 s after the first affected sample. Acknowledgement alone and a premature reset must leave the fault latched. Approved restoration must change applied speed by no more than 1.0 percentage point per 100-ms scan — the same permanent limit declared above, not a special recovery-only behavior.
 
 ## Implementation
 
@@ -122,33 +126,44 @@ RecoveryReady := FaultLatched AND FaultAcknowledged
     AND (RecoveryHealthyCount >= INT#10);
 ```
 
-Read `src/Main.st` before running. It contains the complete sample retention, ages, plausibility checks, symmetric A/B isolation, deterministic fault priority, mode selection, two real Control.PID instances, zero safe output, and rate-limited recovery.
+Read `src/FaultAwarePumpSupervisor.st` before running. It contains the complete sample retention, ages, plausibility checks, symmetric A/B isolation, deterministic fault priority, mode selection, two real Control.PID instances, zero safe output, and rate-limited recovery. `src/Main.st` holds only the timed disturbance schedule below and calls this function block every scan.
 
 ## Experiment in Control Studio
 
-The visible workflow is exactly **Monitor → Test**. Control Studio supplies authority, while the runnable project supplies the complete 28-second record: healthy multirate sampling, pressure-A bias, qualified recovery, ambiguous pressure, stale level, low level, stuck drive, acknowledgements, approved resets, and rate-limited restoration. That ownership matters because every learner runs the same sequence and cannot accidentally edit a diagnostic input halfway through the comparison. The deterministic Simulation seed is 20260829.
+The visible workflow is exactly **Monitor → Test**. Control Studio supplies authority, while the runnable project supplies the complete 28-second record. Because every learner runs the same sequence, no one can accidentally edit a diagnostic input halfway through the comparison. The deterministic Simulation seed is 20260829.
+
+The interactive Test executes this project-owned schedule (`src/Main.st:70-123`):
+
+| Scan window | Time | Injected condition |
+| --- | --- | --- |
+| 1–50 | 0.1–5.0 s | Healthy multirate baseline |
+| 51–100 | 5.1–10.0 s | Pressure-A biased +1.0 bar |
+| 116–130 | 11.6–13.0 s | Pressure-A quality lost |
+| 121–130 | 12.1–13.0 s | Pressure-B quality also lost (ambiguous) |
+| 151–170 | 15.1–17.0 s | Level updates withheld (stale) |
+| 191–200 | 19.1–20.0 s | Fresh 19-percent low-level sample |
+| 216–240 | 21.6–24.0 s | Setpoint raised to 7 bar |
+| 221–240 | 22.1–24.0 s | Drive feedback stuck |
+
+Each fault window is followed one scan later by an acknowledge pulse and, once ten healthy scans have elapsed after cause removal, an approved reset (`src/Main.st:114-123`). The retained native evidence plotted below uses an equivalent `simulation.toml`-driven fault schedule whose onsets can fall up to 0.1 s earlier than this interactive schedule; treat the two as consistent in sequence and duration, not identical to the tenth of a second.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Header pressure setpoint (SP, bar); Naive pressure transmitter A (PV, bar) and Protected pressure transmitter A (PV, bar); Naive requested pump speed (MV, %) and Naive applied pump speed (MV, %), including units, limits, mode, and quality. The initial operating point is Header pressure setpoint = 6 bar, Naive pressure transmitter A = 6 bar, Protected pressure transmitter A = 6 bar, Protected pressure transmitter B = 6 bar. The unresolved baseline problem is: A timely in-range but biased pressure value silently moves the naive controller because quality and freshness alone cannot establish correctness.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Continue with one isolated healthy pressure transmitter only when the model relation identifies the failed device; otherwise remove automatic authority and require cause removal, acknowledgement, healthy qualification, and approved reset.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Header pressure setpoint (SP, bar); Naive pressure transmitter A (PV, bar) and Protected pressure transmitter A (PV, bar); Naive requested pump speed (MV, %) and Naive applied pump speed (MV, %). The initial operating point is Header pressure setpoint = 6 bar, Naive pressure transmitter A = 6 bar, Protected pressure transmitter A = 6 bar, Protected pressure transmitter B = 6 bar. The unresolved baseline problem is: a timely in-range but biased pressure value silently moves the naive controller because quality and freshness alone cannot establish correctness.
+   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: continue with one isolated healthy pressure transmitter only when the model relation identifies the failed device; otherwise remove automatic authority and require cause removal, acknowledgement, healthy qualification, and approved reset. This matters because a bias that stays inside the physical range would pass every plausibility check alone — only the second transmitter and the model prediction can tell the controller which reading to disbelieve.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **28.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). It does not write a pressure, quality flag, timestamp, acknowledgement, reset, setpoint, or pump command.
-   - **Decision before action:** Before selecting **Review test**, predict each mode transition from the schedule above and confirm every pressure and pump-speed limit shown in Monitor.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
+   - **Decision before action:** Before selecting **Review test**, predict each mode transition from the schedule above and confirm every pressure and pump-speed limit shown in Monitor. Predicting the sequence before it runs is the only way to tell a controller that reacted for the declared reason from one that merely landed on the right mode by coincidence.
+   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. Response should show operating mode step from automatic to degraded near 5.1–5.3 s, back to automatic near 10.1–11.1 s, to safe near 11.6–14.1 s, automatic again, to safe near 15.1–18.1 s, automatic, to safe near 19.1–21.1 s, automatic, to safe near 21.6–25.4 s, and finally automatic through completion, with the fault code naming pressure A, ambiguous pressure, stale level, low level, and actuator in that order.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason and remove experiment authority. The project restores healthy qualities, samples, a 6-bar setpoint, 35-percent level, and false acknowledgement/reset requests before another run.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
 
-Identify, Tune, and Validate are not learner steps here. The fault logic and predictor belong to the runnable project, and the independent native test owns the pass/fail judgment. A disabled generic PID or identification control is not evidence.
-
 ## Evidence and decision
-
-### Measures and comparison
 
 Define the decision measures before reading the result:
 
@@ -162,22 +177,29 @@ Define the decision measures before reading the result:
 - **Restoration rate** is the largest consecutive applied-speed change divided by 0.10 s. Its unit is percent per second and its limit is 10 percent per second.
 - **Service availability** reports time in normal or justified degraded control separately. It cannot be improved by using ineligible data.
 
-The native executable run measured:
+The retained native trace records fault code and operating mode every 100 ms for the full 28-second run:
 
-| Result | Measured Simulation evidence |
-| --- | ---: |
-| Pressure-A isolation time | 5.2 s, the third biased sample |
-| False trips before injection | 0 |
-| Wrong protected sensor selections | 0 |
-| Ambiguous-pressure safe output | Same detecting scan |
-| Stale-level safe output | Same detecting scan |
-| Fresh low-level safe output | Same detecting scan |
-| Stuck-actuator confirmation | 23.0 s, within the 0.6-s confirmation bound |
-| Greatest approved-restoration rate | 8.2 percent per second |
+| Time in trace | Fault code | Mode | Interpretation |
+| ---: | --- | --- | --- |
+| 0.0 s | 0 healthy | 0 automatic | Multirate baseline |
+| 5.2 s | 1 pressure A | 1 degraded | Bias confirmed and isolated; B continues alone |
+| 11.0 s | 0 healthy | 0 automatic | Qualified recovery |
+| 12.0 s | 3 ambiguous | 2 safe | Both transmitters ineligible together |
+| 14.0 s | 0 healthy | 0 automatic | Qualified recovery |
+| 15.6 s | 4 stale level | 2 safe | Level age exceeded the 1.0-s limit |
+| 18.0 s | 0 healthy | 0 automatic | Qualified recovery |
+| 19.0 s | 5 low level | 2 safe | Fresh 19-percent sample |
+| 21.0 s | 0 healthy | 0 automatic | Qualified recovery |
+| 23.0 s | 6 actuator | 2 safe | Stuck drive confirmed |
+| 25.2 s | 0 healthy | 0 automatic | Final qualified recovery, held through 28.0 s |
 
-Times are positions in the fixed test record. The isolation latency is 0.2 s from the first biased sample, not 5.2 s.
+From these transitions and the declared definitions above: pressure-A isolation latency is 0.2 s (first biased sample 5.0 s, confirmed 5.2 s), inside the 0.30-s limit. Actuator-fault confirmation latency is 0.4 s (first affected feedback sample 22.6 s, confirmed 23.0 s), inside the 0.6-s bound. Ambiguous-pressure and fresh-low-level safe output both land on the same detecting scan; stale-level safe output follows the declared 1.0-s freshness limit. False trips before the first injection: zero, matching the flat healthy trace from 0.0 through 5.1 s. Wrong-sensor selections: zero, enforced by the native test's acceptance gate rather than a separately plotted signal. The greatest approved-restoration rate measured across every recovery is 8.2 percent per second, inside the 10-percent-per-second limit. The shipped trace retains only fault code, operating mode, and applied command — it does not retain a pressure series — so pressure absolute-error area and peak pressure departure are defined above but not numerically reported here; the native test's own tolerance check, not this README, is their evidence.
 
-### Validation
+![Fault mode and protected pump command through isolation, safe degradation, acknowledgement, reset, and recovery](figures/pumping-fault-aware-evidence.svg)
+
+The upper panel plots fault code and operating mode from the table above; the lower panel plots the protected applied pump command over the same 28 seconds. Every visible command step stays inside the declared 1-percentage-point-per-scan limit, including at the largest step near the 21.6-second setpoint change — the same permanent rate limit discussed above, not a recovery-only behavior.
+
+[Complete trace](figures/pumping-fault-aware-evidence-trace.csv) · [Decision summary](figures/pumping-fault-aware-evidence-summary.csv)
 
 Accept this lesson only if the registered native test compiles and executes the shipped Structured Text and shared Control library against the shipped simulation record and independent calculations. It must prove:
 
@@ -195,17 +217,13 @@ Accept this lesson only if the registered native test compiles and executes the 
 
 Simulation success does not authorize a physical pump. Physical deployment needs reviewed transmitter independence, common-cause analysis, proof-test intervals, drive and motor protection, cavitation protection, hydraulic safe-state analysis, commissioning, and explicit approval.
 
-![Fault mode and protected pump command through isolation, safe degradation, acknowledgement, reset, and recovery](figures/pumping-fault-aware-evidence.svg)
-
-[Complete trace](figures/pumping-fault-aware-evidence-trace.csv) · [Decision summary](figures/pumping-fault-aware-evidence-summary.csv)
-
 ## Conclusion
 
 Every measurement first passes through its own sample pulse, source timestamp, retained value, age, quality, and plausibility. Pressure then gains consistency evidence from the second transmitter and model predictor. A single large residual is isolated only after three new samples. The selected healthy pressure drives the protected PID while the fault remains visible as degraded operation.
 
 Two failed or ambiguous pressure paths do not support isolation, so automatic pressure authority is removed. The slow level path remains aged even while held, and its conservative projection cannot outlive the freshness deadline. Requested pump speed is not proof of motion; independent drive feedback closes that evidence gap.
 
-Recovery is deliberately longer than fault detection. Fast shutdown limits exposure, while acknowledgement, cause removal, ten healthy scans, reset approval, and rate-limited return prevent an intermittent or unreviewed recovery from silently regaining authority.
+Recovery is deliberately longer than fault detection. Fast shutdown limits exposure, while acknowledgement, cause removal, ten healthy scans, reset approval, and a permanently rate-limited return prevent an intermittent or unreviewed recovery from silently regaining authority. Because that rate limit runs at all times, not only during restoration, any applied-speed comparison against the unlimited naive path already carries this declared design choice — a second, deliberate difference between the two paths, not only the fault response.
 
 ## Reason for the next lesson
 

@@ -1,8 +1,10 @@
 # Select scheduled or model-linearised robot-joint control
 
-Course position: Lesson 70 of 84. Prerequisite: local Lyapunov analysis of the inverted pendulum. Next lesson: supervised adaptive extruder control.
+Course position: Lesson 70 of 84. Previous lesson: [Certify a nonlinear inverted pendulum locally](../69-pendulum-lyapunov/README.md). Next lesson: [Supervise adaptive pressure control on a polymer extruder](../71-extruder-adaptive/README.md).
 
 **Lesson objective:** Select a robot-joint architecture from common nominal and payload-mismatch evidence and explain what scheduling and nonlinear cancellation each require.
+
+**Evidence class:** Simulation evidence. No physical robot joint, motor, or cell is operated in this lesson.
 
 ## The problem
 
@@ -24,26 +26,35 @@ We need joint control that remains credible as gravity torque and payload change
 
 ## The new idea
 
-Motor torque accelerates inertia after gravity and viscous friction have been overcome. After those physical effects are named, the joint balance is:
+Motor torque accelerates inertia after gravity and viscous friction have been overcome. Inertia ($J$) is the joint's resistance to angular acceleration, measured in kilogram square metres. Viscous coefficient ($b$) is the friction torque per unit of angular rate, measured in newton metre seconds per radian. Gravity-torque coefficient ($G$) is the peak gravity torque the arm's own weight exerts about the joint, measured in newton metres, and applied torque uses the same unit. Joint acceleration ($\ddot q$) is how quickly angular rate itself changes, measured in radians per second squared. Both $J=1\text{ kg m}^2$ and $b=0.2\text{ N m s/rad}$ are **declared teaching values** configured directly in the simulator; a learner would obtain them from the arm's rated mass distribution (for $J$) and from a measured no-load coast-down or a swept-frequency torque test (for $b$), the same routes used for the pendulum in Lesson 69. $G=9.81\text{ N m}$ (nominal) is likewise declared, and a learner would obtain it by measuring holding torque at a few angles away from horizontal, as Lesson 69 describes for the pendulum's gravity coefficient. With those four quantities named, the joint balance is:
 
 $J \cdot \ddot q+b \cdot \dot q+G \cdot \sin\left(q\right)=\tau_{\mathrm{applied}}$
 
-Inertia ($J$) uses kilogram square metres. Viscous coefficient ($b$) uses newton metre seconds per radian. Gravity-torque coefficient ($G$) and applied torque use newton metres. Joint acceleration ($\ddot q$) uses radians per second squared.
-
 A local model is a linear approximation around one operating angle ($q_0$). Writing $q=q_0+\delta q$ and using $\sin(q_0+\delta q)\approx\sin(q_0)+\cos(q_0)\delta q$ shows that the constant term is the holding torque and the coefficient of small angle change is the local gravity stiffness $G\cos(q_0)$. It changes from its largest value near zero angle to a smaller value as the arm moves toward 1.2 radians. A fixed proportional gain therefore does not produce identical local closed-loop stiffness everywhere.
 
-Choose desired natural frequency ($\omega_{n}$) 5 rad/s and damping ratio ($\zeta$) 0.8. Natural frequency describes the intended response speed. Damping ratio describes how strongly oscillation is suppressed. The local proportional and derivative gains are:
+Natural frequency ($\omega_n$) describes the intended response speed of the local closed loop, in radians per second. Damping ratio ($\zeta$) describes how strongly oscillation is suppressed, where 1 is critically damped and values below 1 allow some overshoot. Both are **declared teaching choices**: $\omega_n=5\text{ rad/s}$ is roughly five times the pendulum's certified 1.73 rad/s from Lesson 69, fast enough to show a clear scheduling effect within the plant's 30 N m torque budget, and $\zeta=0.8$ sits close to critical damping so the local response settles with little overshoot rather than oscillating. With those choices, the local proportional and derivative gains are:
 
 $K_p(q_{0})=J \cdot \omega_{n}^{2}-G \cdot \cos\left(q_{0}\right)$
 
 $K_d=2 \cdot \zeta \cdot \omega_{n} \cdot J-b$
 
-These formulas come from the local error equation
-$J\delta\ddot q+(b+K_d)\delta\dot q+(G\cos(q_0)+K_p)\delta q=0$. Dividing by $J$ and matching it to the desired second-order polynomial $s^2+2\zeta\omega_n s+\omega_n^2$ gives the two coefficient equations above.
+Before these formulas, name the control law that produces them: at operating angle $q_0$, the local controller supplies the gravity-holding torque for that angle, then trims proportionally on angle error and on measured rate:
 
-At absolute operating angles 0, 0.6, and 1.2 rad, substitution gives $25-9.81\cos(0)=15.190$, $25-9.81\cos(0.6)=16.904$, and $25-9.81\cos(1.2)=21.445$ newton metres per radian. The derivative calculation is $2(0.8)(5)(1)-0.2=7.800$ newton metre seconds per radian.
+$\tau_{\mathrm{requested}}=G\sin(q_{0})+K_{p} \cdot (q_{0}-q)-K_{d} \cdot \dot q$
 
-Gain scheduling means selecting or interpolating parameters from validated local controller designs using a measurable scheduling variable. Here the scheduling variable is absolute setpoint angle, clamped to 1.2 radians. Linear interpolation connects the three proportional-gain points. Integral gain remains 12 N m/(rad s), and derivative gain remains 7.8 N m s/rad.
+Substituting this law into the joint balance, writing $q=q_0+\delta q$, and using the same small-angle step as above ($\sin(q_0+\delta q)\approx\sin(q_0)+\cos(q_0)\delta q$) leaves gravity's holding term on both sides, cancelling it:
+
+$J\delta\ddot q+b\delta\dot q+G\cos(q_0)\delta q=-K_p\delta q-K_d\delta\dot q$
+
+Collecting every term on one side gives the local error equation used above:
+
+$J\delta\ddot q+(b+K_d)\delta\dot q+(G\cos(q_0)+K_p)\delta q=0$
+
+Dividing by $J$ and matching it to the desired second-order polynomial $s^2+2\zeta\omega_n s+\omega_n^2$ gives the two coefficient equations above.
+
+At absolute operating angles 0, 0.6, and 1.2 rad, substitution gives $25-9.81\cos(0)=15.190$, $25-9.81\cos(0.6)=16.904$, and $25-9.81\cos(1.2)=21.445$, each in newton metres per radian. The derivative calculation is $2(0.8)(5)(1)-0.2=7.800$, in newton metre seconds per radian.
+
+Gain scheduling means selecting or interpolating parameters from validated local controller designs using a measurable scheduling variable. Here the scheduling variable is absolute setpoint angle, clamped to 1.2 radians. Linear interpolation connects the three proportional-gain points. Integral gain is a further **declared teaching choice**, kept fixed at 12 N m/(rad s) rather than scheduled: paired with the scheduled proportional gains it gives an integral time between about 1.27 and 1.79 seconds (derived below) — a few times slower than the 0.2-second period implied by $\omega_n=5\text{ rad/s}$, so integral action removes the remaining gravity offset without fighting the faster proportional-derivative response. Derivative gain remains 7.8 N m s/rad.
 
 Fixed and scheduled PID use the same integral gain. Integral time ($T_i$) is proportional gain divided by integral gain. It therefore ranges from about 1.27 seconds at zero angle to 1.79 seconds at 1.2 radians. This gives integral action enough authority to build the required gravity-holding torque during each plateau while leaving scheduled proportional gain as the only difference between those two records.
 

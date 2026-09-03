@@ -32,13 +32,13 @@ The **requested manipulated variable ($MV_{\mathrm{requested}}$)** is the heater
 
 The **lower heater limit ($MV_{\mathrm{min}}$)** is 0 percent because the element cannot actively cool. The **upper heater limit ($MV_{\mathrm{max}}$)** is 100 percent because the power stage cannot deliver more than full power. The power stage clamps the requested value into that physical range:
 
+$\displaystyle MV_{\mathrm{applied}} = \max\left(\min\left(MV_{\mathrm{requested}}, MV_{\mathrm{max}}\right), MV_{\mathrm{min}}\right)$
+
 The inner minimum is evaluated first: it prevents the request from exceeding
 the upper limit. The outer maximum is evaluated second: it prevents that
 already upper-bounded value from falling below the lower limit. Therefore a
 request inside the range passes unchanged, a request above 100 percent becomes
 100 percent, and a request below 0 percent becomes 0 percent.
-
-$\displaystyle MV_{\mathrm{applied}} = \max\left(\min\left(MV_{\mathrm{requested}}, MV_{\mathrm{max}}\right), MV_{\mathrm{min}}\right)$
 
 The **saturation error ($e_{\mathrm{sat}}$)** is requested heater power minus applied heater power, measured in percentage points. A positive saturation error means that the controller is asking for heating power that the actuator cannot deliver.
 
@@ -46,18 +46,30 @@ $e_{\mathrm{sat}} = MV_{\mathrm{requested}} - MV_{\mathrm{applied}}$
 
 The **stored integral contribution ($u_I$)** is the part of the requested heater power accumulated from past temperature error, measured in percent heater power. If positive error continues while the applied output is already 100 percent, this stored contribution can keep growing without producing additional heat. This behavior is called **integral windup**.
 
-Lesson 6 derived one integral update as $K_i e_k dt$. Applying that update for
-$N$ scans gives the stored contribution:
+Lesson 6 derived one integral update as $K_i \times e \times \Delta t$, where
+$\Delta t$ is the controller's 0.1-second cycle interval (defined precisely in
+Prediction). Applying that update for $N$ scans gives the stored contribution:
 
-$uI_N = uI_0 + \sum_{k=1}^{N} K_i \times e_k \times dt$
+$u_{I,N} = u_{I,0} + \sum_{k=1}^{N} K_i \times e_k \times \Delta t$
 
-When $K_i$, $dt$, and the error are positive, every term in the sum is
+When $K_i$, $\Delta t$, and the error are positive, every term in the sum is
 positive, so $u_I$ continues to grow. The external clamp prevents extra power
 from reaching the heater, but it does not remove terms already stored by this
 controller. That is why a bounded applied trace does not by itself prove that
 the controller state is bounded.
 
 Before blaming the controller, we must check whether the target is physically reachable. The **ambient or zero-power outlet temperature ($T_0$)** is 20 degrees Celsius in this simulation. The **steady heater gain ($K_h$)** is 0.2 degrees Celsius per percent heater power. The **required steady heater power ($MV_{\mathrm{required}}$)** is the power needed to balance heat loss at the desired steady temperature.
+
+$K_h$ and $T_0$ are **declared teaching values** for this simulation: they are
+configured directly in the plant model, not calculated from geometry,
+transcribed from a heater's rating plate, or fitted to a measured experiment.
+A learner obtaining them from a real heater would instead run Lesson 5's
+holding-output procedure at two setpoints and fit the resulting line. Using
+$K_h$ and $T_0$ here, 35 degrees Celsius requires exactly 75 percent steady
+heater power (calculated below) — the same 75 percent Lesson 5 independently
+measured as this heater's holding output. That agreement is built into this
+simulation's declared parameters; it is not evidence that a physical heater's
+gain and holding output must coincide.
 
 At steady state the simplified heater model says that outlet temperature is
 ambient temperature plus heater power multiplied by the steady heater gain:
@@ -105,6 +117,12 @@ absolute temperature error is at most 0.2 degrees Celsius and remains there
 for 2.0 continuous seconds, then:
 
 $\text{recovery time} = t_{\text{first sustained}}-t_{restore}$
+
+The 2.0-second dwell window is a declared teaching value for this simulation:
+it is twenty 0.1-second controller cycles, long enough to distinguish a
+settled return to the band from a single sample that briefly crosses it while
+still recovering, and short enough to resolve the sub-second differences the
+comparison depends on.
 
 If no qualifying sample exists, report `Not recovered`.
 
@@ -154,7 +172,7 @@ The power stage can apply only 100 percent, so the predicted saturation error is
 
 ## Implementation
 
-The same positive-acting incremental PI controller from Lesson 7 runs every 0.1 second. Its internal output limits are deliberately wide in this lesson. The separate clamp represents the real power stage, so the controller cannot see that its request has been limited.
+The same **positive-acting** incremental PI controller from Lesson 7 runs every 0.1 second: because heating raises temperature, positive error requests positive heater power, and that sign convention is never reversed. Its internal output limits are deliberately wide in this lesson. The separate clamp represents the real power stage, so the controller cannot see that its request has been limited.
 
 The shipped project starts safely in Manual at SP 35 degrees Celsius, PV 20
 degrees Celsius, and zero requested and applied power. Control Studio writes
@@ -170,31 +188,48 @@ the model reaches 35 degrees Celsius, transfers to Auto, requests 45 degrees
 Celsius for 10 seconds, restores 35 degrees Celsius, and finally restores
 Manual zero.
 
-The running Structured Text follows the signal path introduced above: configure the PI, initialize Auto from the Manual holding power, calculate requested power, clamp applied power, and publish the difference.
+The running Structured Text follows the signal path introduced above: configure the PI, initialize Auto from the Manual holding power, calculate requested power, clamp applied power, and publish the difference. This is the shipped code verbatim, after the one-time startup block that runs only once:
 
 ```st
+(* Control Studio gain edits reach both the diagnostics and PID at this scan
+   boundary without clearing the integral state. *)
 Parameters.ProportionalGain := ProportionalGain;
 Parameters.IntegralGain := IntegralGain;
 Controller.Configure(Parameters := Parameters);
 
-IF AutoMode AND NOT LastAutoMode THEN
-    // Start Auto from the power that was already holding 35 degC.
-    InitialState.NominalOutput := ManualHeaterPower;
-    InitialState.SaturatedOutput := ManualHeaterPower;
-    Controller.Initialize(State := InitialState);
+Input.Setpoint := Setpoint;
+Input.ProcessValue := ProcessValue;
+Input.ManualOutput := ManualHeaterPower;
+IF AutoMode THEN
+    IF NOT LastAutoMode THEN
+        (* Start Auto from the measured Manual holding command. This avoids
+           confusing saturation with a mode-transfer bump. *)
+        InitialState.Setpoint := PreviousSetpoint;
+        InitialState.ProcessValue := PreviousProcessValue;
+        InitialState.NominalOutput := ManualHeaterPower;
+        InitialState.SaturatedOutput := ManualHeaterPower;
+        Controller.Initialize(State := InitialState);
+    END_IF;
+    ProportionalIncrement := ProportionalGain
+        * ((Setpoint - PreviousSetpoint) - (ProcessValue - PreviousProcessValue));
+    IntegralIncrement := IntegralGain * (Setpoint - ProcessValue) * LREAL#0.1;
+    Input.Mode := PIDMode#Auto;
+ELSE
+    ProportionalIncrement := LREAL#0.0;
+    IntegralIncrement := LREAL#0.0;
+    Input.Mode := PIDMode#Manual;
 END_IF;
-
+Input.CycleTime := LREAL#0.1;
 RequestedHeaterPower := Controller.Update(Input := Input);
-
-// The plant receives the bounded command, not the unrestricted request.
 AppliedHeaterPower := MAX(MIN(RequestedHeaterPower, LREAL#100.0), LREAL#0.0);
 SaturationError := RequestedHeaterPower - AppliedHeaterPower;
 ```
 
 The project keeps the selected Lesson 7 gains fixed during this observation.
-It applies them on every 0.1-second scan without resetting the retained
-integral state. Any separate gain comparison belongs in a fresh restored native
-run; Control Studio writes only experiment authority here.
+Those values are live and take effect at the next 0.1-second scan without
+resetting the retained integral state. Any separate gain comparison belongs in
+a fresh restored native run; Control Studio writes only experiment authority
+here.
 
 ## Experiment in Control Studio
 

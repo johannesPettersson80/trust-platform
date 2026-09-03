@@ -96,7 +96,9 @@ $e_{ss} = \dfrac{MV_{\mathrm{required,new}} - u_0}{K_p}$
 
 This derivation explains why bias removes error only at the operating point
 where it was measured. If the new load requires more power, the numerator is
-positive, so positive settled error is needed to create the extra request.
+positive, so positive settled error is needed to create the extra request —
+that settled error is exactly the temperature deviation from the 35 °C
+operating point under the new load.
 
 Before measuring a holding output, define how a trial qualifies. In a declared
 final window, PV range, the **requested-output range**, and the
@@ -106,10 +108,11 @@ plain notation, `requested range = max(MV_requested) - min(MV_requested)` and
 `applied range = max(MV_applied) - min(MV_applied)`. Both output ranges use
 percentage points because they subtract two percentages. A window is settled
 only when PV range is at most 0.10 °C and applied range is at most 1.0
-percentage point.
+percentage point — the same sensor- and actuator-resolution-based tolerances
+Lesson 4 used to judge settling.
 
-For a settled window, the **final-window mean absolute temperature error** is
-measured in degrees Celsius and is
+For a settled window, the **final-window mean absolute temperature error
+(MAE)** is measured in degrees Celsius and is
 
 $MAE = \operatorname{mean}(|SP_k-PV_k|)$
 
@@ -177,32 +180,28 @@ measured 75% bias and scheduled load event. The seed is 20260828.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Outlet-temperature setpoint (SP, degC); Outlet-water temperature (PV, degC); requested and applied heater power (%); operating-point bias (%); proportional gain (%/degC); mode; limits; and quality. Before Auto is enabled, the declared safe initial state is SP = 35 degC, PV = 20 degC, requested output = 0%, applied output = 0%, bias = 75%, gain = 8 %/degC, and Manual mode. The 35 degC / 75% operating point is the state the controller is intended to reach, not the initial state. The unresolved baseline problem is: Lesson 4 selected proportional gain 8 percent per degree Celsius, but the zero-bias controller retained 6.9 degrees Celsius changed-load mean absolute error.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Measure the nominal holding output with bounded manual trials, add only that measured bias, and repeat the identical proportional-controller experiment.
+   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: measure the nominal holding output with bounded manual trials and add only that measured bias, because a fixed bias measured once at the normal operating point is simpler than a controller that re-measures it, and repeat the identical proportional-controller experiment.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested and applied MV, bias, gain, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project derives Auto and owns `Kp = 8 %/°C`, the measured 75% bias, and the timed load event.
-   - **Decision before action:** Before selecting **Review test**, predict the response to Cold-water flow increases at 60 s and shifts the zero-power equilibrium from 20 to 17 degC. Confirm the live values are current and the reviewed plan stays inside Outlet-water temperature 0 degC to 80 degC; Applied heater power 0 % to 100 %.
+   - **Decision before action:** Before selecting **Review test**, predict that increased cold-water flow at 60 s raises heat loss, so the fixed 75% bias can no longer hold 35 degC alone and positive settled error should appear. Confirm the live values are current and the reviewed plan stays inside Outlet-water temperature 0 degC to 80 degC; Applied heater power 0 % to 100 %.
    - **Successful evidence:** Select **Review test**, verify **P1.ExperimentEnabled**, the timeout, stop conditions, and false restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and completion restores authority false and requested and applied power to 0%.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test. Return to Manual mode and confirm zero percent requested and applied output as the restoration state.
    - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260828**.
 
 ## Evidence and decision
 
-### Measures and comparison
-
 Apply the validity, settling, MAE, output-range, load-increase, and selection
-definitions declared before the experiment. Use 50.1–60.0 seconds for manual
-and nominal windows and 110.1–120.0 seconds after the load. Retained startup
-saturation is allowed, but final-window saturation invalidates that window.
-There is no physical-plant acceptance threshold.
-
-CSV traces and `figures/qualification-summary.csv` retain the calculations;
-tables below are rounded presentations.
+definitions declared before the experiment to the retained CSV traces and
+`figures/qualification-summary.csv`, not the rounded tables below. Use
+50.1–60.0 seconds for manual and nominal windows and 110.1–120.0 seconds after
+the load; retained startup saturation is allowed, but final-window saturation
+invalidates that window. There is no physical acceptance threshold.
 
 ![Manual trials used to measure the water-heater holding output](figures/holding-output-trials.svg)
 
@@ -212,7 +211,8 @@ tables below are rounded presentations.
 | 75% manual | Settled; valid | 35.00 °C | 0.00 °C | 0.00 pp | 0.00 pp | Selected holding output |
 | 80% manual | Settled; valid | 36.00 °C | 1.00 °C | 0.00 pp | 0.00 pp | Eligible, not selected |
 
-The trials select 75 percent as nominal holding output and controller bias.
+Only the 75 percent trial meets the 0.10 °C criterion, so the trials select
+it as nominal holding output and controller bias.
 
 ![Measured holding output and biased proportional-control comparison](figures/bias-comparison.svg)
 
@@ -221,16 +221,12 @@ The trials select 75 percent as nominal holding output and controller bias.
 | Gain 8, zero bias | Both windows settled; valid baseline | 5.77 °C | 6.92 °C | 46.15% | 55.38% | 9.23 pp |
 | Gain 8, measured 75% bias | Both windows settled; valid comparison | 0.00 °C | 1.15 °C | 75.00% | 84.23% | 9.23 pp |
 
-Startup requests exceed 100 percent but applied output clamps correctly. Final
-windows are unsaturated with 0.00 percentage-point output ranges.
-
-### Validation
-
-Values are finite and bounded, windows settle, and every run restores Manual
-zero output. The 75 percent trial is valid, meets the criterion, and is selected;
-the other equilibria are valid but not selected. Bias reduces nominal error
-from 5.77 to 0.00 degrees Celsius. After load, output rises 9.23 percentage
-points but 1.15 degrees Celsius settled error remains, so it is a limitation.
+Startup requests exceed 100 percent but applied output clamps correctly, and
+both final windows are unsaturated with 0.00 percentage-point output ranges;
+every value is finite and bounded and every run restores Manual zero output.
+Bias reduces nominal error from 5.77 to 0.00 °C; after load, applied output
+rises 9.23 percentage points but 1.15 °C of settled error remains — the
+retained limitation.
 
 ## Conclusion
 

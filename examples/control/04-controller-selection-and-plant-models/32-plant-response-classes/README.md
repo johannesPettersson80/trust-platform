@@ -8,18 +8,15 @@ selection](../../04-controller-selection-and-plant-models/31-controller-selectio
 modules and classify each response from measured signatures without fitting a
 model.
 
-This shared experiment is simulation evidence. Each physical plant would need
-its own approved step, limits, and abort procedure.
-
-**Equipment:** Modular skid with heated vessel, buffer tank, conveyor oven, and
-flexible drive.
+**Evidence class:** Simulation evidence. Each physical plant would need its
+own approved step, limits, and abort procedure.
 
 ## The problem
 
 Lesson 31 selected controllers because each plant class was already known.
-This lesson removes that prior knowledge. A modular training skid contains a heated vessel, buffer tank, long conveyor
-oven, and flexible mechanical drive. The first seconds of their trends can all
-look like “a slow rise,” but the mechanisms are different.
+This lesson removes that prior knowledge. The equipment is a modular skid with heated vessel, buffer tank, conveyor oven, and flexible drive. The first
+seconds of their trends can all look like “a slow rise,” but the mechanisms
+are different.
 
 The configured model names remain hidden until the learner commits a
 classification.
@@ -72,25 +69,40 @@ it into a 20-percentage-point heater command, a 10-percentage-point tank
 net-inflow trim, a 20-point oven command, and a one-newton-metre drive torque.
 The plots retain those physical commands and PV units.
 
+All four modules are configured teaching values for this skid, chosen to
+isolate one response signature apiece. On real equipment a learner would
+obtain the vessel and oven gain/time-constant/delay from a bounded step test,
+the tank's integrating gain from a bounded step test relating commanded
+net-inflow change to measured level-rise rate, and the drive's natural
+frequency and damping ratio from a free-decay or frequency-response test on
+the installed mechanism.
+
 The heated vessel starts at 50 °C. A self-regulating first-order step follows
 
 $T(t)=T_0+K\Delta MV(1-e^{-t/\tau}).$
 
 The final change is $K\Delta MV=0.2(20)=4^\circ\mathrm{C}$, so equilibrium
-is 54 °C. At 12 seconds, $t/\tau=12/3=4$:
+is 54 degrees Celsius (54 °C). At 12 seconds, $t/\tau=12/3=4$:
 
 $T(12)=50+4(1-e^{-4})=53.927^\circ\mathrm{C}.$
 
-The exponential term shrinks toward zero, explaining both the finite
-equilibrium and the decreasing late slope.
+The vessel therefore reaches 53.93 degrees Celsius at twelve seconds. The
+exponential term shrinks toward zero, explaining both the finite equilibrium
+and the decreasing late slope.
 
-The tank starts at 50 cm. Its open-loop balance is
-$dL/dt=K_i\Delta MV$. Thus $dL/dt=0.1(10)=1$ cm/s. Integrating the constant
-slope gives
+This skid's buffer tank is distinct equipment from Lesson 31's workshop tank:
+same name and same 50 cm starting level, but a different **tank integrating
+gain ($K_t$)** — 0.1 here versus 0.2 cm/(%·s) there — because it is a separate
+tank on this training skid. The tank starts at 50 cm. Its open-loop balance is
+
+$dL/dt=K_t\Delta MV,\qquad K_t=0.1\text{ cm/(\% s)}.$
+
+Thus $dL/dt=0.1(10)=1$ cm/s. Integrating the constant slope gives
 
 $L(t)=L_0+(1\text{ cm/s})t,$
 
-so $L(12)=50+12=62$ cm. No loss term appears to create an equilibrium.
+so $L(12)=50+12=62$ cm. The tank therefore reaches 62 centimetres after 12
+seconds. No loss term appears to create an equilibrium.
 
 The oven starts at 80 °C. Its 4-second transport delay means elapsed response
 time is $t-L$, not $t$. Its final change is $0.25(20)=5^\circ\mathrm{C}$.
@@ -99,7 +111,8 @@ For $t>4$,
 $T(t)=80+5(1-e^{-(t-4)/2}).$
 
 At 12 seconds, the dynamic part has run for 8 seconds, or four time constants:
-$T(12)=80+5(1-e^{-4})=84.908^\circ\mathrm{C}$.
+$T(12)=80+5(1-e^{-4})=84.908^\circ\mathrm{C}$. After a delay of four seconds
+the oven begins to respond, reaching 84.91 degrees Celsius by twelve seconds.
 
 The drive has unit static gain, natural frequency 1 rad/s, and damping ratio
 $\zeta=0.2$. A standard underdamped second-order step has fractional
@@ -109,8 +122,8 @@ $M_p=e^{-\zeta\pi/\sqrt{1-\zeta^2}}.$
 
 This comes from evaluating the exponentially decaying oscillation envelope at
 its first peak. Substitution gives
-$M_p=e^{-0.2\pi/\sqrt{0.96}}=0.5266$, or 52.7%. A unit final position
-therefore predicts a first peak near $1+0.5266=1.527$ rad.
+$M_p=e^{-0.2\pi/\sqrt{0.96}}=0.5266$, or 52.7 percent overshoot. A unit final
+position therefore predicts a first peak near $1+0.5266=1.527$ rad.
 
 <details>
 <summary>Reveal the plant identities</summary>
@@ -168,14 +181,18 @@ the measured classification; Monitor and Test expose the same open-loop step.
 
 ## Evidence and decision
 
-### Measures and comparison
+The four modules share only the normalized command; each keeps its own
+actuator, sensor, and physical units.
 
-**Response delay** is
+![Four independent modules share one normalized command and nothing else](figures/plant-response-classes-topology.svg)
+
+**Response delay ($L$)** is the elapsed time from the input step until the
+first PV change larger than sensor resolution:
 $L=t_{\text{first resolvable PV}}-t_{\text{input step}}$. Requiring a
 change larger than sensor resolution prevents noise or rounding from being
 called physical response.
 
-**Late slope** is
+**Late slope** is the rate of change over the final window,
 $m_{\mathrm{late}}=(PV_{\mathrm{end}}-PV_{\mathrm{start}})/
 (t_{\mathrm{end}}-t_{\mathrm{start}})$, in PV units per second. A steady value
 is eligible only when this remaining rate is sufficiently close to zero.
@@ -184,8 +201,9 @@ is eligible only when this remaining rate is sufficiently close to zero.
 $M_p=100\frac{PV_{\mathrm{peak}}-PV_{\mathrm{steady}}} {PV_{\mathrm{steady}}-PV_0}.$
 Dividing excess peak by the intended steady change makes the measure relative;
 it is valid only when a steady value is eligible. **Crossing count** counts
-sign changes of $PV-PV_{\mathrm{steady}}$ after first arrival, revealing
-oscillation rather than one-sided approach.
+sign changes relative to the steady value,
+$PV-PV_{\mathrm{steady}}$, after first arrival, revealing oscillation rather
+than one-sided approach.
 
 | Module | Evidence | Classification |
 | --- | --- | --- |
@@ -200,11 +218,13 @@ physical values retained in the run, not the normalized plot alone.
 
 ![Equal open-loop steps reveal four different response classes](figures/plant-response-classes.svg)
 
+The vessel curve bends smoothly toward a finite ceiling, the tank curve keeps
+climbing at a constant slope, the oven curve stays flat before it moves at
+all, and the drive curve overshoots and rings before settling.
+
 [Retained run](figures/plant-response-classes-run.csv) ·
 [Plot data](figures/plant-response-classes-trace.csv) ·
 [Decision summary](figures/plant-response-classes-summary.csv)
-
-### Validation
 
 Require vessel temperature within 0.10 °C of 53.93 °C and late-slope magnitude
 below 0.08 °C/s. Require tank late slope within 0.03 cm/s of 1 cm/s. Require

@@ -119,7 +119,7 @@
     "baseline": "Reject the next-more-aggressive ordinary PI and retain the highest-bandwidth candidate satisfying nominal and perturbed requirements.",
     "change": "Use the validated delay-free and delayed models to provide Smith-predicted feedback with bounded correction and measured-feedback fallback.",
     "comparison": "Hold operating state, demand, disturbance, limits, timing, seed and windows equal; declare tuning and plant-model changes explicitly.",
-    "validation": "Require at least 20-percent nominal IAE improvement, bounded moderate mismatch degradation, and deterministic fallback under severe mismatch.",
+    "validation": "Require nominal Smith control to reach 90 percent of the requested temperature rise at least 15 percent sooner and to have lower setpoint-window integral absolute error than accepted ordinary feedback, bounded moderate mismatch degradation, and deterministic fallback under severe mismatch.",
     "explanation": "Prediction accounts for heater action still in transit; correction anchors the model, while mismatch exposes why physical delay was never removed.",
     "transfer": "Use Smith prediction only with a validated uncertainty envelope; Lesson 60 diagnoses a nonlinear or sticking final element."
   }

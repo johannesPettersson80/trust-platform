@@ -1,12 +1,10 @@
 # Check two-tank actuator and sensor feasibility
 
-Course position: Lesson 64 of 84. Prerequisite:
-`control-distillation-robustness`. Next lesson:
-`control-magnetic-bearing-state-feedback`.
-
-**Equipment:** Interconnected water-treatment buffer tanks.
+Course position: Lesson 64 of 84. Previous lesson: [Robust distillation architecture selection](../../10-multivariable-control/63-distillation-robustness/README.md). Next lesson: [Magnetic-bearing state feedback](../65-magnetic-bearing-state-feedback/README.md).
 
 **Lesson objective:** Calculate and execute the reachable and visible state directions for normal and deliberately deficient pump/sensor layouts, then accept or reject each hardware layout before design.
+
+**Evidence class:** Simulation evidence. This lesson operates a simulated water-treatment buffer; it is not approved for a physical tank pair.
 
 ## The problem
 
@@ -15,6 +13,8 @@ The equipment is a pilot water-treatment buffer with two interconnected vented t
 The normal actuator is an inlet pump into Tank 1. A maintenance bypass can inject flow directly into Tank 2, but cannot move water backward into Tank 1. The normal level transmitter measures Tank 2. A deliberately deficient alternative measures only Tank 1.
 
 The local model loses 0.05 of Tank-1 deviation per second, transfers Tank-1 deviation into Tank 2 at 0.03 per second, and loses 0.04 of Tank-2 deviation per second. One litre per minute through either pump path changes the directly supplied tank's level rate by 0.20 centimetres per second. Flow is limited to -2 through +2 litres per minute, level deviation to -10 through +10 centimetres, and sampling is 0.1 seconds.
+
+These four coefficients — 0.05, 0.03, and 0.04 per second, and 0.20 centimetres per second per litre per minute — are **declared teaching values** for this simulation: they are configured directly in the plant model, not calculated from tank geometry, transcribed from a pump curve, or fitted to a measured experiment. A learner obtaining them from a real buffer-tank pair would instead run a Lesson-8-style bounded step on each pump path in turn, holding the other path fixed, and fit each settled rate and gain from the measured response.
 
 The simulator displays both true tank states so you can check the lesson's claims. These Simulation-only truth channels are not installed controller inputs. The selected sensor signal remains separate. A physical controller cannot use a truth channel unless that sensor actually exists.
 
@@ -53,7 +53,7 @@ The first equation says that the present state and pump input determine how quic
 
 ### Controllability
 
-The immediate pump-driven state direction is the first column, $B$. Natural tank dynamics transform that direction into a second column, `A*B`. The controllability matrix ($\mathcal{C}$) places both columns side by side:
+The immediate pump-driven state direction is the first column, $B$. Natural tank dynamics transform that direction into a second column, $\mathbf{A}\mathbf{B}$. The controllability matrix ($\mathcal{C}$) places both columns side by side:
 
 $\mathcal{C}=\begin{bmatrix}\mathbf{B}&\mathbf{A}\mathbf{B}\end{bmatrix}$
 
@@ -71,6 +71,8 @@ The second column is $AB=[-0.05(0.20),0.03(0.20)]^T=[-0.010,0.006]^T$.
 The determinant is $0.20(0.006)-0(-0.010)=0.0012$. Because it is nonzero, the
 two columns are independent and the rank is two.
 
+The **condition number ($\kappa$)** is the ratio of a matrix's largest to smallest singular value, the same quantity Lesson 63 defined for a gain matrix. Here it measures how close $\mathcal{C}_{\mathrm{upstream}}$'s two directions are to collapsing into one: a small condition number means the pump-driven and hydraulically-transferred directions are nearly perpendicular, so both are cleanly excited; a large one means they nearly overlap, so distinguishing them from noisy data is numerically fragile even though the rank is still two. Using Lesson 63's row-times-column method on $\mathcal{C}_{\mathrm{upstream}}$: its columns are $[0.20,0]^T$ and $[-0.010,0.006]^T$, giving $a=0.20^2+0^2=0.04$, $d=(-0.010)^2+0.006^2=0.000136$, and $b=0.20(-0.010)+0(0.006)=-0.002$. The eigenvalues of $\mathcal{C}_{\mathrm{upstream}}^T\mathcal{C}_{\mathrm{upstream}}$ are then $\lambda_{\pm}=[a+d\pm\sqrt{(a-d)^2+4b^2}]/2=0.0401001$ and $0.0000359$, whose square roots are the singular values 0.2003 and 0.005993; their ratio is the condition number, $\kappa=0.2003/0.005993=33.417$, matching the Validation table below.
+
 For direct downstream injection, the bypass input matrix ($\mathbf{B}_{\mathrm{bypass}}$) gives:
 
 $\mathbf{B}_{\mathrm{bypass}}=\begin{bmatrix}0\\0.20\end{bmatrix}$
@@ -84,7 +86,7 @@ Tank-2 axis, so rank is one.
 
 ### Observability
 
-The immediate sensor information is the row $C$. Natural dynamics expose additional information in the measurement rate, represented by `C*A`. The observability matrix ($\mathcal{O}$) stacks those rows:
+The immediate sensor information is the row $C$. Natural dynamics expose additional information in the measurement rate, represented by $\mathbf{C}\mathbf{A}$. The observability matrix ($\mathcal{O}$) stacks those rows:
 
 $\mathcal{O}=\begin{bmatrix}\mathbf{C}\\\mathbf{C}\mathbf{A}\end{bmatrix}$
 
@@ -137,12 +139,18 @@ There is no feedback controller or observer in this lesson. The actual Structure
 
 ```st
 FlowApplied := LIMIT(LREAL#-2.0, FlowRequested, LREAL#2.0);
+(* Layout 0 drives the upstream pump; layout 1 drives the downstream bypass.
+   The unselected output stays at zero so one actuator owns the flow request. *)
 IF ActuatorLayout = 1 THEN
+    UpstreamPumpApplied := LREAL#0.0;
     BypassPumpApplied := FlowApplied;
 ELSE
     UpstreamPumpApplied := FlowApplied;
+    BypassPumpApplied := LREAL#0.0;
 END_IF;
 
+(* Sensor layout 0 exposes Tank 2; layout 1 exposes Tank 1. Only the selected
+   measurement is controller-facing; both truth channels remain diagnostics. *)
 IF SensorLayout = 1 THEN
     SelectedMeasurement := Tank1Truth;
 ELSE
@@ -162,25 +170,25 @@ is 20260829.
 
 ### Control Studio actions
 
-1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
+1. **Monitor** — Select target **Simulator**, choose **Run**, then open **Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Selected level measurement (PV, cm); Requested pump-flow change (MV, L/min) and Applied selected flow (MV, L/min), including units, limits, mode, and quality. The initial operating point is Requested pump-flow change = 0 L/min, Applied upstream-pump flow = 0 L/min, Applied bypass-pump flow = 0 L/min, Selected level measurement = 0 cm, Simulation truth Tank-1 level deviation = 0 cm, Simulation truth Tank-2 level deviation = 0 cm. The unresolved baseline problem is: A downstream bypass cannot move Tank 1 and an upstream-only transmitter cannot reveal a downstream-only initial deviation. Control Studio Monitor must show Simulation mode, Manual authority, both actuator paths, and both sensor paths before feasibility is judged.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept full-state controller/observer design only for a layout whose independent matrices and executed movement/measurement evidence agree.
+   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept full-state controller/observer design only for a layout whose independent matrices and executed movement/measurement evidence agree, because a hardware layout that looks correct only in the matrix arithmetic can still leave a state direction physically unreachable or invisible.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the initial requested and applied pump-flow change, the selected level measurement, both Simulation truth tank levels, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
    - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **300.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). The project selects upstream pump and downstream sensor, holds zero for 20 seconds, applies +1 litre per minute to 200 seconds, then restores zero flow.
-   - **Decision before action:** Before selecting **Review test**, predict the immediate Tank-1 and delayed Tank-2 responses and confirm flow can remain within -2 through +2 litres per minute and both levels within -10 through +10 centimetres.
+   - **Decision before action:** Before selecting **Review test**, predict the immediate Tank-1 and delayed Tank-2 responses and confirm flow can remain within -2 through +2 litres per minute and both levels within -10 through +10 centimetres, because leaving that range would leave the local linear model this lesson's rank and slope predictions depend on.
    - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must distinguish the installed downstream measurement from both Simulation truth states. At termination authority clears and both pump outputs are zero. Keep **Abort test** visible.
    - **Recovery:** Select **Abort test** if the test is rejected, stale, unsafe, unavailable, failed, or aborted. Read the reason, confirm authority is false and both pump paths restored to zero, wait for current data, and review a new observation.
    - **Record:** Compare physical movement with the rank prediction and retain terminal state, restoration, and seed **20260829**. The native lesson test owns the bypass and hidden-state cases and numeric verdict; this observation does not create generic Identify or Validate evidence.
 
 ## Evidence and decision
 
-### Measures and comparison
+The first one-second state-rate slope is a **least-squares** level slope immediately after the pump event, in centimetres per second. A least-squares fit finds the straight line that minimizes the sum of squared vertical distances between the line and a set of sampled points; for a short noisy window this slope is a steadier estimate of the local rate of change than dividing two raw samples. As a tiny worked example, three points $(0,0)$, $(1,2)$, and $(2,3)$ have mean time 1 and mean value 1.6667; the least-squares slope is $[(-1)(-1.6667)+(0)(0.3333)+(1)(1.3333)]/[(-1)^2+0^2+1^2]=3/2=1.5$ units per second.
 
-The first one-second state-rate slope is a least-squares level slope immediately after the pump event, in centimetres per second. The sample time after the event ($t_{i}$) is measured in seconds, and the sampled tank-level deviation ($h_{i}$) is measured in centimetres. The average sample time ($t_{\mathrm{mean}}$) and average sampled level ($h_{\mathrm{mean}}$) are calculated over the first second. The slope is then calculated as:
+The sample time after the event ($t_{i}$) is measured in seconds, and the sampled tank-level deviation ($h_{i}$) is measured in centimetres. The average sample time ($t_{\mathrm{mean}}$) and average sampled level ($h_{\mathrm{mean}}$) are calculated over the first second. The slope formula below writes those same two averages as $\bar{t}=t_{\mathrm{mean}}$ and $\bar{h}=h_{\mathrm{mean}}$:
 
 $\mathrm{slope} =\frac{\sum_i(t_i-\bar{t})(h_i-\bar{h})} {\sum_i(t_i-\bar{t})^2}$
 
@@ -188,9 +196,7 @@ Peak level deviation is the largest absolute sampled level during the pump event
 
 Retain each matrix, determinant, rank, condition number, eigenvalue, physical response, limit state, and validity result with its exact actuator and sensor layout. A rank calculation and a trace must agree before a hardware conclusion is accepted.
 
-### Validation
-
-The upstream-pump and downstream-sensor matrices must each have rank two and condition number no greater than 50. The upstream step must produce a first-second Tank-1 slope within 0.02 centimetres per second of 0.20, followed by a Tank-2 response. The bypass must keep Tank-1 peak below 0.001 centimetres while Tank 2 moves by at least 1 centimetre.
+The upstream-pump and downstream-sensor matrices must each have rank two and condition number no greater than 50. The upstream step must produce a first-second Tank-1 slope within 0.02 centimetres per second of 0.20, followed by a Tank-2 response. The bypass must keep Tank-1 peak below 0.001 centimetres while Tank 2 moves by at least 1 centimetre. The 50 condition-number ceiling and the 0.02-centimetre-per-second slope tolerance are declared teaching values for this simulation, chosen so the two directions of $\mathcal{C}_{\mathrm{upstream}}$ (condition 33.4) pass comfortably while a nearly-collapsed pair of directions would not, and so the tolerance is wider than the 0.1-second sample noise but narrower than the predicted 0.20 centimetre-per-second rate itself.
 
 The downstream transmitter must respond by at least 0.10 centimetres to the Tank-1 initial state. The upstream transmitter must remain within 0.001 centimetres of zero during the Tank-2-only record while the hidden truth state starts above 4.9 centimetres. Every selected measurement must agree with its selected truth channel within 0.001 centimetres.
 

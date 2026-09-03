@@ -122,14 +122,14 @@ a tuning candidate.
 **Decision direction:** a candidate is eligible only if it is finite, settled,
 recovers within 15 seconds, has at most 0.2 degrees Celsius final MAE, at most
 0.25 degrees Celsius overshoot, and zero normal-run saturation duration. These
-are declared teaching values for this simulation, not physical-plant
-acceptance thresholds, chosen so the requirement actually discriminates
-candidates: 15 seconds is faster than Lesson 6's 25.5-second integral-only
-recovery, so a passing candidate must genuinely improve on that baseline; 0.2
-degrees Celsius reuses the same band that defines recovery time above, so the
-final-error and recovery criteria stay consistent; and 0.25 degrees Celsius
-permits the small overshoot fast integral action produces without excusing the
-much larger overshoot the $K_i$ 8 candidate later shows.
+are simulation teaching criteria, not physical-plant acceptance threshold
+values: they are declared teaching values chosen so the requirement actually
+discriminates candidates. 15 seconds is faster than Lesson 6's 25.5-second
+integral-only recovery, so a passing candidate must genuinely improve on that
+baseline; 0.2 degrees Celsius reuses the same band that defines recovery time
+above, so the final-error and recovery criteria stay consistent; and 0.25
+degrees Celsius permits the small overshoot fast integral action produces
+without excusing the much larger overshoot the $K_i$ 8 candidate later shows.
 Select shortest recovery; when two results differ by no more than one sample
 (0.1 second), prefer lower movement.
 
@@ -231,7 +231,7 @@ therefore Manual zero output. The deterministic Simulation seed is 20260828.
    - **Record:** Write down the initial SP, PV, requested and applied output, both gains, both increments, measured holding output, mode, and your predicted 81% first request before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Control Studio sets it true; the project derives Auto mode and owns selected Kp 8, selected Ki 4, the measured holding-output preload, and the timed load event. The native sweep restores the Manual holding condition before starting each additional candidate and restores every run at 120.1 seconds to Manual with zero requested and applied output.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The reviewed authority is **Experiment authority** (`P1.ExperimentEnabled`). Control Studio sets it true; the project derives Auto mode and owns selected Kp 8, selected Ki 4, the measured holding-output preload, and the timed load event. The native sweep restores the Manual holding condition before starting the next candidate and restores every run at 120.1 seconds to Manual with zero requested and applied output.
    - **Decision before action:** Before selecting **Review test**, predict the response to Cold-water flow increases at 60 s in the normal comparison. Confirm the live values are current and the reviewed plan stays inside Outlet-water temperature 0 degC to 80 degC; Applied heater power 0 % to 100 %.
    - **Successful evidence:** Select **Review test**, verify **P1.ExperimentEnabled**, the timeout, stop conditions, and false restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, the project derives Auto mode, the first unsaturated request is predicted as 81%, and completion restores experiment authority false, Auto false, and zero requested and applied output.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the safe Manual-zero initial state, and review a new test.

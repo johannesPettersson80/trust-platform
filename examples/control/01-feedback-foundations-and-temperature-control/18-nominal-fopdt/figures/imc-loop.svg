@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="420" viewBox="0 0 900 420" role="img" aria-labelledby="title desc">
+  <title id="title">Internal-model-controller loop used to derive the PI gains</title>
+  <desc id="desc">The controller Q(s) drives both the real plant G(s) and an internal copy of the model. The internal model's predicted output is subtracted from the real measured output. That difference, the part of the response the model did not predict, is fed back and subtracted from the setpoint before Q(s) acts again.</desc>
+  <defs>
+    <marker id="imc-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect width="900" height="420" rx="18" fill="#f8fafc"/>
+  <text x="40" y="40" fill="#0f172a" font-family="system-ui, sans-serif" font-size="22" font-weight="700">The internal-model-controller (IMC) loop</text>
+  <text x="40" y="64" fill="#475569" font-family="system-ui, sans-serif" font-size="14">Q(s) sees the mismatch between the real plant and its own internal model, not the raw setpoint error.</text>
+
+  <g font-family="system-ui, sans-serif" text-anchor="middle">
+    <circle cx="90" cy="140" r="16" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+    <text x="90" y="146" font-size="16" fill="#1e1b4b">&#931;</text>
+    <text x="66" y="118" font-size="14" fill="#1e1b4b">+</text>
+    <text x="66" y="176" font-size="14" fill="#1e1b4b">&#8722;</text>
+
+    <rect x="140" y="105" width="140" height="70" rx="10" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+    <text x="210" y="135" font-size="18" font-weight="700" fill="#0f172a">Q(s)</text>
+    <text x="210" y="157" font-size="12.5" fill="#3730a3">internal-model controller</text>
+
+    <rect x="360" y="105" width="140" height="70" rx="10" fill="#fff7ed" stroke="#c2410c" stroke-width="2"/>
+    <text x="430" y="135" font-size="18" font-weight="700" fill="#0f172a">G(s)</text>
+    <text x="430" y="157" font-size="12.5" fill="#9a3412">real plant, with delay</text>
+
+    <rect x="360" y="270" width="140" height="70" rx="10" fill="#f0fdf4" stroke="#15803d" stroke-width="2"/>
+    <text x="430" y="300" font-size="18" font-weight="700" fill="#0f172a">Q&#770;(s)</text>
+    <text x="430" y="322" font-size="12.5" fill="#166534">internal model, no delay to cancel</text>
+
+    <circle cx="540" cy="305" r="16" fill="#f0fdf4" stroke="#15803d" stroke-width="2"/>
+    <text x="540" y="311" font-size="16" fill="#052e16">&#931;</text>
+    <text x="516" y="283" font-size="14" fill="#052e16">+</text>
+    <text x="516" y="327" font-size="14" fill="#052e16">&#8722;</text>
+  </g>
+
+  <g fill="none" stroke="#334155" stroke-width="2.4" marker-end="url(#imc-arrow)">
+    <path d="M20 140 H72"/>
+    <path d="M106 140 H138"/>
+    <path d="M280 140 H358"/>
+    <path d="M500 140 H580"/>
+    <path d="M320 140 V270 H358"/>
+    <path d="M540 175 V287"/>
+    <path d="M500 305 H522"/>
+    <path d="M540 321 V380 H90 V158"/>
+  </g>
+  <circle cx="320" cy="140" r="3.5" fill="#334155"/>
+  <circle cx="540" cy="140" r="3.5" fill="#334155"/>
+
+  <g font-family="system-ui, sans-serif" font-size="14" fill="#0f172a">
+    <text x="20" y="122">setpoint (r)</text>
+    <text x="590" y="134">applied heater command (u)</text>
+    <text x="590" y="152">measured outlet temperature (y)</text>
+    <text x="330" y="230" fill="#334155" font-size="12.5">u also drives the internal model</text>
+    <text x="546" y="230" fill="#334155" font-size="12.5">y is compared with the model's own prediction</text>
+    <text x="120" y="405" fill="#334155" font-size="12.5">feedback: y &#8722; y&#770; (the response the model failed to predict) is subtracted from r</text>
+  </g>
+</svg>
