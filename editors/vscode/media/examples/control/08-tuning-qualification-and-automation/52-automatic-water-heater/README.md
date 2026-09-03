@@ -5,7 +5,7 @@ Next lesson: [Compensate measured conveyor-speed disturbances](../../09-industri
 
 **Lesson objective:** Run and audit Automatic Tune for a recirculating water heater, explain why each stage passes or stops, recover from the taught failures, and export one validated but unapplied controller recommendation.
 
-**Evidence class:** Simulation evidence from the shipped lesson project, not evidence from the physical plant.
+**Evidence class:** Simulation evidence, not physical-plant evidence.
 
 ## The problem
 
@@ -89,7 +89,9 @@ setpoint and load events, noise and seed, sample times, duration, limits, and
 model variations. Each requirement reports `Pass`, `Fail`, or `Inconclusive`
 with value, limit, unit, evidence source, and reason.
 
-An abort stops an actual experiment early. Restoration is the observed return
+An abort stops an actual experiment early: a user abort is the one you request
+with **Abort test**, an automatic abort is the one the safety envelope raises
+for you, and both must end in restoration. Restoration is the observed return
 to the reviewed setpoint, mode, and safe applied output. Sending a restoration
 request is not proof that restoration completed. A restoration failure is a
 distinct terminal result.
@@ -170,11 +172,23 @@ first. The deterministic Simulation seed is 20260829.
    - **Decision before action:** Before selecting **Review test**, predict the response to A minus-1-degC equilibrium-temperature load at 100 s. Confirm the live values are current and the reviewed plan stays inside Current applied heater power 0 % to 100 %; Candidate applied heater power 0 % to 100 %; Current water temperature 0 degC to 60 degC; Candidate water temperature 0 degC to 60 degC.
    - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
+   - **Taught failures:** Three failures are part of this lesson, and each stops the
+     sequence honestly rather than producing a controller. Remove the selected saved
+     plant and the run stops before any measurement, because there is nothing to
+     qualify against. Give the plant a negative gain and Identify accepts no model,
+     because a heater that cools contradicts the declared operating region. Request
+     excitation the safety envelope does not allow and the plan is rejected before it
+     runs. Confirm each stop states its reason, leaves the controller revision
+     unchanged, and applies nothing. Each stop names its own reason: poor recording
+     data stops qualification before a model is fitted, an unusable model stops
+     tuning before any candidate exists, and Validate reports **No acceptable
+     controller found** when every candidate misses a declared requirement.
+
    - **Record:** Compare both heater copies with the derived gains and predictions, then retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test must execute the internal `Test → Identify → Tune → Validate` sequence, every fail-closed branch, the unchanged-controller-revision check, and the unapplied result. Those internal service stages are evidence owned by the test; they are not extra student screens in this lesson.
 
 ## Evidence and decision
 
-Every comparison below changes one thing only, so a difference is attributable.
+Each comparison changes one thing only.
 
 Use one saved conditions record for the running Robust PI and the unapplied
 candidate. Retain setpoint, process value, requested and applied power, IAE,
@@ -186,7 +200,7 @@ evidence revisions, confirmation count, excitation count, completed-stage
 prefix, failed stage, stop reason, abort state, restoration state, candidate
 $applied = false$, and active-controller revision before and after each path.
 
-A result counts only when it passes the checks declared before the run.
+A result counts only if it passes the checks declared before the run.
 
 The successful path must execute exactly Test, Identify, Tune, and Validate;
 reuse the exact Simulation model with zero excitation; retain every method

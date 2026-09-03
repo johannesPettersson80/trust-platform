@@ -41,6 +41,15 @@ function fopdtSamples(amplitude = 2): IdentificationSample[] {
   return result;
 }
 
+// panel.ts's markup and styles were split out into panelTemplate.ts and panelStyles.ts;
+// every assertion below inspects the shipped document, so it reads all of them together
+// and keeps validating the same rendered surface whichever file owns a fragment.
+function readControlStudioPanelSource(extensionRoot: string): string {
+  return ["panel.ts", "panelTemplate.ts", "panelStyles.ts", "stageAvailability.ts"]
+    .map((file) => fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", file), "utf8"))
+    .join("\n");
+}
+
 suite("Control Studio identification and tuning", () => {
   test("qualifies the retained Lesson 16 run and leaves a resolution-bounded FOPDT preview", () => {
     const repositoryRoot = process.env.TRUST_REPOSITORY_ROOT
@@ -358,7 +367,7 @@ suite("Control Studio identification and tuning", () => {
 
   test("renders the concise three-step identification review without exposing Tune early", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "panel.ts"), "utf8");
+    const panel = readControlStudioPanelSource(extensionRoot);
     const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "workflow.ts"), "utf8");
     assert.match(panel, /data-identify-run[^>]*>Qualify recording</);
     assert.match(panel, /data-identify-fit hidden>Fit estimation run</);
@@ -509,7 +518,7 @@ suite("Control Studio identification and tuning", () => {
 
   test("keeps the automatic method comparison behind one compact disclosure", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "panel.ts"), "utf8");
+    const panel = readControlStudioPanelSource(extensionRoot);
     const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "workflow.ts"), "utf8");
     assert.match(panel, /data-auto-tune-attempts/);
     assert.match(panel, /<summary>Method comparison<\/summary>/);
@@ -526,7 +535,7 @@ suite("Control Studio identification and tuning", () => {
 
   test("renders qualified tuning method evidence under the Design method control", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "panel.ts"), "utf8");
+    const panel = readControlStudioPanelSource(extensionRoot);
     const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "workflow.ts"), "utf8");
     assert.match(panel, /<label for="tune-method">Design method<\/label>/);
     assert.match(panel, /describeTuningMethod\(currentModel/);

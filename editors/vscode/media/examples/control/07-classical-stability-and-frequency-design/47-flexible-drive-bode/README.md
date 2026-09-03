@@ -5,7 +5,7 @@ Next lesson: [Count delayed-oven stability with Nyquist](../48-delayed-thermal-n
 
 **Lesson objective:** Measure the flexible-drive frequency response, expose resonance, and compare qualified unshaped and resonance-shaped margins.
 
-**Evidence class:** Simulation evidence from the shipped lesson project, not evidence from the physical plant.
+**Evidence class:** Simulation evidence, not physical-plant evidence.
 
 ## The problem
 
@@ -200,7 +200,7 @@ its complete window first. The deterministic Simulation seed is 20260829.
 
 ## Evidence and decision
 
-Every comparison below changes one thing only, so a difference is attributable.
+Each comparison changes one thing only.
 
 Change only probe frequency. Hold plant coefficients, operating point,
 amplitude, initial state, sample schedule, duration, limits, and seed equal.
@@ -222,7 +222,7 @@ phase margin, phase crossover, gain margin or explicit unavailable state, delay
 margin, resonance peak and frequency, bandwidth, model revision, and evidence
 class. Never select a favourable crossover while hiding another one.
 
-A result counts only when it passes the checks declared before the run.
+A result counts only if it passes the checks declared before the run.
 
 The executable simulation shall reproduce the three predicted magnitudes
 within 3 percent and phases within 2 degrees. The independent analytical oracle

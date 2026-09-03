@@ -11,12 +11,11 @@ copies.
 
 ## The problem
 
-The equipment is plate heat exchanger with four independent simulated controller copies.
-A steam valve controls the outlet temperature of a plate heat exchanger. Four
-independent copies of the same accepted local operating region compare
-manual proportional-only, manual proportional-integral, critical
-proportional-only, and historical proportional-integral control; every copy
-is simulated.
+A steam valve controls the outlet temperature of a
+plate heat exchanger with four independent simulated controller copies. The
+four independent copies compare manual proportional-only, manual
+proportional-integral, critical proportional-only, and historical
+proportional-integral control in one operating region.
 
 Each copy begins at 50 degrees Celsius with the valve at 20 percent —
 Lesson 41's accepted operating point. The plant is Lesson 41's validated

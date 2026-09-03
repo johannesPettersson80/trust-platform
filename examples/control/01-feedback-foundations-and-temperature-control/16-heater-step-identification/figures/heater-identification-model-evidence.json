@@ -1,8 +1,8 @@
 {
   "runId": "lesson-16",
   "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/16-heater-step-identification",
-  "projectContentRevisionSha256": "95ec3ec824bd9b96c1fd9d107bfb8be09cb50cbae2aeb4ad0f9253ba05b9abda",
-  "structuredTextRevisionSha256": "4af4084c5bbd67aa35e327d6e2d8b2ca2ecd918f63301c61142b340b3e309b86",
+  "projectContentRevisionSha256": "66c835bfc7daf7b08bace5df5306e88b934284be3c7cd30384f38fd98fa8c0f6",
+  "structuredTextRevisionSha256": "5c8d6802c534e76cf23d12b4b97ec58b06da9ba181c54e8e7f36d70f27d6d269",
   "seed": 20260827,
   "sampleTimeSeconds": 0.1,
   "evidenceClasses": {

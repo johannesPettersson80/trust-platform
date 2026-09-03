@@ -5,7 +5,7 @@ Next lesson: [Shape a precision motor-speed loop](../49-motor-sensitivity/README
 
 **Lesson objective:** Use complete Nyquist contours to predict and verify stable and unstable delayed conveyor-oven loops.
 
-**Evidence class:** Simulation evidence from the shipped lesson project, not evidence from the physical plant.
+**Evidence class:** Simulation evidence, not physical-plant evidence.
 
 ## The problem
 
@@ -249,7 +249,7 @@ deterministic Simulation seed is 20260829.
 
 ## Evidence and decision
 
-Every comparison below changes one thing only, so a difference is attributable.
+Each comparison changes one thing only.
 
 Change only transport delay. Hold plant gain, time constant, controller,
 operating point, setpoint event, initial state, sample schedule, duration,
@@ -271,7 +271,7 @@ time-domain manifestation of instability. Report the separate 0.333-degree-
 Celsius setpoint offset rather than calling it instability. Heater saturation
 makes the linear stability measure ineligible rather than proving stability.
 
-A result counts only when it passes the checks declared before the run.
+A result counts only if it passes the checks declared before the run.
 
 The numerical oracle must return zero encirclements and zero unstable poles for
 5 seconds of delay. It must return two clockwise encirclements, represented as

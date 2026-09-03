@@ -881,7 +881,9 @@ suite("Control lesson schema", () => {
       /controller process value \(pv_controller\).*after the selected measurement path/,
       /filter time constant \(τ_f\).*0\.1 second/,
       /filter coefficient \(a\).*fraction.*difference/,
-      /continuous reference cutoff frequency \(fc_reference\).*continuous first-order pole/,
+      // The lesson now derives the cutoff from the first-order magnitude response,
+      // which is where the minus-three-decibel definition comes from.
+      /continuous reference cutoff frequency \(fc_reference\).*continuous first-order magnitude/,
       /controller-pv increment rms.*root mean square.*consecutive.*differences/,
     ]) assert.match(filtering, definition);
     assert.ok(filtering.indexOf("filter coefficient (a)")

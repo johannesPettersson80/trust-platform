@@ -5,16 +5,15 @@ Next lesson: [Audit a complete Automatic Tune sequence](../52-automatic-water-he
 
 **Lesson objective:** Use accepted models of three real industrial processes to decide which PI tuning methods are eligible, validate every real candidate under the same conditions, and conclude whether one candidate, several trade-off candidates, or no acceptable candidate meets the requirements.
 
-**Evidence class:** Simulation evidence from the shipped lesson project, not evidence from the physical plant.
+**Evidence class:** Simulation evidence, not physical-plant evidence.
 
 ## The problem
 
-Plants: Recirculating water heater, integrating buffer tank, and continuous belt dryer. Heater power controls water temperature, inlet-valve position controls
-level against outlet flow, and dryer heater command controls product dryness
-against incoming moisture load.
-
-Heater power, inlet-valve position, and dryer heater command are manipulated
-variables limited from 0 through 100 percent. The controller runs every 0.1
+Recirculating water heater, integrating buffer tank, and continuous belt dryer are this lesson's equipment.
+Heater power sets water temperature, inlet-valve position sets level against
+outlet flow, and dryer heater command sets product dryness against incoming
+moisture load. All three are manipulated variables limited from 0 through 100
+percent. The controller runs every 0.1
 seconds. Each sensor has the same deterministic 0.02-unit sinusoidal
 interference. This is Simulation evidence, not physical-plant evidence.
 
@@ -218,8 +217,6 @@ The deterministic Simulation seed is 20260829.
 
 ## Evidence and decision
 
-Every comparison below changes one thing only, so a difference is attributable.
-
 Change only the tuning method and the resulting proportional gain ($K_p$) and
 integral gain ($K_i$). Hold model and revision, controller form, bias, setpoint
 weights, anti-windup, limits, rate limits, tracking time, initial state, sample
@@ -246,9 +243,7 @@ at either output limit must remain zero. Record separate dispositions for
 setpoint tracking, disturbance rejection, measurement noise, and bounded model
 variation.
 
-A result counts only when it passes the checks declared before the run.
-
-First reject mismatched, stale, nonfinite, unstable, unbounded, or incomplete
+A result counts only if it passes these checks. First reject mismatched, stale, nonfinite, unstable, unbounded, or incomplete
 runs. Applied output must remain from 0 through 100 percent. Gain margin must be
 at least 6 dB and phase margin at least 30 degrees. A declared sensitivity
 measure must be computed, not omitted. Each controller must remain bounded
