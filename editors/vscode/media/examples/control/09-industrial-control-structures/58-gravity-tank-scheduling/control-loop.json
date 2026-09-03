@@ -42,7 +42,7 @@
       "symbol": "P1.FixedPumpRequest",
       "address": "%QL152",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "m3/s",
       "range": {
         "minimum": 0,
@@ -50,6 +50,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX89.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "scheduling-availability-1",
         "channel": "scheduling-availability",
@@ -215,10 +229,16 @@
   },
   "plantId": "three_equivalent_nonlinear_gravity_tanks",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "setpoint_step",
-    "amplitude": 0.5,
-    "durationSeconds": 420,
-    "seed": 20260829
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 420.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX89.2",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

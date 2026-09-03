@@ -1,8 +1,8 @@
 # Select the simplest useful dryer model
 
 Course position: Lesson 39 of 84. Previous lesson: [Plant-matched excitation
-methods](../38-excitation-methods/README.md). Next lesson: inadequate and biased
-identification data.
+methods](../38-excitation-methods/README.md). Next lesson:
+[inadequate and biased identification data](../40-poor-excitation/README.md).
 
 **Lesson objective:** Fit and independently validate first-order,
 first-order-plus-dead-time (FOPDT), second-order, and integrating candidates for
@@ -14,8 +14,6 @@ product-zone temperature measurement.
 This lesson produces simulation evidence, not physical-plant evidence.
 
 ## The problem
-
-The equipment in this lesson is Continuous conveyor drying tunnel with heated-air demand and product-zone temperature measurement.
 
 A conveyor carries wet product through a heated-air drying tunnel. Heater
 demand is the manipulated input in percent. Product-zone temperature is the
@@ -35,7 +33,8 @@ delay without predicting another experiment.
 
 ## What we need
 
-We need to compare several physically plausible model structures using both estimation evidence and a separate validation record. Complexity is justified only when it improves independent prediction and leaves acceptable residual behavior.
+We need to compare candidate dryer models on independent prediction evidence,
+not reward a model merely for fitting the data that selected its parameters.
 
 ## The new idea
 
@@ -49,15 +48,26 @@ The measured output ($y_{\mathrm{measured}}$) is dryer temperature. The model-pr
 output ($y_{\mathrm{predicted}}$) is the temperature calculated by a candidate. Both use
 degrees Celsius. The residual ($r$) is measured minus predicted output:
 
-$r = y_{\mathrm{measured}} - y_{\mathrm{predicted}}$
+\[
+r_k=y_{\mathrm{measured},k}-y_{\mathrm{predicted},k}.
+\]
 
 The root-mean-square prediction error ($RMSE$) is the square root of the mean
 squared residual over a declared window:
 
-$RMSE = \sqrt{\operatorname{mean}\left(r \cdot r\right)}$
+\[
+RMSE=\sqrt{\frac{1}{N}\sum_{k=1}^{N}r_k^2}.
+\]
 
-**Residual bias** is the mean residual. **Residual autocorrelation** is the
-similarity of residuals separated by a declared sample lag. Small RMSE with
+Squaring prevents positive and negative residuals from cancelling and
+penalizes large misses. Dividing by sample count makes records of different
+length comparable, and the square root returns the result to degrees Celsius.
+
+**Residual bias** is $\bar r=(1/N)\sum r_k$; it exposes a consistent
+overprediction or underprediction that RMSE cannot sign. At lag one,
+**residual autocorrelation** compares $r_k-\bar r$ with
+$r_{k-1}-\bar r$ across the record. Large correlation means adjacent errors
+carry repeatable structure rather than independent noise. Small RMSE with
 bias or correlation means repeatable dynamics remain unexplained.
 
 **Model complexity** is the number and freedom of estimated dynamic parameters,
@@ -79,16 +89,24 @@ equilibrium.
 noise assumptions. Compare fits on early and late estimation subsets and
 report their parameter spread; one optimiser result is not exact plant truth.
 
-Before looking at results, define **material validation improvement**: extra
-complexity is justified only if independent-validation RMSE falls by at least
-10 percent, a repeatable residual feature disappears, and every added
-parameter remains physically plausible and sufficiently certain.
+Before looking at results, define **material validation improvement**. Relative
+improvement from a simpler candidate $s$ to a more complex candidate $c$ is
+$100(RMSE_s-RMSE_c)/RMSE_s$. Extra complexity is justified only when this is at
+least 10%, a repeatable residual feature disappears, and every added parameter
+remains physically plausible and sufficiently certain.
 
 ## Prediction
 
-A 10-percentage-point step from 30 to 40 percent predicts a 4-degree-Celsius
-rise from 80 to 84 degrees Celsius. The first 4 seconds should contain no
-heater-attributable response.
+A 10-percentage-point step from 30 to 40 percent predicts
+$\Delta T=K\Delta u=0.4(10)=4$ °C, from 80 to 84 °C. For the FOPDT candidate,
+
+\[
+T(t)=80+4\left(1-e^{-(t-4)/12}\right),\qquad t\ge4\ \mathrm s.
+\]
+
+The first four seconds contain no heater-attributable response. At 16 seconds,
+one time constant after the delay, the prediction is
+$80+4(1-e^{-1})=82.528$ °C; late in the run it approaches 84 °C.
 
 Predict that a first-order model creates early residual bias, an integrating
 model fails the finite equilibrium, and FOPDT explains the delay, monotonic lag,
@@ -117,7 +135,12 @@ the Structured Text contains no hidden candidate score or accepted answer.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Compare the same candidates using independent pulse prediction, residual structure, parameter uncertainty, equilibrium behavior, and the predeclared complexity rule. The declared event lasts 90 seconds. It restores Applied heater demand to 30 % afterward. The deterministic Simulation seed is 20260829.
+Control Studio exposes the estimation step. Test writes one reviewed Boolean,
+`P1.ExperimentEnabled`, for 90.1 seconds. The project owns the 30-to-40% heater
+request and restoration to 30%. A fresh native run owns the independent
+5-point validation pulse and all frozen-candidate scoring; otherwise the
+validation record would no longer be withheld from fitting. The deterministic
+Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -129,25 +152,16 @@ This procedure tests one declared lesson change under controlled conditions. Com
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Manual output step**, **Amplitude** = **10 %**, and **Maximum duration (s)** = **90**. The affected signal is **Applied heater demand**; it starts at 30 % and must restore to 30 %.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Applied heater demand 20 % to 50 %; Product-zone temperature 75 degC to 90 degC.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Applied heater demand to 30 %, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **90.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm requested/applied heater = 30% and temperature = 80 °C.
+   - **Decision before action:** Before selecting **Review test**, predict no attributable response for four seconds, then a monotonic rise toward 84 °C. Confirm the project-owned input remains inside 20–50% and temperature inside 75–90 °C.
+   - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe the 40% request, delayed rise, retained estimation recording, and 30% restoration.
+   - **Recovery:** Abort for stale, invalid, nonfinite, clipped, confounded, or out-of-range data. Confirm authority false and requested/applied heater 30% before retrying.
+   - **Record:** Retain terminal state, restoration, estimation samples, timing, onset, input/output units, quality, seed, and the prediction made before the run.
 
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **DryerIdentificationExperiment** model and must not be accepted as this lesson's design authority. Compare every candidate on the same estimation window, the same weighting, and the same sample inclusion rule. Compare every candidate on the same estimation window, the same weighting, and the same sample inclusion rule. Use independent validation with the declared 5-percentage-point pulse before selecting a structure. Compare every candidate on the same estimation window, the same weighting, and the same sample inclusion rule. Use independent validation with the declared 5-percentage-point pulse before selecting a structure. Do not Tune or Apply from the estimation fit.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Simplest-adequate model structure selection** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: qualified_response_onset >= 3.5 s (tolerance 0.5 s); fopdt_validation_rmse <= 0.1 degC (tolerance 0.005 degC); fopdt_absolute_residual_bias <= 0.03 degC (tolerance 0.005 degC); first_order_delay_window_bias >= 0.1 degC (tolerance 0.01 degC).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+There is no separate shared Identify or disabled Validate stage in this lesson.
+Native executable evidence owns fitting the four frozen candidates and testing
+them on the withheld pulse. The retained tables report that native result; they
+are not a substitute for a newly executed run.
 
 ## Evidence and decision
 

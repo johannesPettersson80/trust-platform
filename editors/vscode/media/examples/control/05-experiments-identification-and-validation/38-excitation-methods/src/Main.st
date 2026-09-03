@@ -1,5 +1,8 @@
 PROGRAM Main
 VAR
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     PlantSelection : INT := 0;
     MethodSelection : INT := 1;
     StartExperiment : BOOL := FALSE;
@@ -27,6 +30,30 @@ VAR
     NormalizedExcitation : LREAL := LREAL#0.0;
     PatternIndex : INT := 0;
 END_VAR
+
+IF ExperimentEnabled THEN
+    PlantSelection := 1;
+    MethodSelection := 6;
+    AmplitudeScale := LREAL#1.0;
+    RequestedDuration := LREAL#30.0;
+    ChirpStartHz := LREAL#0.2;
+    ChirpEndHz := LREAL#2.0;
+    ResetExperiment := FALSE;
+    StartExperiment := TRUE;
+ELSE
+    PlantSelection := 0;
+    MethodSelection := 1;
+    ResetExperiment := TRUE;
+    StartExperiment := FALSE;
+END_IF;
+
+InputsValid := HeaterTemperature >= LREAL#20.0
+    AND HeaterTemperature <= LREAL#30.0
+    AND ServoPosition >= LREAL#-0.35 AND ServoPosition <= LREAL#0.35;
+IF SafetyAbort OR NOT InputsValid THEN
+    StartExperiment := FALSE;
+    ResetExperiment := TRUE;
+END_IF;
 
 HeaterRequestedCommand := LREAL#20.0;
 ServoRequestedTorque := LREAL#0.0;
@@ -158,6 +185,9 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
+    P1.ExperimentEnabled AT %MX4.5 : BOOL;
+    P1.SafetyAbort AT %MX4.6 : BOOL;
+    P1.InputsValid AT %MX4.7 : BOOL;
     P1.PlantSelection AT %MW0 : INT;
     P1.MethodSelection AT %MW2 : INT;
     P1.StartExperiment AT %MX4.0 : BOOL;

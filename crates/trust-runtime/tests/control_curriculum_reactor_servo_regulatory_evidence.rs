@@ -558,7 +558,9 @@ fn control_curriculum_reactor_project_executes_the_servo_sequence() {
     let mut runtime = lesson_runtime();
     write_lreal(&mut runtime, "%IL0", 80.0);
     write_bool(&mut runtime, "%IX80.0", false);
-    runtime.execute_cycle().expect("retain Lesson 11 safe start");
+    runtime
+        .execute_cycle()
+        .expect("retain Lesson 11 safe start");
     assert_eq!(read_lreal(&runtime, "%ML0"), 80.0);
 
     write_bool(&mut runtime, "%IX80.0", true);

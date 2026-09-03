@@ -12,7 +12,7 @@
     "revision": "sha256:b3378e9d6ef7c5be83dd4e83cbdb793861c8e4508a8aba4edb5c561ff544cbb9",
     "action": "direct",
     "taskPeriodMs": 100,
-    "modeSignal": "%MX16.0"
+    "modeSignal": "%MX64.3"
   },
   "signals": {
     "setpoint": {
@@ -41,7 +41,7 @@
       "symbol": "P1.AppliedHeaterPower",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -146,6 +146,20 @@
           "minimum": 0,
           "maximum": 100
         }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX64.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     ]
   },
@@ -165,8 +179,8 @@
     "durationSeconds": 120,
     "seed": 20260828,
     "activation": {
-      "symbol": "P1.AutoMode",
-      "address": "%MX16.0",
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX64.0",
       "iecType": "BOOL",
       "direction": "write"
     }

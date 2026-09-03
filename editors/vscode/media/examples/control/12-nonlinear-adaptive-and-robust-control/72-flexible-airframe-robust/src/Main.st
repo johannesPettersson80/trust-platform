@@ -13,7 +13,7 @@ VAR
     NominalInput : Control.PIDInput;
     RobustInput : Control.PIDInput;
     Initialized : BOOL := FALSE;
-    ControllerEnabled : BOOL := TRUE;
+    ControllerEnabled : BOOL := FALSE;
     DataHealthy : BOOL := TRUE;
     NominalSaturated : BOOL := FALSE;
     RobustSaturated : BOOL := FALSE;
@@ -31,6 +31,9 @@ VAR
     RobustApplied : LREAL := 0.0;
     NominalGust : LREAL := 0.0;
     RobustGust : LREAL := 0.0;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
 END_VAR
 
 IF NOT Initialized THEN
@@ -84,10 +87,24 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
-IF (ScanCount >= DINT#250) AND (ScanCount < DINT#300) THEN
-    GustLoad := LREAL#0.10;
+(* Control Studio grants only authority. The project owns the nominal gust
+   record; uncertainty-grid and quality cases remain native tests. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ControllerEnabled := TRUE;
+    DataHealthy := TRUE;
+    IF (ScanCount >= DINT#250) AND (ScanCount < DINT#300) THEN
+        GustLoad := LREAL#0.10;
+    ELSE
+        GustLoad := LREAL#0.0;
+    END_IF;
+    ScanCount := ScanCount + DINT#1;
+    ElapsedTime := ElapsedTime + LREAL#0.02;
 ELSE
+    ControllerEnabled := FALSE;
+    DataHealthy := TRUE;
     GustLoad := LREAL#0.0;
+    ScanCount := DINT#0;
+    ElapsedTime := LREAL#0.0;
 END_IF;
 NominalGust := GustLoad;
 RobustGust := GustLoad;
@@ -131,8 +148,6 @@ RobustSaturated := ControllerEnabled AND DataHealthy
     AND (ABS(RobustRequested - RobustApplied) > LREAL#0.000000001);
 
 LastFilteredBending := FilteredRobustBending;
-ScanCount := ScanCount + DINT#1;
-ElapsedTime := ElapsedTime + LREAL#0.02;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -143,6 +158,9 @@ END_RESOURCE
 VAR_CONFIG
     P1.ControllerEnabled AT %MX64.0 : BOOL;
     P1.DataHealthy AT %MX64.1 : BOOL;
+    P1.ExperimentEnabled AT %MX64.2 : BOOL;
+    P1.SafetyAbort AT %MX64.3 : BOOL;
+    P1.InputsValid AT %MX64.4 : BOOL;
     P1.NominalSaturated AT %MX65.0 : BOOL;
     P1.RobustSaturated AT %MX65.1 : BOOL;
     P1.NominalRequested AT %ML72 : LREAL;

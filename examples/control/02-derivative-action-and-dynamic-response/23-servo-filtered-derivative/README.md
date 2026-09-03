@@ -13,7 +13,7 @@ physical encoder, drive, or positioning axis.
 
 **Equipment:** Encoder-based industrial positioning table.
 
-## Where this lesson begins
+## The problem
 
 Lesson 22 moved derivative action from the complete control error to the
 measured position. A setpoint step therefore no longer produces a derivative
@@ -44,7 +44,12 @@ deviation describes the typical distance of the samples from their mean; it
 does not mean that every sample is exactly 0.002 rad wrong. The seed 20260828
 makes the noise sequence repeatable so every filter sees the same experiment.
 
-## Why derivative action amplifies encoder noise
+## What we need
+
+We need to reduce the encoder-noise torque without delaying the real table
+motion so much that the controller reacts to stale position.
+
+## The new idea
 
 With derivative setpoint weight \(c=0\), the PID differentiates
 \(-PV_{control}\). Over one controller cycle, its derivative contribution is
@@ -95,7 +100,7 @@ contains proportional and integral action, table motion, gravity, and the
 output limit. The estimate predicts the scale and inverse dependence on scan
 time; it is not a replacement for the run.
 
-## Deriving the low-pass filter
+### Deriving the low-pass filter
 
 A low-pass filter creates a separate controller-facing measurement
 \(PV_{control}\). Slow changes are allowed through, while rapid changes are
@@ -165,7 +170,7 @@ The filter passes only one third of that sudden gap on the first scan. It does
 not discard the remaining two thirds: later scans continue closing the gap if
 the input stays there.
 
-## First order, second order, and phase lag
+### First order, second order, and phase lag
 
 **Filter order** is the number of identical stages in series. A first-order
 filter applies the update once. The second-order choice sends the first
@@ -197,7 +202,7 @@ value. For \(\tau=0.05\ \mathrm{s}\), \(f_c\approx3.18\ \mathrm{Hz}\). This
 gives physical meaning to the time constant, but the actual selection must use
 the sampled implementation and measured closed-loop response.
 
-## What the two measures mean
+### What the two measures mean
 
 Noise activity is measured from 15 to 20 seconds, after the large setpoint
 transient. For \(N\) samples in that window, define each applied-torque change
@@ -234,7 +239,7 @@ e_{final}=\left|0.5-\operatorname{mean}(PV_{control})\right|.
 A small final error does not prove that transient lag was acceptable. That is
 why the lesson keeps tracking, torque activity, and lag as separate measures.
 
-## Prediction and selection rule
+## Prediction
 
 Before running the project, predict this ordering:
 
@@ -332,13 +337,15 @@ or 78.0%. The 0.10-second and second-order choices look smoother, but both
 violate the predeclared lag limit. The 0.05-second first-order filter is the
 only tested candidate that meets both limits, so it is selected.
 
-## What you should take away
+## Conclusion
 
 A derivative term is an engineered dynamic element, not an unfiltered
 subtraction of two samples. Filtering the measurement reduces the rapid
 changes that derivative action turns into torque, but it also delays real
 feedback. Filter order and time constant must therefore be selected from both
 attenuation and lag evidence.
+
+## Reason for the next lesson
 
 Lesson 24 keeps this filtered servo and adds Coulomb friction, deadband,
 backlash, stiction, and motion limits. Those effects leave different patterns

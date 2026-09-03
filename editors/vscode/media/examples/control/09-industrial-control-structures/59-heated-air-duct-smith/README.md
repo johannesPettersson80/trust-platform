@@ -89,6 +89,14 @@ uses $K_p$ = 0.625 and $K_i$ = 0.052083. It must fail at least one predeclared
 criterion to prove that the accepted tuning is the strongest eligible
 candidate, rather than merely the weakest tuning tried.
 
+The numbers follow the same first-order design rule used earlier, now retaining
+the delay in the ordinary-feedback denominator:
+$K_p=T/[K(\lambda+L)]$, $T_i=T$, and $K_i=K_p/T_i$. With the accepted
+$\lambda=16$ seconds, $K_p=12/[0.8(16+16)]=0.46875$ and
+$K_i=0.46875/12=0.0390625$. The next candidate halves the design time to 8
+seconds, giving $K_p=12/[0.8(8+16)]=0.625$ and $K_i=0.052083$. It is faster by
+construction, but eligibility still depends on the robustness limits.
+
 ### Smith prediction
 
 The **delay-free model output ($y_{\mathrm{m0}}$)** estimates the current temperature effect
@@ -108,6 +116,12 @@ $y_{\mathrm{pred}} = y_{\mathrm{m0}} + c_m$
 The Smith PI is designed from the validated delay-free model with $K_p$ = 1.875
 percent per degree Celsius and $K_i$ = 0.15625 percent per
 degree-Celsius-second. It is not an ordinary-feedback candidate.
+
+For the predictor design, the controller acts on the delay-free estimate, so
+the same 8-second design target uses $L=0$ in the tuning equation:
+$K_p=12/[0.8(8)]=1.875$ and $K_i=1.875/12=0.15625$. The physical plant still
+contains 16 seconds of transport; only the model signal seen by the controller
+is delay-free.
 
 The PI receives $y_{\mathrm{pred}}$ only when the input history is complete, sensor quality
 is valid, signals remain in their qualified envelope, and absolute correction
@@ -173,44 +187,27 @@ result.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Use the validated delay-free and delayed models to provide Smith-predicted feedback with bounded correction and measured-feedback fallback. The declared event lasts 180 seconds. It restores Product-temperature setpoint to 20 degC afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the complete project-owned oven experiment. The
+project owns the temperature request, predictor/fallback logic, and restoration
+to 20 degrees Celsius; Control Studio writes only one Boolean authority signal.
+The plant scenario owns the inlet-temperature event. The deterministic
+Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Product-temperature setpoint (SP, degC); Downstream product temperature (PV, degC); Heater-power request (MV, %), including units, limits, mode, and quality. The initial operating point is Product-temperature setpoint = 20 degC, Downstream product temperature = 20 degC, Predicted current product temperature = 20 degC, Heater-power request = 0 %. The unresolved baseline problem is: The highest-bandwidth ordinary PI that passes the robustness envelope still reacts only after the downstream sensor sees transported heater action. Use Control Studio Monitor before Identify and Tune; retain 10 s at the 35 degC baseline, then the 70 s event and the 180 s restoration boundary.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Product-temperature setpoint (SP, degC); Downstream product temperature (PV, degC); Heater-power request (MV, %), including units, limits, mode, and quality. The initial operating point is Product-temperature setpoint = 20 degC, Downstream product temperature = 20 degC, Predicted current product temperature = 20 degC, Heater-power request = 0 %. The unresolved baseline problem is: The highest-bandwidth ordinary PI that passes the robustness envelope still reacts only after the downstream sensor sees transported heater action. Retain 10 s at the 35 degC baseline, then the 70 s event and the 180 s restoration boundary before opening Test.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept prediction only when its nominal improvement, mismatch degradation, correction limit and deterministic measured-feedback fallback are all visible.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Setpoint step**, **Amplitude** = **15 degC**, and **Maximum duration (s)** = **180**. The affected signal is **Product-temperature setpoint**; it starts at 20 degC and must restore to 20 degC.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Downstream product temperature 15 degC to 60 degC; Predicted current product temperature 15 degC to 60 degC; Heater-power request 0 % to 100 %; Model correction -5 degC to 5 degC.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Product-temperature setpoint to 20 degC, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Qualified ordinary PI followed by Smith prediction and model-mismatch validation** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Qualified ordinary PI followed by Smith prediction and model-mismatch validation** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Qualified ordinary PI followed by Smith prediction and model-mismatch validation** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Qualified ordinary PI followed by Smith prediction and model-mismatch validation**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: nominal_smith_ninety_percent_rise_time < 45 s (tolerance 0.1 s); nominal_smith_final_error <= 0.5 degC (tolerance 0.01 degC); model_correction_limit <= 5 degC (tolerance 0.000001 degC); severe_mismatch_fallback_count >= 1 (dimensionless) (tolerance 0 (dimensionless)).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **180.1**. Confirm the only writable signal is **Experiment authority** (`P1.ExperimentEnabled`, `%MX90.7`). The project holds 20 degrees Celsius for 10 seconds, requests 35 degrees Celsius, and restores 20 degrees Celsius when authority clears; the simulation scenario applies the declared 70-second inlet disturbance.
+   - **Decision before action:** Before selecting **Review test**, predict when the model can move before the sensor and confirm measured/predicted temperature can remain within 15 through 60 degrees Celsius, heater within 0 through 100 percent, and correction strictly inside plus or minus 5 degrees Celsius.
+   - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must show the full project-owned request, history qualification, prediction, disturbance response, and any fallback. At termination authority clears and setpoint is 20 degrees Celsius.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the reason, confirm authority is false and the setpoint restored to 20 degrees Celsius, wait for current data, and review a new observation.
+   - **Record:** Compare the response with your prediction and retain terminal state, restoration, and seed **20260829**. The native lesson test owns the ordinary-candidate sweep and mismatch verdicts; this observation does not create generic Identify, Tune, or Validate evidence.
 
 ## Evidence and decision
 

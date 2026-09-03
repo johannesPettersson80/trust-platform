@@ -11,8 +11,7 @@
     "design": "project",
     "revision": "sha256:curriculum-controller-74",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": {"symbol":"P1.ExperimentEnabled","address":"%MX82.5","iecType":"BOOL","direction":"write"}
+    "taskPeriodMs": 100
   },
   "signals": {
     "setpoint": {
@@ -231,7 +230,20 @@
           "maximum": 100
         }
       },
-      {"id":"experiment-authority","channel":"experiment-authority","role":"authority","symbol":"P1.ExperimentEnabled","address":"%MX82.5","iecType":"BOOL","direction":"write","unit":"1","range":{"minimum":0,"maximum":1}},
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX82.5",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "operating-mode",
         "channel": "operating-mode",
@@ -271,10 +283,16 @@
   },
   "plantId": "multirate_redundant_pumping_station",
   "experiment": {
-    "execution": "control-studio",
+    "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
     "durationSeconds": 28.1,
-    "seed": 20260829
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX82.5",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

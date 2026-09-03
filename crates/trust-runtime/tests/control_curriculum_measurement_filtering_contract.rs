@@ -461,7 +461,9 @@ fn lesson_13_project_executes_the_selected_filter_sequence() {
     for cycle in 1..=401 {
         let raw = read_lreal(&runtime, "%IL0");
         let true_pressure = read_lreal(&runtime, "%IL8");
-        runtime.execute_cycle().expect("execute project filter scan");
+        runtime
+            .execute_cycle()
+            .expect("execute project filter scan");
         if cycle == 1 || cycle == 50 {
             assert!(read_bool(&runtime, "%MX16.0"));
             assert_eq!(read_lreal(&runtime, "%ML0"), 0.0);
@@ -484,7 +486,9 @@ fn lesson_13_project_executes_the_selected_filter_sequence() {
     assert_eq!(read_lreal(&runtime, "%QL0"), 0.0);
 
     write_bool(&mut runtime, "%IX88.0", false);
-    runtime.execute_cycle().expect("restore experiment authority false");
+    runtime
+        .execute_cycle()
+        .expect("restore experiment authority false");
 }
 
 #[test]

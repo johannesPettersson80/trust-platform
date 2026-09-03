@@ -23,7 +23,30 @@ VAR
     FeedbackVelocity : LREAL := 0.0;
     GainDeflection : LREAL := 0.0;
     GainVelocity : LREAL := 0.0;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
 END_VAR
+
+(* Control Studio grants only authority. The project owns the balanced LQG road
+   pulse; the alternative regulators and faults remain native test records. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    Enabled := TRUE;
+    DesignMode := DINT#5;
+    IF (ExperimentElapsed >= LREAL#1.0)
+        AND (ExperimentElapsed < LREAL#1.5) THEN
+        RoadAccelerationRequested := LREAL#0.5;
+    ELSE
+        RoadAccelerationRequested := LREAL#0.0;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    Enabled := FALSE;
+    DesignMode := DINT#5;
+    RoadAccelerationRequested := LREAL#0.0;
+END_IF;
 
 ControllerValid := (DesignMode >= DINT#0)
     AND (DesignMode <= DINT#5)
@@ -130,6 +153,9 @@ VAR_CONFIG
     P1.Enabled AT %MX120.0 : BOOL;
     P1.ControllerValid AT %MX120.1 : BOOL;
     P1.Saturated AT %MX120.2 : BOOL;
+    P1.ExperimentEnabled AT %MX120.3 : BOOL;
+    P1.SafetyAbort AT %MX120.4 : BOOL;
+    P1.InputsValid AT %MX120.5 : BOOL;
     P1.ForceApplied AT %QL0 : LREAL;
     P1.RoadAccelerationApplied AT %QL8 : LREAL;
     P1.FullStateDeflectionMeasurement AT %IL0 : LREAL;

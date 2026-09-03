@@ -2375,11 +2375,14 @@ loop_shaped,compliant-motor-v1,lead-lag-rolloff-v1,{:.6},{:.6},{:.3e},1.706,44.1
 #[test]
 fn control_curriculum_z_plane_predicts_sampled_axis_failure_and_recovery() {
     let repository = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let preferred = repository.join("examples/control/07-classical-stability-and-frequency-design/50-position-z-plane");
+    let preferred = repository
+        .join("examples/control/07-classical-stability-and-frequency-design/50-position-z-plane");
     let project = if preferred.is_dir() {
         preferred
     } else {
-        repository.join("examples/control/07-classical-stability-and-frequency-design/50-position-z-plane")
+        repository.join(
+            "examples/control/07-classical-stability-and-frequency-design/50-position-z-plane",
+        )
     };
     let shipped_source = std::fs::read_to_string(project.join("src/Main.st"))
         .expect("read position z-plane Structured Text");
@@ -2898,5 +2901,4 @@ fn control_curriculum_classical_analysis_matches_declared_oracles() {
     // At resonance, G(j2)=1/(j0.4), so magnitude is 2.5.
     let resonance_magnitude = 1.0_f64 / 0.4;
     assert!((resonance_magnitude - 2.5).abs() < 1.0e-12);
-
 }

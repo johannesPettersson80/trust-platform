@@ -42,7 +42,7 @@
       "symbol": "P1.FeedbackHeaterRequest",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -71,7 +71,7 @@
         "symbol": "P1.ActualLineSpeed",
         "address": "%ML96",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "1",
         "range": {
           "minimum": 0.5,
@@ -189,6 +189,20 @@
           "minimum": 0,
           "maximum": 100
         }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX136.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     ]
   },
@@ -201,10 +215,16 @@
   },
   "plantId": "three_equivalent_two_path_conveyor_ovens",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "load_step",
-    "amplitude": 1,
-    "durationSeconds": 90,
-    "seed": 20260829
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 90.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX136.2",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

@@ -1,6 +1,8 @@
 PROGRAM Main
 VAR
     ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     BaselineAborted : BOOL := FALSE;
     ShapedAborted : BOOL := FALSE;
     ElapsedSeconds : LREAL := 0.0;
@@ -34,7 +36,7 @@ VAR
     ShapedErrorFiltered : LREAL := 0.0;
 END_VAR
 
-IF ExperimentEnabled THEN
+IF ExperimentEnabled AND (NOT SafetyAbort) AND InputsValid THEN
     ElapsedSeconds := ElapsedSeconds + CycleInterval;
 
     IF ElapsedSeconds >= LREAL#60.0 THEN
@@ -98,6 +100,8 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.ExperimentEnabled AT %MX96.0 : BOOL;
+    P1.SafetyAbort AT %MX96.1 : BOOL;
+    P1.InputsValid AT %MX96.2 : BOOL;
     P1.BaselineAborted AT %MX97.0 : BOOL;
     P1.ShapedAborted AT %MX97.1 : BOOL;
     P1.BaselineRequestedTorque AT %ML0 : LREAL;

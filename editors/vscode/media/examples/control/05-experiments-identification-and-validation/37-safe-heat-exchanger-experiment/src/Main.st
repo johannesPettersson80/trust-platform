@@ -1,5 +1,6 @@
 PROGRAM Main
 VAR
+    ExperimentEnabled : BOOL := FALSE;
     ProposedStep : LREAL := LREAL#10.0;
     ProposedDuration : LREAL := LREAL#63.0;
     ReviewPlan : BOOL := FALSE;
@@ -33,6 +34,20 @@ VAR
     BaselineMinimum : LREAL := LREAL#50.0;
     BaselineMaximum : LREAL := LREAL#50.0;
 END_VAR
+
+(* Control Studio grants only Boolean authority. The project owns the reviewed
+   Plan A values, state-machine start, abort supervision, and restoration. *)
+IF ExperimentEnabled THEN
+    ProposedStep := LREAL#10.0;
+    ProposedDuration := LREAL#63.0;
+    ResetExperiment := FALSE;
+    ReviewPlan := TRUE;
+    StartExperiment := TRUE;
+ELSE
+    ReviewPlan := FALSE;
+    StartExperiment := FALSE;
+    ResetExperiment := TRUE;
+END_IF;
 
 (* This executable is deliberately simulation-only. Review flags are visible
    for teaching, but they cannot grant authority to move a physical valve. *)
@@ -161,6 +176,7 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
+    P1.ExperimentEnabled AT %MX17.1 : BOOL;
     P1.ProposedStep AT %ML0 : LREAL;
     P1.ProposedDuration AT %ML8 : LREAL;
     P1.ReviewPlan AT %MX16.0 : BOOL;

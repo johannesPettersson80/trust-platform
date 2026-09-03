@@ -15,6 +15,9 @@ VAR
     TankInput : Control.PIDInput;
     DryerInput : Control.PIDInput;
     Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     HeaterKp : LREAL := 5.769230769;
     HeaterKi : LREAL := 1.153846154;
     TankKp : LREAL := 13.333333333;
@@ -85,6 +88,16 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
+InputsValid := HeaterTemperature >= LREAL#0.0
+    AND HeaterTemperature <= LREAL#60.0
+    AND TankLevel >= LREAL#0.0 AND TankLevel <= LREAL#100.0
+    AND DryerDryness >= LREAL#0.0 AND DryerDryness <= LREAL#100.0;
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    HeaterSetpoint := LREAL#25.0;
+ELSE
+    HeaterSetpoint := LREAL#20.0;
+END_IF;
+
 (* One reviewed heater-temperature step drives equivalent normalized tests on
    all three plants, so Control Studio owns one command and every comparison
    starts on the same scan. *)
@@ -120,6 +133,9 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
+    P1.ExperimentEnabled AT %MX96.1 : BOOL;
+    P1.SafetyAbort AT %MX96.2 : BOOL;
+    P1.InputsValid AT %MX96.3 : BOOL;
     P1.HeaterSetpoint AT %ML0 : LREAL;
     P1.TankSetpoint AT %ML8 : LREAL;
     P1.DryerSetpoint AT %ML16 : LREAL;

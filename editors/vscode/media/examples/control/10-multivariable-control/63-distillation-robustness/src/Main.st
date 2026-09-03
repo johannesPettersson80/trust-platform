@@ -14,6 +14,10 @@ VAR
     VirtualCommand : Control.ControlVector2;
     CoupledCommand : Control.ControlVector2;
     Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
     AutoMode1 : BOOL := TRUE;
     AutoMode2 : BOOL := TRUE;
     Architecture : INT := 0;
@@ -69,6 +73,38 @@ IF NOT Initialized THEN
     DecouplerParameters.SingularityTolerance := LREAL#0.001;
     StaticQualified := StaticDecoupler.Configure(Parameters := DecouplerParameters);
     Initialized := TRUE;
+END_IF;
+
+(* The visible run moves from a feasible to an infeasible common direction.
+   Control Studio grants only authority; the project owns all requests and
+   Manual zero restoration. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    AutoMode1 := TRUE;
+    AutoMode2 := TRUE;
+    Architecture := 2;
+    FeedDisturbanceRequested := LREAL#0.0;
+    IF ExperimentElapsed < LREAL#20.0 THEN
+        Setpoint1 := LREAL#0.0;
+        Setpoint2 := LREAL#0.0;
+    ELSIF ExperimentElapsed < LREAL#240.0 THEN
+        Setpoint1 := LREAL#1.0;
+        Setpoint2 := LREAL#1.0;
+    ELSIF ExperimentElapsed < LREAL#480.0 THEN
+        Setpoint1 := LREAL#0.0;
+        Setpoint2 := LREAL#0.0;
+    ELSE
+        Setpoint1 := LREAL#2.0;
+        Setpoint2 := LREAL#2.0;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    AutoMode1 := FALSE;
+    AutoMode2 := FALSE;
+    Architecture := 0;
+    Setpoint1 := LREAL#0.0;
+    Setpoint2 := LREAL#0.0;
+    FeedDisturbanceRequested := LREAL#0.0;
 END_IF;
 
 OverheadInput.Setpoint := Setpoint1;
@@ -143,6 +179,9 @@ VAR_CONFIG
     P1.CommonScale AT %ML88 : LREAL;
     P1.StaticQualified AT %MX24.2 : BOOL;
     P1.Saturated AT %MX24.3 : BOOL;
+    P1.ExperimentEnabled AT %MX24.4 : BOOL;
+    P1.SafetyAbort AT %MX24.5 : BOOL;
+    P1.InputsValid AT %MX24.6 : BOOL;
     P1.RefluxApplied AT %QL0 : LREAL;
     P1.ReboilerApplied AT %QL8 : LREAL;
     P1.FeedDisturbanceApplied AT %QL16 : LREAL;

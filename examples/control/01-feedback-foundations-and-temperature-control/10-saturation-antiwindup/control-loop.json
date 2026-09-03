@@ -41,7 +41,7 @@
       "symbol": "P1.ManipulatedValue",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": -3.5,
@@ -145,6 +145,20 @@
         "range": {
           "minimum": 0.05,
           "maximum": 0.2
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX80.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
         }
       }
     ]

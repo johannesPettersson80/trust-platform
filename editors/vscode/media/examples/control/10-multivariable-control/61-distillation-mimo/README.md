@@ -42,6 +42,12 @@ The Relative Gain Array ($\boldsymbol{\Lambda}$) compares the open-loop gains wi
 
 $\boldsymbol{\Lambda}=\mathbf{G}\circ\left(\mathbf{G}^{-1}\right)^{T}$
 
+For a two-by-two matrix, the determinant is
+$\det(G)=g_{11}g_{22}-g_{12}g_{21}$. Its inverse is
+$G^{-1}=\det(G)^{-1}\begin{bmatrix}g_{22}&-g_{12}\\-g_{21}&g_{11}\end{bmatrix}$.
+The determinant must be nonzero because division by zero would mean the two
+input directions cannot be separated by a unique inverse.
+
 Each row and column should sum to one. A relative gain near +1 usually indicates a pairing that changes little when the other loop closes. Large magnitudes indicate strong interaction. A negative relative gain warns that the effective feedback direction reverses. The calculation is invalid for a singular matrix and untrustworthy when a path is unsettled, poorly excited, missing, or measured at another operating point.
 
 ## Prediction
@@ -59,6 +65,12 @@ A +5-percentage-point reflux move should change overhead and bottoms purity by +
 The determinant is 0.44, so the matrix can be inverted. The predicted Relative Gain Array is:
 
 $\boldsymbol{\Lambda}=\begin{bmatrix}1.2727&-0.2727\\-0.2727&1.2727\end{bmatrix}$
+
+Here $\det(G)=0.8(0.7)-(-0.4)(-0.3)=0.44$. Therefore
+$G^{-1}=0.44^{-1}\begin{bmatrix}0.7&0.4\\0.3&0.8\end{bmatrix}$.
+After transposing, elementwise multiplication gives
+$\lambda_{11}=0.8(0.7)/0.44=1.2727$ and
+$\lambda_{12}=(-0.4)(0.3)/0.44=-0.2727$; symmetry gives the second row.
 
 Record the prediction before testing. The diagonal pairing—overhead purity with reflux and bottoms purity with reboiler steam—is expected to be eligible but still interacting. The cross pairing is expected to be rejected because both relative gains are negative.
 
@@ -80,44 +92,27 @@ The Structured Text does not contain the gain matrix, Relative Gain Array, deter
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Execute one restored step per input, estimate all four gains, and form the Relative Gain Array from measured records. The declared event lasts 200 seconds. It restores Reflux requested change to 0 pp afterward. The deterministic Simulation seed is 20260829.
+This procedure observes both independently excited input windows under project
+control. The project owns the zero baselines, the reflux step, the restored
+separation, the reboiler step, and zero restoration. Control Studio writes only
+one Boolean authority signal. The complete observation lasts 400.1 seconds and
+uses deterministic Simulation seed 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Overhead light-product purity deviation (PV, pp) and Bottoms heavy-product purity deviation (PV, pp); Reflux requested change (MV, pp) and Reboiler steam requested change (MV, pp), including units, limits, mode, and quality. The initial operating point is Reflux requested change = 0 pp, Reboiler steam requested change = 0 pp, Overhead light-product purity deviation = 0 pp, Bottoms heavy-product purity deviation = 0 pp. The unresolved baseline problem is: Tag names and isolated direct gains do not show how closing the second loop changes the effective gain and feedback direction. Control Studio Monitor must show Simulation mode, Manual authority, and the declared 0.1-second sample interval before either input step. Control Studio Monitor must show Simulation mode, Manual authority, and the declared 0.1-second sample interval before either input step. Change only reflux in one fresh run, restore it, then in a new run change only reboiler steam. Control Studio Monitor must show Simulation mode, Manual authority, and the declared 0.1-second sample interval before either input step. Retain a zero-input baseline for 20 seconds. Change only reflux and hold it for 180 seconds; restore it, then in a new run change only reboiler steam for 180 seconds. Use the final 10 seconds only when each composition varies by no more than 0.02 composition percentage points. If an input-output path is missing or invalid, report the gain and pairing as Unconfirmed. This is simulation only; physical-column tests require explicit approval.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm both purity deviations and both requested/applied input changes, including units, limits, Manual mode, quality, and the 0.1-second interval. The initial point is zero for all four quantities. Retain a 20-second zero baseline, the 20-to-200-second reflux-only window, the 200-to-220-second restored window, and the 220-to-400-second reboiler-only window. Use a final 10-second mean only when each composition varies by no more than 0.02 percentage points. If a path is missing or invalid, report the matrix and pairing as Unconfirmed.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept the diagonal overhead-to-reflux and bottoms-to-reboiler pairing only from four valid measured gains and reject the negative-relative-gain cross pairing.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Manual output step**, **Amplitude** = **5 pp**, and **Maximum duration (s)** = **200**. The affected signal is **Reflux requested change**; it starts at 0 pp and must restore to 0 pp.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Reflux requested change -10 pp to 10 pp; Reboiler steam requested change -10 pp to 10 pp; Overhead light-product purity deviation -6 pp to 6 pp; Bottoms heavy-product purity deviation -6 pp to 6 pp.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Reflux requested change to 0 pp, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Open-loop interaction testing and Relative Gain Array pairing** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Open-loop interaction testing and Relative Gain Array pairing** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Open-loop interaction testing and Relative Gain Array pairing** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Open-loop interaction testing and Relative Gain Array pairing**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: g11_overhead_from_reflux == 0.8 pp/pp (tolerance 0.01 pp/pp); g21_bottoms_from_reflux == -0.3 pp/pp (tolerance 0.01 pp/pp); g12_overhead_from_reboiler == -0.4 pp/pp (tolerance 0.01 pp/pp); g22_bottoms_from_reboiler == 0.7 pp/pp (tolerance 0.01 pp/pp).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **400.1**. Confirm the only writable signal is **Experiment authority** (`P1.ExperimentEnabled`, `%MX16.1`). The project excites only reflux from 20 to 200 seconds, restores both inputs for 20 seconds, then excites only reboiler steam from 220 to 400 seconds.
+   - **Decision before action:** Before selecting **Review test**, predict all four response signs and confirm inputs can remain within -10 through +10 percentage points and purity deviations within -6 through +6 points.
+   - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must show that the non-excited input remains zero in each window. At termination authority clears and both requested inputs return to zero.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the reason, confirm authority is false and both inputs restored to zero, wait for current data, and review a new observation.
+   - **Record:** Calculate each settled change and compare it with your prediction. Retain terminal state, restoration, and seed **20260829**. The native lesson test owns the qualified gain matrix and RGA verdict; this observation does not create generic Identify, Tune, or Validate evidence.
 
 ## Evidence and decision
 

@@ -14,6 +14,10 @@ VAR
     CharacterizedInput : Control.PIDInput;
     Initialized : BOOL := FALSE;
     AutomaticAvailable : BOOL := TRUE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
     Setpoint : LREAL := 80.0;
     DeadZoneTemperature : LREAL := 80.0;
     OverlapTemperature : LREAL := 80.0;
@@ -63,6 +67,24 @@ IF NOT Initialized THEN
     OverlapController.Initialize(State := OverlapState);
     CharacterizedController.Initialize(State := CharacterizedState);
     Initialized := TRUE;
+END_IF;
+
+(* Control Studio only grants experiment authority. The runnable project owns
+   the complete, reproducible setpoint sequence and safe restoration. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    IF ExperimentElapsed < LREAL#20.0 THEN
+        Setpoint := LREAL#80.0;
+    ELSIF ExperimentElapsed < LREAL#80.0 THEN
+        Setpoint := LREAL#84.0;
+    ELSIF ExperimentElapsed < LREAL#140.0 THEN
+        Setpoint := LREAL#76.0;
+    ELSE
+        Setpoint := LREAL#80.0;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    Setpoint := LREAL#80.0;
 END_IF;
 
 DeadZoneInput.Setpoint := Setpoint;
@@ -128,6 +150,9 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.AutomaticAvailable AT %MX88.4 : BOOL;
+    P1.ExperimentEnabled AT %MX88.5 : BOOL;
+    P1.SafetyAbort AT %MX88.6 : BOOL;
+    P1.InputsValid AT %MX88.7 : BOOL;
     P1.Setpoint AT %ML160 : LREAL;
     P1.DeadZoneDemand AT %ML168 : LREAL;
     P1.OverlapDemand AT %ML176 : LREAL;

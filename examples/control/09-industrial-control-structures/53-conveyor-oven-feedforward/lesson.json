@@ -38,21 +38,7 @@
     "sampleTimeSeconds": 0.1,
     "initialState": { "heaterPathTemperatureContributionDegC": 140, "speedPathTemperatureContributionDegC": -20 },
     "seed": 20260829,
-    "operatingPoint": {
-      "Conveyor-speed validity": 1,
-      "Actual conveyor speed": 1,
-      "Measured conveyor speed": 1,
-      "Dynamic feedforward scale": 1,
-      "Static feedforward": 0,
-      "Dynamic feedforward": 0,
-      "Product-temperature setpoint": 120,
-      "Feedback-only product temperature": 120,
-      "Static-feedforward product temperature": 120,
-      "Dynamic-feedforward product temperature": 120,
-      "Feedback-only heater request": 70,
-      "Static-feedforward heater request": 70,
-      "Dynamic-feedforward heater request": 70
-    },
+    "operatingPoint": { "Conveyor-speed validity": 1, "Actual conveyor speed": 1, "Measured conveyor speed": 1, "Dynamic feedforward scale": 1, "Static feedforward": 0, "Dynamic feedforward": 0, "Product-temperature setpoint": 120, "Feedback-only product temperature": 120, "Static-feedforward product temperature": 120, "Dynamic-feedforward product temperature": 120, "Feedback-only heater request": 70, "Static-feedforward heater request": 70, "Dynamic-feedforward heater request": 70 },
     "validityRange": [
       { "signal": "Actual conveyor speed", "minimum": 0.5, "maximum": 2.5, "unit": "1" },
       { "signal": "Measured conveyor speed", "minimum": 0.5, "maximum": 2.5, "unit": "1" },
@@ -63,13 +49,7 @@
       { "signal": "Static-feedforward heater request", "minimum": 0, "maximum": 100, "unit": "%" },
       { "signal": "Dynamic-feedforward heater request", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "Local linear heater and conveyor-speed paths around one production rate",
-      "No transport delay beyond the two declared first-order path states",
-      "Ideal speed measurement in the nominal run and explicit invalid-quality fallback",
-      "Three deterministic equivalent ovens isolate only the feedforward structure",
-      "Simulation-only I/O and evidence"
-    ]
+    "simplifications": ["Local linear heater and conveyor-speed paths around one production rate", "No transport delay beyond the two declared first-order path states", "Ideal speed measurement in the nominal run and explicit invalid-quality fallback", "Three deterministic equivalent ovens isolate only the feedforward structure", "Simulation-only I/O and evidence"]
   },
   "baseline": {
     "executableId": "ConveyorOven.FeedbackOnlyPI",
@@ -83,7 +63,7 @@
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Actual conveyor speed",
+    "signal": "Experiment authority",
     "baseline": 1,
     "amplitude": 0,
     "durationSeconds": 90.1,

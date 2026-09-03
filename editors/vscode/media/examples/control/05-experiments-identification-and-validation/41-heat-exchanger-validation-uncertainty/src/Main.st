@@ -1,6 +1,8 @@
 PROGRAM Main
 VAR
     ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     LocalRequested : LREAL := 20.0;
     LoadRequested : LREAL := 20.0;
     HighFlowRequested : LREAL := 20.0;
@@ -14,7 +16,13 @@ END_VAR
 
 (* All three holdout records receive the same reviewed input. Their different
    outcomes therefore come from the declared plant condition, not the command. *)
-IF ExperimentEnabled THEN
+InputsValid := LocalTemperature >= LREAL#45.0
+    AND LocalTemperature <= LREAL#56.0
+    AND LoadTemperature >= LREAL#45.0 AND LoadTemperature <= LREAL#56.0
+    AND HighFlowTemperature >= LREAL#45.0
+    AND HighFlowTemperature <= LREAL#56.0;
+
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
     LocalRequested := LREAL#25.0;
     LoadRequested := LREAL#25.0;
     HighFlowRequested := LREAL#25.0;
@@ -58,6 +66,8 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.ExperimentEnabled AT %MX64.0 : BOOL;
+    P1.SafetyAbort AT %MX64.1 : BOOL;
+    P1.InputsValid AT %MX64.2 : BOOL;
     P1.LocalRequested AT %ML0 : LREAL;
     P1.LoadRequested AT %ML8 : LREAL;
     P1.HighFlowRequested AT %ML16 : LREAL;

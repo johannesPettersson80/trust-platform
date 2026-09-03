@@ -211,8 +211,8 @@ VAR_CONFIG
     P1.LocalTimeSeconds AT %ML48 : LREAL;
     P1.PressureASourceTime AT %ML56 : LREAL;
     P1.PressureBSourceTime AT %ML64 : LREAL;
-    P1.LevelSourceTime AT %ML72 : LREAL;
-    P1.DriveFeedbackSourceTime AT %ML80 : LREAL;
+    P1.LevelSourceTime AT %ML176 : LREAL;
+    P1.DriveFeedbackSourceTime AT %ML184 : LREAL;
     P1.LevelRaw AT %ML88 : LREAL;
     P1.PressureAResidual AT %ML96 : LREAL;
     P1.PressureBResidual AT %ML104 : LREAL;

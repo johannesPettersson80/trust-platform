@@ -1,7 +1,8 @@
 # Design a safe heat-exchanger experiment
 
 Course position: Lesson 37 of 84. Previous lesson: [Interconnected-tank state
-space](../two-tank-state-space/README.md). Next lesson: excitation methods.
+space](../../04-controller-selection-and-plant-models/36-two-tank-state-space/README.md).
+Next lesson: [excitation methods](../38-excitation-methods/README.md).
 
 **Lesson objective:** Design, review, execute, abort, and restore one bounded
 heat-exchanger step experiment before accepting identification data.
@@ -12,8 +13,6 @@ outlet-temperature transmitter.
 This lesson produces simulation evidence, not physical-plant evidence.
 
 ## The problem
-
-The equipment in this lesson is Plate heat exchanger with steam-side valve and product outlet-temperature transmitter.
 
 A plate heat exchanger uses steam to warm a flowing product. The actuator is a
 steam-side control valve. The sensor measures product outlet temperature. The
@@ -33,7 +32,9 @@ The experiment must therefore be designed before data are collected.
 
 ## What we need
 
-We need an experiment plan that is informative, bounded, reviewable, abortable, and restorable before the steam valve is allowed to move. A rejected plan must leave the valve unchanged, and an invalid run must not become identification evidence.
+We need a bounded experiment plan that states the engineering question,
+authority, limits, stop conditions, excitation, evidence, and restoration
+before heat-exchanger operation changes.
 
 ## The new idea
 
@@ -57,13 +58,25 @@ per percentage point. The time constant ($T$) is 20 seconds. The dead time ($L$)
 The predicted final temperature change ($\Delta PV_{\mathrm{final}}$) is the local process
 gain multiplied by the planned valve change:
 
-$\Delta PV_{\mathrm{final}} = K \cdot \Delta MV$
+\[
+\Delta PV_{\mathrm{final}}=K\Delta MV.
+\]
 
-A 10-percentage-point step therefore predicts a 5-degree-Celsius change and a
-55-degree-Celsius final temperature. After the 3-second dead time, three time
-constants take 60 seconds and reveal about 95 percent of a first-order change.
-The complete hold is therefore 63 seconds: 3 seconds of dead time plus 60
-seconds of visible response.
+A 10-percentage-point step therefore predicts
+$0.5\times10=5$ °C change and a 55 °C final temperature. The delayed
+first-order prediction is
+
+\[
+PV(t)=PV_0+K\Delta MV
+\left(1-e^{-(t-L)/T}\right),\qquad t\ge L.
+\]
+
+After three time constants, the completed fraction is
+$1-e^{-3}=0.9502$, or about 95%. Three time constants take
+$3T=3(20)=60$ s after the 3 s dead time, so the complete hold is
+$L+3T=63$ s. At that instant the predicted temperature is
+$50+5(0.9502)=54.751$ °C. This duration captures nearly all the local change;
+it does not make one final sample proof of exact equilibrium.
 
 A **soft experiment bound** is the stricter envelope used to review the plan. A
 **hard limit** requires immediate abort. This lesson permits 40 to 80 percent
@@ -84,8 +97,9 @@ Evaluate two plans before pressing Start:
 
 - **Plan A** moves the valve from 60 to 70 percent for 63 seconds. It predicts
   55 degrees Celsius and remains inside the declared envelope.
-- **Plan B** moves the valve from 60 to 85 percent. It predicts 62.5 degrees
-  Celsius and violates both the valve and temperature bounds. It must be
+- **Plan B** moves the valve from 60 to 85 percent. Its 25-point step predicts
+  $50+0.5(25)=62.5$ °C and violates both the 80% valve bound and 58 °C
+  temperature bound. It must be
   rejected before the simulated valve moves.
 
 Also predict what happens if Plan A loses signal quality: the run must abort
@@ -115,7 +129,13 @@ can add actuator dynamics without changing what either signal means.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Review and execute the bounded 10-point simulation step, then repeat it with an injected quality failure. The declared event lasts 63 seconds. It restores Applied steam-valve position to 60 % afterward. The deterministic Simulation seed is 20260829.
+Control Studio exposes the accepted Plan A journey. Test writes one reviewed
+Boolean, `P1.ExperimentEnabled`, for at most 160.1 seconds. The project owns the
+10-second baseline, the 10-point valve step for 63 seconds, abort supervision,
+and restoration to 60%. The longer timeout includes the thermal return to
+within 0.1 °C of baseline. Fresh native runs own unsafe Plan B and the injected
+bad-quality case, since each requires a different reviewed condition and fresh
+state. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -127,18 +147,14 @@ This procedure tests one declared lesson change under controlled conditions. Rev
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Manual output step**, **Amplitude** = **10 %**, and **Maximum duration (s)** = **63**. The affected signal is **Applied steam-valve position**; it starts at 60 % and must restore to 60 %.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Product outlet temperature 45 degC to 58 degC; Applied steam-valve position 40 % to 80 %. Execute only the approved bounded plan; do not use Identify, Tune, or Apply.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Applied steam-valve position to 60 %, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **160.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm requested/applied valve = 60%, temperature = 50 °C, good quality, allowed mode, and no confounding disturbance.
+   - **Decision before action:** Before selecting **Review test**, confirm Plan A predicts 54.751 °C at 63 seconds and remains inside 40–80% valve and 45–58 °C temperature limits. The project, not the Test form, owns the physical step. Do not Identify, Tune, or Apply.
+   - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe the 10-second baseline, 70% requested/applied valve, delayed temperature rise, 60% restoration, and completed terminal state.
+   - **Recovery:** Abort for stale or bad quality, forbidden mode, confounding disturbance, nonfinite data, or a hard-limit violation. Confirm authority false and requested/applied valve 60% before retrying.
+   - **Record:** Retain terminal state, plan decision, baseline measures, requested/applied valve, temperature, prediction error, restoration, reason codes, and seed **20260829**.
 
-3. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: baseline_temperature_range <= 0.05 degC (tolerance 0.001 degC); baseline_absolute_slope <= 0.01 degC/s (tolerance 0.001 degC/s); late_window_prediction_error <= 0.35 degC (tolerance 0.01 degC); requested_valve_restoration_error == 0 % (tolerance 0.000001 %).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+There is no separate disabled Validate stage. Native executable evidence owns
+Plan B rejection and the injected-quality abort; Monitor and Test expose Plan A.
 
 ## Evidence and decision
 

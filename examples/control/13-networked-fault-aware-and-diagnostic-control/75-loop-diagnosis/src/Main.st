@@ -121,7 +121,7 @@ VAR_CONFIG
     P1.MeasuredCycleTime AT %ML40 : LREAL;
     P1.ConfiguredProportionalGain AT %ML48 : LREAL;
     P1.ConfiguredIntegralGain AT %ML56 : LREAL;
-    P1.ExperimentElapsed AT %ML64 : LREAL;
+    P1.ExperimentElapsed AT %ML80 : LREAL;
     P1.ValveRequested AT %QL0 : LREAL;
     P1.ProcessValue AT %IL0 : LREAL;
 END_VAR

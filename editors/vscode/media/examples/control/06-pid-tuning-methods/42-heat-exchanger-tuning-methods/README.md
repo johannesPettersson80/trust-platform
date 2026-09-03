@@ -1,16 +1,15 @@
 # Tune a heat exchanger deliberately
 
-Course position: Lesson 42 of 84. Prerequisite: validate a heat-exchanger model on
-unseen conditions. Next: estimate critical behavior with a bounded relay test.
+Course position: Lesson 42 of 84. Previous lesson:
+[validate a heat-exchanger model on unseen conditions](../../05-experiments-identification-and-validation/41-heat-exchanger-validation-uncertainty/README.md).
+Next lesson: [estimate critical behavior with a bounded relay test](../43-relay-autotuning/README.md).
 
-Equipment: Plate heat exchanger with four independent simulated controller
+**Equipment:** Plate heat exchanger with four independent simulated controller
 copies.
 
 **Lesson objective:** Tune proportional and integral action one term at a time, reproduce a historical critical-cycle PI tuning, and select the least aggressive candidate that satisfies the declared requirements.
 
 ## The problem
-
-The equipment in this lesson is Plate heat exchanger with four independent simulated controller copies.
 
 A steam valve controls the outlet temperature of a plate heat exchanger. Four
 independent copies represent the same accepted local operating region. They
@@ -32,7 +31,8 @@ with an intentionally aggressive historical rule.
 
 ## What we need
 
-We need a disciplined way to change proportional and integral action one term at a time, then compare the result with a historical critical-cycle rule under identical conditions. The least aggressive eligible setting must remain unapplied to physical equipment.
+We need to compare P, PI, PD, and PID under equivalent heat-exchanger
+conditions and explain what each added term changes physically and numerically.
 
 ## The new idea
 
@@ -41,7 +41,9 @@ measured outlet temperature ($PV$) is the sensor value, also in degrees Celsius.
 The control error ($e$) is setpoint ($SP$) minus measured outlet temperature ($PV$).
 A positive error means the product is colder than desired.
 
-$e = SP - PV$
+\[
+e=SP-PV.
+\]
 
 The operating-point bias is the valve position needed to hold 50 degrees
 Celsius at zero error. Here it is 20 percent. The proportional gain
@@ -57,7 +59,9 @@ action removes persistent error, but too much can cause overshoot, oscillation,
 saturation, and difficult recovery. The integral time ($T_i$) is the proportional
 gain divided by integral gain:
 
-$T_i = K_p / K_i$
+\[
+T_i=\frac{K_p}{K_i}.
+\]
 
 The derivative gain ($K_d$) has units of valve percentage-point seconds per degree
 Celsius. The derivative time ($T_d$) is derivative gain divided by proportional
@@ -70,9 +74,10 @@ This controller uses the parallel positional form: bias, the present-error
 contribution, the accumulated-error contribution, and the measured-rate
 contribution are combined into one requested command. In symbolic form:
 
-$MV_{\mathrm{requested}} = Bias + K_p \cdot e + I - K_d \cdot d(PV)/dt$
-
-$dI/dt = K_i \cdot e$
+\[
+MV_{\mathrm{requested}}=Bias+K_pe+I-K_d\frac{dPV}{dt},
+\qquad \frac{dI}{dt}=K_ie.
+\]
 
 The applied manipulated variable ($MV_{\mathrm{applied}}$) is the command after the
 controller's 0-to-100-percent limit. Saturation means the requested command
@@ -98,18 +103,21 @@ govern acceptance.
 
 ## Prediction
 
-Manual proportional control uses a 20-percent bias and $K_p = 2.0$. A
-2.5-degree-Celsius setpoint increase requires five additional valve percentage
-points at equilibrium. Producing those five points with gain 2 requires about
-1.25 degrees Celsius of remaining error.
+Manual proportional control uses a 20% bias and $K_p=2.0$. Let $\Delta y$ be
+the final temperature rise. The plant gives
+$\Delta y=K_{plant}\Delta MV=0.5(2e)=e$, while
+$e=\Delta SP-\Delta y=2.5-\Delta y$. Solving
+$\Delta y=2.5-\Delta y$ gives $\Delta y=1.25$ °C and $e=1.25$ °C. This derives
+the proportional offset instead of merely observing it.
 
 The first manual PI trial keeps $K_p = 2.0$ and uses $K_i = 0.05$, giving
 $T_i = 40$ seconds. Predict that it will miss the 0.10-degree-Celsius recovery
 requirement after the load. Change only integral gain to $K_i = 0.10$, giving
 $T_i = 20$ seconds, for the second manual candidate.
 
-Using $K_u = 22.24$ and $P_u = 11.35$ predicts historical PI values
-$K_p = 10.01$, $T_i = 9.46$ seconds, and $K_i = 1.06$. Predict a much faster
+Using $K_u=22.235$ and $P_u=11.35$ gives
+$K_p=0.45K_u=10.006$, $T_i=P_u/1.2=9.458$ s, and
+$K_i=K_p/T_i=1.058$ %/(°C·s). Predict a much faster
 response and substantially more valve movement than manual PI.
 
 ## Implementation
@@ -136,7 +144,12 @@ gains. Both use the same limits, anti-windup, cycle time, and initial state.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Raise only manual integral gain to 0.10 and separately calculate a historical PI candidate from the measured critical gain and period. The declared event lasts 180 seconds. It restores Common outlet-temperature setpoint to 50 degC afterward. The deterministic Simulation seed is 20260829.
+Control Studio exposes the four-candidate comparison. Test writes one reviewed
+Boolean, `P1.ExperimentEnabled`, for 180.1 seconds. The project owns the common
+50-to-52.5 °C setpoint and restores 50 °C. Native evidence owns the exact
+100-second load event, the separately compiled $K_i=0.05$ trial, peak/period
+calculation, and candidate decision. No candidate is applied. The deterministic
+Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -148,25 +161,16 @@ This procedure tests one declared lesson change under controlled conditions. Rai
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Setpoint step**, **Amplitude** = **2.5 degC**, and **Maximum duration (s)** = **180**. The affected signal is **Common outlet-temperature setpoint**; it starts at 50 degC and must restore to 50 degC. Use the common 10-second baseline, introduce the 100-second load event, and retain the complete 180 seconds for every candidate. Use the common 10-second baseline, introduce the 100-second load event, and retain the complete 180 seconds for every candidate. Do not run this comparison on a physical plant or select Apply from simulation evidence.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Manual proportional applied valve position 0 % to 100 %; Manual PI applied valve position 0 % to 100 %; Critical proportional applied valve position 0 % to 100 %; Historical PI applied valve position 0 % to 100 %; Manual PI outlet temperature 40 degC to 60 degC; Historical PI outlet temperature 40 degC to 60 degC.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Common outlet-temperature setpoint to 50 degC, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **180.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm common setpoint = 50 °C and every applied valve near 20%.
+   - **Decision before action:** Before selecting **Review test**, record the 1.25 °C proportional offset and the derived manual/historical PI gains. Confirm every valve remains within 0–100% and every temperature within 40–60 °C. This is simulation-only; do not Apply.
+   - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe all four responses under the common setpoint and the restored 50 °C setpoint.
+   - **Recovery:** Abort for stale, invalid, nonfinite, mismatched, or out-of-range data. Confirm authority false, setpoint 50 °C, and safe valve outputs before retrying.
+   - **Record:** Retain terminal state, restoration, all SP/PV/MV traces, gains, timing, noise, events, peak/period measures, response measures, valve travel, seed, and candidate state.
 
-3. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** Continue only when Identify shows an accepted model. Set **Design method** = **Manual Control.PID** and open **Exact Control.PID settings** to enter the stated gains and limits.
-   - **Decision before action:** Calculate the expected gains and predict the response/robustness trade-off before selecting **Generate candidate**.
-   - **Successful evidence:** Generate the unapplied candidate and compare Response, controller output, Bode evidence, and margins using the same accepted model.
-   - **Recovery:** If generation is disabled, return to Identify and accept a qualified independent model. If the method is rejected, retain the reason instead of substituting another formula.
-   - **Record:** Save the candidate settings and explain why the trade-off is eligible or rejected without applying it.
-
-4. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** Continue only after Tune shows an unapplied candidate, then select **Run required validation**.
-   - **Decision before action:** Open **Requirement details** and use the predeclared comparisons: manual_proportional_late_mean_absolute_error >= 1.1 degC (tolerance 0.02 degC); manual_proportional_late_mean_absolute_error <= 1.4 degC (tolerance 0.02 degC); rejected_slow_integral_final_absolute_error >= 0.25 degC (tolerance 0.01 degC); critical_alternating_peak_count >= 6 (dimensionless) (tolerance 0 (dimensionless)).
-   - **Successful evidence:** Inspect Response, constraints, and robustness using the same retained model and conditions. Every requirement reports Pass, Fail, or Inconclusive with value, unit, limit, source, and reason.
-   - **Recovery:** If validation is disabled, stale, or failed, return to the named prerequisite stage, correct the cause, and retain both rejected and replacement evidence; do not open **Review application** for a failed result.
-   - **Record:** Select **Save result** only after source, units, tolerances, and restoration agree, then state the final disposition and failed requirement if any.
+There is no shared Tune or disabled Validate stage in this lesson. The
+project already contains the declared controllers; native executable evidence
+performs the equivalent-condition comparison and leaves the preferred manual
+PI candidate unapplied.
 
 ## Evidence and decision
 

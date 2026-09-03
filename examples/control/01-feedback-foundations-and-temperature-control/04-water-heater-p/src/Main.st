@@ -13,7 +13,11 @@ VAR
     ProcessValue : LREAL := 20.0;
     RequestedManipulatedValue : LREAL := 0.0;
     ManipulatedValue : LREAL := 0.0;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
 END_VAR
+AutoMode := ExperimentEnabled AND InputsValid AND NOT SafetyAbort;
 
 IF NOT Initialized THEN
     (* Start from the declared 20 degC, zero-power plant state with the selected
@@ -71,11 +75,14 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.AutoMode AT %MX16.0 : BOOL;
+    P1.AutoMode AT %MX24.0 : BOOL;
     P1.Setpoint AT %ML0 : LREAL;
     P1.ProportionalGain AT %ML8 : LREAL;
     P1.RequestedManipulatedValue AT %ML16 : LREAL;
     P1.ManipulatedValue AT %QL0 : LREAL;
     P1.ProcessValue AT %IL0 : LREAL;
+    P1.ExperimentEnabled AT %MX24.1 : BOOL;
+    P1.SafetyAbort AT %MX24.2 : BOOL;
+    P1.InputsValid AT %MX24.3 : BOOL;
 END_VAR
 END_CONFIGURATION

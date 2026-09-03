@@ -21,6 +21,10 @@ VAR
     TrackedProtectInput : Control.PIDInput;
     Initialized : BOOL := FALSE;
     MarginValid : BOOL := TRUE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
     PressureSetpoint : LREAL := 8.0;
     MarginControlSetpoint : LREAL := 14.0;
     BaselinePressure : LREAL := 8.0;
@@ -95,6 +99,22 @@ IF NOT Initialized THEN
     UntrackedProtectController.Initialize(State := UntrackedProtectState);
     TrackedProtectController.Initialize(State := TrackedProtectState);
     Initialized := TRUE;
+END_IF;
+
+(* Control Studio grants only experiment authority. The project owns the
+   pressure-demand cycle and restores the nominal setpoint on every exit. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    IF ExperimentElapsed < LREAL#20.0 THEN
+        PressureSetpoint := LREAL#8.0;
+    ELSIF ExperimentElapsed < LREAL#80.0 THEN
+        PressureSetpoint := LREAL#9.0;
+    ELSE
+        PressureSetpoint := LREAL#8.0;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    PressureSetpoint := LREAL#8.0;
 END_IF;
 
 BaselineNormalInput.Setpoint := PressureSetpoint;
@@ -186,6 +206,9 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.MarginValid AT %MX88.5 : BOOL;
+    P1.ExperimentEnabled AT %MX89.1 : BOOL;
+    P1.SafetyAbort AT %MX89.2 : BOOL;
+    P1.InputsValid AT %MX89.3 : BOOL;
     P1.UntrackedProtectionActive AT %MX88.6 : BOOL;
     P1.TrackedProtectionActive AT %MX88.7 : BOOL;
     P1.TrackedProtectionAvailable AT %MX89.0 : BOOL;

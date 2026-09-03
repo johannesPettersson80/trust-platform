@@ -11,7 +11,13 @@ VAR
     FirstParameters : Control.LowPassParameters;
     SecondParameters : Control.LowPassParameters;
     Initialized : BOOL := FALSE;
-    AutoMode : BOOL := TRUE;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    AutoMode : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ManualMode : BOOL := TRUE;
+    ReconfigureRequested : BOOL := FALSE;
     FilterSelection : INT := 0;
     FilterTimeConstant : LREAL := 0.05;
     Setpoint : LREAL := 0.0;
@@ -52,6 +58,44 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
+(* Control Studio writes only this Boolean authority. The project owns the
+   selected filter, setpoint, mode, and restoration so the reviewed Test and
+   the executable sequence cannot disagree. *)
+ReconfigureRequested := FALSE;
+IF ExperimentEnabled AND NOT ExperimentWasEnabled THEN
+    FilterSelection := 1;
+    FilterTimeConstant := LREAL#0.05;
+    AutoMode := TRUE;
+    ReconfigureRequested := TRUE;
+ELSIF ExperimentEnabled THEN
+    AutoMode := TRUE;
+ELSIF ExperimentWasEnabled THEN
+    FilterSelection := 0;
+    FilterTimeConstant := LREAL#0.05;
+    Setpoint := LREAL#0.0;
+    AutoMode := FALSE;
+    ReconfigureRequested := TRUE;
+END_IF;
+
+InputsValid := RawPosition >= LREAL#-4.0 AND RawPosition <= LREAL#4.0
+    AND Velocity >= LREAL#-20.0 AND Velocity <= LREAL#20.0;
+IF ReconfigureRequested THEN
+    FirstParameters.TimeConstant := FilterTimeConstant;
+    FirstParameters.Order := FilterOrder#FirstOrder;
+    FirstFilter.Configure(Parameters := FirstParameters);
+    FirstFilter.Initialize(Input := RawPosition);
+    SecondParameters.TimeConstant := FilterTimeConstant;
+    SecondParameters.Order := FilterOrder#SecondOrder;
+    SecondFilter.Configure(Parameters := SecondParameters);
+    SecondFilter.Initialize(Input := RawPosition);
+    InitialState.Setpoint := Setpoint;
+    InitialState.ProcessValue := RawPosition;
+    InitialState.NominalOutput := MotorTorque;
+    InitialState.SaturatedOutput := MotorTorque;
+    Controller.Initialize(State := InitialState);
+END_IF;
+IF ExperimentEnabled THEN Setpoint := LREAL#0.5; END_IF;
+
 IF FilterSelection = 1 THEN
     ControllerPosition := FirstFilter.Update(Input := RawPosition, CycleTime := LREAL#0.02);
 ELSIF FilterSelection = 2 THEN
@@ -64,9 +108,17 @@ Input.Setpoint := Setpoint;
 (* The raw encoder remains visible; only this explicit controller-facing copy
    is filtered, preventing a smooth plot from hiding sensor evidence. *)
 Input.ProcessValue := ControllerPosition;
-IF AutoMode THEN Input.Mode := PIDMode#Auto; ELSE Input.Mode := PIDMode#Manual; END_IF;
+IF AutoMode AND InputsValid AND NOT SafetyAbort THEN
+    Input.Mode := PIDMode#Auto;
+    ManualMode := FALSE;
+ELSE
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := LREAL#0.0;
+    ManualMode := TRUE;
+END_IF;
 Input.CycleTime := LREAL#0.02;
 MotorTorque := Controller.Update(Input := Input);
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -76,6 +128,10 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.AutoMode AT %MX16.0 : BOOL;
+    P1.ExperimentEnabled AT %MX16.1 : BOOL;
+    P1.SafetyAbort AT %MX16.2 : BOOL;
+    P1.InputsValid AT %MX16.3 : BOOL;
+    P1.ManualMode AT %MX16.4 : BOOL;
     P1.FilterSelection AT %MW32 : INT;
     P1.Setpoint AT %ML40 : LREAL;
     P1.FilterTimeConstant AT %ML48 : LREAL;

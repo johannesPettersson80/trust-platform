@@ -57,10 +57,10 @@
     "decision": "Retain requested position and constrain applied position to the asymmetric interval calculated from the previous position used by the update and a task interval synchronized across ST and runtime configuration."
   },
   "experiment": {
-    "kind": "setpoint_step",
-    "signal": "Heating-water flow setpoint",
+    "kind": "observation",
+    "signal": "Experiment authority",
     "baseline": 0,
-    "amplitude": 10,
+    "amplitude": 0,
     "durationSeconds": 90.1,
     "settlingSeconds": 15,
     "disturbances": ["Upstream supply pressure is held constant so valve travel is the only changed cause"],
@@ -68,15 +68,19 @@
     "restorationValue": 0
   },
   "acceptance": [
-    { "metric": "maximum_opening_rate", "signal": "Measured valve travel rate", "window": "0 to 15 s", "comparator": "<=", "limit": 1.5, "unit": "%/s", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "maximum_opening_rate", "signal": "Measured valve travel rate", "window": "0 to 15 s", "comparator": "<=", "limit": 1.5, "unit": "%/s", "tolerance": 1e-09, "evidenceClass": "simulation" },
     { "metric": "observed_opening_rate", "signal": "Measured valve travel rate", "window": "0 to 15 s", "comparator": ">=", "limit": 1.4, "unit": "%/s", "tolerance": 0.01, "evidenceClass": "simulation" },
-    { "metric": "maximum_closing_rate", "signal": "Measured valve travel rate", "window": "15 to 40 s", "comparator": ">=", "limit": -0.5, "unit": "%/s", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "maximum_closing_rate", "signal": "Measured valve travel rate", "window": "15 to 40 s", "comparator": ">=", "limit": -0.5, "unit": "%/s", "tolerance": 1e-09, "evidenceClass": "simulation" },
     { "metric": "observed_closing_rate", "signal": "Measured valve travel rate", "window": "15 to 40 s", "comparator": "<=", "limit": -0.4, "unit": "%/s", "tolerance": 0.01, "evidenceClass": "simulation" },
     { "metric": "maximum_requested_applied_gap", "signal": "Requested valve position", "window": "complete run", "comparator": ">=", "limit": 1, "unit": "%", "tolerance": 0.01, "evidenceClass": "simulation" },
     { "metric": "flow_at_five_seconds", "signal": "Measured heating-water flow", "window": "5 s sample", "comparator": "<", "limit": 6, "unit": "L/min", "tolerance": 0.01, "evidenceClass": "simulation" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Measured heating-water flow", "minimum": 0, "maximum": 100, "unit": "L/min" }, { "signal": "Applied valve position", "minimum": 0, "maximum": 100, "unit": "%" }, { "signal": "Measured valve travel rate", "minimum": -0.5, "maximum": 1.5, "unit": "%/s" }],
+    "hardLimits": [
+      { "signal": "Measured heating-water flow", "minimum": 0, "maximum": 100, "unit": "L/min" },
+      { "signal": "Applied valve position", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Measured valve travel rate", "minimum": -0.5, "maximum": 1.5, "unit": "%/s" }
+    ],
     "abortPredicates": ["SP, PV, requested position, applied position or travel rate is nonfinite", "Applied valve position leaves 0 to 100 percent", "Measured opening or closing rate exceeds its declared limit", "Configured task interval is nonpositive or inconsistent with the ST and runtime schedule"],
     "safeMv": 0,
     "restorationMode": "Return flow SP to zero without resetting state, wait until applied valve position reaches zero, then select Manual with zero requested and applied position",

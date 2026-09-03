@@ -87,6 +87,13 @@ pairing because closing both crossed loops would reverse their effective
 steady signs. RGA is local steady pairing evidence; it is not a dynamic
 stability proof.
 
+For a two-by-two matrix, the inverse divides
+$\begin{bmatrix}g_{22}&-g_{12}\\-g_{21}&g_{11}\end{bmatrix}$ by the determinant
+$g_{11}g_{22}-g_{12}g_{21}$. Transposing that inverse and multiplying element
+by element gives the displayed RGA. This construction matters because the
+inverse represents how both valves must cooperate when both purities are held;
+RGA compares that closed-loop effective gain with each path acting alone.
+
 ### Directional gain
 
 A direction states the proportion between the two input components
@@ -107,6 +114,11 @@ The normalized nominal gain matrix ($M_{0}$) removes the different diagonal engi
 $\mathbf{M}_0=\begin{bmatrix}1&-0.5\\-0.428571&1\end{bmatrix}$
 
 Its largest and smallest singular values are 1.4649 and 0.5364. Their ratio is the condition number ($\kappa$), which is 2.73. The largest steady inverse-command amplification is the reciprocal of the smallest singular value: $1 / \sigma_{min} = 1.86$.
+
+These numbers are not fitted labels. Form $M_0^T M_0$, find its two
+eigenvalues, and take their square roots; those roots are the singular values.
+The same construction is used for $M_1$ and for the uncertainty matrix, so all
+three directional comparisons use one definition.
 
 The normalized stronger-interaction matrix ($M_{1}$) is:
 
@@ -156,6 +168,14 @@ constraint model.
 
 The proportional gain ($K_p$) is the present-error contribution in output percentage points per composition percentage point. The integral gain ($K_i$) accumulates persistent error in output percentage points per composition-percentage-point second. Both architectures use exactly the Lesson 62 PI values; changing them would turn this into a tuning comparison.
 
+Those fixed values follow the same direct-synthesis step used earlier. For a
+first-order diagonal path $K/(Ts+1)$, choose $T_i=T$ and
+$K_p=T/(K\lambda)$; then $K_i=K_p/T_i$. Overhead uses
+$20/(0.8\cdot15)=1.6666667$ and $1.6666667/20=0.0833333$.
+Bottoms uses $30/(0.7\cdot20)=2.1428571$ and
+$2.1428571/30=0.0714286$. Holding these values fixed isolates architecture as
+the experiment variable.
+
 ### Keep authority and physical limits explicit
 
 Automatic uses the selected qualified mapping. Manual applies reviewed reflux
@@ -203,7 +223,10 @@ performance metric, experiment clock, or preselected winner.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Insert the fixed nominal inverse, then add only joint direction-preserving scaling without changing the PI settings. The declared event lasts 720 seconds. It restores Overhead purity setpoint to 0 pp afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the project-owned architecture comparison. Control
+Studio writes only one Boolean permission; the project owns every target,
+disturbance, abnormal case, stop, and restoration. The deterministic Simulation
+seed is 20260829.
 
 ### Control Studio actions
 
@@ -212,35 +235,14 @@ This procedure tests one declared lesson change under controlled conditions. Ins
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Select static decoupling only after four-path identification, RGA pairing and common robustness evidence; retain direct feedback as invalid-mapping fallback and the +2/+2 record as Infeasible.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test. Stop recording before leaving Monitor.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Setpoint step**, **Amplitude** = **1 pp**, and **Maximum duration (s)** = **720**. The affected signal is **Overhead purity setpoint**; it starts at 0 pp and must restore to 0 pp.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Overhead purity setpoint -4 pp to 4 pp; Bottoms purity setpoint -4 pp to 4 pp; Applied reflux change -10 pp to 10 pp; Applied reboiler steam change -10 pp to 10 pp; Overhead light-product purity deviation -6 pp to 6 pp; Bottoms heavy-product purity deviation -6 pp to 6 pp.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **720.1**. The only writable lesson signal is Boolean `P1.ExperimentEnabled`. The project owns the single-axis, simultaneous, feed-disturbance, infeasible, invalid-quality, unavailable-valve, Manual, ControlledStop, and restoration intervals.
+   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the complete project sequence remains inside Overhead purity setpoint -4 pp to 4 pp; Bottoms purity setpoint -4 pp to 4 pp; Applied reflux change -10 pp to 10 pp; Applied reboiler steam change -10 pp to 10 pp; Overhead light-product purity deviation -6 pp to 6 pp; Bottoms heavy-product purity deviation -6 pp to 6 pp.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Overhead purity setpoint to 0 pp, wait for current data, and review a new test. Execute invalid model, invalid composition, and unavailable valve cases, then prove restoration and rollback without applying the candidate.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, confirm `P1.ExperimentEnabled = FALSE`, and wait for the project to restore both setpoints and applied valve changes to zero before reviewing a new test.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Four-path identification, RGA pairing, decoupling, directional robustness, feasibility, and architecture selection** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Four-path identification, RGA pairing, decoupling, directional robustness, feasibility, and architecture selection** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Four-path identification, RGA pairing, decoupling, directional robustness, feasibility, and architecture selection** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Four-path identification, RGA pairing, decoupling, directional robustness, feasibility, and architecture selection**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: normal_final_window_combined_absolute_error <= 0.1 pp (tolerance 0.001 pp); normal_single_axis_cross_peak <= 0.2 pp (tolerance 0.001 pp); normal_input_limit_duration <= 0.5 s (tolerance 0.1 s); restoration_combined_absolute_error <= 0.02 pp (tolerance 0.001 pp).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
 
 ## Evidence and decision
 

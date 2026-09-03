@@ -15,9 +15,10 @@
     { "role": "PV", "name": "Outlet-water temperature", "unit": "degC", "minimum": 0, "maximum": 80, "resolution": 0.01, "binding": "%IL0" },
     { "role": "state", "name": "Requested heater power", "unit": "%", "minimum": -4000, "maximum": 4000, "resolution": 0.01, "binding": "%ML16" },
     { "role": "state", "name": "Proportional gain", "unit": "%/degC", "minimum": 0, "maximum": 1000, "resolution": 0.01, "binding": "%ML8" },
-    { "role": "state", "name": "Automatic mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.0" },
+    { "role": "state", "name": "Automatic mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX24.0" },
     { "role": "MV", "name": "Applied heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
-    { "role": "disturbance", "name": "Cold-water flow load", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 1, "binding": "simulation.toml#plant_events[0]" }
+    { "role": "disturbance", "name": "Cold-water flow load", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 1, "binding": "simulation.toml#plant_events[0]" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX24.1" }
   ],
   "plant": {
     "modelId": "first_order_dead_time",
@@ -35,10 +36,7 @@
       { "signal": "Outlet-water temperature", "minimum": 0, "maximum": 80, "unit": "degC" },
       { "signal": "Applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "The recirculating volume is represented by one well-mixed thermal state.",
-      "The bounded flow increase is represented by a three-degree change in the no-heat equilibrium temperature."
-    ]
+    "simplifications": ["The recirculating volume is represented by one well-mixed thermal state.", "The bounded flow increase is represented by a three-degree change in the no-heat equilibrium temperature."]
   },
   "baseline": {
     "executableId": "Control.PID.POnly",
@@ -47,15 +45,20 @@
   },
   "change": {
     "executableId": "Control.PID.POnly",
-    "settings": { "candidateProportionalGains": [8, 40], "integralGain": 0, "derivativeGain": 0, "bias": 0 },
+    "settings": {
+      "candidateProportionalGains": [8, 40],
+      "integralGain": 0,
+      "derivativeGain": 0,
+      "bias": 0
+    },
     "decision": "Compare moderate and intentionally aggressive proportional gains while preserving the identical plant, initial state, load event, limits, duration, sample time and seed; reject a gain that reduces offset by destroying damping."
   },
   "experiment": {
-    "kind": "load_step",
-    "signal": "Cold-water flow load",
+    "kind": "observation",
+    "signal": "Experiment authority",
     "baseline": 0,
-    "amplitude": 100,
-    "durationSeconds": 120,
+    "amplitude": 0,
+    "durationSeconds": 120.1,
     "settlingSeconds": 60,
     "disturbances": ["Cold-water flow load changes at 60 s"],
     "seed": 20260824,
@@ -103,21 +106,9 @@
   "learning": {
     "context": "The binary compressor lessons regulated temperature by cycling; this water heater can modulate continuously from 0 to 100 percent power.",
     "reason": "Continuous modulation can avoid deliberate ON/OFF cycling. Start with the simplest continuous feedback law and let its remaining error create the reason for the next lesson.",
-    "theory": [
-      "The setpoint (SP) is the desired outlet-water temperature. The process value (PV) is the outlet-water temperature measured by the sensor. Both are measured in degrees Celsius.",
-      "The error (e) is the setpoint minus the process value: e = SP - PV. A positive error means the measured water is colder than desired; a negative error means it is hotter than desired.",
-      "The proportional gain (Kp) states how much heater output is requested for each degree Celsius of error. Its unit is percent heater power per degree Celsius.",
-      "The requested manipulated variable (MV_requested) is the heater-power request before limits: MV_requested = Kp times e. The applied manipulated variable (MV_applied) is the heater-power command after the clamp limits it to the physical range: MV_applied = clamp(MV_requested, 0 percent, 100 percent). The heater can add heat but cannot actively remove it.",
-      "Closed-loop feedback means the outlet sensor returns the latest process value to the controller after every update. Because more heater power raises the measured temperature, positive error must request positive heater power.",
-      "For this zero-bias controller with a 0 to 100 percent output range, the proportional band (PB) is the error range that moves the unclamped request through that range. It is measured in degrees Celsius: PB = 100 / Kp.",
-      "Damping describes how repeated rises and falls die away. Because the thermal process responds with lag, excessive gain can issue another correction before the previous heater command has fully appeared in the measurement.",
-      "This heater is a self-regulating thermal process. The steady-state error (e_ss) is the remaining difference between SP and PV after settling. The required steady heater output (MV_required) balances heat loss, and e_ss supplies that output through MV_required = Kp times e_ss when the zero-bias controller is settled and unsaturated."
-    ],
+    "theory": ["The setpoint (SP) is the desired outlet-water temperature. The process value (PV) is the outlet-water temperature measured by the sensor. Both are measured in degrees Celsius.", "The error (e) is the setpoint minus the process value: e = SP - PV. A positive error means the measured water is colder than desired; a negative error means it is hotter than desired.", "The proportional gain (Kp) states how much heater output is requested for each degree Celsius of error. Its unit is percent heater power per degree Celsius.", "The requested manipulated variable (MV_requested) is the heater-power request before limits: MV_requested = Kp times e. The applied manipulated variable (MV_applied) is the heater-power command after the clamp limits it to the physical range: MV_applied = clamp(MV_requested, 0 percent, 100 percent). The heater can add heat but cannot actively remove it.", "Closed-loop feedback means the outlet sensor returns the latest process value to the controller after every update. Because more heater power raises the measured temperature, positive error must request positive heater power.", "For this zero-bias controller with a 0 to 100 percent output range, the proportional band (PB) is the error range that moves the unclamped request through that range. It is measured in degrees Celsius: PB = 100 / Kp.", "Damping describes how repeated rises and falls die away. Because the thermal process responds with lag, excessive gain can issue another correction before the previous heater command has fully appeared in the measurement.", "This heater is a self-regulating thermal process. The steady-state error (e_ss) is the remaining difference between SP and PV after settling. The required steady heater output (MV_required) balances heat loss, and e_ss supplies that output through MV_required = Kp times e_ss when the zero-bias controller is settled and unsaturated."],
     "workedPrediction": "The setpoint is 35 degC and the initial process value is 20 degC, so the error is 15 degC. A proportional gain of 2 percent per degC requests 30 percent heater power. A gain of 8 requests 120 percent, which the clamp limits to 100 percent. Predict that gain 8 will leave less settled error than gain 2, while gain 40 will move the temperature and heater command repeatedly.",
-    "practicalPreparation": [
-      "Confirm the 20 degC initial state, 35 degC test SP, 0 to 100 percent MV range, 80 degC hard PV limit, 0 percent safe MV, 100 ms sample time, and simulation evidence class.",
-      "Predict the initial MV for Kp 2 and Kp 8, the final-error ordering, and which gain is most likely to create repeated movement."
-    ],
+    "practicalPreparation": ["Confirm the 20 degC initial state, 35 degC test SP, 0 to 100 percent MV range, 80 degC hard PV limit, 0 percent safe MV, 100 ms sample time, and simulation evidence class.", "Predict the initial MV for Kp 2 and Kp 8, the final-error ordering, and which gain is most likely to create repeated movement."],
     "baseline": "Run proportional action at Kp 2 with no fixed base output and with every other controller action disabled; start from the declared initial state and retain the 60 s cold-water load event.",
     "change": "Restore the same initial state and seed, repeat at Kp 8, then restore again and run the intentionally aggressive Kp 40 diagnostic case; change nothing except Kp.",
     "comparison": "Compare rise behavior, settling qualification, final-window mean absolute error, post-event PV total variation, applied-MV travel, finite signals and output limits across all three equivalent runs.",

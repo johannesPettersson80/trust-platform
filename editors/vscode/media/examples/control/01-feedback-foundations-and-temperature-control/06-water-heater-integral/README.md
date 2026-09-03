@@ -175,7 +175,8 @@ The gain is initialization-only, so changing it requires safe restoration and re
 ## Experiment in Control Studio
 
 Test runs the shipped integral-only candidate for 120 seconds from its safe
-initial state by writing the reviewed `P1.AutoMode` authority. The project owns
+initial state by writing only the reviewed `P1.ExperimentEnabled` authority.
+The project derives Auto and owns
 the measured 75 percent preload and the load event at 60 seconds. The retained
 biased-P comparison and its 50-second Manual preparation come from the native
 evidence test, which executes both controllers from the same qualified
@@ -193,9 +194,9 @@ deterministic Simulation seed is 20260828.
    - **Record:** Write down the initial SP, PV, requested and applied MV, integral contribution, gain, measured holding output, controller mode, and first-scan prediction before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120**. The reviewed authority is **P1.AutoMode**. Control Studio sets it true; the project owns the measured holding-output preload and timed load event.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The sole Control Studio write is Boolean **P1.ExperimentEnabled**. The project derives Auto and owns the measured holding-output preload and timed load event.
    - **Decision before action:** Before selecting **Review test**, predict the response to Cold-water flow increases at 60 s. Confirm the live values are current and the reviewed plan stays inside Outlet-water temperature 0 degC to 80 degC; Applied heater power 0 % to 100 %.
-   - **Successful evidence:** Select **Review test**, verify **P1.AutoMode**, the timeout, stop conditions, and false restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, the first unsaturated request is predicted as 75.75%, and completion restores Auto false with zero requested and applied output.
+   - **Successful evidence:** Select **Review test**, verify **P1.ExperimentEnabled**, the timeout, stop conditions, and false restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, the first unsaturated request is predicted as 75.75%, and completion restores authority false with zero requested and applied output.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the safe Manual-zero initial state, and review a new test. Confirm zero requested and applied output after restoration. The native comparison, separately, begins each case in the declared Manual 75 percent settled holding condition and gives each case its own Manual-zero restoration sample.
    - **Record:** Compare the first request and the load response with your predictions. Retain the terminal state, restoration result, and deterministic seed **20260828**.
 

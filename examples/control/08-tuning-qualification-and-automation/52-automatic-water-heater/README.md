@@ -100,7 +100,7 @@ not permission to change a controller. **Apply** is a separate review and
 authorization with current and candidate settings, revision checks, read-back,
 and rollback. This lesson neither applies nor rolls back gains.
 
-## Derive the prediction
+## Prediction
 
 Predict this exact stage sequence:
 

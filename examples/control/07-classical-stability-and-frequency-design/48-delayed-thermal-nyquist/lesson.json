@@ -55,7 +55,11 @@
   },
   "baseline": {
     "executableId": "ConveyorOven.WrappedBodePhase",
-    "settings": { "proportionalGainPercentPerDegreeCelsius": 2, "displayPhaseRangeDegrees": [-180, 180], "longDelaySeconds": 60 },
+    "settings": {
+      "proportionalGainPercentPerDegreeCelsius": 2,
+      "displayPhaseRangeDegrees": [-180, 180],
+      "longDelaySeconds": 60
+    },
     "limitation": "Wrapped crossover phase appears to provide 182.28 degrees margin although the 60-second-delay closed loop is unstable."
   },
   "change": {
@@ -63,7 +67,18 @@
     "settings": { "minimumFrequencyRadiansPerSecond": 0.0001, "maximumFrequencyRadiansPerSecond": 10, "pointsPerDecade": 500, "contourTraversal": "negative-high-to-positive-high", "applicationState": "analysis-only" },
     "decision": "Accept a stability verdict only when the complete contour is closed, clear of minus one, and its pole and encirclement counts agree with executable evidence."
   },
-  "experiment": { "kind": "observation", "signal": "Product-temperature setpoint", "baseline": 100, "amplitude": 0, "durationSeconds": 600.1, "settlingSeconds": 0, "disturbances": [], "seed": 20260829, "restorationValue": 100, "activationSignal": "P1.ExperimentEnabled" },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 100,
+    "amplitude": 0,
+    "durationSeconds": 600.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 100,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
   "acceptance": [
     { "metric": "short_delay_late_equilibrium_deviation_envelope", "signal": "Short-delay product temperature", "window": "500 through 600 seconds relative to the independently predicted 100.667-degree-Celsius equilibrium", "comparator": "<=", "limit": 0.001, "unit": "degC", "tolerance": 0.0001, "evidenceClass": "simulation" },
     { "metric": "medium_delay_late_to_early_equilibrium_envelope_ratio", "signal": "Medium-delay product temperature", "window": "late 500-through-600-second envelope divided by early 100-through-200-second envelope", "comparator": ">", "limit": 1.2, "unit": "1", "tolerance": 0.01, "evidenceClass": "simulation" },
@@ -95,7 +110,15 @@
     "runArtifactFields": ["plantIdentity", "modelRevision", "controllerRevision", "transportDelay", "sampleInterval", "setpoint", "predictedEquilibrium", "setpointError", "processValue", "requestedHeaterCommand", "appliedHeaterCommand", "positiveFrequencyPath", "negativeFrequencyPath", "contourTraversal", "wrappedPhase", "unwrappedPhase", "gainCrossover", "minimumDistanceToMinusOne", "encirclementsCounterClockwise", "openLoopRightHalfPlanePoles", "closedLoopRightHalfPlanePoles", "sweepBounds", "pointsPerDecade", "endpointMagnitude", "earlyEquilibriumDeviationEnvelope", "lateEquilibriumDeviationEnvelope", "limitContact", "aborted", "stopReason", "seed", "evidenceClass"],
     "renderedJourneyId": "control-delayed-thermal-nyquist"
   },
-  "video": { "viewerOutcome": "Count Nyquist encirclements with a declared sign convention and reject a wrapped-phase stability conclusion on a delayed thermal loop.", "requiredVisibleEvidence": ["conveyor oven and sensor distance", "three transport delays", "wrapped and unwrapped phase", "complete Nyquist contours", "minus-one point", "encirclement and pole-count table", "temperature-error envelopes", "abort state", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Count Nyquist encirclements with a declared sign convention and reject a wrapped-phase stability conclusion on a delayed thermal loop.",
+    "requiredVisibleEvidence": ["conveyor oven and sensor distance", "three transport delays", "wrapped and unwrapped phase", "complete Nyquist contours", "minus-one point", "encirclement and pole-count table", "temperature-error envelopes", "abort state", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "Three equivalent conveyor ovens differ only in transport delay from heater action to downstream temperature measurement.",
     "reason": "Long delay creates complete phase rotations that a wrapped Bode phase display can hide.",

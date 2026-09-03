@@ -1,6 +1,8 @@
 PROGRAM Main
 VAR
     ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     FineAborted : BOOL := FALSE;
     CoarseAborted : BOOL := FALSE;
     CorrectedAborted : BOOL := FALSE;
@@ -32,7 +34,7 @@ VAR
     CorrectedCounter : DINT := 0;
 END_VAR
 
-IF ExperimentEnabled THEN
+IF ExperimentEnabled AND (NOT SafetyAbort) AND InputsValid THEN
     IF FineAborted THEN
         FineAppliedForce := MAX(MIN(-LREAL#0.8 * FineVelocity, ForceMaximum), ForceMinimum);
     ELSE
@@ -109,6 +111,8 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.ExperimentEnabled AT %MX96.0 : BOOL;
+    P1.SafetyAbort AT %MX96.1 : BOOL;
+    P1.InputsValid AT %MX96.2 : BOOL;
     P1.FineAborted AT %MX97.0 : BOOL;
     P1.CoarseAborted AT %MX97.1 : BOOL;
     P1.CorrectedAborted AT %MX97.2 : BOOL;

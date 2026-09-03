@@ -11,7 +11,7 @@
   "prerequisites": ["control-plant-response-classes"],
   "nextLesson": "control-gravity-tank-linearization",
   "signals": [
-    { "role": "state", "name": "Experiment authority", "unit": "bool", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX80.1" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX80.1" },
     { "role": "state", "name": "Tank inlet flow", "unit": "L/s", "minimum": 0, "maximum": 20, "resolution": 0.01, "binding": "%ML0" },
     { "role": "state", "name": "Tank outlet flow", "unit": "L/s", "minimum": 0, "maximum": 20, "resolution": 0.01, "binding": "%ML8" },
     { "role": "MV", "name": "Tank net-flow command", "unit": "L/s", "minimum": -20, "maximum": 20, "resolution": 0.01, "binding": "%QL0" },
@@ -44,11 +44,7 @@
       { "signal": "Heater applied command", "minimum": 0, "maximum": 100, "unit": "%" },
       { "signal": "Heater temperature", "minimum": 0, "maximum": 100, "unit": "degC" }
     ],
-    "simplifications": [
-      "The tank has constant area, constant density, no overflow, and independently prescribed inlet and outlet flows.",
-      "The vessel is perfectly mixed with constant thermal capacitance and linear heat loss in the declared operating region.",
-      "Sensor dynamics, evaporation, temperature-dependent properties, nonlinear gravity outflow, and unmeasured disturbances are absent."
-    ]
+    "simplifications": ["The tank has constant area, constant density, no overflow, and independently prescribed inlet and outlet flows.", "The vessel is perfectly mixed with constant thermal capacitance and linear heat loss in the declared operating region.", "Sensor dynamics, evaporation, temperature-dependent properties, nonlinear gravity outflow, and unmeasured disturbances are absent."]
   },
   "baseline": {
     "executableId": "Conservation.ResponseLabelsOnly",
@@ -109,11 +105,7 @@
   "learning": {
     "context": "A constant-area buffer tank stores liquid and a well-mixed electrically heated vessel stores thermal energy.",
     "reason": "Response-class labels from Lesson 32 do not explain the physical causes or parameter dependence of integration and self-regulation.",
-    "theory": [
-      "Accumulation equals total rate entering minus total rate leaving; the stored quantity becomes a state needed to predict future behavior.",
-      "Tank level follows a volume balance, while vessel temperature follows an energy balance between heating power and temperature-dependent heat loss.",
-      "Equilibrium means zero accumulation; unit consistency and declared assumptions are prerequisites for a meaningful model."
-    ],
+    "theory": ["Accumulation equals total rate entering minus total rate leaving; the stored quantity becomes a state needed to predict future behavior.", "Tank level follows a volume balance, while vessel temperature follows an energy balance between heating power and temperature-dependent heat loss.", "Equilibrium means zero accumulation; unit consistency and declared assumptions are prerequisites for a meaningful model."],
     "workedPrediction": "The tank predicts 0.4 cm/s and 58 cm at 20 s; equal flows predict zero slope. The heater predicts 40 kW, 24 degC equilibrium, 5 s time constant, and 22.53 degC at 6 s.",
     "practicalPreparation": ["Verify plant identities, units, initial states, parameters, quality, 100 ms sampling, limits, aborts, and Simulation evidence class.", "Write every numerical prediction and its assumptions before starting the run."],
     "baseline": "Use Lesson 32 response labels without a causal physical model and identify what they cannot predict.",

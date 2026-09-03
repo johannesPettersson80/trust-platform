@@ -30,7 +30,7 @@
       "symbol": "P1.ManualDemand",
       "address": "%ML8",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -90,6 +90,20 @@
           "minimum": 4,
           "maximum": 6
         }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX24.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     ]
   },
@@ -103,10 +117,16 @@
   "plantId": "first_order",
   "operatingPoint": "PV 4, MV 0",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "mv_step",
-    "amplitude": 150,
-    "durationSeconds": 20,
-    "seed": 20260828
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 120.1,
+    "seed": 20260828,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX24.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

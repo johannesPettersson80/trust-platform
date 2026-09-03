@@ -7,6 +7,11 @@ VAR
     ActiveParameters : Control.PIDParameters;
     InitialState : Control.PIDInitialState;
     Input : Control.PIDInput;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    ExperimentCycle : ULINT := ULINT#0;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     InitializeRequest : BOOL := FALSE;
     ApplyConfiguration : BOOL := FALSE;
     UnsafeSequentialUpdate : BOOL := FALSE;
@@ -39,6 +44,53 @@ VAR
 END_VAR
 
 ConfiguredThisScan := FALSE;
+
+(* One reviewed authority executes only valid production paths: an atomic
+   configuration update, then a fresh aligned internal-feedforward case. *)
+IF ExperimentEnabled THEN
+    IF NOT ExperimentWasEnabled THEN
+        ExperimentCycle := ULINT#0;
+    END_IF;
+    ExperimentCycle := ExperimentCycle + ULINT#1;
+    InitializeRequest := FALSE;
+    ApplyConfiguration := FALSE;
+    UnsafeSequentialUpdate := FALSE;
+    IF ExperimentCycle = ULINT#1 THEN
+        Setpoint := LREAL#6.0;
+        FeedForward := LREAL#0.0;
+        ActualValvePosition := LREAL#40.0;
+        RateLimitPerSecond := LREAL#1000.0;
+        InitializeRequest := TRUE;
+    ELSIF ExperimentCycle = ULINT#2 THEN
+        Setpoint := LREAL#7.0;
+        ApplyConfiguration := TRUE;
+    ELSIF ExperimentCycle = ULINT#3 THEN
+        Setpoint := ProcessValue;
+        FeedForward := LREAL#0.0;
+        ActualValvePosition := LREAL#40.0;
+        RateLimitPerSecond := LREAL#20.0;
+        InitializeRequest := TRUE;
+    ELSE
+        Setpoint := ProcessValue;
+        FeedForward := LREAL#20.0;
+    END_IF;
+ELSIF ExperimentWasEnabled THEN
+    ExperimentCycle := ULINT#0;
+    InitializeRequest := FALSE;
+    ApplyConfiguration := FALSE;
+    UnsafeSequentialUpdate := FALSE;
+    FeedForward := LREAL#0.0;
+    Setpoint := LREAL#6.0;
+    ControllerReady := FALSE;
+    ValveCommand := LREAL#30.0;
+END_IF;
+
+InputsValid := ProcessValue >= LREAL#0.0 AND ProcessValue <= LREAL#12.0
+    AND FeedForward >= LREAL#-100.0 AND FeedForward <= LREAL#100.0;
+IF SafetyAbort OR NOT InputsValid THEN
+    ControllerReady := FALSE;
+    ValveCommand := LREAL#30.0;
+END_IF;
 
 IF InitializeRequest THEN
     ActiveParameters.ProportionalGain := LREAL#5.0;
@@ -149,6 +201,7 @@ IF ControllerReady THEN
     PreviousFeedForward := FeedForward;
     PreviousAppliedOutput := ValveCommand;
 END_IF;
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -157,14 +210,17 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.InitializeRequest AT %MX56.0 : BOOL;
-    P1.ApplyConfiguration AT %MX56.1 : BOOL;
-    P1.UnsafeSequentialUpdate AT %MX56.2 : BOOL;
-    P1.ControllerReady AT %MX56.3 : BOOL;
-    P1.ConfiguredThisScan AT %MX56.4 : BOOL;
-    P1.MixedConfigurationObserved AT %MX56.5 : BOOL;
-    P1.RateLimited AT %MX56.6 : BOOL;
-    P1.AmplitudeLimited AT %MX56.7 : BOOL;
+    P1.InitializeRequest AT %MX120.0 : BOOL;
+    P1.ApplyConfiguration AT %MX120.1 : BOOL;
+    P1.UnsafeSequentialUpdate AT %MX120.2 : BOOL;
+    P1.ControllerReady AT %MX120.3 : BOOL;
+    P1.ConfiguredThisScan AT %MX120.4 : BOOL;
+    P1.MixedConfigurationObserved AT %MX120.5 : BOOL;
+    P1.RateLimited AT %MX120.6 : BOOL;
+    P1.AmplitudeLimited AT %MX120.7 : BOOL;
+    P1.ExperimentEnabled AT %MX121.0 : BOOL;
+    P1.SafetyAbort AT %MX121.1 : BOOL;
+    P1.InputsValid AT %MX121.2 : BOOL;
     P1.ActiveRevision AT %MW112 : INT;
     P1.Setpoint AT %ML0 : LREAL;
     P1.ActualValvePosition AT %ML8 : LREAL;

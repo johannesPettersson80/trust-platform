@@ -1,15 +1,14 @@
 # Model-qualified PI tuning for three real processes
 
-Course position: Lesson 44 of 84. Prerequisite: qualified feedback-relay autotuning.
-Next: closed-loop poles and Routh-Hurwitz stability.
+Course position: Lesson 44 of 84. Previous lesson:
+[qualified feedback-relay autotuning](../43-relay-autotuning/README.md). Next
+lesson: closed-loop poles and Routh-Hurwitz stability.
 
-Equipment: Recirculating water heater, buffer tank, and continuous belt dryer.
+**Equipment:** Recirculating water heater, buffer tank, and continuous belt dryer.
 
 **Lesson objective:** Calculate and validate Fast, Balanced, and Robust PI candidates from eligible models while keeping every candidate unapplied.
 
 ## The problem
-
-The equipment in this lesson is Recirculating water heater, buffer tank, and continuous belt dryer.
 
 This lesson controls three simulated pieces of industrial equipment with the
 same shipped `Control.PID` function block: a recirculating water heater, a
@@ -30,7 +29,8 @@ self-regulating formula blindly to an integrating tank.
 
 ## What we need
 
-We need to convert each eligible process model into several explicit speed-versus-robustness choices and validate them under common conditions. A calculated candidate remains unapplied until its model range, actuator use, and uncertain response are acceptable.
+We need to derive PI gains from the validated plant model and an explicit
+closed-loop response target, then qualify robustness before applying anything.
 
 ## The new idea
 
@@ -44,21 +44,28 @@ describes the main response lag. Effective dead time ($L$), in seconds, describe
 delay before the useful response appears. After defining those quantities, the
 SIMC proportional gain is
 
-$K_p = T / (K \cdot (\lambda + L))$
+\[
+K_p=\frac{T}{K(\lambda+L)}.
+\]
 
 The integral time ($T_i$) is the time in seconds used to scale integral action.
-For these first-order self-regulating models, $T_i = T$. The parallel integral
-gain ($K_i$) used by `Control.PID` is then
+For a general eligible first-order model, SIMC uses
+$T_i=\min(T,4(\lambda+L))$. For the three response ranges here this minimum is
+$T$, preventing integral action from becoming faster than the dominant plant
+lag. The parallel integral gain used by `Control.PID` is then
 
-$K_i = K_p / T_i$
+\[
+K_i=\frac{K_p}{T_i}.
+\]
 
 An integrating process never reaches a new steady output while net input stays
 nonzero. Its integrating rate gain (Kprime) is output change per unit input per
 second, not a steady-state gain. For the tank, the eligible equations are
 
-$K_p = 1 / (Kprime \cdot (\lambda + L))$
-
-$T_i = 4 \cdot (\lambda + L)$
+\[
+K_p=\frac{1}{K'(\lambda+L)},\qquad
+T_i=4(\lambda+L).
+\]
 
 and again $K_i = K_p / T_i$.
 
@@ -68,19 +75,27 @@ future input sequence here.
 
 ## Prediction
 
-The water heater model has $K = 0.20 {}^\circ\mathrm{C}/\%$, $T = 5.0 s$, and $L = 1.0 s$.
-Its Fast, Balanced, and Robust numeric targets in seconds are 1.67, 3.33, and
-6.67. The resulting `(Kp, Ki)` pairs are $(9.375, 1.875)$,
+For a self-regulating model the Fast target is
+$\max(L,T/3)$; Balanced is twice Fast and Robust is four times Fast. The water
+heater has $K=0.20$ °C/%, $T=5.0$ s, and $L=1.0$ s, so Fast is
+$\max(1,5/3)=1.667$ s. The targets are therefore 1.667, 3.333, and 6.667 s.
+For Balanced,
+$K_p=5/[0.2(3.333+1)]=5.769$, $T_i=5$ s, and
+$K_i=5.769/5=1.154$. The complete `(Kp, Ki)` pairs are $(9.375, 1.875)$,
 $(5.769, 1.154)$, and $(3.261, 0.652)$.
 
-The buffer tank has $Kprime = 0.05 level-\%/(valve-\% \cdot s)$ and effective dead time
+For an integrating model Fast equals its positive effective delay. The buffer
+tank has $K'=0.05$ level-%/(valve-%·s) and effective dead time
 $L = 0.5 s$. That effective delay comes from the already taught reduction of
 the physical 1.0-second valve lag. Fast, Balanced, and Robust use lambda values of 0.5,
-1.0, and 2.0 seconds. Their pairs are $(20.000, 5.000)$, $(13.333, 2.222)$,
+1.0, and 2.0 seconds. Balanced gives
+$K_p=1/[0.05(1+0.5)]=13.333$, $T_i=4(1.5)=6$ s, and
+$K_i=13.333/6=2.222$. Their pairs are $(20.000, 5.000)$, $(13.333, 2.222)$,
 and $(8.000, 0.800)$.
 
 The dryer has $K = 0.40 dryness-\%/heater-\%$, $T = 20.0 s$, and $L = 8.0 s$.
-Its lambda values are 8.0, 16.0, and 32.0 seconds. Its pairs are
+Here Fast is $\max(8,20/3)=8$ s. Balanced gives
+$K_p=20/[0.4(16+8)]=2.083$, $T_i=20$ s, and $K_i=0.104$. Its lambda values are 8.0, 16.0, and 32.0 seconds. Its pairs are
 $(3.125, 0.156)$, $(2.083, 0.104)$, and $(1.250, 0.063)$.
 
 Predict that Fast will normally have the shortest 10-to-90-percent rise time,
@@ -112,7 +127,13 @@ later actuator limitations cannot be hidden.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Calculate model-eligible SIMC PI candidates for three declared response targets. The declared event lasts 220 seconds. It restores Heater temperature setpoint to 20 degC afterward. The deterministic Simulation seed is 20260829.
+Control Studio exposes the Balanced candidate already declared in the project.
+Test writes one reviewed Boolean, `P1.ExperimentEnabled`, for 220.1 seconds.
+The project owns the heater 20-to-25 °C setpoint, the linked tank and dryer
+setpoints, and restoration of all three baselines. Fresh native runs own all
+nine plant/target combinations and the gain/delay variations so each starts
+from an equivalent state. Every candidate remains unapplied. The deterministic
+Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -124,25 +145,15 @@ This procedure tests one declared lesson change under controlled conditions. Cal
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Setpoint step**, **Amplitude** = **5 degC**, and **Maximum duration (s)** = **220**. The affected signal is **Heater temperature setpoint**; it starts at 20 degC and must restore to 20 degC. Change only the response target; keep the same eligible plant, initial state, events, sample interval, and limits for Fast, Balanced, and Robust candidates.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Heater applied power 0 % to 100 %; Tank applied inlet valve 0 % to 100 %; Dryer applied heater command 0 % to 100 %; Tank level 0 % to 100 %.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Heater temperature setpoint to 20 degC, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **220.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm heater/tank/dryer setpoints = 20 °C/50%/40% and applied outputs = 20%/50%/30%.
+   - **Decision before action:** Before selecting **Review test**, independently calculate all three Balanced gain sets and predict their response directions. Confirm every project-owned output remains within 0–100% and every PV within its declared limit. Do not Apply a candidate.
+   - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe the three linked setpoint responses and all baselines restored when authority ends.
+   - **Recovery:** Abort for stale, forced, invalid, nonfinite, mismatched-model, or out-of-range data. Confirm authority false and all three setpoints restored before retrying.
+   - **Record:** Retain terminal state, restoration, model parameters, target, gains, SP/PV/requested/applied MV traces, response metrics, events, seed, and unapplied state.
 
-3. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** Continue only when Identify shows an accepted model. Set **Design method** = **SIMC** and set **Response** = **Balanced** for the first candidate.
-   - **Decision before action:** Calculate the expected gains and predict the response/robustness trade-off before selecting **Generate candidate**.
-   - **Successful evidence:** Generate the unapplied candidate and compare Response, controller output, Bode evidence, and margins using the same accepted model.
-   - **Recovery:** If generation is disabled, return to Identify and accept a qualified independent model. If the method is rejected, retain the reason instead of substituting another formula.
-   - **Record:** Save the candidate settings and explain why the trade-off is eligible or rejected without applying it.
-
-4. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** Continue only after Tune shows an unapplied candidate, then select **Run required validation**.
-   - **Decision before action:** Open **Requirement details** and use the predeclared comparisons: heater_final_window_absolute_error <= 0.25 degC (tolerance 0.01 degC); tank_final_window_absolute_error <= 0.25 % (tolerance 0.01 %); dryer_final_window_absolute_error <= 0.25 % (tolerance 0.01 %).
-   - **Successful evidence:** Inspect Response, constraints, and robustness using the same retained model and conditions. Every requirement reports Pass, Fail, or Inconclusive with value, unit, limit, source, and reason.
-   - **Recovery:** If validation is disabled, stale, or failed, return to the named prerequisite stage, correct the cause, and retain both rejected and replacement evidence; do not open **Review application** for a failed result.
-   - **Record:** Select **Save result** only after source, units, tolerances, and restoration agree, then state the final disposition and failed requirement if any.
+There is no shared Tune or disabled Validate stage. The project already
+contains the Balanced controllers; native executable evidence calculates and
+compares Fast, Balanced, and Robust candidates without applying any of them.
 
 ## Evidence and decision
 

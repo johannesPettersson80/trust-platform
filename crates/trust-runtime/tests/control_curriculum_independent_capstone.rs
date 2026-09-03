@@ -160,7 +160,10 @@ fn build_runtime() -> Runtime {
             "control/14-integrated-capstones/84-independent/src/CompressedAirController.st",
             project_file("src/CompressedAirController.st"),
         ),
-        SourceFile::with_path("control/14-integrated-capstones/84-independent/src/Main.st", mapped_source()),
+        SourceFile::with_path(
+            "control/14-integrated-capstones/84-independent/src/Main.st",
+            mapped_source(),
+        ),
     ])
     .label_errors(true)
     .build_runtime()

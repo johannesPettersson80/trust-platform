@@ -231,6 +231,20 @@
           "minimum": 0,
           "maximum": 100
         }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX136.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     ]
   },
@@ -247,8 +261,12 @@
     "kind": "observation",
     "amplitude": 0,
     "durationSeconds": 120.1,
-    "restorationValue": 0,
     "seed": 20260829,
-    "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX136.3", "iecType": "BOOL", "direction": "write" }
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX136.3",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

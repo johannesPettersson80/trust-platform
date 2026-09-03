@@ -1,8 +1,8 @@
 # Match excitation to the plant
 
 Course position: Lesson 38 of 84. Previous lesson: [Safe heat-exchanger
-experiment](../37-safe-heat-exchanger-experiment/README.md). Next lesson: model
-structure selection.
+experiment](../37-safe-heat-exchanger-experiment/README.md). Next lesson:
+[model-structure selection](../39-dryer-model-selection/README.md).
 
 **Lesson objective:** Select and validate informative excitation for a slow
 thermal process and a lightly damped mechanical process.
@@ -13,8 +13,6 @@ Every result in this lesson is simulation evidence, not physical-plant
 evidence.
 
 ## The problem
-
-The equipment in this lesson is Slow water heater and resonant flexible-drive servo test stand.
 
 The water heater has a one-sided 0-to-100-percent heating actuator. It operates
 at 20 percent and 24 degrees Celsius. Near that point, 1 percentage point of
@@ -35,7 +33,8 @@ excitation must match the dynamics we need to observe.
 
 ## What we need
 
-We need to choose an input shape whose duration and frequency content expose the dynamics relevant to the intended model without leaving the safe operating envelope. A slow thermal process and a resonant mechanical process require different evidence.
+We need to choose an excitation whose amplitude and frequency content reveal
+the required dynamics without exceeding the heat exchanger's operating limits.
 
 ## The new idea
 
@@ -75,16 +74,34 @@ The expected output change caused by the experiment is the signal amplitude
 amplitude ($A_{\mathrm{noise}}$). Their dimensionless ratio is the signal-to-noise ratio
 ($SNR$):
 
-$SNR = A_{\mathrm{signal}} / A_{\mathrm{noise}}$
+\[
+SNR=\frac{A_{\mathrm{signal}}}{A_{\mathrm{noise}}}.
+\]
 
-For the heater, 5 percentage points predict 1 degree Celsius. With 0.02 degree
-Celsius noise amplitude, the predicted SNR is 50. High SNR does not make a
+For the heater, its gain predicts
+$A_{\mathrm{signal}}=(0.2\ ^\circ\mathrm C/\%)(5\%)=1$ °C. With 0.02 °C RMS
+noise, $SNR=1/0.02=50$. High SNR does not make a
 clipped or out-of-region experiment valid.
 
-The heater PRBS dwell is 2.5 seconds, half its 5-second thermal lag. The servo
+The heater PRBS dwell is 2.5 seconds, half its 5-second thermal lag. This gives
+the temperature several scans to begin responding to each level instead of
+turning the heater input into mostly attenuated rapid switching. The servo
 PRBS dwell is 0.3 second, exactly three 100-millisecond task scans. The servo
 chirp sweeps from 0.2 to 2 hertz in 20 seconds. It crosses the 0.95-hertz
-flexible mode implied by 6 radians per second.
+flexible mode because angular frequency and ordinary frequency obey
+$\omega=2\pi f$, so $f_n=6/(2\pi)=0.955$ Hz.
+
+For the linear chirp, frequency at sweep time $t$ is
+
+\[
+f(t)=f_0+\frac{f_1-f_0}{T_s}t.
+\]
+
+Phase is the accumulated angle, so
+$\phi(t)=2\pi\int_0^t f(\xi)d\xi$. The program approximates that integral each
+100 ms scan by adding $2\pi f(t)\Delta t$, then commands
+$\sin\phi$. This explains why merely changing the displayed frequency without
+integrating phase would not generate the intended chirp.
 
 ## Prediction
 
@@ -94,7 +111,7 @@ and covers low or broad frequency content.
 
 Predict that the heater step gives the clearest final gain while the fast chirp
 is attenuated by thermal lag. Predict that the servo doublet has nearly zero
-signed torque area and that the chirp's largest position response occurs near
+signed torque area: $(+0.1)(5)+(-0.1)(5)=0$ N·m·s. Predict that the chirp's largest position response occurs near
 0.95 hertz. Predict relay reason code 4 and no plant movement.
 
 ## Implementation
@@ -122,7 +139,12 @@ ineligible plant-method pairing before either applied input moves.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Compare pulse, doublet, plant-specific PRBS, and chirp while holding each plant's initial state, amplitude, duration, noise, limits, and seed constant. The declared event lasts 30 seconds. It restores Servo applied torque to 0 N m afterward. The deterministic Simulation seed is 20260829.
+Control Studio exposes the selected servo chirp. Test writes one reviewed
+Boolean, `P1.ExperimentEnabled`, for 30.1 seconds. The project owns plant 1,
+method 6, amplitude scale 1, the 0.2-to-2 Hz sweep, and restoration to zero
+torque. Fresh native runs own the heater step/chirp, both PRBS dwell cases,
+the servo doublet, and relay rejection so every comparison starts from the same
+state and seed. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -134,18 +156,15 @@ This procedure tests one declared lesson change under controlled conditions. Com
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **multisine**, **Amplitude** = **0.1 N m**, and **Maximum duration (s)** = **30**. The affected signal is **Servo applied torque**; it starts at 0 N m and must restore to 0 N m.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Heater applied command 0 % to 100 %; Servo applied torque -0.2 N m to 0.2 N m; Servo shaft position -0.35 rad to 0.35 rad. Compare the declared excitation records only; do not Identify, Tune, or Apply.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Servo applied torque to 0 N m, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm servo requested/applied torque = 0 N·m.
+   - **Decision before action:** Before selecting **Review test**, predict a response maximum near the 0.955 Hz mode and confirm project-owned torque remains within ±0.2 N·m and shaft position within ±0.35 rad. Compare only qualified records; do not Identify, Tune, or Apply.
+   - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe five seconds at baseline, the 20-second chirp, five seconds restored, and a final zero torque.
+   - **Recovery:** Abort for stale, invalid, nonfinite, or out-of-range data. Confirm authority false and requested/applied torque zero before retrying.
+   - **Record:** Retain terminal state, restoration, requested/applied torque, shaft position, instantaneous frequency, peak frequency, bounds, and seed **20260829**.
 
-3. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: heater_step_output_span >= 0.9 degC (tolerance 0.02 degC); heater_chirp_output_span <= 0.6 degC (tolerance 0.02 degC); servo_doublet_signed_area <= 0.01 N m s (tolerance 0.0001 N m s); servo_chirp_peak_frequency >= 0.8 Hz (tolerance 0.15 Hz).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+There is no separate disabled Validate stage. Native executable evidence owns
+the comparison matrix and rejected relay; Monitor and Test expose the selected
+servo chirp.
 
 ## Evidence and decision
 

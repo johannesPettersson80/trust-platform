@@ -27,10 +27,25 @@ fn project_file(relative: &str) -> String {
 }
 
 fn mapped_source() -> String {
-    project_file("src/Main.st")
+    let mut source = project_file("src/Main.st")
         .split("CONFIGURATION Config")
         .next()
         .expect("Lesson 83 program before configuration")
+        .to_owned();
+    let workflow_start = source
+        .find("// The simulated capstone starts from its reviewed automatic operating state.")
+        .expect("Lesson 83 project-owned workflow start");
+    let workflow_end_marker = "AutoMode := Enabled AND (OperatingMode = DINT#1);";
+    let workflow_end = source[workflow_start..]
+        .find(workflow_end_marker)
+        .map(|offset| workflow_start + offset + workflow_end_marker.len())
+        .expect("Lesson 83 project-owned workflow end");
+    source.replace_range(workflow_start..workflow_end, "");
+
+    // These tests qualify the controller and plant independently of the visible
+    // lesson sequencer. The course-wide workflow contract separately proves
+    // that the shipped project owns the complete Control Studio experiment.
+    source
         .replace(
             "FeasibleCandidateCount : DINT :=",
             "FeasibleCandidateCount AT %MD4 : DINT :=",

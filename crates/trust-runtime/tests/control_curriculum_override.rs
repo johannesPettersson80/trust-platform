@@ -12,8 +12,9 @@ const CONTROL_SOURCE: &str = include_str!("../../../libraries/control/src/contro
 mod evidence;
 
 fn evidence_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/control/09-industrial-control-structures/57-compressor-override/figures")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../../examples/control/09-industrial-control-structures/57-compressor-override/figures",
+    )
 }
 
 fn time_axis(samples: usize) -> Vec<f64> {

@@ -40,7 +40,7 @@
       "symbol": "P1.PApplied",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -48,6 +48,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX96.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "historical-pi-temperature",
         "channel": "historical-pi-temperature",
@@ -97,7 +111,7 @@
         "symbol": "P1.HistoricalApplied",
         "address": "%QL8",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -111,7 +125,7 @@
         "symbol": "P1.CurrentApplied",
         "address": "%QL16",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -125,7 +139,7 @@
         "symbol": "P1.CandidateApplied",
         "address": "%QL24",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -171,10 +185,16 @@
   },
   "plantId": "four_equivalent_recirculating_water_heaters",
   "experiment": {
-    "execution": "control-studio",
+    "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 220,
-    "seed": 20260829
+    "durationSeconds": 220.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX96.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

@@ -47,15 +47,35 @@
   },
   "baseline": {
     "executableId": "FlexibleDrive.UnshapedGainFive",
-    "settings": { "controllerGain": 5, "probeFrequenciesRadiansPerSecond": [0.5, 2, 8], "probeAmplitudePercent": 1 },
+    "settings": {
+      "controllerGain": 5,
+      "probeFrequenciesRadiansPerSecond": [0.5, 2, 8],
+      "probeAmplitudePercent": 1
+    },
     "limitation": "The unshaped loop has a large resonant peak and approximately 6.9 degrees phase margin."
   },
   "change": {
     "executableId": "FlexibleDrive.ResonanceShapedCandidate",
-    "settings": { "controllerGain": 5, "numerator": [1, 0.2, 4], "denominator": [1, 3.2, 4], "applicationState": "unapplied" },
+    "settings": {
+      "controllerGain": 5,
+      "numerator": [1, 0.2, 4],
+      "denominator": [1, 3.2, 4],
+      "applicationState": "unapplied"
+    },
     "decision": "Accept for further simulation only when measured response, all crossings, margins, and perturbed-model checks meet the declared criteria."
   },
-  "experiment": { "kind": "observation", "signal": "Low applied motor torque", "baseline": 0, "amplitude": 0, "durationSeconds": 120.1, "settlingSeconds": 60, "disturbances": [], "seed": 20260829, "restorationValue": 0, "activationSignal": "P1.ExperimentEnabled" },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 120.1,
+    "settlingSeconds": 60,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
   "acceptance": [
     { "metric": "resonant_frequency_response_magnitude", "signal": "Resonant load speed", "window": "60 through 120 seconds after the transient-discard interval", "comparator": ">=", "limit": 2.425, "unit": "rpm/%", "tolerance": 0.075, "evidenceClass": "simulation" },
     { "metric": "unshaped_phase_margin", "signal": "Resonant load speed", "window": "qualified analytical sweep across every retained gain crossover", "comparator": ">=", "limit": 6.8, "unit": "deg", "tolerance": 0.1, "evidenceClass": "model" },
@@ -85,7 +105,15 @@
     "runArtifactFields": ["plantIdentity", "modelRevision", "sampleInterval", "probeFrequencies", "requestedTorque", "appliedTorque", "loadSpeed", "fitWindow", "inputAmplitude", "outputAmplitude", "magnitude", "phase", "coherence", "gainCrossovers", "phaseMargins", "phaseCrossover", "gainMargin", "delayMargin", "resonancePeak", "bandwidth", "perturbations", "stopReason", "seed", "evidenceClass"],
     "renderedJourneyId": "control-flexible-drive-bode"
   },
-  "video": { "viewerOutcome": "Measure a flexible-drive frequency response, recognize resonance, and reject a loop-shaping candidate when its margins or model robustness are inadequate.", "requiredVisibleEvidence": ["flexible shaft and signal path", "three probe frequencies", "requested and applied torque", "measured Bode magnitude and phase", "resonant peak", "all gain crossovers", "qualified margins", "perturbed-model result", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Measure a flexible-drive frequency response, recognize resonance, and reject a loop-shaping candidate when its margins or model robustness are inadequate.",
+    "requiredVisibleEvidence": ["flexible shaft and signal path", "three probe frequencies", "requested and applied torque", "measured Bode magnitude and phase", "resonant peak", "all gain crossovers", "qualified margins", "perturbed-model result", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "Three equivalent simulated flexible drives receive equal torque amplitudes at low, resonant, and high frequencies.",
     "reason": "Root locus and one transient do not directly expose frequency-dependent resonance, phase loss, or full-loop margins.",

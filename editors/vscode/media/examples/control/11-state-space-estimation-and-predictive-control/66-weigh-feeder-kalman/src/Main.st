@@ -20,7 +20,35 @@ VAR
     BeltCommandApplied : LREAL := 0.0;
     MassFlowTruth : LREAL := 5.0;
     MassFlowMeasurement : LREAL := 5.0;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
 END_VAR
+
+(* Control Studio grants only authority. The project owns the nominal command
+   record; covariance alternatives and faults remain independent native tests. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    Enabled := TRUE;
+    UseKalman := TRUE;
+    ProcessNoiseVariance := LREAL#0.1;
+    MeasurementNoiseVariance := LREAL#3.0;
+    IF ExperimentElapsed < LREAL#5.0 THEN
+        BeltCommandRequested := LREAL#5.0;
+    ELSIF ExperimentElapsed < LREAL#30.0 THEN
+        BeltCommandRequested := LREAL#10.0;
+    ELSE
+        BeltCommandRequested := LREAL#0.0;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    Enabled := FALSE;
+    UseKalman := TRUE;
+    ProcessNoiseVariance := LREAL#0.1;
+    MeasurementNoiseVariance := LREAL#3.0;
+    BeltCommandRequested := LREAL#0.0;
+END_IF;
 
 IF (MassFlowMeasurement >= LREAL#-1000.0)
     AND (MassFlowMeasurement <= LREAL#1000.0) THEN
@@ -109,6 +137,9 @@ VAR_CONFIG
     P1.Enabled AT %MX120.0 : BOOL;
     P1.UseKalman AT %MX120.1 : BOOL;
     P1.EstimatorValid AT %MX120.2 : BOOL;
+    P1.ExperimentEnabled AT %MX120.3 : BOOL;
+    P1.SafetyAbort AT %MX120.4 : BOOL;
+    P1.InputsValid AT %MX120.5 : BOOL;
     P1.BeltCommandApplied AT %QL0 : LREAL;
     P1.MassFlowTruth AT %IL0 : LREAL;
     P1.MassFlowMeasurement AT %IL8 : LREAL;

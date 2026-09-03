@@ -18,7 +18,8 @@
     { "role": "quality", "name": "Sensor age", "unit": "s", "minimum": 0, "maximum": 10, "resolution": 0.01, "binding": "%ML24" },
     { "role": "state", "name": "Measured cycle time", "unit": "s", "minimum": 0, "maximum": 1, "resolution": 0.001, "binding": "%ML32" },
     { "role": "state", "name": "Fault code", "unit": "1", "minimum": 0, "maximum": 5, "resolution": 1, "binding": "%MW66" },
-    { "role": "state", "name": "Recovery valid count", "unit": "1", "minimum": 0, "maximum": 3, "resolution": 1, "binding": "%MW70" }
+    { "role": "state", "name": "Recovery valid count", "unit": "1", "minimum": 0, "maximum": 3, "resolution": 1, "binding": "%MW70" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX64.7" }
   ],
   "plant": {
     "modelId": "first_order",
@@ -38,13 +39,9 @@
       { "signal": "Discharge pressure", "minimum": 0, "maximum": 12, "unit": "bar" },
       { "signal": "Applied valve command", "minimum": 0, "maximum": 100, "unit": "%" },
       { "signal": "Sensor age", "minimum": 0, "maximum": 0.5, "unit": "s" },
-      { "signal": "Measured cycle time", "minimum": 0.000001, "maximum": 0.2, "unit": "s" }
+      { "signal": "Measured cycle time", "minimum": 1e-06, "maximum": 0.2, "unit": "s" }
     ],
-    "simplifications": [
-      "Failure inputs are injected only in simulation; no physical pump is disturbed to create lesson evidence.",
-      "The station selects one declared safe recirculation output rather than teaching process-specific safety analysis for every possible pumping topology.",
-      "The runtime typed-I/O boundary rejects nonfinite values before a PLC scan; the station guard additionally rejects finite values outside physical ranges."
-    ]
+    "simplifications": ["Failure inputs are injected only in simulation; no physical pump is disturbed to create lesson evidence.", "The station selects one declared safe recirculation output rather than teaching process-specific safety analysis for every possible pumping topology.", "The runtime typed-I/O boundary rejects nonfinite values before a PLC scan; the station guard additionally rejects finite values outside physical ranges."]
   },
   "baseline": {
     "executableId": "BoosterPump.InvalidConfiguration",
@@ -58,21 +55,21 @@
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Discharge pressure",
-    "baseline": 6,
-    "amplitude": 7,
-    "durationSeconds": 10,
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 10.1,
     "settlingSeconds": 0,
     "disturbances": ["13 bar finite out-of-range pressure", "0.6 s sensor age", "0 s cycle time", "missed deadline", "80/20 percent reversed candidate limits"],
     "seed": 20260829,
-    "restorationValue": 6
+    "restorationValue": 0
   },
   "acceptance": [
     { "metric": "diagnostic_code_accuracy", "signal": "Fault code", "window": "first scan of each isolated fault injection", "comparator": "<=", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
     { "metric": "invalid_scan_state_mutations", "signal": "Fault code", "window": "first invalid scan", "comparator": "<=", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
-    { "metric": "latched_safe_output_error", "signal": "Applied valve command", "window": "every fault-latched scan", "comparator": "<=", "limit": 0.001, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "latched_safe_output_error", "signal": "Applied valve command", "window": "every fault-latched scan", "comparator": "<=", "limit": 0.001, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" },
     { "metric": "recovery_qualification_count", "signal": "Recovery valid count", "window": "before reset acceptance", "comparator": ">=", "limit": 3, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
-    { "metric": "renewed_auto_output_step", "signal": "Applied valve command", "window": "first renewed Auto scan after qualified reset", "comparator": "<=", "limit": 0.001, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" }
+    { "metric": "renewed_auto_output_step", "signal": "Applied valve command", "window": "first renewed Auto scan after qualified reset", "comparator": "<=", "limit": 0.001, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" }
   ],
   "safety": {
     "hardLimits": [
@@ -85,7 +82,7 @@
     "physicalApprovalRole": "authorised pump-station control and process-safety engineer",
     "simulationOnlyRestrictions": ["Do not inject stale data, bad timing, invalid parameters, or missed deadlines on a physical pump for training. A physical implementation requires an independently reviewed safe-state and protection topology."]
   },
-  "workflowStages": ["Monitor", "Test", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-30--invalid-data-and-safe-behavior-booster-pump-station",
     "nativeTest": "control_curriculum_booster_pump_rejects_invalid_scans_and_requires_qualified_recovery",
@@ -106,12 +103,7 @@
   "learning": {
     "context": "A running pump controller depends on trustworthy pressure, timing, quality, and configuration data on every scan.",
     "reason": "Lesson 29 guaranteed coherent ordering only for valid values. Invalid values must be stopped before they can corrupt the same retained controller state.",
-    "theory": [
-      "The runtime typed-I/O boundary rejects nonfinite values. The station guard rejects physically implausible finite values, stale or bad-quality measurements, invalid elapsed time, missed deadlines, and invalid configuration records.",
-      "A first-fault latch preserves the first actionable cause. Acknowledgement records operator awareness but does not clear the latch or restore authority.",
-      "This station chooses a 30 percent safe output instead of hold-last because retaining the last action may retain the action that caused a hazard.",
-      "Recovery requires three valid scans, acknowledgement, explicit reset, measured-state PID initialization, and a later renewed Auto request."
-    ],
+    "theory": ["The runtime typed-I/O boundary rejects nonfinite values. The station guard rejects physically implausible finite values, stale or bad-quality measurements, invalid elapsed time, missed deadlines, and invalid configuration records.", "A first-fault latch preserves the first actionable cause. Acknowledgement records operator awareness but does not clear the latch or restore authority.", "This station chooses a 30 percent safe output instead of hold-last because retaining the last action may retain the action that caused a hazard.", "Recovery requires three valid scans, acknowledgement, explicit reset, measured-state PID initialization, and a later renewed Auto request."],
     "workedPrediction": "Reversed 80/20 percent limits produce code 5, zero configuration or PID calls, unchanged revision 0, and 30 percent output. Codes 1 through 4 identify range, stale, cycle-time, and deadline cases. Qualified reset and later Auto both retain 30 percent at zero error.",
     "practicalPreparation": ["Verify SP, PV, physical ranges, sensor quality and age, measured cycle time, deadline input, candidate validity, first-fault code, latch, acknowledgement, recovery count, call flags, authority, output, and simulation label.", "Restore 6 bar, 40 percent, revision 0, 100 ms timing, fresh good-quality data, and the same seed before each isolated injection."],
     "baseline": "Inject each invalid class one at a time and retain the exact first scan. For the configuration case, use 80 percent minimum and 20 percent maximum.",

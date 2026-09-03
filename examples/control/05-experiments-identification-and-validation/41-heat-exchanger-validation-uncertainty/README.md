@@ -16,7 +16,12 @@ Three independent copies of the plate heat exchanger receive the same new 20-to-
 
 Lesson 40 proved that the estimation record could distinguish model parameters. It did not prove that the fitted model predicts a new amplitude, an omitted disturbance, or another operating point. Reusing estimation samples or changing parameters after seeing validation errors would repeat fitting, not test prediction.
 
-## Freeze the model, then test prediction
+## What we need
+
+We need to freeze the identified model, test it on independent conditions, and
+carry parameter and prediction uncertainty into a purpose-limited verdict.
+
+## The new idea
 
 ### Separate fitting from testing
 

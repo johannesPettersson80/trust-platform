@@ -10,7 +10,7 @@ real loops and prove each choice on executable plants.
 **Equipment:** Cold room, recirculating water heater, buffer tank, and loaded
 positioning table.
 
-## Where this lesson begins
+## The problem
 
 Lessons 1–30 built controller mechanisms and made their implementation safe.
 Now the student must choose which mechanisms a loop actually needs. This
@@ -30,7 +30,12 @@ The correct choice is the simplest structure whose actuator and dynamic
 mechanisms satisfy every declared requirement. Eligibility comes from
 executable evidence, not from a habit of selecting PID.
 
-## A selection method
+## What we need
+
+We need to select controller structure from each plant's actuator, dynamics,
+disturbances, and performance requirement instead of applying PID by habit.
+
+## The new idea
 
 **Controlled-variable accuracy** states how close the measured result must be
 to its target. An **acceptable band** permits the value to move inside explicit
@@ -60,7 +65,7 @@ failed requirement. Added mechanisms must answer measured needs:
 - Plant integration can supply setpoint integration, but an unknown constant
   load can still create error.
 
-## Deriving each selection
+## Prediction
 
 The cold-storage room has a binary compressor and permits 1.5–2.5 °C. ON/OFF
 with hysteresis directly matches that actuator. With SP 2 °C and half-width

@@ -11,62 +11,57 @@
   "nextLesson": "control-capstone-gravity-tank",
   "physicalPurpose": "Maintain product temperature while coordinating steam, cooling water, measured-load compensation, high-temperature constraint authority, and explicit operating modes.",
   "signals": [
-    {"role":"authority","name":"Experiment authority","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX240.5"},
-    {"role":"safety","name":"Safety abort","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX240.6"},
-    {"role":"quality","name":"Experiment inputs valid","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX240.7"},
-    {"role":"SP","name":"Reactor-temperature setpoint","unit":"degC","minimum":70,"maximum":84,"resolution":0.01,"binding":"%ML200"},
-    {"role":"PV","name":"Feedback-only reactor temperature","unit":"degC","minimum":0,"maximum":86,"resolution":0.01,"binding":"%IL0"},
-    {"role":"PV","name":"Integrated reactor temperature","unit":"degC","minimum":0,"maximum":86,"resolution":0.01,"binding":"%IL16"},
-    {"role":"state","name":"Feedback-only jacket temperature","unit":"degC","minimum":0,"maximum":100,"resolution":0.01,"binding":"%IL8"},
-    {"role":"state","name":"Integrated jacket temperature","unit":"degC","minimum":0,"maximum":100,"resolution":0.01,"binding":"%IL24"},
-    {"role":"MV","name":"Feedback-only applied steam valve","unit":"%","minimum":0,"maximum":100,"resolution":0.1,"binding":"%QL0"},
-    {"role":"MV","name":"Feedback-only applied cooling valve","unit":"%","minimum":0,"maximum":100,"resolution":0.1,"binding":"%QL8"},
-    {"role":"MV","name":"Integrated applied steam valve","unit":"%","minimum":0,"maximum":100,"resolution":0.1,"binding":"%QL24"},
-    {"role":"MV","name":"Integrated applied cooling valve","unit":"%","minimum":0,"maximum":100,"resolution":0.1,"binding":"%QL32"},
-    {"role":"state","name":"Integrated feedforward contribution","unit":"degC","minimum":-10,"maximum":10,"resolution":0.01,"binding":"%ML64"},
-    {"role":"state","name":"Integrated selected utility demand","unit":"%","minimum":-100,"maximum":100,"resolution":0.1,"binding":"%ML88"},
-    {"role":"quality","name":"Feed-load quality good","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX240.0"},
-    {"role":"quality","name":"Reactor-temperature quality good","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX240.1"},
-    {"role":"state","name":"Architecture revision","unit":"1","minimum":0,"maximum":2147483647,"resolution":1,"binding":"%MD120"},
-    {"role":"state","name":"Controller automatic","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX124.0"}
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX240.5" },
+    { "role": "state", "name": "Safety abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX240.6" },
+    { "role": "quality", "name": "Experiment inputs valid", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX240.7" },
+    { "role": "SP", "name": "Reactor-temperature setpoint", "unit": "degC", "minimum": 70, "maximum": 84, "resolution": 0.01, "binding": "%ML200" },
+    { "role": "PV", "name": "Feedback-only reactor temperature", "unit": "degC", "minimum": 0, "maximum": 86, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "PV", "name": "Integrated reactor temperature", "unit": "degC", "minimum": 0, "maximum": 86, "resolution": 0.01, "binding": "%IL16" },
+    { "role": "state", "name": "Feedback-only jacket temperature", "unit": "degC", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%IL8" },
+    { "role": "state", "name": "Integrated jacket temperature", "unit": "degC", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%IL24" },
+    { "role": "MV", "name": "Feedback-only applied steam valve", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL0" },
+    { "role": "MV", "name": "Feedback-only applied cooling valve", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL8" },
+    { "role": "MV", "name": "Integrated applied steam valve", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL24" },
+    { "role": "MV", "name": "Integrated applied cooling valve", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL32" },
+    { "role": "state", "name": "Integrated feedforward contribution", "unit": "degC", "minimum": -10, "maximum": 10, "resolution": 0.01, "binding": "%ML64" },
+    { "role": "state", "name": "Integrated selected utility demand", "unit": "%", "minimum": -100, "maximum": 100, "resolution": 0.1, "binding": "%ML88" },
+    { "role": "quality", "name": "Feed-load quality good", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX240.0" },
+    { "role": "quality", "name": "Reactor-temperature quality good", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX240.1" },
+    { "role": "state", "name": "Architecture revision", "unit": "1", "minimum": 0, "maximum": 2147483647, "resolution": 1, "binding": "%MD120" },
+    { "role": "state", "name": "Controller automatic", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX124.0" }
   ],
   "plant": {
     "modelId": "equivalent_feedback_and_integrated_jacketed_reactors",
     "executable": "simulation.toml",
     "parameters": [
-      {"name":"jacket_time_constant","value":2,"unit":"s"},
-      {"name":"reactor_time_constant","value":12,"unit":"s"},
-      {"name":"jacket_to_reactor_gain","value":1.142857,"unit":"1"},
-      {"name":"feed_load_gain","value":-0.6,"unit":"degC/load-unit"},
-      {"name":"normal_steam_position","value":50,"unit":"%"},
-      {"name":"controller_interval","value":100,"unit":"ms"}
+      { "name": "jacket_time_constant", "value": 2, "unit": "s" },
+      { "name": "reactor_time_constant", "value": 12, "unit": "s" },
+      { "name": "jacket_to_reactor_gain", "value": 1.142857, "unit": "1" },
+      { "name": "feed_load_gain", "value": -0.6, "unit": "degC/load-unit" },
+      { "name": "normal_steam_position", "value": 50, "unit": "%" },
+      { "name": "controller_interval", "value": 100, "unit": "ms" }
     ],
     "sampleTimeSeconds": 0.1,
-    "initialState": {"Feedback-only reactor temperature":80,"Integrated reactor temperature":80,"Feedback-only jacket temperature":80,"Integrated jacket temperature":80},
+    "initialState": { "Feedback-only reactor temperature": 80, "Integrated reactor temperature": 80, "Feedback-only jacket temperature": 80, "Integrated jacket temperature": 80 },
     "seed": 20260829,
-    "operatingPoint": {"Reactor-temperature setpoint":80,"Feedback-only reactor temperature":80,"Integrated reactor temperature":80,"Feedback-only jacket temperature":80,"Integrated jacket temperature":80,"Feedback-only applied steam valve":50,"Feedback-only applied cooling valve":0,"Integrated applied steam valve":50,"Integrated applied cooling valve":0,"Feed-load quality good":1,"Reactor-temperature quality good":1,"Architecture revision":79},
+    "operatingPoint": { "Reactor-temperature setpoint": 80, "Feedback-only reactor temperature": 80, "Integrated reactor temperature": 80, "Feedback-only jacket temperature": 80, "Integrated jacket temperature": 80, "Feedback-only applied steam valve": 50, "Feedback-only applied cooling valve": 0, "Integrated applied steam valve": 50, "Integrated applied cooling valve": 0, "Feed-load quality good": 1, "Reactor-temperature quality good": 1, "Architecture revision": 79 },
     "validityRange": [
-      {"signal":"Feedback-only reactor temperature","minimum":0,"maximum":86,"unit":"degC"},
-      {"signal":"Integrated reactor temperature","minimum":0,"maximum":86,"unit":"degC"},
-      {"signal":"Feedback-only applied steam valve","minimum":0,"maximum":100,"unit":"%"},
-      {"signal":"Integrated applied steam valve","minimum":0,"maximum":100,"unit":"%"},
-      {"signal":"Integrated applied cooling valve","minimum":0,"maximum":100,"unit":"%"}
+      { "signal": "Feedback-only reactor temperature", "minimum": 0, "maximum": 86, "unit": "degC" },
+      { "signal": "Integrated reactor temperature", "minimum": 0, "maximum": 86, "unit": "degC" },
+      { "signal": "Feedback-only applied steam valve", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Integrated applied steam valve", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Integrated applied cooling valve", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "The jacket and well-mixed reactor inventory are represented by a local linear two-state energy balance.",
-      "Feed thermal load is a qualified normalized disturbance rather than a complete flow, heat-capacity, inlet-temperature, and reaction-rate calculation.",
-      "Valve position follows the requested characterized split range without installed valve lag, stiction, hydraulic interaction, or utility pressure variation.",
-      "The model excludes kinetics, gradients, pressure, level, relief, independent trips, and functional safety; all results are Simulation evidence."
-    ]
+    "simplifications": ["The jacket and well-mixed reactor inventory are represented by a local linear two-state energy balance.", "Feed thermal load is a qualified normalized disturbance rather than a complete flow, heat-capacity, inlet-temperature, and reaction-rate calculation.", "Valve position follows the requested characterized split range without installed valve lag, stiction, hydraulic interaction, or utility pressure variation.", "The model excludes kinetics, gradients, pressure, level, relief, independent trips, and functional safety; all results are Simulation evidence."]
   },
   "baseline": {
     "executableId": "Reactor.FeedbackOnlyTrackedArchitecture",
-    "settings": {"outerKp":1,"outerKi":0.08,"innerKp":10,"innerKi":5,"feedforwardGain":0,"normalSteam":50},
+    "settings": { "outerKp": 1, "outerKi": 0.08, "innerKp": 10, "innerKi": 5, "feedforwardGain": 0, "normalSteam": 50 },
     "limitation": "Cascade feedback waits for reactor temperature to respond to a measured cold-feed load before correcting it."
   },
   "change": {
     "executableId": "Reactor.IntegratedTrackedArchitecture",
-    "settings": {"outerKp":1,"outerKi":0.08,"innerKp":10,"innerKi":5,"feedforwardGain":0.525,"overrideActivate":83.5,"overrideRelease":82.5,"activeArchitectureRevision":79,"application":"unapplied"},
+    "settings": { "outerKp": 1, "outerKi": 0.08, "innerKp": 10, "innerKi": 5, "feedforwardGain": 0.525, "overrideActivate": 83.5, "overrideRelease": 82.5, "activeArchitectureRevision": 79, "application": "unapplied" },
     "decision": "Add only model-qualified measured-load feedforward while preserving the same inner-first cascade, mutually exclusive split range, tracked protection selector, modes, limits, and unapplied revision."
   },
   "experiment": {
@@ -76,64 +71,44 @@
     "amplitude": 0,
     "durationSeconds": 150.1,
     "settlingSeconds": 10,
-    "disturbances": [
-      "Commission the jacket loop from 0 through 10 seconds with a bounded 82 degC jacket step from 1 through 9 seconds and require the final second to enter the 0.3 degC band.",
-      "Enter Production at 10 seconds and request 82 degC reactor temperature.",
-      "Apply a positive 4-load-unit cold-feed event from 30 through 45 seconds to both copies.",
-      "Repeat the load from 60 through 65 seconds while feed-load quality is invalid so integrated feedforward falls back to zero.",
-      "Apply an unmeasured negative 12-load-unit thermal event from 70 through 78 seconds with feed-load quality invalid to exercise tracked high-temperature override.",
-      "Enter Manual from 100 through 105 seconds using the last selected demand, return to Production, and enter ControlledShutdown at 120 seconds.",
-      "Separately invalidate reactor temperature and remove the utility required by selected authority."
-    ],
+    "disturbances": ["Commission the jacket loop from 0 through 10 seconds with a bounded 82 degC jacket step from 1 through 9 seconds and require the final second to enter the 0.3 degC band.", "Enter Production at 10 seconds and request 82 degC reactor temperature.", "Apply a positive 4-load-unit cold-feed event from 30 through 45 seconds to both copies.", "Repeat the load from 60 through 65 seconds while feed-load quality is invalid so integrated feedforward falls back to zero.", "Apply an unmeasured negative 12-load-unit thermal event from 70 through 78 seconds with feed-load quality invalid to exercise tracked high-temperature override.", "Enter Manual from 100 through 105 seconds using the last selected demand, return to Production, and enter ControlledShutdown at 120 seconds.", "Separately invalidate reactor temperature and remove the utility required by selected authority."],
     "seed": 20260829,
-    "restorationValue": 0,
-    "activation": {"symbol":"P1.ExperimentEnabled","address":"%MX240.5","activeValue":true,"inactiveValue":false}
+    "restorationValue": 0
   },
   "acceptance": [
-    {"metric":"qualified_cold_feed_maximum_departure","signal":"Integrated reactor temperature","window":"30 through 50 seconds with qualified feed load","comparator":"<=","limit":4,"unit":"degC","tolerance":0.02,"evidenceClass":"simulation"},
-    {"metric":"protected_peak_temperature","signal":"Integrated reactor temperature","window":"70 through 90 seconds","comparator":"<","limit":86,"unit":"degC","tolerance":0.02,"evidenceClass":"simulation"},
-    {"metric":"maximum_applied_steam","signal":"Integrated applied steam valve","window":"complete run","comparator":"<=","limit":100,"unit":"%","tolerance":0,"evidenceClass":"simulation"},
-    {"metric":"maximum_applied_cooling","signal":"Integrated applied cooling valve","window":"complete run","comparator":"<=","limit":100,"unit":"%","tolerance":0,"evidenceClass":"simulation"},
-    {"metric":"shutdown_final_temperature","signal":"Integrated reactor temperature","window":"final eligible sample","comparator":"<=","limit":75,"unit":"degC","tolerance":0.02,"evidenceClass":"simulation"},
-    {"metric":"active_revision_changes","signal":"Architecture revision","window":"complete campaign","comparator":"==","limit":0,"unit":"1","tolerance":0,"evidenceClass":"simulation"}
+    { "metric": "qualified_cold_feed_maximum_departure", "signal": "Integrated reactor temperature", "window": "30 through 50 seconds with qualified feed load", "comparator": "<=", "limit": 4, "unit": "degC", "tolerance": 0.02, "evidenceClass": "simulation" },
+    { "metric": "protected_peak_temperature", "signal": "Integrated reactor temperature", "window": "70 through 90 seconds", "comparator": "<", "limit": 86, "unit": "degC", "tolerance": 0.02, "evidenceClass": "simulation" },
+    { "metric": "maximum_applied_steam", "signal": "Integrated applied steam valve", "window": "complete run", "comparator": "<=", "limit": 100, "unit": "%", "tolerance": 0, "evidenceClass": "simulation" },
+    { "metric": "maximum_applied_cooling", "signal": "Integrated applied cooling valve", "window": "complete run", "comparator": "<=", "limit": 100, "unit": "%", "tolerance": 0, "evidenceClass": "simulation" },
+    { "metric": "shutdown_final_temperature", "signal": "Integrated reactor temperature", "window": "final eligible sample", "comparator": "<=", "limit": 75, "unit": "degC", "tolerance": 0.02, "evidenceClass": "simulation" },
+    { "metric": "active_revision_changes", "signal": "Architecture revision", "window": "complete campaign", "comparator": "==", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" }
   ],
   "safety": {
     "hardLimits": [
-      {"signal":"Feedback-only reactor temperature","minimum":0,"maximum":86,"unit":"degC"},
-      {"signal":"Integrated reactor temperature","minimum":0,"maximum":86,"unit":"degC"},
-      {"signal":"Feedback-only applied steam valve","minimum":0,"maximum":100,"unit":"%"},
-      {"signal":"Integrated applied steam valve","minimum":0,"maximum":100,"unit":"%"},
-      {"signal":"Integrated applied cooling valve","minimum":0,"maximum":100,"unit":"%"}
+      { "signal": "Feedback-only reactor temperature", "minimum": 0, "maximum": 86, "unit": "degC" },
+      { "signal": "Integrated reactor temperature", "minimum": 0, "maximum": 86, "unit": "degC" },
+      { "signal": "Feedback-only applied steam valve", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Integrated applied steam valve", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Integrated applied cooling valve", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "abortPredicates": [
-      "Reactor or jacket temperature, timing, demand, feed load, or valve feedback is nonfinite, stale, invalid, or outside its declared range.",
-      "Both applied steam and cooling exceed the closed tolerance on one train.",
-      "Selected heating or cooling authority is unavailable or the active mode and authority identities disagree.",
-      "A transition exceeds its timeout or an ineligible interval is ranked as ordinary control performance.",
-      "The confirmed architecture revision changes without separate explicit application approval.",
-      "Simulation evidence is presented as reaction-safety, relief, trip, functional-safety, or physical commissioning evidence."
-    ],
+    "abortPredicates": ["Reactor or jacket temperature, timing, demand, feed load, or valve feedback is nonfinite, stale, invalid, or outside its declared range.", "Both applied steam and cooling exceed the closed tolerance on one train.", "Selected heating or cooling authority is unavailable or the active mode and authority identities disagree.", "A transition exceeds its timeout or an ineligible interval is ranked as ordinary control performance.", "The confirmed architecture revision changes without separate explicit application approval.", "Simulation evidence is presented as reaction-safety, relief, trip, functional-safety, or physical commissioning evidence."],
     "safeMv": 0,
     "restorationMode": "Close both simulated utilities, establish valid reactor and jacket measurements plus reviewed utility availability, align inactive controllers through tracking, then explicitly re-enter InnerCommissioning before Production.",
     "physicalApprovalRole": "authorised process-control engineer with process-safety, chemical, mechanical, utility, electrical, operations, environmental, and functional-safety owners",
-    "simulationOnlyRestrictions": [
-      "Do not operate a physical reactor, steam valve, cooling valve, or protection layer from this capstone.",
-      "Physical testing requires an independently reviewed process-safety topology, chemistry and runaway assessment, relief and trip status, utility capacity, mode ownership, excitation, abort, approval, and rollback immediately before action.",
-      "Applying the exported architecture requires separate explicit approval and a rollback-ready commissioning window."
-    ]
+    "simulationOnlyRestrictions": ["Do not operate a physical reactor, steam valve, cooling valve, or protection layer from this capstone.", "Physical testing requires an independently reviewed process-safety topology, chemistry and runaway assessment, relief and trip status, utility capacity, mode ownership, excitation, abort, approval, and rollback immediately before action.", "Applying the exported architecture requires separate explicit approval and a rollback-ready commissioning window."]
   },
-  "workflowStages": ["Monitor","Test"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-79--industrial-capstone-jacketed-chemical-reactor",
     "nativeTest": "control_curriculum_reactor_capstone_coordinates_tracked_authority",
     "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_reactor_capstone control_curriculum_reactor_capstone_coordinates_tracked_authority -- --exact --nocapture",
     "projectPath": "examples/control/14-integrated-capstones/79-reactor",
-    "runArtifactFields": ["projectIdentity","plantIdentity","architectureRevision","evidenceClass","physicalModel","identificationRecord","residuals","sampleTime","mode","authority","tracking","SPReactor","PVReactor","SPJacket","PVJacket","feedLoad","feedQuality","outerFeedback","feedforward","normalDemand","protectionDemand","selectedDemand","heatingRequested","heatingApplied","coolingRequested","coolingApplied","utilityAvailability","limits","events","settling","IAE","departure","onsetDelay","valveMovement","simultaneousUtilities","takeover","release","transitionJump","shutdown","selectedArchitecture","applicationState","rollback","limitations"],
+    "runArtifactFields": ["projectIdentity", "plantIdentity", "architectureRevision", "evidenceClass", "physicalModel", "identificationRecord", "residuals", "sampleTime", "mode", "authority", "tracking", "SPReactor", "PVReactor", "SPJacket", "PVJacket", "feedLoad", "feedQuality", "outerFeedback", "feedforward", "normalDemand", "protectionDemand", "selectedDemand", "heatingRequested", "heatingApplied", "coolingRequested", "coolingApplied", "utilityAvailability", "limits", "events", "settling", "IAE", "departure", "onsetDelay", "valveMovement", "simultaneousUtilities", "takeover", "release", "transitionJump", "shutdown", "selectedArchitecture", "applicationState", "rollback", "limitations"],
     "renderedJourneyId": "curriculum-capstone-reactor-commissioning"
   },
   "video": {
     "viewerOutcome": "Commission and defend one industrial reactor-temperature architecture across its complete operating and authority sequence.",
-    "requiredVisibleEvidence": ["energy path","inner-first commissioning","outer cascade","measured-load feedforward","feedback-only comparison","signed utility demand","steam and cooling split range","override takeover and release","tracking","mode sequence","degraded signals and utilities","controlled shutdown","unapplied architecture","Simulation boundary"],
+    "requiredVisibleEvidence": ["energy path", "inner-first commissioning", "outer cascade", "measured-load feedforward", "feedback-only comparison", "signed utility demand", "steam and cooling split range", "override takeover and release", "tracking", "mode sequence", "degraded signals and utilities", "controlled shutdown", "unapplied architecture", "Simulation boundary"],
     "durationClass": "extended",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
@@ -143,15 +118,9 @@
   "learning": {
     "context": "A stirred reactor uses a fast jacket loop, slow reactor loop, measured feed load, steam and cooling valves, and a high-temperature control override under explicit operating modes.",
     "reason": "The course taught each industrial structure separately; the capstone proves that their authority, tracking, signal quality, modes, and physical valves form one system.",
-    "theory": [
-      "Cascade is eligible only after the utility-facing inner loop is commissioned and materially faster than the outer reactor loop.",
-      "Measured-load feedforward acts before reactor feedback but remains bounded and requires PI trim plus qualified disturbance data.",
-      "One signed utility demand and a characterized mutually exclusive split range keep steam, cooling, and authority decisions understandable.",
-      "A tracked low selector gives high-temperature control override priority and prevents inactive controller state from creating a release bump.",
-      "Startup, Production, Manual, ControlledShutdown, and Safe are owned sequences with prerequisites and completion criteria, not controller tunings."
-    ],
+    "theory": ["Cascade is eligible only after the utility-facing inner loop is commissioned and materially faster than the outer reactor loop.", "Measured-load feedforward acts before reactor feedback but remains bounded and requires PI trim plus qualified disturbance data.", "One signed utility demand and a characterized mutually exclusive split range keep steam, cooling, and authority decisions understandable.", "A tracked low selector gives high-temperature control override priority and prevents inactive controller state from creating a release bump.", "Startup, Production, Manual, ControlledShutdown, and Safe are owned sequences with prerequisites and completion criteria, not controller tunings."],
     "workedPrediction": "Predict a 6-to-1 plant time-scale ratio, 0.525 degC/load-unit feedforward gain, 2.10 degC immediate jacket correction for a four-unit cold-feed load, and constraint takeover before 84 degC.",
-    "practicalPreparation": ["Declare equipment, energy path, signal and utility quality, modes, authority, limits, trips outside scope, experiment approval, aborts, rollback, and Simulation label.","Predict the feedback-only and integrated disturbance responses plus override and mode-transition behavior before running."],
+    "practicalPreparation": ["Declare equipment, energy path, signal and utility quality, modes, authority, limits, trips outside scope, experiment approval, aborts, rollback, and Simulation label.", "Predict the feedback-only and integrated disturbance responses plus override and mode-transition behavior before running."],
     "baseline": "Commission the common inner loop, close the feedback-only cascade, and retain delayed cold-feed correction as the measured baseline limitation.",
     "change": "Add only the independently calculated qualified feedforward contribution to the equivalent integrated train.",
     "comparison": "Classify mode and authority eligibility before comparing reactor error area, departure, onset delay, valve movement, overlap, constraint temperature, and transition jumps.",

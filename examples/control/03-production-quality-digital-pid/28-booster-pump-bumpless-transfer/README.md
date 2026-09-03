@@ -12,7 +12,7 @@ This lesson uses simulation. Its results are not physical-plant evidence.
 
 **Equipment:** Variable-speed booster pump with external valve authority.
 
-## Where this lesson begins
+## The problem
 
 Lesson 27 made the booster-pump controller truthful at startup. That is only
 the first handover. The booster-pump pressure controller was initialized correctly in Lesson 27.
@@ -29,7 +29,12 @@ the current owner, or its retained output becomes stale. The handover is judged
 at the exact authority-change sample, including cases where matching is
 physically impossible.
 
-## Deriving the handover
+## What we need
+
+We need the automatic controller to inherit the valve position already applied
+in Manual so transferring authority does not itself disturb discharge pressure.
+
+## The new idea
 
 The **authority owner** is the station currently permitted to command the
 recirculation valve. The **external applied valve output
@@ -78,7 +83,7 @@ when applied-output feedback is stale, the desired value is outside limits, a
 rate constraint is binding, or SP or PV changes without being included in the
 prediction.
 
-## Numerical prediction
+## Prediction
 
 Start with controller and valve at 40 percent, SP at 6 bar, and PV at 6 bar.
 External authority moves the valve to 60 percent while SP and PV are held for

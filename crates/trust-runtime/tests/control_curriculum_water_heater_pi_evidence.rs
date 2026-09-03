@@ -62,8 +62,8 @@ fn addressed_source() -> String {
     }
     source
         .replace(
-            "    AutoMode : BOOL :=",
-            "    AutoMode AT %IX24.0 : BOOL :=",
+            "    ExperimentEnabled : BOOL :=",
+            "    ExperimentEnabled AT %IX24.0 : BOOL :=",
         )
         .replace(
             "    ProportionalGain : LREAL :=",
@@ -517,18 +517,35 @@ fn control_curriculum_water_heater_pi_preloads_measured_holding_output_for_shipp
     write_lreal(&mut runtime, &setpoint, 35.0);
     write_lreal(&mut runtime, &pv, 20.0);
     write_bool(&mut runtime, &auto, true);
-    runtime.execute_cycle().expect("execute shipped first PI Auto scan");
+    runtime
+        .execute_cycle()
+        .expect("execute shipped first PI Auto scan");
 
-    assert_eq!(read_lreal(&runtime, &measured_holding), 75.0,
-        "the shipped lesson must expose Lesson 5's measured holding output");
-    assert_eq!(read_lreal(&runtime, &proportional), 0.0,
-        "the transfer resets error history, so the first proportional increment is zero");
-    assert_eq!(read_lreal(&runtime, &integral), 6.0,
-        "Ki 4, 15 degC error, and dt 0.1 s must add 6 pp");
-    assert_eq!(read_lreal(&runtime, &requested), 81.0,
-        "the first request must add the 6 pp integral increment to the measured 75% preload");
-    assert_eq!(read_lreal(&runtime, &applied), 81.0,
-        "the unsaturated 81% request must be applied unchanged");
+    assert_eq!(
+        read_lreal(&runtime, &measured_holding),
+        75.0,
+        "the shipped lesson must expose Lesson 5's measured holding output"
+    );
+    assert_eq!(
+        read_lreal(&runtime, &proportional),
+        0.0,
+        "the transfer resets error history, so the first proportional increment is zero"
+    );
+    assert_eq!(
+        read_lreal(&runtime, &integral),
+        6.0,
+        "Ki 4, 15 degC error, and dt 0.1 s must add 6 pp"
+    );
+    assert_eq!(
+        read_lreal(&runtime, &requested),
+        81.0,
+        "the first request must add the 6 pp integral increment to the measured 75% preload"
+    );
+    assert_eq!(
+        read_lreal(&runtime, &applied),
+        81.0,
+        "the unsaturated 81% request must be applied unchanged"
+    );
 }
 
 #[test]

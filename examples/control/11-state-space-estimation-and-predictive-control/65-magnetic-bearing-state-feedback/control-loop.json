@@ -53,12 +53,12 @@
       {
         "id": "experiment-authority",
         "channel": "experiment-authority",
-        "role": "authority",
+        "role": "state",
         "symbol": "P1.ExperimentEnabled",
         "address": "%MX120.3",
         "iecType": "BOOL",
-        "direction": "write",
-        "unit": "1",
+        "direction": "read",
+        "unit": "",
         "range": {
           "minimum": 0,
           "maximum": 1
@@ -271,10 +271,16 @@
   },
   "plantId": "bearing_and_loaded_motor_state_space_training_benches",
   "experiment": {
-    "execution": "control-studio",
+    "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
     "durationSeconds": 200.1,
-    "seed": 20260829
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX120.3",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

@@ -11,8 +11,7 @@
     "design": "project",
     "revision": "sha256:curriculum-controller-80",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": {"symbol":"P1.ExperimentEnabled","address":"%MX240.3","iecType":"BOOL","direction":"write"}
+    "taskPeriodMs": 100
   },
   "signals": {
     "setpoint": {
@@ -49,7 +48,20 @@
       }
     },
     "additional": [
-      {"id":"experiment-authority","channel":"experiment-authority","role":"authority","symbol":"P1.ExperimentEnabled","address":"%MX240.3","iecType":"BOOL","direction":"write","unit":"1","range":{"minimum":0,"maximum":1}},
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX240.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "scheduled-pi-measured-level",
         "channel": "scheduled-pi-measured-level",
@@ -215,10 +227,16 @@
   },
   "plantId": "equivalent_fixed_and_scheduled_nonlinear_gravity_tanks",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "setpoint_step",
-    "amplitude": 0.5,
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
     "durationSeconds": 420.1,
-    "seed": 20260829
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX240.3",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

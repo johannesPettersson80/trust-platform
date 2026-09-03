@@ -11,7 +11,7 @@
   "prerequisites": ["control-crane-routh-stability"],
   "nextLesson": "control-flexible-drive-bode",
   "signals": [
-    { "role": "state", "name": "Experiment enable", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.0" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.0" },
     { "role": "SP", "name": "Proportional carriage setpoint", "unit": "mm", "minimum": -5, "maximum": 5, "resolution": 0.001, "binding": "%ML16" },
     { "role": "SP", "name": "Lead carriage setpoint", "unit": "mm", "minimum": -5, "maximum": 5, "resolution": 0.001, "binding": "%ML24" },
     { "role": "MV", "name": "Proportional applied motor current", "unit": "%", "minimum": -100, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
@@ -51,7 +51,18 @@
     "settings": { "gain": 50, "zeroPerSecond": 2.5, "polePerSecond": 15, "setpointMillimetres": 1 },
     "decision": "Accept only when complete-transfer-function poles and executable response meet overshoot, settling, final-error, and current constraints."
   },
-  "experiment": { "kind": "setpoint_step", "signal": "Lead carriage setpoint", "baseline": 0, "amplitude": 1, "durationSeconds": 8, "settlingSeconds": 0, "disturbances": [], "seed": 20260829, "restorationValue": 0 },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 8.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
   "acceptance": [
     { "metric": "lead_percent_overshoot", "signal": "Lead carriage position", "window": "0 through 8 s after the one-millimetre step", "comparator": "<", "limit": 5, "unit": "%", "tolerance": 0.1, "evidenceClass": "simulation" },
     { "metric": "lead_two_percent_settling_time", "signal": "Lead carriage position", "window": "first permanent entry into 0.98 through 1.02 mm", "comparator": "<=", "limit": 2, "unit": "s", "tolerance": 0.01, "evidenceClass": "simulation" },
@@ -70,7 +81,7 @@
     "physicalApprovalRole": "authorised motion-controls engineer and responsible machine operator",
     "simulationOnlyRestrictions": ["This lesson cannot authorise physical servo gain application", "Physical validation requires independent mechanics, drive, topology, model, limits, interlocks, rollback, and explicit immediate approval"]
   },
-  "workflowStages": ["Monitor", "Test", "Tune", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-46--root-locus-servo-positioning-axis",
     "nativeTest": "control_curriculum_root_locus_lead_design_meets_servo_damping_and_time_requirements",
@@ -79,7 +90,15 @@
     "runArtifactFields": ["plantIdentity", "openLoopPoles", "openLoopZeros", "rootLocus", "controller", "closedLoopPolynomial", "closedLoopPoles", "samples", "requestedCurrent", "appliedCurrent", "overshoot", "settlingState", "settlingTime", "finalWindowError", "currentTravel", "limitContact", "stopReason", "seed", "evidenceClass"],
     "renderedJourneyId": "control-servo-root-locus"
   },
-  "video": { "viewerOutcome": "Explain why gain alone fails and design and validate a lead compensator from the complete root-locus response.", "requiredVisibleEvidence": ["servo model", "requirements", "uncompensated locus", "damping region", "lead pole and zero", "calculated roots", "equivalent responses", "requested and applied current", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Explain why gain alone fails and design and validate a lead compensator from the complete root-locus response.",
+    "requiredVisibleEvidence": ["servo model", "requirements", "uncompensated locus", "damping region", "lead pole and zero", "calculated roots", "equivalent responses", "requested and applied current", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "Equivalent simulated positioning servos compare proportional gain with one calculated lead compensator.",
     "reason": "Routh proves stability but does not reveal pole motion or whether a stable gain meets damping and speed requirements.",

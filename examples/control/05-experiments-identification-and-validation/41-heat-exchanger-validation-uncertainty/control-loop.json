@@ -6,24 +6,169 @@
   "revision": "sha256:curriculum-loop-41",
   "projectId": "project:control-independent-model-validation",
   "runtimeId": "simulator",
-  "controller": { "instance": "P1", "type": "ModelValidationExperiment", "design": "project", "revision": "sha256:model-validation-experiment", "action": "direct", "taskPeriodMs": 100 },
+  "controller": {
+    "instance": "P1",
+    "type": "ModelValidationExperiment",
+    "design": "project",
+    "revision": "sha256:model-validation-experiment",
+    "action": "direct",
+    "taskPeriodMs": 100
+  },
   "signals": {
-    "processVariable": { "symbol": "P1.LocalTemperature", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 45, "maximum": 56 } },
-    "manipulatedVariable": { "symbol": "P1.LocalRequested", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-    "actuator": { "symbol": "P1.LocalApplied", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+    "processVariable": {
+      "symbol": "P1.LocalTemperature",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 45,
+        "maximum": 56
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.LocalRequested",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "actuator": {
+      "symbol": "P1.LocalApplied",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
     "additional": [
-      { "id": "experiment-authority", "channel": "experiment-authority", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX64.0", "iecType": "BOOL", "direction": "write", "unit": "bool", "range": { "minimum": 0, "maximum": 1 } },
-      { "id": "load-request", "channel": "load", "role": "state", "symbol": "P1.LoadRequested", "address": "%ML8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "load-applied", "channel": "load", "role": "actuator", "symbol": "P1.LoadApplied", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "load-pv", "channel": "load", "role": "PV", "symbol": "P1.LoadTemperature", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 45, "maximum": 56 } },
-      { "id": "high-flow-request", "channel": "high-flow", "role": "state", "symbol": "P1.HighFlowRequested", "address": "%ML16", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "high-flow-applied", "channel": "high-flow", "role": "actuator", "symbol": "P1.HighFlowApplied", "address": "%QL16", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "high-flow-pv", "channel": "high-flow", "role": "PV", "symbol": "P1.HighFlowTemperature", "address": "%IL16", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 45, "maximum": 56 } }
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX64.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "load-request",
+        "channel": "load",
+        "role": "state",
+        "symbol": "P1.LoadRequested",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "load-applied",
+        "channel": "load",
+        "role": "actuator",
+        "symbol": "P1.LoadApplied",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "load-pv",
+        "channel": "load",
+        "role": "PV",
+        "symbol": "P1.LoadTemperature",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 45,
+          "maximum": 56
+        }
+      },
+      {
+        "id": "high-flow-request",
+        "channel": "high-flow",
+        "role": "state",
+        "symbol": "P1.HighFlowRequested",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "high-flow-applied",
+        "channel": "high-flow",
+        "role": "actuator",
+        "symbol": "P1.HighFlowApplied",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "high-flow-pv",
+        "channel": "high-flow",
+        "role": "PV",
+        "symbol": "P1.HighFlowTemperature",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 45,
+          "maximum": 56
+        }
+      }
     ]
   },
-  "limits": { "outputMinimum": 0, "outputMaximum": 100 },
-  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
   "plantId": "heat_exchanger_independent_validation",
   "operatingPoint": "20 percent valve",
-  "experiment": { "execution": "project-scripted", "kind": "observation", "activationSignal": "P1.ExperimentEnabled", "amplitude": 0, "durationSeconds": 160.1, "restorationValue": 0, "seed": 20260829 }
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 160.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX64.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
 }

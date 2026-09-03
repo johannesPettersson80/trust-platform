@@ -118,6 +118,14 @@ point per recycle percent. Closing recycle from 30 to 10 percent predicts 9 bar
 pressure and 0 percent margin. Holding the protected 12-percent minimum needs
 at least 22 percent recycle, limiting pressure to about 8.4 bar.
 
+Those values come directly from setting both derivatives to zero. The pressure
+equation becomes $x_p=-0.01u_r/0.20=-0.05u_r$, and the margin equation becomes
+$x_m=0.50u_r/0.50=u_r$. Closing from 30 to 10 percent means $u_r=-20$, so
+$x_p=+1$ bar and $x_m=-20$ points: 9 bar and 0 percent margin. The protected
+minimum is $x_m=12-20=-8$ points, which requires $u_r\geq-8$, or at least
+$30-8=22$ percent recycle. That same valve position gives
+$x_p=-0.05(-8)=+0.4$ bar, hence about 8.4 bar rather than the requested 9 bar.
+
 These are local educational dynamics, not a compressor map.
 
 ## Prediction
@@ -159,7 +167,10 @@ metric, or machinery-protection claim.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Track the inactive candidate against selected recycle and use hysteretic takeover and release with valid margin data. The declared event lasts 140 seconds. It restores Discharge-pressure setpoint to 8 bar afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the complete project-owned pressure-demand cycle under
+controlled conditions. The project owns the setpoint changes, selector logic,
+tracking, and restoration to 8 bar; Control Studio writes only one Boolean
+authority signal. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -171,32 +182,11 @@ This procedure tests one declared lesson change under controlled conditions. Tra
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Setpoint step**, **Amplitude** = **1 bar**, and **Maximum duration (s)** = **140**. The affected signal is **Discharge-pressure setpoint**; it starts at 8 bar and must restore to 8 bar.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Normal-only discharge pressure 7 bar to 10 bar; Tracked discharge pressure 7 bar to 10 bar; Normal-only flow margin 0 % to 40 %; Tracked flow margin 0 % to 40 %; Tracked selected recycle request 0 % to 100 %.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Discharge-pressure setpoint to 8 bar, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **High selector, external tracking and hysteretic constraint override** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **High selector, external tracking and hysteretic constraint override** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **High selector, external tracking and hysteretic constraint override** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **High selector, external tracking and hysteretic constraint override**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: normal_only_minimum_margin < 12 % (tolerance 0.01 %); tracked_minimum_margin >= 11.5 % (tolerance 0.01 %); tracked_authority_transitions == 2 (dimensionless) (tolerance 0 (dimensionless)); tracked_transition_step <= 1 pp (tolerance 0.01 pp).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **140.1**. Confirm the only writable signal is **Experiment authority** (`P1.ExperimentEnabled`, `%MX89.1`). The project holds 8 bar to 20 seconds, commands 9 bar to 80 seconds, then restores 8 bar.
+   - **Decision before action:** Before selecting **Review test**, predict the recycle direction, margin sacrifice, takeover, and release. Confirm pressure can remain within 7 through 10 bar, margin within 0 through 40 percent, and recycle within 0 through 100 percent.
+   - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must show the whole project-owned cycle and retain full-resolution samples around takeover and release. At termination the authority bit clears and pressure setpoint is 8 bar.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, confirm authority is false and the setpoint restored to 8 bar, wait for current data, and review a new observation.
+   - **Record:** Compare the three cases with your prediction and retain the terminal state, restoration result, and seed **20260829**. The native lesson test owns the numeric selector verdict and invalid-quality case; this observation does not create generic Identify, Tune, or Validate evidence.
 
 ## Evidence and decision
 

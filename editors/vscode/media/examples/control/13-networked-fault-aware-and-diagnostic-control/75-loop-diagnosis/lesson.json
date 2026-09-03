@@ -11,115 +11,104 @@
   "nextLesson": "control-capstone-cold-storage",
   "physicalPurpose": "Distinguish controller, valve, instrument, capacity, disturbance, interaction, and model problems that can produce similar process-value symptoms.",
   "signals": [
-    {"role":"SP","name":"Steam-flow setpoint","unit":"t/h","minimum":0,"maximum":120,"resolution":0.01,"binding":"%ML0"},
-    {"role":"PV","name":"Primary steam flow","unit":"t/h","minimum":0,"maximum":120,"resolution":0.01,"binding":"%IL0"},
-    {"role":"PV","name":"Reference steam flow","unit":"t/h","minimum":0,"maximum":120,"resolution":0.01,"binding":"%IL8"},
-    {"role":"MV","name":"Requested valve demand","unit":"%","minimum":0,"maximum":100,"resolution":0.1,"binding":"%QL0"},
-    {"role":"MV","name":"Applied valve-stem position","unit":"%","minimum":0,"maximum":100,"resolution":0.1,"binding":"%IL16"},
-    {"role":"disturbance","name":"Upstream header pressure","unit":"bar","minimum":0,"maximum":16,"resolution":0.01,"binding":"%IL24"},
-    {"role":"disturbance","name":"Adjacent-user valve demand","unit":"%","minimum":0,"maximum":100,"resolution":0.1,"binding":"%IL32"},
-    {"role":"state","name":"Operating region","unit":"1","minimum":0,"maximum":4,"resolution":1,"binding":"%MW72"},
-    {"role":"state","name":"Measured controller interval","unit":"s","minimum":0.01,"maximum":1,"resolution":0.001,"binding":"%ML40"},
-    {"role":"quality","name":"Primary flow quality good","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX16.1"},
-    {"role":"quality","name":"Reference flow quality good","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX16.2"}
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.4" },
+    { "role": "state", "name": "Safety abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.5" },
+    { "role": "quality", "name": "Experiment inputs valid", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.6" },
+    { "role": "SP", "name": "Steam-flow setpoint", "unit": "t/h", "minimum": 0, "maximum": 120, "resolution": 0.01, "binding": "%ML0" },
+    { "role": "PV", "name": "Primary steam flow", "unit": "t/h", "minimum": 0, "maximum": 120, "resolution": 0.01, "binding": "%IL0" },
+    { "role": "PV", "name": "Reference steam flow", "unit": "t/h", "minimum": 0, "maximum": 120, "resolution": 0.01, "binding": "%IL8" },
+    { "role": "MV", "name": "Requested valve demand", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL0" },
+    { "role": "MV", "name": "Applied valve-stem position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%IL16" },
+    { "role": "disturbance", "name": "Upstream header pressure", "unit": "bar", "minimum": 0, "maximum": 16, "resolution": 0.01, "binding": "%IL24" },
+    { "role": "disturbance", "name": "Adjacent-user valve demand", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%IL32" },
+    { "role": "state", "name": "Operating region", "unit": "1", "minimum": 0, "maximum": 4, "resolution": 1, "binding": "%MW72" },
+    { "role": "state", "name": "Measured controller interval", "unit": "s", "minimum": 0.01, "maximum": 1, "resolution": 0.001, "binding": "%ML40" },
+    { "role": "quality", "name": "Primary flow quality good", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.1" },
+    { "role": "quality", "name": "Reference flow quality good", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.2" }
   ],
   "plant": {
     "modelId": "blinded_steam_distribution_casebook",
     "executable": "scenarios/case-0.toml",
     "parameters": [
-      {"name":"nominal_gain","value":1,"unit":"t/h/%"},
-      {"name":"nominal_time_constant","value":5,"unit":"s"},
-      {"name":"nominal_dead_time","value":1,"unit":"s"},
-      {"name":"controller_interval","value":100,"unit":"ms"},
-      {"name":"baseline_proportional_gain","value":2,"unit":"%"},
-      {"name":"baseline_integral_gain","value":0.2,"unit":"1/s"}
+      { "name": "nominal_gain", "value": 1, "unit": "t/h/%" },
+      { "name": "nominal_time_constant", "value": 5, "unit": "s" },
+      { "name": "nominal_dead_time", "value": 1, "unit": "s" },
+      { "name": "controller_interval", "value": 100, "unit": "ms" },
+      { "name": "baseline_proportional_gain", "value": 2, "unit": "%" },
+      { "name": "baseline_integral_gain", "value": 0.2, "unit": "1/s" }
     ],
     "sampleTimeSeconds": 0.1,
-    "initialState": {"Steam-flow setpoint":50,"Primary steam flow":50,"Reference steam flow":50,"Requested valve demand":50,"Applied valve-stem position":50},
+    "initialState": { "Steam-flow setpoint": 50, "Primary steam flow": 50, "Reference steam flow": 50, "Requested valve demand": 50, "Applied valve-stem position": 50 },
     "seed": 20260829,
-    "operatingPoint": {"Steam-flow setpoint":50,"Primary steam flow":50,"Reference steam flow":50,"Requested valve demand":50,"Applied valve-stem position":50,"Upstream header pressure":8,"Adjacent-user valve demand":0,"Operating region":0},
+    "operatingPoint": { "Steam-flow setpoint": 50, "Primary steam flow": 50, "Reference steam flow": 50, "Requested valve demand": 50, "Applied valve-stem position": 50, "Upstream header pressure": 8, "Adjacent-user valve demand": 0, "Operating region": 0 },
     "validityRange": [
-      {"signal":"Primary steam flow","minimum":0,"maximum":120,"unit":"t/h"},
-      {"signal":"Reference steam flow","minimum":0,"maximum":120,"unit":"t/h"},
-      {"signal":"Requested valve demand","minimum":0,"maximum":100,"unit":"%"},
-      {"signal":"Applied valve-stem position","minimum":0,"maximum":100,"unit":"%"},
-      {"signal":"Upstream header pressure","minimum":0,"maximum":16,"unit":"bar"}
+      { "signal": "Primary steam flow", "minimum": 0, "maximum": 120, "unit": "t/h" },
+      { "signal": "Reference steam flow", "minimum": 0, "maximum": 120, "unit": "t/h" },
+      { "signal": "Requested valve demand", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Applied valve-stem position", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Upstream header pressure", "minimum": 0, "maximum": 16, "unit": "bar" }
     ],
-    "simplifications": [
-      "The local steam path is a deterministic first-order-plus-dead-time teaching model rather than a compressible steam-network calculation.",
-      "The reference meter, valve stem, header pressure, adjacent demand, and schedule state are deterministic diagnostic signals.",
-      "The eight scenarios prove only the declared casebook and do not establish universal fault coverage.",
-      "All results are Simulation evidence and cannot authorize work on a physical steam system."
-    ]
+    "simplifications": ["The local steam path is a deterministic first-order-plus-dead-time teaching model rather than a compressible steam-network calculation.", "The reference meter, valve stem, header pressure, adjacent demand, and schedule state are deterministic diagnostic signals.", "The eight scenarios prove only the declared casebook and do not establish universal fault coverage.", "All results are Simulation evidence and cannot authorize work on a physical steam system."]
   },
   "baseline": {
     "executableId": "SteamFlowCasebook.QualifiedHealthyRecord",
-    "settings": {"case":0,"proportionalGain":2,"integralGain":0.2,"sampleIntervalSeconds":0.1,"durationSeconds":60},
+    "settings": { "case": 0, "proportionalGain": 2, "integralGain": 0.2, "sampleIntervalSeconds": 0.1, "durationSeconds": 60 },
     "limitation": "A process-value oscillation or offset is a symptom shared by different controller, actuator, measurement, capacity, disturbance, interaction, and model causes."
   },
   "change": {
     "executableId": "SteamFlowCasebook.BlindedDiagnosticWorkflow",
-    "settings": {"cases":[0,1,2,3,4,5,6,7],"answerKey":"sealed until classification","automaticGainChange":false},
+    "settings": {
+      "cases": [0, 1, 2, 3, 4, 5, 6, 7],
+      "answerKey": "sealed until classification",
+      "automaticGainChange": false
+    },
     "decision": "Use synchronized causal signatures and a discriminating test to select the responsible engineering action; report Inconclusive when required evidence is absent."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Primary steam flow",
-    "baseline": 50,
-    "amplitude": 5,
-    "durationSeconds": 60,
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 60.1,
     "settlingSeconds": 10,
-    "disturbances": [
-      "Open one healthy baseline and seven degraded records without revealing their sealed labels.",
-      "Preserve the controller revision, sample interval, signals, units, limits, operating point, time origin, and Simulation evidence class.",
-      "Classify only after checking quality, synchronization, mode, limits, event order, stem tracking, reference disagreement, operating region, and model residual."
-    ],
+    "disturbances": ["Open one healthy baseline and seven degraded records without revealing their sealed labels.", "Preserve the controller revision, sample interval, signals, units, limits, operating point, time origin, and Simulation evidence class.", "Classify only after checking quality, synchronization, mode, limits, event order, stem tracking, reference disagreement, operating region, and model residual."],
     "seed": 20260829,
-    "restorationValue": 50
+    "restorationValue": 0
   },
   "acceptance": [
-    {"metric":"correct_diagnosis_count","signal":"Primary steam flow","window":"all eight complete 60 second records","comparator":"==","limit":8,"unit":"1","tolerance":0,"evidenceClass":"simulation"},
-    {"metric":"incorrect_diagnosis_count","signal":"Primary steam flow","window":"all eight complete 60 second records","comparator":"==","limit":0,"unit":"1","tolerance":0,"evidenceClass":"simulation"},
-    {"metric":"correct_remedy_count","signal":"Requested valve demand","window":"all eight complete 60 second records","comparator":"==","limit":8,"unit":"1","tolerance":0,"evidenceClass":"simulation"},
-    {"metric":"stiction_held_demand_travel","signal":"Requested valve demand","window":"each measured stem hold before breakaway","comparator":">","limit":2,"unit":"pp","tolerance":0.1,"evidenceClass":"simulation"},
-    {"metric":"sensor_disagreement_slope","signal":"Primary steam flow","window":"10 through 59.9 seconds","comparator":">","limit":0.01,"unit":"t/h","tolerance":0.001,"evidenceClass":"simulation"},
-    {"metric":"saturated_limit_occupancy","signal":"Applied valve-stem position","window":"20 through 59.9 seconds after constraint entry","comparator":">","limit":90,"unit":"%","tolerance":0.1,"evidenceClass":"simulation"}
+    { "metric": "correct_diagnosis_count", "signal": "Primary steam flow", "window": "all eight complete 60 second records", "comparator": "==", "limit": 8, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
+    { "metric": "incorrect_diagnosis_count", "signal": "Primary steam flow", "window": "all eight complete 60 second records", "comparator": "==", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
+    { "metric": "correct_remedy_count", "signal": "Requested valve demand", "window": "all eight complete 60 second records", "comparator": "==", "limit": 8, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
+    { "metric": "stiction_held_demand_travel", "signal": "Requested valve demand", "window": "each measured stem hold before breakaway", "comparator": ">", "limit": 2, "unit": "pp", "tolerance": 0.1, "evidenceClass": "simulation" },
+    { "metric": "sensor_disagreement_slope", "signal": "Primary steam flow", "window": "10 through 59.9 seconds", "comparator": ">", "limit": 0.01, "unit": "t/h", "tolerance": 0.001, "evidenceClass": "simulation" },
+    { "metric": "saturated_limit_occupancy", "signal": "Applied valve-stem position", "window": "20 through 59.9 seconds after constraint entry", "comparator": ">", "limit": 90, "unit": "%", "tolerance": 0.1, "evidenceClass": "simulation" }
   ],
   "safety": {
     "hardLimits": [
-      {"signal":"Primary steam flow","minimum":0,"maximum":120,"unit":"t/h"},
-      {"signal":"Reference steam flow","minimum":0,"maximum":120,"unit":"t/h"},
-      {"signal":"Requested valve demand","minimum":0,"maximum":100,"unit":"%"},
-      {"signal":"Applied valve-stem position","minimum":0,"maximum":100,"unit":"%"},
-      {"signal":"Upstream header pressure","minimum":0,"maximum":16,"unit":"bar"}
+      { "signal": "Primary steam flow", "minimum": 0, "maximum": 120, "unit": "t/h" },
+      { "signal": "Reference steam flow", "minimum": 0, "maximum": 120, "unit": "t/h" },
+      { "signal": "Requested valve demand", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Applied valve-stem position", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Upstream header pressure", "minimum": 0, "maximum": 16, "unit": "bar" }
     ],
-    "abortPredicates": [
-      "A required timestamp is unsynchronized, either required flow quality is invalid, or an essential diagnostic signal is absent.",
-      "The controller revision, operating region, interval, limits, event, or evidence class differs from the qualified baseline without declaration.",
-      "A nonfinite signal or hard-limit violation occurs.",
-      "A gain change is requested before the poor-tuning signature is uniquely supported."
-    ],
+    "abortPredicates": ["A required timestamp is unsynchronized, either required flow quality is invalid, or an essential diagnostic signal is absent.", "The controller revision, operating region, interval, limits, event, or evidence class differs from the qualified baseline without declaration.", "A nonfinite signal or hard-limit violation occurs.", "A gain change is requested before the poor-tuning signature is uniquely supported."],
     "safeMv": 50,
     "restorationMode": "Keep the commissioned controller unchanged, retain the evidence, and route the supported next action to its responsible owner.",
     "physicalApprovalRole": "authorised steam-system control engineer with operations, instrument, mechanical, process, and safety owners",
-    "simulationOnlyRestrictions": [
-      "Do not operate a physical steam valve, transmitter, header, or production user from this lesson.",
-      "Scenario labels and injected events are Simulation truth, not physical-plant diagnoses.",
-      "Physical diagnosis requires reviewed signal topology, synchronized records, risk assessment, permits, and explicit approval for any active test."
-    ]
+    "simulationOnlyRestrictions": ["Do not operate a physical steam valve, transmitter, header, or production user from this lesson.", "Scenario labels and injected events are Simulation truth, not physical-plant diagnoses.", "Physical diagnosis requires reviewed signal topology, synchronized records, risk assessment, permits, and explicit approval for any active test."]
   },
-  "workflowStages": ["Monitor","Test","Identify","Tune","Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-75--diagnose-before-retuning-operating-process-area",
     "nativeTest": "control_curriculum_loop_diagnosis_classifies_blinded_evidence",
     "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_loop_diagnosis control_curriculum_loop_diagnosis_classifies_blinded_evidence -- --exact --nocapture",
     "projectPath": "examples/control/13-networked-fault-aware-and-diagnostic-control/75-loop-diagnosis",
-    "runArtifactFields": ["projectIdentity","controllerRevision","evidenceClass","caseIdentityAfterReveal","sampleTime","timeOrigin","SP","PV","referenceFlow","MVRequested","MVApplied","headerPressure","adjacentDemand","quality","mode","limits","operatingRegion","scheduleTransition","cycleTime","metrics","hypotheses","discriminatingTest","diagnosis","remedy"],
+    "runArtifactFields": ["projectIdentity", "controllerRevision", "evidenceClass", "caseIdentityAfterReveal", "sampleTime", "timeOrigin", "SP", "PV", "referenceFlow", "MVRequested", "MVApplied", "headerPressure", "adjacentDemand", "quality", "mode", "limits", "operatingRegion", "scheduleTransition", "cycleTime", "metrics", "hypotheses", "discriminatingTest", "diagnosis", "remedy"],
     "renderedJourneyId": "curriculum-loop-diagnosis-blinded-casebook"
   },
   "video": {
     "viewerOutcome": "Explain why similar process-value symptoms require causal evidence before controller gains are changed.",
-    "requiredVisibleEvidence": ["qualified baseline","blinded case selector","synchronized signal trace","requested and applied valve position","reference meter","disturbance and interaction signals","eligible diagnostic measures","hypotheses and discriminating test","sealed answer reveal","Simulation boundary"],
+    "requiredVisibleEvidence": ["qualified baseline", "blinded case selector", "synchronized signal trace", "requested and applied valve position", "reference meter", "disturbance and interaction signals", "eligible diagnostic measures", "hypotheses and discriminating test", "sealed answer reveal", "Simulation boundary"],
     "durationClass": "extended",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
@@ -129,14 +118,9 @@
   "learning": {
     "context": "An industrial steam-distribution valve controls flow to one production user while a reference meter, measured stem position, header pressure, adjacent-user demand, quality, mode, limits, operating region, schedule transition, and actual controller interval provide diagnostic evidence.",
     "reason": "Oscillation and offset do not identify their own cause; retuning first can hide valve, instrument, capacity, disturbance, interaction, or model problems.",
-    "theory": [
-      "A performance baseline is a qualified healthy record from equivalent conditions, and synchronized event evidence establishes which signal changed before the controller and process responded.",
-      "Requested valve demand and applied valve-stem position are different signals; their difference reveals actuator behavior that process value alone cannot show.",
-      "A diagnostic hypothesis names a possible cause, while a discriminating test is a bounded action whose outcomes differ between the leading hypotheses.",
-      "A result remains Inconclusive when a required signature, quality state, or signal is missing."
-    ],
+    "theory": ["A performance baseline is a qualified healthy record from equivalent conditions, and synchronized event evidence establishes which signal changed before the controller and process responded.", "Requested valve demand and applied valve-stem position are different signals; their difference reveals actuator behavior that process value alone cannot show.", "A diagnostic hypothesis names a possible cause, while a discriminating test is a bounded action whose outcomes differ between the leading hypotheses.", "A result remains Inconclusive when a required signature, quality state, or signal is missing."],
     "workedPrediction": "Predict the leading signal and evidence-qualified remedy for the healthy, poor-tuning, stiction, drift, saturation, upstream-disturbance, interaction, and model/schedule cases before revealing any label.",
-    "practicalPreparation": ["Confirm common controller revision, 100 ms interval, time origin, units, limits, operating region, signal quality, and Simulation label.","Keep gains unchanged and hide the answer key until the diagnosis and discriminating follow-up test are recorded."],
+    "practicalPreparation": ["Confirm common controller revision, 100 ms interval, time origin, units, limits, operating region, signal quality, and Simulation label.", "Keep gains unchanged and hide the answer key until the diagnosis and discriminating follow-up test are recorded."],
     "baseline": "Open the qualified healthy record and establish normal response timing, variability, stem tracking, model residual, and limit occupancy.",
     "change": "Open each degraded record under the same displayed identity and classify its causal signature without reading the sealed scenario label.",
     "comparison": "Compare event precedence, oscillation period and lag, held-demand travel, stem jumps, meter disagreement, limit occupancy, model residual, and integrated absolute error only where each measure is eligible.",

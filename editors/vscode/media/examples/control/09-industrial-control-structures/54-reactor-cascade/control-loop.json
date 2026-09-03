@@ -42,7 +42,7 @@
       "symbol": "P1.DirectValveRequest",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -85,7 +85,7 @@
         "symbol": "P1.UtilityDisturbance",
         "address": "%ML104",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "degC",
         "range": {
           "minimum": -15,
@@ -231,6 +231,20 @@
           "minimum": 0,
           "maximum": 100
         }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX136.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     ]
   },
@@ -243,10 +257,16 @@
   },
   "plantId": "three_equivalent_jacketed_reactors",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "load_step",
-    "amplitude": -10,
-    "durationSeconds": 120,
-    "seed": 20260829
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 120.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX136.3",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

@@ -24,6 +24,8 @@ VAR
     DryerAmigoInput : Control.PIDInput;
     Initialized : BOOL := FALSE;
     ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     TankAmigoEligible : BOOL := FALSE;
     HeaterSetpoint : LREAL := 20.0;
     TankSetpoint : LREAL := 50.0;
@@ -114,7 +116,7 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
-IF ExperimentEnabled THEN
+IF ExperimentEnabled AND (NOT SafetyAbort) AND InputsValid THEN
     HeaterSetpoint := LREAL#25.0;
     TankSetpoint := LREAL#52.0;
     DryerSetpoint := LREAL#45.0;
@@ -167,6 +169,8 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.ExperimentEnabled AT %MX96.0 : BOOL;
+    P1.SafetyAbort AT %MX96.2 : BOOL;
+    P1.InputsValid AT %MX96.3 : BOOL;
     P1.TankAmigoEligible AT %MX96.1 : BOOL;
     P1.HeaterSetpoint AT %ML0 : LREAL;
     P1.TankSetpoint AT %ML8 : LREAL;

@@ -41,7 +41,7 @@
       "symbol": "P1.AppliedHeaterTrim",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "pp",
       "range": {
         "minimum": -10,
@@ -120,14 +120,14 @@
         }
       },
       {
-        "id": "timing-experiment-authority",
-        "channel": "timing-experiment-authority",
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
         "address": "%MX80.0",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "1",
+        "unit": "",
         "range": {
           "minimum": 0,
           "maximum": 1

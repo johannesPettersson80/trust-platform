@@ -11,8 +11,7 @@
     "design": "project",
     "revision": "sha256:curriculum-controller-75",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": {"symbol":"P1.ExperimentEnabled","address":"%MX16.4","iecType":"BOOL","direction":"write"}
+    "taskPeriodMs": 100
   },
   "signals": {
     "setpoint": {
@@ -77,7 +76,20 @@
           "maximum": 100
         }
       },
-      {"id":"experiment-authority","channel":"experiment-authority","role":"authority","symbol":"P1.ExperimentEnabled","address":"%MX16.4","iecType":"BOOL","direction":"write","unit":"1","range":{"minimum":0,"maximum":1}},
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX16.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "upstream-header-pressure",
         "channel": "upstream-header-pressure",
@@ -173,10 +185,16 @@
   },
   "plantId": "blinded_steam_distribution_casebook",
   "experiment": {
-    "execution": "control-studio",
+    "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
     "durationSeconds": 60.1,
-    "seed": 20260829
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX16.4",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

@@ -42,7 +42,7 @@
       "symbol": "P1.PositionTorque",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "N m",
       "range": {
         "minimum": -10,
@@ -50,6 +50,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX120.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "heater-temperature-setpoint",
         "channel": "heater-temperature-setpoint",
@@ -85,7 +99,7 @@
         "symbol": "P1.HeaterPower",
         "address": "%QL8",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -134,7 +148,13 @@
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 30,
+    "durationSeconds": 30.02,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX120.1",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
     "seed": 20260829
   }
 }

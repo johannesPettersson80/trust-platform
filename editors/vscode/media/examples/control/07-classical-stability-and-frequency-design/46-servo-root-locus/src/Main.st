@@ -1,6 +1,8 @@
 PROGRAM Main
 VAR
     ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     ProportionalGain : LREAL := 4.0;
     LeadGain : LREAL := 50.0;
     LeadZero : LREAL := 2.5;
@@ -18,7 +20,7 @@ VAR
     LeadError : LREAL := 0.0;
 END_VAR
 
-IF NOT ExperimentEnabled THEN
+IF (NOT ExperimentEnabled) OR SafetyAbort OR (NOT InputsValid) THEN
     ProportionalSetpoint := LREAL#0.0;
     LeadSetpoint := LREAL#0.0;
     ProportionalRequested := LREAL#0.0;
@@ -53,6 +55,8 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.ExperimentEnabled AT %MX96.0 : BOOL;
+    P1.SafetyAbort AT %MX96.1 : BOOL;
+    P1.InputsValid AT %MX96.2 : BOOL;
     P1.ProportionalRequested AT %ML0 : LREAL;
     P1.LeadRequested AT %ML8 : LREAL;
     P1.ProportionalSetpoint AT %ML16 : LREAL;

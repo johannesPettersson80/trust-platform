@@ -12,7 +12,7 @@
     "revision": "sha256:9e47473677c0e71f3e72d84dd721333e6313d791453a52d0f6acdda3bd3ba9ad",
     "action": "direct",
     "taskPeriodMs": 100,
-    "modeSignal": "%MX56.3",
+    "modeSignal": "%MX120.3",
     "modeWhenTrue": "Auto"
   },
   "signals": {
@@ -42,7 +42,7 @@
       "symbol": "P1.ValveCommand",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -51,15 +51,18 @@
     },
     "additional": [
       {
-        "id": "experiment-authority-enabled",
-        "channel": "experiment-authority-enabled",
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX57.0",
+        "address": "%MX121.0",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "1",
-        "range": { "minimum": 0, "maximum": 1 }
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       },
       {
         "id": "diagnostic-nominal-request",
@@ -148,9 +151,9 @@
     "durationSeconds": 10.1,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX57.0",
-      "activeValue": true,
-      "restorationValue": false
+      "address": "%MX121.0",
+      "iecType": "BOOL",
+      "direction": "write"
     },
     "seed": 20260829
   }

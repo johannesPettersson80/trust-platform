@@ -11,7 +11,7 @@
   "prerequisites": ["control-manual-historical-tuning"],
   "nextLesson": "control-model-based-tuning",
   "signals": [
-    { "role": "state", "name": "Experiment authority", "unit": "bool", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.0" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.0" },
     { "role": "state", "name": "Relay amplitude request", "unit": "%", "minimum": 0, "maximum": 20, "resolution": 0.1, "binding": "%ML0" },
     { "role": "MV", "name": "Qualified relay applied valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL0" },
     { "role": "MV", "name": "Weak relay applied valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL8" },
@@ -52,7 +52,17 @@
     "settings": { "biasPercent": 20, "qualifiedAmplitudePercentagePoints": 18, "weakAmplitudePercentagePoints": 0.2, "centerDegC": 50, "hysteresisHalfWidthDegC": 0.08, "maximumDurationSeconds": 180, "minimumEvaluationCycles": 6 },
     "decision": "Derive a candidate only when feedback-dependent cycles satisfy amplitude, noise, repeatability, limit, quality, and restoration criteria."
   },
-  "experiment": { "kind": "observation", "signal": "Experiment authority", "baseline": 0, "amplitude": 0, "durationSeconds": 180.1, "settlingSeconds": 10, "disturbances": ["Deterministic 0.05-degC measurement noise on both independent copies"], "seed": 20260829, "restorationValue": 0 },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 180.1,
+    "settlingSeconds": 10,
+    "disturbances": ["Deterministic 0.05-degC measurement noise on both independent copies"],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
   "acceptance": [
     { "metric": "qualified_complete_cycle_count", "signal": "Qualified relay outlet temperature", "window": "after two discarded transient cycles and before 180 s", "comparator": ">=", "limit": 6, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
     { "metric": "qualified_mean_period_lower_bound", "signal": "Qualified relay outlet temperature", "window": "equivalent-direction crossings over evaluation cycles", "comparator": ">=", "limit": 9, "unit": "s", "tolerance": 0.1, "evidenceClass": "simulation" },
@@ -88,7 +98,15 @@
     "runArtifactFields": ["plantIdentity", "modelScope", "relayBias", "relayAmplitude", "highLevel", "lowLevel", "processCenter", "upperThreshold", "lowerThreshold", "hysteresis", "samples", "appliedTransitions", "crossingTimes", "extrema", "cycleAmplitudes", "cyclePeriods", "amplitudeVariation", "periodVariation", "signalToNoiseRatio", "criticalGainEstimate", "candidate", "candidateState", "failedCriteria", "stopReason", "restoration", "seed", "evidenceClass"],
     "renderedJourneyId": "control-relay-autotuning"
   },
-  "video": { "viewerOutcome": "Recognise and qualify real feedback relay, reject a noisy record, and keep the derived candidate unapplied.", "requiredVisibleEvidence": ["two independent simulated plants", "feedback thresholds", "strong and weak relay levels", "temperature-driven transitions", "cycle extrema and periods", "amplitude and period variation", "signal-to-noise qualification", "critical-gain estimate", "No tuning candidate rejection", "restoration", "unapplied state", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Recognise and qualify real feedback relay, reject a noisy record, and keep the derived candidate unapplied.",
+    "requiredVisibleEvidence": ["two independent simulated plants", "feedback thresholds", "strong and weak relay levels", "temperature-driven transitions", "cycle extrema and periods", "amplitude and period variation", "signal-to-noise qualification", "critical-gain estimate", "No tuning candidate rejection", "restoration", "unapplied state", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "Two independent simulated copies of the locally validated plate heat exchanger execute strong and deliberately weak feedback relays around the same operating point.",
     "reason": "The preceding manual critical-gain experiment requires repeated operation near instability and should not become an unreviewed physical procedure.",

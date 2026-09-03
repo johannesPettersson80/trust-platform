@@ -1,7 +1,8 @@
 # Prove an overhead-crane stability interval
 
-Course position: Lesson 45 of 84. Prerequisite: `control-model-based-tuning`.
-Next lesson: `control-servo-root-locus`.
+Course position: Lesson 45 of 84. Previous lesson:
+[model-qualified PI tuning](../../06-pid-tuning-methods/44-model-based-tuning/README.md).
+Next lesson: [servo root locus](../46-servo-root-locus/README.md).
 
 **Equipment:** Overhead travelling crane trolley with suspended load.
 
@@ -9,8 +10,6 @@ Next lesson: `control-servo-root-locus`.
 marginal, and unstable crane responses before executable confirmation.
 
 ## The problem
-
-The equipment in this lesson is Overhead travelling crane trolley with suspended load.
 
 An overhead travelling crane moves a trolley while a suspended load introduces
 oscillatory mechanical dynamics. The trolley-position setpoint and measured
@@ -29,13 +28,15 @@ before trying gains.
 
 ## What we need
 
-We need to determine the complete trolley-gain interval that keeps every closed-loop mode stable before risking an executable crane response. Boundary and outside-range cases must then confirm what the calculation predicts.
+We need an algebraic stability boundary for crane gain before simulation so a
+stable-looking finite trace cannot substitute for a proof about all poles.
 
 ## The new idea
 
 The characteristic equation is the equation whose roots are the closed-loop
 poles. A closed-loop pole is a natural response mode of the controlled system.
-Its location is described with the complex frequency variable ($s$).
+Its location is described with the complex frequency variable ($s$). The
+symbol $j$ is the imaginary unit, defined by $j^2=-1$.
 
 The left half-plane contains poles with negative real part; their natural
 responses decay. The imaginary axis contains poles with zero real part. The
@@ -55,26 +56,88 @@ complete zero row appears, form the auxiliary polynomial from the row above
 and use its derivative to continue. A complete zero row indicates symmetric
 roots and can expose an imaginary-axis boundary.
 
+### Where the crane equation comes from
+
+A complete crane model begins with Newton's laws for the trolley and suspended
+load. Trolley force accelerates both masses, rope angle couples load swing back
+into trolley motion, and friction removes motion. Linearizing those balances
+around a fixed load, rope length, small swing angle, and stationary trolley
+produces coupled linear equations. This lesson uses a reduced local modal model
+of those equations; it does not claim that a complete crane has only three
+states.
+
+The trolley-position deviation ($x$) is measured in metres. Its first, second,
+and third time derivatives are velocity in metres per second, acceleration in
+metres per second squared, and acceleration-change rate in metres per second
+cubed. The applied drive command ($MV_{\mathrm{applied}}$) is measured in
+percent. The scaled plant input ($u$) converts that percentage into
+acceleration-change rate; its configured conversion is one metre per second
+cubed per percentage point.
+
+The local equation says that acceleration-change rate equals the scaled drive
+input minus a velocity-dependent term and an acceleration-dependent term:
+
+$\frac{d^3x}{dt^3}=-2\frac{d^2x}{dt^2}-3\frac{dx}{dt}+u.$
+
+The coefficient 2 has unit inverse seconds and the coefficient 3 has unit
+inverse seconds squared, so every term has unit metres per second cubed. These
+numbers are configured teaching values. On a physical crane, an engineer would
+calculate an initial model from trolley mass, suspended mass, rope length, and
+friction, then estimate the observable modal rates from a guarded small-force
+test and validate them on unused motions at the same load and rope length.
+
+With zero initial deviations, taking the Laplace transform changes each time
+derivative into multiplication by the complex frequency variable $s$. The
+Laplace-domain position ($X(s)$) and scaled input ($U(s)$) therefore satisfy
+
+$(s^3+2s^2+3s)X(s)=U(s).$
+
+Dividing output by input gives the reduced open-loop transfer function
+($G(s)$), which is the position response per unit scaled input when feedback is
+not yet closed:
+
+$G(s)=\frac{X(s)}{U(s)}=\frac{1}{s(s^2+2s+3)}.$
+
+The pole at the origin represents unrestrained trolley position: a constant
+position has zero velocity and needs no restoring input in this reduced model.
+The quadratic factor represents the damped suspended-load mode. The model
+assumes small motion, fixed mechanics, ideal sensing and drive conversion, and
+no structural flexibility or actuator delay. Simulation can verify the
+configured equation; it cannot establish these coefficients for a real crane.
+
 ## Prediction
 
-The linearised force balance and trolley/load dynamics produce an open-loop
-denominator with one integrator and an oscillatory pair. Closing proportional
-position feedback with positive proportional gain ($K$) gives
+The proportional gain ($K$) converts position error in metres into scaled plant
+input; numerically it combines the percent-per-metre gain used by the
+Structured Text with the configured plant-input conversion. The position
+reference ($r$) is measured in metres. Under negative proportional feedback,
+$u=K(r-x)$. Natural motion is the response with $r=0$, so substituting
+$u=-Kx$ into the derived plant equation adds $KX(s)$ to the left side. The
+characteristic polynomial ($p(s)$) is the denominator whose roots are the
+closed-loop poles:
 
-$p(s) = s^{3} + 2 \cdot s^{2} + 3 \cdot s + K$
+$p(s)=s^3+2s^2+3s+K.$
 
-Place the coefficients into the array. The $s^{3}$ row is $[1, 3]$. The $s^{2}$
-row is $[2, K]$. The first element of the $s^{1}$ row is `(6 - K) / 2`. The
-$s^{0}$ row contains $K$.
+Place alternating coefficients into the first two rows: the $s^3$ row is
+$[1,3]$ and the $s^2$ row is $[2,K]$. The first element of the next row
+($b_1$) is formed by cross-multiplying the two rows above, subtracting, and
+dividing by the leading value 2:
 
-Every first-column element must be positive for asymptotic stability. Therefore
-the complete interval is
+$b_1=\frac{2(3)-1(K)}{2}=\frac{6-K}{2}.$
 
-$0 < K < 6$
+The $s^0$ row contains $K$. Thus the first column is
+$[1,2,(6-K)/2,K]$.
+
+Every first-column element must be positive for asymptotic stability. The last
+element requires $K>0$ and the preceding element requires $6-K>0$, or $K<6$.
+Their intersection gives the complete interval $0<K<6$.
 
 For $K = 4$, the first column is $[1, 2, 1, 4]$: zero sign changes predict a
-stable response. For $K = 6$, the zero row exposes the marginal boundary. The
-polynomial factors into $(s + 2) \cdot (s^{2} + 3)$, giving one decaying pole and two
+stable response. For $K=6$, the $s^1$ row becomes zero. The auxiliary
+polynomial comes from the row above: $2s^2+6=2(s^2+3)$. Its derivative $4s$
+continues the array, while $s^2+3=0$ reveals the imaginary-axis pair
+$s=\pm j\sqrt3$. The full polynomial factors as
+$(s+2)(s^2+3)$, giving one decaying pole and two
 imaginary-axis poles. For $K = 8$, $[1, 2, -1, 8]$ has two sign changes and
 predicts two unstable poles.
 
@@ -95,7 +158,11 @@ pole, array, stability, or response-envelope answer.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Use Routh-Hurwitz and an independent root oracle before equivalent natural-response tests. The declared event lasts 40 seconds. It restores Stable trolley position to 0 m afterward. The deterministic Simulation seed is 20260829.
+Control Studio exposes the three equivalent natural responses. Test writes one
+reviewed Boolean, `P1.ExperimentEnabled`, for 40.1 seconds; it injects no
+second process event. Authority false commands zero motor force. Native
+evidence owns the Routh table, numerical roots, exact initial-state runs, and
+classification. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -107,25 +174,15 @@ This procedure tests one declared lesson change under controlled conditions. Use
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **40**. The observed lesson signal is **Stable trolley position**. Control Studio uses the existing Boolean project authority **P1.ExperimentEnabled** at **%MX96.0**; it does not inject a second process event.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **40.1**. The only writable signal is `P1.ExperimentEnabled` at `%MX96.0`; it starts false and must restore false.
    - **Decision before action:** Before selecting **Review test**, predict the response to Identical 0.1-metre initial displacement on each crane copy. Confirm the live values are current and the reviewed plan stays inside Stable applied motor force -100 % to 100 %; Marginal applied motor force -100 % to 100 %; Unstable applied motor force -100 % to 100 %; Stable trolley position -2 m to 2 m; Marginal trolley position -2 m to 2 m; Unstable trolley position -2 m to 2 m.
-   - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
+   - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then select **Confirm and start**. Keep **Abort test** available. The stable motion must decay, marginal motion persist, and unstable case grow or abort safely.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
    - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
 
-3. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **RouthGainComparison** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Routh-Hurwitz stability criterion**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-4. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: stable_right_half_plane_poles == 0 (dimensionless) (tolerance 0 (dimensionless)); marginal_imaginary_axis_poles == 2 (dimensionless) (tolerance 0 (dimensionless)); unstable_right_half_plane_poles == 2 (dimensionless) (tolerance 0 (dimensionless)); stable_position_envelope_ratio < 0.25 (dimensionless) (tolerance 0.01 (dimensionless)).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+There is no shared Tune or disabled Validate stage. The proportional paths and
+gains are project-owned; native executable evidence performs the algebra/root
+checks and correlates them with the retained traces.
 
 ## Evidence and decision
 

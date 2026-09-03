@@ -15,7 +15,8 @@ const DT: f64 = 0.1;
 const CYCLES: usize = 1_400;
 
 fn lesson_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/control/14-integrated-capstones/76-cold-storage")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/control/14-integrated-capstones/76-cold-storage")
 }
 
 fn lesson_file(relative: &str) -> String {

@@ -33,11 +33,11 @@ fn temporary_config_path(name: &str) -> PathBuf {
     ))
 }
 
-fn write_lreal(runtime: &mut Runtime, address: &IoAddress, value: f64) {
+fn write_bool(runtime: &mut Runtime, address: &IoAddress, value: bool) {
     runtime
         .io_mut()
-        .write(address, Value::LWord(value.to_bits()))
-        .expect("write LREAL process-image value");
+        .write(address, Value::Bool(value))
+        .expect("write BOOL process-image value");
 }
 
 fn read_lreal(runtime: &Runtime, address: &IoAddress) -> f64 {
@@ -54,7 +54,11 @@ fn run_manual_observation() -> Vec<ManualSample> {
         .expect("lesson program before configuration")
         .replace(
             "ManualDemand : LREAL :=",
-            "ManualDemand AT %IL40 : LREAL :=",
+            "ManualDemand AT %ML40 : LREAL :=",
+        )
+        .replace(
+            "ExperimentEnabled : BOOL :=",
+            "ExperimentEnabled AT %IX48.0 : BOOL :=",
         )
         .replace("ProcessValue : LREAL :=", "ProcessValue AT %IL0 : LREAL :=")
         .replace(
@@ -81,7 +85,8 @@ fn run_manual_observation() -> Vec<ManualSample> {
     let mut simulation = SimulationController::new(
         SimulationConfig::load(&config_path).expect("load loop-anatomy simulation"),
     );
-    let request = IoAddress::parse("%IL40").expect("manual request address");
+    let request = IoAddress::parse("%ML40").expect("project-owned request address");
+    let authority = IoAddress::parse("%IX48.0").expect("experiment authority address");
     let pv = IoAddress::parse("%IL0").expect("PV address");
     let mv = IoAddress::parse("%QL0").expect("MV address");
     let door_open = IoAddress::parse("%IL8").expect("door indication address");
@@ -90,11 +95,11 @@ fn run_manual_observation() -> Vec<ManualSample> {
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .expect("publish initial room temperature");
 
-    let mut trace = Vec::with_capacity(1200);
-    for cycle in 1..=1200 {
-        let requested_mv = if cycle <= 200 { 150.0 } else { 0.0 };
-        write_lreal(&mut runtime, &request, requested_mv);
+    let mut trace = Vec::with_capacity(1201);
+    for cycle in 1..=1201 {
+        write_bool(&mut runtime, &authority, cycle <= 1200);
         runtime.execute_cycle().expect("execute manual command");
+        let requested_mv = read_lreal(&runtime, &request);
         let now = Duration::from_millis((cycle * 100) as i64);
         simulation
             .apply_post_cycle(now, &runtime)
@@ -140,7 +145,7 @@ fn export_manual_trace(directory: &std::path::Path, trace: &[ManualSample]) {
 #[test]
 fn control_curriculum_cold_storage_loop_anatomy_exports_real_manual_trace() {
     let trace = run_manual_observation();
-    assert_eq!(trace.len(), 1200);
+    assert_eq!(trace.len(), 1201);
     assert!(trace[..200]
         .iter()
         .all(|sample| sample.requested_mv == 150.0 && sample.applied_mv == 100.0));

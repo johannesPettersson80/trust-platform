@@ -176,17 +176,17 @@ AppliedHeaterPower := Controller.Update(Input := Input);
 
 It uses positive action, a 0.1-second cycle, zero derivative and bias, and 0-to-100-percent limits. Constraint handling may alter retained state after a request exceeds a limit; Lesson 8 studies that case.
 
-Both gains are live-mapped Control Studio settings. A gain edit is adopted at
-the beginning of the next 0.1-second scan: the program copies both current
-values into the parameter structure and calls `Configure` without
-reinitializing the retained controller state. The exposed increments and the
-actual `Controller.Update` calculation therefore use the same gains in that
-scan.
+The shipped Control Studio run keeps Kp 8 and Ki 4 fixed. At each 0.1-second
+scan the program copies those project-owned values into the parameter structure
+and calls `Configure` without reinitializing retained controller state. The
+exposed increments and `Controller.Update` therefore use the same gains. The
+native comparison, not Control Studio, creates fresh restored runs for the
+other Ki candidates.
 
 ## Experiment in Control Studio
 
 Test runs the shipped selected PI candidate, Kp 8 and Ki 4, for 120 seconds by
-writing the reviewed `P1.AutoMode` authority. The project owns the measured 75
+writing the sole reviewed Boolean authority, `P1.ExperimentEnabled`. The project derives Auto mode and owns the measured 75
 percent preload and the load event at 60 seconds. The retained Ki sweep,
 inherited P/I references, and separate unreachable-setpoint exposure come from
 the native evidence test. Control Studio does not pretend to generate or apply
@@ -203,9 +203,9 @@ therefore Manual zero output. The deterministic Simulation seed is 20260828.
    - **Record:** Write down the initial SP, PV, requested and applied output, both gains, both increments, measured holding output, mode, and your predicted 81% first request before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120**. The reviewed authority is **P1.AutoMode**. Control Studio sets it true; the project owns selected Kp 8, selected Ki 4, the measured holding-output preload, and the timed load event. A gain edit is not a case reset; the native sweep restores the Manual holding condition before starting the next candidate and restores every run at 120.1 seconds to Manual with zero requested and applied output.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120**. The sole reviewed write is Boolean **P1.ExperimentEnabled**. Control Studio sets it true; the project derives Auto mode and owns selected Kp 8, selected Ki 4, the measured holding-output preload, and the timed load event. The native sweep restores the Manual holding condition before starting each additional candidate and restores every run at 120.1 seconds to Manual with zero requested and applied output.
    - **Decision before action:** Before selecting **Review test**, predict the response to Cold-water flow increases at 60 s in the normal comparison. Confirm the live values are current and the reviewed plan stays inside Outlet-water temperature 0 degC to 80 degC; Applied heater power 0 % to 100 %.
-   - **Successful evidence:** Select **Review test**, verify **P1.AutoMode**, the timeout, stop conditions, and false restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, the first unsaturated request is predicted as 81%, and completion restores Auto false with zero requested and applied output.
+   - **Successful evidence:** Select **Review test**, verify **P1.ExperimentEnabled**, the timeout, stop conditions, and false restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, the project derives Auto mode, the first unsaturated request is predicted as 81%, and completion restores experiment authority false, Auto false, and zero requested and applied output.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the safe Manual-zero initial state, and review a new test.
    - **Record:** Compare the first request and load response with your predictions. Retain the terminal state, restoration result, and deterministic seed **20260828**.
 

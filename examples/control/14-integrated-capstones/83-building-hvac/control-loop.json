@@ -51,15 +51,18 @@
     },
     "additional": [
       {
-        "id": "experiment-enabled",
-        "channel": "experiment-enabled",
-        "role": "authority",
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
         "symbol": "P1.ExperimentEnabled",
         "address": "%MX242.0",
         "iecType": "BOOL",
-        "direction": "write",
-        "unit": "1",
-        "range": {"minimum": 0, "maximum": 1}
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       },
       {
         "id": "control-enabled",
@@ -898,10 +901,16 @@
   },
   "plantId": "coupled_two_zone_office_capstone_nominal",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "observe_without_excitation",
+    "execution": "project-scripted",
+    "kind": "observation",
     "amplitude": 0,
     "durationSeconds": 1200.1,
-    "seed": 20260829
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX242.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

@@ -41,7 +41,7 @@
       "symbol": "P1.AppliedValvePosition",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -142,7 +142,10 @@
         "iecType": "LREAL",
         "direction": "read",
         "unit": "%",
-        "range": { "minimum": 0, "maximum": 100 }
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
       },
       {
         "id": "highest-admissible-valve-position",
@@ -153,7 +156,24 @@
         "iecType": "LREAL",
         "direction": "read",
         "unit": "%",
-        "range": { "minimum": 0, "maximum": 100 }
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX80.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     ]
   },

@@ -11,6 +11,7 @@
   "prerequisites": ["control-conveyor-oven-feedforward"],
   "nextLesson": "control-blending-ratio",
   "signals": [
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX136.3" },
     { "role": "quality", "name": "Inner-loop availability", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX136.1" },
     { "role": "state", "name": "Inner commissioning mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX136.0" },
     { "role": "SP", "name": "Reactor-temperature setpoint", "unit": "degC", "minimum": 60, "maximum": 95, "resolution": 0.01, "binding": "%ML88" },
@@ -40,20 +41,7 @@
     "sampleTimeSeconds": 0.1,
     "initialState": { "jacketTemperatureDegC": 70, "reactorTemperatureDegC": 80 },
     "seed": 20260829,
-    "operatingPoint": {
-      "Reactor-temperature setpoint": 80,
-      "Heating-utility disturbance": 0,
-      "Jacket test setpoint": 70,
-      "Direct reactor temperature": 80,
-      "Direct jacket temperature": 70,
-      "Fast-cascade reactor temperature": 80,
-      "Fast-cascade jacket temperature": 70,
-      "Slow-cascade reactor temperature": 80,
-      "Slow-cascade jacket temperature": 70,
-      "Direct valve request": 50,
-      "Fast-cascade valve request": 50,
-      "Slow-cascade valve request": 50
-    },
+    "operatingPoint": { "Reactor-temperature setpoint": 80, "Heating-utility disturbance": 0, "Jacket test setpoint": 70, "Direct reactor temperature": 80, "Direct jacket temperature": 70, "Fast-cascade reactor temperature": 80, "Fast-cascade jacket temperature": 70, "Slow-cascade reactor temperature": 80, "Slow-cascade jacket temperature": 70, "Direct valve request": 50, "Fast-cascade valve request": 50, "Slow-cascade valve request": 50 },
     "validityRange": [
       { "signal": "Direct reactor temperature", "minimum": 60, "maximum": 95, "unit": "degC" },
       { "signal": "Fast-cascade reactor temperature", "minimum": 60, "maximum": 95, "unit": "degC" },
@@ -62,13 +50,7 @@
       { "signal": "Fast-cascade jacket temperature", "minimum": 45, "maximum": 90, "unit": "degC" },
       { "signal": "Slow-cascade jacket temperature", "minimum": 45, "maximum": 90, "unit": "degC" }
     ],
-    "simplifications": [
-      "Local linear energy balances around one production operating point",
-      "One ideal temperature measurement for each jacket and reactor state",
-      "Three deterministic equivalent plants isolate controller structure and inner-loop tuning",
-      "Controller requests are used as applied valve positions because no actuator nonideality is configured",
-      "Simulation-only I/O and evidence"
-    ]
+    "simplifications": ["Local linear energy balances around one production operating point", "One ideal temperature measurement for each jacket and reactor state", "Three deterministic equivalent plants isolate controller structure and inner-loop tuning", "Controller requests are used as applied valve positions because no actuator nonideality is configured", "Simulation-only I/O and evidence"]
   },
   "baseline": {
     "executableId": "Reactor.DirectPI",
@@ -77,19 +59,28 @@
   },
   "change": {
     "executableId": "Reactor.CommissionedCascade",
-    "settings": { "outerKp": 1, "outerKi": 0.08, "fastInnerKp": 2, "fastInnerKi": 1, "slowInnerKp": 0.2, "slowInnerKi": 0.02, "jacketSetpointLimitsDegC": [60, 85] },
+    "settings": {
+      "outerKp": 1,
+      "outerKi": 0.08,
+      "fastInnerKp": 2,
+      "fastInnerKi": 1,
+      "slowInnerKp": 0.2,
+      "slowInnerKi": 0.02,
+      "jacketSetpointLimitsDegC": [60, 85]
+    },
     "decision": "Accept cascade only when the inner loop is commissioned first, detects the disturbance earlier, is at least three times faster, and improves equivalent reactor-temperature evidence."
   },
   "experiment": {
-    "kind": "load_step",
-    "signal": "Heating-utility disturbance",
+    "kind": "observation",
+    "signal": "Experiment authority",
     "baseline": 0,
-    "amplitude": -10,
-    "durationSeconds": 120,
+    "amplitude": 0,
+    "durationSeconds": 120.1,
     "settlingSeconds": 40,
     "disturbances": ["Commissioning run steps both jacket setpoints from 70 to 75 degC at 10.0 s", "Regulatory run changes utility contribution from 0 to -10 degC at 40.0 s"],
     "seed": 20260829,
-    "restorationValue": 0
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
   },
   "acceptance": [
     { "metric": "inner_time_scale_separation", "signal": "Fast-cascade jacket temperature", "window": "10 through 40 s jacket-setpoint commissioning step", "comparator": ">=", "limit": 3, "unit": "1", "tolerance": 0.05, "evidenceClass": "simulation" },
@@ -112,7 +103,7 @@
     "physicalApprovalRole": "authorised reactor controls engineer and responsible process operator",
     "simulationOnlyRestrictions": ["No physical reactor is excited or commissioned", "Equivalent simulated plants do not prove physical sensor placement or time-scale separation", "Physical cascade commissioning requires reviewed topology, interlocks, limits, operating permission and explicit action approval"]
   },
-  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-54--cascade-control-jacketed-reactor",
     "nativeTest": "control_curriculum_cascade_commissions_inner_loop_before_rejecting_reactor_utility_disturbance",

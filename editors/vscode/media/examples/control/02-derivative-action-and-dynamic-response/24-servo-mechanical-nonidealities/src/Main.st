@@ -7,7 +7,13 @@ VAR
     InitialState : Control.PIDInitialState;
     Input : Control.PIDInput;
     Initialized : BOOL := FALSE;
-    AutoMode : BOOL := TRUE;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    ExperimentCycle : ULINT := ULINT#0;
+    AutoMode : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ManualMode : BOOL := TRUE;
     ProfileEnabled : BOOL := TRUE;
     TargetPosition : LREAL := 0.0;
     LoadPosition : LREAL := 0.0;
@@ -44,6 +50,31 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
+(* Control Studio writes one reviewed Boolean. The project owns the positive
+   move, timed reversal, and complete safe restoration. Fresh native runtimes,
+   not this one UI run, own the isolated nonideality comparison matrix. *)
+IF ExperimentEnabled THEN
+    IF NOT ExperimentWasEnabled THEN
+        ExperimentCycle := ULINT#0;
+        ProfiledPosition := LoadPosition;
+        ProfiledVelocity := LREAL#0.0;
+    END_IF;
+    ExperimentCycle := ExperimentCycle + ULINT#1;
+    ProfileEnabled := TRUE;
+    AutoMode := TRUE;
+    IF ExperimentCycle <= ULINT#500 THEN
+        TargetPosition := LREAL#0.5;
+    ELSE
+        TargetPosition := LREAL#-0.5;
+    END_IF;
+ELSIF ExperimentWasEnabled THEN
+    ExperimentCycle := ULINT#0;
+    TargetPosition := LREAL#0.0;
+    ProfiledPosition := LREAL#0.0;
+    ProfiledVelocity := LREAL#0.0;
+    AutoMode := FALSE;
+END_IF;
+
 IF ProfileEnabled THEN
     (* This profile limits the reference to 0.5 rad/s and 1.0 rad/s2. These are
        trajectory limits; they are intentionally separate from torque limits. *)
@@ -70,9 +101,19 @@ END_IF;
 
 Input.Setpoint := ProfiledPosition;
 Input.ProcessValue := LoadPosition;
-IF AutoMode THEN Input.Mode := PIDMode#Auto; ELSE Input.Mode := PIDMode#Manual; END_IF;
+InputsValid := LoadPosition >= LREAL#-4.0 AND LoadPosition <= LREAL#4.0
+    AND MotorVelocity >= LREAL#-20.0 AND MotorVelocity <= LREAL#20.0;
+IF AutoMode AND InputsValid AND NOT SafetyAbort THEN
+    Input.Mode := PIDMode#Auto;
+    ManualMode := FALSE;
+ELSE
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := LREAL#0.0;
+    ManualMode := TRUE;
+END_IF;
 Input.CycleTime := LREAL#0.02;
 RequestedTorque := Controller.Update(Input := Input);
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -83,6 +124,10 @@ END_RESOURCE
 VAR_CONFIG
     P1.AutoMode AT %MX16.0 : BOOL;
     P1.ProfileEnabled AT %MX16.1 : BOOL;
+    P1.ExperimentEnabled AT %MX16.2 : BOOL;
+    P1.SafetyAbort AT %MX16.3 : BOOL;
+    P1.InputsValid AT %MX16.4 : BOOL;
+    P1.ManualMode AT %MX16.5 : BOOL;
     P1.TargetPosition AT %ML40 : LREAL;
     P1.LoadPosition AT %IL0 : LREAL;
     P1.MotorVelocity AT %IL8 : LREAL;

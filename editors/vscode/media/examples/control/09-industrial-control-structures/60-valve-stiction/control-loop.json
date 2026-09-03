@@ -42,7 +42,7 @@
       "symbol": "P1.ManualDemand",
       "address": "%ML328",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -50,6 +50,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX91.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "automatic-mode-1",
         "channel": "automatic-mode",
@@ -99,7 +113,7 @@
         "symbol": "P1.HealthyRequest",
         "address": "%QL184",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -113,7 +127,7 @@
         "symbol": "P1.DeadbandRequest",
         "address": "%QL192",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -127,7 +141,7 @@
         "symbol": "P1.StictionRequest",
         "address": "%QL200",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -145,10 +159,16 @@
   },
   "plantId": "three_nonlinear_installed_valve_flow_benches",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "mv_step",
-    "amplitude": 5.5,
-    "durationSeconds": 180,
-    "seed": 20260829
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 180.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX91.1",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

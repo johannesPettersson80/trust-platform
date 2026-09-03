@@ -38,7 +38,8 @@
     { "role": "PV", "name": "Feedback-plant header pressure", "unit": "bar", "minimum": 6, "maximum": 8, "resolution": 0.001, "binding": "%IL0" },
     { "role": "state", "name": "Feedback-plant actual delivery", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%IL8" },
     { "role": "PV", "name": "Integrated-plant header pressure", "unit": "bar", "minimum": 6, "maximum": 8, "resolution": 0.001, "binding": "%IL16" },
-    { "role": "state", "name": "Integrated-plant actual delivery", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%IL24" }
+    { "role": "state", "name": "Integrated-plant actual delivery", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%IL24" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX9.2" }
   ],
   "plant": {
     "modelId": "compressed_air_receiver_reference_nominal",
@@ -60,12 +61,7 @@
       { "signal": "Feedback-plant actual delivery", "minimum": 0, "maximum": 100, "unit": "%" },
       { "signal": "Integrated-plant actual delivery", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "The local receiver model omits air temperature, moisture, piping modes, compressor staging and certified protection dynamics.",
-      "The delivery request represents the installed drive's internally controlled delivery target; the PLC does not replace the drive inner loop.",
-      "Demand is measured without delay in the nominal Simulation record and receives declared invalid and unmeasured-leak cases separately.",
-      "Simulation evidence does not qualify a physical compressor, receiver, relief valve, trip or factory air network."
-    ]
+    "simplifications": ["The local receiver model omits air temperature, moisture, piping modes, compressor staging and certified protection dynamics.", "The delivery request represents the installed drive's internally controlled delivery target; the PLC does not replace the drive inner loop.", "Demand is measured without delay in the nominal Simulation record and receives declared invalid and unmeasured-leak cases separately.", "Simulation evidence does not qualify a physical compressor, receiver, relief valve, trip or factory air network."]
   },
   "baseline": {
     "executableId": "CompressedAir.QualifiedFeedbackPi",
@@ -78,15 +74,15 @@
     "decision": "Select PI plus measured-demand feedforward only if common normal, uncertainty, actuator, stability and abnormal evidence satisfies every predeclared requirement."
   },
   "experiment": {
-    "kind": "load_step",
-    "signal": "Measured plant air demand",
-    "baseline": 50,
-    "amplitude": 15,
-    "durationSeconds": 300,
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 300.1,
     "settlingSeconds": 120,
     "disturbances": ["Demand changes from 50 to 65 percent at 60 seconds.", "Demand changes from 65 to 55 percent at 180 seconds.", "Repeat with eight-second delivery lag, reduced receiver rate gain and an unmeasured five-percent leak."],
     "seed": 20260829,
-    "restorationValue": 50
+    "restorationValue": 0
   },
   "acceptance": [
     { "metric": "normal_pressure_envelope_violation", "signal": "Integrated-plant header pressure", "window": "complete nominal 300-second record", "comparator": "==", "limit": 0, "unit": "bar*s", "tolerance": 0.001, "evidenceClass": "simulation" },
@@ -101,22 +97,13 @@
       { "signal": "Feedback PI applied request", "minimum": 0, "maximum": 100, "unit": "%" },
       { "signal": "Integrated applied request", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "abortPredicates": [
-      "Pressure, demand, delivery, mode, availability, interval, project, plant or evidence identity is invalid, stale, missing, forced or nonfinite.",
-      "Header pressure leaves 6.0 through 8.0 bar or an applied request leaves 0 through 100 percent or moves faster than 10 percentage points per second.",
-      "A comparison changes plant, initial state, demand record, interval, limits, controller settings or evidence class without declaration.",
-      "A controller is selected before stability, robustness, abnormal and rollback evidence is complete."
-    ],
+    "abortPredicates": ["Pressure, demand, delivery, mode, availability, interval, project, plant or evidence identity is invalid, stale, missing, forced or nonfinite.", "Header pressure leaves 6.0 through 8.0 bar or an applied request leaves 0 through 100 percent or moves faster than 10 percentage points per second.", "A comparison changes plant, initial state, demand record, interval, limits, controller settings or evidence class without declaration.", "A controller is selected before stability, robustness, abnormal and rollback evidence is complete."],
     "safeMv": 0,
     "restorationMode": "Restore qualified pressure, demand and delivery signals at 7 bar and 50 percent, remain in Safe, obtain a new reviewed run, then request explicit application approval.",
     "physicalApprovalRole": "authorised compressed-air engineer with operations, mechanical, electrical, functional-safety and cybersecurity owners",
-    "simulationOnlyRestrictions": [
-      "The state-space receiver, perfect demand schedule and fault injections are Simulation evidence.",
-      "No physical compressor, receiver, relief valve, pressure trip or production air network is operated.",
-      "Physical work requires independently reviewed topology, protection ownership, bounded experiment approval, immediate action approval and rollback."
-    ]
+    "simulationOnlyRestrictions": ["The state-space receiver, perfect demand schedule and fault injections are Simulation evidence.", "No physical compressor, receiver, relief valve, pressure trip or production air network is operated.", "Physical work requires independently reviewed topology, protection ownership, bounded experiment approval, immediate action approval and rollback."]
   },
-  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-84--independent-engineering-capstone",
     "nativeTest": "control_curriculum_independent_capstone_defends_selected_architecture",

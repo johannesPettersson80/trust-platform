@@ -39,11 +39,7 @@
       { "signal": "Motor velocity", "minimum": -20, "maximum": 20, "unit": "rad/s" },
       { "signal": "Held motor-torque request", "minimum": -10, "maximum": 10, "unit": "N m" }
     ],
-    "simplifications": [
-      "The simulator advances the rigid joint every 10 ms while the controller may update less frequently.",
-      "A deterministic 8 Hz sinusoid and 0.001 rad quantizer isolate sampling effects; they are not a full physical encoder spectrum.",
-      "Controller arithmetic uses LREAL; processor execution-time distribution and missed deadlines are deferred to production timing lessons."
-    ]
+    "simplifications": ["The simulator advances the rigid joint every 10 ms while the controller may update less frequently.", "A deterministic 8 Hz sinusoid and 0.001 rad quantizer isolate sampling effects; they are not a full physical encoder spectrum.", "Controller arithmetic uses LREAL; processor execution-time distribution and missed deadlines are deferred to production timing lessons."]
   },
   "baseline": {
     "executableId": "LessonDiscretePID.Tustin",
@@ -52,7 +48,11 @@
   },
   "change": {
     "executableId": "LessonDiscretePID.SelectedMethodAndInterval",
-    "settings": { "methodSelections": [0, 1, 2], "controllerIntervalsSeconds": [0.01, 0.02, 0.1], "computationDelayUpdates": [0, 1] },
+    "settings": {
+      "methodSelections": [0, 1, 2],
+      "controllerIntervalsSeconds": [0.01, 0.02, 0.1],
+      "computationDelayUpdates": [0, 1]
+    },
     "decision": "Accept only a method and interval whose actual update timing, held output, tracking, torque, finite-state, quantization, alias, and delay evidence satisfy the declared requirements."
   },
   "experiment": {
@@ -67,15 +67,15 @@
     "restorationValue": 0
   },
   "acceptance": [
-    { "metric": "actual_controller_update_interval_maximum", "signal": "Controller update pulse", "window": "complete 20 s run", "comparator": "<=", "limit": 0.1, "unit": "s", "tolerance": 0.000001, "evidenceClass": "simulation" },
-    { "metric": "held_torque_changes_outside_update", "signal": "Held motor-torque request", "window": "complete 20 s run", "comparator": "==", "limit": 0, "unit": "N m", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "actual_controller_update_interval_maximum", "signal": "Controller update pulse", "window": "complete 20 s run", "comparator": "<=", "limit": 0.1, "unit": "s", "tolerance": 1e-06, "evidenceClass": "simulation" },
+    { "metric": "held_torque_changes_outside_update", "signal": "Held motor-torque request", "window": "complete 20 s run", "comparator": "==", "limit": 0, "unit": "N m", "tolerance": 1e-09, "evidenceClass": "simulation" },
     { "metric": "sampled_8_hz_alias_amplitude_at_100_ms", "signal": "Encoder interference", "window": "controller update samples over 20 s", "comparator": ">=", "limit": 0.001, "unit": "rad", "tolerance": 0.0001, "evidenceClass": "simulation" },
-    { "metric": "estimated_alias_frequency_minimum", "signal": "Encoder interference", "window": "100 ms controller samples from 5 to 20 s", "comparator": ">=", "limit": 1.9, "unit": "Hz", "tolerance": 0.000001, "evidenceClass": "simulation" },
-    { "metric": "estimated_alias_frequency_maximum", "signal": "Encoder interference", "window": "100 ms controller samples from 5 to 20 s", "comparator": "<=", "limit": 2.1, "unit": "Hz", "tolerance": 0.000001, "evidenceClass": "simulation" },
-    { "metric": "settled_final_position_span", "signal": "Quantized measured position", "window": "final 2 s of each settled candidate", "comparator": "<=", "limit": 0.01, "unit": "rad", "tolerance": 0.000001, "evidenceClass": "simulation" },
-    { "metric": "settled_final_torque_span", "signal": "Held motor-torque request", "window": "final 2 s of each settled candidate", "comparator": "<=", "limit": 0.5, "unit": "N m", "tolerance": 0.000001, "evidenceClass": "simulation" },
-    { "metric": "one_update_delay_first_torque_difference", "signal": "Held motor-torque request", "window": "first two controller updates", "comparator": ">=", "limit": 0.01, "unit": "s", "tolerance": 0.000001, "evidenceClass": "simulation" },
-    { "metric": "finite_bounded_torque_all_candidates", "signal": "Held motor-torque request", "window": "all candidate runs", "comparator": "<=", "limit": 10, "unit": "N m", "tolerance": 0.000001, "evidenceClass": "simulation" }
+    { "metric": "estimated_alias_frequency_minimum", "signal": "Encoder interference", "window": "100 ms controller samples from 5 to 20 s", "comparator": ">=", "limit": 1.9, "unit": "Hz", "tolerance": 1e-06, "evidenceClass": "simulation" },
+    { "metric": "estimated_alias_frequency_maximum", "signal": "Encoder interference", "window": "100 ms controller samples from 5 to 20 s", "comparator": "<=", "limit": 2.1, "unit": "Hz", "tolerance": 1e-06, "evidenceClass": "simulation" },
+    { "metric": "settled_final_position_span", "signal": "Quantized measured position", "window": "final 2 s of each settled candidate", "comparator": "<=", "limit": 0.01, "unit": "rad", "tolerance": 1e-06, "evidenceClass": "simulation" },
+    { "metric": "settled_final_torque_span", "signal": "Held motor-torque request", "window": "final 2 s of each settled candidate", "comparator": "<=", "limit": 0.5, "unit": "N m", "tolerance": 1e-06, "evidenceClass": "simulation" },
+    { "metric": "one_update_delay_first_torque_difference", "signal": "Held motor-torque request", "window": "first two controller updates", "comparator": ">=", "limit": 0.01, "unit": "s", "tolerance": 1e-06, "evidenceClass": "simulation" },
+    { "metric": "finite_bounded_torque_all_candidates", "signal": "Held motor-torque request", "window": "all candidate runs", "comparator": "<=", "limit": 10, "unit": "N m", "tolerance": 1e-06, "evidenceClass": "simulation" }
   ],
   "safety": {
     "hardLimits": [
@@ -87,8 +87,7 @@
     "safeMv": 0,
     "restorationMode": "Disable control and command zero torque after supporting the payload",
     "physicalApprovalRole": "authorised motion-control engineer",
-    "simulationOnlyRestrictions": ["Simulated timing and sinusoidal encoder interference do not qualify physical task jitter, processor load, drive latency, encoder spectrum, or machine stability."
-    ]
+    "simulationOnlyRestrictions": ["Simulated timing and sinusoidal encoder interference do not qualify physical task jitter, processor load, drive latency, encoder spectrum, or machine stability."]
   },
   "workflowStages": ["Monitor", "Test"],
   "proof": {
@@ -111,13 +110,7 @@
   "learning": {
     "context": "The same positioning table runs on a 10 ms plant step while a lesson-specific digital PID updates every 10, 20, or 100 ms and holds torque between updates.",
     "reason": "The preceding lessons exposed sampling, filtering, actuator, and transmission effects; continuous gains alone cannot specify which samples, coefficients, held values, or delays the computer executes.",
-    "theory": [
-      "Controller sample interval dt is elapsed time in seconds between controller updates. Sampling frequency f_s is updates per second and equals one divided by dt. Nyquist frequency f_N is half the sampling frequency.",
-      "Zero-order hold retains the last calculated torque between controller updates. Quantization step q is the 0.001 rad spacing between encoder values. Computation delay T_delay is one complete controller update when enabled.",
-      "Forward Euler accumulates the previous error and advances the filtered derivative from its previous measurement-rate input. Backward Euler uses current error and current position change. Tustin averages previous and current error and applies the trapezoidal mapping to the filtered derivative.",
-      "Filtered derivative torque T_D is the damping contribution calculated from measurement-rate change through a 0.05 s dynamic filter. The proportional, integral, and derivative torque contributions use identical continuous gains in every candidate.",
-      "Alias frequency f_alias is the lower sampled frequency produced when interference exceeds Nyquist. At 100 ms, 8 Hz interference sampled at 10 Hz appears at 2 Hz. LREAL provides coefficient and state precision but does not restore information lost to sampling or sensor quantization."
-    ],
+    "theory": ["Controller sample interval dt is elapsed time in seconds between controller updates. Sampling frequency f_s is updates per second and equals one divided by dt. Nyquist frequency f_N is half the sampling frequency.", "Zero-order hold retains the last calculated torque between controller updates. Quantization step q is the 0.001 rad spacing between encoder values. Computation delay T_delay is one complete controller update when enabled.", "Forward Euler accumulates the previous error and advances the filtered derivative from its previous measurement-rate input. Backward Euler uses current error and current position change. Tustin averages previous and current error and applies the trapezoidal mapping to the filtered derivative.", "Filtered derivative torque T_D is the damping contribution calculated from measurement-rate change through a 0.05 s dynamic filter. The proportional, integral, and derivative torque contributions use identical continuous gains in every candidate.", "Alias frequency f_alias is the lower sampled frequency produced when interference exceeds Nyquist. At 100 ms, 8 Hz interference sampled at 10 Hz appears at 2 Hz. LREAL provides coefficient and state precision but does not restore information lost to sampling or sensor quantization."],
     "workedPrediction": "For dt values 0.01, 0.02, and 0.10 s, calculate f_s as 100, 50, and 10 Hz, f_N as 50, 25, and 5 Hz, and 100, 50, and 10 samples per 1 s mechanical velocity time constant. Calculate integral weights 0.02, 0.04, and 0.20; forward derivative coefficients 0.2, 0.4, and 2.0; backward denominators 1.2, 1.4, and 3.0; and Tustin retained-state coefficients 0.818, 0.667, and 0. At dt 0.10 s, the 8 Hz encoder component aliases to 2 Hz and one-update delay is 0.10 s.",
     "practicalPreparation": ["Bind update pulse, setpoint, measured and ideal position, motor velocity, held requested and applied torque, method, interval, quantization step, interference frequency, and delay state.", "Freeze gains, filter time constant, plant, initial state, noise phase, duration, limits, and seed before comparing methods or intervals."],
     "baseline": "Run Tustin at 10 ms with no added computation delay; retain every base scan and actual controller update timestamp.",

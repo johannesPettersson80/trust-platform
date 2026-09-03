@@ -7,8 +7,14 @@ VAR
     InitialState : Control.PIDInitialState;
     Input : Control.PIDInput;
     Initialized : BOOL := FALSE;
-    AutoMode : BOOL := TRUE;
-    DerivativeSetpointWeight : LREAL := 0.0;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    AutoMode : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ManualMode : BOOL := TRUE;
+    ReconfigureRequested : BOOL := FALSE;
+    DerivativeSetpointWeight : LREAL := 1.0;
     Setpoint : LREAL := 0.0;
     Position : LREAL := 0.0;
     Velocity : LREAL := 0.0;
@@ -40,12 +46,47 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
+ReconfigureRequested := FALSE;
+IF ExperimentEnabled AND NOT ExperimentWasEnabled THEN
+    DerivativeSetpointWeight := LREAL#0.0;
+    AutoMode := TRUE;
+    ReconfigureRequested := TRUE;
+ELSIF ExperimentEnabled THEN
+    AutoMode := TRUE;
+ELSIF ExperimentWasEnabled THEN
+    DerivativeSetpointWeight := LREAL#1.0;
+    Setpoint := LREAL#0.0;
+    AutoMode := FALSE;
+    ReconfigureRequested := TRUE;
+END_IF;
+
+InputsValid := Position >= LREAL#-4.0 AND Position <= LREAL#4.0
+    AND Velocity >= LREAL#-20.0 AND Velocity <= LREAL#20.0;
+IF ReconfigureRequested THEN
+    Parameters.DerivativeSetpointWeight := DerivativeSetpointWeight;
+    Controller.Configure(Parameters := Parameters);
+    InitialState.Setpoint := Setpoint;
+    InitialState.ProcessValue := Position;
+    InitialState.NominalOutput := RequestedTorque;
+    InitialState.SaturatedOutput := AppliedTorque;
+    Controller.Initialize(State := InitialState);
+END_IF;
+IF ExperimentEnabled THEN Setpoint := LREAL#0.5; END_IF;
+
 Input.Setpoint := Setpoint;
 Input.ProcessValue := Position;
-IF AutoMode THEN Input.Mode := PIDMode#Auto; ELSE Input.Mode := PIDMode#Manual; END_IF;
+IF AutoMode AND InputsValid AND NOT SafetyAbort THEN
+    Input.Mode := PIDMode#Auto;
+    ManualMode := FALSE;
+ELSE
+    Input.Mode := PIDMode#Manual;
+    Input.ManualOutput := LREAL#0.0;
+    ManualMode := TRUE;
+END_IF;
 Input.CycleTime := LREAL#0.02;
 RequestedTorque := Controller.Update(Input := Input);
 AppliedTorque := MAX(MIN(RequestedTorque, LREAL#10.0), LREAL#-10.0);
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -55,6 +96,10 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.AutoMode AT %MX32.0 : BOOL;
+    P1.ExperimentEnabled AT %MX32.1 : BOOL;
+    P1.SafetyAbort AT %MX32.2 : BOOL;
+    P1.InputsValid AT %MX32.3 : BOOL;
+    P1.ManualMode AT %MX32.4 : BOOL;
     P1.DerivativeSetpointWeight AT %ML16 : LREAL;
     P1.Setpoint AT %ML24 : LREAL;
     P1.Position AT %IL0 : LREAL;

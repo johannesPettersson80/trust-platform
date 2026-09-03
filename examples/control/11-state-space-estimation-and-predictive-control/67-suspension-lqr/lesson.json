@@ -8,242 +8,47 @@
   "physicalPurpose": "Balance suspension travel, body motion, and hydraulic effort, then preserve the selected design when only noisy displacement is measured.",
   "principalTechnique": "Linear-quadratic regulation and position-only linear-quadratic-Gaussian control",
   "objective": "Derive and compare pole-placement and four LQR designs on common physical measures, then qualify balanced position-only LQG under nominal noise and declared faults.",
-  "prerequisites": [
-    "control-weigh-feeder-kalman"
-  ],
+  "prerequisites": ["control-weigh-feeder-kalman"],
   "nextLesson": "control-building-hvac-mpc",
   "signals": [
-    {
-      "role": "authority",
-      "name": "Experiment authority",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.3"
-    },
-    {
-      "role": "state",
-      "name": "Safety abort",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.4"
-    },
-    {
-      "role": "state",
-      "name": "Inputs valid",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.5"
-    },
-    {
-      "role": "state",
-      "name": "Controller enabled",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.0"
-    },
-    {
-      "role": "quality",
-      "name": "Controller and estimator valid",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.1"
-    },
-    {
-      "role": "quality",
-      "name": "Hydraulic force saturated",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.2"
-    },
-    {
-      "role": "state",
-      "name": "Design selector",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 5,
-      "resolution": 1,
-      "binding": "%MD0"
-    },
-    {
-      "role": "MV",
-      "name": "Requested hydraulic force",
-      "unit": "kN",
-      "minimum": -10,
-      "maximum": 10,
-      "resolution": 0.001,
-      "binding": "%ML8"
-    },
-    {
-      "role": "state",
-      "name": "Estimated suspension deflection",
-      "unit": "m",
-      "minimum": -0.08,
-      "maximum": 0.08,
-      "resolution": 0.0001,
-      "binding": "%ML16"
-    },
-    {
-      "role": "state",
-      "name": "Estimated body vertical velocity",
-      "unit": "m/s",
-      "minimum": -0.5,
-      "maximum": 0.5,
-      "resolution": 0.001,
-      "binding": "%ML24"
-    },
-    {
-      "role": "state",
-      "name": "Position innovation",
-      "unit": "m",
-      "minimum": -0.1,
-      "maximum": 0.1,
-      "resolution": 0.0001,
-      "binding": "%ML32"
-    },
-    {
-      "role": "disturbance",
-      "name": "Requested road-equivalent acceleration",
-      "unit": "m/s2",
-      "minimum": -2,
-      "maximum": 2,
-      "resolution": 0.01,
-      "binding": "%ML40"
-    },
-    {
-      "role": "MV",
-      "name": "Applied hydraulic force",
-      "unit": "kN",
-      "minimum": -5,
-      "maximum": 5,
-      "resolution": 0.001,
-      "binding": "%QL0"
-    },
-    {
-      "role": "disturbance",
-      "name": "Applied road-equivalent acceleration",
-      "unit": "m/s2",
-      "minimum": -2,
-      "maximum": 2,
-      "resolution": 0.01,
-      "binding": "%QL8"
-    },
-    {
-      "role": "PV",
-      "name": "Full-state suspension-deflection measurement",
-      "unit": "m",
-      "minimum": -0.08,
-      "maximum": 0.08,
-      "resolution": 0.0001,
-      "binding": "%IL0"
-    },
-    {
-      "role": "PV",
-      "name": "Full-state body-velocity measurement",
-      "unit": "m/s",
-      "minimum": -0.5,
-      "maximum": 0.5,
-      "resolution": 0.001,
-      "binding": "%IL8"
-    },
-    {
-      "role": "PV",
-      "name": "Position-only noisy deflection measurement",
-      "unit": "m",
-      "minimum": -0.1,
-      "maximum": 0.1,
-      "resolution": 0.0001,
-      "binding": "%IL16"
-    },
-    {
-      "role": "state",
-      "name": "Position-only plant Simulation truth velocity",
-      "unit": "m/s",
-      "minimum": -0.5,
-      "maximum": 0.5,
-      "resolution": 0.001,
-      "binding": "%IL24"
-    }
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX120.3" },
+    { "role": "state", "name": "Safety abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX120.4" },
+    { "role": "state", "name": "Inputs valid", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX120.5" },
+    { "role": "state", "name": "Controller enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX120.0" },
+    { "role": "quality", "name": "Controller and estimator valid", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX120.1" },
+    { "role": "quality", "name": "Hydraulic force saturated", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX120.2" },
+    { "role": "state", "name": "Design selector", "unit": "1", "minimum": 0, "maximum": 5, "resolution": 1, "binding": "%MD0" },
+    { "role": "MV", "name": "Requested hydraulic force", "unit": "kN", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%ML8" },
+    { "role": "state", "name": "Estimated suspension deflection", "unit": "m", "minimum": -0.08, "maximum": 0.08, "resolution": 0.0001, "binding": "%ML16" },
+    { "role": "state", "name": "Estimated body vertical velocity", "unit": "m/s", "minimum": -0.5, "maximum": 0.5, "resolution": 0.001, "binding": "%ML24" },
+    { "role": "state", "name": "Position innovation", "unit": "m", "minimum": -0.1, "maximum": 0.1, "resolution": 0.0001, "binding": "%ML32" },
+    { "role": "disturbance", "name": "Requested road-equivalent acceleration", "unit": "m/s2", "minimum": -2, "maximum": 2, "resolution": 0.01, "binding": "%ML40" },
+    { "role": "MV", "name": "Applied hydraulic force", "unit": "kN", "minimum": -5, "maximum": 5, "resolution": 0.001, "binding": "%QL0" },
+    { "role": "disturbance", "name": "Applied road-equivalent acceleration", "unit": "m/s2", "minimum": -2, "maximum": 2, "resolution": 0.01, "binding": "%QL8" },
+    { "role": "PV", "name": "Full-state suspension-deflection measurement", "unit": "m", "minimum": -0.08, "maximum": 0.08, "resolution": 0.0001, "binding": "%IL0" },
+    { "role": "PV", "name": "Full-state body-velocity measurement", "unit": "m/s", "minimum": -0.5, "maximum": 0.5, "resolution": 0.001, "binding": "%IL8" },
+    { "role": "PV", "name": "Position-only noisy deflection measurement", "unit": "m", "minimum": -0.1, "maximum": 0.1, "resolution": 0.0001, "binding": "%IL16" },
+    { "role": "state", "name": "Position-only plant Simulation truth velocity", "unit": "m/s", "minimum": -0.5, "maximum": 0.5, "resolution": 0.001, "binding": "%IL24" }
   ],
   "plant": {
     "modelId": "equivalent_active_suspension_truth_and_position_sensor_copies",
     "executable": "simulation.toml",
     "parameters": [
-      {
-        "name": "spring_acceleration_coefficient",
-        "value": 4,
-        "unit": "1/s2"
-      },
-      {
-        "name": "damping_coefficient",
-        "value": 1.2,
-        "unit": "1/s"
-      },
-      {
-        "name": "hydraulic_force_coefficient",
-        "value": 0.5,
-        "unit": "m/(kN*s^2)"
-      },
-      {
-        "name": "position_sensor_noise_standard_deviation",
-        "value": 0.002,
-        "unit": "m"
-      }
+      { "name": "spring_acceleration_coefficient", "value": 4, "unit": "1/s2" },
+      { "name": "damping_coefficient", "value": 1.2, "unit": "1/s" },
+      { "name": "hydraulic_force_coefficient", "value": 0.5, "unit": "m/(kN*s^2)" },
+      { "name": "position_sensor_noise_standard_deviation", "value": 0.002, "unit": "m" }
     ],
     "sampleTimeSeconds": 0.1,
-    "initialState": {
-      "suspensionDeflection": 0,
-      "bodyVerticalVelocity": 0,
-      "estimatedDeflection": 0,
-      "estimatedVelocity": 0,
-      "previousForce": 0,
-      "previousRoadAcceleration": 0
-    },
+    "initialState": { "suspensionDeflection": 0, "bodyVerticalVelocity": 0, "estimatedDeflection": 0, "estimatedVelocity": 0, "previousForce": 0, "previousRoadAcceleration": 0 },
     "seed": 20260829,
-    "operatingPoint": {
-      "Requested hydraulic force": 0,
-      "Applied hydraulic force": 0,
-      "Requested road-equivalent acceleration": 0,
-      "Applied road-equivalent acceleration": 0
-    },
+    "operatingPoint": { "Requested hydraulic force": 0, "Applied hydraulic force": 0, "Requested road-equivalent acceleration": 0, "Applied road-equivalent acceleration": 0 },
     "validityRange": [
-      {
-        "signal": "Full-state suspension-deflection measurement",
-        "minimum": -0.08,
-        "maximum": 0.08,
-        "unit": "m"
-      },
-      {
-        "signal": "Full-state body-velocity measurement",
-        "minimum": -0.5,
-        "maximum": 0.5,
-        "unit": "m/s"
-      },
-      {
-        "signal": "Applied hydraulic force",
-        "minimum": -5,
-        "maximum": 5,
-        "unit": "kN"
-      }
+      { "signal": "Full-state suspension-deflection measurement", "minimum": -0.08, "maximum": 0.08, "unit": "m" },
+      { "signal": "Full-state body-velocity measurement", "minimum": -0.5, "maximum": 0.5, "unit": "m/s" },
+      { "signal": "Applied hydraulic force", "minimum": -5, "maximum": 5, "unit": "kN" }
     ],
-    "simplifications": [
-      "The two-state local body-bounce model omits the tyre, unsprung mass, hydraulic actuator dynamics, pitch, roll, delay and structural modes.",
-      "Equivalent simulator copies separate clean validation state from the noisy position-only sensor record.",
-      "The road event is a bounded equivalent vertical-acceleration pulse rather than measured tyre-profile geometry.",
-      "The steady-state Kalman gain assumes the declared linear model and covariance and is not an online covariance estimator.",
-      "Simulation evidence does not qualify a physical suspension, actuator, sensor, road profile or vehicle."
-    ]
+    "simplifications": ["The two-state local body-bounce model omits the tyre, unsprung mass, hydraulic actuator dynamics, pitch, roll, delay and structural modes.", "Equivalent simulator copies separate clean validation state from the noisy position-only sensor record.", "The road event is a bounded equivalent vertical-acceleration pulse rather than measured tyre-profile geometry.", "The steady-state Kalman gain assumes the declared linear model and covariance and is not an online covariance estimator.", "Simulation evidence does not qualify a physical suspension, actuator, sensor, road profile or vehicle."]
   },
   "baseline": {
     "executableId": "Suspension.PolePlacement",
@@ -272,165 +77,41 @@
     "amplitude": 0,
     "durationSeconds": 12.1,
     "settlingSeconds": 1,
-    "disturbances": [
-      "Apply +0.5 m/s2 road-equivalent acceleration from 1.0 through 1.5 seconds.",
-      "Compare pole placement and all four full-state LQR candidates from identical state, seed, event, limits and interval.",
-      "Compare balanced full-state LQR with balanced position-only LQG.",
-      "Repeat LQG with 0.004 m position noise and with the declared spring/damping mismatch."
-    ],
+    "disturbances": ["Apply +0.5 m/s2 road-equivalent acceleration from 1.0 through 1.5 seconds.", "Compare pole placement and all four full-state LQR candidates from identical state, seed, event, limits and interval.", "Compare balanced full-state LQR with balanced position-only LQG.", "Repeat LQG with 0.004 m position noise and with the declared spring/damping mismatch."],
     "seed": 20260829,
-    "restorationValue": 0,
-    "activation": {
-      "symbol": "P1.ExperimentEnabled",
-      "address": "%MX120.3",
-      "activeValue": true,
-      "inactiveValue": false
-    }
+    "restorationValue": 0
   },
   "acceptance": [
-    {
-      "metric": "maximum_applied_hydraulic_force",
-      "signal": "Applied hydraulic force",
-      "window": "complete 12-second road-pulse record",
-      "comparator": "<=",
-      "limit": 5,
-      "unit": "kN",
-      "tolerance": 0.001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "maximum_absolute_suspension_deflection",
-      "signal": "Full-state suspension-deflection measurement",
-      "window": "complete 12-second road-pulse record",
-      "comparator": "<=",
-      "limit": 0.08,
-      "unit": "m",
-      "tolerance": 0.0001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "nominal_lqg_position_estimation_rms",
-      "signal": "Estimated suspension deflection",
-      "window": "1 through 12 seconds against Simulation truth",
-      "comparator": "<=",
-      "limit": 0.01,
-      "unit": "m",
-      "tolerance": 0.0001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "nominal_lqg_velocity_estimation_rms",
-      "signal": "Estimated body vertical velocity",
-      "window": "1 through 12 seconds against Simulation truth",
-      "comparator": "<=",
-      "limit": 0.1,
-      "unit": "m/s",
-      "tolerance": 0.001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "nominal_lqg_absolute_innovation_mean",
-      "signal": "Position innovation",
-      "window": "absolute mean from 1 through 12 seconds",
-      "comparator": "<=",
-      "limit": 0.002,
-      "unit": "m",
-      "tolerance": 0.0001,
-      "evidenceClass": "simulation"
-    }
+    { "metric": "maximum_applied_hydraulic_force", "signal": "Applied hydraulic force", "window": "complete 12-second road-pulse record", "comparator": "<=", "limit": 5, "unit": "kN", "tolerance": 0.001, "evidenceClass": "simulation" },
+    { "metric": "maximum_absolute_suspension_deflection", "signal": "Full-state suspension-deflection measurement", "window": "complete 12-second road-pulse record", "comparator": "<=", "limit": 0.08, "unit": "m", "tolerance": 0.0001, "evidenceClass": "simulation" },
+    { "metric": "nominal_lqg_position_estimation_rms", "signal": "Estimated suspension deflection", "window": "1 through 12 seconds against Simulation truth", "comparator": "<=", "limit": 0.01, "unit": "m", "tolerance": 0.0001, "evidenceClass": "simulation" },
+    { "metric": "nominal_lqg_velocity_estimation_rms", "signal": "Estimated body vertical velocity", "window": "1 through 12 seconds against Simulation truth", "comparator": "<=", "limit": 0.1, "unit": "m/s", "tolerance": 0.001, "evidenceClass": "simulation" },
+    { "metric": "nominal_lqg_absolute_innovation_mean", "signal": "Position innovation", "window": "absolute mean from 1 through 12 seconds", "comparator": "<=", "limit": 0.002, "unit": "m", "tolerance": 0.0001, "evidenceClass": "simulation" }
   ],
   "safety": {
     "hardLimits": [
-      {
-        "signal": "Applied hydraulic force",
-        "minimum": -5,
-        "maximum": 5,
-        "unit": "kN"
-      },
-      {
-        "signal": "Applied road-equivalent acceleration",
-        "minimum": -2,
-        "maximum": 2,
-        "unit": "m/s2"
-      },
-      {
-        "signal": "Full-state suspension-deflection measurement",
-        "minimum": -0.08,
-        "maximum": 0.08,
-        "unit": "m"
-      }
+      { "signal": "Applied hydraulic force", "minimum": -5, "maximum": 5, "unit": "kN" },
+      { "signal": "Applied road-equivalent acceleration", "minimum": -2, "maximum": 2, "unit": "m/s2" },
+      { "signal": "Full-state suspension-deflection measurement", "minimum": -0.08, "maximum": 0.08, "unit": "m" }
     ],
-    "abortPredicates": [
-      "Any required signal is nonfinite, stale, forced, invalid, missing or bound to the wrong simulator copy.",
-      "Applied force, road acceleration, suspension deflection or body velocity leaves its declared local range.",
-      "A comparison changes model, interval, initial state, event, seed, limit or an undeclared weight.",
-      "The position-only LQG calculation reads validation velocity truth.",
-      "Force saturation occurs where unconstrained LQR optimality is claimed."
-    ],
+    "abortPredicates": ["Any required signal is nonfinite, stale, forced, invalid, missing or bound to the wrong simulator copy.", "Applied force, road acceleration, suspension deflection or body velocity leaves its declared local range.", "A comparison changes model, interval, initial state, event, seed, limit or an undeclared weight.", "The position-only LQG calculation reads validation velocity truth.", "Force saturation occurs where unconstrained LQR optimality is claimed."],
     "safeMv": 0,
     "restorationMode": "Remove the road request, disable hydraulic control, verify exactly zero applied force, then reset both simulator copies and estimator state.",
     "physicalApprovalRole": "authorised vehicle-controls engineer with the responsible hydraulic, mechanical, test-track and functional-safety owners",
-    "simulationOnlyRestrictions": [
-      "Clean state, exact model matrices and deterministic noise are Simulation validation data.",
-      "No vehicle, suspension actuator, hydraulic system or road-test equipment is operated.",
-      "Physical use requires identified full-order dynamics, calibrated sensing, actuator and structural limits, reviewed containment, explicit immediate approval and rollback."
-    ]
+    "simulationOnlyRestrictions": ["Clean state, exact model matrices and deterministic noise are Simulation validation data.", "No vehicle, suspension actuator, hydraulic system or road-test equipment is operated.", "Physical use requires identified full-order dynamics, calibrated sensing, actuator and structural limits, reviewed containment, explicit immediate approval and rollback."]
   },
-  "workflowStages": [
-    "Monitor",
-    "Test"
-  ],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-67--lqr-and-lqg-active-vehicle-suspension",
     "nativeTest": "control_curriculum_suspension_lqr_lqg_qualifies_cost_and_estimation",
     "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_suspension_lqr_lqg control_curriculum_suspension_lqr_lqg_qualifies_cost_and_estimation -- --exact --nocapture",
     "projectPath": "examples/control/11-state-space-estimation-and-predictive-control/67-suspension-lqr",
-    "runArtifactFields": [
-      "projectIdentity",
-      "plantIdentity",
-      "evidenceClass",
-      "sampleTime",
-      "seed",
-      "continuousModel",
-      "sampledModel",
-      "normalizedWeights",
-      "dimensionalQ",
-      "dimensionalR",
-      "regulatorGain",
-      "regulatorPoles",
-      "estimatorCovariance",
-      "estimatorGain",
-      "estimatorPoles",
-      "designMode",
-      "roadEvent",
-      "requestedForce",
-      "appliedForce",
-      "validationState",
-      "positionMeasurement",
-      "estimatedState",
-      "innovation",
-      "limits",
-      "abortState",
-      "disabledState",
-      "metrics",
-      "tradeoffDecision"
-    ],
+    "runArtifactFields": ["projectIdentity", "plantIdentity", "evidenceClass", "sampleTime", "seed", "continuousModel", "sampledModel", "normalizedWeights", "dimensionalQ", "dimensionalR", "regulatorGain", "regulatorPoles", "estimatorCovariance", "estimatorGain", "estimatorPoles", "designMode", "roadEvent", "requestedForce", "appliedForce", "validationState", "positionMeasurement", "estimatedState", "innovation", "limits", "abortState", "disabledState", "metrics", "tradeoffDecision"],
     "renderedJourneyId": "control-suspension-lqr-lqg"
   },
   "video": {
     "viewerOutcome": "Turn explicit suspension-motion and force preferences into qualified LQR gains, then decide whether position-only LQG preserves the selected design.",
-    "requiredVisibleEvidence": [
-      "active-suspension identity and local-model boundary",
-      "normalized and dimensional weights",
-      "independently solved gains and poles",
-      "common road event",
-      "requested and applied hydraulic force",
-      "common physical tradeoff table",
-      "position-only measurement and estimated state",
-      "innovation and estimator error",
-      "noise and model-mismatch disposition",
-      "Simulation and physical-approval boundary"
-    ],
+    "requiredVisibleEvidence": ["active-suspension identity and local-model boundary", "normalized and dimensional weights", "independently solved gains and poles", "common road event", "requested and applied hydraulic force", "common physical tradeoff table", "position-only measurement and estimated state", "innovation and estimator error", "noise and model-mismatch disposition", "Simulation and physical-approval boundary"],
     "durationClass": "extended",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
@@ -440,17 +121,9 @@
   "learning": {
     "context": "A reduced active-suspension body mode must reject one common road pulse with bounded hydraulic force.",
     "reason": "Pole placement does not express the desired state-versus-effort trade, and a physical controller may not measure every required state.",
-    "theory": [
-      "State and input weights give a quadratic cost a declared engineering meaning only after unit scaling is handled.",
-      "The Riccati solution produces the optimal unconstrained state-feedback gain for one declared linear model and cost.",
-      "Common physical measures, rather than each candidate's private cost, support the engineering selection.",
-      "LQG combines the selected LQR with a covariance-qualified state estimate but inherits model, noise and constraint limitations."
-    ],
+    "theory": ["State and input weights give a quadratic cost a declared engineering meaning only after unit scaling is handled.", "The Riccati solution produces the optimal unconstrained state-feedback gain for one declared linear model and cost.", "Common physical measures, rather than each candidate's private cost, support the engineering selection.", "LQG combines the selected LQR with a covariance-qualified state estimate but inherits model, noise and constraint limitations."],
     "workedPrediction": "At z=0.03 m and v=0, pole placement requests -0.39000 kN while body-motion, travel, balanced and effort-saving LQR request -0.03495, -0.16694, -0.06594 and -0.01456 kN.",
-    "practicalPreparation": [
-      "Verify model, interval, state, road event, seed, selector, force limits, estimator initialization and Simulation-only truth labels.",
-      "Inspect normalized preferences and their dimensional Q/R transformation before comparing solved gains."
-    ],
+    "practicalPreparation": ["Verify model, interval, state, road event, seed, selector, force limits, estimator initialization and Simulation-only truth labels.", "Inspect normalized preferences and their dimensional Q/R transformation before comparing solved gains."],
     "baseline": "Execute pole-placement gain [13,6] as a stable but preference-implicit causal baseline.",
     "change": "Execute four independently solved LQR gains, select from common physical measures, then combine the balanced gain with the position-only Kalman estimator.",
     "comparison": "Compare deflection, velocity, acceleration, force energy, force movement, peak force, saturation and return time under one common road pulse, then add estimation error and innovation for LQG.",

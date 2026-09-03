@@ -15,7 +15,7 @@
     { "role": "PV", "name": "Measured table position", "unit": "rad", "minimum": -4, "maximum": 4, "resolution": 0.001, "binding": "%IL0" },
     { "role": "MV", "name": "Applied motor torque", "unit": "N m", "minimum": -10, "maximum": 10, "resolution": 0.01, "binding": "%QL0" },
     { "role": "state", "name": "Measured table velocity", "unit": "rad/s", "minimum": -20, "maximum": 20, "resolution": 0.001, "binding": "%IL8" },
-    { "role": "state", "name": "Experiment authority enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX32.1" }
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX32.1" }
   ],
   "plant": {
     "modelId": "robot_joint",
@@ -33,10 +33,7 @@
       { "signal": "Measured table position", "minimum": -4, "maximum": 4, "unit": "rad" },
       { "signal": "Applied motor torque", "minimum": -10, "maximum": 10, "unit": "N m" }
     ],
-    "simplifications": [
-      "The four-newton-metre gravity coefficient produces angle-dependent opposing torque G*sin(position), not a constant four-newton-metre disturbance.",
-      "Backlash, Coulomb friction and encoder noise remain absent so the load-dependent offset is isolated."
-    ]
+    "simplifications": ["The four-newton-metre gravity coefficient produces angle-dependent opposing torque G*sin(position), not a constant four-newton-metre disturbance.", "Backlash, Coulomb friction and encoder noise remain absent so the load-dependent offset is isolated."]
   },
   "baseline": {
     "executableId": "Control.PID.PD",
@@ -50,7 +47,7 @@
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Experiment authority enabled",
+    "signal": "Experiment authority",
     "baseline": 0,
     "amplitude": 0,
     "durationSeconds": 30.02,
@@ -100,13 +97,7 @@
   "learning": {
     "context": "The positioning table now carries an off-centre payload whose gravity torque is four newton metres times the sine of table angle.",
     "reason": "PD adds damping but requests zero torque at zero error and zero velocity, so it cannot hold a nonzero target against payload gravity without bias or integral action.",
-    "theory": [
-      "Payload gravity torque T_g equals G times sine of table angle; G is a peak coefficient, so the opposing torque changes with position.",
-      "The integral state I accumulates position error over time in radian-seconds. Integral gain Ki converts that accumulated error into motor torque and uses newton metres per radian-second.",
-      "Integral torque T_I equals Ki times I. Requested motor torque T_requested is proportional torque plus integral torque plus derivative torque before the drive clamp; T_applied is the bounded plant input.",
-      "At zero error and zero velocity, P and D request zero torque while the integral state can retain G times sine of the target divided by Ki. This removes gravity-load offset.",
-      "Integral action adds phase lag and can wind up against a torque limit. The existing anti-windup and plus-or-minus ten-newton-metre clamp remain active while Kp and Kd preserve the preceding stiffness and damping."
-    ],
+    "theory": ["Payload gravity torque T_g equals G times sine of table angle; G is a peak coefficient, so the opposing torque changes with position.", "The integral state I accumulates position error over time in radian-seconds. Integral gain Ki converts that accumulated error into motor torque and uses newton metres per radian-second.", "Integral torque T_I equals Ki times I. Requested motor torque T_requested is proportional torque plus integral torque plus derivative torque before the drive clamp; T_applied is the bounded plant input.", "At zero error and zero velocity, P and D request zero torque while the integral state can retain G times sine of the target divided by Ki. This removes gravity-load offset.", "Integral action adds phase lag and can wind up against a torque limit. The existing anti-windup and plus-or-minus ten-newton-metre clamp remain active while Kp and Kd preserve the preceding stiffness and damping."],
     "workedPrediction": "With Kp 8, G 4 and target 0.5 rad, the small-angle PD prediction is 0.1667 rad error and the exact sine-model result is about 0.1646 rad. With Ki 2, an integral state of 0.9589 rad s supplies 1.9177 N m at the target.",
     "practicalPreparation": ["Confirm the 4 N m peak gravity coefficient, sine-of-angle load law, 0.5 rad project-owned move, 20 ms cycle, zero initial motion, plus or minus 10 N m limit, anti-windup configuration and supported-payload restoration state."],
     "baseline": "Run Kp 8, Kd 3 and Ki 0 for 30 seconds; report mean absolute error over 28 to 30 seconds only when PV range is at most 0.010 rad and applied-torque range is at most 0.050 N m in that window.",

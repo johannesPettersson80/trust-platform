@@ -55,6 +55,10 @@ At a steady operating level, inflow equals outflow. The required pump flows at
 0.30, 0.55, and 0.80 metres are therefore 0.02739, 0.03708, and 0.04472 cubic
 metres per second. These are operating-point flows, not controller gains.
 
+For example, at 0.30 metre the steady balance gives
+$q_{in,eq}=0.050\sqrt{0.30}=0.02739$ cubic metres per second. Repeating the same
+substitution at 0.55 and 0.80 metre gives the other two flows.
+
 ### Local models
 
 The **equilibrium level ($h_{\mathrm{eq}}$)** is the steady level around which one small
@@ -71,6 +75,14 @@ that eventual level change to appear.
 $K_h = \frac{2\sqrt{h_{\mathrm{eq}}}}{c}$
 
 $T_h = \frac{2A\sqrt{h_{\mathrm{eq}}}}{c}$
+
+These expressions come from the tangent to the square-root outlet curve. For a
+small deviation, $\sqrt{h_{eq}+\Delta h}\approx\sqrt{h_{eq}}+
+\Delta h/(2\sqrt{h_{eq}})$. Subtracting the equilibrium balance leaves
+$A\,d\Delta h/dt=\Delta q-c\Delta h/(2\sqrt{h_{eq}})$. Multiplying by
+$2\sqrt{h_{eq}}/c$ puts it in the standard first-order form
+$T_h\,d\Delta h/dt+\Delta h=K_h\Delta q$, which identifies the two expressions
+above.
 
 At the three operating levels, the local gains are 21.91, 29.66, and 35.78
 metres per cubic metre per second. The local time constants are 21.91, 29.66,
@@ -89,6 +101,13 @@ tunings use $K_p$ = 0.100. Their $K_i$ values are 0.00456, 0.00337, and 0.00280 
 low to high level. The fixed baseline uses the conservative high-level value,
 $K_i$ = 0.00280, everywhere. Scheduling only $K_i$ is still gain scheduling:
 integral action must follow the changing plant time constant.
+
+The tuning is also calculated, not guessed. For a first-order plant and design
+time $\lambda=10$ seconds, $K_p=T_h/(K_h\lambda)$. Here $A=1$, so the derived
+$T_h$ and $K_h$ have equal numerical values and $K_p=1/10=0.100$. Choosing the
+integral time $T_i=T_h$ gives $K_i=K_p/T_i$. Thus at 0.30 metre,
+$K_i=0.100/21.91=0.00456$; the same calculation gives 0.00337 and 0.00280 at
+the middle and high points.
 
 ### Interpolated scheduling
 
@@ -160,44 +179,26 @@ transition count. It contains no timed experiment or stored verdict.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Use either atomically interpolated local parameters in one PI or hysteretically select three externally tracked local PIs. The declared event lasts 420 seconds. It restores Requested liquid level to 0.3 m afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the complete project-owned level sequence under
+controlled conditions. The project owns all setpoint changes, scheduling, and
+restoration to 0.30 metre; Control Studio writes only one Boolean authority
+signal. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Requested liquid level (SP, m); Fixed-PI liquid level (PV, m); Fixed-PI pump-flow request (MV, m3/s), including units, limits, mode, and quality. The initial operating point is Requested liquid level = 0.3 m, Fixed-PI liquid level = 0.3 m, Interpolated-PI liquid level = 0.3 m, Parallel-PI liquid level = 0.3 m, Fixed-PI pump-flow request = 0.027386127875 m3/s, Interpolated-PI pump-flow request = 0.027386127875 m3/s, Parallel-PI pump-flow request = 0.027386127875 m3/s. The unresolved baseline problem is: The conservative high-level integral gain is unnecessarily slow in the low-level region. Use Control Studio Monitor before Identify and Tune, and retain the schedule boundaries at 30 s, 120 s, 240 s, 330 s, and 420 s.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Requested liquid level (SP, m); Fixed-PI liquid level (PV, m); Fixed-PI pump-flow request (MV, m3/s), including units, limits, mode, and quality. The initial operating point is Requested liquid level = 0.3 m, Fixed-PI liquid level = 0.3 m, Interpolated-PI liquid level = 0.3 m, Parallel-PI liquid level = 0.3 m, Fixed-PI pump-flow request = 0.027386127875 m3/s, Interpolated-PI pump-flow request = 0.027386127875 m3/s, Parallel-PI pump-flow request = 0.027386127875 m3/s. The unresolved baseline problem is: The conservative high-level integral gain is unnecessarily slow in the low-level region. Retain the schedule boundaries at 30 s, 120 s, 240 s, 330 s, and 420 s before opening Test.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept scheduling only when every local model is qualified, constraints remain common, regional performance improves, and both transition architectures are bumpless.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Setpoint step**, **Amplitude** = **0.5 m**, and **Maximum duration (s)** = **420**. The affected signal is **Requested liquid level**; it starts at 0.3 m and must restore to 0.3 m.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Fixed-PI liquid level 0.2 m to 0.9 m; Interpolated-PI liquid level 0.2 m to 0.9 m; Parallel-PI liquid level 0.2 m to 0.9 m; Fixed-PI pump-flow request 0 m3/s to 0.06 m3/s; Interpolated-PI pump-flow request 0 m3/s to 0.06 m3/s; Parallel-PI pump-flow request 0 m3/s to 0.06 m3/s.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Requested liquid level to 0.3 m, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Validated local models with atomic interpolation or hysteretically selected tracked PIs** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Validated local models with atomic interpolation or hysteretically selected tracked PIs** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Validated local models with atomic interpolation or hysteretically selected tracked PIs** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Validated local models with atomic interpolation or hysteretically selected tracked PIs**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: interpolated_worst_regional_iae < 3.1 m*s (tolerance 0.0001 m*s); parallel_worst_regional_iae < 3.1 m*s (tolerance 0.0001 m*s); parallel_transition_count == 4 (dimensionless) (tolerance 0 (dimensionless)); parallel_transition_pump_step <= 0.0005 m3/s (tolerance 0.000001 m3/s).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **420.1**. Confirm the only writable signal is **Experiment authority** (`P1.ExperimentEnabled`, `%MX89.2`). The project commands 0.30, 0.55, 0.80, 0.55, and 0.30 metre at 0, 30, 120, 240, and 330 seconds.
+   - **Decision before action:** Before selecting **Review test**, predict the four region crossings and confirm every level can remain within 0.20 through 0.90 metre and every pump request within 0 through 0.060 cubic metre per second.
+   - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must show the complete project-owned sequence, continuous interpolated parameters, and exactly four parallel-region transitions. At termination authority clears and requested level is 0.30 metre.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the reason, confirm authority is false and requested level restored to 0.30 metre, wait for current data, and review a new observation.
+   - **Record:** Compare all three architectures with your prediction and retain the terminal state, restoration result, and seed **20260829**. The native lesson test owns local-model qualification, boundary-noise, and numeric verdicts; this observation does not create generic Identify, Tune, or Validate evidence.
 
 ## Evidence and decision
 

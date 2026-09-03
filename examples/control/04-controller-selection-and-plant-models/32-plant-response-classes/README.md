@@ -14,7 +14,7 @@ its own approved step, limits, and abort procedure.
 **Equipment:** Modular skid with heated vessel, buffer tank, conveyor oven, and
 flexible drive.
 
-## Where this lesson begins
+## The problem
 
 Lesson 31 selected controllers because each plant class was already known.
 This lesson removes that prior knowledge. A modular training skid contains a heated vessel, buffer tank, long conveyor
@@ -32,7 +32,12 @@ The experiment must distinguish equilibrium, continuing drift, delay, and
 oscillation before fitting. Its window must be long enough that a delayed or
 integrating response is not mistaken for a weak stable response.
 
-## Reading physical response signatures
+## What we need
+
+We need to recognize static, self-regulating, integrating, and underdamped
+response signatures before choosing a model or controller.
+
+## The new idea
 
 The **operating point** is the steady or defined starting condition. A
 **manipulated-input change** is the actuator move imposed by the experiment. A
@@ -60,7 +65,7 @@ approaches zero. An integrating plant retains a nonzero slope under constant
 net input. A delayed plant shows no output response initially. An oscillatory
 plant crosses its eventual value as stored energy exchanges between states.
 
-## Deriving the four predictions
+## Prediction
 
 One **normalized experiment command** moves from 0 to 1. Structured Text maps
 it into a 20-percentage-point heater command, a 10-percentage-point tank

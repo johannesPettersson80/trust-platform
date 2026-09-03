@@ -40,7 +40,7 @@
       "symbol": "P1.PAppliedTorque",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "N m",
       "range": {
         "minimum": -10,
@@ -48,6 +48,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX192.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "pd-raw-encoder-position",
         "channel": "pd-raw-encoder-position",
@@ -97,7 +111,7 @@
         "symbol": "P1.PDAppliedTorque",
         "address": "%QL16",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "N m",
         "range": {
           "minimum": -10,
@@ -111,7 +125,7 @@
         "symbol": "P1.PIDAppliedTorque",
         "address": "%QL32",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "N m",
         "range": {
           "minimum": -10,
@@ -125,7 +139,7 @@
         "symbol": "P1.CoarseAppliedTorque",
         "address": "%QL48",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "N m",
         "range": {
           "minimum": -10,
@@ -199,10 +213,16 @@
   },
   "plantId": "four_equivalent_flexible_rotary_indexing_tables",
   "experiment": {
-    "execution": "control-studio",
+    "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 30,
-    "seed": 20260829
+    "durationSeconds": 30.01,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX192.2",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

@@ -10,26 +10,15 @@ limit.
 
 ## The problem
 
-The equipment in this lesson is Two thermally coupled office zones with a shared heating-power limit.
-
 The equipment is a small office floor with two thermally coupled zones. Zone-one temperature ($T_1$) and zone-two temperature ($T_2$) are measured in degrees Celsius. Zone-one heating command ($u_1$) and zone-two heating command ($u_2$) are percentages. Outdoor temperature forecast ($T_o$) and zone occupancy heat-gain forecasts ($q_1$ and $q_2$) are expressed as equivalent degrees Celsius. Tariff forecast ($p$) is a relative energy price.
 
-Each zone loses heat outdoors, exchanges heat with its neighbour, receives heater energy, and receives occupancy heat. The local continuous model uses a 600-second outdoor-loss time constant, 1800-second inter-zone coupling time constant, and heater coefficient `1/3000 degC/(percent*s)`.
+Each zone loses heat outdoors, exchanges heat with its neighbour, receives
+heater energy, and receives occupancy heat. The two heaters share an electrical
+capacity limit, so either zone's decision can restrict the other. Weather,
+occupancy, and energy price are known to change during the exercise.
 
-Exact zero-order-hold sampling every 60 seconds gives sampled state-transition matrix ($\mathbf{A}_{\mathrm{d}}$):
-
-$\mathbf{A}_d= \begin{bmatrix} 0.875659571463&0.029177846573\\ 0.029177846573&0.875659571463 \end{bmatrix}$
-
-For input vector
-$\begin{bmatrix}u_1&u_2&T_o&q_1&q_2\end{bmatrix}^{T}$, sampled input matrix
-($\mathbf{B}_{\mathrm{d}}$) is:
-
-$\mathbf{B}_d= \begin{bmatrix} 0.018727354703&0.000305161690&0.095162581964&0.093636773515&0.001525808449\\ 0.000305161690&0.018727354703&0.095162581964&0.001525808449&0.093636773515 \end{bmatrix}$
-
-![Building-HVAC predictive-control signal path](figures/building-hvac-mpc-signal-path.svg)
-Each heater is limited to 0 through 100 percent. Each one-minute change is limited to -20 through +20 percentage points. Combined heating is limited to 170 percent. Predicted zone temperatures must remain between the nominal comfort limits of 20.0 and 22.5 degrees Celsius. The broader local model range is 15 through 27 degrees Celsius.
-
-Requested and applied heater commands remain separate. All matrices, forecasts, temperatures, and results in this lesson are **Simulation** evidence.
+This is Simulation evidence. The thermal coefficients are configured teaching
+values, not measurements of a physical building.
 
 Lesson 67 showed that force saturation invalidates an unconstrained LQR optimum. The active-suspension controller could only discover that conflict when requested and applied force differed.
 
@@ -41,17 +30,141 @@ We need the two office zones to share limited heating power while considering pr
 
 ## The new idea
 
+### Derive the building model before optimizing it
+
+The effective thermal capacitance of one zone ($C_z$) is stored heat per degree
+Celsius, measured in kilojoules per degree Celsius. The outdoor thermal
+resistance ($R_o$) is degrees Celsius of indoor-to-outdoor difference per
+kilowatt of heat flow. The inter-zone thermal resistance ($R_{12}$) has the
+same unit and describes heat flow through the shared boundary. Full-scale
+heater power ($P_{100}$) is measured in kilowatts, and occupancy heat input
+($Q_{i,\mathrm{occ}}$) is measured in kilowatts for zone $i$.
+
+For Zone 1, conservation of energy says that stored-heat rate equals outdoor
+heat flow, neighbour heat flow, heater input, and occupancy input:
+
+$C_z\frac{dT_1}{dt}=\frac{T_o-T_1}{R_o}+\frac{T_2-T_1}{R_{12}}+\frac{P_{100}}{100}u_1+Q_{1,\mathrm{occ}}.$
+
+A positive temperature difference into the zone adds heat; a negative one
+removes it. Every term on the right is kilowatts, matching kilojoules per
+degree Celsius times degrees Celsius per second on the left.
+
+The outdoor-loss time constant ($\tau_o=R_oC_z$) is 600 seconds. The inter-zone
+coupling time constant ($\tau_{12}=R_{12}C_z$) is 1800 seconds. The heater-rate
+coefficient ($k_h=P_{100}/(100C_z)$) is
+$1/3000\ ^\circ\mathrm C/(\%\,s)$. The occupancy forecast ($q_i$) is expressed
+as the equivalent temperature difference that would drive the same heat
+through $R_o$, so $Q_{i,\mathrm{occ}}/C_z=q_i/\tau_o$. Divide the energy balance
+by $C_z$ and substitute those definitions:
+
+$\frac{dT_1}{dt}=\frac{T_o-T_1}{600}+\frac{T_2-T_1}{1800}+\frac{u_1}{3000}+\frac{q_1}{600}.$
+
+Zone 2 follows from the same balance after exchanging indices 1 and 2. This is
+why neighbour coupling appears with the opposite zone temperature rather than
+as an arbitrary matrix coefficient.
+
+The configured values are selected to make a twenty-minute teaching exercise
+readable. In a physical building, $C_z$ begins with the mass and heat capacity
+of air, structure, and contents; $R_o$ and $R_{12}$ begin with areas and
+envelope U-values; and $P_{100}$ comes from the commissioned heating system.
+Heating-step, cooldown, and inter-zone tests then estimate the effective local
+values. Unused weather and occupancy records must validate predictions before
+the model may support control. This lesson performs none of those physical
+measurements.
+
+The model assumes each zone has one uniform temperature, constant properties,
+linear heat flow, calibrated equivalent occupancy gains, ideal heater response,
+and no solar, ventilation, humidity, hydronic, sensor, or actuator dynamics.
+Its declared temperature range is 15 through 27 degrees Celsius; changing the
+building, season, airflow, or occupancy interpretation requires new evidence.
+
+The continuous temperature-state vector ($\mathbf x$) contains $T_1$ followed
+by $T_2$. The continuous input vector ($\mathbf w$) contains, in order,
+$u_1$, $u_2$, $T_o$, $q_1$, and $q_2$. Collecting the coefficients of the two
+derived balances gives the continuous state matrix ($\mathbf A$) and input
+matrix ($\mathbf B$):
+
+$\mathbf A=\begin{bmatrix}-1/450&1/1800\\1/1800&-1/450\end{bmatrix},\qquad \mathbf B=\begin{bmatrix}1/3000&0&1/600&1/600&0\\0&1/3000&1/600&0&1/600\end{bmatrix}.$
+
+Every entry of $\mathbf A$ has unit inverse seconds. The first two columns of
+$\mathbf B$ have unit degrees Celsius per percentage-point second; its last
+three columns have unit inverse seconds because they multiply equivalent
+temperature inputs.
+
+The compact equation $\dot{\mathbf x}=\mathbf A\mathbf x+\mathbf B\mathbf w$
+is therefore just the two physical heat balances written together.
+
+The controller updates once per 60-second interval ($\Delta t$), while each
+input is held constant between updates. Exact zero-order-hold conversion uses
+the matrix exponential to advance stored temperature and an integral to
+accumulate the held inputs. In that integral, $\tau$ is elapsed time within the
+current 60-second interval:
+
+$\mathbf A_d=e^{\mathbf A\Delta t},\qquad \mathbf B_d=\int_0^{\Delta t}e^{\mathbf A\tau}\mathbf B\,d\tau.$
+
+Evaluating those expressions at $\Delta t=60$ seconds produces the sampled
+state-transition matrix ($\mathbf A_d$):
+
+$\mathbf{A}_d=\begin{bmatrix}0.875659571463&0.029177846573\\0.029177846573&0.875659571463\end{bmatrix}.$
+
+The diagonal values retain most of each zone's previous temperature during one
+minute. The positive off-diagonal values carry part of the neighbour's stored
+heat across the shared boundary. The sampled input matrix ($\mathbf B_d$) is
+
+$\mathbf{B}_d=\begin{bmatrix}0.018727354703&0.000305161690&0.095162581964&0.093636773515&0.001525808449\\0.000305161690&0.018727354703&0.095162581964&0.001525808449&0.093636773515\end{bmatrix}.$
+
+Its columns retain the declared input order. For example, Zone 1 responds most
+strongly to its own heater and occupancy input, weakly to Zone 2's heater over
+one minute, and equally to the shared outdoor temperature in both rows. These
+numbers are calculated from the continuous balance; they are not a second,
+independently chosen plant model. $\mathbf A_d$ is dimensionless. The first two
+columns of $\mathbf B_d$ convert heater percent to degrees Celsius, and the last
+three convert an equivalent degree-Celsius input to degrees Celsius.
+
+At 21 degrees Celsius in both zones, neighbour exchange is zero. With outdoor
+temperature 5 degrees Celsius, outdoor loss is
+$(5-21)/600=-0.026667\ ^\circ\mathrm C/s$. An 80-percent heater contributes
+$80/3000=+0.026667\ ^\circ\mathrm C/s$. The two rates cancel, which derives the
+initial equilibrium used by the prediction.
+
+![Building-HVAC predictive-control signal path](figures/building-hvac-mpc-signal-path.svg)
+
+Each heater is limited to 0 through 100 percent. Each one-minute change is
+limited to -20 through +20 percentage points. Combined heating is limited to
+170 percent. Predicted zone temperatures must remain between the nominal
+comfort limits of 20.0 and 22.5 degrees Celsius. Requested and applied heater
+commands remain separate.
+
 An optimization problem contains choices, an objective to minimize, and constraints every eligible choice must satisfy. Decision variables are the future heater moves. Prediction horizon ($N=3$) means the next three one-minute intervals. Control move ($\Delta u$) means change from the heater command applied in the preceding interval.
 
-For each zone and each horizon position, the finite move set is `{-20,0,+20}` percentage points. Six decisions—two zones at three positions—produce $3^{6}=729$ sequences.
+For each zone and each horizon position, the finite move set is `{-20,0,+20}` percentage points. There are two zone decisions at each of three positions, hence $2\times3=6$ decisions. Each has three choices, so the multiplication rule gives $3\times3\times3\times3\times3\times3=3^{6}=729$ sequences.
 
 The shipped solver enumerates all 729 sequences every interval. It propagates the sampled two-zone model, rejects sequences violating individual power, shared power, rate, or predicted comfort constraints, and retains the feasible sequence with the lowest objective. This is a genuine online finite-grid constrained optimizer. It is not a continuous quadratic-program solver; its result is optimal only on the declared move grid.
 
-Zone tracking error ($e_{i,j}$) is predicted zone temperature minus setpoint for zone $i$ at future position $j$. Temperature weight ($w_T$) penalizes predicted error. Energy weight ($w_E$) penalizes tariff-weighted heating. Move weight ($w_{\Delta}$) penalizes squared command changes.
+Zone tracking error ($e_{i,j}$) is predicted zone temperature minus setpoint for
+zone $i$ at future position $j$, measured in degrees Celsius. The future tariff
+forecast at that position is the dimensionless relative price $p_j$; the two
+candidate heater commands there are $u_{1,j}$ and $u_{2,j}$ in percent.
+Squaring makes
+heating and cooling errors equally costly and penalizes large misses more
+strongly. Temperature weight ($w_T$) converts squared degree-Celsius error into
+score units. Energy weight ($w_E$) converts relative tariff ($p_j$) times total
+percent heating into score units. Move weight ($w_{\Delta}$) converts squared
+percentage-point command changes into score units, so sequences that chatter
+between grid points cost more. The candidate objective ($J$) is the resulting
+dimensionless comparison score; only candidates evaluated with identical
+weights may be compared:
 
 $J=\sum_{j=1}^{3}\left[ w_T\left(e_{1,j}^{2}+e_{2,j}^{2}\right) +w_Ep_j\left(u_{1,j}+u_{2,j}\right) +w_{\Delta}\left(\Delta u_{1,j}^{2}+\Delta u_{2,j}^{2}\right) \right]$
 
-Nominal values are $w_T=100$, $w_E=0.01$, and $w_{\Delta}=0.0025$. Larger temperature weight protects tracking more strongly. Larger energy weight favours lower heating when tariff is high. Larger move weight discourages valve and plant movement. These are preferences, not hard limits.
+The summation adds those three costs at each of the three future positions. Its
+nominal values are $w_T=100$, $w_E=0.01$, and $w_{\Delta}=0.0025$. Larger
+temperature weight protects tracking more strongly. Larger energy weight
+favours lower heating when tariff is high. Larger move weight discourages valve
+and plant movement. These are engineering preferences on an arbitrary common
+score scale, not physical constants or hard limits. They must be selected from
+declared comfort, energy, and wear priorities and checked through sensitivity
+and closed-loop validation rather than inferred from the plant matrices.
 
 Receding horizon means applying only the first optimized move, taking a new measurement, shifting the forecasts, and solving all 729 sequences again. The unexecuted later moves are a plan, not commands already sent to equipment.
 
@@ -63,11 +176,19 @@ The fallback is an incremental PI pair with proportional gain `20 percent/degC` 
 
 Start both temperatures and setpoints at 21 degrees Celsius. Outdoor temperature is 5 degrees Celsius, occupancy gains are zero, previous heater commands are 80/80 percent, and all three tariffs are 0.10.
 
-For the zero-move sequence, the first prediction for zone one is:
+The sample index ($k$) identifies the current one-minute state, and $k+1$
+identifies its first predicted successor. For the zero-move sequence, the first
+prediction for zone one is:
 
 $\begin{aligned} T_{1,k+1}={}&0.875659571463(21)+0.029177846573(21)\\ &+0.018727354703(80)+0.000305161690(80)\\ &+0.095162581964(5)=21.00000\,{}^\circ\mathrm{C} \end{aligned}$
 
-Zone two is identical. Predict 729 evaluated sequences, at least one feasible sequence, and first commands of 80/80 percent.
+The five contributions are 18.38885, 0.61273, 1.49819, 0.02441, and
+0.47581 degrees Celsius; their sum is 21.00000 degrees Celsius. Zone two is
+identical. Tracking and move costs are zero for all three horizon positions.
+Each position contributes
+$0.01(0.10)(80+80)=0.16$ score unit of tariff cost, so the complete predicted
+objective is $J=3(0.16)=0.48$. Predict 729 evaluated sequences, at least one
+feasible sequence, and first commands of 80/80 percent.
 
 Now raise the comfort minimum to 22 degrees Celsius without changing state or limits. Even the allowed first moves cannot raise both predicted zones to 22 degrees under the shared limit. Predict a completed count of 729, zero feasible sequences, $Infeasible=TRUE$, and bounded PI fallback. Predict that a negative temperature weight instead makes configuration invalid, skips enumeration, leaves $Infeasible=FALSE$, and uses the same fallback.
 
@@ -98,44 +219,23 @@ The controller contains no `UnconstrainedMove`, precomputed affine policy, prere
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Run the three-step finite-grid optimizer against the identical plant and schedule, applying only each solve's first move. The declared event lasts 1200 seconds. It restores Current outdoor temperature to 5 degC afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the nominal 20-minute MPC schedule. The project owns outdoor temperature, occupancy, tariff forecasts, optimization, and restoration. Removing authority or detecting invalid inputs or a safety abort disables both heaters and restores the environmental inputs to their baseline values. PI, infeasible, invalid-configuration, and recovery comparisons remain separate native test records. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Zone-one temperature setpoint (SP, degC) and Zone-two temperature setpoint (SP, degC); Zone-one temperature (PV, degC) and Zone-two temperature (PV, degC); Requested zone-one heating (MV, %) and Requested zone-two heating (MV, %), including units, limits, mode, and quality. The initial operating point is Zone-one temperature setpoint = 21 degC, Zone-two temperature setpoint = 21 degC, Zone-one temperature = 21 degC, Zone-two temperature = 21 degC, Applied zone-one heating = 80 %, Applied zone-two heating = 80 %, Applied outdoor temperature = 5 degC. The unresolved baseline problem is: The reactive PI pair cannot choose three future coupled moves from tariff, weather and occupancy forecasts or prove predicted comfort feasibility. Use Control Studio Monitor before Identify and Tune/Design, then execute Test and finish in Validate.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm both temperatures and setpoints, requested/applied heat, current disturbances, all three forecast positions, objective weights, candidate and feasible counts, solver status, active constraints, fallback state, units, limits, mode, and quality. Before authority is granted, both applied heater commands are zero and outdoor and occupancy inputs are restored to 5, 0, and 0 degrees Celsius respectively.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Use the first move only after all 729 sequences complete and at least one satisfies every hard constraint; otherwise use the explicitly identified PI fallback.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Load disturbance step**, **Amplitude** = **-1 degC**, and **Maximum duration (s)** = **1200**. The affected signal is **Current outdoor temperature**; it starts at 5 degC and must restore to 5 degC.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Applied zone-one heating 0 % to 100 %; Applied zone-two heating 0 % to 100 %; Zone-one temperature 15 degC to 27 degC; Zone-two temperature 15 degC to 27 degC.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **1200.1**. The affected signal is **Experiment authority**. Amplitude zero is intentional: Test writes only `P1.ExperimentEnabled`; the project owns the weather, occupancy, and tariff schedule.
+   - **Decision before action:** Before selecting **Review test**, predict why forecasts may change heater requests before the corresponding disturbance becomes current. Confirm every scheduled input and predicted/applied heater command remains inside its declared limits.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Current outdoor temperature to 5 degC, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Three-step receding-horizon finite-grid model-predictive control with explicit PI fallback** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Three-step receding-horizon finite-grid model-predictive control with explicit PI fallback** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Three-step receding-horizon finite-grid model-predictive control with explicit PI fallback** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Three-step receding-horizon finite-grid model-predictive control with explicit PI fallback**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: normal_mpc_candidate_count == 729 (dimensionless) (tolerance 0 (dimensionless)); maximum_individual_heating <= 100 % (tolerance 0.001 %); normal_mpc_comfort_violation == 0 degC*s (tolerance 0.01 degC*s); infeasible_feasible_sequence_count == 0 (dimensionless) (tolerance 0 (dimensionless)).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero applied heat and restored environmental inputs, wait for current data, and review a new test.
+   - **Record:** Stop recording only after restoration. Retain the solver counts, feasible count, first moves, objective, constraint and fallback states, terminal state, restoration result, and seed **20260829**. Use native evidence for PI and abnormal cases; do not claim this visible run executed them.
 
 ## Evidence and decision
 

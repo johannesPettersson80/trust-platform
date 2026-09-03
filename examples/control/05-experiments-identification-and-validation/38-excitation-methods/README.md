@@ -31,7 +31,12 @@ leave a flexible shaft ringing without deliberately separating its resonance,
 while a long thermal step can consume unnecessary operating range. The
 excitation must match the dynamics we need to observe.
 
-## Relate each waveform to the information it carries
+## What we need
+
+We need to choose an excitation whose amplitude and frequency content reveal
+the required dynamics without exceeding the heat exchanger's operating limits.
+
+## The new idea
 
 **Excitation** is a deliberate bounded input variation used to make plant
 dynamics visible above normal measurement variation. **Amplitude** is the

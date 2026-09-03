@@ -6,6 +6,12 @@ VAR
     FixedTank : TankController;
     ScheduledTank : TankController;
     Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentScan : DINT := DINT#0;
+    ExperimentElapsed : LREAL := 0.0;
     OperatingMode : DINT := DINT#1;
     AutoMode : BOOL := TRUE;
     LevelSetpoint : LREAL := 0.30;
@@ -49,6 +55,38 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    IF NOT ExperimentWasEnabled THEN
+        ExperimentScan := DINT#0;
+        ExperimentElapsed := LREAL#0.0;
+    END_IF;
+    ExperimentScan := ExperimentScan + DINT#1;
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    OperatingMode := DINT#1;
+    LevelQualityGood := TRUE;
+    SchedulingAvailable := TRUE;
+    PumpAvailable := TRUE;
+    IF ExperimentScan <= DINT#300 THEN
+        LevelSetpoint := LREAL#0.30;
+    ELSIF ExperimentScan <= DINT#1200 THEN
+        LevelSetpoint := LREAL#0.55;
+    ELSIF ExperimentScan <= DINT#2400 THEN
+        LevelSetpoint := LREAL#0.80;
+    ELSIF ExperimentScan <= DINT#3300 THEN
+        LevelSetpoint := LREAL#0.55;
+    ELSE
+        LevelSetpoint := LREAL#0.30;
+    END_IF;
+ELSIF ExperimentWasEnabled THEN
+    ExperimentScan := DINT#0;
+    ExperimentElapsed := LREAL#0.0;
+    OperatingMode := DINT#0;
+    LevelSetpoint := LREAL#0.30;
+    LevelQualityGood := TRUE;
+    SchedulingAvailable := TRUE;
+    PumpAvailable := TRUE;
+END_IF;
+
 FixedTank.Update(
     OperatingMode := OperatingMode,
     RequestedLevel := LevelSetpoint,
@@ -86,6 +124,7 @@ FixedFaultActive := FixedTank.FaultActive;
 ScheduledFaultActive := ScheduledTank.FaultActive;
 AutoMode := OperatingMode = DINT#1;
 ControllerRevision := DINT#80;
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -97,9 +136,13 @@ VAR_CONFIG
     P1.OperatingMode AT %MD192 : DINT;
     P1.LevelSetpoint AT %ML200 : LREAL;
     P1.ManualPumpFlow AT %ML208 : LREAL;
+    P1.ExperimentElapsed AT %ML216 : LREAL;
     P1.LevelQualityGood AT %MX240.0 : BOOL;
     P1.SchedulingAvailable AT %MX240.1 : BOOL;
     P1.PumpAvailable AT %MX240.2 : BOOL;
+    P1.ExperimentEnabled AT %MX240.3 : BOOL;
+    P1.SafetyAbort AT %MX240.4 : BOOL;
+    P1.InputsValid AT %MX240.5 : BOOL;
     P1.FixedMeasuredLevel AT %IL0 : LREAL;
     P1.ScheduledMeasuredLevel AT %IL8 : LREAL;
     P1.FixedRequestedPump AT %ML0 : LREAL;

@@ -51,15 +51,18 @@
     },
     "additional": [
       {
-        "id": "experiment-enabled",
-        "channel": "experiment-enabled",
-        "role": "authority",
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
         "symbol": "P1.ExperimentEnabled",
         "address": "%MX116.1",
         "iecType": "BOOL",
-        "direction": "write",
-        "unit": "1",
-        "range": {"minimum": 0, "maximum": 1}
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       },
       {
         "id": "operating-mode",
@@ -408,10 +411,16 @@
   },
   "plantId": "local_binary_distillation_nominal_and_strong_interaction_set",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "observe_without_excitation",
+    "execution": "project-scripted",
+    "kind": "observation",
     "amplitude": 0,
     "durationSeconds": 720.1,
-    "seed": 20260829
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX116.1",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

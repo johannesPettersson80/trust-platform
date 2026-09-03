@@ -31,8 +31,8 @@ fn addressed_source() -> String {
         .next()
         .expect("Lesson 6 program before configuration")
         .replacen(
-            "    AutoMode : BOOL :=",
-            "    AutoMode AT %IX24.0 : BOOL :=",
+            "    ExperimentEnabled : BOOL :=",
+            "    ExperimentEnabled AT %IX24.0 : BOOL :=",
             1,
         )
         .replace("IntegralGain : LREAL :=", "IntegralGain AT %IL8 : LREAL :=")
@@ -66,8 +66,8 @@ fn addressed_baseline_source() -> String {
         .next()
         .expect("Lesson 5 program before configuration")
         .replacen(
-            "    AutoMode : BOOL :=",
-            "    AutoMode AT %IX24.0 : BOOL :=",
+            "    ExperimentEnabled : BOOL :=",
+            "    ExperimentEnabled AT %IX24.0 : BOOL :=",
             1,
         )
         .replace(

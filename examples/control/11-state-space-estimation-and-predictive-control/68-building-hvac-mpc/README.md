@@ -12,28 +12,13 @@ limit.
 
 The equipment is a small office floor with two thermally coupled zones. Zone-one temperature ($T_1$) and zone-two temperature ($T_2$) are measured in degrees Celsius. Zone-one heating command ($u_1$) and zone-two heating command ($u_2$) are percentages. Outdoor temperature forecast ($T_o$) and zone occupancy heat-gain forecasts ($q_1$ and $q_2$) are expressed as equivalent degrees Celsius. Tariff forecast ($p$) is a relative energy price.
 
-Each zone loses heat outdoors, exchanges heat with its neighbour, receives heater energy, and receives occupancy heat. The local continuous model uses a 600-second outdoor-loss time constant, 1800-second inter-zone coupling time constant, and heater coefficient `1/3000 degC/(percent*s)`.
+Each zone loses heat outdoors, exchanges heat with its neighbour, receives
+heater energy, and receives occupancy heat. The two heaters share an electrical
+capacity limit, so either zone's decision can restrict the other. Weather,
+occupancy, and energy price are known to change during the exercise.
 
-For zone one, the continuous balance is
-
-$\dot T_1=(T_o-T_1)/600+(T_2-T_1)/1800+u_1/3000+q_1/600$,
-
-and zone two has the same equation with the zone indices exchanged. Each term is a temperature difference divided by the time over which that mechanism acts; the heater term converts percent command into degrees Celsius per second. With equal zone temperatures, neighbour exchange is zero. At 21 degrees indoors and 5 degrees outdoors, outdoor loss is $(5-21)/600=-0.026667$ degrees Celsius per second, while 80-percent heat contributes $80/3000=+0.026667$, explaining the initial equilibrium.
-
-Exact zero-order-hold sampling every 60 seconds uses $A_d=e^{A60}$ and $B_d=\int_0^{60}e^{A\tau}B\,d\tau$. The exponential advances stored zone heat; the integral accumulates outdoor, occupancy, and heater inputs held constant for the minute. This gives sampled state-transition matrix ($\mathbf{A}_{\mathrm{d}}$):
-
-$\mathbf{A}_d= \begin{bmatrix} 0.875659571463&0.029177846573\\ 0.029177846573&0.875659571463 \end{bmatrix}$
-
-For input vector
-$\begin{bmatrix}u_1&u_2&T_o&q_1&q_2\end{bmatrix}^{T}$, sampled input matrix
-($\mathbf{B}_{\mathrm{d}}$) is:
-
-$\mathbf{B}_d= \begin{bmatrix} 0.018727354703&0.000305161690&0.095162581964&0.093636773515&0.001525808449\\ 0.000305161690&0.018727354703&0.095162581964&0.001525808449&0.093636773515 \end{bmatrix}$
-
-![Building-HVAC predictive-control signal path](figures/building-hvac-mpc-signal-path.svg)
-Each heater is limited to 0 through 100 percent. Each one-minute change is limited to -20 through +20 percentage points. Combined heating is limited to 170 percent. Predicted zone temperatures must remain between the nominal comfort limits of 20.0 and 22.5 degrees Celsius. The broader local model range is 15 through 27 degrees Celsius.
-
-Requested and applied heater commands remain separate. All matrices, forecasts, temperatures, and results in this lesson are **Simulation** evidence.
+This is Simulation evidence. The thermal coefficients are configured teaching
+values, not measurements of a physical building.
 
 Lesson 67 showed that force saturation invalidates an unconstrained LQR optimum. The active-suspension controller could only discover that conflict when requested and applied force differed.
 
@@ -45,17 +30,141 @@ We need the two office zones to share limited heating power while considering pr
 
 ## The new idea
 
+### Derive the building model before optimizing it
+
+The effective thermal capacitance of one zone ($C_z$) is stored heat per degree
+Celsius, measured in kilojoules per degree Celsius. The outdoor thermal
+resistance ($R_o$) is degrees Celsius of indoor-to-outdoor difference per
+kilowatt of heat flow. The inter-zone thermal resistance ($R_{12}$) has the
+same unit and describes heat flow through the shared boundary. Full-scale
+heater power ($P_{100}$) is measured in kilowatts, and occupancy heat input
+($Q_{i,\mathrm{occ}}$) is measured in kilowatts for zone $i$.
+
+For Zone 1, conservation of energy says that stored-heat rate equals outdoor
+heat flow, neighbour heat flow, heater input, and occupancy input:
+
+$C_z\frac{dT_1}{dt}=\frac{T_o-T_1}{R_o}+\frac{T_2-T_1}{R_{12}}+\frac{P_{100}}{100}u_1+Q_{1,\mathrm{occ}}.$
+
+A positive temperature difference into the zone adds heat; a negative one
+removes it. Every term on the right is kilowatts, matching kilojoules per
+degree Celsius times degrees Celsius per second on the left.
+
+The outdoor-loss time constant ($\tau_o=R_oC_z$) is 600 seconds. The inter-zone
+coupling time constant ($\tau_{12}=R_{12}C_z$) is 1800 seconds. The heater-rate
+coefficient ($k_h=P_{100}/(100C_z)$) is
+$1/3000\ ^\circ\mathrm C/(\%\,s)$. The occupancy forecast ($q_i$) is expressed
+as the equivalent temperature difference that would drive the same heat
+through $R_o$, so $Q_{i,\mathrm{occ}}/C_z=q_i/\tau_o$. Divide the energy balance
+by $C_z$ and substitute those definitions:
+
+$\frac{dT_1}{dt}=\frac{T_o-T_1}{600}+\frac{T_2-T_1}{1800}+\frac{u_1}{3000}+\frac{q_1}{600}.$
+
+Zone 2 follows from the same balance after exchanging indices 1 and 2. This is
+why neighbour coupling appears with the opposite zone temperature rather than
+as an arbitrary matrix coefficient.
+
+The configured values are selected to make a twenty-minute teaching exercise
+readable. In a physical building, $C_z$ begins with the mass and heat capacity
+of air, structure, and contents; $R_o$ and $R_{12}$ begin with areas and
+envelope U-values; and $P_{100}$ comes from the commissioned heating system.
+Heating-step, cooldown, and inter-zone tests then estimate the effective local
+values. Unused weather and occupancy records must validate predictions before
+the model may support control. This lesson performs none of those physical
+measurements.
+
+The model assumes each zone has one uniform temperature, constant properties,
+linear heat flow, calibrated equivalent occupancy gains, ideal heater response,
+and no solar, ventilation, humidity, hydronic, sensor, or actuator dynamics.
+Its declared temperature range is 15 through 27 degrees Celsius; changing the
+building, season, airflow, or occupancy interpretation requires new evidence.
+
+The continuous temperature-state vector ($\mathbf x$) contains $T_1$ followed
+by $T_2$. The continuous input vector ($\mathbf w$) contains, in order,
+$u_1$, $u_2$, $T_o$, $q_1$, and $q_2$. Collecting the coefficients of the two
+derived balances gives the continuous state matrix ($\mathbf A$) and input
+matrix ($\mathbf B$):
+
+$\mathbf A=\begin{bmatrix}-1/450&1/1800\\1/1800&-1/450\end{bmatrix},\qquad \mathbf B=\begin{bmatrix}1/3000&0&1/600&1/600&0\\0&1/3000&1/600&0&1/600\end{bmatrix}.$
+
+Every entry of $\mathbf A$ has unit inverse seconds. The first two columns of
+$\mathbf B$ have unit degrees Celsius per percentage-point second; its last
+three columns have unit inverse seconds because they multiply equivalent
+temperature inputs.
+
+The compact equation $\dot{\mathbf x}=\mathbf A\mathbf x+\mathbf B\mathbf w$
+is therefore just the two physical heat balances written together.
+
+The controller updates once per 60-second interval ($\Delta t$), while each
+input is held constant between updates. Exact zero-order-hold conversion uses
+the matrix exponential to advance stored temperature and an integral to
+accumulate the held inputs. In that integral, $\tau$ is elapsed time within the
+current 60-second interval:
+
+$\mathbf A_d=e^{\mathbf A\Delta t},\qquad \mathbf B_d=\int_0^{\Delta t}e^{\mathbf A\tau}\mathbf B\,d\tau.$
+
+Evaluating those expressions at $\Delta t=60$ seconds produces the sampled
+state-transition matrix ($\mathbf A_d$):
+
+$\mathbf{A}_d=\begin{bmatrix}0.875659571463&0.029177846573\\0.029177846573&0.875659571463\end{bmatrix}.$
+
+The diagonal values retain most of each zone's previous temperature during one
+minute. The positive off-diagonal values carry part of the neighbour's stored
+heat across the shared boundary. The sampled input matrix ($\mathbf B_d$) is
+
+$\mathbf{B}_d=\begin{bmatrix}0.018727354703&0.000305161690&0.095162581964&0.093636773515&0.001525808449\\0.000305161690&0.018727354703&0.095162581964&0.001525808449&0.093636773515\end{bmatrix}.$
+
+Its columns retain the declared input order. For example, Zone 1 responds most
+strongly to its own heater and occupancy input, weakly to Zone 2's heater over
+one minute, and equally to the shared outdoor temperature in both rows. These
+numbers are calculated from the continuous balance; they are not a second,
+independently chosen plant model. $\mathbf A_d$ is dimensionless. The first two
+columns of $\mathbf B_d$ convert heater percent to degrees Celsius, and the last
+three convert an equivalent degree-Celsius input to degrees Celsius.
+
+At 21 degrees Celsius in both zones, neighbour exchange is zero. With outdoor
+temperature 5 degrees Celsius, outdoor loss is
+$(5-21)/600=-0.026667\ ^\circ\mathrm C/s$. An 80-percent heater contributes
+$80/3000=+0.026667\ ^\circ\mathrm C/s$. The two rates cancel, which derives the
+initial equilibrium used by the prediction.
+
+![Building-HVAC predictive-control signal path](figures/building-hvac-mpc-signal-path.svg)
+
+Each heater is limited to 0 through 100 percent. Each one-minute change is
+limited to -20 through +20 percentage points. Combined heating is limited to
+170 percent. Predicted zone temperatures must remain between the nominal
+comfort limits of 20.0 and 22.5 degrees Celsius. Requested and applied heater
+commands remain separate.
+
 An optimization problem contains choices, an objective to minimize, and constraints every eligible choice must satisfy. Decision variables are the future heater moves. Prediction horizon ($N=3$) means the next three one-minute intervals. Control move ($\Delta u$) means change from the heater command applied in the preceding interval.
 
 For each zone and each horizon position, the finite move set is `{-20,0,+20}` percentage points. There are two zone decisions at each of three positions, hence $2\times3=6$ decisions. Each has three choices, so the multiplication rule gives $3\times3\times3\times3\times3\times3=3^{6}=729$ sequences.
 
 The shipped solver enumerates all 729 sequences every interval. It propagates the sampled two-zone model, rejects sequences violating individual power, shared power, rate, or predicted comfort constraints, and retains the feasible sequence with the lowest objective. This is a genuine online finite-grid constrained optimizer. It is not a continuous quadratic-program solver; its result is optimal only on the declared move grid.
 
-Zone tracking error ($e_{i,j}$) is predicted zone temperature minus setpoint for zone $i$ at future position $j$. Squaring makes heating and cooling errors equally costly and penalizes large misses more strongly. Temperature weight ($w_T$) sets the importance of that error. Energy weight ($w_E$) prices total heating by the forecast tariff. Move weight ($w_{\Delta}$) penalizes squared command changes so sequences that chatter between grid points cost more.
+Zone tracking error ($e_{i,j}$) is predicted zone temperature minus setpoint for
+zone $i$ at future position $j$, measured in degrees Celsius. The future tariff
+forecast at that position is the dimensionless relative price $p_j$; the two
+candidate heater commands there are $u_{1,j}$ and $u_{2,j}$ in percent.
+Squaring makes
+heating and cooling errors equally costly and penalizes large misses more
+strongly. Temperature weight ($w_T$) converts squared degree-Celsius error into
+score units. Energy weight ($w_E$) converts relative tariff ($p_j$) times total
+percent heating into score units. Move weight ($w_{\Delta}$) converts squared
+percentage-point command changes into score units, so sequences that chatter
+between grid points cost more. The candidate objective ($J$) is the resulting
+dimensionless comparison score; only candidates evaluated with identical
+weights may be compared:
 
 $J=\sum_{j=1}^{3}\left[ w_T\left(e_{1,j}^{2}+e_{2,j}^{2}\right) +w_Ep_j\left(u_{1,j}+u_{2,j}\right) +w_{\Delta}\left(\Delta u_{1,j}^{2}+\Delta u_{2,j}^{2}\right) \right]$
 
-Nominal values are $w_T=100$, $w_E=0.01$, and $w_{\Delta}=0.0025$. Larger temperature weight protects tracking more strongly. Larger energy weight favours lower heating when tariff is high. Larger move weight discourages valve and plant movement. These are preferences, not hard limits.
+The summation adds those three costs at each of the three future positions. Its
+nominal values are $w_T=100$, $w_E=0.01$, and $w_{\Delta}=0.0025$. Larger
+temperature weight protects tracking more strongly. Larger energy weight
+favours lower heating when tariff is high. Larger move weight discourages valve
+and plant movement. These are engineering preferences on an arbitrary common
+score scale, not physical constants or hard limits. They must be selected from
+declared comfort, energy, and wear priorities and checked through sensitivity
+and closed-loop validation rather than inferred from the plant matrices.
 
 Receding horizon means applying only the first optimized move, taking a new measurement, shifting the forecasts, and solving all 729 sequences again. The unexecuted later moves are a plan, not commands already sent to equipment.
 
@@ -67,11 +176,19 @@ The fallback is an incremental PI pair with proportional gain `20 percent/degC` 
 
 Start both temperatures and setpoints at 21 degrees Celsius. Outdoor temperature is 5 degrees Celsius, occupancy gains are zero, previous heater commands are 80/80 percent, and all three tariffs are 0.10.
 
-For the zero-move sequence, the first prediction for zone one is:
+The sample index ($k$) identifies the current one-minute state, and $k+1$
+identifies its first predicted successor. For the zero-move sequence, the first
+prediction for zone one is:
 
 $\begin{aligned} T_{1,k+1}={}&0.875659571463(21)+0.029177846573(21)\\ &+0.018727354703(80)+0.000305161690(80)\\ &+0.095162581964(5)=21.00000\,{}^\circ\mathrm{C} \end{aligned}$
 
-Zone two is identical. Predict 729 evaluated sequences, at least one feasible sequence, and first commands of 80/80 percent.
+The five contributions are 18.38885, 0.61273, 1.49819, 0.02441, and
+0.47581 degrees Celsius; their sum is 21.00000 degrees Celsius. Zone two is
+identical. Tracking and move costs are zero for all three horizon positions.
+Each position contributes
+$0.01(0.10)(80+80)=0.16$ score unit of tariff cost, so the complete predicted
+objective is $J=3(0.16)=0.48$. Predict 729 evaluated sequences, at least one
+feasible sequence, and first commands of 80/80 percent.
 
 Now raise the comfort minimum to 22 degrees Celsius without changing state or limits. Even the allowed first moves cannot raise both predicted zones to 22 degrees under the shared limit. Predict a completed count of 729, zero feasible sequences, $Infeasible=TRUE$, and bounded PI fallback. Predict that a negative temperature weight instead makes configuration invalid, skips enumeration, leaves $Infeasible=FALSE$, and uses the same fallback.
 

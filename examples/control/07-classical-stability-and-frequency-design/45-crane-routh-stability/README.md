@@ -26,11 +26,17 @@ beyond the tested values. Deliberately searching for instability on a physical
 crane would also be unsafe. We therefore need an algebraic stability test
 before trying gains.
 
-## Derive the stability interval before simulating it
+## What we need
+
+We need an algebraic stability boundary for crane gain before simulation so a
+stable-looking finite trace cannot substitute for a proof about all poles.
+
+## The new idea
 
 The characteristic equation is the equation whose roots are the closed-loop
 poles. A closed-loop pole is a natural response mode of the controlled system.
-Its location is described with the complex frequency variable ($s$).
+Its location is described with the complex frequency variable ($s$). The
+symbol $j$ is the imaginary unit, defined by $j^2=-1$.
 
 The left half-plane contains poles with negative real part; their natural
 responses decay. The imaginary axis contains poles with zero real part. The
@@ -50,37 +56,81 @@ complete zero row appears, form the auxiliary polynomial from the row above
 and use its derivative to continue. A complete zero row indicates symmetric
 roots and can expose an imaginary-axis boundary.
 
+### Where the crane equation comes from
+
+A complete crane model begins with Newton's laws for the trolley and suspended
+load. Trolley force accelerates both masses, rope angle couples load swing back
+into trolley motion, and friction removes motion. Linearizing those balances
+around a fixed load, rope length, small swing angle, and stationary trolley
+produces coupled linear equations. This lesson uses a reduced local modal model
+of those equations; it does not claim that a complete crane has only three
+states.
+
+The trolley-position deviation ($x$) is measured in metres. Its first, second,
+and third time derivatives are velocity in metres per second, acceleration in
+metres per second squared, and acceleration-change rate in metres per second
+cubed. The applied drive command ($MV_{\mathrm{applied}}$) is measured in
+percent. The scaled plant input ($u$) converts that percentage into
+acceleration-change rate; its configured conversion is one metre per second
+cubed per percentage point.
+
+The local equation says that acceleration-change rate equals the scaled drive
+input minus a velocity-dependent term and an acceleration-dependent term:
+
+$\frac{d^3x}{dt^3}=-2\frac{d^2x}{dt^2}-3\frac{dx}{dt}+u.$
+
+The coefficient 2 has unit inverse seconds and the coefficient 3 has unit
+inverse seconds squared, so every term has unit metres per second cubed. These
+numbers are configured teaching values. On a physical crane, an engineer would
+calculate an initial model from trolley mass, suspended mass, rope length, and
+friction, then estimate the observable modal rates from a guarded small-force
+test and validate them on unused motions at the same load and rope length.
+
+With zero initial deviations, taking the Laplace transform changes each time
+derivative into multiplication by the complex frequency variable $s$. The
+Laplace-domain position ($X(s)$) and scaled input ($U(s)$) therefore satisfy
+
+$(s^3+2s^2+3s)X(s)=U(s).$
+
+Dividing output by input gives the reduced open-loop transfer function
+($G(s)$), which is the position response per unit scaled input when feedback is
+not yet closed:
+
+$G(s)=\frac{X(s)}{U(s)}=\frac{1}{s(s^2+2s+3)}.$
+
+The pole at the origin represents unrestrained trolley position: a constant
+position has zero velocity and needs no restoring input in this reduced model.
+The quadratic factor represents the damped suspended-load mode. The model
+assumes small motion, fixed mechanics, ideal sensing and drive conversion, and
+no structural flexibility or actuator delay. Simulation can verify the
+configured equation; it cannot establish these coefficients for a real crane.
+
 ## Prediction
 
-With state order position, velocity, and acceleration state, the declared
-linearized crane equations imply
-$x'''=-2x''-3x'+u$. Taking the zero-initial-condition Laplace transform gives
-$(s^3+2s^2+3s)X=U$, so the open-loop transfer function is
-$G(s)=1/[s(s^2+2s+3)]$. Under negative proportional feedback
-$u=K(r-x)$, natural motion has $r=0$ and therefore adds $KX$ to the left side.
-The closed-loop characteristic polynomial is
+The proportional gain ($K$) converts position error in metres into scaled plant
+input; numerically it combines the percent-per-metre gain used by the
+Structured Text with the configured plant-input conversion. The position
+reference ($r$) is measured in metres. Under negative proportional feedback,
+$u=K(r-x)$. Natural motion is the response with $r=0$, so substituting
+$u=-Kx$ into the derived plant equation adds $KX(s)$ to the left side. The
+characteristic polynomial ($p(s)$) is the denominator whose roots are the
+closed-loop poles:
 
-\[
-p(s)=s^3+2s^2+3s+K.
-\]
+$p(s)=s^3+2s^2+3s+K.$
 
 Place alternating coefficients into the first two rows: the $s^3$ row is
-$[1,3]$ and the $s^2$ row is $[2,K]$. The next first element is formed from
-the two rows above:
+$[1,3]$ and the $s^2$ row is $[2,K]$. The first element of the next row
+($b_1$) is formed by cross-multiplying the two rows above, subtracting, and
+dividing by the leading value 2:
 
-\[
-b_1=\frac{2(3)-1(K)}{2}=\frac{6-K}{2}.
-\]
+$b_1=\frac{2(3)-1(K)}{2}=\frac{6-K}{2}.$
 
 The $s^0$ row contains $K$. Thus the first column is
 $[1,2,(6-K)/2,K]$.
 
-Every first-column element must be positive for asymptotic stability. Therefore
-the complete interval is
-
-\[
-0<K<6.
-\]
+Every first-column element must be positive for asymptotic stability. The last
+element requires $K>0$ and the preceding element requires $6-K>0$, or $K<6$.
+Their intersection gives the complete interval $0<K<6$.
 
 For $K = 4$, the first column is $[1, 2, 1, 4]$: zero sign changes predict a
 stable response. For $K=6$, the $s^1$ row becomes zero. The auxiliary

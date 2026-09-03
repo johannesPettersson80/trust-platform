@@ -41,13 +41,16 @@
       {
         "id": "experiment-authority",
         "channel": "experiment-authority",
-        "role": "authority",
+        "role": "state",
         "symbol": "P1.ExperimentEnabled",
         "address": "%MX16.1",
         "iecType": "BOOL",
-        "direction": "write",
-        "unit": "1",
-        "range": { "minimum": 0, "maximum": 1 }
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       },
       {
         "id": "automatic-mode",
@@ -135,7 +138,11 @@
     "amplitude": 0,
     "durationSeconds": 400.1,
     "seed": 20260829,
-    "restorationValue": 0,
-    "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX16.1", "activeValue": true, "inactiveValue": false }
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX16.1",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

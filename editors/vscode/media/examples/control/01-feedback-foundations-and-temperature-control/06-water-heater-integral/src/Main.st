@@ -19,7 +19,11 @@ VAR
     IntegralContribution : LREAL := 0.0;
     RequestedHeaterPower : LREAL := 0.0;
     AppliedHeaterPower : LREAL := 0.0;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
 END_VAR
+AutoMode := ExperimentEnabled AND InputsValid AND NOT SafetyAbort;
 
 IF NOT Initialized THEN
     (* Lesson 5 established this measured nominal holding output. Keep it
@@ -94,7 +98,7 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.AutoMode AT %MX16.0 : BOOL;
+    P1.AutoMode AT %MX48.0 : BOOL;
     P1.Setpoint AT %ML0 : LREAL;
     P1.IntegralGain AT %ML8 : LREAL;
     P1.ManualHeaterPower AT %ML16 : LREAL;
@@ -103,5 +107,8 @@ VAR_CONFIG
     P1.MeasuredHoldingOutput AT %ML40 : LREAL;
     P1.AppliedHeaterPower AT %QL0 : LREAL;
     P1.ProcessValue AT %IL0 : LREAL;
+    P1.ExperimentEnabled AT %MX48.1 : BOOL;
+    P1.SafetyAbort AT %MX48.2 : BOOL;
+    P1.InputsValid AT %MX48.3 : BOOL;
 END_VAR
 END_CONFIGURATION

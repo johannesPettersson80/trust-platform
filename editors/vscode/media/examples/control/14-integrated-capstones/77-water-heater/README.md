@@ -133,6 +133,19 @@ Balanced tuning is expected to reduce error area and response time while using
 more actuator movement and robustness reserve. Robust tuning is expected to
 trade some nominal speed for lower activity and more tolerance to model error.
 
+These values come from the FOPDT SIMC PI equations:
+
+$K_p=T/[K(\lambda+L)],\qquad T_i=\min[T,4(\lambda+L)],\qquad K_i=K_p/T_i$
+
+Here $K$ converts power to temperature, $T$ describes thermal inertia, $L$ is
+transport delay, and the chosen closed-loop time $\lambda$ expresses the
+speed-versus-robustness trade. Robust uses $\lambda=6.667$ seconds, so
+$K_p=5/[0.2(6.667+1)]=3.26087$, $T_i=5$ seconds, and
+$K_i=3.26087/5=0.65217$. Balanced uses $\lambda=3.333$ seconds, so
+$K_p=5/[0.2(3.333+1)]=5.76923$, $T_i=5$ seconds, and
+$K_i=5.76923/5=1.15385$. The smaller $\lambda$ requests a faster loop and
+therefore produces the larger gain and actuator movement.
+
 ## Prediction
 
 Before opening a result:
@@ -175,7 +188,11 @@ formula, result table, scenario label, or automatic winner.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Calculate and run Robust and Balanced SIMC PI candidates without changing controller revision 77. The declared event lasts 220 seconds. It restores Robust-PI temperature to 75 degC afterward. The deterministic Simulation seed is 20260829.
+The learner-facing workflow is exactly **Monitor → Test**. The project runs all
+four controller copies through the same 220-second load, unreachable-demand,
+manual, quality, and recovery record without changing revision 77. The native
+test owns identification, independent model validation, uncertainty variants,
+candidate ranking, and the unapplied recommendation.
 
 ### Control Studio actions
 
@@ -187,32 +204,15 @@ This procedure tests one declared lesson change under controlled conditions. Cal
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0 degC**, and **Maximum duration (s)** = **220**. The affected signal is **Robust-PI temperature**; it starts at 35 degC and must restore to 75 degC.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **220.1**. Control Studio writes only `P1.ExperimentEnabled`; amplitude zero is intentional because the project owns every setpoint and mode transition.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside P-plus-bias temperature 0 degC to 80 degC; Historical-PI temperature 0 degC to 80 degC; Robust-PI temperature 0 degC to 80 degC; Balanced-PI temperature 0 degC to 80 degC; Robust-PI applied heater power 0 % to 100 %; Balanced-PI applied heater power 0 % to 100 %.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Robust-PI temperature to 75 degC, wait for current data, and review a new test.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason and remove experiment authority. The project restores a 35-degree setpoint, valid quality, and tracked 60-percent manual power.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
 
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Model-qualified PI structure and tuning decision** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Model-qualified PI structure and tuning decision** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Model-qualified PI structure and tuning decision** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Model-qualified PI structure and tuning decision**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: p_plus_bias_changed_load_error > 1 degC (tolerance 0.02 degC); pi_changed_load_error <= 0.25 degC (tolerance 0.02 degC); uncertainty_load_final_error <= 0.3 degC (tolerance 0.02 degC); active_revision_changes == 0 (dimensionless) (tolerance 0 (dimensionless)).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+Identify, Tune, and Validate are not learner steps in this capstone. The native
+test performs those engineering calculations against retained data; disabled
+generic panels cannot establish a model, tuning, or validation result.
 
 ## Evidence and decision
 

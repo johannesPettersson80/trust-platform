@@ -12,7 +12,7 @@
     "revision": "sha256:93a4bf17ecd28c20305bd1f75ec54313d032a815c3d7842aff34fc02f3ab0e94",
     "action": "direct",
     "taskPeriodMs": 100,
-    "modeSignal": "%MX16.0"
+    "modeSignal": "%MX24.0"
   },
   "signals": {
     "setpoint": {
@@ -41,7 +41,7 @@
       "symbol": "P1.ManipulatedValue",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -49,6 +49,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX24.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "proportional-gain",
         "channel": "proportional-gain",
@@ -92,11 +106,11 @@
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 120,
+    "durationSeconds": 120.1,
     "seed": 20260824,
     "activation": {
-      "symbol": "P1.AutoMode",
-      "address": "%MX16.0",
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX24.1",
       "iecType": "BOOL",
       "direction": "write"
     }

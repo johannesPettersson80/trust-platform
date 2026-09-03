@@ -20,6 +20,10 @@ VAR
     SlowOuterInput : Control.PIDInput;
     SlowInnerInput : Control.PIDInput;
     Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
     InnerCommissioning : BOOL := FALSE;
     InnerAvailable : BOOL := TRUE;
     ReactorSetpoint : LREAL := 80.0;
@@ -95,6 +99,26 @@ IF NOT Initialized THEN
     FastInnerController.Initialize(State := InnerState);
     SlowInnerController.Initialize(State := InnerState);
     Initialized := TRUE;
+END_IF;
+
+IF ExperimentEnabled AND (NOT SafetyAbort) AND InputsValid THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    InnerCommissioning := ExperimentElapsed < LREAL#40.0;
+    IF (ExperimentElapsed >= LREAL#10.0) AND (ExperimentElapsed < LREAL#30.0) THEN
+        JacketTestSetpoint := LREAL#75.0;
+    ELSE
+        JacketTestSetpoint := LREAL#70.0;
+    END_IF;
+    IF ExperimentElapsed >= LREAL#40.0 THEN
+        UtilityDisturbance := LREAL#-10.0;
+    ELSE
+        UtilityDisturbance := LREAL#0.0;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    InnerCommissioning := FALSE;
+    JacketTestSetpoint := LREAL#70.0;
+    UtilityDisturbance := LREAL#0.0;
 END_IF;
 
 DirectUtilityInput := UtilityDisturbance;
@@ -186,6 +210,9 @@ VAR_CONFIG
     P1.InnerCommissioning AT %MX136.0 : BOOL;
     P1.InnerAvailable AT %MX136.1 : BOOL;
     P1.AutomaticMode AT %MX136.2 : BOOL;
+    P1.ExperimentEnabled AT %MX136.3 : BOOL;
+    P1.SafetyAbort AT %MX136.4 : BOOL;
+    P1.InputsValid AT %MX136.5 : BOOL;
     P1.ReactorSetpoint AT %ML88 : LREAL;
     P1.JacketTestSetpoint AT %ML96 : LREAL;
     P1.UtilityDisturbance AT %ML104 : LREAL;

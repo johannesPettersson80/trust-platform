@@ -27,7 +27,41 @@ VAR
     ProtectedRemoteOwned : BOOL := FALSE;
     NewSampleEligible : BOOL := FALSE;
     Supervisor : NetworkedPumpSupervisor;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentScan : DINT := 0;
 END_VAR
+
+(* Control Studio grants only authority. The project owns a healthy bounded
+   packet stream; invalid packet classes remain independent native tests. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    RemoteEnabled := TRUE;
+    RemoteQualityGood := TRUE;
+    ClockSynchronized := TRUE;
+    ClockUncertaintySeconds := LREAL#0.05;
+    RecoveryApproved := FALSE;
+    RemoteDemand := LREAL#50.0;
+    LocalTimeSeconds := LocalTimeSeconds + LREAL#0.1;
+    ExperimentScan := ExperimentScan + DINT#1;
+    RemoteSampleReceived := (ExperimentScan MOD DINT#4) = DINT#0;
+    IF RemoteSampleReceived THEN
+        RemoteSequence := RemoteSequence + DINT#1;
+        RemoteSourceTimeSeconds := LocalTimeSeconds - LREAL#0.05;
+    END_IF;
+ELSE
+    RemoteEnabled := FALSE;
+    RemoteSampleReceived := FALSE;
+    RemoteQualityGood := TRUE;
+    ClockSynchronized := TRUE;
+    RecoveryApproved := FALSE;
+    ClockUncertaintySeconds := LREAL#0.05;
+    RemoteDemand := LREAL#50.0;
+    LocalTimeSeconds := LREAL#0.0;
+    RemoteSourceTimeSeconds := LREAL#0.0;
+    RemoteSequence := DINT#0;
+    ExperimentScan := DINT#0;
+END_IF;
 
 Supervisor(
     RemoteEnabled := RemoteEnabled,
@@ -71,7 +105,10 @@ VAR_CONFIG
     P1.ProtectedRemoteValid AT %MX16.6 : BOOL;
     P1.ProtectedRemoteOwned AT %MX96.7 : BOOL;
     P1.NewSampleEligible AT %MX17.0 : BOOL;
-    P1.LocalTimeSeconds AT %ML16 : LREAL;
+    P1.ExperimentEnabled AT %MX17.1 : BOOL;
+    P1.SafetyAbort AT %MX17.2 : BOOL;
+    P1.InputsValid AT %MX17.3 : BOOL;
+    P1.LocalTimeSeconds AT %ML104 : LREAL;
     P1.RemoteSourceTimeSeconds AT %ML24 : LREAL;
     P1.ClockUncertaintySeconds AT %ML32 : LREAL;
     P1.RemoteDemand AT %ML40 : LREAL;

@@ -115,7 +115,7 @@ These equations are valid for the local linear model around 1000 rpm. They do
 not include backlash, extra shaft modes, drive-current dynamics, protection,
 temperature, or installation flexibility.
 
-## Work the three predictions
+## Prediction
 
 Before running, calculate three responses:
 

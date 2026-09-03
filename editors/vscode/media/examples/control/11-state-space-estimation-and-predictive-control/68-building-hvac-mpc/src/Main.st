@@ -54,20 +54,96 @@ VAR
     FallbackHeat1 : LREAL := 0.0;
     FallbackHeat2 : LREAL := 0.0;
     SharedScale : LREAL := 1.0;
-    Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
 END_VAR
 
-// Start from the occupied comfort condition used by the lesson experiment.
-IF NOT Initialized THEN
+(* Control Studio grants only authority. The project owns the normal twenty-
+   minute schedule; infeasible and invalid cases remain native test records. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#60.0;
     Enabled := TRUE;
+    UseMpc := TRUE;
     Zone1Setpoint := LREAL#21.0;
     Zone2Setpoint := LREAL#21.0;
+    ComfortMinimum := LREAL#20.0;
+    ComfortMaximum := LREAL#22.5;
+    TemperatureWeight := LREAL#100.0;
+    EnergyWeight := LREAL#0.01;
+    MoveWeight := LREAL#0.0025;
+
+    IF ExperimentElapsed < LREAL#360.0 THEN
+        OutsideCurrent := LREAL#5.0;
+    ELSE
+        OutsideCurrent := LREAL#4.0;
+    END_IF;
+    IF ExperimentElapsed < LREAL#480.0 THEN
+        Occupancy1Current := LREAL#0.0;
+    ELSE
+        Occupancy1Current := LREAL#2.0;
+    END_IF;
+    IF ExperimentElapsed < LREAL#600.0 THEN
+        Occupancy2Current := LREAL#0.0;
+    ELSE
+        Occupancy2Current := LREAL#1.0;
+    END_IF;
+    IF ExperimentElapsed + LREAL#60.0 < LREAL#480.0 THEN
+        TariffForecast1 := LREAL#0.1;
+    ELSIF ExperimentElapsed + LREAL#60.0 < LREAL#720.0 THEN
+        TariffForecast1 := LREAL#0.6;
+    ELSE
+        TariffForecast1 := LREAL#0.15;
+    END_IF;
+    (* The three preview positions announce scheduled changes one, two, and
+       three minutes ahead. *)
+    OutsideForecast1 := SEL(ExperimentElapsed + LREAL#60.0 >= LREAL#360.0, LREAL#5.0, LREAL#4.0);
+    OutsideForecast2 := SEL(ExperimentElapsed + LREAL#120.0 >= LREAL#360.0, LREAL#5.0, LREAL#4.0);
+    OutsideForecast3 := SEL(ExperimentElapsed + LREAL#180.0 >= LREAL#360.0, LREAL#5.0, LREAL#4.0);
+    Occupancy1Forecast1 := SEL(ExperimentElapsed + LREAL#60.0 >= LREAL#480.0, LREAL#0.0, LREAL#2.0);
+    Occupancy1Forecast2 := SEL(ExperimentElapsed + LREAL#120.0 >= LREAL#480.0, LREAL#0.0, LREAL#2.0);
+    Occupancy1Forecast3 := SEL(ExperimentElapsed + LREAL#180.0 >= LREAL#480.0, LREAL#0.0, LREAL#2.0);
+    Occupancy2Forecast1 := SEL(ExperimentElapsed + LREAL#60.0 >= LREAL#600.0, LREAL#0.0, LREAL#1.0);
+    Occupancy2Forecast2 := SEL(ExperimentElapsed + LREAL#120.0 >= LREAL#600.0, LREAL#0.0, LREAL#1.0);
+    Occupancy2Forecast3 := SEL(ExperimentElapsed + LREAL#180.0 >= LREAL#600.0, LREAL#0.0, LREAL#1.0);
+    IF ExperimentElapsed + LREAL#120.0 < LREAL#480.0 THEN
+        TariffForecast2 := LREAL#0.1;
+    ELSIF ExperimentElapsed + LREAL#120.0 < LREAL#720.0 THEN
+        TariffForecast2 := LREAL#0.6;
+    ELSE
+        TariffForecast2 := LREAL#0.15;
+    END_IF;
+    IF ExperimentElapsed + LREAL#180.0 < LREAL#480.0 THEN
+        TariffForecast3 := LREAL#0.1;
+    ELSIF ExperimentElapsed + LREAL#180.0 < LREAL#720.0 THEN
+        TariffForecast3 := LREAL#0.6;
+    ELSE
+        TariffForecast3 := LREAL#0.15;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    Enabled := FALSE;
+    UseMpc := TRUE;
     OutsideCurrent := LREAL#5.0;
-    Initialized := TRUE;
+    Occupancy1Current := LREAL#0.0;
+    Occupancy2Current := LREAL#0.0;
+    OutsideForecast1 := LREAL#5.0;
+    OutsideForecast2 := LREAL#5.0;
+    OutsideForecast3 := LREAL#5.0;
+    Occupancy1Forecast1 := LREAL#0.0;
+    Occupancy1Forecast2 := LREAL#0.0;
+    Occupancy1Forecast3 := LREAL#0.0;
+    Occupancy2Forecast1 := LREAL#0.0;
+    Occupancy2Forecast2 := LREAL#0.0;
+    Occupancy2Forecast3 := LREAL#0.0;
+    TariffForecast1 := LREAL#0.1;
+    TariffForecast2 := LREAL#0.1;
+    TariffForecast3 := LREAL#0.1;
 END_IF;
 
 MpcRequest.Enable := UseMpc;
-MpcRequest.UpstreamValid := TRUE;
+MpcRequest.UpstreamValid := InputsValid AND NOT SafetyAbort;
 MpcRequest.Zone1Temperature := Zone1Temperature;
 MpcRequest.Zone2Temperature := Zone2Temperature;
 MpcRequest.Zone1Setpoint := Zone1Setpoint;
@@ -170,7 +246,7 @@ END_PROGRAM
 
 CONFIGURATION Config
 RESOURCE Res ON PLC
-    TASK MainTask(INTERVAL := T#1s, PRIORITY := 1);
+    TASK MainTask(INTERVAL := T#60s, PRIORITY := 1);
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
@@ -211,6 +287,9 @@ VAR_CONFIG
     P1.Infeasible AT %MX240.5 : BOOL;
     P1.FallbackActive AT %MX240.6 : BOOL;
     P1.ConstraintActive AT %MX240.7 : BOOL;
+    P1.ExperimentEnabled AT %MX241.0 : BOOL;
+    P1.SafetyAbort AT %MX241.1 : BOOL;
+    P1.InputsValid AT %MX241.2 : BOOL;
     P1.Zone1HeatApplied AT %QL0 : LREAL;
     P1.Zone2HeatApplied AT %QL8 : LREAL;
     P1.OutsideApplied AT %QL16 : LREAL;

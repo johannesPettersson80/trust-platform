@@ -1,3 +1,5 @@
+import { expectedPrimarySignalDirection, isAuxiliarySignalDirectionAccepted } from "./loopSignalDirections";
+
 export type ControlSignalDirection = "read" | "write";
 
 export interface ControlSignalBinding {
@@ -155,18 +157,9 @@ export function validateControlLoopDefinition(
     return { kind: "rejected", reason: "incompatible_topology" };
   }
 
-  const expectedDirections: ReadonlyArray<[
-    PrimarySignalName,
-    ControlSignalDirection
-  ]> = [
-    ["setpoint", "read"],
-    ["processVariable", "read"],
-    ["manipulatedVariable", "write"],
-    ["actuator", "read"],
-  ];
-  for (const [name, direction] of expectedDirections) {
+  for (const name of ["setpoint", "processVariable", "manipulatedVariable", "actuator"] as const) {
     const binding = loop.signals[name];
-    if (binding && binding.direction !== direction) {
+    if (binding && binding.direction !== expectedPrimarySignalDirection(loop.experiment?.execution, name)) {
       return { kind: "rejected", reason: "invalid_signal_direction", signal: name };
     }
   }
@@ -198,9 +191,9 @@ export function validateControlLoopDefinition(
       return { kind: "rejected", reason: "duplicate_signal_role", signal: binding.id };
     }
     channelRoles.add(channelRole);
-    const directionValid = binding.role === "disturbance"
-      ? binding.direction === "read" || binding.direction === "write"
-      : binding.direction === (binding.role === "MV" ? "write" : "read");
+    const directionValid = isAuxiliarySignalDirectionAccepted(
+      loop.experiment?.execution, binding.role, binding.direction
+    );
     if (!directionValid) {
       return { kind: "rejected", reason: "invalid_signal_direction", signal: "additional" };
     }
@@ -323,8 +316,7 @@ function experiment(value: unknown): boolean {
       value.durationSeconds > 3_600 || typeof value.seed !== "number" || !Number.isSafeInteger(value.seed) ||
       value.seed < 1 || value.seed > 0xffff_ffff) return false;
   if (value.execution === "project-scripted") {
-    return value.kind === "observation" && value.amplitude === 0 &&
-      (value.activation === undefined || activation(value.activation));
+    return value.kind === "observation" && value.amplitude === 0 && activation(value.activation);
   }
   return value.activation === undefined &&
     (value.kind === "observation" ? value.amplitude === 0 : value.amplitude !== 0);

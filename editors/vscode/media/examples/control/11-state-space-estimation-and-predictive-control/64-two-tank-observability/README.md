@@ -10,8 +10,6 @@ Course position: Lesson 64 of 84. Prerequisite:
 
 ## The problem
 
-The equipment in this lesson is Interconnected water-treatment buffer tanks.
-
 The equipment is a pilot water-treatment buffer with two interconnected vented tanks. Tank 1 receives normal inlet-pump flow and drains through a restriction into Tank 2. Tank 2 drains to the next treatment stage. Level deviations from the qualified operating point are measured in centimetres. Pump-flow changes are measured in litres per minute.
 
 The normal actuator is an inlet pump into Tank 1. A maintenance bypass can inject flow directly into Tank 2, but cannot move water backward into Tank 1. The normal level transmitter measures Tank 2. A deliberately deficient alternative measures only Tank 1.
@@ -45,6 +43,12 @@ $\dot{\mathbf{x}}=\mathbf{A}\mathbf{x}+\mathbf{B}u$
 
 $\mathbf{y}=\mathbf{C}\mathbf{x}$
 
+For this plant,
+$A=\begin{bmatrix}-0.05&0\\0.03&-0.04\end{bmatrix}$. The first row says Tank 1
+loses 0.05 of its deviation per second and receives no reverse effect from
+Tank 2. The second row receives 0.03 of Tank-1 deviation and loses 0.04 of its
+own deviation per second.
+
 The first equation says that the present state and pump input determine how quickly both levels change. The second says which combination of true levels the installed transmitter reports.
 
 ### Controllability
@@ -63,6 +67,10 @@ $\mathcal{C}_{\mathrm{upstream}} =\begin{bmatrix}0.20&-0.010\\0&0.006\end{bmatri
 
 Its determinant is 0.0012 and its rank is two. The pump moves Tank 1 immediately; hydraulic transfer later creates an independent Tank-2 direction.
 
+The second column is $AB=[-0.05(0.20),0.03(0.20)]^T=[-0.010,0.006]^T$.
+The determinant is $0.20(0.006)-0(-0.010)=0.0012$. Because it is nonzero, the
+two columns are independent and the rank is two.
+
 For direct downstream injection, the bypass input matrix ($\mathbf{B}_{\mathrm{bypass}}$) gives:
 
 $\mathbf{B}_{\mathrm{bypass}}=\begin{bmatrix}0\\0.20\end{bmatrix}$
@@ -70,6 +78,9 @@ $\mathbf{B}_{\mathrm{bypass}}=\begin{bmatrix}0\\0.20\end{bmatrix}$
 $\mathcal{C}_{\mathrm{bypass}} =\begin{bmatrix}0&0\\0.20&-0.008\end{bmatrix}$
 
 Its rank is one. The bypass moves Tank 2 but cannot move Tank 1.
+
+Here $AB=[0,-0.04(0.20)]^T=[0,-0.008]^T$. Both columns point only along the
+Tank-2 axis, so rank is one.
 
 ### Observability
 
@@ -87,6 +98,10 @@ $\mathcal{O}_{\mathrm{downstream}} =\begin{bmatrix}0&1\\0.03&-0.04\end{bmatrix}$
 
 Its determinant is -0.03 and rank is two. An upstream deviation eventually changes the downstream measurement, so history contains information about both tanks.
 
+The second row is $CA=[0,1]A=[0.03,-0.04]$. Its determinant is
+$0(-0.04)-1(0.03)=-0.03$, so the measurement and its rate contain two
+independent state combinations.
+
 For the upstream-only transmitter, the upstream output matrix ($\mathbf{C}_{\mathrm{upstream}}$) gives:
 
 $\mathbf{C}_{\mathrm{upstream}}=\begin{bmatrix}1&0\end{bmatrix}$
@@ -95,9 +110,16 @@ $\mathcal{O}_{\mathrm{upstream}} =\begin{bmatrix}1&0\\-0.05&0\end{bmatrix}$
 
 Its rank is one. A downstream-only deviation does not affect the upstream measurement in this one-way model.
 
+For this sensor, $CA=[1,0]A=[-0.05,0]$. Both rows contain only Tank-1
+information, so their rank is one.
+
 ### Modes and weaker feasibility properties
 
 A mode is one independent natural pattern of state motion. An eigenvalue ($\lambda$) is that mode's exponential rate. A negative real eigenvalue decays; a positive real eigenvalue grows. The two tank eigenvalues are -0.05 and -0.04 per second, so both natural modes decay.
+
+Because $A$ is triangular, its eigenvalues are its diagonal entries. A mode
+$e^{\lambda t}$ decays when $\lambda<0$, which is why these two natural modes
+are stable even when one is unreachable or hidden in a deficient layout.
 
 Stabilisability permits an uncontrollable mode only when that mode is already stable. Detectability permits an unobservable mode only when that mode is already stable. The deficient layouts are therefore stabilisable or detectable in this local model, but they are not fully controllable or observable. A stable missing direction remains a missing hardware capability.
 
@@ -132,7 +154,11 @@ The program contains no PID instance, observer, matrix rank, eigenvalue, or acce
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Qualify the upstream inlet pump and downstream level transmitter before design. The declared event lasts 300 seconds. It restores Requested pump-flow change to 0 L/min afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the qualified upstream-pump/downstream-transmitter
+layout. The project owns layout selection, the bounded pump step, and zero-flow
+restoration; Control Studio writes only one Boolean authority signal. The
+native lesson test owns the deficient layouts and initial-state cases. The seed
+is 20260829.
 
 ### Control Studio actions
 
@@ -144,25 +170,11 @@ This procedure tests one declared lesson change under controlled conditions. Qua
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Manual output step**, **Amplitude** = **1 L/min**, and **Maximum duration (s)** = **300**. The affected signal is **Requested pump-flow change**; it starts at 0 L/min and must restore to 0 L/min.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Requested pump-flow change -2 L/min to 2 L/min; Applied upstream-pump flow -2 L/min to 2 L/min; Applied bypass-pump flow -2 L/min to 2 L/min; Simulation truth Tank-1 level deviation -10 cm to 10 cm; Simulation truth Tank-2 level deviation -10 cm to 10 cm.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Requested pump-flow change to 0 L/min, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Controllability, observability, stabilisability, and detectability** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Controllability, observability, stabilisability, and detectability** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: upstream_layout_controllability_rank == 2 (dimensionless) (tolerance 0 (dimensionless)); downstream_sensor_observability_rank == 2 (dimensionless) (tolerance 0 (dimensionless)); upstream_pump_first_second_slope >= 0.18 cm/s (tolerance 0.001 cm/s); bypass_upstream_peak <= 0.001 cm (tolerance 0.0001 cm).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **300.1**. Confirm the only writable signal is **Experiment authority** (`P1.ExperimentEnabled`, `%MX32.0`). The project selects upstream pump and downstream sensor, holds zero for 20 seconds, applies +1 litre per minute to 200 seconds, then restores zero flow.
+   - **Decision before action:** Before selecting **Review test**, predict the immediate Tank-1 and delayed Tank-2 responses and confirm flow can remain within -2 through +2 litres per minute and both levels within -10 through +10 centimetres.
+   - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must distinguish the installed downstream measurement from both Simulation truth states. At termination authority clears and both pump outputs are zero.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the reason, confirm authority is false and both pump paths restored to zero, wait for current data, and review a new observation.
+   - **Record:** Compare physical movement with the rank prediction and retain terminal state, restoration, and seed **20260829**. The native lesson test owns the bypass and hidden-state cases and numeric verdict; this observation does not create generic Identify or Validate evidence.
 
 ## Evidence and decision
 

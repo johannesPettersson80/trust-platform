@@ -59,6 +59,11 @@ $H_{\mathrm{requested}} = \max\left(D, 0\right)$
 
 $C_{\mathrm{requested}} = \max\left(-D, 0\right)$
 
+The `max` operations are not arbitrary clamps. Heating cannot accept a
+negative opening, so the first expression passes positive demand and replaces
+negative demand with zero. Cooling must act for negative demand, so the second
+expression first reverses the sign and then applies the same one-sided rule.
+
 The **split point** is $D = 0 percent$. At +30 percent demand, heating is 30
 percent and cooling is zero. At -20 percent demand, heating is zero and cooling
 is 20 percent. At zero, both close. The PI owns temperature feedback; the
@@ -89,8 +94,11 @@ $H = \max\left(D + o, 0\right)$
 $C = \max\left(o - D, 0\right)$
 
 At zero demand and $o = 4$, both valves are 4 percent open. Because the cooling
-installed gain is larger, they do not cancel: temperature initially falls at
-0.08 degrees Celsius per second. Overlap can bridge measured mechanical
+installed gain is larger, they do not cancel. Heating contributes
+$0.04(4)=+0.16$ degrees Celsius per second and cooling contributes
+$-0.06(4)=-0.24$ degrees Celsius per second. Their sum is
+$0.16-0.24=-0.08$ degrees Celsius per second, so temperature initially falls.
+Overlap can bridge measured mechanical
 deadband, but it also creates an energy conflict and must never be introduced
 only to make a trace look smoother.
 
@@ -106,6 +114,10 @@ directly to heating while negative demand scales cooling:
 
 $C_{\mathrm{requested}} = (-D) \cdot K_{H} / K_{C} = (-D) \cdot 2/3$
 
+This scale follows by equating the magnitudes of the two initial thermal rates:
+$K_C C=K_H(-D)$. Dividing both sides by $K_C$ gives
+$C=(-D)K_H/K_C$, and the measured ratio is $0.04/0.06=2/3$.
+
 Thus $D = -20 percent$ becomes 13.33 percent cooling, with the same initial
 thermal magnitude as +20 percent heating. This is a local characterization; it
 does not compensate stiction, utility-pressure changes, or a nonlinear valve
@@ -119,6 +131,13 @@ input ($u_{H}$)** and **cooling input ($u_{C}$)**. Ambient heat loss returns the
 local plant toward 80 degrees Celsius, while the valves act oppositely:
 
 $dx_{T}/dt = -0.05 \cdot x_{T} + 0.04 \cdot u_{H} - 0.06 \cdot u_{C}$
+
+Each term is a temperature rate. The first term removes five percent of the
+current deviation each second, the second adds the measured heating rate, and
+the third subtracts the measured cooling rate. At a constant operating point
+the left side is zero, so the equilibrium deviation is
+$x_{T,eq}=(0.04u_H-0.06u_C)/0.05$. This makes clear why opening unequal valves
+together shifts temperature even when controller demand is zero.
 
 The model and constant gains apply only from 72 through 88 degrees Celsius.
 
@@ -166,7 +185,11 @@ timed setpoint event, performance score, or preferred-mapping flag.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Use mutually exclusive neutral selection and scale cooling demand by the measured heating-to-cooling installed-gain ratio. The declared event lasts 200 seconds. It restores Reactor-temperature setpoint to 80 degC afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the project's complete declared comparison under
+controlled conditions. The project, not Control Studio, owns the setpoint
+sequence, the installed-gain mapping, and restoration to 80 degrees Celsius.
+Control Studio writes only one Boolean authority signal. The deterministic
+Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -178,32 +201,11 @@ This procedure tests one declared lesson change under controlled conditions. Use
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Setpoint step**, **Amplitude** = **4 degC**, and **Maximum duration (s)** = **200**. The affected signal is **Reactor-temperature setpoint**; it starts at 80 degC and must restore to 80 degC.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Dead-zone reactor temperature 72 degC to 88 degC; Overlap reactor temperature 72 degC to 88 degC; Characterized reactor temperature 72 degC to 88 degC; Characterized heating request 0 % to 100 %; Characterized cooling request 0 % to 100 %.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Reactor-temperature setpoint to 80 degC, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Installed-gain-characterized split-range control** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Installed-gain-characterized split-range control** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Installed-gain-characterized split-range control** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Installed-gain-characterized split-range control**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: characterized_simultaneous_utility_time == 0 s (tolerance 0 s); characterized_dead_zone_time == 0 s (tolerance 0 s); cooling_installed_gain_scale == 0.666666666667 (dimensionless) (tolerance 0.000001 (dimensionless)); authority_loss_valves_closed == 0 % (tolerance 0 %).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **200.1**. Confirm the only writable signal is **Experiment authority** (`P1.ExperimentEnabled`, `%MX88.5`). The project will hold 80 degrees Celsius to 20 seconds, command 84 to 80 seconds, command 76 to 140 seconds, then restore 80 degrees Celsius.
+   - **Decision before action:** Before selecting **Review test**, predict which valve each signed demand should select and confirm all three temperatures can remain inside 72 through 88 degrees Celsius and all valve requests inside 0 through 100 percent.
+   - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and Response shows the complete project-owned sequence. At termination the authority bit clears and the setpoint is 80 degrees Celsius.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, confirm the authority bit is false and the setpoint has restored to 80 degrees Celsius, wait for current data, and review a new observation.
+   - **Record:** Compare each mapping with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**. Use the native lesson test for the declared numeric verdicts; this observation does not create a generic identification, tuning, or validation result.
 
 ## Evidence and decision
 

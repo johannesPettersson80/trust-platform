@@ -11,6 +11,7 @@
   "prerequisites": ["control-dryer-model-selection"],
   "nextLesson": "control-independent-model-validation",
   "signals": [
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX64.0" },
     { "role": "state", "name": "Poor requested valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML0" },
     { "role": "state", "name": "Qualified requested valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML8" },
     { "role": "state", "name": "Feedback requested valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML16" },
@@ -53,11 +54,21 @@
     "settings": { "minimumInputSpanPercentagePoints": 5, "minimumSnr": 5, "minimumDurationSeconds": 63, "qualifiedStepPercentagePoints": 10 },
     "decision": "Retain every record but allow the ordinary open-loop identification route only when amplitude, duration, quality, and independence checks pass."
   },
-  "experiment": { "kind": "mv_step", "signal": "Qualified applied valve position", "baseline": 20, "amplitude": 10, "durationSeconds": 70, "settlingSeconds": 10, "disturbances": ["Independent deterministic outlet-temperature measurement noise on every plant copy"], "seed": 20260829, "restorationValue": 20 },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 70.1,
+    "settlingSeconds": 10,
+    "disturbances": ["Independent deterministic outlet-temperature measurement noise on every plant copy"],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
   "acceptance": [
-    { "metric": "poor_applied_input_span", "signal": "Poor applied valve position", "window": "complete baseline and enabled record", "comparator": "==", "limit": 0.2, "unit": "%", "tolerance": 0.000001, "evidenceClass": "simulation" },
+    { "metric": "poor_applied_input_span", "signal": "Poor applied valve position", "window": "complete baseline and enabled record", "comparator": "==", "limit": 0.2, "unit": "%", "tolerance": 1e-06, "evidenceClass": "simulation" },
     { "metric": "poor_late_response", "signal": "Poor outlet temperature", "window": "final 10 s after at least 63 s", "comparator": "==", "limit": 0.1, "unit": "degC", "tolerance": 0.06, "evidenceClass": "simulation" },
-    { "metric": "qualified_applied_input_span", "signal": "Qualified applied valve position", "window": "complete baseline and enabled record", "comparator": "==", "limit": 10, "unit": "%", "tolerance": 0.000001, "evidenceClass": "simulation" },
+    { "metric": "qualified_applied_input_span", "signal": "Qualified applied valve position", "window": "complete baseline and enabled record", "comparator": "==", "limit": 10, "unit": "%", "tolerance": 1e-06, "evidenceClass": "simulation" },
     { "metric": "qualified_late_response", "signal": "Qualified outlet temperature", "window": "final 10 s of the 70 s enabled record; dynamic-window evidence, not a settled claim", "comparator": "==", "limit": 4.8, "unit": "degC", "tolerance": 0.1, "evidenceClass": "simulation" },
     { "metric": "feedback_measurement_input_correlation", "signal": "Controller-used temperature", "window": "complete enabled feedback record", "comparator": "<=", "limit": -0.95, "unit": "1", "tolerance": 0.001, "evidenceClass": "simulation" },
     { "metric": "poor_qualification_reason", "signal": "Poor applied valve position", "window": "qualification result derived from the complete poor record", "comparator": "==", "limit": 1, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
@@ -77,7 +88,7 @@
     "physicalApprovalRole": "authorised process controls engineer and heat-exchanger operator",
     "simulationOnlyRestrictions": ["This project cannot authorise physical valve excitation", "Physical testing requires reviewed pressure, temperature, flow, valve authority, interlocks, operating procedure, personnel protection, and explicit immediate approval"]
   },
-  "workflowStages": ["Monitor", "Test", "Identify"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-40--poor-excitation-and-closed-loop-identification-heat-exchanger",
     "nativeTest": "control_curriculum_poor_excitation_rejects_unidentifiable_records",
@@ -86,7 +97,15 @@
     "runArtifactFields": ["records", "samples", "requestedInput", "appliedInput", "measuredOutput", "controllerUsedMeasurement", "sampleInterval", "duration", "inputSpan", "outputSpan", "noiseAmplitude", "snr", "exogenousExcitation", "correlation", "qualityChecks", "qualificationReason", "seed", "evidenceClass"],
     "renderedJourneyId": "control-poor-excitation"
   },
-  "video": { "viewerOutcome": "Reject weak and feedback-correlated data before fitting an ordinary open-loop model.", "requiredVisibleEvidence": ["three identical plant definitions", "poor and qualified open-loop steps", "ordinary feedback law", "requested and applied signals", "controller-used measurement", "SNR predictions", "correlation", "qualification reasons", "retained rejected records", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Reject weak and feedback-correlated data before fitting an ordinary open-loop model.",
+    "requiredVisibleEvidence": ["three identical plant definitions", "poor and qualified open-loop steps", "ordinary feedback law", "requested and applied signals", "controller-used measurement", "SNR predictions", "correlation", "qualification reasons", "retained rejected records", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "Three independent simulated copies of one plate heat exchanger provide weak open-loop, qualified open-loop, and ordinary feedback records.",
     "reason": "Model selection assumes that the estimation data can distinguish the parameters, but finite fit output does not prove identifiability.",

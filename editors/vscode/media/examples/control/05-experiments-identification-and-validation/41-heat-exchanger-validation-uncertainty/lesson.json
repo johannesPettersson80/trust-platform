@@ -11,6 +11,7 @@
   "prerequisites": ["control-poor-excitation"],
   "nextLesson": "control-manual-historical-tuning",
   "signals": [
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX64.0" },
     { "role": "state", "name": "Local requested valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML0" },
     { "role": "state", "name": "Load requested valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML8" },
     { "role": "state", "name": "High-flow requested valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML16" },
@@ -56,7 +57,17 @@
     "settings": { "validationStepPercentagePoints": 5, "loadEventSeconds": 90, "finalTimeSeconds": 160, "confidenceLevelPercent": 95 },
     "decision": "Issue separate accepted, restricted, and rejected purpose-and-region verdicts without refitting or averaging incompatible windows."
   },
-  "experiment": { "kind": "mv_step", "signal": "Local applied valve position", "baseline": 20, "amplitude": 5, "durationSeconds": 160, "settlingSeconds": 10, "disturbances": ["A minus-2-degC cold-flow equilibrium shift at 90 s on one copy", "A separate high-flow copy with 0.25 degC/% gain"], "seed": 20260829, "restorationValue": 20 },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 160.1,
+    "settlingSeconds": 10,
+    "disturbances": ["A minus-2-degC cold-flow equilibrium shift at 90 s on one copy", "A separate high-flow copy with 0.25 degC/% gain"],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
   "acceptance": [
     { "metric": "local_validation_rmse", "signal": "Frozen-model prediction residual", "window": "20 to 80 s on local holdout", "comparator": "<=", "limit": 0.2, "unit": "degC", "tolerance": 0.005, "evidenceClass": "model" },
     { "metric": "local_absolute_residual_bias", "signal": "Frozen-model prediction residual", "window": "20 to 80 s on local holdout", "comparator": "<=", "limit": 0.05, "unit": "degC", "tolerance": 0.005, "evidenceClass": "model" },
@@ -80,7 +91,7 @@
     "physicalApprovalRole": "authorised process controls engineer and heat-exchanger operator",
     "simulationOnlyRestrictions": ["Simulation validation cannot be presented as physical-plant evidence", "Physical validation requires independently reviewed topology, process hazards, conditions, roles, and immediate approval"]
   },
-  "workflowStages": ["Monitor", "Test", "Identify", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-41--independent-validation-and-uncertainty-heat-exchanger",
     "nativeTest": "control_curriculum_heat_exchanger_validation_classifies_scope_and_uncertainty",
@@ -89,7 +100,15 @@
     "runArtifactFields": ["estimationRunId", "validationRunIds", "frozenModel", "parameterIntervals", "confidenceLevel", "rawSamples", "appliedInputs", "predictions", "predictionEnvelope", "residuals", "rmse", "bias", "lagOneCorrelation", "coverage", "verdict", "purpose", "validityRegion", "failedCriteria", "seed", "evidenceClass"],
     "renderedJourneyId": "control-independent-model-validation"
   },
-  "video": { "viewerOutcome": "Accept, restrict, or reject a frozen model from independent evidence and carry its supported scope into design.", "requiredVisibleEvidence": ["frozen model and intervals", "different estimation and validation IDs", "three holdout conditions", "common applied step", "cold-flow event", "measured and predicted traces", "uncertainty envelope", "residual diagnostics", "accepted restricted and rejected verdicts", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Accept, restrict, or reject a frozen model from independent evidence and carry its supported scope into design.",
+    "requiredVisibleEvidence": ["frozen model and intervals", "different estimation and validation IDs", "three holdout conditions", "common applied step", "cold-flow event", "measured and predicted traces", "uncertainty envelope", "residual diagnostics", "accepted restricted and rejected verdicts", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "Three independent plate-heat-exchanger records test a frozen local FOPDT model under local, omitted-load, and high-flow conditions.",
     "reason": "Qualified estimation data and low fit error do not prove prediction on unseen amplitudes, disturbances, or operating points.",

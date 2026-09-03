@@ -49,23 +49,7 @@
     "sampleTimeSeconds": 0.1,
     "initialState": { "heaterTemperatureDegC": 20, "tankLevelPercent": 50, "dryerDrynessPercent": 40 },
     "seed": 20260829,
-    "operatingPoint": {
-      "Experiment enable": 0,
-      "Tank AMIGO eligible": 0,
-      "Heater temperature setpoint": 20,
-      "Tank level setpoint": 50,
-      "Dryer dryness setpoint": 40,
-      "Heater SIMC applied power": 20,
-      "Heater AMIGO applied power": 20,
-      "Tank SIMC applied inlet valve": 50,
-      "Dryer SIMC applied heater command": 30,
-      "Dryer AMIGO applied heater command": 30,
-      "Heater SIMC temperature": 20,
-      "Heater AMIGO temperature": 20,
-      "Tank SIMC level": 50,
-      "Dryer SIMC dryness": 40,
-      "Dryer AMIGO dryness": 40
-    },
+    "operatingPoint": { "Experiment authority": 0, "Tank AMIGO eligible": 0, "Heater temperature setpoint": 20, "Tank level setpoint": 50, "Dryer dryness setpoint": 40, "Heater SIMC applied power": 20, "Heater AMIGO applied power": 20, "Tank SIMC applied inlet valve": 50, "Dryer SIMC applied heater command": 30, "Dryer AMIGO applied heater command": 30, "Heater SIMC temperature": 20, "Heater AMIGO temperature": 20, "Tank SIMC level": 50, "Dryer SIMC dryness": 40, "Dryer AMIGO dryness": 40 },
     "validityRange": [
       { "signal": "Heater SIMC temperature", "minimum": 0, "maximum": 60, "unit": "degC" },
       { "signal": "Heater AMIGO temperature", "minimum": 0, "maximum": 60, "unit": "degC" },
@@ -78,13 +62,7 @@
       { "signal": "Dryer SIMC applied heater command", "minimum": 0, "maximum": 100, "unit": "%" },
       { "signal": "Dryer AMIGO applied heater command", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "Independent plant copies isolate the tuning-method change",
-      "Locally linear accepted models within the declared operating regions",
-      "Equal deterministic sinusoidal sensor interference on equivalent copies",
-      "The tank valve lag is represented by the effective delay qualified in Lesson 44",
-      "Simulation-only I/O"
-    ]
+    "simplifications": ["Independent plant copies isolate the tuning-method change", "Locally linear accepted models within the declared operating regions", "Equal deterministic sinusoidal sensor interference on equivalent copies", "The tank valve lag is represented by the effective delay qualified in Lesson 44", "Simulation-only I/O"]
   },
   "baseline": {
     "executableId": "ControlStudio.BalancedSIMCCandidates",
@@ -93,7 +71,12 @@
   },
   "change": {
     "executableId": "ControlStudio.QualifiedSIMCAndAMIGOComparison",
-    "settings": { "methods": ["SIMC", "AMIGO"], "commonValidationPlan": true, "paretoFrontier": true, "hiddenScore": false },
+    "settings": {
+      "methods": ["SIMC", "AMIGO"],
+      "commonValidationPlan": true,
+      "paretoFrontier": true,
+      "hiddenScore": false
+    },
     "decision": "Retain eligibility, unavailability reasons, raw measures, failed requirements, and Pareto trade-offs without inventing a universal winner.",
     "applied": false
   },
@@ -113,18 +96,12 @@
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Heater temperature setpoint",
+    "signal": "Experiment authority",
     "baseline": 20,
     "amplitude": 0,
     "durationSeconds": 220.1,
     "settlingSeconds": 10,
-    "disturbances": [
-      "A minus-1-degC heater equilibrium shift at 100 s",
-      "A plus-1-percent tank outlet-flow-equivalent shift at 100 s",
-      "A minus-2-percent dryer equilibrium shift at 100 s",
-      "Equal deterministic 0.02-unit sinusoidal sensor interference",
-      "Separate bounded plant-gain and delay validation cases in Control Studio"
-    ],
+    "disturbances": ["A minus-1-degC heater equilibrium shift at 100 s", "A plus-1-percent tank outlet-flow-equivalent shift at 100 s", "A minus-2-percent dryer equilibrium shift at 100 s", "Equal deterministic 0.02-unit sinusoidal sensor interference", "Separate bounded plant-gain and delay validation cases in Control Studio"],
     "seed": 20260829,
     "restorationValue": 20,
     "activationSignal": "P1.ExperimentEnabled"
@@ -150,19 +127,11 @@
       { "signal": "Dryer AMIGO applied heater command", "minimum": 0, "maximum": 100, "unit": "%" },
       { "signal": "Tank SIMC level", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "abortPredicates": [
-      "Any required signal is missing, stale, forced, nonfinite, or has bad quality",
-      "Any process value or applied output leaves its declared hard limit",
-      "Any plant, model revision, controller convention, initial state, sample interval, event, seed, limit, metric window, or uncertainty case differs between compared methods",
-      "A physical-plant target or Apply action is selected"
-    ],
+    "abortPredicates": ["Any required signal is missing, stale, forced, nonfinite, or has bad quality", "Any process value or applied output leaves its declared hard limit", "Any plant, model revision, controller convention, initial state, sample interval, event, seed, limit, metric window, or uncertainty case differs between compared methods", "A physical-plant target or Apply action is selected"],
     "safeMv": 0,
     "restorationMode": "Disable the experiment and restart every simulated copy at its declared operating point before another candidate or variation.",
     "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
-    "simulationOnlyRestrictions": [
-      "This lesson cannot authorise physical excitation or gain application",
-      "Physical use requires independent topology, model, hazard, operating-window, interlock, personnel, abort, rollback, and immediate approval review"
-    ]
+    "simulationOnlyRestrictions": ["This lesson cannot authorise physical excitation or gain application", "Physical use requires independent topology, model, hazard, operating-window, interlock, personnel, abort, rollback, and immediate approval review"]
   },
   "workflowStages": ["Monitor", "Test"],
   "proof": {
@@ -185,16 +154,9 @@
   "learning": {
     "context": "Equivalent simulated water-heater and dryer copies compare Balanced SIMC and AMIGO PI; the integrating tank executes only its eligible SIMC candidate.",
     "reason": "A response target inside one tuning method does not resolve conflicting gains returned by another qualified method for the same accepted model.",
-    "theory": [
-      "Method-domain eligibility determines whether a candidate may be created.",
-      "IAE, ISE, ITAE, transient, actuator, margin, and sensitivity measures expose different engineering costs.",
-      "Mandatory feasibility precedes Pareto preference, and an unavailable method is not ranked as a failed controller."
-    ],
+    "theory": ["Method-domain eligibility determines whether a candidate may be created.", "IAE, ISE, ITAE, transient, actuator, margin, and sensitivity measures expose different engineering costs.", "Mandatory feasibility precedes Pareto preference, and an unavailable method is not ranked as a failed controller."],
     "workedPrediction": "Calculate both heater and dryer candidate gains, calculate the tank SIMC gains, predict the tank AMIGO unavailable result, and predict the direction of each error-versus-actuator trade-off before running.",
-    "practicalPreparation": [
-      "Verify Simulation evidence, plant and model revisions, classes, units, quality, operating points, timing, limits, seed, events, methods, formulas, and unapplied state.",
-      "Declare common scenarios, raw metric equations, windows, validity rules, mandatory requirements, Pareto preference measures, and abort criteria before validation."
-    ],
+    "practicalPreparation": ["Verify Simulation evidence, plant and model revisions, classes, units, quality, operating points, timing, limits, seed, events, methods, formulas, and unapplied state.", "Declare common scenarios, raw metric equations, windows, validity rules, mandatory requirements, Pareto preference measures, and abort criteria before validation."],
     "baseline": "Balanced SIMC supplies three qualified PI candidates but does not establish whether another eligible method offers a useful trade-off.",
     "change": "Add AMIGO only where its model domain is satisfied and compare every real candidate with the unchanged validation plan.",
     "comparison": "Change only method-derived Kp and Ki while retaining every plant, controller, timing, limit, event, noise, uncertainty, and calculation condition.",

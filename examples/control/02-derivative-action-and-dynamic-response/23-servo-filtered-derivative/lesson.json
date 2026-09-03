@@ -15,8 +15,8 @@
     { "role": "PV", "name": "Raw encoder position", "unit": "rad", "minimum": -4, "maximum": 4, "resolution": 0.001, "binding": "%IL0" },
     { "role": "MV", "name": "Applied motor torque", "unit": "N m", "minimum": -10, "maximum": 10, "resolution": 0.01, "binding": "%QL0" },
     { "role": "state", "name": "Controller-facing position", "unit": "rad", "minimum": -4, "maximum": 4, "resolution": 0.001, "binding": "%ML0" },
-    { "role": "state", "name": "Measured table velocity", "unit": "rad/s", "minimum": -20, "maximum": 20, "resolution": 0.001, "binding": "%IL8" }
-    ,{ "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.1" }
+    { "role": "state", "name": "Measured table velocity", "unit": "rad/s", "minimum": -20, "maximum": 20, "resolution": 0.001, "binding": "%IL8" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.1" }
   ],
   "plant": {
     "modelId": "robot_joint",
@@ -35,11 +35,7 @@
       { "signal": "Raw encoder position", "minimum": -4, "maximum": 4, "unit": "rad" },
       { "signal": "Applied motor torque", "minimum": -10, "maximum": 10, "unit": "N m" }
     ],
-    "simplifications": [
-      "Seeded additive white encoder noise has constant 0.002 rad standard deviation.",
-      "Gravity torque is 4*sin(theta) N m; 4 N m is its peak coefficient, not a constant load.",
-      "The rigid table omits flexible resonance; later frequency-domain lessons test resonance explicitly."
-    ]
+    "simplifications": ["Seeded additive white encoder noise has constant 0.002 rad standard deviation.", "Gravity torque is 4*sin(theta) N m; 4 N m is its peak coefficient, not a constant load.", "The rigid table omits flexible resonance; later frequency-domain lessons test resonance explicitly."]
   },
   "baseline": {
     "executableId": "Control.PID.RawMeasurement",
@@ -48,7 +44,15 @@
   },
   "change": {
     "executableId": "Control.LowPass.ThenPID",
-    "settings": { "candidateFilterSelections": [1, 2], "firstOrderTimeConstantCandidatesSeconds": [0.02, 0.05, 0.10], "orderComparisonTimeConstantSeconds": 0.05, "proportionalGain": 8, "integralGain": 2, "derivativeGain": 3, "setpointRad": 0.5 },
+    "settings": {
+      "candidateFilterSelections": [1, 2],
+      "firstOrderTimeConstantCandidatesSeconds": [0.02, 0.05, 0.1],
+      "orderComparisonTimeConstantSeconds": 0.05,
+      "proportionalGain": 8,
+      "integralGain": 2,
+      "derivativeGain": 3,
+      "setpointRad": 0.5
+    },
     "decision": "Require torque-increment RMS at or below 0.250 N m and positive lag area at or below 0.020 rad s; among qualifying candidates choose the simplest filter and then the smallest time constant."
   },
   "experiment": {
@@ -64,10 +68,10 @@
   },
   "acceptance": [
     { "metric": "selected_filter_torque_increment_rms", "signal": "Applied motor torque", "window": "15 to 20 s", "comparator": "<=", "limit": 0.25, "unit": "N m", "tolerance": 0.001, "evidenceClass": "simulation" },
-    { "metric": "selected_filter_positive_position_lag_area", "signal": "Controller-facing position", "window": "0 to 5 s", "comparator": "<=", "limit": 0.02, "unit": "rad*s", "tolerance": 0.000001, "evidenceClass": "simulation" },
+    { "metric": "selected_filter_positive_position_lag_area", "signal": "Controller-facing position", "window": "0 to 5 s", "comparator": "<=", "limit": 0.02, "unit": "rad*s", "tolerance": 1e-06, "evidenceClass": "simulation" },
     { "metric": "first_to_bypass_torque_increment_rms_ratio", "signal": "Applied motor torque", "window": "15 to 20 s", "comparator": "<=", "limit": 0.8, "unit": "1", "tolerance": 0.01, "evidenceClass": "simulation" },
     { "metric": "second_to_first_torque_increment_rms_ratio", "signal": "Applied motor torque", "window": "15 to 20 s", "comparator": "<=", "limit": 0.8, "unit": "1", "tolerance": 0.01, "evidenceClass": "simulation" },
-    { "metric": "positive_position_lag_area_ordering", "signal": "Controller-facing position", "window": "0 to 5 s", "comparator": ">", "limit": 0, "unit": "rad*s", "tolerance": 0.000001, "evidenceClass": "simulation" },
+    { "metric": "positive_position_lag_area_ordering", "signal": "Controller-facing position", "window": "0 to 5 s", "comparator": ">", "limit": 0, "unit": "rad*s", "tolerance": 1e-06, "evidenceClass": "simulation" },
     { "metric": "final_controller_position_error", "signal": "Controller-facing position", "window": "18 to 20 s mean", "comparator": "<=", "limit": 0.02, "unit": "rad", "tolerance": 0.001, "evidenceClass": "simulation" },
     { "metric": "applied_torque_absolute_maximum", "signal": "Applied motor torque", "window": "complete 20 s run", "comparator": "<=", "limit": 10, "unit": "N m", "tolerance": 0.01, "evidenceClass": "simulation" }
   ],
@@ -103,13 +107,7 @@
   "learning": {
     "context": "The loaded positioning table now reports a seeded noisy encoder signal while PID retains derivative on measurement.",
     "reason": "Lesson 22 removed setpoint kick, but derivative action still reacts to every measured encoder change, including noise that is not physical motion.",
-    "theory": [
-      "Measurement noise is unwanted variation added to the encoder reading. Its standard deviation sigma is 0.002 rad in this deterministic experiment.",
-      "A finite-difference derivative divides each measurement change by cycle time dt, so shorter dt and high-frequency noise can create large torque changes through Kd.",
-      "A low-pass filter creates controller-facing position y_f that follows slow position changes while attenuating fast changes. Its time constant tau controls cutoff: larger tau removes more fast motion but delays the measurement more. Filter order states how many identical stages are cascaded.",
-      "The update coefficient a equals dt divided by tau plus one half dt. Each stage adds a times the difference between its input and previous output; the second-order candidate applies the same stage twice.",
-      "Torque-increment RMS is the square root of the mean squared successive applied-torque changes from 15 to 20 s. Positive position-lag area sums positive raw-position minus controller-position differences times dt from 0 to 5 s. Filtering should reduce the first measure while increasing the second."
-    ],
+    "theory": ["Measurement noise is unwanted variation added to the encoder reading. Its standard deviation sigma is 0.002 rad in this deterministic experiment.", "A finite-difference derivative divides each measurement change by cycle time dt, so shorter dt and high-frequency noise can create large torque changes through Kd.", "A low-pass filter creates controller-facing position y_f that follows slow position changes while attenuating fast changes. Its time constant tau controls cutoff: larger tau removes more fast motion but delays the measurement more. Filter order states how many identical stages are cascaded.", "The update coefficient a equals dt divided by tau plus one half dt. Each stage adds a times the difference between its input and previous output; the second-order candidate applies the same stage twice.", "Torque-increment RMS is the square root of the mean squared successive applied-torque changes from 15 to 20 s. Positive position-lag area sums positive raw-position minus controller-position differences times dt from 0 to 5 s. Filtering should reduce the first measure while increasing the second."],
     "workedPrediction": "With dt 0.02 s and tau 0.05 s, coefficient a is 0.333. A 0.003 rad raw-minus-filtered difference moves a first-order output by 0.001 rad in one scan; a second stage smooths it again but adds lag.",
     "practicalPreparation": ["Confirm identical 0.5 rad step, 20 ms cycle, 0.002 rad seeded noise, angle-dependent 4*sin(theta) N m gravity, torque limits, initial state and seed for every run."],
     "baseline": "Bypass filtering, retain raw and controller-facing PV plus applied torque, and calculate late torque-increment RMS and early positive lag area.",

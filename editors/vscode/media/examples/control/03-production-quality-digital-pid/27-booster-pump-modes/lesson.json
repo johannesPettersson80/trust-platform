@@ -18,7 +18,8 @@
     { "role": "state", "name": "Actual valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML8" },
     { "role": "state", "name": "Applied valve command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "simulation.booster-pump-pressure.applied_input[0]" },
     { "role": "state", "name": "Requested mode", "unit": "1", "minimum": -1, "maximum": 4, "resolution": 1, "binding": "%MW42" },
-    { "role": "quality", "name": "Filter settled", "unit": "1", "minimum": -1, "maximum": 2, "resolution": 1, "binding": "%MX41.1" }
+    { "role": "quality", "name": "Filter settled", "unit": "1", "minimum": -1, "maximum": 2, "resolution": 1, "binding": "%MX41.1" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX40.3" }
   ],
   "plant": {
     "modelId": "first_order",
@@ -40,11 +41,7 @@
       { "signal": "Actual valve position", "minimum": 0, "maximum": 100, "unit": "%" },
       { "signal": "Applied valve command", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "The first-order pressure model represents one bounded operating region and does not model pump curves, check valves, cavitation, or network demand transients.",
-      "Actual valve-position feedback is supplied independently of the controller output so startup state cannot be inferred from a stale command.",
-      "The zero-state and settle-interlock-bypass case is simulation-only diagnostic evidence and shall not be used on a physical pump."
-    ]
+    "simplifications": ["The first-order pressure model represents one bounded operating region and does not model pump curves, check valves, cavitation, or network demand transients.", "Actual valve-position feedback is supplied independently of the controller output so startup state cannot be inferred from a stale command.", "The zero-state and settle-interlock-bypass case is simulation-only diagnostic evidence and shall not be used on a physical pump."]
   },
   "baseline": {
     "executableId": "BoosterPump.ZeroStateInitialization",
@@ -53,23 +50,29 @@
   },
   "change": {
     "executableId": "BoosterPump.MeasuredStateInitialization",
-    "settings": { "useMeasuredInitialization": true, "requireSettledFilter": true, "filterToleranceBar": 0.01, "consecutiveSettledUpdates": 3, "actualValvePercents": [20, 40, 70] },
+    "settings": {
+      "useMeasuredInitialization": true,
+      "requireSettledFilter": true,
+      "filterToleranceBar": 0.01,
+      "consecutiveSettledUpdates": 3,
+      "actualValvePercents": [20, 40, 70]
+    },
     "decision": "Copy current pressure, setpoint, and actual valve position into filter and controller histories atomically, retain Manual authority until the filter is qualified, then permit Auto."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Actual valve position",
-    "baseline": 40,
+    "signal": "Experiment authority",
+    "baseline": 0,
     "amplitude": 0,
-    "durationSeconds": 10,
+    "durationSeconds": 10.1,
     "settlingSeconds": 0.3,
     "disturbances": ["Repeat at 20, 40, and 70 percent equilibrium valve positions"],
     "seed": 20260829,
-    "restorationValue": 30
+    "restorationValue": 0
   },
   "acceptance": [
-    { "metric": "measured_initialization_first_update_valve_mismatch", "signal": "Requested valve command", "window": "first permitted automatic update at each 20, 40, and 70 percent equilibrium", "comparator": "<=", "limit": 0.000000001, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "measured_initialization_filter_error", "signal": "Filtered discharge pressure", "window": "immediately after initialization", "comparator": "<=", "limit": 0.000000001, "unit": "bar", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "measured_initialization_first_update_valve_mismatch", "signal": "Requested valve command", "window": "first permitted automatic update at each 20, 40, and 70 percent equilibrium", "comparator": "<=", "limit": 1e-09, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "measured_initialization_filter_error", "signal": "Filtered discharge pressure", "window": "immediately after initialization", "comparator": "<=", "limit": 1e-09, "unit": "bar", "tolerance": 1e-09, "evidenceClass": "simulation" },
     { "metric": "zero_state_first_update_valve_mismatch", "signal": "Requested valve command", "window": "first automatic update with deliberate settle-interlock bypass", "comparator": ">=", "limit": 10, "unit": "%", "tolerance": 0.001, "evidenceClass": "simulation" },
     { "metric": "equilibrium_pressure_drift", "signal": "Raw discharge pressure", "window": "10 s measured-state run at 40 percent", "comparator": "<=", "limit": 0.05, "unit": "bar", "tolerance": 0.005, "evidenceClass": "simulation" }
   ],
@@ -86,7 +89,7 @@
     "physicalApprovalRole": "authorised pump-station control engineer",
     "simulationOnlyRestrictions": ["Do not bypass the filter-settle interlock or exercise startup transitions on a physical pump without reviewed topology, independent valve feedback, protection, and explicit approval."]
   },
-  "workflowStages": ["Monitor", "Test", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-27--initialization-and-operating-modes-booster-pump",
     "nativeTest": "control_curriculum_booster_pump_initializes_from_actual_state_before_auto",
@@ -107,12 +110,7 @@
   "learning": {
     "context": "A booster pump is already operating when the controller starts. Pressure and valve position therefore have physical values before any PID update is allowed.",
     "reason": "Lesson 26 showed that output and previous signals are controller state. Arbitrary startup state can command a valve movement unrelated to the running station.",
-    "theory": [
-      "Raw pressure is the sensor value; filtered pressure is the value used by the controller. Actual valve feedback, requested command, and applied command are separate signals and may differ.",
-      "Initialization copies present SP, PV, nominal output, applied output, and filter input into retained histories. It performs no feedback, integration, differentiation, limiting, or actuator command calculation.",
-      "Control.PID supports Manual, Auto, and Track. Disabled is station supervision outside PIDMode: it does not call the controller and applies the declared safe command.",
-      "Auto remains blocked under Manual authority until initialization is complete and filtered pressure stays within 0.01 bar of raw pressure for three consecutive updates."
-    ],
+    "theory": ["Raw pressure is the sensor value; filtered pressure is the value used by the controller. Actual valve feedback, requested command, and applied command are separate signals and may differ.", "Initialization copies present SP, PV, nominal output, applied output, and filter input into retained histories. It performs no feedback, integration, differentiation, limiting, or actuator command calculation.", "Control.PID supports Manual, Auto, and Track. Disabled is station supervision outside PIDMode: it does not call the controller and applies the declared safe command.", "Auto remains blocked under Manual authority until initialization is complete and filtered pressure stays within 0.01 bar of raw pressure for three consecutive updates."],
     "workedPrediction": "The plant equilibrium is pressure = 2 bar + 0.1 bar/% times valve position. Valve positions 20, 40, and 70 percent therefore correspond to 4, 6, and 9 bar. With SP equal to PV and controller output initialized from actual valve feedback, the first Auto request equals the existing valve position.",
     "practicalPreparation": ["Verify raw and filtered pressure, independent actual valve feedback, requested and applied commands, requested and active authority, controller-ready, filter-settled, startup-blocked, limits, and simulation label.", "Start Disabled at the 30 percent safe command; use the 100 ms task and never bypass the settle interlock outside the declared simulation baseline."],
     "baseline": "At 6 bar and 40 percent valve position, initialize filter and controller histories to zero and bypass the settle interlock in simulation. Record the first 10 percent command and 0.198 bar filtered value.",

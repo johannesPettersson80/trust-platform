@@ -1,6 +1,12 @@
 PROGRAM Main
 VAR
     AutoMode : BOOL := TRUE;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentScan : DINT := DINT#0;
+    ExperimentElapsed : LREAL := 0.0;
     TemperatureQualityGood : BOOL := TRUE;
     StarterReady : BOOL := TRUE;
     Setpoint : LREAL := 2.0;
@@ -38,6 +44,37 @@ IF NOT Initialized THEN
     PreviousRunning := RunningNow;
     DwellElapsed := LREAL#0.0;
     Initialized := TRUE;
+END_IF;
+
+(* One reviewed Boolean starts the complete selected-candidate record. The
+   project owns the interlock, quality, manual, and restoration sequence. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    IF NOT ExperimentWasEnabled THEN
+        ExperimentScan := DINT#0;
+        ExperimentElapsed := LREAL#0.0;
+    END_IF;
+    ExperimentScan := ExperimentScan + DINT#1;
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    AutoMode := TRUE;
+    TemperatureQualityGood := TRUE;
+    StarterReady := TRUE;
+    IF (ExperimentScan >= DINT#1001) AND (ExperimentScan <= DINT#1050) THEN
+        StarterReady := FALSE;
+    END_IF;
+    IF (ExperimentScan >= DINT#1101) AND (ExperimentScan <= DINT#1120) THEN
+        TemperatureQualityGood := FALSE;
+    ELSIF (ExperimentScan >= DINT#1121) AND (ExperimentScan <= DINT#1130) THEN
+        AutoMode := FALSE;
+    END_IF;
+    IF (ExperimentScan >= DINT#1201) AND (ExperimentScan <= DINT#1230) THEN
+        AutoMode := FALSE;
+    END_IF;
+ELSIF ExperimentWasEnabled THEN
+    ExperimentScan := DINT#0;
+    ExperimentElapsed := LREAL#0.0;
+    AutoMode := FALSE;
+    TemperatureQualityGood := TRUE;
+    StarterReady := TRUE;
 END_IF;
 
 IF RunningNow <> PreviousRunning THEN
@@ -93,6 +130,7 @@ ELSE
         CompressorCommand := LREAL#0.0;
     END_IF;
 END_IF;
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -107,12 +145,16 @@ VAR_CONFIG
     P1.CoolingRequested AT %MX16.3 : BOOL;
     P1.DwellInhibit AT %MX16.4 : BOOL;
     P1.QualityFaultLatched AT %MX16.5 : BOOL;
+    P1.ExperimentEnabled AT %MX16.6 : BOOL;
+    P1.SafetyAbort AT %MX16.7 : BOOL;
+    P1.InputsValid AT %MX17.0 : BOOL;
     P1.Setpoint AT %ML0 : LREAL;
     P1.HysteresisWidth AT %ML8 : LREAL;
-    P1.MinimumOnTime AT %ML16 : LREAL;
+    P1.MinimumOnTime AT %ML64 : LREAL;
     P1.MinimumOffTime AT %ML24 : LREAL;
     P1.MeasuredCycleTime AT %ML32 : LREAL;
     P1.DwellElapsed AT %ML40 : LREAL;
+    P1.ExperimentElapsed AT %ML56 : LREAL;
     P1.SwitchCount AT %MD48 : DINT;
     P1.CompressorCommand AT %QL0 : LREAL;
     P1.ProcessValue AT %IL0 : LREAL;

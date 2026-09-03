@@ -19,8 +19,9 @@
     { "role": "state", "name": "Integral gain", "unit": "%/(degC*s)", "minimum": 0, "maximum": 10, "resolution": 0.01, "binding": "%ML8" },
     { "role": "MV", "name": "Manual heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML16" },
     { "role": "state", "name": "Measured holding output", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML40" },
-    { "role": "state", "name": "Automatic mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.0" },
-    { "role": "disturbance", "name": "Cold-water flow load", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 1, "binding": "simulation.toml#plant_events[0]" }
+    { "role": "state", "name": "Automatic mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX48.0" },
+    { "role": "disturbance", "name": "Cold-water flow load", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 1, "binding": "simulation.toml#plant_events[0]" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX48.1" }
   ],
   "plant": {
     "modelId": "first_order_dead_time",
@@ -38,11 +39,7 @@
       { "signal": "Outlet-water temperature", "minimum": 0, "maximum": 80, "unit": "degC" },
       { "signal": "Applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "The recirculating volume is one well-mixed thermal state.",
-      "Applied heater power equals the bounded integral contribution because Kp, Kd, feedforward, and bias are zero.",
-      "The constant load event changes the zero-power equilibrium by 3 degC."
-    ]
+    "simplifications": ["The recirculating volume is one well-mixed thermal state.", "Applied heater power equals the bounded integral contribution because Kp, Kd, feedforward, and bias are zero.", "The constant load event changes the zero-power equilibrium by 3 degC."]
   },
   "baseline": {
     "executableId": "Control.PID.BiasedP",
@@ -55,11 +52,11 @@
     "decision": "Isolate integral action from the same measured holding output so offset removal and slower early-load correction are compared directly."
   },
   "experiment": {
-    "kind": "load_step",
-    "signal": "Cold-water flow load",
+    "kind": "observation",
+    "signal": "Experiment authority",
     "baseline": 0,
-    "amplitude": 100,
-    "durationSeconds": 120,
+    "amplitude": 0,
+    "durationSeconds": 120.1,
     "settlingSeconds": 50,
     "manualPreparationEndsSeconds": 50,
     "settlingWindow": "110.1-120.0 s",
@@ -82,8 +79,7 @@
     "safeMv": 0,
     "restorationMode": "Manual with 0% heater power",
     "physicalApprovalRole": "authorised controls engineer",
-    "simulationOnlyRestrictions": ["The integral-only experiment is simulation evidence and is not a recommended physical heater controller."
-    ]
+    "simulationOnlyRestrictions": ["The integral-only experiment is simulation evidence and is not a recommended physical heater controller."]
   },
   "workflowStages": ["Monitor", "Test"],
   "proof": {
@@ -106,17 +102,7 @@
   "learning": {
     "context": "The same recirculating water heater uses a one-sided 0-to-100-percent element to hold 35 degrees Celsius while cold-water flow changes.",
     "reason": "Lesson 5 retained 1.15 degrees Celsius changed-load error because fixed bias could not discover the changed holding output.",
-    "theory": [
-      "The setpoint (SP) is the desired outlet-water temperature and the process value (PV) is the measured outlet-water temperature; both use degrees Celsius.",
-      "The error (e) is the setpoint minus the process value in degrees Celsius.",
-      "The requested manipulated variable (MV_requested) is calculated before limits and the applied manipulated variable (MV_applied) is the bounded heater command.",
-      "The integral contribution (uI) changes and stores heater power for as long as an error persists.",
-      "The integral gain (Ki) is the percentage-point command change per degree Celsius-second of error.",
-      "The cycle time (dt) is the seconds between updates, and the integral contribution (uI) is the stored part of the heater command.",
-      "After those quantities are defined, the per-scan relationship is uI,new = uI,old + Ki multiplied by e multiplied by dt.",
-      "A constant error creates a ramp, while zero error leaves the stored command unchanged.",
-      "Integral action has no immediate proportional correction and adds dynamic lag, so integral-only control is slower and can oscillate."
-    ],
+    "theory": ["The setpoint (SP) is the desired outlet-water temperature and the process value (PV) is the measured outlet-water temperature; both use degrees Celsius.", "The error (e) is the setpoint minus the process value in degrees Celsius.", "The requested manipulated variable (MV_requested) is calculated before limits and the applied manipulated variable (MV_applied) is the bounded heater command.", "The integral contribution (uI) changes and stores heater power for as long as an error persists.", "The integral gain (Ki) is the percentage-point command change per degree Celsius-second of error.", "The cycle time (dt) is the seconds between updates, and the integral contribution (uI) is the stored part of the heater command.", "After those quantities are defined, the per-scan relationship is uI,new = uI,old + Ki multiplied by e multiplied by dt.", "A constant error creates a ramp, while zero error leaves the stored command unchanged.", "Integral action has no immediate proportional correction and adds dynamic lag, so integral-only control is slower and can oscillate."],
     "workedPrediction": "A 2 degree Celsius error with integral gain 0.5 percentage point per degree Celsius-second and cycle time 0.1 second adds 0.10 percentage point per scan and 1.0 percentage point over ten unchanged-error scans.",
     "practicalPreparation": ["Start disabled, command the measured 75 percent holding output in bounded Manual operation, and qualify the 35 degree Celsius operating point before Auto.", "Keep the plant, event at 60 seconds, 0.1-second interval, duration, limits and seed equal, then retain a zero-output Manual restoration for each case."],
     "baseline": "Run the Lesson 5 proportional-gain-8, measured-bias-75 controller from the qualified operating point.",

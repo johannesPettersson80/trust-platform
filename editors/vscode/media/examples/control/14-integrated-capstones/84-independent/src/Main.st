@@ -35,14 +35,67 @@ VAR
     ControllerRevision : DINT := DINT#84;
     Controller : CompressedAirController;
     StartupInitialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentScan : DINT := DINT#0;
+    ExperimentElapsedSeconds : LREAL := 0.0;
 END_VAR
 
 // Start the simulated plant in its reviewed automatic production state.
 IF NOT StartupInitialized THEN
-    Enabled := TRUE;
+    Enabled := FALSE;
     OperatingMode := DINT#1;
     PressureSetpoint := LREAL#7.0;
     StartupInitialized := TRUE;
+END_IF;
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentScan := ExperimentScan + DINT#1;
+    ExperimentElapsedSeconds := ExperimentElapsedSeconds + LREAL#1.0;
+    Enabled := TRUE;
+    OperatingMode := DINT#1;
+    PressureQualityGood := TRUE;
+    DemandQualityGood := TRUE;
+    DeliveryQualityGood := TRUE;
+    CompressorAvailable := TRUE;
+    PressureSetpoint := LREAL#7.0;
+    ManualFeedbackRequest := LREAL#0.0;
+    ManualIntegratedRequest := LREAL#0.0;
+    IF ExperimentScan <= DINT#60 THEN
+        MeasuredDemand := LREAL#50.0;
+    ELSIF ExperimentScan <= DINT#180 THEN
+        MeasuredDemand := LREAL#65.0;
+    ELSE
+        MeasuredDemand := LREAL#55.0;
+    END_IF;
+    IF ExperimentScan > DINT#240 AND ExperimentScan <= DINT#250 THEN
+        DemandQualityGood := FALSE;
+    ELSIF ExperimentScan > DINT#250 AND ExperimentScan <= DINT#260 THEN
+        PressureQualityGood := FALSE;
+    ELSIF ExperimentScan > DINT#260 AND ExperimentScan <= DINT#270 THEN
+        DeliveryQualityGood := FALSE;
+    ELSIF ExperimentScan > DINT#270 AND ExperimentScan <= DINT#280 THEN
+        CompressorAvailable := FALSE;
+    ELSIF ExperimentScan > DINT#280 AND ExperimentScan <= DINT#290 THEN
+        OperatingMode := DINT#2;
+        ManualFeedbackRequest := LREAL#50.0;
+        ManualIntegratedRequest := LREAL#50.0;
+    ELSIF ExperimentScan > DINT#290 THEN
+        OperatingMode := DINT#3;
+    END_IF;
+ELSE
+    Enabled := FALSE;
+    OperatingMode := DINT#0;
+    PressureQualityGood := TRUE;
+    DemandQualityGood := TRUE;
+    DeliveryQualityGood := TRUE;
+    CompressorAvailable := TRUE;
+    PressureSetpoint := LREAL#7.0;
+    MeasuredDemand := LREAL#50.0;
+    ManualFeedbackRequest := LREAL#0.0;
+    ManualIntegratedRequest := LREAL#0.0;
+    ExperimentScan := DINT#0;
+    ExperimentElapsedSeconds := LREAL#0.0;
 END_IF;
 
 Controller(
@@ -97,6 +150,9 @@ VAR_CONFIG
     P1.FaultActive AT %MX8.7 : BOOL;
     P1.Initialized AT %MX9.0 : BOOL;
     P1.TimingValid AT %MX9.1 : BOOL;
+    P1.ExperimentEnabled AT %MX9.2 : BOOL;
+    P1.SafetyAbort AT %MX9.3 : BOOL;
+    P1.InputsValid AT %MX9.4 : BOOL;
     P1.PressureSetpoint AT %ML16 : LREAL;
     P1.MeasuredDemand AT %ML24 : LREAL;
     P1.ManualFeedbackRequest AT %ML32 : LREAL;
@@ -109,6 +165,7 @@ VAR_CONFIG
     P1.PreviousIntegratedApplied AT %ML88 : LREAL;
     P1.ControllerRevision AT %MD96 : DINT;
     P1.CycleTime AT %ML104 : LREAL;
+    P1.ExperimentElapsedSeconds AT %ML112 : LREAL;
     P1.FeedbackApplied AT %QL0 : LREAL;
     P1.FeedbackPlantDemand AT %QL8 : LREAL;
     P1.IntegratedApplied AT %QL16 : LREAL;

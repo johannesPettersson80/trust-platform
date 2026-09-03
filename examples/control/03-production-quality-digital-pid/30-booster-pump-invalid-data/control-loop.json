@@ -42,7 +42,7 @@
       "symbol": "P1.ValveCommand",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -51,15 +51,18 @@
     },
     "additional": [
       {
-        "id": "experiment-authority-enabled",
-        "channel": "experiment-authority-enabled",
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
         "address": "%MX64.7",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "1",
-        "range": { "minimum": 0, "maximum": 1 }
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       },
       {
         "id": "sensor-age",
@@ -135,8 +138,8 @@
     "activation": {
       "symbol": "P1.ExperimentEnabled",
       "address": "%MX64.7",
-      "activeValue": true,
-      "restorationValue": false
+      "iecType": "BOOL",
+      "direction": "write"
     },
     "seed": 20260829
   }

@@ -51,14 +51,19 @@
   },
   "change": {
     "executableId": "Control.PID.AntiWindupStrategyComparison",
-    "settings": { "strategies": ["1 signal clamping Tt=dt", "2 BackCalculation Tt=3.25 s", "3 Combined Tt=3.25 s"], "proportionalGain": 2.83, "integralGain": 0.8707692307692307, "derivativeGain": 0 },
+    "settings": {
+      "strategies": ["1 signal clamping Tt=dt", "2 BackCalculation Tt=3.25 s", "3 Combined Tt=3.25 s"],
+      "proportionalGain": 2.83,
+      "integralGain": 0.8707692307692307,
+      "derivativeGain": 0
+    },
     "decision": "Give the unchanged shipped PI controller the real valve limits and compare its BackCalculation and Combined equations, using Tt=dt to realise signal clamping."
   },
   "experiment": {
-    "kind": "setpoint_step",
-    "signal": "Batch-temperature deviation setpoint",
+    "kind": "observation",
+    "signal": "Experiment authority",
     "baseline": 0,
-    "amplitude": 4.5,
+    "amplitude": 0,
     "durationSeconds": 50.1,
     "settlingSeconds": 20,
     "disturbances": ["Feed-temperature deviation remains fixed so strategy is the only changed cause"],
@@ -73,7 +78,11 @@
     { "metric": "protected_recovery_undershoot", "signal": "Measured batch-temperature deviation", "window": "each protected run after 20 s restoration", "comparator": "<=", "limit": 0.05, "unit": "degC", "tolerance": 0.001, "evidenceClass": "simulation" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Measured batch-temperature deviation", "minimum": -5, "maximum": 5, "unit": "degC" }, { "signal": "Applied steam-valve trim", "minimum": -3.5, "maximum": 3.5, "unit": "%" }, { "signal": "Controller requested output", "minimum": -100, "maximum": 100, "unit": "%" }],
+    "hardLimits": [
+      { "signal": "Measured batch-temperature deviation", "minimum": -5, "maximum": 5, "unit": "degC" },
+      { "signal": "Applied steam-valve trim", "minimum": -3.5, "maximum": 3.5, "unit": "%" },
+      { "signal": "Controller requested output", "minimum": -100, "maximum": 100, "unit": "%" }
+    ],
     "abortPredicates": ["PV, applied MV or requested output is nonfinite", "Applied valve trim leaves -3.5 to 3.5 percent", "Strategy lies outside 0 through 3", "Plant, gains, limits, initial state or events differ between runs"],
     "safeMv": 0,
     "restorationMode": "Restore zero-deviation SP, allow bounded recovery, then select Manual at 0 percent valve trim",

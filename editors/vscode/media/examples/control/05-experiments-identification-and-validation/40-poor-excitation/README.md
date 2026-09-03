@@ -1,14 +1,14 @@
 # Decide whether heat-exchanger data can identify a model
 
-Course position: Lesson 40 of 84. Prerequisite: `control-dryer-model-selection`. Next lesson: `control-independent-model-validation`.
+Course position: Lesson 40 of 84. Previous lesson:
+[dryer model selection](../39-dryer-model-selection/README.md). Next lesson:
+[independent model validation](../41-heat-exchanger-validation-uncertainty/README.md).
 
 This produces **Simulation evidence**, not physical-plant approval.
 
 **Lesson objective:** Compare weak open-loop, qualified open-loop, and ordinary feedback records and retain a deterministic qualification decision for each.
 
 ## The problem
-
-The equipment in this lesson is Plate heat exchanger with three independent simulated experiment copies.
 
 A plate heat exchanger transfers energy from hot water into a product stream. The hot-water valve is the actuator. Its requested and applied positions are measured in percent. The outlet-temperature sensor is the process measurement in degrees Celsius.
 
@@ -23,7 +23,8 @@ dependent input; numbers alone do not prove sufficient information.
 
 ## What we need
 
-We need a qualification rule that can distinguish a merely long recording from one whose input actually reveals the heat exchanger's response. Weak open-loop, bounded open-loop, and ordinary feedback records must be judged by the same information and safety criteria.
+We need to decide whether the recorded input changed enough, for long enough,
+to support a model before fitting or interpreting parameters.
 
 ## The new idea
 
@@ -33,7 +34,9 @@ We need a qualification rule that can distinguish a merely long recording from o
 
 **Input span** is the maximum applied input minus the minimum applied input, measured here in percentage points. **Expected response amplitude ($A_{\mathrm{response}}$)** is the predicted repeatable temperature change in degrees Celsius. **Measurement-noise amplitude ($A_{\mathrm{noise}}$)** is the declared ordinary sensor variation in degrees Celsius. The **response-to-noise ratio ($SNR$)** compares those two amplitudes:
 
-$SNR = \frac{A_{\mathrm{response}}}{A_{\mathrm{noise}}}$
+\[
+SNR=\frac{A_{\mathrm{response}}}{A_{\mathrm{noise}}}.
+\]
 
 For this lesson, data qualification requires SNR at least 5, input span at least 5 percentage points, valid finite samples, no clipping or saturation, and a response window of at least 63 seconds. The 63 seconds cover the 3-second dead time plus three 20-second time constants.
 
@@ -47,9 +50,22 @@ An **exogenous excitation** is a reviewed input change selected independently of
 
 The third experiment uses 2 percentage points of valve request per degree Celsius of temperature error:
 
-$\Delta MV = 2\left(50 - PV_{\mathrm{used}}\right)$
+\[
+\Delta MV=2(50-PV_{\mathrm{used}}).
+\]
 
-Measurement noise inside the controller-used temperature therefore also appears in the valve deviation. The **correlation coefficient ($\rho$)** is centered-signal covariance divided by the product of their standard deviations. It ranges from minus one to plus one. A magnitude near one means strong association, not causation.
+If $PV_{\mathrm{used}}=PV_{\mathrm{true}}+n$, substitution puts the term
+$-2n$ directly into valve deviation. Positive measurement noise therefore
+causes a negative valve change. The **correlation coefficient** makes that
+signed association measurable:
+
+\[
+\rho_{xy}=\frac{\sum_k(x_k-\bar x)(y_k-\bar y)}
+{\sqrt{\sum_k(x_k-\bar x)^2\sum_k(y_k-\bar y)^2}}.
+\]
+
+It ranges from minus one to plus one. A magnitude near one means strong
+association, not causation.
 
 Here the controller itself creates strong negative correlation between controller-used temperature and valve deviation. An ordinary open-loop estimator that assumes input is independent of measurement noise is biased on this record. Closed-loop identification requires a method and excitation designed for that dependency.
 
@@ -63,7 +79,12 @@ A rejected record remains available as evidence, but it has no accepted model or
 
 The poor applied-input step is 0.2 percentage points. Multiplying it by the local gain predicts a 0.1 degree Celsius (0.1 °C) response. Dividing that response by 0.15 °C noise predicts SNR 0.67. It must fail with reason 1.
 
-The qualified 10-percentage-point step predicts 5 degrees Celsius (5.0 °C) of equilibrium movement and SNR 33.33. At the minimum 63-second window, the first-order response has completed about 95% of that change, so predict approximately 4.75 °C measured movement. This is a dynamic-window check, not a claim that the noisy response has fully settled. It should pass with reason 0 if all other checks remain valid.
+The qualified 10-percentage-point step predicts 5 °C of equilibrium movement
+and $SNR=5/0.15=33.33$. At 63 seconds, 3 seconds of delay leave 60 seconds, or
+three time constants, of response. Thus the predicted movement is
+$5(1-e^{-3})=4.751$ °C. This is a dynamic-window check, not a claim that the
+noisy response has fully settled. It should pass with reason 0 if all other
+checks remain valid.
 
 The ordinary feedback record has no independent excitation. The implemented equation should produce a correlation magnitude of at least 0.95 between controller-used temperature and valve deviation. The ordinary open-loop route must reject it with reason 2.
 
@@ -89,7 +110,12 @@ Each requested value then passes through its own 0–100% valve clamp to produce
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Apply deterministic data qualification before the ordinary open-loop fitting route and retain every accepted or rejected record. The declared event lasts 70 seconds. It restores Qualified applied valve position to 20 % afterward. The deterministic Simulation seed is 20260829.
+Control Studio records all three synchronized copies. Test writes one reviewed
+Boolean, `P1.ExperimentEnabled`, for 70.1 seconds. The project owns the weak
+20.2% request, qualified 30% request, feedback law, and restoration of every
+valve to 20%. Native evidence owns the qualification arithmetic and reason
+codes; no model is fitted from a rejected record. The deterministic Simulation
+seed is 20260829.
 
 ### Control Studio actions
 
@@ -101,18 +127,15 @@ This procedure tests one declared lesson change under controlled conditions. App
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Manual output step**, **Amplitude** = **10 %**, and **Maximum duration (s)** = **70**. The affected signal is **Qualified applied valve position**; it starts at 20 % and must restore to 20 %.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Poor applied valve position 0 % to 100 %; Qualified applied valve position 0 % to 100 %; Feedback applied valve position 0 % to 100 %; Qualified outlet temperature 40 degC to 60 degC.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Qualified applied valve position to 20 %, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **70.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm all requested/applied valves = 20% and all temperatures near 50 °C.
+   - **Decision before action:** Before selecting **Review test**, record the predicted SNRs 0.67 and 33.33 and the expected negative feedback correlation. Confirm all valves remain within 0–100% and temperatures within 40–60 °C.
+   - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe the three distinct requested/applied records and all valves returning to 20%.
+   - **Recovery:** Abort for stale, invalid, nonfinite, clipped, saturated, gapped, or out-of-range data. Confirm authority false and all requested/applied valves 20% before retrying.
+   - **Record:** Retain terminal state, restoration, all input/output samples, controller-used temperature, timing, quality, seed, and the pre-run qualification predictions.
 
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **ExcitationQualificationExperiment** model and must not be accepted as this lesson's design authority. Retain requested and applied input separately and use the controller-used measurement when deciding whether feedback has removed independent excitation.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Data identifiability and closed-loop correlation qualification** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
+There is no shared Identify stage. Native executable evidence calculates input
+span, SNR, duration, and feedback correlation, then assigns reasons 1, 0, and
+2. The rejected records remain evidence but never become accepted fits.
 
 ## Evidence and decision
 

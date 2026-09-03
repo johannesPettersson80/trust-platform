@@ -11,6 +11,7 @@
   "prerequisites": ["control-blending-ratio"],
   "nextLesson": "control-compressor-override",
   "signals": [
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX88.5" },
     { "role": "quality", "name": "Automatic authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX88.4" },
     { "role": "SP", "name": "Reactor-temperature setpoint", "unit": "degC", "minimum": 72, "maximum": 88, "resolution": 0.01, "binding": "%ML160" },
     { "role": "state", "name": "Dead-zone signed demand", "unit": "%", "minimum": -100, "maximum": 100, "resolution": 0.01, "binding": "%ML168" },
@@ -39,21 +40,7 @@
     "sampleTimeSeconds": 0.1,
     "initialState": { "reactorTemperatureDegC": 80, "signedDemandPercent": 0, "heatingPercent": 0, "coolingPercent": 0 },
     "seed": 20260829,
-    "operatingPoint": {
-      "Reactor-temperature setpoint": 80,
-      "Dead-zone signed demand": 0,
-      "Overlap signed demand": 0,
-      "Characterized signed demand": 0,
-      "Dead-zone reactor temperature": 80,
-      "Overlap reactor temperature": 80,
-      "Characterized reactor temperature": 80,
-      "Dead-zone heating request": 0,
-      "Dead-zone cooling request": 0,
-      "Overlap heating request": 4,
-      "Overlap cooling request": 4,
-      "Characterized heating request": 0,
-      "Characterized cooling request": 0
-    },
+    "operatingPoint": { "Reactor-temperature setpoint": 80, "Dead-zone signed demand": 0, "Overlap signed demand": 0, "Characterized signed demand": 0, "Dead-zone reactor temperature": 80, "Overlap reactor temperature": 80, "Characterized reactor temperature": 80, "Dead-zone heating request": 0, "Dead-zone cooling request": 0, "Overlap heating request": 4, "Overlap cooling request": 4, "Characterized heating request": 0, "Characterized cooling request": 0 },
     "validityRange": [
       { "signal": "Dead-zone reactor temperature", "minimum": 72, "maximum": 88, "unit": "degC" },
       { "signal": "Overlap reactor temperature", "minimum": 72, "maximum": 88, "unit": "degC" },
@@ -61,13 +48,7 @@
       { "signal": "Characterized heating request", "minimum": 0, "maximum": 100, "unit": "%" },
       { "signal": "Characterized cooling request", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "Local linear thermal balance from 72 through 88 degC",
-      "Constant installed valve gains and ideal requested-equals-applied positions",
-      "No valve stiction, pressure variation, transport delay or utility-temperature dynamics",
-      "Three deterministic equivalent plants isolate only split-range mapping",
-      "Simulation-only I/O and evidence"
-    ]
+    "simplifications": ["Local linear thermal balance from 72 through 88 degC", "Constant installed valve gains and ideal requested-equals-applied positions", "No valve stiction, pressure variation, transport delay or utility-temperature dynamics", "Three deterministic equivalent plants isolate only split-range mapping", "Simulation-only I/O and evidence"]
   },
   "baseline": {
     "executableId": "Reactor.DeadZoneAndOverlapMappings",
@@ -80,20 +61,20 @@
     "decision": "Accept the mutually exclusive mapping only when installed-gain scaling balances local authority, zero demand closes both valves, and crossover and authority-loss evidence are bounded."
   },
   "experiment": {
-    "kind": "setpoint_step",
-    "signal": "Reactor-temperature setpoint",
+    "kind": "observation",
+    "signal": "Experiment authority",
     "baseline": 80,
-    "amplitude": 4,
-    "durationSeconds": 200,
+    "amplitude": 0,
+    "durationSeconds": 200.1,
     "settlingSeconds": 20,
     "disturbances": ["Setpoint changes from 80 to 84 degC at 20.0 s", "Setpoint changes from 84 to 76 degC at 80.0 s", "Setpoint returns to 80 degC at 140.0 s", "A separate restored run removes automatic authority"],
     "seed": 20260829,
-    "restorationValue": 80
+    "restorationValue": 0
   },
   "acceptance": [
     { "metric": "characterized_simultaneous_utility_time", "signal": "Characterized heating request", "window": "complete 200-s run while both characterized valves exceed 0.1 percent", "comparator": "==", "limit": 0, "unit": "s", "tolerance": 0, "evidenceClass": "simulation" },
     { "metric": "characterized_dead_zone_time", "signal": "Characterized signed demand", "window": "complete run with absolute demand at least 0.1 percent and both valves at most 0.1 percent", "comparator": "==", "limit": 0, "unit": "s", "tolerance": 0, "evidenceClass": "simulation" },
-    { "metric": "cooling_installed_gain_scale", "signal": "Characterized cooling request", "window": "all samples with characterized signed demand below -1 percent", "comparator": "==", "limit": 0.666666666667, "unit": "1", "tolerance": 0.000001, "evidenceClass": "simulation" },
+    { "metric": "cooling_installed_gain_scale", "signal": "Characterized cooling request", "window": "all samples with characterized signed demand below -1 percent", "comparator": "==", "limit": 0.666666666667, "unit": "1", "tolerance": 1e-06, "evidenceClass": "simulation" },
     { "metric": "authority_loss_valves_closed", "signal": "Characterized heating request", "window": "all samples in separate unavailable-authority run", "comparator": "==", "limit": 0, "unit": "%", "tolerance": 0, "evidenceClass": "simulation" }
   ],
   "safety": {
@@ -110,7 +91,7 @@
     "physicalApprovalRole": "authorised reactor controls engineer and responsible process operator",
     "simulationOnlyRestrictions": ["No physical heating or cooling valve is operated", "Ideal valve requests are not physical installed-characteristic evidence", "Physical split range requires reviewed utilities, valve fail positions, interlocks, pressure and temperature limits, tracking and explicit experiment approval"]
   },
-  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-56--split-range-control-reactor-heating-and-cooling",
     "nativeTest": "control_curriculum_split_range_exposes_gap_overlap_and_characterized_crossover",

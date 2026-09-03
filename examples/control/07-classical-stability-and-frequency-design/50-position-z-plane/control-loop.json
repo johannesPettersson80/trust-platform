@@ -5,23 +5,182 @@
   "revision": "sha256:curriculum-loop-50",
   "projectId": "project:control-position-z-plane-sampling",
   "runtimeId": "simulator",
-  "controller": { "instance": "P1", "type": "SampledAxisComparison", "design": "project", "revision": "sha256:curriculum-controller-50", "action": "direct", "taskPeriodMs": 10 },
+  "controller": {
+    "instance": "P1",
+    "type": "SampledAxisComparison",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-50",
+    "action": "direct",
+    "taskPeriodMs": 10
+  },
   "signals": {
-    "setpoint": { "symbol": "P1.PositionSetpoint", "address": "%ML48", "iecType": "LREAL", "direction": "read", "unit": "mm", "range": { "minimum": -5, "maximum": 5 } },
-    "processVariable": { "symbol": "P1.FinePosition", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "mm", "range": { "minimum": -5, "maximum": 5 } },
-    "manipulatedVariable": { "symbol": "P1.FineAppliedForce", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": -100, "maximum": 100 } },
+    "setpoint": {
+      "symbol": "P1.PositionSetpoint",
+      "address": "%ML48",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "mm",
+      "range": {
+        "minimum": -5,
+        "maximum": 5
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.FinePosition",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "mm",
+      "range": {
+        "minimum": -5,
+        "maximum": 5
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.FineAppliedForce",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": -100,
+        "maximum": 100
+      }
+    },
     "additional": [
-      { "id": "fine-velocity", "channel": "fine", "role": "state", "symbol": "P1.FineVelocity", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "mm/s", "range": { "minimum": -100, "maximum": 100 } },
-      { "id": "coarse-pv", "channel": "coarse", "role": "PV", "symbol": "P1.CoarsePosition", "address": "%IL16", "iecType": "LREAL", "direction": "read", "unit": "mm", "range": { "minimum": -5, "maximum": 5 } },
-      { "id": "coarse-mv", "channel": "coarse", "role": "MV", "symbol": "P1.CoarseAppliedForce", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": -100, "maximum": 100 } },
-      { "id": "coarse-velocity", "channel": "coarse", "role": "state", "symbol": "P1.CoarseVelocity", "address": "%IL24", "iecType": "LREAL", "direction": "read", "unit": "mm/s", "range": { "minimum": -100, "maximum": 100 } },
-      { "id": "corrected-pv", "channel": "corrected", "role": "PV", "symbol": "P1.CorrectedPosition", "address": "%IL32", "iecType": "LREAL", "direction": "read", "unit": "mm", "range": { "minimum": -5, "maximum": 5 } },
-      { "id": "corrected-mv", "channel": "corrected", "role": "MV", "symbol": "P1.CorrectedAppliedForce", "address": "%QL16", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": -100, "maximum": 100 } },
-      { "id": "corrected-velocity", "channel": "corrected", "role": "state", "symbol": "P1.CorrectedVelocity", "address": "%IL40", "iecType": "LREAL", "direction": "read", "unit": "mm/s", "range": { "minimum": -100, "maximum": 100 } }
+      {
+        "id": "fine-velocity",
+        "channel": "fine",
+        "role": "state",
+        "symbol": "P1.FineVelocity",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "mm/s",
+        "range": {
+          "minimum": -100,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "coarse-pv",
+        "channel": "coarse",
+        "role": "PV",
+        "symbol": "P1.CoarsePosition",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "mm",
+        "range": {
+          "minimum": -5,
+          "maximum": 5
+        }
+      },
+      {
+        "id": "coarse-mv",
+        "channel": "coarse",
+        "role": "MV",
+        "symbol": "P1.CoarseAppliedForce",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -100,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "coarse-velocity",
+        "channel": "coarse",
+        "role": "state",
+        "symbol": "P1.CoarseVelocity",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "mm/s",
+        "range": {
+          "minimum": -100,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "corrected-pv",
+        "channel": "corrected",
+        "role": "PV",
+        "symbol": "P1.CorrectedPosition",
+        "address": "%IL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "mm",
+        "range": {
+          "minimum": -5,
+          "maximum": 5
+        }
+      },
+      {
+        "id": "corrected-mv",
+        "channel": "corrected",
+        "role": "MV",
+        "symbol": "P1.CorrectedAppliedForce",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -100,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "corrected-velocity",
+        "channel": "corrected",
+        "role": "state",
+        "symbol": "P1.CorrectedVelocity",
+        "address": "%IL40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "mm/s",
+        "range": {
+          "minimum": -100,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX96.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
     ]
   },
-  "limits": { "outputMinimum": -100, "outputMaximum": 100 },
-  "observedSampleTiming": { "nominalPeriodMs": 10 },
+  "limits": {
+    "outputMinimum": -100,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 10
+  },
   "plantId": "sampled_positioning_axis_three_cases",
-  "experiment": { "execution": "project-scripted", "kind": "observation", "amplitude": 0, "durationSeconds": 10.1, "restorationValue": 0, "seed": 20260829, "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX96.0", "iecType": "BOOL", "direction": "write" } }
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 10.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX96.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
 }

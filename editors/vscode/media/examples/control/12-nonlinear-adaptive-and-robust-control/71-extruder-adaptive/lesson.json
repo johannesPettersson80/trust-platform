@@ -11,6 +11,9 @@
   "prerequisites": ["control-robot-joint-nonlinear"],
   "nextLesson": "control-flexible-airframe-robust",
   "signals": [
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX6.4" },
+    { "role": "state", "name": "Safety abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX6.5" },
+    { "role": "state", "name": "Inputs valid", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX6.6" },
     { "role": "state", "name": "Requested architecture", "unit": "1", "minimum": 0, "maximum": 2, "resolution": 1, "binding": "%MW0" },
     { "role": "state", "name": "Active architecture", "unit": "1", "minimum": 0, "maximum": 2, "resolution": 1, "binding": "%MW2" },
     { "role": "disturbance", "name": "Resin grade", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MW4" },
@@ -58,12 +61,7 @@
       { "signal": "Applied screw speed", "minimum": 0, "maximum": 100, "unit": "%" },
       { "signal": "Estimated process gain", "minimum": 0.5, "maximum": 1.5, "unit": "bar/%" }
     ],
-    "simplifications": [
-      "Pressure dynamics are represented by one first-order state with known five-second time constant.",
-      "Resin grade is known exactly while the within-grade viscosity multiplier is unmeasured.",
-      "The deterministic probe stands in for an independently approved bounded production excitation.",
-      "No melt-temperature, torque, surge, mechanical wear or product-quality dynamics are claimed."
-    ]
+    "simplifications": ["Pressure dynamics are represented by one first-order state with known five-second time constant.", "Resin grade is known exactly while the within-grade viscosity multiplier is unmeasured.", "The deterministic probe stands in for an independently approved bounded production excitation.", "No melt-temperature, torque, surge, mechanical wear or product-quality dynamics are claimed."]
   },
   "baseline": {
     "executableId": "Control.PID.FixedExtruderPressure",
@@ -86,25 +84,20 @@
     "decision": "Use a qualified frozen estimate only while its model, information, bounds and data remain valid; otherwise preserve scheduled fallback or safe output."
   },
   "experiment": {
-    "kind": "setpoint_step",
-    "signal": "Die-pressure setpoint",
-    "baseline": 40,
-    "amplitude": 10,
-    "durationSeconds": 120,
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 120.1,
     "settlingSeconds": 5,
-    "disturbances": [
-      "Command 50 bar at 30 seconds and 60 bar at 90 seconds.",
-      "Change known resin grade from A to B at 60 seconds while the unmeasured viscosity multiplier continues.",
-      "On a separately restored constant-grade plant, remove the probe from 60 through 90 seconds, mark pressure data unhealthy from 90 through 95 seconds, then restore both through 120 seconds.",
-      "Project a separately forced 2.3 bar/% candidate while adaptation is frozen."
-    ],
+    "disturbances": ["Command 50 bar at 30 seconds and 60 bar at 90 seconds.", "Change known resin grade from A to B at 60 seconds while the unmeasured viscosity multiplier continues.", "On a separately restored constant-grade plant, remove the probe from 60 through 90 seconds, mark pressure data unhealthy from 90 through 95 seconds, then restore both through 120 seconds.", "Project a separately forced 2.3 bar/% candidate while adaptation is frozen."],
     "seed": 20260829,
     "restorationValue": 0
   },
   "acceptance": [
     { "metric": "scheduled_grade_b_iae", "signal": "Die pressure", "window": "60 through 110 seconds under common excitation", "comparator": "<", "limit": 999, "unit": "bar*s", "tolerance": 0.001, "evidenceClass": "simulation" },
     { "metric": "adaptive_gain_rmse", "signal": "Estimated process gain", "window": "qualified samples from 30 through 110 seconds", "comparator": "<=", "limit": 0.08, "unit": "bar/%", "tolerance": 0.0001, "evidenceClass": "simulation" },
-    { "metric": "frozen_estimate_change", "signal": "Estimated process gain", "window": "constant-grade non-excited frozen interval before 90 seconds", "comparator": "<=", "limit": 0.000000000001, "unit": "bar/%", "tolerance": 0, "evidenceClass": "simulation" },
+    { "metric": "frozen_estimate_change", "signal": "Estimated process gain", "window": "constant-grade non-excited frozen interval before 90 seconds", "comparator": "<=", "limit": 1e-12, "unit": "bar/%", "tolerance": 0, "evidenceClass": "simulation" },
     { "metric": "bad_quality_safe_output", "signal": "Applied screw speed", "window": "90 through 95 seconds", "comparator": "==", "limit": 0, "unit": "%", "tolerance": 0, "evidenceClass": "simulation" },
     { "metric": "projected_gain_upper_bound", "signal": "Estimated process gain", "window": "first frozen projection interval", "comparator": "==", "limit": 1.5, "unit": "bar/%", "tolerance": 0, "evidenceClass": "simulation" }
   ],
@@ -115,40 +108,24 @@
       { "signal": "Estimated process gain", "minimum": 0.5, "maximum": 1.5, "unit": "bar/%" },
       { "signal": "Estimated pressure bias", "minimum": -20, "maximum": 20, "unit": "bar" }
     ],
-    "abortPredicates": [
-      "Any required pressure, screw-speed, recipe, estimator, supervisor or quality signal is nonfinite, stale, forced, missing or bound incorrectly.",
-      "The plant, recipe timing, setpoint schedule, interval, initial state, seed, probe, drift, estimator scaling, forgetting, covariance, projection, PI form or evidence class differs without declaration.",
-      "Adaptation updates without healthy informative unsaturated data or an unqualified estimate controls the plant.",
-      "Bad pressure quality drives nonzero screw speed, restoration fails, or disabled output is nonzero."
-    ],
+    "abortPredicates": ["Any required pressure, screw-speed, recipe, estimator, supervisor or quality signal is nonfinite, stale, forced, missing or bound incorrectly.", "The plant, recipe timing, setpoint schedule, interval, initial state, seed, probe, drift, estimator scaling, forgetting, covariance, projection, PI form or evidence class differs without declaration.", "Adaptation updates without healthy informative unsaturated data or an unqualified estimate controls the plant.", "Bad pressure quality drives nonzero screw speed, restoration fails, or disabled output is nonzero."],
     "safeMv": 0,
     "restorationMode": "Freeze the estimator, apply zero screw speed for bad pressure quality, restore healthy qualified supervision explicitly, then disable to zero.",
     "physicalApprovalRole": "authorised extrusion-process engineer with controls, product-quality, mechanical and safety owners",
-    "simulationOnlyRestrictions": [
-      "No physical extruder, motor, heater, die or polymer material is operated.",
-      "Effective gain and estimator RMSE use Simulation truth and are not presented as field measurements.",
-      "Physical probing requires independently reviewed pressure, torque, temperature, quality, equipment and personnel limits plus explicit immediate approval."
-    ]
+    "simulationOnlyRestrictions": ["No physical extruder, motor, heater, die or polymer material is operated.", "Effective gain and estimator RMSE use Simulation truth and are not presented as field measurements.", "Physical probing requires independently reviewed pressure, torque, temperature, quality, equipment and personnel limits plus explicit immediate approval."]
   },
-  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-71--adaptive-control-extruder-pressure",
     "nativeTest": "control_curriculum_extruder_adaptation_requires_information_and_bounds",
     "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_extruder_adaptive control_curriculum_extruder_adaptation_requires_information_and_bounds -- --exact --nocapture",
     "projectPath": "examples/control/12-nonlinear-adaptive-and-robust-control/71-extruder-adaptive",
-    "runArtifactFields": [
-      "projectIdentity", "plantIdentity", "recipe", "evidenceClass", "sampleTime", "setpointSchedule", "effectiveGainOracle",
-      "requestedArchitecture", "activeArchitecture", "adaptationState", "quality", "information", "covariance", "estimate",
-      "projection", "fallback", "activePIGains", "probe", "pressure", "requestedSpeed", "appliedSpeed", "saturation", "metrics"
-    ],
+    "runArtifactFields": ["projectIdentity", "plantIdentity", "recipe", "evidenceClass", "sampleTime", "setpointSchedule", "effectiveGainOracle", "requestedArchitecture", "activeArchitecture", "adaptationState", "quality", "information", "covariance", "estimate", "projection", "fallback", "activePIGains", "probe", "pressure", "requestedSpeed", "appliedSpeed", "saturation", "metrics"],
     "renderedJourneyId": "curriculum-extruder-adaptive-supervision"
   },
   "video": {
     "viewerOutcome": "Distinguish evidence-backed supervised adaptation from unsupported parameter motion on an operating extruder pressure loop.",
-    "requiredVisibleEvidence": [
-      "extruder pressure balance", "fixed scheduled and adaptive PI", "known recipe and unmeasured drift", "probe and information determinant",
-      "estimated and Simulation-only effective gain", "projection and confidence", "freeze and safe bad-quality output", "recovery", "Simulation and physical boundary"
-    ],
+    "requiredVisibleEvidence": ["extruder pressure balance", "fixed scheduled and adaptive PI", "known recipe and unmeasured drift", "probe and information determinant", "estimated and Simulation-only effective gain", "projection and confidence", "freeze and safe bad-quality output", "recovery", "Simulation and physical boundary"],
     "durationClass": "extended",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
@@ -158,17 +135,9 @@
   "learning": {
     "context": "A single-screw polymer extruder must hold die pressure while known resin grade and unmeasured material properties change pressure gain.",
     "reason": "A finite robot schedule cannot cover a continuously drifting property that is not itself measured as a scheduling variable.",
-    "theory": [
-      "Online parameter estimation reconstructs a model from synchronized applied input and measured output while the plant runs.",
-      "Recursive least squares uses innovation, covariance and forgetting to update gain and bias.",
-      "Persistent excitation, projection, confidence and quality supervision determine whether an update or adaptive controller is eligible.",
-      "Indirect adaptation derives ordinary PI settings from a qualified bounded estimate and retains scheduled fallback and safe output."
-    ],
+    "theory": ["Online parameter estimation reconstructs a model from synchronized applied input and measured output while the plant runs.", "Recursive least squares uses innovation, covariance and forgetting to update gain and bias.", "Persistent excitation, projection, confidence and quality supervision determine whether an update or adaptive controller is eligible.", "Indirect adaptation derives ordinary PI settings from a qualified bounded estimate and retains scheduled fallback and safe output."],
     "workedPrediction": "Calculate grade-A and grade-B PI gains, the adaptive gains for K_hat=0.65 bar/%, and projection of a 2.3 bar/% candidate to 1.5 bar/%.",
-    "practicalPreparation": [
-      "Verify plant, recipe, drift, setpoint, probe, scaling, forgetting, information, covariance, projection, PI and safety settings.",
-      "Reconstruct one observation, innovation and RLS update independently before enabling adaptive authority."
-    ],
+    "practicalPreparation": ["Verify plant, recipe, drift, setpoint, probe, scaling, forgetting, information, covariance, projection, PI and safety settings.", "Reconstruct one observation, innovation and RLS update independently before enabling adaptive authority."],
     "baseline": "Run fixed PI with the common probe through both recipes and continuous gain drift.",
     "change": "Run recipe-scheduled and supervised-adaptive PI under identical plant, setpoint, probe and timing conditions.",
     "comparison": "Compare pressure error, settling, screw-speed movement, estimator RMSE, confidence, projection, freeze, fallback and recovery.",

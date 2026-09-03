@@ -42,7 +42,7 @@
       "symbol": "P1.ManualFeedbackRequest",
       "address": "%ML32",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -50,6 +50,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX9.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "operating-mode",
         "channel": "operating-mode",
@@ -197,7 +211,7 @@
         "symbol": "P1.MeasuredDemand",
         "address": "%ML24",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -211,7 +225,7 @@
         "symbol": "P1.ManualIntegratedRequest",
         "address": "%ML40",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -225,7 +239,7 @@
         "symbol": "P1.FeedbackRequested",
         "address": "%ML48",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -267,7 +281,7 @@
         "symbol": "P1.IntegratedRequested",
         "address": "%ML72",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -309,7 +323,7 @@
         "symbol": "P1.FeedbackApplied",
         "address": "%QL0",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -337,7 +351,7 @@
         "symbol": "P1.IntegratedApplied",
         "address": "%QL16",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -411,10 +425,16 @@
   },
   "plantId": "compressed_air_receiver_reference_nominal",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "load_step",
-    "amplitude": 15,
-    "durationSeconds": 300,
-    "seed": 20260829
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 300.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX9.2",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

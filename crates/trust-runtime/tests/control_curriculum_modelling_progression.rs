@@ -38,6 +38,16 @@ fn project_file(project: &str, relative: &str) -> String {
         .unwrap_or_else(|error| panic!("read shipped curriculum file {}: {error}", path.display()))
 }
 
+fn without_lesson_workflow(mut source: String, start: &str, end: &str) -> String {
+    let start_index = source.find(start).expect("project-owned workflow start");
+    let end_index = source[start_index..]
+        .find(end)
+        .map(|offset| start_index + offset)
+        .expect("project-owned workflow end");
+    source.replace_range(start_index..end_index, "");
+    source
+}
+
 fn temporary_config_path(project: &str) -> PathBuf {
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -204,77 +214,89 @@ fn pearson_correlation(left: &[f64], right: &[f64]) -> f64 {
 }
 
 fn gravity_linearization_runtime() -> trust_runtime::Runtime {
-    let source = project_file("gravity-tank-linearization", "src/Main.st")
-        .split("CONFIGURATION Config")
-        .next()
-        .expect("example program before configuration")
+    let source = without_lesson_workflow(
+        project_file("gravity-tank-linearization", "src/Main.st")
+            .split("CONFIGURATION Config")
+            .next()
+            .expect("example program before configuration")
+            .to_owned(),
+        "IF ExperimentEnabled THEN",
+        "InputsValid :=",
+    )
+        // The extrapolation case deliberately leaves the lesson's qualified
+        // operating envelope; isolate that model calculation from the visible
+        // experiment supervisor's fail-closed command restoration.
         .replace(
-            "FlowDeviation : LREAL :=",
-            "FlowDeviation AT %ML0 : LREAL :=",
-        )
-        .replace("LowInletFlow : LREAL :=", "LowInletFlow AT %QL0 : LREAL :=")
-        .replace(
-            "MiddleInletFlow : LREAL :=",
-            "MiddleInletFlow AT %QL8 : LREAL :=",
-        )
-        .replace(
-            "HighInletFlow : LREAL :=",
-            "HighInletFlow AT %QL16 : LREAL :=",
-        )
-        .replace(
-            "LowPhysicalLevel : LREAL :=",
-            "LowPhysicalLevel AT %IL0 : LREAL :=",
+            "IF SafetyAbort OR NOT InputsValid THEN\n    FlowDeviation := LREAL#0.0;\nEND_IF;",
+            "",
         )
         .replace(
-            "MiddlePhysicalLevel : LREAL :=",
-            "MiddlePhysicalLevel AT %IL8 : LREAL :=",
-        )
-        .replace(
-            "HighPhysicalLevel : LREAL :=",
-            "HighPhysicalLevel AT %IL16 : LREAL :=",
-        )
-        .replace(
-            "LowEquilibriumFlow : LREAL :=",
-            "LowEquilibriumFlow AT %ML16 : LREAL :=",
-        )
-        .replace(
-            "MiddleEquilibriumFlow : LREAL :=",
-            "MiddleEquilibriumFlow AT %ML24 : LREAL :=",
-        )
-        .replace(
-            "HighEquilibriumFlow : LREAL :=",
-            "HighEquilibriumFlow AT %ML32 : LREAL :=",
-        )
-        .replace("LowGain : LREAL :=", "LowGain AT %ML40 : LREAL :=")
-        .replace("MiddleGain : LREAL :=", "MiddleGain AT %ML48 : LREAL :=")
-        .replace("HighGain : LREAL :=", "HighGain AT %ML56 : LREAL :=")
-        .replace(
-            "LowTimeConstant : LREAL :=",
-            "LowTimeConstant AT %ML64 : LREAL :=",
-        )
-        .replace(
-            "MiddleTimeConstant : LREAL :=",
-            "MiddleTimeConstant AT %ML72 : LREAL :=",
-        )
-        .replace(
-            "HighTimeConstant : LREAL :=",
-            "HighTimeConstant AT %ML80 : LREAL :=",
-        )
-        .replace("LowPole : LREAL :=", "LowPole AT %ML88 : LREAL :=")
-        .replace("MiddlePole : LREAL :=", "MiddlePole AT %ML96 : LREAL :=")
-        .replace("HighPole : LREAL :=", "HighPole AT %ML104 : LREAL :=")
-        .replace(
-            "LowLocalLevelCentimetres : LREAL :=",
-            "LowLocalLevelCentimetres AT %ML112 : LREAL :=",
-        )
-        .replace(
-            "MiddleLocalLevelCentimetres : LREAL :=",
-            "MiddleLocalLevelCentimetres AT %ML120 : LREAL :=",
-        )
-        .replace(
-            "HighLocalLevelCentimetres : LREAL :=",
-            "HighLocalLevelCentimetres AT %ML128 : LREAL :=",
-        );
+        "FlowDeviation : LREAL :=",
+        "FlowDeviation AT %ML0 : LREAL :=",
+    )
+    .replace("LowInletFlow : LREAL :=", "LowInletFlow AT %QL0 : LREAL :=")
+    .replace(
+        "MiddleInletFlow : LREAL :=",
+        "MiddleInletFlow AT %QL8 : LREAL :=",
+    )
+    .replace(
+        "HighInletFlow : LREAL :=",
+        "HighInletFlow AT %QL16 : LREAL :=",
+    )
+    .replace(
+        "LowPhysicalLevel : LREAL :=",
+        "LowPhysicalLevel AT %IL0 : LREAL :=",
+    )
+    .replace(
+        "MiddlePhysicalLevel : LREAL :=",
+        "MiddlePhysicalLevel AT %IL8 : LREAL :=",
+    )
+    .replace(
+        "HighPhysicalLevel : LREAL :=",
+        "HighPhysicalLevel AT %IL16 : LREAL :=",
+    )
+    .replace(
+        "LowEquilibriumFlow : LREAL :=",
+        "LowEquilibriumFlow AT %ML16 : LREAL :=",
+    )
+    .replace(
+        "MiddleEquilibriumFlow : LREAL :=",
+        "MiddleEquilibriumFlow AT %ML24 : LREAL :=",
+    )
+    .replace(
+        "HighEquilibriumFlow : LREAL :=",
+        "HighEquilibriumFlow AT %ML32 : LREAL :=",
+    )
+    .replace("LowGain : LREAL :=", "LowGain AT %ML40 : LREAL :=")
+    .replace("MiddleGain : LREAL :=", "MiddleGain AT %ML48 : LREAL :=")
+    .replace("HighGain : LREAL :=", "HighGain AT %ML56 : LREAL :=")
+    .replace(
+        "LowTimeConstant : LREAL :=",
+        "LowTimeConstant AT %ML64 : LREAL :=",
+    )
+    .replace(
+        "MiddleTimeConstant : LREAL :=",
+        "MiddleTimeConstant AT %ML72 : LREAL :=",
+    )
+    .replace(
+        "HighTimeConstant : LREAL :=",
+        "HighTimeConstant AT %ML80 : LREAL :=",
+    )
+    .replace("LowPole : LREAL :=", "LowPole AT %ML88 : LREAL :=")
+    .replace("MiddlePole : LREAL :=", "MiddlePole AT %ML96 : LREAL :=")
+    .replace("HighPole : LREAL :=", "HighPole AT %ML104 : LREAL :=")
+    .replace(
+        "LowLocalLevelCentimetres : LREAL :=",
+        "LowLocalLevelCentimetres AT %ML112 : LREAL :=",
+    )
+    .replace(
+        "MiddleLocalLevelCentimetres : LREAL :=",
+        "MiddleLocalLevelCentimetres AT %ML120 : LREAL :=",
+    )
+    .replace(
+        "HighLocalLevelCentimetres : LREAL :=",
+        "HighLocalLevelCentimetres AT %ML128 : LREAL :=",
+    );
     CompileSession::from_sources(vec![SourceFile::with_path(
         "gravity-tank-linearization/src/Main.st",
         source,
@@ -454,54 +476,59 @@ fn control_curriculum_gravity_tank_linearization_is_local_and_unit_consistent() 
 #[test]
 fn control_curriculum_pole_zero_maps_predict_six_real_plant_responses() {
     let shipped_source = project_file("pole-zero-plant-classes", "src/Main.st");
-    let source = shipped_source
-        .split("CONFIGURATION Config")
-        .next()
-        .expect("example program before configuration")
-        .replace(
-            "ExperimentInput : LREAL :=",
-            "ExperimentInput AT %ML0 : LREAL :=",
-        )
-        .replace(
-            "BearingExperimentEnabled : BOOL :=",
-            "BearingExperimentEnabled AT %MX8.0 : BOOL :=",
-        )
-        .replace(
-            "HeaterCommand : LREAL :=",
-            "HeaterCommand AT %QL0 : LREAL :=",
-        )
-        .replace("TankNetFlow : LREAL :=", "TankNetFlow AT %QL8 : LREAL :=")
-        .replace("DriveTorque : LREAL :=", "DriveTorque AT %QL16 : LREAL :=")
-        .replace("CraneForce : LREAL :=", "CraneForce AT %QL24 : LREAL :=")
-        .replace(
-            "BearingForce : LREAL :=",
-            "BearingForce AT %QL32 : LREAL :=",
-        )
-        .replace(
-            "BoilerFeedwater : LREAL :=",
-            "BoilerFeedwater AT %QL40 : LREAL :=",
-        )
-        .replace(
-            "HeaterTemperature : LREAL :=",
-            "HeaterTemperature AT %IL0 : LREAL :=",
-        )
-        .replace("TankLevel : LREAL :=", "TankLevel AT %IL8 : LREAL :=")
-        .replace(
-            "DrivePosition : LREAL :=",
-            "DrivePosition AT %IL16 : LREAL :=",
-        )
-        .replace(
-            "CranePayloadPosition : LREAL :=",
-            "CranePayloadPosition AT %IL24 : LREAL :=",
-        )
-        .replace(
-            "BearingDisplacement : LREAL :=",
-            "BearingDisplacement AT %IL32 : LREAL :=",
-        )
-        .replace(
-            "BoilerDrumLevel : LREAL :=",
-            "BoilerDrumLevel AT %IL40 : LREAL :=",
-        );
+    let source = without_lesson_workflow(
+        shipped_source
+            .split("CONFIGURATION Config")
+            .next()
+            .expect("example program before configuration")
+            .to_owned(),
+        "IF ExperimentEnabled OR BearingExperimentEnabled THEN",
+        "InputsValid :=",
+    )
+    .replace(
+        "ExperimentInput : LREAL :=",
+        "ExperimentInput AT %ML0 : LREAL :=",
+    )
+    .replace(
+        "BearingExperimentEnabled : BOOL :=",
+        "BearingExperimentEnabled AT %MX8.0 : BOOL :=",
+    )
+    .replace(
+        "HeaterCommand : LREAL :=",
+        "HeaterCommand AT %QL0 : LREAL :=",
+    )
+    .replace("TankNetFlow : LREAL :=", "TankNetFlow AT %QL8 : LREAL :=")
+    .replace("DriveTorque : LREAL :=", "DriveTorque AT %QL16 : LREAL :=")
+    .replace("CraneForce : LREAL :=", "CraneForce AT %QL24 : LREAL :=")
+    .replace(
+        "BearingForce : LREAL :=",
+        "BearingForce AT %QL32 : LREAL :=",
+    )
+    .replace(
+        "BoilerFeedwater : LREAL :=",
+        "BoilerFeedwater AT %QL40 : LREAL :=",
+    )
+    .replace(
+        "HeaterTemperature : LREAL :=",
+        "HeaterTemperature AT %IL0 : LREAL :=",
+    )
+    .replace("TankLevel : LREAL :=", "TankLevel AT %IL8 : LREAL :=")
+    .replace(
+        "DrivePosition : LREAL :=",
+        "DrivePosition AT %IL16 : LREAL :=",
+    )
+    .replace(
+        "CranePayloadPosition : LREAL :=",
+        "CranePayloadPosition AT %IL24 : LREAL :=",
+    )
+    .replace(
+        "BearingDisplacement : LREAL :=",
+        "BearingDisplacement AT %IL32 : LREAL :=",
+    )
+    .replace(
+        "BoilerDrumLevel : LREAL :=",
+        "BoilerDrumLevel AT %IL40 : LREAL :=",
+    );
     let build_runtime = || {
         CompileSession::from_sources(vec![SourceFile::with_path(
             "pole-zero-plant-classes/src/Main.st",
@@ -781,43 +808,52 @@ fn control_curriculum_pole_zero_maps_predict_six_real_plant_responses() {
 #[test]
 fn control_curriculum_two_tank_state_space_exposes_hidden_stored_water() {
     let shipped_source = project_file("two-tank-state-space", "src/Main.st");
-    let source = shipped_source
-        .split("CONFIGURATION Config")
-        .next()
-        .expect("example program before configuration")
-        .replace("MainPumpFlow : LREAL :=", "MainPumpFlow AT %QL0 : LREAL :=")
-        .replace(
-            "EmptyCasePumpFlow : LREAL :=",
-            "EmptyCasePumpFlow AT %QL8 : LREAL :=",
-        )
-        .replace(
-            "ChargedCasePumpFlow : LREAL :=",
-            "ChargedCasePumpFlow AT %QL16 : LREAL :=",
-        )
-        .replace(
-            "MainUpstreamLevel : LREAL :=",
-            "MainUpstreamLevel AT %IL0 : LREAL :=",
-        )
-        .replace(
-            "MainDownstreamLevel : LREAL :=",
-            "MainDownstreamLevel AT %IL8 : LREAL :=",
-        )
-        .replace(
-            "EmptyUpstreamLevel : LREAL :=",
-            "EmptyUpstreamLevel AT %IL16 : LREAL :=",
-        )
-        .replace(
-            "EmptyDownstreamLevel : LREAL :=",
-            "EmptyDownstreamLevel AT %IL24 : LREAL :=",
-        )
-        .replace(
-            "ChargedUpstreamLevel : LREAL :=",
-            "ChargedUpstreamLevel AT %IL32 : LREAL :=",
-        )
-        .replace(
-            "ChargedDownstreamLevel : LREAL :=",
-            "ChargedDownstreamLevel AT %IL40 : LREAL :=",
-        );
+    let source = without_lesson_workflow(
+        shipped_source
+            .split("CONFIGURATION Config")
+            .next()
+            .expect("example program before configuration")
+            .to_owned(),
+        "IF ExperimentEnabled THEN",
+        "InputsValid :=",
+    )
+    .replace(
+        "RequestedPumpFlow : LREAL :=",
+        "RequestedPumpFlow AT %ML0 : LREAL :=",
+    )
+    .replace("MainPumpFlow : LREAL :=", "MainPumpFlow AT %QL0 : LREAL :=")
+    .replace(
+        "EmptyCasePumpFlow : LREAL :=",
+        "EmptyCasePumpFlow AT %QL8 : LREAL :=",
+    )
+    .replace(
+        "ChargedCasePumpFlow : LREAL :=",
+        "ChargedCasePumpFlow AT %QL16 : LREAL :=",
+    )
+    .replace(
+        "MainUpstreamLevel : LREAL :=",
+        "MainUpstreamLevel AT %IL0 : LREAL :=",
+    )
+    .replace(
+        "MainDownstreamLevel : LREAL :=",
+        "MainDownstreamLevel AT %IL8 : LREAL :=",
+    )
+    .replace(
+        "EmptyUpstreamLevel : LREAL :=",
+        "EmptyUpstreamLevel AT %IL16 : LREAL :=",
+    )
+    .replace(
+        "EmptyDownstreamLevel : LREAL :=",
+        "EmptyDownstreamLevel AT %IL24 : LREAL :=",
+    )
+    .replace(
+        "ChargedUpstreamLevel : LREAL :=",
+        "ChargedUpstreamLevel AT %IL32 : LREAL :=",
+    )
+    .replace(
+        "ChargedDownstreamLevel : LREAL :=",
+        "ChargedDownstreamLevel AT %IL40 : LREAL :=",
+    );
     let mut runtime = CompileSession::from_sources(vec![SourceFile::with_path(
         "two-tank-state-space/src/Main.st",
         source,
@@ -836,6 +872,11 @@ fn control_curriculum_two_tank_state_space_exposes_hidden_stored_water() {
     );
     let addresses = ["%IL0", "%IL8", "%IL16", "%IL24", "%IL32", "%IL40"]
         .map(|value| IoAddress::parse(value).unwrap());
+    write_lreal(
+        &mut runtime,
+        &IoAddress::parse("%ML0").expect("requested pump-flow address"),
+        0.1,
+    );
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -1003,47 +1044,56 @@ fn control_curriculum_two_tank_state_space_exposes_hidden_stored_water() {
 
 #[test]
 fn control_curriculum_heater_energy_balance_predicts_configured_plant_truth() {
-    let source = project_file("water-heater-energy-balance", "src/Main.st")
-        .split("CONFIGURATION Config")
-        .next()
-        .expect("example program before configuration")
-        .replace(
-            "RequestedHeaterPower : LREAL :=",
-            "RequestedHeaterPower AT %IL32 : LREAL :=",
-        )
-        .replace("ProcessValue : LREAL :=", "ProcessValue AT %IL0 : LREAL :=")
-        .replace(
-            "AppliedHeaterPower : LREAL :=",
-            "AppliedHeaterPower AT %QL0 : LREAL :=",
-        )
-        .replace("StaticGain : LREAL :=", "StaticGain AT %ML0 : LREAL :=")
-        .replace("TimeConstant : LREAL :=", "TimeConstant AT %ML8 : LREAL :=")
-        .replace(
-            "PredictedEquilibrium : LREAL :=",
-            "PredictedEquilibrium AT %ML16 : LREAL :=",
-        )
-        .replace(
-            "EffectiveHeatLoss : LREAL :=",
-            "EffectiveHeatLoss AT %ML40 : LREAL :=",
-        )
-        .replace(
-            "ThermalCapacitance : LREAL :=",
-            "ThermalCapacitance AT %ML48 : LREAL :=",
-        )
-        .replace(
-            "FullScaleHeaterPower : LREAL :=",
-            "FullScaleHeaterPower AT %ML56 : LREAL :=",
-        )
-        .replace(
-            "AmbientTemperature : LREAL :=",
-            "AmbientTemperature AT %ML64 : LREAL :=",
-        )
-        .replace("ModelValid : BOOL :=", "ModelValid AT %MX80.0 : BOOL :=")
-        .replace("InputsValid : BOOL :=", "InputsValid AT %MX80.1 : BOOL :=")
-        .replace(
-            "ExperimentEnabled : BOOL :=",
-            "ExperimentEnabled AT %MX81.0 : BOOL :=",
-        );
+    let source = without_lesson_workflow(
+        project_file("water-heater-energy-balance", "src/Main.st")
+            .split("CONFIGURATION Config")
+            .next()
+            .expect("example program before configuration")
+            .to_owned(),
+        "(* Control Studio changes only this Boolean authority.",
+        "InputsValid :=",
+    )
+    .replace(
+        "IF ModelValid AND InputsValid AND ExperimentEnabled THEN",
+        "IF ModelValid AND InputsValid THEN",
+    )
+    .replace(
+        "RequestedHeaterPower : LREAL :=",
+        "RequestedHeaterPower AT %IL32 : LREAL :=",
+    )
+    .replace("ProcessValue : LREAL :=", "ProcessValue AT %IL0 : LREAL :=")
+    .replace(
+        "AppliedHeaterPower : LREAL :=",
+        "AppliedHeaterPower AT %QL0 : LREAL :=",
+    )
+    .replace("StaticGain : LREAL :=", "StaticGain AT %ML0 : LREAL :=")
+    .replace("TimeConstant : LREAL :=", "TimeConstant AT %ML8 : LREAL :=")
+    .replace(
+        "PredictedEquilibrium : LREAL :=",
+        "PredictedEquilibrium AT %ML16 : LREAL :=",
+    )
+    .replace(
+        "EffectiveHeatLoss : LREAL :=",
+        "EffectiveHeatLoss AT %ML40 : LREAL :=",
+    )
+    .replace(
+        "ThermalCapacitance : LREAL :=",
+        "ThermalCapacitance AT %ML48 : LREAL :=",
+    )
+    .replace(
+        "FullScaleHeaterPower : LREAL :=",
+        "FullScaleHeaterPower AT %ML56 : LREAL :=",
+    )
+    .replace(
+        "AmbientTemperature : LREAL :=",
+        "AmbientTemperature AT %ML64 : LREAL :=",
+    )
+    .replace("ModelValid : BOOL :=", "ModelValid AT %MX80.0 : BOOL :=")
+    .replace("InputsValid : BOOL :=", "InputsValid AT %MX80.1 : BOOL :=")
+    .replace(
+        "ExperimentEnabled : BOOL :=",
+        "ExperimentEnabled AT %MX81.0 : BOOL :=",
+    );
     let mut runtime = CompileSession::from_sources(vec![SourceFile::with_path(
         "water-heater-energy-balance/src/Main.st",
         source,
@@ -1424,8 +1474,12 @@ fn control_curriculum_heater_step_recovers_fopdt_from_recorded_reaction_curve() 
         .expect("clear safety abort for reviewed restoration");
 
     write_bool(&mut runtime, &experiment_enabled, false);
-    runtime.execute_cycle().expect("begin Manual restoration after abort");
-    runtime.execute_cycle().expect("complete Manual restoration after abort");
+    runtime
+        .execute_cycle()
+        .expect("begin Manual restoration after abort");
+    runtime
+        .execute_cycle()
+        .expect("complete Manual restoration after abort");
     assert!(
         (read_lreal(&runtime, &mv) - 20.0).abs() <= 1e-12,
         "the reviewed restoration request must restore the 20 percent holding point"
@@ -1509,8 +1563,8 @@ fn control_curriculum_heater_validation_accepts_new_step_but_restricts_unmodelle
             "ManipulatedValue AT %QL0 : LREAL :=",
         )
         .replace(
-            "TestAuthorityEnabled : BOOL :=",
-            "TestAuthorityEnabled AT %MX81.0 : BOOL :=",
+            "ExperimentEnabled : BOOL :=",
+            "ExperimentEnabled AT %MX81.0 : BOOL :=",
         )
         .replace("SafetyAbort : BOOL :=", "SafetyAbort AT %MX81.1 : BOOL :=")
         .replace("InputsValid : BOOL :=", "InputsValid AT %MX81.2 : BOOL :=")
@@ -2661,10 +2715,7 @@ fn control_curriculum_lambda_boolean_test_authority_owns_selected_run_and_rollba
             "ExperimentEnabled : BOOL :=",
             "ExperimentEnabled AT %IX82.5 : BOOL :=",
         )
-        .replace(
-            "RunApproved : BOOL :=",
-            "RunApproved AT %MX100.3 : BOOL :=",
-        )
+        .replace("RunApproved : BOOL :=", "RunApproved AT %MX100.3 : BOOL :=")
         .replace(
             "SelectedProportionalGain : LREAL :=",
             "SelectedProportionalGain AT %ML48 : LREAL :=",
@@ -2706,7 +2757,9 @@ fn control_curriculum_lambda_boolean_test_authority_owns_selected_run_and_rollba
     // Addressed process-image storage begins at zero in the harness; preserve
     // the shipped empirical active gain before testing Apply and rollback.
     write_lreal(&mut runtime, &active_kp, 4.0);
-    runtime.execute_cycle().expect("initialize empirical tuning");
+    runtime
+        .execute_cycle()
+        .expect("initialize empirical tuning");
     write_bool(&mut runtime, &authority, true);
     runtime
         .execute_cycle()
@@ -2922,80 +2975,85 @@ fn control_curriculum_lambda_pi_improves_declared_response_and_survives_model_er
 }
 
 fn safe_heat_exchanger_runtime() -> trust_runtime::Runtime {
-    let source = project_file("safe-heat-exchanger-experiment", "src/Main.st")
-        .split("CONFIGURATION Config")
-        .next()
-        .expect("example program before configuration")
-        .replace("ProposedStep : LREAL :=", "ProposedStep AT %ML0 : LREAL :=")
-        .replace(
-            "ProposedDuration : LREAL :=",
-            "ProposedDuration AT %ML8 : LREAL :=",
-        )
-        .replace("ReviewPlan : BOOL :=", "ReviewPlan AT %MX16.0 : BOOL :=")
-        .replace(
-            "StartExperiment : BOOL :=",
-            "StartExperiment AT %MX16.1 : BOOL :=",
-        )
-        .replace(
-            "ResetExperiment : BOOL :=",
-            "ResetExperiment AT %MX16.2 : BOOL :=",
-        )
-        .replace(
-            "SignalQualityGood : BOOL :=",
-            "SignalQualityGood AT %MX16.3 : BOOL :=",
-        )
-        .replace(
-            "OperatingModeAllowed : BOOL :=",
-            "OperatingModeAllowed AT %MX16.4 : BOOL :=",
-        )
-        .replace(
-            "ConfoundingDisturbanceActive : BOOL :=",
-            "ConfoundingDisturbanceActive AT %MX16.5 : BOOL :=",
-        )
-        .replace(
-            "TopologyReviewed : BOOL :=",
-            "TopologyReviewed AT %MX16.6 : BOOL :=",
-        )
-        .replace(
-            "ImmediatePhysicalApproval : BOOL :=",
-            "ImmediatePhysicalApproval AT %MX16.7 : BOOL :=",
-        )
-        .replace(
-            "PhysicalPlantRequested : BOOL :=",
-            "PhysicalPlantRequested AT %MX17.0 : BOOL :=",
-        )
-        .replace("ProcessValue : LREAL :=", "ProcessValue AT %IL0 : LREAL :=")
-        .replace(
-            "RequestedValve : LREAL :=",
-            "RequestedValve AT %ML32 : LREAL :=",
-        )
-        .replace("AppliedValve : LREAL :=", "AppliedValve AT %QL0 : LREAL :=")
-        .replace(
-            "PlanAccepted : BOOL :=",
-            "PlanAccepted AT %MX18.0 : BOOL :=",
-        )
-        .replace(
-            "ExperimentRunning : BOOL :=",
-            "ExperimentRunning AT %MX18.1 : BOOL :=",
-        )
-        .replace(
-            "ExperimentComplete : BOOL :=",
-            "ExperimentComplete AT %MX18.2 : BOOL :=",
-        )
-        .replace(
-            "ExperimentAborted : BOOL :=",
-            "ExperimentAborted AT %MX18.3 : BOOL :=",
-        )
-        .replace("Restoring : BOOL :=", "Restoring AT %MX18.4 : BOOL :=")
-        .replace(
-            "PhysicalExecutionEligible : BOOL :=",
-            "PhysicalExecutionEligible AT %MX18.5 : BOOL :=",
-        )
-        .replace(
-            "PlanRejectReason : INT :=",
-            "PlanRejectReason AT %MW20 : INT :=",
-        )
-        .replace("AbortReason : INT :=", "AbortReason AT %MW22 : INT :=");
+    let source = without_lesson_workflow(
+        project_file("safe-heat-exchanger-experiment", "src/Main.st")
+            .split("CONFIGURATION Config")
+            .next()
+            .expect("example program before configuration")
+            .to_owned(),
+        "(* Control Studio grants only Boolean authority.",
+        "(* This executable is deliberately simulation-only.",
+    )
+    .replace("ProposedStep : LREAL :=", "ProposedStep AT %ML0 : LREAL :=")
+    .replace(
+        "ProposedDuration : LREAL :=",
+        "ProposedDuration AT %ML8 : LREAL :=",
+    )
+    .replace("ReviewPlan : BOOL :=", "ReviewPlan AT %MX16.0 : BOOL :=")
+    .replace(
+        "StartExperiment : BOOL :=",
+        "StartExperiment AT %MX16.1 : BOOL :=",
+    )
+    .replace(
+        "ResetExperiment : BOOL :=",
+        "ResetExperiment AT %MX16.2 : BOOL :=",
+    )
+    .replace(
+        "SignalQualityGood : BOOL :=",
+        "SignalQualityGood AT %MX16.3 : BOOL :=",
+    )
+    .replace(
+        "OperatingModeAllowed : BOOL :=",
+        "OperatingModeAllowed AT %MX16.4 : BOOL :=",
+    )
+    .replace(
+        "ConfoundingDisturbanceActive : BOOL :=",
+        "ConfoundingDisturbanceActive AT %MX16.5 : BOOL :=",
+    )
+    .replace(
+        "TopologyReviewed : BOOL :=",
+        "TopologyReviewed AT %MX16.6 : BOOL :=",
+    )
+    .replace(
+        "ImmediatePhysicalApproval : BOOL :=",
+        "ImmediatePhysicalApproval AT %MX16.7 : BOOL :=",
+    )
+    .replace(
+        "PhysicalPlantRequested : BOOL :=",
+        "PhysicalPlantRequested AT %MX17.0 : BOOL :=",
+    )
+    .replace("ProcessValue : LREAL :=", "ProcessValue AT %IL0 : LREAL :=")
+    .replace(
+        "RequestedValve : LREAL :=",
+        "RequestedValve AT %ML32 : LREAL :=",
+    )
+    .replace("AppliedValve : LREAL :=", "AppliedValve AT %QL0 : LREAL :=")
+    .replace(
+        "PlanAccepted : BOOL :=",
+        "PlanAccepted AT %MX18.0 : BOOL :=",
+    )
+    .replace(
+        "ExperimentRunning : BOOL :=",
+        "ExperimentRunning AT %MX18.1 : BOOL :=",
+    )
+    .replace(
+        "ExperimentComplete : BOOL :=",
+        "ExperimentComplete AT %MX18.2 : BOOL :=",
+    )
+    .replace(
+        "ExperimentAborted : BOOL :=",
+        "ExperimentAborted AT %MX18.3 : BOOL :=",
+    )
+    .replace("Restoring : BOOL :=", "Restoring AT %MX18.4 : BOOL :=")
+    .replace(
+        "PhysicalExecutionEligible : BOOL :=",
+        "PhysicalExecutionEligible AT %MX18.5 : BOOL :=",
+    )
+    .replace(
+        "PlanRejectReason : INT :=",
+        "PlanRejectReason AT %MW20 : INT :=",
+    )
+    .replace("AbortReason : INT :=", "AbortReason AT %MW22 : INT :=");
     CompileSession::from_sources(vec![SourceFile::with_path(
         "safe-heat-exchanger-experiment/src/Main.st",
         source,
@@ -3369,64 +3427,69 @@ fn control_curriculum_safe_heat_exchanger_plan_rejects_executes_and_restores() {
 }
 
 fn excitation_methods_runtime() -> trust_runtime::Runtime {
-    let source = project_file("excitation-methods", "src/Main.st")
-        .split("CONFIGURATION Config")
-        .next()
-        .expect("example program before configuration")
-        .replace("PlantSelection : INT :=", "PlantSelection AT %MW0 : INT :=")
-        .replace(
-            "MethodSelection : INT :=",
-            "MethodSelection AT %MW2 : INT :=",
-        )
-        .replace(
-            "StartExperiment : BOOL :=",
-            "StartExperiment AT %MX4.0 : BOOL :=",
-        )
-        .replace(
-            "ResetExperiment : BOOL :=",
-            "ResetExperiment AT %MX4.1 : BOOL :=",
-        )
-        .replace(
-            "ExperimentRunning : BOOL :=",
-            "ExperimentRunning AT %MX4.2 : BOOL :=",
-        )
-        .replace(
-            "MethodEligible : BOOL :=",
-            "MethodEligible AT %MX4.3 : BOOL :=",
-        )
-        .replace(
-            "ExperimentComplete : BOOL :=",
-            "ExperimentComplete AT %MX4.4 : BOOL :=",
-        )
-        .replace("RejectReason : INT :=", "RejectReason AT %MW6 : INT :=")
-        .replace(
-            "HeaterRequestedCommand : LREAL :=",
-            "HeaterRequestedCommand AT %ML8 : LREAL :=",
-        )
-        .replace(
-            "HeaterAppliedCommand : LREAL :=",
-            "HeaterAppliedCommand AT %QL0 : LREAL :=",
-        )
-        .replace(
-            "ServoRequestedTorque : LREAL :=",
-            "ServoRequestedTorque AT %ML16 : LREAL :=",
-        )
-        .replace(
-            "ServoAppliedTorque : LREAL :=",
-            "ServoAppliedTorque AT %QL8 : LREAL :=",
-        )
-        .replace(
-            "InstantFrequencyHz : LREAL :=",
-            "InstantFrequencyHz AT %ML24 : LREAL :=",
-        )
-        .replace(
-            "HeaterTemperature : LREAL :=",
-            "HeaterTemperature AT %IL0 : LREAL :=",
-        )
-        .replace(
-            "ServoPosition : LREAL :=",
-            "ServoPosition AT %IL8 : LREAL :=",
-        );
+    let source = without_lesson_workflow(
+        project_file("excitation-methods", "src/Main.st")
+            .split("CONFIGURATION Config")
+            .next()
+            .expect("example program before configuration")
+            .to_owned(),
+        "IF ExperimentEnabled THEN",
+        "InputsValid :=",
+    )
+    .replace("PlantSelection : INT :=", "PlantSelection AT %MW0 : INT :=")
+    .replace(
+        "MethodSelection : INT :=",
+        "MethodSelection AT %MW2 : INT :=",
+    )
+    .replace(
+        "StartExperiment : BOOL :=",
+        "StartExperiment AT %MX4.0 : BOOL :=",
+    )
+    .replace(
+        "ResetExperiment : BOOL :=",
+        "ResetExperiment AT %MX4.1 : BOOL :=",
+    )
+    .replace(
+        "ExperimentRunning : BOOL :=",
+        "ExperimentRunning AT %MX4.2 : BOOL :=",
+    )
+    .replace(
+        "MethodEligible : BOOL :=",
+        "MethodEligible AT %MX4.3 : BOOL :=",
+    )
+    .replace(
+        "ExperimentComplete : BOOL :=",
+        "ExperimentComplete AT %MX4.4 : BOOL :=",
+    )
+    .replace("RejectReason : INT :=", "RejectReason AT %MW6 : INT :=")
+    .replace(
+        "HeaterRequestedCommand : LREAL :=",
+        "HeaterRequestedCommand AT %ML8 : LREAL :=",
+    )
+    .replace(
+        "HeaterAppliedCommand : LREAL :=",
+        "HeaterAppliedCommand AT %QL0 : LREAL :=",
+    )
+    .replace(
+        "ServoRequestedTorque : LREAL :=",
+        "ServoRequestedTorque AT %ML16 : LREAL :=",
+    )
+    .replace(
+        "ServoAppliedTorque : LREAL :=",
+        "ServoAppliedTorque AT %QL8 : LREAL :=",
+    )
+    .replace(
+        "InstantFrequencyHz : LREAL :=",
+        "InstantFrequencyHz AT %ML24 : LREAL :=",
+    )
+    .replace(
+        "HeaterTemperature : LREAL :=",
+        "HeaterTemperature AT %IL0 : LREAL :=",
+    )
+    .replace(
+        "ServoPosition : LREAL :=",
+        "ServoPosition AT %IL8 : LREAL :=",
+    );
     CompileSession::from_sources(vec![SourceFile::with_path(
         "excitation-methods/src/Main.st",
         source,
@@ -3866,19 +3929,24 @@ fn control_curriculum_excitation_methods_match_heater_and_flexible_drive_dynamic
 }
 
 fn dryer_runtime() -> trust_runtime::Runtime {
-    let source = project_file("dryer-model-selection", "src/Main.st")
-        .split("CONFIGURATION Config")
-        .next()
-        .expect("example program before configuration")
-        .replace(
-            "ExperimentInput : LREAL :=",
-            "ExperimentInput AT %ML0 : LREAL :=",
-        )
-        .replace("ProcessValue : LREAL :=", "ProcessValue AT %IL0 : LREAL :=")
-        .replace(
-            "ManipulatedValue : LREAL :=",
-            "ManipulatedValue AT %QL0 : LREAL :=",
-        );
+    let source = without_lesson_workflow(
+        project_file("dryer-model-selection", "src/Main.st")
+            .split("CONFIGURATION Config")
+            .next()
+            .expect("example program before configuration")
+            .to_owned(),
+        "IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN",
+        "(* Keep the identification experiment open loop.",
+    )
+    .replace(
+        "ExperimentInput : LREAL :=",
+        "ExperimentInput AT %ML0 : LREAL :=",
+    )
+    .replace("ProcessValue : LREAL :=", "ProcessValue AT %IL0 : LREAL :=")
+    .replace(
+        "ManipulatedValue : LREAL :=",
+        "ManipulatedValue AT %QL0 : LREAL :=",
+    );
     CompileSession::from_sources(vec![
         SourceFile::with_path(
             "Control/control.st",

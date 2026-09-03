@@ -41,20 +41,7 @@
     "sampleTimeSeconds": 0.1,
     "initialState": { "jacketTemperatureDegC": 70, "reactorTemperatureDegC": 80 },
     "seed": 20260829,
-    "operatingPoint": {
-      "Reactor-temperature setpoint": 80,
-      "Heating-utility disturbance": 0,
-      "Jacket test setpoint": 70,
-      "Direct reactor temperature": 80,
-      "Direct jacket temperature": 70,
-      "Fast-cascade reactor temperature": 80,
-      "Fast-cascade jacket temperature": 70,
-      "Slow-cascade reactor temperature": 80,
-      "Slow-cascade jacket temperature": 70,
-      "Direct valve request": 50,
-      "Fast-cascade valve request": 50,
-      "Slow-cascade valve request": 50
-    },
+    "operatingPoint": { "Reactor-temperature setpoint": 80, "Heating-utility disturbance": 0, "Jacket test setpoint": 70, "Direct reactor temperature": 80, "Direct jacket temperature": 70, "Fast-cascade reactor temperature": 80, "Fast-cascade jacket temperature": 70, "Slow-cascade reactor temperature": 80, "Slow-cascade jacket temperature": 70, "Direct valve request": 50, "Fast-cascade valve request": 50, "Slow-cascade valve request": 50 },
     "validityRange": [
       { "signal": "Direct reactor temperature", "minimum": 60, "maximum": 95, "unit": "degC" },
       { "signal": "Fast-cascade reactor temperature", "minimum": 60, "maximum": 95, "unit": "degC" },
@@ -63,13 +50,7 @@
       { "signal": "Fast-cascade jacket temperature", "minimum": 45, "maximum": 90, "unit": "degC" },
       { "signal": "Slow-cascade jacket temperature", "minimum": 45, "maximum": 90, "unit": "degC" }
     ],
-    "simplifications": [
-      "Local linear energy balances around one production operating point",
-      "One ideal temperature measurement for each jacket and reactor state",
-      "Three deterministic equivalent plants isolate controller structure and inner-loop tuning",
-      "Controller requests are used as applied valve positions because no actuator nonideality is configured",
-      "Simulation-only I/O and evidence"
-    ]
+    "simplifications": ["Local linear energy balances around one production operating point", "One ideal temperature measurement for each jacket and reactor state", "Three deterministic equivalent plants isolate controller structure and inner-loop tuning", "Controller requests are used as applied valve positions because no actuator nonideality is configured", "Simulation-only I/O and evidence"]
   },
   "baseline": {
     "executableId": "Reactor.DirectPI",
@@ -78,12 +59,20 @@
   },
   "change": {
     "executableId": "Reactor.CommissionedCascade",
-    "settings": { "outerKp": 1, "outerKi": 0.08, "fastInnerKp": 2, "fastInnerKi": 1, "slowInnerKp": 0.2, "slowInnerKi": 0.02, "jacketSetpointLimitsDegC": [60, 85] },
+    "settings": {
+      "outerKp": 1,
+      "outerKi": 0.08,
+      "fastInnerKp": 2,
+      "fastInnerKi": 1,
+      "slowInnerKp": 0.2,
+      "slowInnerKi": 0.02,
+      "jacketSetpointLimitsDegC": [60, 85]
+    },
     "decision": "Accept cascade only when the inner loop is commissioned first, detects the disturbance earlier, is at least three times faster, and improves equivalent reactor-temperature evidence."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Heating-utility disturbance",
+    "signal": "Experiment authority",
     "baseline": 0,
     "amplitude": 0,
     "durationSeconds": 120.1,

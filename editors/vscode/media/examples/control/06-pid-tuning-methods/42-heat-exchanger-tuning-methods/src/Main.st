@@ -11,6 +11,9 @@ VAR
     ManualPiInput : Control.PIDInput;
     HistoricalPiInput : Control.PIDInput;
     Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     Setpoint : LREAL := 50.0;
     HistoricalKp : LREAL := 10.0057565917;
     HistoricalKi : LREAL := 1.0579328485;
@@ -76,6 +79,20 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
+InputsValid := ManualPTemperature >= LREAL#40.0
+    AND ManualPTemperature <= LREAL#60.0
+    AND ManualPiTemperature >= LREAL#40.0
+    AND ManualPiTemperature <= LREAL#60.0
+    AND CriticalPTemperature >= LREAL#40.0
+    AND CriticalPTemperature <= LREAL#60.0
+    AND HistoricalPiTemperature >= LREAL#40.0
+    AND HistoricalPiTemperature <= LREAL#60.0;
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    Setpoint := LREAL#52.5;
+ELSE
+    Setpoint := LREAL#50.0;
+END_IF;
+
 (* The two proportional-only paths make the offset and critical experiment
    visible without hiding either law behind another controller instance. *)
 ManualPRequested := LREAL#20.0 + LREAL#2.0 * (Setpoint - ManualPTemperature);
@@ -104,6 +121,9 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
+    P1.ExperimentEnabled AT %MX64.1 : BOOL;
+    P1.SafetyAbort AT %MX64.2 : BOOL;
+    P1.InputsValid AT %MX64.3 : BOOL;
     P1.Setpoint AT %ML24 : LREAL;
     P1.HistoricalKp AT %ML32 : LREAL;
     P1.HistoricalKi AT %ML40 : LREAL;

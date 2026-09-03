@@ -14,7 +14,7 @@ This is simulation evidence, not physical-plant evidence.
 
 **Equipment:** Constant-area buffer tank and electrically heated vessel.
 
-## Where this lesson begins
+## The problem
 
 Lesson 32 identified integrating and self-regulating shapes from data. Those
 labels do not explain why the shapes occur. The workshop contains two independent real-world modules. A constant-area
@@ -33,7 +33,12 @@ We now derive both responses from the quantities stored and transported. Every
 term must have a physical meaning and compatible unit so the model predicts
 parameter changes, not merely one curve.
 
-## From stored quantities to state equations
+## What we need
+
+We need models derived from material and energy conservation so every state,
+input, sign, unit, and predicted response has a physical explanation.
+
+## The new idea
 
 A **stored quantity** is material or energy retained by equipment. A **state
 variable** is a quantity, such as level or temperature, whose present value is
@@ -87,7 +92,7 @@ gain relates steady temperature change to command. The time constant describes
 response speed. Transport delay postpones the visible response without changing
 the final balance.
 
-## Deriving the predictions
+## Prediction
 
 The tank area is 0.5 square metres. It starts at 50 centimetres. Inlet flow is
 12 litres per second and outlet flow is 10 litres per second. Net inflow is 2

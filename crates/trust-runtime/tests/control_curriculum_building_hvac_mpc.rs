@@ -43,10 +43,23 @@ fn project_file(relative: &str) -> String {
 }
 
 fn mapped_source() -> String {
-    project_file("src/Main.st")
+    let mut source = project_file("src/Main.st")
         .split("CONFIGURATION Config")
         .next()
         .expect("Lesson 68 program before configuration")
+        .to_owned();
+    let workflow_start = source
+        .find("(* Control Studio grants only authority.")
+        .expect("Lesson 68 project-owned workflow start");
+    let workflow_end = source[workflow_start..]
+        .find("MpcRequest.Enable :=")
+        .map(|offset| workflow_start + offset)
+        .expect("Lesson 68 project-owned workflow end");
+    source.replace_range(workflow_start..workflow_end, "");
+
+    // Qualify the MPC and plant with explicit test fixtures. The curriculum
+    // workflow contract independently proves the shipped student sequencer.
+    source
         .replace(
             "FeasibleCandidateCount : DINT :=",
             "FeasibleCandidateCount AT %MD4 : DINT :=",

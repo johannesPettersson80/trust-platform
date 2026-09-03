@@ -1,7 +1,9 @@
 # Commission a jacketed-reactor cascade
 
-Course position: Lesson 54 of 84. Prerequisite: measured-disturbance feedforward in
-Lesson 53. All results in this lesson are **Simulation evidence**. They do not
+Course position: Lesson 54 of 84. Prerequisite:
+[measured-disturbance feedforward](../53-conveyor-oven-feedforward/) in Lesson
+53. Next lesson: [ratio control](../55-blending-ratio/). All results in this
+lesson are **Simulation evidence**. They do not
 authorize an experiment on a physical reactor.
 
 **Lesson objective:** Commission a jacket-temperature inner loop before closing a reactor-temperature outer loop.
@@ -94,6 +96,15 @@ do not prove the closed inner controller is fast enough. We require its
 measured settling time to be at least three times faster than the outer
 response under the tested operating conditions.
 
+The coefficients also predict the direction and size of the required valve
+movement. At jacket equilibrium, $dx_j/dt=0$, so
+$x_j=1.4u_v+w$. A five-degree jacket test with $w=0$ therefore needs
+$u_v=5/1.4=3.57$ additional valve percentage points. During the
+$w=-10{}^\circ\mathrm C$ utility event, holding $x_j=0$ requires
+$u_v=10/1.4=7.14$ percentage points. The reactor equation has no direct $w$
+term: utility loss must first move the jacket, then the jacket moves the
+reactor. That causal order is why the jacket sensor can provide earlier error.
+
 ### Commission the inner loop first
 
 Tune and validate the inner loop first while the outer controller tracks its
@@ -146,44 +157,30 @@ preferred architecture is embedded in the PLC program.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Commission the two jacket loops first, reject the deliberately slow one, then close the qualified fast inner loop beneath the same outer tuning. The declared event lasts 120 seconds. It restores Heating-utility disturbance to 0 degC afterward. The deterministic Simulation seed is 20260829.
+The project owns the complete sequence: baseline through 10 seconds, a
+five-degree jacket commissioning step from 10 through 30 seconds, restoration
+before 40 seconds, then the minus-ten-degree utility event with cascade closed.
+It owns the 120-second observation and final restoration. Control Studio may
+write only `P1.ExperimentEnabled`; it must not inject a second disturbance.
+The 120.1-second timeout lets restoration finish first. The native test owns a
+fresh separate authority-loss case. The deterministic Simulation seed is
+20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Reactor-temperature setpoint (SP, degC); Direct reactor temperature (PV, degC); Direct valve request (MV, %), including units, limits, mode, and quality. The initial operating point is Reactor-temperature setpoint = 80 degC, Heating-utility disturbance = 0 degC, Jacket test setpoint = 70 degC, Direct reactor temperature = 80 degC, Direct jacket temperature = 70 degC, Fast-cascade reactor temperature = 80 degC, Fast-cascade jacket temperature = 70 degC, Slow-cascade reactor temperature = 80 degC. The unresolved baseline problem is: Direct reactor-temperature PI cannot act until the slow product temperature has already changed. In Control Studio Monitor select commissioning mode, retain the inner-loop boundary at 10.0 s, and retain the outer-loop boundary at 40.0 s.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept cascade only when the inner loop is commissioned first, detects the disturbance earlier, is at least three times faster, and improves equivalent reactor-temperature evidence.
-   - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
+   - **Successful evidence:** The Response plot advances and the displayed values are finite and current. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Load disturbance step**, **Amplitude** = **-10 degC**, and **Maximum duration (s)** = **120**. The affected signal is **Heating-utility disturbance**; it starts at 0 degC and must restore to 0 degC.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The observed signal is **Heating-utility disturbance**. Control Studio uses the Boolean project authority **P1.ExperimentEnabled** at **%MX136.3**; it does not inject another utility event.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Direct valve request 0 % to 100 %; Fast-cascade valve request 0 % to 100 %; Slow-cascade valve request 0 % to 100 %; Fast-cascade jacket temperature 45 degC to 90 degC; Fast-cascade reactor temperature 60 degC to 95 degC.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Heating-utility disturbance to 0 degC, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Inner-first cascade commissioning and time-scale separation** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Inner-first cascade commissioning and time-scale separation** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Inner-first cascade commissioning and time-scale separation** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Inner-first cascade commissioning and time-scale separation**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: inner_time_scale_separation >= 3 (dimensionless) (tolerance 0.05 (dimensionless)); jacket_detection_lead > 0 s (tolerance 0.1 s); cascade_reactor_event_iae_ratio < 0.7 (dimensionless) (tolerance 0.01 (dimensionless)); cascade_peak_improvement < 0 degC (tolerance 0.01 degC).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Record:** Compare event order, settling, reactor error, and valve movement with the prediction. Retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test owns the fresh commissioning comparison, authority-loss case, metrics, and verdicts; disabled Identify, Tune, or Validate controls are not evidence.
 
 ## Evidence and decision
 

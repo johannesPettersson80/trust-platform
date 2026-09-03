@@ -166,8 +166,17 @@ $c_{\mathrm{model}} = y_{\mathrm{measured}} - y_{\mathrm{model\,delayed}}$
 
 $y_{\mathrm{predicted}} = y_{\mathrm{model\,now}} + c_{\mathrm{model}}$
 
-The Smith PI uses a desired delay-free closed-loop time constant of 6 seconds.
-This gives $K_p$ equal to 2.5 and $K_i$ equal to 0.2083333. It controls from
+For the delay-free model $G_0(s)=K/(Ts+1)$, choose the PI zero to cancel the
+model pole: $C(s)=K_p(1+1/(T_i s))$ with $T_i=T$. The remaining nominal loop
+is $K K_p/(T s)$. Asking that loop to close like $1/(\lambda s+1)$ therefore
+requires $K K_p/T=1/\lambda$, so
+
+$K_p = T/(K\lambda) = 12/(0.8\cdot6)=2.5$
+
+$K_i = K_p/T_i = 2.5/12=0.2083333$
+
+Here $\lambda=6$ seconds is the desired delay-free response time, not a claim
+that the physical 16-second transport disappears. The Smith PI controls from
 $y_{\mathrm{predicted}}$ only while history, quality, operating region, model evidence, and
 the 5-degree-Celsius correction bound are valid. Otherwise measured downstream
 temperature owns fallback. Model mismatch means actual K, T, or L differs from
@@ -237,7 +246,10 @@ metric, winner, or silently applied revision.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Add qualified upstream feedforward for the measured disturbance, then Smith prediction only for the remaining delay-limited setpoint requirement. The declared event lasts 180 seconds. It restores Product-temperature setpoint to 20 degC afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the complete project-owned comparison under controlled
+conditions. Control Studio supplies only permission to run it. The project owns
+the setpoint, disturbance, mismatch, fallback, stop, and restoration sequence.
+The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -246,35 +258,14 @@ This procedure tests one declared lesson change under controlled conditions. Add
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Use feedforward only for qualified upstream temperature and prediction only while model evidence is valid; otherwise retain the strongest robust measured-feedback PI.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test. Stop recording before leaving Monitor.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Setpoint step**, **Amplitude** = **15 degC**, and **Maximum duration (s)** = **180**. The affected signal is **Product-temperature setpoint**; it starts at 20 degC and must restore to 20 degC. Retain the delay and mismatch boundaries at 10 seconds, 54 seconds, 70 seconds, and 180 seconds. Retain the delay and mismatch boundaries at 10 seconds, 54 seconds, 70 seconds, and 180 seconds. Separately exercise invalid upstream quality, invalid downstream quality, incomplete history, and heater unavailable; verify Manual fallback and ControlledStop.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Ordinary-PI product temperature 15 degC to 60 degC; Feedforward product temperature 15 degC to 60 degC; Integrated product temperature 15 degC to 60 degC; Predicted current product temperature 15 degC to 60 degC; Integrated applied heater power 0 % to 100 %; Model correction -5 degC to 5 degC.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Product-temperature setpoint to 20 degC, wait for current data, and review a new test.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **180.1**. The only writable lesson signal is Boolean `P1.ExperimentEnabled`. Amplitude zero is intentional: the runnable project requests 35 degC at 10 seconds, applies the qualified upstream event at 54 seconds, and owns all later mismatch, invalid-data, fallback, stop, and restoration cases.
+   - **Decision before action:** Before selecting **Review test**, confirm that enabling the Boolean authority is safe and predict what should happen at 10, 54, and 70 seconds. Check the declared temperature, heater, correction, quality, and availability limits; do not substitute a Control Studio setpoint step for the project sequence.
+   - **Successful evidence:** Select **Review test**, verify that the sole write is `P1.ExperimentEnabled`, the amplitude is zero, the duration is 180.1 seconds, and restoration is `FALSE`; then select **Confirm and start**. The terminal state must show completion and restoration while Response contains the project-owned SP/PV/MV sequence.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason. Confirm `P1.ExperimentEnabled = FALSE`, wait for the project to restore 20 degC, qualified inputs, measured-feedback authority, and safe heater state, then review a new test.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Robust ordinary PI, measured-load feedforward, Smith prediction, and deterministic measured-feedback fallback** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Robust ordinary PI, measured-load feedforward, Smith prediction, and deterministic measured-feedback fallback** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Robust ordinary PI, measured-load feedforward, Smith prediction, and deterministic measured-feedback fallback** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Robust ordinary PI, measured-load feedforward, Smith prediction, and deterministic measured-feedback fallback**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: integrated_ninety_percent_rise_time < 45 s (tolerance 0.1 s); ordinary_overshoot <= 2 degC (tolerance 0.01 degC); integrated_final_window_error <= 0.5 degC (tolerance 0.01 degC); model_correction_limit <= 5 degC (tolerance 0.000001 degC).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
 
 ## Evidence and decision
 

@@ -43,13 +43,16 @@
       {
         "id": "experiment-authority",
         "channel": "experiment-authority",
-        "role": "authority",
+        "role": "state",
         "symbol": "P1.ExperimentEnabled",
         "address": "%MX64.2",
         "iecType": "BOOL",
-        "direction": "write",
-        "unit": "1",
-        "range": { "minimum": 0, "maximum": 1 }
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       },
       {
         "id": "controller-enabled",
@@ -202,10 +205,16 @@
   },
   "plantId": "flexible_wing_uncertainty_grid",
   "experiment": {
-    "execution": "control-studio",
+    "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
     "durationSeconds": 25.1,
-    "seed": 20260829
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX64.2",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

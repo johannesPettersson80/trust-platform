@@ -17,7 +17,9 @@ mod evidence;
 
 fn project_file(relative: &str) -> String {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/control/12-nonlinear-adaptive-and-robust-control/71-extruder-adaptive")
+        .join(
+            "../../examples/control/12-nonlinear-adaptive-and-robust-control/71-extruder-adaptive",
+        )
         .join(relative);
     assert!(
         path.is_file(),

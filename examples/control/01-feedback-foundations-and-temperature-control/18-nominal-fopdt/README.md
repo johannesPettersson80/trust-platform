@@ -49,16 +49,38 @@ must stop the run and restore the empirical gains.
 
 ### Name every quantity before using it
 
-The validated first-order-plus-dead-time plant is
+Lesson 16 obtained this model from a bounded heater-power step: settled
+temperature change divided by applied-power change produced its gain, the
+measured response-onset time produced its apparent delay, and the time from
+that onset to 63.2 percent of the settled change produced its time constant.
+Lesson 17 then froze those quantities and tested them on an unused input
+amplitude and a separate load event. The model was accepted only for the local
+heater-power path and restricted for the omitted cold-flow disturbance. It is
+therefore an identified and independently checked local model, not a universal
+heat-balance equation.
 
-$G(s) = K e^{-Ls} / (Ts + 1)$
-
-where $s$ is the Laplace frequency variable. The **model gain ($K$)** is the
+The **plant transfer function ($G(s)$)** is the zero-initial-deviation ratio of
+modelled outlet-temperature change to applied heater-power change. Its unit is
+degrees Celsius per percentage point. The **Laplace frequency variable ($s$)**
+has unit inverse seconds and lets a differential equation be written as an
+algebraic input-output ratio. The **model gain ($K$)** is the
 steady temperature change in degrees Celsius per percentage point of heater
 power. The **model time constant ($T$)** is the response time in seconds: after
 one time constant, a delay-free first-order response has completed about 63.2%
 of its eventual change. The **model dead time ($L$)** is the number of seconds
 between a heater change and the beginning of the modelled temperature response.
+
+The delayed factor $e^{-Ls}$ says that the input reaches the modelled response
+$L$ seconds late. The denominator $Ts+1$ is the Laplace form of the
+first-order balance derived and fitted in Lesson 16. Multiplying that dynamic
+shape by $K$ restores the measured steady temperature-per-power scale. These
+pieces give the validated first-order-plus-dead-time plant:
+
+$G(s) = \frac{K e^{-Ls}}{Ts + 1}$
+
+As $s$ approaches zero, the delay and denominator approach one, so $G(0)=K$;
+the equation therefore preserves the measured steady gain. Its use remains
+limited to the operating and input ranges validated in Lesson 17.
 
 The **desired closed-loop response time (lambda)**, written $\lambda$, is the
 engineer's speed target in seconds. We choose it; it is not another plant
@@ -75,6 +97,12 @@ degree-Celsius-second, written %/(°C·s).
 
 ### Derive the Lambda/IMC PI rule
 
+The **internal-model controller ($Q(s)$)** is the design element that would
+invert the usable part of the identified plant and then impose the response
+speed we choose. Its unit is percentage points of heater command per degree
+Celsius. We do not invert the delay because doing so would require acting on a
+temperature change before its information exists.
+
 First ignore the non-invertible delay and ask the controller to make the
 invertible first-order part behave like a first-order filter with the chosen
 response time:
@@ -83,8 +111,11 @@ $Q(s) = (Ts + 1) / [K(\lambda s + 1)]$
 
 The numerator $(Ts+1)$ cancels the plant's first-order denominator. The added
 filter $(\lambda s+1)$ prevents the inverse from demanding an instantaneous
-response. In an ordinary feedback loop, an internal-model controller $Q$ has
-the equivalent feedback controller
+response. The **equivalent feedback controller ($C(s)$)** converts the same
+internal-model design into the ordinary error-to-heater-command controller
+used by the feedback loop. Closing the loop makes the remaining correction
+equal to the internal-model action divided by one minus its predicted
+plant-through-controller return, which gives
 
 $C(s) = Q(s) / [1 - G(s)Q(s)]$
 

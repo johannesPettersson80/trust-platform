@@ -9,7 +9,12 @@ VAR
     DoorOpenIndication : LREAL := 0.0;
     EffectiveSurroundings : LREAL := 4.0;
     SwitchCount : DINT := DINT#0;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
 END_VAR
+
+AutoMode := ExperimentEnabled AND InputsValid AND NOT SafetyAbort;
 
 IF AutoMode THEN
     (* This lesson intentionally uses one threshold. The resulting chatter is
@@ -38,8 +43,11 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.Setpoint AT %ML0 : LREAL;
-    P1.AutoMode AT %MX16.0 : BOOL;
+    P1.ExperimentEnabled AT %MX16.2 : BOOL;
+    P1.SafetyAbort AT %MX16.3 : BOOL;
+    P1.InputsValid AT %MX16.4 : BOOL;
     P1.CoolingEnabled AT %MX16.1 : BOOL;
+    P1.AutoMode AT %MX16.0 : BOOL;
     P1.SwitchCount AT %MD24 : DINT;
     P1.ManipulatedValue AT %QL0 : LREAL;
     P1.ProcessValue AT %IL0 : LREAL;

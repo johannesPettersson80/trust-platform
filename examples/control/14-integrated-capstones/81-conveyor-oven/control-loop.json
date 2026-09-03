@@ -51,15 +51,18 @@
     },
     "additional": [
       {
-        "id": "experiment-enabled",
-        "channel": "experiment-enabled",
-        "role": "authority",
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
         "symbol": "P1.ExperimentEnabled",
         "address": "%MX240.4",
         "iecType": "BOOL",
-        "direction": "write",
-        "unit": "1",
-        "range": {"minimum": 0, "maximum": 1}
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       },
       {
         "id": "feedforward-product-temperature",
@@ -310,10 +313,16 @@
   },
   "plantId": "equivalent_ordinary_feedforward_and_integrated_delayed_ovens",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "observe_without_excitation",
+    "execution": "project-scripted",
+    "kind": "observation",
     "amplitude": 0,
     "durationSeconds": 180.1,
-    "seed": 20260829
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX240.4",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

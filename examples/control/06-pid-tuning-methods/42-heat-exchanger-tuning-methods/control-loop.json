@@ -16,22 +16,160 @@
     "modeWhenTrue": "Auto"
   },
   "signals": {
-    "setpoint": { "symbol": "P1.Setpoint", "address": "%ML24", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 40, "maximum": 60 } },
-    "processVariable": { "symbol": "P1.ManualPiTemperature", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 40, "maximum": 60 } },
-    "manipulatedVariable": { "symbol": "P1.ManualPiApplied", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML24",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 40,
+        "maximum": 60
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ManualPiTemperature",
+      "address": "%IL8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 40,
+        "maximum": 60
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ManualPiApplied",
+      "address": "%QL8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
     "additional": [
-      { "id": "experiment-authority", "channel": "experiment-authority", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX64.1", "iecType": "BOOL", "direction": "write", "unit": "bool", "range": { "minimum": 0, "maximum": 1 } },
-      { "id": "manual-p-pv", "channel": "manual-p", "role": "PV", "symbol": "P1.ManualPTemperature", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 40, "maximum": 60 } },
-      { "id": "manual-p-mv", "channel": "manual-p", "role": "MV", "symbol": "P1.ManualPApplied", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "critical-p-pv", "channel": "critical-p", "role": "PV", "symbol": "P1.CriticalPTemperature", "address": "%IL16", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 40, "maximum": 60 } },
-      { "id": "critical-p-mv", "channel": "critical-p", "role": "MV", "symbol": "P1.CriticalPApplied", "address": "%QL16", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "historical-pi-pv", "channel": "historical-pi", "role": "PV", "symbol": "P1.HistoricalPiTemperature", "address": "%IL24", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 40, "maximum": 60 } },
-      { "id": "historical-pi-mv", "channel": "historical-pi", "role": "MV", "symbol": "P1.HistoricalPiApplied", "address": "%QL24", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } }
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX64.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "manual-p-pv",
+        "channel": "manual-p",
+        "role": "PV",
+        "symbol": "P1.ManualPTemperature",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 40,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "manual-p-mv",
+        "channel": "manual-p",
+        "role": "MV",
+        "symbol": "P1.ManualPApplied",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "critical-p-pv",
+        "channel": "critical-p",
+        "role": "PV",
+        "symbol": "P1.CriticalPTemperature",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 40,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "critical-p-mv",
+        "channel": "critical-p",
+        "role": "MV",
+        "symbol": "P1.CriticalPApplied",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "historical-pi-pv",
+        "channel": "historical-pi",
+        "role": "PV",
+        "symbol": "P1.HistoricalPiTemperature",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 40,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "historical-pi-mv",
+        "channel": "historical-pi",
+        "role": "MV",
+        "symbol": "P1.HistoricalPiApplied",
+        "address": "%QL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
     ]
   },
-  "limits": { "outputMinimum": 0, "outputMaximum": 100 },
-  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
   "plantId": "four_independent_plate_heat_exchanger_fopdt_copies",
   "operatingPoint": "50 degC at 20 percent valve position",
-  "experiment": { "execution": "project-scripted", "kind": "observation", "activationSignal": "P1.ExperimentEnabled", "amplitude": 0, "durationSeconds": 180.1, "restorationValue": 0, "seed": 20260829 }
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 180.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX64.1",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
 }

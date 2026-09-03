@@ -23,7 +23,7 @@
     { "role": "state", "name": "Timing valid", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX64.2" },
     { "role": "state", "name": "Timing fault latched", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX64.3" },
     { "role": "state", "name": "Reset timing fault", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX64.4" },
-    { "role": "state", "name": "Timing experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX80.0" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX80.0" },
     { "role": "state", "name": "Selected timing case", "unit": "1", "minimum": 0, "maximum": 4, "resolution": 1, "binding": "%MW72" }
   ],
   "plant": {
@@ -43,7 +43,7 @@
       { "signal": "Product-zone temperature deviation", "minimum": -10, "maximum": 10, "unit": "degC" },
       { "signal": "Applied and held heater-power trim", "minimum": -10, "maximum": 10, "unit": "pp" },
       { "signal": "Belt speed", "minimum": 0, "maximum": 2, "unit": "m/s" },
-      { "signal": "Actual cycle time", "minimum": 0.000001, "maximum": 0.25, "unit": "s" }
+      { "signal": "Actual cycle time", "minimum": 1e-06, "maximum": 0.25, "unit": "s" }
     ],
     "simplifications": ["The oven is one local FOPDT temperature-deviation model around 120 degC.", "Belt speed remains 0.5 m/s so timing is the only changed quantity.", "Spatial gradients, moisture dynamics, radiation, sensor filtering, scheduler causality, and pre-sampling aliasing sources are omitted."]
   },
@@ -54,12 +54,17 @@
   },
   "change": {
     "executableId": "Control.PID.PI.MeasuredTime",
-    "settings": { "useActualCycleTime": true, "intervalsMilliseconds": [50, 100, 200], "jitterPatternMilliseconds": [20, 180, 50, 150, 100], "maximumCycleTimeMilliseconds": 250 },
+    "settings": {
+      "useActualCycleTime": true,
+      "intervalsMilliseconds": [50, 100, 200],
+      "jitterPatternMilliseconds": [20, 180, 50, 150, 100],
+      "maximumCycleTimeMilliseconds": 250
+    },
     "decision": "Pass measured elapsed time inside 0 < dt <= 250 ms; outside that envelope, latch the timing fault, do not update PID state, command zero trim, and require valid Manual reset plus separate automatic re-enable."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Timing experiment authority",
+    "signal": "Experiment authority",
     "baseline": 0,
     "amplitude": 0,
     "eventTimeSeconds": 0,
@@ -70,18 +75,22 @@
     "restorationValue": 0
   },
   "acceptance": [
-    { "metric": "first_integral_increment_50_ms", "signal": "Applied and held heater-power trim", "window": "first 50 ms update", "comparator": "==", "limit": 0.03335, "unit": "pp", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "first_integral_increment_100_ms", "signal": "Applied and held heater-power trim", "window": "first 100 ms update", "comparator": "==", "limit": 0.0667, "unit": "pp", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "first_integral_increment_200_ms", "signal": "Applied and held heater-power trim", "window": "first 200 ms update", "comparator": "==", "limit": 0.1334, "unit": "pp", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "first_integral_increment_50_ms", "signal": "Applied and held heater-power trim", "window": "first 50 ms update", "comparator": "==", "limit": 0.03335, "unit": "pp", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "first_integral_increment_100_ms", "signal": "Applied and held heater-power trim", "window": "first 100 ms update", "comparator": "==", "limit": 0.0667, "unit": "pp", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "first_integral_increment_200_ms", "signal": "Applied and held heater-power trim", "window": "first 200 ms update", "comparator": "==", "limit": 0.1334, "unit": "pp", "tolerance": 1e-09, "evidenceClass": "simulation" },
     { "metric": "overshoot", "signal": "Product-zone temperature deviation", "window": "every accepted run", "comparator": "<=", "limit": 20, "unit": "%", "tolerance": 0.1, "evidenceClass": "simulation" },
     { "metric": "settling_time", "signal": "Product-zone temperature deviation", "window": "every accepted run", "comparator": "<=", "limit": 8, "unit": "s", "tolerance": 0.1, "evidenceClass": "simulation" },
-    { "metric": "maximum_timing_use_error", "signal": "Controller cycle time", "window": "maximum absolute difference from Actual cycle time over complete run", "comparator": "<=", "limit": 0.000000000001, "unit": "s", "tolerance": 0, "evidenceClass": "simulation" },
+    { "metric": "maximum_timing_use_error", "signal": "Controller cycle time", "window": "maximum absolute difference from Actual cycle time over complete run", "comparator": "<=", "limit": 1e-12, "unit": "s", "tolerance": 0, "evidenceClass": "simulation" },
     { "metric": "final_window_absolute_mean_error", "signal": "Product-zone temperature deviation", "window": "sample-interval-weighted physical time 25.0 through 30.0 s after settling qualification", "comparator": "<=", "limit": 0.02, "unit": "degC", "tolerance": 0.001, "evidenceClass": "simulation" },
-    { "metric": "invalid_timing_output", "signal": "Applied and held heater-power trim", "window": "300 ms and 0 ms cases plus valid-but-latched state", "comparator": "==", "limit": 0, "unit": "pp", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "belt_speed", "signal": "Belt speed", "window": "complete run", "comparator": "==", "limit": 0.5, "unit": "m/s", "tolerance": 0.000000001, "evidenceClass": "simulation" }
+    { "metric": "invalid_timing_output", "signal": "Applied and held heater-power trim", "window": "300 ms and 0 ms cases plus valid-but-latched state", "comparator": "==", "limit": 0, "unit": "pp", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "belt_speed", "signal": "Belt speed", "window": "complete run", "comparator": "==", "limit": 0.5, "unit": "m/s", "tolerance": 1e-09, "evidenceClass": "simulation" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Product-zone temperature deviation", "minimum": -10, "maximum": 10, "unit": "degC" }, { "signal": "Applied and held heater-power trim", "minimum": -10, "maximum": 10, "unit": "pp" }, { "signal": "Actual cycle time", "minimum": 0.000001, "maximum": 0.25, "unit": "s" }],
+    "hardLimits": [
+      { "signal": "Product-zone temperature deviation", "minimum": -10, "maximum": 10, "unit": "degC" },
+      { "signal": "Applied and held heater-power trim", "minimum": -10, "maximum": 10, "unit": "pp" },
+      { "signal": "Actual cycle time", "minimum": 1e-06, "maximum": 0.25, "unit": "s" }
+    ],
     "abortPredicates": ["PV, MV, or elapsed time is nonfinite", "elapsed time is nonpositive or exceeds 0.25 s", "PV or MV leaves its hard limit", "selected and observed interval disagree"],
     "safeMv": 0,
     "restorationMode": "Latched zero trim; valid timing and explicit reset in Manual followed by a separate automatic enable",

@@ -16,13 +16,20 @@ VAR
     EvidenceInitialized : BOOL := FALSE;
     InsideCertifiedSet : BOOL := FALSE;
     CertificateValid : BOOL := FALSE;
-    Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
 END_VAR
 
-// Keep the externally selected enable state and setpoint on the first scan.
-// This is essential for a safe disabled start on a real actuator.
-IF NOT Initialized THEN
-    Initialized := TRUE;
+(* Control Studio grants only authority. The project owns the certified
+   +0.1-radian recovery; the phase map and outside cases remain native tests. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    Enabled := TRUE;
+    AngleSetpoint := LREAL#3.141592653589793;
+ELSE
+    Enabled := FALSE;
+    AngleSetpoint := LREAL#3.141592653589793;
+    EvidenceInitialized := FALSE;
 END_IF;
 
 AngleError := AbsoluteAngle - AngleSetpoint;
@@ -86,6 +93,9 @@ VAR_CONFIG
     P1.EvidenceInitialized AT %MX64.2 : BOOL;
     P1.InsideCertifiedSet AT %MX64.3 : BOOL;
     P1.CertificateValid AT %MX64.4 : BOOL;
+    P1.ExperimentEnabled AT %MX64.5 : BOOL;
+    P1.SafetyAbort AT %MX64.6 : BOOL;
+    P1.InputsValid AT %MX64.7 : BOOL;
     P1.TorqueApplied AT %QL0 : LREAL;
     P1.AbsoluteAngle AT %IL0 : LREAL;
     P1.AngularRate AT %IL8 : LREAL;

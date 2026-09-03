@@ -1,6 +1,9 @@
 PROGRAM Main
 VAR
-    RequestedPumpFlow : LREAL := 0.1;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    RequestedPumpFlow : LREAL := 0.0;
     MainPumpFlow : LREAL := 0.0;
     EmptyCasePumpFlow : LREAL := 0.0;
     ChargedCasePumpFlow : LREAL := 0.0;
@@ -12,6 +15,28 @@ VAR
     ChargedUpstreamLevel : LREAL := 0.2;
     ChargedDownstreamLevel : LREAL := 0.0;
 END_VAR
+
+IF ExperimentEnabled THEN
+    RequestedPumpFlow := LREAL#0.1;
+ELSE
+    RequestedPumpFlow := LREAL#0.0;
+END_IF;
+
+InputsValid := MainUpstreamLevel >= LREAL#0.0
+    AND MainUpstreamLevel <= LREAL#1.0
+    AND MainDownstreamLevel >= LREAL#0.0
+    AND MainDownstreamLevel <= LREAL#1.0
+    AND EmptyUpstreamLevel >= LREAL#0.0
+    AND EmptyUpstreamLevel <= LREAL#1.0
+    AND EmptyDownstreamLevel >= LREAL#0.0
+    AND EmptyDownstreamLevel <= LREAL#1.0
+    AND ChargedUpstreamLevel >= LREAL#0.0
+    AND ChargedUpstreamLevel <= LREAL#1.0
+    AND ChargedDownstreamLevel >= LREAL#0.0
+    AND ChargedDownstreamLevel <= LREAL#1.0;
+IF SafetyAbort OR NOT InputsValid THEN
+    RequestedPumpFlow := LREAL#0.0;
+END_IF;
 
 IF RequestedPumpFlow < LREAL#0.0 THEN
     MainPumpFlow := LREAL#0.0;
@@ -32,6 +57,9 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
+    P1.ExperimentEnabled AT %MX8.0 : BOOL;
+    P1.SafetyAbort AT %MX8.1 : BOOL;
+    P1.InputsValid AT %MX8.2 : BOOL;
     P1.RequestedPumpFlow AT %ML0 : LREAL;
     P1.MainPumpFlow AT %QL0 : LREAL;
     P1.EmptyCasePumpFlow AT %QL8 : LREAL;

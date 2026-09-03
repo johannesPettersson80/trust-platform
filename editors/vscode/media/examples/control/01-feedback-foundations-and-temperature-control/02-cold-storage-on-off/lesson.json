@@ -19,7 +19,8 @@
     { "role": "disturbance", "name": "Effective surrounding temperature", "unit": "degC", "minimum": -10, "maximum": 20, "resolution": 0.1, "binding": "%IL16" },
     { "role": "state", "name": "Automatic mode enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.0" },
     { "role": "state", "name": "Cooling enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.1" },
-    { "role": "state", "name": "Switch count", "unit": "1", "minimum": 0, "maximum": 10000, "resolution": 1, "binding": "%MD24" }
+    { "role": "state", "name": "Switch count", "unit": "1", "minimum": 0, "maximum": 10000, "resolution": 1, "binding": "%MD24" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.2" }
   ],
   "plant": {
     "modelId": "first_order",
@@ -37,11 +38,7 @@
       { "signal": "Cold-room air temperature", "minimum": -30, "maximum": 20, "unit": "degC" },
       { "signal": "Compressor demand", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "The room and product are represented by one well-mixed thermal state.",
-      "The door load changes the no-cooling equilibrium rather than modelling airflow.",
-      "The deliberately unprotected switching law is simulation-only and shall not operate physical refrigeration equipment."
-    ]
+    "simplifications": ["The room and product are represented by one well-mixed thermal state.", "The door load changes the no-cooling equilibrium rather than modelling airflow.", "The deliberately unprotected switching law is simulation-only and shall not operate physical refrigeration equipment."]
   },
   "baseline": {
     "executableId": "ColdStorageManualObservation",
@@ -54,15 +51,15 @@
     "decision": "Command 100% cooling when PV is at or above SP and 0% otherwise."
   },
   "experiment": {
-    "kind": "load_step",
-    "signal": "Door-load no-cooling equilibrium",
+    "kind": "observation",
+    "signal": "Experiment authority",
     "baseline": 4,
-    "amplitude": 2,
-    "durationSeconds": 120,
+    "amplitude": 0,
+    "durationSeconds": 120.1,
     "settlingSeconds": 60,
     "disturbances": ["The door opens at 60 s and closes at 90 s", "A focused native test alternates small measurement crossings around SP"],
     "seed": 20260828,
-    "restorationValue": 4
+    "restorationValue": 0
   },
   "acceptance": [
     { "metric": "temperature_range", "signal": "Cold-room air temperature", "window": "60.0 to 89.9 s door event", "comparator": "<=", "limit": 0.05, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
@@ -105,12 +102,7 @@
   "learning": {
     "context": "Lesson 1 identified the loop but manual observation could not regulate a door disturbance.",
     "reason": "A binary compressor needs the simplest automatic feedback law before its limitations can be observed honestly.",
-    "theory": [
-      "ON/OFF control selects one of two actuator states from a Boolean comparison.",
-      "Because refrigeration has negative process gain, cooling must turn on when PV is at or above the temperature SP.",
-      "A binary actuator produces a temperature cycle rather than convergence to one exact value.",
-      "Switching frequency measures how often the actuator changes state; noise near one threshold can make it chatter."
-    ],
+    "theory": ["ON/OFF control selects one of two actuator states from a Boolean comparison.", "Because refrigeration has negative process gain, cooling must turn on when PV is at or above the temperature SP.", "A binary actuator produces a temperature cycle rather than convergence to one exact value.", "Switching frequency measures how often the actuator changes state; noise near one threshold can make it chatter."],
     "workedPrediction": "At a constant 2.00 degC underlying temperature, eight declared measurement-noise values create alternating measured PV samples that command 100, 0, 100, 0, 100, 0, 100, and 0%, creating seven transitions.",
     "practicalPreparation": ["Predict the control direction and truth table before enabling Auto.", "Keep the same plant, 4.00 degC initial state, 60 to 90 s door event, -10 to 10 degC abort range, and seed 20260828 as Lesson 1."],
     "baseline": "Recall that a fixed manual command cannot reject the door load.",

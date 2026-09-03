@@ -1,8 +1,8 @@
 # Linearize a gravity-drained tank
 
 Course position: Lesson 34 of 84. Previous lesson: [Conservation-law
-models](../33-tank-heater-conservation/README.md). Next lesson: poles, zeros, and
-real plant classes.
+models](../33-tank-heater-conservation/README.md). Next lesson:
+[poles, zeros, and real plant classes](../35-pole-zero-plant-classes/README.md).
 
 **Lesson objective:** Derive a first-order transfer function for a
 gravity-drained tank at three operating points and use executable error evidence
@@ -29,62 +29,126 @@ level. One linear model cannot therefore be assumed valid across the tank.
 
 ## What we need
 
-We need a simple local relationship between pump-flow changes and level changes around a declared operating point. Its valid range must be measured because gravity outflow changes with level and one local approximation cannot represent the complete tank.
+We need a linear model whose gain and time constant are derived at a declared
+tank operating point, with an explicit range where that approximation applies.
 
 ## The new idea
 
 Tank-volume accumulation equals inlet flow minus gravity outlet flow. Define
-tank area ($A$) in square metres, level ($h$) in metres, inlet flow ($q$) in cubic
-metres per second, and outlet coefficient ($c$) in square-metre-root-metre per
-second. The physical balance is:
+tank area ($A$) in square metres, level ($h$) in metres, inlet flow ($q$) in
+cubic metres per second, and outlet coefficient ($c$) in
+$\mathrm{m^2\sqrt{m}/s}$. The physical balance is
 
-$A \cdot dh/dt = q - c \cdot \sqrt{h}$
+\[
+A\frac{dh}{dt}=q-c\sqrt h.
+\]
 
-The square root of level makes the relation **nonlinear**: doubling level does
-not double outlet flow.
+The left side is stored-volume change: area times level rate has units
+$\mathrm{m^3/s}$. The two terms on the right are inlet and outlet volume flow
+in the same unit. The units of $c$ make $c\sqrt h$ a volume flow. The square
+root makes the relation **nonlinear**: doubling level does not double outlet
+flow.
 
-An **operating point** is a constant inlet flow (q0) and constant level ($h_{0}$)
-where there is zero accumulation. At that condition:
+An **operating point** is a constant inlet flow ($q_0$) and level ($h_0$) at
+which accumulation is zero. Setting the derivative to zero gives
 
-$q_0=c\sqrt{h_0}$
+\[
+0=q_0-c\sqrt{h_0},\qquad q_0=c\sqrt{h_0}.
+\]
 
-Define level deviation ($\Delta h$) as actual level minus operating-point level.
-Define inlet-flow deviation ($\Delta q$) as actual flow minus operating-point
-flow. A **first-order Taylor approximation** replaces the curved outlet-flow
-relationship with its tangent near that operating point:
+Define deviations from that equilibrium by $\Delta h=h-h_0$ and
+$\Delta q=q-q_0$. A **first-order Taylor approximation** replaces the curved
+outlet relation with its tangent. Since the derivative of $c\sqrt h$ is
+$c/(2\sqrt h)$, near $h_0$
 
-$\frac{d\Delta h}{dt}=-\frac{c}{2A\sqrt{h_0}}\Delta h+\frac{1}{A}\Delta q$
+\[
+c\sqrt h\approx c\sqrt{h_0}
+ +\frac{c}{2\sqrt{h_0}}\Delta h.
+\]
 
-The **Laplace transform** represents this linear differential relation, with
-zero initial deviation, as an algebraic input-output relation. The resulting
-**transfer function** is:
+Substitute $h=h_0+\Delta h$ and $q=q_0+\Delta q$ into the physical balance.
+The equilibrium terms cancel because $q_0=c\sqrt{h_0}$:
 
-$DeltaH(s) / DeltaQ(s) = K / (\tau \cdot s + 1)$
+\[
+\frac{d\Delta h}{dt}
+=-\frac{c}{2A\sqrt{h_0}}\Delta h+\frac{1}{A}\Delta q.
+\]
 
-The static gain ($K$) is steady output-deviation divided by input-deviation. The
-time constant ($\tau$) describes local response speed. Model **order** counts its
-independent dynamic modes. A **pole** locates a mode, a **zero** shapes the
-input-output response, and **dead time** delays it. Here:
+The approximation is local because its tangent slope was evaluated at one
+$h_0$. Terms involving $(\Delta h)^2$ and higher powers were discarded, so
+error grows as the level moves farther from that point.
 
-$K=2\sqrt{h_0}/c$ and $\tau=2A\sqrt{h_0}/c$
+The **Laplace transform**, with zero initial deviation, turns the time
+derivative into multiplication by the complex-frequency variable $s$:
 
-This first-order model has one pole at `-1/tau`, no finite zero, and no dead
-time. We do not invent an FOPDT delay merely because that model is familiar.
+\[
+\left(As+\frac{c}{2\sqrt{h_0}}\right)\Delta H(s)=\Delta Q(s).
+\]
+
+Divide output by input, then divide numerator and denominator by
+$c/(2\sqrt{h_0})$:
+
+\[
+\frac{\Delta H(s)}{\Delta Q(s)}
+=\frac{2\sqrt{h_0}/c}{(2A\sqrt{h_0}/c)s+1}
+=\frac{K}{\tau s+1}.
+\]
+
+The static gain $K$ is final output deviation divided by a constant input
+deviation. The time constant $\tau$ sets the local exponential response speed.
+Comparing the two denominator forms derives
+
+\[
+K=\frac{2\sqrt{h_0}}{c},\qquad
+\tau=\frac{2A\sqrt{h_0}}{c}.
+\]
+
+Model **order** counts independent dynamic modes. A **pole** locates such a
+mode, a **zero** shapes how the input appears at the output, and **dead time**
+postpones the response. This first-order model has one pole at $-1/\tau$, no
+finite zero, and no dead time. We do not invent an FOPDT delay merely because
+that model form is familiar.
 
 ## Prediction
 
-Use $A = 0.5 m_{2}$ and $c = 0.02 m_{2} \cdot \sqrt{m}/s$. At low, middle, and high levels
-of **0.25, 0.50, and 0.81 metres**, calculate equilibrium inlet flows of
-**0.010000, 0.014142, and 0.018000 cubic metres per second**.
+Use $A=0.5\ \mathrm{m^2}$ and
+$c=0.02\ \mathrm{m^2\sqrt m/s}$. At $h_0=0.25$ m, for example,
 
-The local gains are **50.000, 70.711, and 90.000 m/(m3/s)**. The local time
-constants are **25.000, 35.355, and 45.000 seconds**. A `+0.001 m3/s` step
-therefore predicts level rises of **5.000, 7.071, and 9.000 centimetres**.
+\[
+q_0=0.02\sqrt{0.25}=0.010000\ \mathrm{m^3/s},
+\]
 
-The exact nonlinear equilibria rise by 5.250, about 7.321, and 9.250 cm. Each
-small-step tangent model should therefore finish with about **0.250 centimetres
-small-step error**. At the low operating point, a larger `+0.005 m3/s` step
-predicts 25 cm locally but 31.25 cm nonlinearly: 6.25 cm error.
+\[
+K=\frac{2\sqrt{0.25}}{0.02}=50.000\
+\frac{\mathrm m}{\mathrm{m^3/s}},\qquad
+\tau=\frac{2(0.5)\sqrt{0.25}}{0.02}=25.000\ \mathrm s.
+\]
+
+The same substitutions at all three operating points give:
+
+| $h_0$ (m) | $q_0$ (m³/s) | $K$ (m/(m³/s)) | $\tau$ (s) | pole $-1/\tau$ (1/s) |
+|---:|---:|---:|---:|---:|
+| 0.25 | 0.010000 | 50.000 | 25.000 | -0.040000 |
+| 0.50 | 0.014142 | 70.711 | 35.355 | -0.028284 |
+| 0.81 | 0.018000 | 90.000 | 45.000 | -0.022222 |
+
+For a constant small change $\Delta q=0.001\ \mathrm{m^3/s}$, the local
+steady change is $\Delta h=K\Delta q$. The predicted rises are therefore
+0.05000, 0.07071, and 0.09000 m, or **5.000, 7.071, and 9.000 cm**.
+
+The exact nonlinear equilibrium follows by solving
+$q_0+\Delta q=c\sqrt{h_\mathrm{eq}}$:
+
+\[
+h_\mathrm{eq}=\left(\frac{q_0+\Delta q}{c}\right)^2.
+\]
+
+It predicts rises of 5.250, about 7.321, and 9.250 cm. Thus each small-step
+tangent prediction is about 0.250 cm low. At the low operating point, a larger
+$0.005\ \mathrm{m^3/s}$ step gives a local rise of $50(0.005)=0.25$ m, while
+the nonlinear equation gives
+$((0.010+0.005)/0.02)^2-0.25=0.3125$ m. The 6.25 cm error shows why the
+discarded curvature matters away from the operating point.
 
 ## Implementation
 
@@ -108,7 +172,13 @@ from the same physical parameters and operating points.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Run three derived local models beside three nonlinear tanks, then execute a separately restored large-step boundary case. The declared event lasts 300 seconds. It restores Inlet-flow deviation to 0 m3/s afterward. The deterministic Simulation seed is 20260829.
+Control Studio exposes the common small-step case. Test writes one reviewed
+Boolean, `P1.ExperimentEnabled`, for 300.1 seconds. While it is true, the
+project applies $\Delta q=0.001\ \mathrm{m^3/s}$ to all three tanks and local
+models. When it becomes false, the project restores $\Delta q=0$. A fresh
+native run owns the separate $0.005\ \mathrm{m^3/s}$ low-level boundary case,
+because it needs a fresh equilibrium and a different excitation. The
+deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -120,26 +190,31 @@ This procedure tests one declared lesson change under controlled conditions. Run
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Manual output step**, **Amplitude** = **0.001 m3/s**, and **Maximum duration (s)** = **300**. The affected signal is **Inlet-flow deviation**; it starts at 0 m3/s and must restore to 0 m3/s.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Low-tank level 0 m to 1 m; Middle-tank level 0 m to 1 m; High-tank level 0 m to 1.2 m. Use this run only to test the declared local approximation; do not Identify, Tune, or Apply.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Inlet-flow deviation to 0 m3/s, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **300.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false.
+   - **Decision before action:** Before selecting **Review test**, predict all three final changes and confirm the project-owned commands keep Low-tank level inside 0–1 m, Middle-tank level inside 0–1 m, and High-tank level inside 0–1.2 m. Use the run only to test the local approximations; do not Identify, Tune, or Apply.
+   - **Successful evidence:** Select **Review test**, verify the Boolean authority, timeout, false restoration, and stop conditions, then select **Confirm and start**. Keep **Abort test** available. Response must show the same 0.001 m³/s deviation in all three physical and local models, followed by restoration to zero.
+   - **Recovery:** Abort for stale, invalid, nonfinite, or out-of-range data. Confirm authority false and flow deviation zero, wait for current data, then review a new test.
+   - **Record:** Retain terminal state, restoration, physical and local levels, operating points, parameters, final errors, and seed **20260829**.
 
-3. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: low_small_step_local_error <= 0.3 cm (tolerance 0.01 cm); middle_small_step_local_error <= 0.3 cm (tolerance 0.01 cm); high_small_step_local_error <= 0.3 cm (tolerance 0.01 cm); low_large_step_extrapolation_error >= 5 cm (tolerance 0.01 cm).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+There is no separate disabled Validate stage. The native executable evidence
+owns the independent arithmetic and large-step boundary case; Monitor and Test
+expose the common small-step case.
 
 ## Evidence and decision
 
 ### Measures and comparison
 
-**Local-model prediction error** is the absolute difference between nonlinear
-level and local-model level at the same timestamp, in centimetres. Equilibrium
-error is valid only after both traces satisfy a declared late-slope limit.
+For operating point $i$, **local-model prediction error** is
+
+\[
+e_i(t)=100\left|h_{\mathrm{nonlinear},i}(t)
+-h_{\mathrm{local},i}(t)\right|\ \mathrm{cm}.
+\]
+
+The factor 100 converts metres to centimetres; the absolute value prevents
+positive and negative differences from cancelling. A final error is called an
+equilibrium error only after both traces satisfy the declared late-slope
+limit. Otherwise it is merely an error at that timestamp.
 
 Before viewing results, declare the `+0.001 m3/s` case valid when final error is
 at most **0.30 centimetres** at all three operating points. Label the

@@ -353,8 +353,9 @@ fn control_curriculum_booster_pump_initializes_from_actual_state_before_auto() {
         "case,actual_valve_percent,first_request_percent,filtered_pressure_bar,decision\nzero-state baseline,40.0,{zero_valve:.12},{zero_filter:.12},reject artificial startup state\nmeasured state,20.0,{:.12},{:.12},accept\nmeasured state,40.0,{:.12},{:.12},accept\nmeasured state,70.0,{:.12},{:.12},accept\nsimulated equilibrium,40.0,{final_valve:.12},{final_pressure:.12},finite bounded plant confirmation\n",
         measured_requests[0], initialized_pressures[0], measured_requests[1], initialized_pressures[1], measured_requests[2], initialized_pressures[2]
     );
-    let artifact_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/control/03-production-quality-digital-pid/27-booster-pump-modes/figures");
+    let artifact_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../../examples/control/03-production-quality-digital-pid/27-booster-pump-modes/figures",
+    );
     write_or_compare_curriculum_artifact(&artifact_root.join("booster-pump-startup-run.csv"), &run);
     evidence::retain_sequence(
         &artifact_root,

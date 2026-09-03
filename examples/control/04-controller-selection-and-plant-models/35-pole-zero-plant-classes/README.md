@@ -29,7 +29,12 @@ limitations. Poles and zeros let us predict decay, integration, oscillation,
 instability, inverse response, and dominant dynamics before selecting a model
 or controller.
 
-## From pole locations to observable motion
+## What we need
+
+We need to connect pole and zero locations to visible plant motion so model
+classification predicts behavior instead of becoming unexplained algebra.
+
+## The new idea
 
 A transfer function relates an input deviation to an output deviation when the
 initial deviations are zero. A **pole ($p$)** is a value of the complex frequency
@@ -64,34 +69,147 @@ remains internally present even when input-output algebra appears to cancel it.
 Never try to cancel an unstable or lightly damped pole with an approximate
 controller zero.
 
-## Derive six predictions before revealing the traces
+### Where the six models come from
 
-The heater model is $G(s)=1/(5s+1)$. Its pole is the denominator root
+The six equations in this lesson are not universal equations for all heaters,
+tanks, drives, cranes, bearings, or boilers. They are deliberately simple local
+models chosen to isolate one response feature at a time. The complex frequency
+variable ($s$) has units of inverse seconds. A transfer function ($G(s)$) is the
+Laplace-domain ratio of an output deviation to its input deviation when every
+initial deviation is zero. The following derivations explain both the physical
+origin of each model and where its numbers come from.
+
+For the heated vessel, the temperature deviation ($\Delta T$) is the measured
+temperature minus its 20 °C operating value. The heater-command deviation
+($\Delta u_h$) is measured in percentage points. Thermal capacitance ($C$), in
+kilojoules per degree Celsius, stores energy; heat-loss coefficient ($H$), in
+kilowatts per degree Celsius, removes more heat as temperature rises; and
+full-scale heater power ($P_{100}$), in kilowatts, converts percent command to
+heat input. Conservation of energy says that stored-energy rate equals heater
+power minus additional heat loss:
+
+$C\frac{d\Delta T}{dt}=\frac{P_{100}}{100}\Delta u_h-H\Delta T.$
+
+Divide by $H$ and define steady gain
+$K_h=P_{100}/(100H)$ and time constant $\tau_h=C/H$. This gives
+$\tau_h\,d\Delta T/dt+\Delta T=K_h\Delta u_h$, and therefore
+$\Delta T(s)/\Delta U_h(s)=K_h/(\tau_hs+1)$. The configured values are
+$K_h=0.2\ ^\circ\mathrm C/\%$ and $\tau_h=5$ s. A 20-percentage-point command
+therefore has a 4 °C final rise. Dividing temperature deviation by that 4 °C
+rise and command by its 20-percentage-point step produces the normalized model
+$G(s)=1/(5s+1)$ used in the matching exercise. On real equipment, $C$ and
+$P_{100}$ come from construction and electrical data, while $H$ is calculated
+from heat-transfer data or estimated from a qualified step test.
+
+For the storage tank, level deviation ($\Delta h$) is measured in centimetres
+and net-flow deviation ($\Delta q$) in litres per second. The constant tank
+cross-sectional area ($A$) is measured in square metres. Constant area means
+that added volume can change only the level. Conservation of volume gives
+$A\,d\Delta h/dt=\Delta q$ after consistent conversion of litres, metres, and
+centimetres. The configured geometry and unit conversion give
+$d\Delta h/dt=0.2\Delta q$, so a 1 L/s imbalance raises level at 0.2 cm/s.
+Taking the zero-initial-deviation Laplace transform gives
+$\Delta H(s)/\Delta Q(s)=0.2/s$. A real value is found from the measured tank
+cross-sectional area, not selected by tuning the controller.
+
+For the flexible drive, angular displacement ($\theta$) is measured in radians
+and applied torque ($\tau_m$) in newton metres. Equivalent rotational inertia
+($J$), in kilogram square metres, opposes angular acceleration. Viscous damping
+($c$), in newton metre seconds per radian, opposes angular speed. Torsional
+stiffness ($k$), in newton metres per radian, opposes twist. Newton's rotational law gives
+$J\ddot\theta+c\dot\theta+k\theta=\tau_m$. Dividing by $J$ shows that natural
+frequency is $\omega_n=\sqrt{k/J}$ and damping ratio is
+$\zeta=c/(2\sqrt{kJ})$. The scaled training values $J=1$, $c=0.4$, and $k=1$
+give $\omega_n=1$ rad/s, $\zeta=0.2$, and
+$G(s)=1/(s^2+0.4s+1)$. On a real drive, inertia and stiffness come from geometry
+and component data or a torque-to-motion test; damping is normally estimated
+from free-decay or frequency-response data.
+
+For the overhead crane, payload-position deviation ($x_c$) is measured in
+metres and trolley-force deviation ($F_c$) in newtons. This lesson uses a
+reduced fitted modal model rather than claiming that a complete crane has only
+three states. The imaginary unit ($j$) satisfies $j^2=-1$ and marks the
+oscillatory part of a pole. The configured teaching model selects a slow
+translation pole at -0.1 1/s and a damped swing pair at -1 plus or minus
+$j4$ 1/s, values that a real small-force modal test would have to identify.
+Multiplying their factors gives
+$(s+0.1)((s+1)^2+16)=s^3+2.1s^2+17.2s+1.7$. Choosing numerator 1.7 gives unit
+steady numerical gain, equal here to 1 m/N with physical units restored. The
+Laplace-domain position deviation ($X_c(s)$) and force deviation ($F_c(s)$)
+are the transforms of $x_c$ and $F_c$. Their configured relationship is
+$X_c(s)/F_c(s)=1.7/(s^3+2.1s^2+17.2s+1.7)$. A physical crane would obtain the
+mode frequencies and damping from geometry plus mass data or from a bounded
+modal test, then validate the fitted model on unused motion records.
+
+For the magnetic bearing, displacement deviation ($x_b$) is measured in metres
+and force perturbation ($F_b$) in newtons. Near an open-loop magnetic
+equilibrium, linearizing the force imbalance gives one locally destabilizing
+term proportional to displacement. Retaining only its dominant measured mode
+gives $\dot x_b=\lambda_bx_b+b_bF_b$. The configured growth rate
+($\lambda_b$) is 0.4 1/s and the scaled force coefficient ($b_b$) is
+1 m/(N s), hence $\dot x_b=0.4x_b+F_b$. Both coefficients would be obtained
+from electromagnetic geometry and rotor data or from a guarded small-signal
+identification; the equation is invalid after the 10 mm local boundary.
+
+For the boiler drum, feedwater deviation ($u_b$) is measured in percentage
+points and drum-level deviation ($y_b$) in centimetres. Added water creates a
+slow positive inventory response, while its immediate thermal and density
+effect creates a faster negative shrink response. The slow normalized mode
+state ($x_s$) and fast normalized mode state ($x_f$) are each measured in
+equivalent feedwater percentage points; the output weights convert those states
+to centimetres. The slow and fast rates, 0.05 and 0.5, have unit inverse
+seconds; the output weights are 2 and -1 centimetres per equivalent percentage
+point. The configured teaching fit is
+$\dot x_s=-0.05x_s+0.05u_b$,
+$\dot x_f=-0.5x_f+0.5u_b$, and $y_b=2x_s-x_f$. Transforming and combining those
+three relationships gives
+$G(s)=0.1/(s+0.05)-0.5/(s+0.5)=(-0.4s+0.025)/((s+0.05)(s+0.5))$.
+The opposite signs explain why level first falls and later rises. A real boiler
+would estimate these mode rates and weights from a bounded feedwater test at a
+declared load, then validate them at separate loads; they are configured
+teaching values here, not identified plant evidence.
+
+All six models assume small deviations, constant coefficients, adequate sample
+rate, finite valid measurements, and no unmodelled actuator or feedback action.
+The experiment can verify that the configured simulations execute these
+equations and signatures. It cannot verify that any physical machine has the
+same parameters.
+
+## Prediction
+
+The normalized heater response ($y(t)$) is the fraction of its final
+temperature rise completed at time $t$, where time is measured in seconds. The
+normalized heater model is $G(s)=1/(5s+1)$. Its pole is the denominator root
 $s=-1/5=-0.2\ \mathrm{s^{-1}}$. A unit step has response
 $y(t)=1-e^{-t/5}$, so at one time constant,
 $y(5)=1-e^{-1}=0.63212$. The negative exponential decays without changing
 sign, which predicts a monotonic rise to equilibrium.
 
-The storage tank model is $G(s)=0.2/s$. A unit step has transform $1/s$, so
-$Y(s)=0.2/s^2$. The inverse transform is $y(t)=0.2t$: its origin pole retains
+The storage-tank level deviation in the Laplace domain ($\Delta H(s)$) is the
+transform of $\Delta h(t)$, while its input is a 1 L/s net-flow step. Its model
+is $G(s)=0.2/s$. A unit step has transform $1/s$, so
+$\Delta H(s)=0.2/s^2$. The inverse transform is
+$\Delta h(t)=0.2t$: its origin pole retains
 a **0.2 cm/s** slope instead of creating a finite equilibrium.
 
-The flexible drive denominator has the standard second-order form
+The flexible-drive pole ($p$) is a root of its denominator. The flexible drive
+denominator has the second-order form
 $s^2+2\zeta\omega_n s+\omega_n^2$. Its roots are
 
-\[
-p=-\zeta\omega_n\pm j\omega_n\sqrt{1-\zeta^2}.
-\]
+$p=-\zeta\omega_n\pm j\omega_n\sqrt{1-\zeta^2}.$
 
 With $\omega_n=1$ rad/s and $\zeta=0.2$, the roots are
 $-0.2\pm j0.9799\ \mathrm{s^{-1}}$. The imaginary part causes oscillation;
-the negative real part makes its envelope decay. The standard step overshoot
-follows from the first peak of that decaying sinusoid:
+the negative real part makes its envelope decay. The damped angular frequency
+($\omega_d=\omega_n\sqrt{1-\zeta^2}$) determines when the sinusoid reaches its
+first peak. The peak time ($t_p$), measured in seconds, is
+$t_p=\pi/\omega_d$. The response envelope at that time is
+$e^{-\zeta\omega_nt_p}$. Substituting the peak time cancels $\omega_n$ and
+derives the peak-overshoot fraction ($M_p$), which is the amount above the final
+value divided by that final value:
 
-\[
-M_p=e^{-\pi\zeta/\sqrt{1-\zeta^2}}
-=e^{-\pi(0.2)/\sqrt{0.96}}=0.5266.
-\]
+$M_p=e^{-\pi\zeta/\sqrt{1-\zeta^2}}
+=e^{-\pi(0.2)/\sqrt{0.96}}=0.5266.$
 
 The predicted peak is therefore $1+M_p=1.527$, with repeated crossings of the
 final value.
@@ -99,27 +217,25 @@ final value.
 The overhead-crane denominator factors as
 $(s+0.1)((s+1)^2+16)$. It therefore has a slow real pole at $-0.1$ and a
 faster pair at $-1\pm j4$. Their envelopes decay as $e^{-0.1t}$ and $e^{-t}$.
-The oscillatory pair is prominent early, but after several seconds the
-$e^{-t}$ term is much smaller than $e^{-0.1t}$, so the slow pole controls the
-tail.
+At five seconds their remaining fractions are $e^{-0.5}=0.6065$ and
+$e^{-5}=0.00674$. The oscillatory pair is therefore prominent early but is
+about 90 times smaller than the slow contribution by five seconds, so the slow
+pole controls the tail.
 
-The magnetic-bearing state is $\dot x=0.4x+u$. Its positive pole makes the
-homogeneous term $e^{0.4t}$ grow. From $x(0)=0$ under the declared
-$u=0.0001$ N input,
+The magnetic-bearing displacement deviation is $x_b$, its applied force is
+$F_b$, its force coefficient is $b_b=1$ m/(N s), and its local state equation
+is $\dot x_b=0.4x_b+b_bF_b$. Its positive pole makes the
+homogeneous term $e^{0.4t}$ grow. From $x_b(0)=0$ under the declared
+$F_b=0.0001$ N input,
 
-\[
-x(t)=\frac{u}{0.4}(e^{0.4t}-1).
-\]
+$x_b(t)=\frac{b_bF_b}{0.4}(e^{0.4t}-1).$
 
-Solving $x=0.010$ m gives
+Solving $x_b=0.010$ m gives
 $t=\ln(1+0.4(0.010)/0.0001)/0.4=\ln(41)/0.4=9.28$ s. The test must abort at
 10 mm; this plant is never included in the ordinary 30-second UI run.
 
-The boiler model is
-
-\[
-G(s)=\frac{-0.4s+0.025}{(s+0.05)(s+0.5)}.
-\]
+The boiler model derived above is
+$G(s)=\frac{-0.4s+0.025}{(s+0.05)(s+0.5)}$ cm/%.
 
 Its poles are stable, its zero solves $-0.4s+0.025=0$, giving
 $s=+0.0625$, and its steady unit-step value is $G(0)=1$. For a step input,

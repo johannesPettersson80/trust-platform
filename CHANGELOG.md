@@ -10,8 +10,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   teaching flow: a named equipment problem, a distinct learner-facing need,
   words and prediction before implementation, one non-duplicated Control
   Studio procedure with explicit checks/decisions/recovery, progressively
-  revealed evidence, left-aligned equations, preview-safe SVG diagrams, and
-  syntax-highlighted Structured Text.
+  revealed evidence, physical derivations and parameter provenance for every
+  introduced plant model, left-aligned equations, preview-safe SVG diagrams,
+  and syntax-highlighted Structured Text.
 - Control Studio can now start and safely restore project-scripted curriculum
   experiments through one typed Boolean lesson authority without injecting a
   duplicate process excitation.

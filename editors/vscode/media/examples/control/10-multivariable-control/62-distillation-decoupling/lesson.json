@@ -11,6 +11,7 @@
   "prerequisites": ["control-distillation-mimo"],
   "nextLesson": "control-distillation-robustness",
   "signals": [
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX24.3" },
     { "role": "state", "name": "Overhead automatic mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX24.0" },
     { "role": "state", "name": "Bottoms automatic mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX24.1" },
     { "role": "state", "name": "Control architecture", "unit": "1", "minimum": 0, "maximum": 2, "resolution": 1, "binding": "%MW16" },
@@ -44,13 +45,7 @@
     "sampleTimeSeconds": 0.1,
     "initialState": { "overheadFromReflux": 0, "overheadFromReboiler": 0, "bottomsFromReflux": 0, "bottomsFromReboiler": 0 },
     "seed": 20260829,
-    "operatingPoint": {
-      "Overhead purity setpoint": 0,
-      "Bottoms purity setpoint": 0,
-      "Applied reflux change": 0,
-      "Applied reboiler steam change": 0,
-      "Applied feed-composition disturbance": 0
-    },
+    "operatingPoint": { "Overhead purity setpoint": 0, "Bottoms purity setpoint": 0, "Applied reflux change": 0, "Applied reboiler steam change": 0, "Applied feed-composition disturbance": 0 },
     "validityRange": [
       { "signal": "Overhead purity setpoint", "minimum": -4, "maximum": 4, "unit": "pp" },
       { "signal": "Bottoms purity setpoint", "minimum": -4, "maximum": 4, "unit": "pp" },
@@ -59,13 +54,7 @@
       { "signal": "Overhead light-product purity deviation", "minimum": -6, "maximum": 6, "unit": "pp" },
       { "signal": "Bottoms heavy-product purity deviation", "minimum": -6, "maximum": 6, "unit": "pp" }
     ],
-    "simplifications": [
-      "The four-path local model and steady gain matrix are inherited from Lesson 61.",
-      "One bounded third input represents a reproducible feed-composition test disturbance, not a complete feed model.",
-      "The perturbed model changes declared cross gains and response times while controller and decoupler settings remain nominal.",
-      "The two controllers, static inverse, and dynamic filters execute in Structured Text; performance ranking remains outside the controller.",
-      "Simulation-only I/O and evidence; no physical column or actuator is operated."
-    ]
+    "simplifications": ["The four-path local model and steady gain matrix are inherited from Lesson 61.", "One bounded third input represents a reproducible feed-composition test disturbance, not a complete feed model.", "The perturbed model changes declared cross gains and response times while controller and decoupler settings remain nominal.", "The two controllers, static inverse, and dynamic filters execute in Structured Text; performance ranking remains outside the controller.", "Simulation-only I/O and evidence; no physical column or actuator is operated."]
   },
   "baseline": {
     "executableId": "DistillationColumn.DirectDiagonalPI",
@@ -78,17 +67,13 @@
     "decision": "Use the simplest architecture whose nominal and perturbed executed evidence satisfies the declared cross-response, primary-loop, effort, limit, and restoration requirements."
   },
   "experiment": {
-    "kind": "setpoint_step",
-    "signal": "Overhead purity setpoint",
+    "kind": "observation",
+    "signal": "Experiment authority",
     "baseline": 0,
-    "amplitude": 2,
-    "durationSeconds": 220,
+    "amplitude": 0,
+    "durationSeconds": 220.1,
     "settlingSeconds": 10,
-    "disturbances": [
-      "Run separate restored overhead-only and bottoms-only +2-composition-percentage-point setpoint records for direct, static, and dynamic architectures.",
-      "Run a separate restored +2-percentage-point feed-composition disturbance record for all three architectures.",
-      "Repeat the overhead-only comparison with simulation-perturbed.toml without changing controller or decoupler settings."
-    ],
+    "disturbances": ["Run separate restored overhead-only and bottoms-only +2-composition-percentage-point setpoint records for direct, static, and dynamic architectures.", "Run a separate restored +2-percentage-point feed-composition disturbance record for all three architectures.", "Repeat the overhead-only comparison with simulation-perturbed.toml without changing controller or decoupler settings."],
     "seed": 20260829,
     "restorationValue": 0
   },
@@ -111,23 +96,13 @@
       { "signal": "Overhead light-product purity deviation", "minimum": -6, "maximum": 6, "unit": "pp" },
       { "signal": "Bottoms heavy-product purity deviation", "minimum": -6, "maximum": 6, "unit": "pp" }
     ],
-    "abortPredicates": [
-      "Any required signal is nonfinite, stale, forced, invalid, missing, or bound to the wrong column model.",
-      "Either requested or applied physical input leaves -10 through +10 percentage points.",
-      "Either product deviation leaves -6 through +6 composition percentage points.",
-      "The selected static or dynamic path is not qualified or retains stale filter state.",
-      "Authority, timing, seed, limits, event, metric window, or restoration differs across compared records."
-    ],
+    "abortPredicates": ["Any required signal is nonfinite, stale, forced, invalid, missing, or bound to the wrong column model.", "Either requested or applied physical input leaves -10 through +10 percentage points.", "Either product deviation leaves -6 through +6 composition percentage points.", "The selected static or dynamic path is not qualified or retains stale filter state.", "Authority, timing, seed, limits, event, metric window, or restoration differs across compared records."],
     "safeMv": 0,
     "restorationMode": "Return both setpoint deviations and the feed-disturbance request to zero, keep the controllers under reviewed authority, verify applied inputs and both product deviations restore, then begin a new record.",
     "physicalApprovalRole": "authorised process controls engineer with the responsible distillation operations and process-safety owners",
-    "simulationOnlyRestrictions": [
-      "No physical distillation column, reflux valve, or reboiler-steam valve is operated.",
-      "Nominal or perturbed Simulation evidence does not qualify an untested physical operating point.",
-      "Physical use requires independently reviewed models, topology, limits, product disposition, abort and restoration procedures, and explicit immediate approval."
-    ]
+    "simulationOnlyRestrictions": ["No physical distillation column, reflux valve, or reboiler-steam valve is operated.", "Nominal or perturbed Simulation evidence does not qualify an untested physical operating point.", "Physical use requires independently reviewed models, topology, limits, product disposition, abort and restoration procedures, and explicit immediate approval."]
   },
-  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-62--decentralized-pid-and-decoupling-same-column",
     "nativeTest": "control_curriculum_distillation_decoupling_compares_direct_static_and_dynamic_evidence",

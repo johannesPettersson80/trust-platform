@@ -50,11 +50,22 @@ $\mathbf{M}_0=\begin{bmatrix}1&-0.5\\-0.428571&1\end{bmatrix}$
 
 Its largest and smallest singular values are 1.4649 and 0.5364. Their ratio is the condition number ($\kappa$), which is 2.73. The largest steady inverse-command amplification is the reciprocal of the smallest singular value: $1 / \sigma_{min} = 1.86$.
 
+For a two-by-two matrix, these values can be checked without treating a
+software result as magic. Form $M^TM=\begin{bmatrix}a&b\\b&d\end{bmatrix}$.
+Its eigenvalues are
+$\lambda_{\pm}=[a+d\pm\sqrt{(a-d)^2+4b^2}]/2$, and the singular values are
+$\sqrt{\lambda_{+}}$ and $\sqrt{\lambda_{-}}$. For $M_0$,
+$a=1.183673$, $b=-0.928571$, and $d=1.25$, which give 1.4649 and 0.5364.
+
 The normalized stronger-interaction matrix ($M_{1}$) is:
 
 $\mathbf{M}_1=\begin{bmatrix}1&-0.8\\-0.7&1\end{bmatrix}$
 
 Its singular values are 1.7512 and 0.2512, its condition number is 6.97, and its inverse-command amplification is 3.98. The smaller minimum singular value means that one combined product direction needs much more coordinated actuator movement.
+
+For $M_1$, $a=1.49$, $b=-1.50$, and $d=1.64$ in the same calculation.
+Then $\kappa=1.7512/0.2512=6.97$ and
+$1/\sigma_{min}=1/0.2512=3.98$.
 
 ### Interaction uncertainty
 
@@ -63,6 +74,10 @@ The interaction uncertainty ($\Delta\mathbf{M}$) is the actual normalized matrix
 $DeltaM = M_{1} - M_{0}$
 
 The uncertainty size is 0.30. This is smaller than the nominal minimum singular value of 0.5364, so this bounded set is not predicted to lose invertibility. That test does not promise good conditioning or good closed-loop performance.
+
+The difference is $\Delta M=\begin{bmatrix}0&-0.30\\-0.271429&0\end{bmatrix}$.
+Its $\Delta M^T\Delta M$ is diagonal with squared entries 0.271429 and 0.30,
+so its largest singular value is the larger magnitude, 0.30.
 
 ### Multivariable sensitivity
 
@@ -92,6 +107,12 @@ Calculate both singular-value pairs, condition numbers, inverse amplifications, 
 
 For a simultaneous +1/+1-composition-percentage-point target, the nominal plant needs about +2.50/+2.50 valve percentage points at equilibrium. The stronger-interaction plant needs about +5.44/+5.24, so the request is still feasible.
 
+These commands come from solving $G_1u=[1,1]^T$. Because
+$\det(G_1)=0.8(0.7)-(-0.64)(-0.49)=0.2464$,
+$u=0.2464^{-1}\begin{bmatrix}0.7&0.64\\0.49&0.8\end{bmatrix}[1,1]^T
+=[5.44,5.24]^T$. Doubling the target doubles that local linear solution to
+10.88 and 10.47 points.
+
 For a +2/+2 target, the stronger-interaction plant needs about +10.88/+10.47 valve percentage points. Both exceed the physical limit. Predict that no architecture can remove the resulting product error. Independent limits will distort the requested direction. A common scale will preserve direction but reduce its magnitude.
 
 ## Implementation
@@ -113,44 +134,27 @@ The complete source guards division by zero, chooses direct, static, or centrali
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Insert the fixed nominal inverse, then add only joint direction-preserving scaling without changing the PI settings. The declared event lasts 720 seconds. It restores Overhead purity setpoint to 0 pp afterward. The deterministic Simulation seed is 20260829.
+This procedure observes one project-owned centralized run that moves from a
+feasible common-product target to an infeasible one. The project owns
+architecture, both requests, the restored interval, and Manual zero restoration;
+Control Studio writes only one Boolean authority signal. The native lesson test
+owns the full model-and-architecture matrix. The seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Overhead purity setpoint (SP, pp) and Bottoms purity setpoint (SP, pp); Overhead light-product purity deviation (PV, pp) and Bottoms heavy-product purity deviation (PV, pp); Requested reflux change (MV, pp) and Requested reboiler steam change (MV, pp), including units, limits, mode, and quality. The initial operating point is Overhead purity setpoint = 0 pp, Bottoms purity setpoint = 0 pp, Applied reflux change = 0 pp, Applied reboiler steam change = 0 pp, Applied feed-composition disturbance = 0 pp. The unresolved baseline problem is: Separate diagonal-loop behavior does not reveal weak combined directions, interaction uncertainty, or joint input feasibility. Control Studio Monitor must show Simulation mode with requested and applied input vectors visible together. Control Studio Monitor must show Simulation mode with requested and applied input vectors visible together. Retain overhead-only, bottoms-only, simultaneous, and feed-composition cases as separate comparisons.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm both SP/PV pairs, requested and applied vectors, common scale, saturation, architecture, limits, modes, and quality. All deviations and inputs begin at zero. Retain the 20-second baseline, feasible +1/+1 interval from 20 to 240 seconds, restored interval to 480 seconds, and infeasible +2/+2 interval to 720 seconds.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Select the least coupled architecture that passes every normal-envelope record on both models; retain the +2/+2 record as Infeasible rather than ranking it.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Setpoint step**, **Amplitude** = **1 pp**, and **Maximum duration (s)** = **720**. The affected signal is **Overhead purity setpoint**; it starts at 0 pp and must restore to 0 pp.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Overhead purity setpoint -4 pp to 4 pp; Bottoms purity setpoint -4 pp to 4 pp; Applied reflux change -10 pp to 10 pp; Applied reboiler steam change -10 pp to 10 pp; Overhead light-product purity deviation -6 pp to 6 pp; Bottoms heavy-product purity deviation -6 pp to 6 pp.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Overhead purity setpoint to 0 pp, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Singular-direction robustness analysis and architecture selection** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Singular-direction robustness analysis and architecture selection** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Singular-direction robustness analysis and architecture selection** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Singular-direction robustness analysis and architecture selection**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: normal_final_window_combined_absolute_error <= 0.1 pp (tolerance 0.001 pp); normal_single_axis_cross_peak <= 0.2 pp (tolerance 0.001 pp); normal_input_limit_duration <= 0.5 s (tolerance 0.1 s); restoration_combined_absolute_error <= 0.02 pp (tolerance 0.001 pp).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **720.1**. Confirm the only writable signal is **Experiment authority** (`P1.ExperimentEnabled`, `%MX24.4`). The project selects the direction-preserving coordinator, commands +1/+1 after 20 seconds, restores zero at 240 seconds, and commands the infeasible +2/+2 target at 480 seconds.
+   - **Decision before action:** Before selecting **Review test**, predict when common scale should stay one and when it must fall below one. Confirm applied inputs remain within -10 through +10 points and product deviations within -6 through +6 points.
+   - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must show requested and applied input direction together with common scale. At termination authority clears, both controllers enter Manual with zero outputs, and all event signals return to zero.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the reason, confirm authority is false and Manual zero restoration is active, wait for current data, and review a new observation.
+   - **Record:** Classify the second target as infeasible rather than failed control. Retain terminal state, restoration, and seed **20260829**. The native test owns the full architecture/uncertainty verdict; this observation does not create generic Identify, Tune, or Validate evidence.
 
 ## Evidence and decision
 

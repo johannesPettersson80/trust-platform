@@ -3,6 +3,12 @@ USING Control;
 PROGRAM Main
 VAR
     ControllerEnabled : BOOL := TRUE;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentScan : DINT := DINT#0;
+    ExperimentElapsed : LREAL := 0.0;
     FlowQualityGood : BOOL := TRUE;
     ReferenceQualityGood : BOOL := TRUE;
     ScheduleTransition : BOOL := FALSE;
@@ -47,6 +53,31 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
+(* The visible run is one healthy reference record. Control Studio grants one
+   Boolean authority; this project owns its setpoint event and restoration.
+   The seven degraded configurations remain separately blinded native cases. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    IF NOT ExperimentWasEnabled THEN
+        ExperimentScan := DINT#0;
+        ExperimentElapsed := LREAL#0.0;
+    END_IF;
+    ExperimentScan := ExperimentScan + DINT#1;
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    ControllerEnabled := TRUE;
+    IF ExperimentScan <= DINT#100 THEN
+        Setpoint := LREAL#50.0;
+    ELSIF ExperimentScan <= DINT#400 THEN
+        Setpoint := LREAL#60.0;
+    ELSE
+        Setpoint := LREAL#50.0;
+    END_IF;
+ELSIF ExperimentWasEnabled THEN
+    ExperimentScan := DINT#0;
+    ExperimentElapsed := LREAL#0.0;
+    ControllerEnabled := FALSE;
+    Setpoint := LREAL#50.0;
+END_IF;
+
 Input.Setpoint := Setpoint;
 Input.ProcessValue := ProcessValue;
 Input.FeedForward := LREAL#0.0;
@@ -64,6 +95,7 @@ ELSE
     Input.TrackingOutput := ValveStemPosition;
 END_IF;
 ValveRequested := Controller.Update(Input := Input);
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -76,6 +108,9 @@ VAR_CONFIG
     P1.FlowQualityGood AT %MX16.1 : BOOL;
     P1.ReferenceQualityGood AT %MX16.2 : BOOL;
     P1.ScheduleTransition AT %MX16.3 : BOOL;
+    P1.ExperimentEnabled AT %MX16.4 : BOOL;
+    P1.SafetyAbort AT %MX16.5 : BOOL;
+    P1.InputsValid AT %MX16.6 : BOOL;
     P1.ControllerMode AT %MW70 : INT;
     P1.OperatingRegion AT %MW72 : INT;
     P1.Setpoint AT %ML0 : LREAL;
@@ -86,6 +121,7 @@ VAR_CONFIG
     P1.MeasuredCycleTime AT %ML40 : LREAL;
     P1.ConfiguredProportionalGain AT %ML48 : LREAL;
     P1.ConfiguredIntegralGain AT %ML56 : LREAL;
+    P1.ExperimentElapsed AT %ML80 : LREAL;
     P1.ValveRequested AT %QL0 : LREAL;
     P1.ProcessValue AT %IL0 : LREAL;
 END_VAR

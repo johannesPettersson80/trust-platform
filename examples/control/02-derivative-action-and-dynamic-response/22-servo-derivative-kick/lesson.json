@@ -16,7 +16,7 @@
     { "role": "MV", "name": "Applied motor torque", "unit": "N m", "minimum": -10, "maximum": 10, "resolution": 0.01, "binding": "%QL0" },
     { "role": "state", "name": "Requested motor torque", "unit": "N m", "minimum": -100, "maximum": 100, "resolution": 0.01, "binding": "%ML0" },
     { "role": "state", "name": "Measured table velocity", "unit": "rad/s", "minimum": -20, "maximum": 20, "resolution": 0.001, "binding": "%IL8" },
-    { "role": "state", "name": "Experiment authority enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX32.1" }
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX32.1" }
   ],
   "plant": {
     "modelId": "robot_joint",
@@ -34,11 +34,7 @@
       { "signal": "Measured table position", "minimum": -4, "maximum": 4, "unit": "rad" },
       { "signal": "Applied motor torque", "minimum": -10, "maximum": 10, "unit": "N m" }
     ],
-    "simplifications": [
-      "The four-newton-metre gravity coefficient produces angle-dependent torque G*sin(position), not a constant disturbance.",
-      "The setpoint changes instantaneously so derivative kick is isolated and measurable.",
-      "Encoder noise remains absent until Lesson 23."
-    ]
+    "simplifications": ["The four-newton-metre gravity coefficient produces angle-dependent torque G*sin(position), not a constant disturbance.", "The setpoint changes instantaneously so derivative kick is isolated and measurable.", "Encoder noise remains absent until Lesson 23."]
   },
   "baseline": {
     "executableId": "Control.PID.DerivativeOnError",
@@ -47,12 +43,18 @@
   },
   "change": {
     "executableId": "Control.PID.DerivativeOnMeasurement",
-    "settings": { "proportionalGain": 8, "integralGain": 2, "derivativeGain": 3, "candidateDerivativeSetpointWeights": [0.5, 0], "setpointRad": 0.5 },
+    "settings": {
+      "proportionalGain": 8,
+      "integralGain": 2,
+      "derivativeGain": 3,
+      "candidateDerivativeSetpointWeights": [0.5, 0],
+      "setpointRad": 0.5
+    },
     "decision": "Select c equal to zero only if the initial requested torque is at most 5 N m, applied torque remains bounded, and final position still tracks within 0.02 rad."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Experiment authority enabled",
+    "signal": "Experiment authority",
     "baseline": 0,
     "amplitude": 0,
     "durationSeconds": 15.02,
@@ -100,13 +102,7 @@
   "learning": {
     "context": "The loaded positioning table uses the PID gains from Lesson 21, but an instantaneous setpoint change now exposes the derivative path's command response.",
     "reason": "Integral action removed load error, yet derivative on the full error turns a setpoint discontinuity into a very large requested torque.",
-    "theory": [
-      "The derivative setpoint weight c is a dimensionless value from zero to one that chooses how much setpoint motion enters the derivative path.",
-      "The weighted derivative input x_D equals c times SP minus PV. Its change divided by elapsed time dt is multiplied by derivative gain Kd to form derivative torque.",
-      "At c one, the full setpoint step enters the derivative calculation. At c zero, only measured PV motion enters, so a command step alone creates no derivative kick. An intermediate c retains part of the kick.",
-      "Requested motor torque T_requested is the PID calculation before the physical drive clamp. Applied motor torque T_applied is the bounded torque that reaches the plant; both must remain visible.",
-      "Derivative on measurement still responds to real table motion and therefore preserves the damping purpose from Lesson 20."
-    ],
+    "theory": ["The derivative setpoint weight c is a dimensionless value from zero to one that chooses how much setpoint motion enters the derivative path.", "The weighted derivative input x_D equals c times SP minus PV. Its change divided by elapsed time dt is multiplied by derivative gain Kd to form derivative torque.", "At c one, the full setpoint step enters the derivative calculation. At c zero, only measured PV motion enters, so a command step alone creates no derivative kick. An intermediate c retains part of the kick.", "Requested motor torque T_requested is the PID calculation before the physical drive clamp. Applied motor torque T_applied is the bounded torque that reaches the plant; both must remain visible.", "Derivative on measurement still responds to real table motion and therefore preserves the damping purpose from Lesson 20."],
     "workedPrediction": "A 0.5 rad setpoint step over 0.02 s has apparent rate 25 rad/s. With Kd 3, c 1 requests about 75 N m derivative torque, c 0.5 about 37.5 N m, and c 0 none; the proportional path adds about 4 N m before the drive clamps applied torque to 10 N m.",
     "practicalPreparation": ["Confirm the project-owned 0 to 0.5 rad step, 20 ms cycle, sine-gravity law with 4 N m peak coefficient, plus or minus 10 N m physical drive limit, wide diagnostic controller-request range and supported-payload restoration."],
     "baseline": "Run c equal to one and retain the first requested and applied torque samples after the setpoint step together with the position response.",

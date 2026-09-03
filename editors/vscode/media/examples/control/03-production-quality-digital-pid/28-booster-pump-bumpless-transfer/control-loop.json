@@ -42,7 +42,7 @@
       "symbol": "P1.ValveCommand",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -50,6 +50,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX48.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "external-applied-valve-output",
         "channel": "external-applied-valve-output",
@@ -120,7 +134,13 @@
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 10,
+    "durationSeconds": 10.1,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX48.2",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
     "seed": 20260829
   }
 }

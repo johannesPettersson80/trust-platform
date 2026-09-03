@@ -30,7 +30,7 @@
       "symbol": "P1.RefluxRequested",
       "address": "%ML0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "pp",
       "range": {
         "minimum": -10,
@@ -38,6 +38,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX16.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "automatic-mode",
         "channel": "automatic-mode",
@@ -59,7 +73,7 @@
         "symbol": "P1.ReboilerRequested",
         "address": "%ML8",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "pp",
         "range": {
           "minimum": -10,
@@ -73,7 +87,7 @@
         "symbol": "P1.RefluxApplied",
         "address": "%QL0",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "pp",
         "range": {
           "minimum": -10,
@@ -87,7 +101,7 @@
         "symbol": "P1.ReboilerApplied",
         "address": "%QL8",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "pp",
         "range": {
           "minimum": -10,
@@ -119,10 +133,16 @@
   },
   "plantId": "local_binary_distillation_interaction_2x2",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "mv_step",
-    "amplitude": 5,
-    "durationSeconds": 200,
-    "seed": 20260829
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 400.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX16.1",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

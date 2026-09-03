@@ -1,8 +1,8 @@
 # Positional, incremental, and combined PID realization
 
 Course position: Lesson 26 of 84. Previous lesson:
-[Digital realization](../servo-digital-realization/README.md). Next lesson:
-Initialization and operating modes.
+[Digital realization](../../02-derivative-action-and-dynamic-response/25-servo-digital-realization/README.md).
+Next lesson: [Initialization and operating modes](../27-booster-pump-modes/README.md).
 
 **Lesson objective:** Explain and verify why Control.PID uses positional
 realization without integral action and incremental realization with integral
@@ -14,9 +14,9 @@ This lesson uses simulation. Its results are not physical-plant evidence.
 
 ## The problem
 
-The equipment in this lesson is Industrial positioning table and recirculating water heater.
-
-The encoder-controlled positioning table needs proportional control, while the
+Lesson 25 turned continuous equations into recurrences with retained state.
+Now we must decide which kind of recurrence preserves the intended controller
+behavior. The encoder-controlled positioning table needs proportional control, while the
 recirculating water heater needs proportional-integral control. Both use the
 same shipped `Control.PID` function block. The choice examined here is how that
 block updates its output state; it is not a choice between two product
@@ -29,7 +29,8 @@ gain remains constant.
 
 ## What we need
 
-We need the controller to choose a recurrence that behaves correctly both with and without stored integral action. The learner must see why an unchanged-error proportional controller cannot rely on an output-increment equation that produces no new increment.
+We need to distinguish positional and incremental PID equations so gain edits,
+stored state, and the resulting actuator request have one unambiguous meaning.
 
 ## The new idea
 
@@ -59,21 +60,50 @@ error per second.
 The **positional form** calculates the complete output from the present terms.
 For the P controller in this lesson:
 
-$u_{k} = u_{0} + K_p \times e_{k}$
+\[
+u_k=u_0+K_pe_k.
+\]
+
+This follows directly from proportional action: multiply the present error by
+output-per-error gain and add the zero-error bias. No previous output is needed.
 
 The **incremental form**, also called the **velocity form**, adds calculated
-increments to the previous output. For the PI controller in this lesson:
+increments to the previous output. Start with a positional PI equation at two
+successive samples:
 
-$u_{k} = u_{k-1} + K_p \times \Delta e_{k} + K_i \times T_{s} \times e_{k}$
+\[
+u_k=u_0+K_pe_k+T_{I,k},
+\]
+
+\[
+u_{k-1}=u_0+K_pe_{k-1}+T_{I,k-1}.
+\]
+
+Subtract the second equation from the first. The unchanged bias cancels,
+the proportional difference becomes \(K_p(e_k-e_{k-1})=K_p\Delta e_k\), and
+backward-Euler integration gives
+\(T_{I,k}-T_{I,k-1}=K_iT_se_k\). Therefore
+
+\[
+u_k=u_{k-1}+K_p\Delta e_k+K_iT_se_k.
+\]
 
 At constant nonzero error, $e_{k} = e_{k-1}$, so $\Delta e_{k} = 0$. An incremental P
 calculation with $K_i = 0$ then adds nothing. It can remain stuck at an arbitrary
 retained output even when $K_p$ changes. Positional P instead recalculates the
 complete output immediately.
 
+There is a second problem during a gain change. The exact proportional
+difference would be \(K_{p,k}e_k-K_{p,k-1}e_{k-1}\), not
+\(K_{p,k}(e_k-e_{k-1})\). At unchanged error, the latter is zero and misses the
+new proportional demand. Positional P has no such ambiguity because it
+recalculates the complete present term.
+
 When $K_i$ is nonzero, the integral increment keeps changing output while error
-remains. Retaining the previous output also makes tracking, clamping
-anti-windup, and bumpless gain changes practical for PI and PID.
+remains. In the shipped PI/PID contract, retaining output is also intentional:
+tracking and anti-windup can correct that state, and changing \(K_p\) need not
+create a sudden full proportional-output jump. This is a chosen bumpless gain
+semantics, not a claim that every arbitrary retained state is valid.
 
 The **combined form** is the shipped design: `Control.PID` uses positional form
 when $K_i = 0$ and incremental form when $K_i$ is nonzero. There is no form switch
@@ -117,41 +147,64 @@ never connected to a plant output and is not another controller implementation.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Run the same gain change through Control.PID with zero integral gain on the positioning table, then repeat the unchanged-signal gain change with nonzero integral gain on the heater. The declared event lasts 30 seconds. It restores Table-position setpoint to 0 rad afterward. The deterministic Simulation seed is 20260829.
+Test writes one reviewed Boolean authority, \(\mathtt{P1.ExperimentEnabled}\),
+for 30.02 seconds. The project owns a visible two-plant sequence: it begins from
+Manual zero, applies the table and heater setpoints with both proportional
+gains at 4, changes both gains to 8 after 5 seconds, and restores both plants to
+Manual zero when authority returns false.
+
+The live plants move, so their gain-change samples are useful operational
+evidence but are not the exact unchanged-error proof. The native test uses
+fresh controller states and frozen input samples to own the exact 2 N·m,
+1 N·m, and 0.24% comparison. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Table-position setpoint (SP, rad) and Heater-temperature setpoint (SP, degC); Measured table position (PV, rad) and Outlet-water temperature (PV, degC); Position motor torque (MV, N m) and Applied heater power (MV, %), including units, limits, mode, and quality. The initial operating point is Measured table position = 0 rad, Position motor torque = 0 N m, Outlet-water temperature = 20 degC, Applied heater power = 30 %. The unresolved baseline problem is: At unchanged nonzero error, the rejected incremental-P recurrence calculates zero output increment and remains at its arbitrary retained output after a proportional-gain change.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Let the shipped controller select positional P when integral gain is zero and incremental PI when integral gain is nonzero; do not expose a user form switch.
-   - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
-   - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm table SP = 0 rad, heater SP = 20 °C, both outputs = 0, Manual mode, both gains = 4, and experiment authority false. Add both SP/PV/MV triples, both gains, both selected-form indicators, the rejected diagnostic, positional prediction, mode, and authority to **Signals**.
+   - **Decision before action:** Write the exact fixed-sample predictions: positional P 2→4 N·m, rejected incremental P 1→1 N·m, and PI integral increment 0.24%. State that moving-plant samples cannot substitute for the fixed-sample native proof.
+   - **Successful evidence:** The plot advances, values are finite/current, quality is good, and **Start recording** is enabled. Select **Start recording**.
+   - **Recovery:** For stale, unavailable, nonfinite, or poor-quality data, stop the Simulator, correct the displayed fault, restart, and repeat the baseline check.
+   - **Record:** Note the complete initial state and the three written predictions.
 
-2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30**. The observed lesson signal is **Table-position setpoint**. Control Studio observes the project's existing timed sequence and does not write a second process event.
-   - **Decision before action:** Before selecting **Review test**, predict the response to Proportional gain changes from 4 to 8 while error and plant feedback are held unchanged for one update. Confirm the live values are current and the reviewed plan stays inside Measured table position -4 rad to 4 rad; Position motor torque -10 N m to 10 N m; Outlet-water temperature 0 degC to 80 degC; Applied heater power 0 % to 100 %.
-   - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
-   - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
+2. **Test** — Open **truST sidebar → Control Studio → Test**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **30.02**. The reviewed authority is \(\mathtt{P1.ExperimentEnabled}\); the project owns both setpoints, both gain changes, and mode.
+   - **Decision before action:** Confirm that the plan writes only the Boolean and restores it false. Require table position within ±4 rad, torque within ±10 N·m, temperature within 0–80 °C, and heater power within 0–100%.
+   - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe both gain changes, the selected-form indicators, the rejected diagnostic remaining disconnected, and final Manual-zero restoration.
+   - **Recovery:** Abort for nonfinite, stale, out-of-limit data or any indication that the rejected diagnostic drives an output. Confirm authority false, safe setpoints, Manual mode, and zero outputs before retrying.
+   - **Record:** Retain the terminal state, restoration, gain-change timestamp, both plant traces, selected forms, diagnostic values, limit states, and seed.
 
-3. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: positional_p_immediate_gain_change == 2 N m (tolerance 1e-9 N m); rejected_incremental_p_prediction_error >= 3 N m (tolerance 1e-9 N m); pi_gain_change_discontinuity_after_integral_increment <= 1e-9 % (tolerance 1e-9 %).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+There is no separate disabled Validate stage. The native test owns the exact
+unchanged-error calculation; Monitor and Test expose the safe live sequence.
 
 ## Evidence and decision
 
 ### Measures and comparison
 
-The **immediate gain-change output difference** is the output after the gain
-change minus the output before it, over exactly one controller update. The
-**rejected incremental-P state error** is the absolute positional prediction
-minus the rejected retained output at that update. The **PI output
-discontinuity** is the observed PI output difference minus the expected
-integral increment.
+Over the exact fixed-input native comparison, define immediate output change as
+
+\[
+\Delta u_{\mathrm{gain}}=u_{\mathrm{after}}-u_{\mathrm{before}}.
+\]
+
+For positional P this must be \(4-2=2\) N·m. Define rejected-state error as
+
+\[
+e_{\mathrm{state}}=
+|u_{\mathrm{positional,prediction}}-u_{\mathrm{rejected}}|.
+\]
+
+The absolute value measures disagreement regardless of sign; here it is
+\(|4-1|=3\) N·m. Finally remove the expected integral contribution from the PI
+change:
+
+\[
+d_{\mathrm{PI}}=
+\Delta u_{\mathrm{observed}}-K_iT_se.
+\]
+
+A value of zero means the gain edit introduced no extra jump beyond the
+ordinary 0.24% integral increment.
 
 | Observation | Executable result | Required interpretation |
 | --- | ---: | --- |

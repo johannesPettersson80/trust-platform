@@ -15,15 +15,15 @@
     { "role": "PV", "name": "Outlet-water temperature", "unit": "degC", "minimum": 0, "maximum": 80, "resolution": 0.01, "binding": "%IL0" },
     { "role": "MV", "name": "Requested heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML64" },
     { "role": "MV", "name": "Applied heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
-    { "role": "state", "name": "Experiment authority enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX85.0" },
-    { "role": "state", "name": "Simulation run approval", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.1" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX85.0" },
+    { "role": "state", "name": "Simulation run approval", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX144.1" },
     { "role": "state", "name": "Generate candidate", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX84.1" },
     { "role": "state", "name": "Validation passed", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX84.2" },
     { "role": "state", "name": "Apply approved", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX84.3" },
     { "role": "state", "name": "Rollback requested", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX84.4" },
-    { "role": "state", "name": "Safety abort active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.2" },
-    { "role": "quality", "name": "Input validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.3" },
-    { "role": "state", "name": "Manual mode active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.4" },
+    { "role": "state", "name": "Safety abort active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX144.2" },
+    { "role": "quality", "name": "Input validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX144.3" },
+    { "role": "state", "name": "Manual mode active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX144.4" },
     { "role": "disturbance", "name": "Cold-flow equilibrium-temperature load", "unit": "degC", "minimum": -0.4, "maximum": 0, "resolution": 0.01, "binding": "simulation.toml#plant_events[0]" },
     { "role": "state", "name": "Tuning selection", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MW80" },
     { "role": "state", "name": "Lambda response target", "unit": "s", "minimum": 0.1, "maximum": 100, "resolution": 0.1, "binding": "%ML32" }
@@ -31,12 +31,22 @@
   "plant": {
     "modelId": "validated_local_first_order_dead_time",
     "executable": "simulation.toml#plants[0]",
-    "parameters": [{ "name": "gain", "value": 0.2, "unit": "degC/%" }, { "name": "time_constant", "value": 5, "unit": "s" }, { "name": "dead_time", "value": 1, "unit": "s" }, { "name": "gain_validation_lower", "value": 0.19, "unit": "degC/%" }, { "name": "time_constant_validation_upper", "value": 6, "unit": "s" }, { "name": "dead_time_validation_upper", "value": 1.3, "unit": "s" }],
+    "parameters": [
+      { "name": "gain", "value": 0.2, "unit": "degC/%" },
+      { "name": "time_constant", "value": 5, "unit": "s" },
+      { "name": "dead_time", "value": 1, "unit": "s" },
+      { "name": "gain_validation_lower", "value": 0.19, "unit": "degC/%" },
+      { "name": "time_constant_validation_upper", "value": 6, "unit": "s" },
+      { "name": "dead_time_validation_upper", "value": 1.3, "unit": "s" }
+    ],
     "sampleTimeSeconds": 0.1,
     "initialState": { "outletTemperature": 30.2, "heaterPower": 20 },
     "seed": 20260824,
     "operatingPoint": { "PV": 30.2, "MV": 20 },
-    "validityRange": [{ "signal": "Outlet-water temperature", "minimum": 30, "maximum": 31, "unit": "degC" }, { "signal": "Applied heater power", "minimum": 20, "maximum": 25, "unit": "%" }],
+    "validityRange": [
+      { "signal": "Outlet-water temperature", "minimum": 30, "maximum": 31, "unit": "degC" },
+      { "signal": "Applied heater power", "minimum": 20, "maximum": 25, "unit": "%" }
+    ],
     "simplifications": ["One well-mixed local thermal state with fixed-flow command-model eligibility.", "The cold-flow event is a regulatory test outside the identified command model's predicted input path.", "The uncertainty case perturbs gain, time constant, delay, and measurement noise deterministically.", "Spatial, nonlinear, efficiency, and hardware-protection behavior are omitted."]
   },
   "baseline": {
@@ -51,7 +61,7 @@
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Experiment authority enabled",
+    "signal": "Experiment authority",
     "baseline": 0,
     "amplitude": 0,
     "durationSeconds": 120.1,
@@ -70,7 +80,10 @@
     { "metric": "manipulated_value_maximum", "signal": "Applied heater power", "window": "every approved qualification run", "comparator": "<=", "limit": 25, "unit": "%", "tolerance": 0.001, "evidenceClass": "simulation" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Outlet-water temperature", "minimum": 0, "maximum": 80, "unit": "degC" }, { "signal": "Applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }],
+    "hardLimits": [
+      { "signal": "Outlet-water temperature", "minimum": 0, "maximum": 80, "unit": "degC" },
+      { "signal": "Applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
     "abortPredicates": ["SP, PV, MV, model parameter, Lambda, or calculated gain is nonfinite", "model or tuning input is outside its declared engineering bounds", "requirements are infeasible inside actuator or model-validity limits", "PV or MV leaves its hard limit", "approved qualification PV or MV leaves the accepted local model range", "candidate, plant, event, seed, timing, or axes differ without declaration"],
     "safeMv": 0,
     "restorationMode": "Manual with 0 percent heater power",

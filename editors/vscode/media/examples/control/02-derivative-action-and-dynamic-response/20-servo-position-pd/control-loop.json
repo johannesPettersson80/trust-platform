@@ -51,14 +51,14 @@
     },
     "additional": [
       {
-        "id": "experiment-authority-enabled",
-        "channel": "experiment-authority-enabled",
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
         "address": "%MX32.1",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "1",
+        "unit": "",
         "range": {
           "minimum": 0,
           "maximum": 1
@@ -97,8 +97,8 @@
     "activation": {
       "symbol": "P1.ExperimentEnabled",
       "address": "%MX32.1",
-      "activeValue": true,
-      "restorationValue": false
+      "iecType": "BOOL",
+      "direction": "write"
     }
   }
 }

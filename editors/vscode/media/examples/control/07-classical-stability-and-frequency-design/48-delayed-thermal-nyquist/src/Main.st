@@ -1,6 +1,8 @@
 PROGRAM Main
 VAR
     ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     ProportionalGain : LREAL := 2.0;
     HoldingCommand : LREAL := 50.0;
     Setpoint : LREAL := 101.0;
@@ -21,7 +23,7 @@ END_VAR
 (* The PLC runs only bounded time-domain validation. Nyquist contours remain
    retained evidence, so the expected frequency-domain verdict is not embedded
    in the controller being tested. *)
-IF NOT ExperimentEnabled THEN
+IF (NOT ExperimentEnabled) OR SafetyAbort OR (NOT InputsValid) THEN
     Setpoint := LREAL#100.0;
     ShortDelayRequested := HoldingCommand;
     MediumDelayRequested := HoldingCommand;
@@ -78,6 +80,8 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.ExperimentEnabled AT %MX96.0 : BOOL;
+    P1.SafetyAbort AT %MX96.1 : BOOL;
+    P1.InputsValid AT %MX96.2 : BOOL;
     P1.ShortDelayAborted AT %MX97.0 : BOOL;
     P1.MediumDelayAborted AT %MX97.1 : BOOL;
     P1.LongDelayAborted AT %MX97.2 : BOOL;

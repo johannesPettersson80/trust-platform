@@ -28,7 +28,12 @@ view assumes an initial internal condition. Two installations can have the same
 pump command and downstream-level reading now but different upstream stored
 water and therefore a different future downstream response.
 
-## Derive the state-space model from the balances
+## What we need
+
+We need one coupled model that retains both tank levels as states and shows how
+each pump and inter-tank flow affects their future values.
+
+## The new idea
 
 A **state variable** is a physical quantity whose present value, together with
 future input, is required to predict future behavior. Define upstream level

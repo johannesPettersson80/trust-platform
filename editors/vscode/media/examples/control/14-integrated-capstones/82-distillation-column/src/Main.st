@@ -32,6 +32,11 @@ VAR
     ControllerRevision : DINT := DINT#82;
     Controller : DistillationController;
     StartupInitialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentScan : DINT := DINT#0;
+    ExperimentElapsedSeconds : LREAL := 0.0;
 END_VAR
 
 IF NOT StartupInitialized THEN
@@ -39,6 +44,79 @@ IF NOT StartupInitialized THEN
     OverheadSetpoint := LREAL#0.0;
     BottomsSetpoint := LREAL#0.0;
     StartupInitialized := TRUE;
+END_IF;
+
+(* Control Studio owns only this Boolean authority.  The project owns the
+   complete restored architecture comparison and abnormal sequence. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentScan := ExperimentScan + DINT#1;
+    ExperimentElapsedSeconds := ExperimentElapsedSeconds + LREAL#0.1;
+    OperatingMode := DINT#1;
+    QualityGood := TRUE;
+    RefluxAvailable := TRUE;
+    ReboilerAvailable := TRUE;
+    FeedDisturbanceRequested := LREAL#0.0;
+    ManualReflux := LREAL#0.0;
+    ManualReboiler := LREAL#0.0;
+    IF ExperimentScan <= DINT#600 THEN
+        ArchitectureRequested := INT#0;
+        OverheadSetpoint := LREAL#1.0;
+        BottomsSetpoint := LREAL#0.0;
+    ELSIF ExperimentScan <= DINT#1200 THEN
+        ArchitectureRequested := INT#0;
+        OverheadSetpoint := LREAL#0.0;
+        BottomsSetpoint := LREAL#1.0;
+    ELSIF ExperimentScan <= DINT#2400 THEN
+        ArchitectureRequested := INT#1;
+        OverheadSetpoint := LREAL#1.0;
+        BottomsSetpoint := LREAL#1.0;
+    ELSIF ExperimentScan <= DINT#3600 THEN
+        ArchitectureRequested := INT#2;
+        OverheadSetpoint := LREAL#1.0;
+        BottomsSetpoint := LREAL#1.0;
+    ELSIF ExperimentScan <= DINT#4800 THEN
+        ArchitectureRequested := INT#1;
+        OverheadSetpoint := LREAL#0.0;
+        BottomsSetpoint := LREAL#0.0;
+        FeedDisturbanceRequested := LREAL#1.0;
+    ELSIF ExperimentScan <= DINT#6000 THEN
+        ArchitectureRequested := INT#2;
+        OverheadSetpoint := LREAL#2.0;
+        BottomsSetpoint := LREAL#2.0;
+    ELSIF ExperimentScan <= DINT#6300 THEN
+        ArchitectureRequested := INT#1;
+        QualityGood := FALSE;
+        OverheadSetpoint := LREAL#0.0;
+        BottomsSetpoint := LREAL#0.0;
+    ELSIF ExperimentScan <= DINT#6600 THEN
+        ArchitectureRequested := INT#1;
+        RefluxAvailable := FALSE;
+        OverheadSetpoint := LREAL#0.0;
+        BottomsSetpoint := LREAL#0.0;
+    ELSIF ExperimentScan <= DINT#6900 THEN
+        OperatingMode := DINT#0;
+        ManualReflux := LREAL#0.0;
+        ManualReboiler := LREAL#0.0;
+        OverheadSetpoint := LREAL#0.0;
+        BottomsSetpoint := LREAL#0.0;
+    ELSE
+        OperatingMode := DINT#2;
+        OverheadSetpoint := LREAL#0.0;
+        BottomsSetpoint := LREAL#0.0;
+    END_IF;
+ELSE
+    OperatingMode := DINT#3;
+    ArchitectureRequested := INT#0;
+    QualityGood := TRUE;
+    RefluxAvailable := TRUE;
+    ReboilerAvailable := TRUE;
+    OverheadSetpoint := LREAL#0.0;
+    BottomsSetpoint := LREAL#0.0;
+    FeedDisturbanceRequested := LREAL#0.0;
+    ManualReflux := LREAL#0.0;
+    ManualReboiler := LREAL#0.0;
+    ExperimentScan := DINT#0;
+    ExperimentElapsedSeconds := LREAL#0.0;
 END_IF;
 
 Controller(
@@ -102,6 +180,10 @@ VAR_CONFIG
     P1.FaultActive AT %MX24.7 : BOOL;
     P1.ControllerRevision AT %MD112 : DINT;
     P1.AutoMode AT %MX116.0 : BOOL;
+    P1.ExperimentEnabled AT %MX116.1 : BOOL;
+    P1.SafetyAbort AT %MX116.2 : BOOL;
+    P1.InputsValid AT %MX116.3 : BOOL;
+    P1.ExperimentElapsedSeconds AT %ML120 : LREAL;
     P1.RefluxApplied AT %QL0 : LREAL;
     P1.ReboilerApplied AT %QL8 : LREAL;
     P1.FeedDisturbanceApplied AT %QL16 : LREAL;

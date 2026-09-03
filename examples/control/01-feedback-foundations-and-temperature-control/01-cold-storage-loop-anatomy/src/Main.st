@@ -6,10 +6,30 @@ VAR
     ManipulatedValue : LREAL := 0.0;
     DoorOpenIndication : LREAL := 0.0;
     EffectiveSurroundings : LREAL := 4.0;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentScan : ULINT := ULINT#0;
+    ExperimentElapsedSeconds : LREAL := 0.0;
 END_VAR
 
-(* Manual demand is intentionally the only control action in Lesson 1. The
-   clamp demonstrates that an operator command and an applied MV are distinct. *)
+(* Control Studio grants one Boolean authority. The project owns the bounded
+   cooling interval and its restoration; the simulator owns the door event. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentScan := ExperimentScan + ULINT#1;
+    ExperimentElapsedSeconds := ULINT_TO_LREAL(ExperimentScan) * LREAL#0.1;
+    IF ExperimentScan <= ULINT#200 THEN
+        ManualDemand := LREAL#150.0;
+    ELSE
+        ManualDemand := LREAL#0.0;
+    END_IF;
+ELSE
+    ExperimentScan := ULINT#0;
+    ExperimentElapsedSeconds := LREAL#0.0;
+    ManualDemand := LREAL#0.0;
+END_IF;
+
+(* The clamp demonstrates that a calculated request and an applied MV are distinct. *)
 ManipulatedValue := MIN(MAX(ManualDemand, LREAL#0.0), LREAL#100.0);
 END_PROGRAM
 
@@ -25,5 +45,9 @@ VAR_CONFIG
     P1.ProcessValue AT %IL0 : LREAL;
     P1.DoorOpenIndication AT %IL8 : LREAL;
     P1.EffectiveSurroundings AT %IL16 : LREAL;
+    P1.ExperimentEnabled AT %MX24.0 : BOOL;
+    P1.SafetyAbort AT %MX24.1 : BOOL;
+    P1.InputsValid AT %MX24.2 : BOOL;
+    P1.ExperimentElapsedSeconds AT %ML32 : LREAL;
 END_VAR
 END_CONFIGURATION

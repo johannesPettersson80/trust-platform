@@ -61,14 +61,14 @@
     },
     "additional": [
       {
-        "id": "test-authority",
-        "channel": "test-authority",
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
         "address": "%MX16.0",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "1",
+        "unit": "",
         "range": {
           "minimum": 0,
           "maximum": 1

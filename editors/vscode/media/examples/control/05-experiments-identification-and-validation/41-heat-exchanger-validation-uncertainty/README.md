@@ -1,14 +1,14 @@
 # Validate a heat-exchanger model on evidence it has not seen
 
-Course position: Lesson 41 of 84. Prerequisite: `control-poor-excitation`. Next lesson: `control-manual-historical-tuning`.
+Course position: Lesson 41 of 84. Previous lesson:
+[data qualification](../40-poor-excitation/README.md). Next lesson:
+[manual and historical tuning](../../06-pid-tuning-methods/42-heat-exchanger-tuning-methods/README.md).
 
 This produces **Simulation evidence**, not physical-plant approval.
 
 **Lesson objective:** Classify one frozen model as accepted, restricted, or rejected on independent amplitude, disturbance, and operating-point evidence.
 
 ## The problem
-
-The equipment in this lesson is Plate heat exchanger with local, cold-flow-load, and high-flow validation copies.
 
 Lesson 40 produced qualified data for a plate heat exchanger near 20% hot-water valve position and 50.0 °C outlet temperature. The fitted first-order-plus-dead-time candidate has gain 0.5 °C per percentage point, time constant 20 s, and dead time 3 s. The identification result also reports gain interval 0.47–0.53 °C per percentage point, time-constant interval 18–22 s, and dead-time interval 2.5–3.5 s at a declared 95% confidence level.
 
@@ -18,7 +18,8 @@ Lesson 40 proved that the estimation record could distinguish model parameters. 
 
 ## What we need
 
-We need independent tests that show where one frozen heat-exchanger model predicts well and where its purpose or operating range must be restricted. Amplitude, disturbance, and operating-point changes must receive separate dispositions instead of one blanket pass.
+We need to freeze the identified model, test it on independent conditions, and
+carry parameter and prediction uncertainty into a purpose-limited verdict.
 
 ## The new idea
 
@@ -28,15 +29,29 @@ We need independent tests that show where one frozen heat-exchanger model predic
 
 The **measured outlet temperature ($PV_{\mathrm{measured}}$)** is the recorded plant value in degrees Celsius. The **model-predicted outlet temperature ($PV_{\mathrm{predicted}}$)** is the frozen model output for the recorded applied valve position. The **sample number ($k$)** identifies one update. The **residual ($r_{k}$)** is measured minus predicted temperature:
 
-$r_k = PV_{\mathrm{measured},k} - PV_{\mathrm{predicted},k}$
+\[
+r_k=PV_{\mathrm{measured},k}-PV_{\mathrm{predicted},k}.
+\]
 
-The **root-mean-square prediction error ($RMSE$)** is the square root of the mean squared residual in a declared window. **Residual bias** is the mean residual. **Lag-one residual autocorrelation ($\rho_{1}$)** is the centered correlation between each residual and the preceding residual. RMSE measures typical error, bias exposes persistent offset, and autocorrelation exposes repeated time structure. A small RMSE alone cannot show which kind of error remains.
+The **root-mean-square prediction error** is
+$RMSE=\sqrt{(1/N)\sum r_k^2}$ in a declared window. **Residual bias** is
+$\bar r=(1/N)\sum r_k$. **Lag-one residual autocorrelation** applies the
+ordinary centered correlation formula to $(r_k,r_{k-1})$. RMSE measures typical
+error, bias exposes persistent offset, and autocorrelation exposes repeated
+time structure. A small RMSE alone cannot show which kind of error remains.
 
 ### Express finite evidence honestly
 
 A **parameter uncertainty interval** is a range supported by the identification method and its assumptions. The **confidence level** describes the long-run coverage of the interval-producing procedure; it is not a guarantee that this realized interval contains the physical truth.
 
-The **prediction uncertainty envelope** is the minimum and maximum frozen-model prediction from the parameter intervals, expanded by the declared measurement-noise allowance. **Envelope coverage** is the fraction of qualified measured samples inside that envelope. A narrow envelope is credible only if independent data achieve its declared coverage.
+The **prediction uncertainty envelope** is the minimum and maximum frozen-model
+prediction from all declared parameter-interval corners, expanded by the
+±0.30 °C measurement-noise allowance. At equilibrium for the 5-point step, the
+gain interval alone predicts $5(0.47)=2.35$ to $5(0.53)=2.65$ °C movement; the
+noise expansion makes that 2.05 to 2.95 °C. During the transient, time-constant
+and delay corners also change the bounds. **Envelope coverage** is
+$N_{inside}/N_{qualified}$. A narrow envelope is credible only if independent
+data achieve its declared coverage.
 
 **Interpolation** predicts between conditions represented by qualified evidence. **Extrapolation** predicts beyond tested input, disturbance, or operating conditions. **Model mismatch** is repeatable plant behavior absent from the candidate. The **validity region** names the inputs, outputs, disturbances, modes, and operating points supported by validation.
 
@@ -44,7 +59,10 @@ An **accepted** verdict means every declared measure passes for a stated purpose
 
 ## Prediction
 
-The new 5-percentage-point step and frozen gain predict 2.5 degrees Celsius equilibrium movement. One 20-second time constant after the 3-second delay, a first-order response has completed about 63.2%, so predict 1.58 degrees Celsius movement.
+The new 5-percentage-point step and frozen gain predict
+$0.5(5)=2.5$ °C equilibrium movement. One 20-second time constant after the
+3-second delay, the first-order response predicts
+$2.5(1-e^{-1})=1.580$ °C movement.
 
 Cold flow later lowers equilibrium by 2 °C. Because the frozen model has no cold-flow input, predict approximately minus-2-degree-Celsius residual bias. At high flow, the actual gain is 0.25 °C per percentage point, so the plant moves 1.25 degrees Celsius while the local model predicts 2.5 degrees Celsius. Predict a late residual near minus 1.25 degrees Celsius outside the local envelope.
 
@@ -68,7 +86,13 @@ Requested and applied valve positions remain separate. Each applied command is c
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Apply one new 5-point input to three declared conditions and replay every applied input through the unchanged model and interval corners. The declared event lasts 160 seconds. It restores Local applied valve position to 20 % afterward. The deterministic Simulation seed is 20260829.
+Control Studio exposes the common 5-point holdout input. Test writes one
+reviewed Boolean, `P1.ExperimentEnabled`, for 160.1 seconds. The project owns
+all three 20-to-25% requests and restoration to 20%. Native evidence owns the
+frozen-model replay, interval-corner envelope, exact 90-second load timing, and
+accepted/restricted/rejected verdicts. This keeps validation arithmetic and
+time-zero conditions reproducible. The deterministic Simulation seed is
+20260829.
 
 ### Control Studio actions
 
@@ -80,25 +104,15 @@ This procedure tests one declared lesson change under controlled conditions. App
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Manual output step**, **Amplitude** = **5 %**, and **Maximum duration (s)** = **160**. The affected signal is **Local applied valve position**; it starts at 20 % and must restore to 20 %. Use a common 10-second baseline, apply the cold-flow load at 90 seconds, observe through 160 seconds, and compare only against the frozen model. Use a common 10-second baseline, apply the cold-flow load at 90 seconds, observe through 160 seconds, and compare only against the frozen model. Do not Tune or Apply from validation evidence.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Local applied valve position 0 % to 100 %; Load applied valve position 0 % to 100 %; High-flow applied valve position 0 % to 100 %; Local measured outlet temperature 45 degC to 56 degC.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Local applied valve position to 20 %, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **160.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false. Confirm all requested/applied valves = 20% and all temperatures near 50 °C.
+   - **Decision before action:** Before selecting **Review test**, record the local 2.5 °C equilibrium prediction, 1.580 °C one-time-constant prediction, −2 °C load residual, and −1.25 °C high-flow residual. Confirm all commands and temperatures remain inside declared bounds. Do not refit, Tune, or Apply from validation evidence.
+   - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Observe the common applied input and three different temperature responses, followed by 20% restoration.
+   - **Recovery:** Abort for stale, invalid, nonfinite, gapped, clipped, altered-model, reused-estimation, or out-of-range evidence. Confirm authority false and all valves 20% before retrying.
+   - **Record:** Retain terminal state, restoration, all raw samples, model identity and intervals, predictions, residuals, envelope, operating conditions, seed, and predeclared verdict rules.
 
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **ModelValidationExperiment** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Independent holdout validation, uncertainty coverage, residual diagnosis, and bounded model scope** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: local_validation_rmse <= 0.2 degC (tolerance 0.005 degC); local_absolute_residual_bias <= 0.05 degC (tolerance 0.005 degC); local_absolute_lag_one_residual_correlation <= 0.2 (dimensionless) (tolerance 0.01 (dimensionless)); local_uncertainty_envelope_coverage >= 0.9 (dimensionless) (tolerance 0.01 (dimensionless)).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+There is no shared Identify or disabled Validate stage. Native executable
+evidence replays the unchanged model and calculates the three separate
+verdicts; the UI run only exposes the reviewed holdout inputs and responses.
 
 ## Evidence and decision
 

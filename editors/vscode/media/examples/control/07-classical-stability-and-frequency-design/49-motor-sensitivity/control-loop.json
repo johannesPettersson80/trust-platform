@@ -5,21 +5,154 @@
   "revision": "sha256:curriculum-loop-49",
   "projectId": "project:control-motor-sensitivity-loop-shaping",
   "runtimeId": "simulator",
-  "controller": { "instance": "P1", "type": "SensitivityShapingComparison", "design": "project", "revision": "sha256:curriculum-controller-49", "action": "direct", "taskPeriodMs": 10 },
+  "controller": {
+    "instance": "P1",
+    "type": "SensitivityShapingComparison",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-49",
+    "action": "direct",
+    "taskPeriodMs": 10
+  },
   "signals": {
-    "setpoint": { "symbol": "P1.SpeedSetpoint", "address": "%ML16", "iecType": "LREAL", "direction": "read", "unit": "rpm", "range": { "minimum": -20, "maximum": 20 } },
-    "processVariable": { "symbol": "P1.BaselineMeasuredSpeed", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "rpm", "range": { "minimum": -20, "maximum": 20 } },
-    "manipulatedVariable": { "symbol": "P1.BaselineAppliedTorque", "address": "%QL0", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": -100, "maximum": 100 } },
+    "setpoint": {
+      "symbol": "P1.SpeedSetpoint",
+      "address": "%ML16",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rpm",
+      "range": {
+        "minimum": -20,
+        "maximum": 20
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.BaselineMeasuredSpeed",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rpm",
+      "range": {
+        "minimum": -20,
+        "maximum": 20
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.BaselineAppliedTorque",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": -100,
+        "maximum": 100
+      }
+    },
     "additional": [
-      { "id": "baseline-load", "channel": "baseline", "role": "disturbance", "symbol": "P1.BaselineLoadTorque", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": -100, "maximum": 100 } },
-      { "id": "shaped-pv", "channel": "shaped", "role": "PV", "symbol": "P1.ShapedMeasuredSpeed", "address": "%IL16", "iecType": "LREAL", "direction": "read", "unit": "rpm", "range": { "minimum": -20, "maximum": 20 } },
-      { "id": "shaped-mv", "channel": "shaped", "role": "MV", "symbol": "P1.ShapedAppliedTorque", "address": "%QL16", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": -100, "maximum": 100 } },
-      { "id": "shaped-load", "channel": "shaped", "role": "disturbance", "symbol": "P1.ShapedLoadTorque", "address": "%QL24", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": -100, "maximum": 100 } },
-      { "id": "shaped-true-speed", "channel": "shaped", "role": "state", "symbol": "P1.ShapedTrueSpeed", "address": "%IL24", "iecType": "LREAL", "direction": "read", "unit": "rpm", "range": { "minimum": -20, "maximum": 20 } }
+      {
+        "id": "baseline-load",
+        "channel": "baseline",
+        "role": "disturbance",
+        "symbol": "P1.BaselineLoadTorque",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -100,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "shaped-pv",
+        "channel": "shaped",
+        "role": "PV",
+        "symbol": "P1.ShapedMeasuredSpeed",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rpm",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "shaped-mv",
+        "channel": "shaped",
+        "role": "MV",
+        "symbol": "P1.ShapedAppliedTorque",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -100,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "shaped-load",
+        "channel": "shaped",
+        "role": "disturbance",
+        "symbol": "P1.ShapedLoadTorque",
+        "address": "%QL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -100,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "shaped-true-speed",
+        "channel": "shaped",
+        "role": "state",
+        "symbol": "P1.ShapedTrueSpeed",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rpm",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX96.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
     ]
   },
-  "limits": { "outputMinimum": -100, "outputMaximum": 100 },
-  "observedSampleTiming": { "nominalPeriodMs": 10 },
+  "limits": {
+    "outputMinimum": -100,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 10
+  },
   "plantId": "precision_motor_sensitivity_pair",
-  "experiment": { "execution": "project-scripted", "kind": "observation", "amplitude": 0, "durationSeconds": 120, "seed": 20260829, "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX96.0", "iecType": "BOOL", "direction": "write" } }
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 120.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX96.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
 }

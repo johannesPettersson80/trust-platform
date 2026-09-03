@@ -1,9 +1,13 @@
 PROGRAM Main
 VAR
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     TankAreaSquareMetres : LREAL := 0.5;
     OutletCoefficient : LREAL := 0.02;
     SampleTimeSeconds : LREAL := 0.1;
-    FlowDeviation : LREAL := 0.001;
+    FlowDeviation : LREAL := 0.0;
 
     LowOperatingLevelMetres : LREAL := 0.25;
     MiddleOperatingLevelMetres : LREAL := 0.50;
@@ -36,6 +40,22 @@ VAR
     MiddlePhysicalLevel : LREAL := 0.50;
     HighPhysicalLevel : LREAL := 0.81;
 END_VAR
+
+IF ExperimentEnabled THEN
+    FlowDeviation := LREAL#0.001;
+ELSIF ExperimentWasEnabled THEN
+    FlowDeviation := LREAL#0.0;
+END_IF;
+
+InputsValid := LowPhysicalLevel >= LREAL#0.0
+    AND LowPhysicalLevel <= LREAL#1.0
+    AND MiddlePhysicalLevel >= LREAL#0.0
+    AND MiddlePhysicalLevel <= LREAL#1.0
+    AND HighPhysicalLevel >= LREAL#0.0
+    AND HighPhysicalLevel <= LREAL#1.2;
+IF SafetyAbort OR NOT InputsValid THEN
+    FlowDeviation := LREAL#0.0;
+END_IF;
 
 (* Derive each tangent model from the same gravity-outflow balance. *)
 LowEquilibriumFlow := OutletCoefficient * SQRT(LowOperatingLevelMetres);
@@ -82,6 +102,7 @@ MiddleLocalLevelCentimetres :=
     (MiddleOperatingLevelMetres + MiddleLocalDeviationMetres) * LREAL#100.0;
 HighLocalLevelCentimetres :=
     (HighOperatingLevelMetres + HighLocalDeviationMetres) * LREAL#100.0;
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -90,6 +111,9 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
+    P1.ExperimentEnabled AT %MX136.0 : BOOL;
+    P1.SafetyAbort AT %MX136.1 : BOOL;
+    P1.InputsValid AT %MX136.2 : BOOL;
     P1.FlowDeviation AT %ML0 : LREAL;
     P1.LowInletFlow AT %QL0 : LREAL;
     P1.MiddleInletFlow AT %QL8 : LREAL;

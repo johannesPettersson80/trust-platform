@@ -137,6 +137,14 @@ action, but its phase lag consumes stability margin. Both raw encoder and
 filtered position remain visible. A smooth filtered plot is not evidence that
 the physical encoder is quiet.
 
+The filter transfer is $H(s)=1/(1+\tau_f s)$. At angular frequency $\omega$,
+its magnitude is $1/\sqrt{1+(\omega\tau_f)^2}$. The 20-hertz interference has
+$\omega=2\pi(20)=125.66$ radians per second, so with
+$\tau_f=0.05$ seconds the magnitude is about `0.157`: the position ripple is
+reduced to roughly 16 percent before differentiation. The same denominator has
+phase $-\arctan(\omega\tau_f)$, which explains why stronger smoothing cannot be
+treated as free noise removal.
+
 Backlash, stiction, resonance, torque saturation, slew limiting, and encoder
 noise have different signatures. This lesson represents resonance, limits, and
 noise directly. A physical axis showing lost motion would first require a
@@ -232,7 +240,11 @@ label, or winner is embedded in the PLC program.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Add only the integral action required by the load evidence, then compare the same filtered PID at qualified 10-millisecond and unchanged delayed 100-millisecond execution. The declared event lasts 30 seconds. It restores PID raw encoder position to 0 rad afterward. The deterministic Simulation seed is 20260829.
+The learner-facing workflow is exactly **Monitor → Test**. The runnable project
+owns the common 30-second zero-to-0.5-radian reference and 1.5-newton-metre load
+sequence, then restores zero reference, zero load, and zero torque. The native
+test owns the frequency, discrete, uncertainty, abnormal, and candidate
+qualification calculations.
 
 ### Control Studio actions
 
@@ -244,32 +256,15 @@ This procedure tests one declared lesson change under controlled conditions. Add
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0 rad**, and **Maximum duration (s)** = **30**. The affected signal is **PID raw encoder position**; it starts at 0 rad and must restore to 0 rad. Execute the heavy payload, reduced damping, doubled encoder noise, Manual transfer, invalid quality, and controlled stop cases as separate restored abnormalities. Execute the heavy payload, reduced damping, doubled encoder noise, Manual transfer, invalid quality, and controlled stop cases as separate restored abnormalities. Keep the selected revision unapplied until explicit approval, with rollback ready.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **30.01**. Control Studio writes only `P1.ExperimentEnabled`; amplitude zero is intentional because the project owns reference, load, and restoration.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside PID raw encoder position -1.5 rad to 1.5 rad; PID applied motor torque -10 N m to 10 N m; Coarse PID raw encoder position -1.5 rad to 1.5 rad; Coarse PID applied motor torque -10 N m to 10 N m.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore PID raw encoder position to 0 rad, wait for current data, and review a new test.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, remove experiment authority. The project enters the reviewed zero-torque state and restores zero reference and load before another run.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
 
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Time-, frequency-, and digitally qualified filtered PID** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Time-, frequency-, and digitally qualified filtered PID** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Time-, frequency-, and digitally qualified filtered PID** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Time-, frequency-, and digitally qualified filtered PID**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: selected_pid_overshoot <= 35 % (tolerance 0.5 %); selected_pid_settling_time <= 5 s (tolerance 0.02 s); selected_pid_load_error <= 0.02 rad (tolerance 0.001 rad); selected_pid_quiet_torque_rms <= 0.1 N m (tolerance 0.005 N m).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+Identify, Tune, and Validate are not learner steps. The native executable test
+owns those model, frequency, digital, uncertainty, and pass/fail calculations;
+disabled generic panels are not evidence.
 
 ## Evidence and decision
 

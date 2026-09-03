@@ -51,14 +51,23 @@
   },
   "change": {
     "executableId": "Control.LowPass.OrderComparison",
-    "settings": { "filterSelections": [0, 1, 2], "filterTimeConstantSeconds": 0.1, "sampledCoefficient": 0.666666666666667, "continuousReferenceCutoffHertz": 1.591549, "firstOrderDiscreteMinus3DbHertz": 1.959133, "secondOrderDiscreteMinus3DbHertz": 1.211836, "firstOrderRollOffDbPerDecade": 20, "secondOrderRollOffDbPerDecade": 40 },
+    "settings": {
+      "filterSelections": [0, 1, 2],
+      "filterTimeConstantSeconds": 0.1,
+      "sampledCoefficient": 0.666666666666667,
+      "continuousReferenceCutoffHertz": 1.591549,
+      "firstOrderDiscreteMinus3DbHertz": 1.959133,
+      "secondOrderDiscreteMinus3DbHertz": 1.211836,
+      "firstOrderRollOffDbPerDecade": 20,
+      "secondOrderRollOffDbPerDecade": 40
+    },
     "decision": "Run bypass, one pole, and two cascaded poles with the same deterministic noise and change no plant, controller, timing, event, axis, or limit; select the fewest poles satisfying attenuation, lag, and bias requirements. Filter selection is initialization-only and requires a restart."
   },
   "experiment": {
-    "kind": "setpoint_step",
-    "signal": "Discharge-pressure setpoint",
+    "kind": "observation",
+    "signal": "Experiment authority",
     "baseline": 0,
-    "amplitude": 1,
+    "amplitude": 0,
     "durationSeconds": 40.1,
     "settlingSeconds": 5,
     "disturbances": ["The same seeded 0.02 bar standard-deviation measurement-noise sequence is active in every run"],
@@ -73,7 +82,13 @@
     { "metric": "maximum_aligned_noise_realization_difference", "signal": "Raw pressure-transmitter value", "window": "0.0 to 40.1 s", "comparator": "<=", "limit": 0, "unit": "bar", "tolerance": 1e-12, "evidenceClass": "simulation" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Raw pressure-transmitter value", "minimum": -5, "maximum": 5, "unit": "bar" }, { "signal": "Simulator-only true pressure", "minimum": -5, "maximum": 5, "unit": "bar" }, { "signal": "Controller pressure value", "minimum": -5, "maximum": 5, "unit": "bar" }, { "signal": "Recycle-valve trim", "minimum": -10, "maximum": 10, "unit": "%" }, { "signal": "Filter selection", "minimum": 0, "maximum": 2, "unit": "1" }],
+    "hardLimits": [
+      { "signal": "Raw pressure-transmitter value", "minimum": -5, "maximum": 5, "unit": "bar" },
+      { "signal": "Simulator-only true pressure", "minimum": -5, "maximum": 5, "unit": "bar" },
+      { "signal": "Controller pressure value", "minimum": -5, "maximum": 5, "unit": "bar" },
+      { "signal": "Recycle-valve trim", "minimum": -10, "maximum": 10, "unit": "%" },
+      { "signal": "Filter selection", "minimum": 0, "maximum": 2, "unit": "1" }
+    ],
     "abortPredicates": ["SP, raw PV, controller PV or MV is nonfinite", "MV leaves -10 to 10 percent", "Filter selection leaves 0 through 2", "Seed, plant, PI, initial state, event, duration, scale or timing differs between runs"],
     "safeMv": 0,
     "restorationMode": "Return pressure-deviation SP to zero and select Manual at 0 percent recycle-valve trim",

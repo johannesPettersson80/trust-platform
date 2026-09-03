@@ -48,7 +48,7 @@ Surface motion and gust load accelerate one flexible bending mode. Structural st
 
 The natural angular frequency ($\omega_{n}$) is the undamped modal frequency in radians per second. The damping ratio ($\zeta$) is the dimensionless fraction describing modal energy loss. The control effectiveness ($g_{u}$) is a dimensionless scale on the installed surface-to-bending path. The Laplace frequency variable ($s$) is measured in radians per second.
 
-The surface-to-bending plant for structured case i is:
+Dividing the modal balance $\ddot y+2\zeta\omega_n\dot y+\omega_n^2y=0.1g_u\omega_n^2u+\omega_n^2d$ by its characteristic operator gives the two transfer paths. The surface-to-bending plant for structured case i is:
 
 $P_{i}(s)=0.1 \cdot g_{u} \cdot \omega_{n}^{2}/(s^{2}+2 \cdot \zeta \cdot \omega_{n} \cdot s+\omega_{n}^{2})$
 
@@ -76,6 +76,8 @@ $T=L/(1+L)$
 
 $KS=K/(1+L)$
 
+These relationships follow by closing the negative-feedback loop. Substitute $u=K(r-y)$ into the plant equation and collect all terms containing $y$; the common denominator is $1+P_iK=1+L$. The remaining numerators define $S$, $T$, and $KS$, so the three paths expose different consequences of the same loop.
+
 Improving one path can worsen another. Large loop gain reduces low-frequency sensitivity but can amplify uncertain resonance and demand excessive surface motion.
 
 ### Weights turn preferences into requirements
@@ -96,13 +98,13 @@ Each weighted path must remain below one. An average is not allowed to hide one 
 
 ### H-infinity and the small-gain condition
 
-The H-infinity norm of a stable scalar transfer is its greatest magnitude over all frequencies. The mixed-sensitivity score ($\gamma$) is the worst of the three weighted paths over every declared plant and frequency:
+The H-infinity norm of a stable scalar transfer is its greatest magnitude over all frequencies. A maximum is required because an average could hide one failed resonance. The mixed-sensitivity score ($\gamma$) is the worst of the three weighted paths over every declared plant and frequency:
 
 $\gamma=\max\left(\lVert W_{p} \cdot S \rVert_\infty,\lVert W_{\Delta} \cdot T \rVert_\infty,\lVert W_{u} \cdot KS \rVert_\infty\right)$
 
 The small-gain robust stability condition says that a stable local loop remains stable for every stable normalized residual inside the declared multiplicative envelope when the weighted complementary-sensitivity peak is below one. Robust performance additionally requires the performance and effort peaks below one.
 
-This lesson calculates a qualified numerical bound, not an exact continuous-frequency proof. The oracle evaluates 20,000 logarithmically spaced frequencies from 0.01 through 100 rad/s. It retains each peak's frequency and plant. The 20-millisecond sample interval has a Nyquist frequency of 157.08 rad/s, so higher frequencies are outside this lesson's claim.
+This lesson calculates a qualified numerical bound, not an exact continuous-frequency proof. The oracle evaluates 20,000 logarithmically spaced frequencies from 0.01 through 100 rad/s. It retains each peak's frequency and plant. The 20-millisecond sample interval has Nyquist angular frequency $\pi/0.02=157.08$ rad/s; higher frequencies cannot be represented uniquely by these samples and are outside the claim.
 
 ### The controller that is actually sampled
 
@@ -138,7 +140,7 @@ There is a separate continuous local-stability check. After normalizing the surf
 
 $2 \cdot \zeta \cdot \omega_{n}+0.25 \cdot g_{u} \cdot \omega_{n}^{2}+0.2 \cdot \zeta^{2} \cdot \omega_{n}^{2}+0.005 \cdot \zeta \cdot \omega_{n}^{3}+0.03 \cdot g_{u} \cdot \zeta \cdot \omega_{n}^{3}$
 
-Every term is positive for positive physical parameters. This predicts continuous local stability, but it does not replace the sampled-pole test or the residual-uncertainty test.
+This expression is obtained by forming the cubic closed-loop characteristic polynomial for the plant plus derivative filter and applying the cubic Routh-Hurwitz condition $a_2a_1>a_3a_0$. Every term in the resulting difference is positive for positive physical parameters. This predicts continuous local stability, but it does not replace the sampled-pole test or the residual-uncertainty test.
 
 ## Implementation
 
@@ -163,7 +165,7 @@ RobustApplied := RobustController.Update(Input := RobustInput);
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Evaluate the four filtered-PD candidates and execute the selected (10,3,0.05) realization on equivalent restored plants. The declared event lasts 25 seconds. It restores Gust-equivalent load to 0 g afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the aggressive baseline and selected robust controller on equivalent nominal plants under one project-owned gust. Removing authority, invalid inputs, or a safety abort restores zero gust and zero surface commands. The candidate search, 27-case grid, and quality fault remain native test records. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -175,32 +177,11 @@ This procedure tests one declared lesson change under controlled conditions. Eva
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Load disturbance step**, **Amplitude** = **0.1 g**, and **Maximum duration (s)** = **25**. The affected signal is **Gust-equivalent load**; it starts at 0 g and must restore to 0 g.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **25.1**. The affected signal is **Experiment authority**. Amplitude zero is intentional: Test writes only `P1.ExperimentEnabled`; the project applies the shared +0.10-g gust from 5 through 6 seconds.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Nominal applied surface position -15 % to 15 %; Robust applied surface position -15 % to 15 %; Nominal-loop wing-root bending -1 g to 1 g; Robust-loop wing-root bending -1 g to 1 g.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Gust-equivalent load to 0 g, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Sampled mixed-sensitivity loop shaping with structured and multiplicative uncertainty** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Sampled mixed-sensitivity loop shaping with structured and multiplicative uncertainty** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Sampled mixed-sensitivity loop shaping with structured and multiplicative uncertainty** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Sampled mixed-sensitivity loop shaping with structured and multiplicative uncertainty**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: selected_mixed_sensitivity_gamma < 1 (dimensionless) (tolerance 0.0001 (dimensionless)); selected_maximum_pole_radius < 1 (dimensionless) (tolerance 1e-8 (dimensionless)); robust_worst_case_iae < 999 g*s (tolerance 0.0001 g*s); robust_surface_saturation == 0 s (tolerance 0 s).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero gust and both zero applied surfaces, wait for current data, and review a new test.
+   - **Record:** Stop recording only after restoration. Retain both bending traces, requested/applied surfaces, saturation, terminal state, restoration result, and seed **20260829**. Use native evidence for frequency qualification, uncertainty corners, and faults; do not claim this visible run executed them.
 
 ## Evidence and decision
 

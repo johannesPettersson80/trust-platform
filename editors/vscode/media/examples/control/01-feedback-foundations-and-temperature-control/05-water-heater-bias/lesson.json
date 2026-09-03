@@ -17,8 +17,9 @@
     { "role": "MV", "name": "Applied heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
     { "role": "state", "name": "Operating-point bias", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML16" },
     { "role": "state", "name": "Manual heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML32" },
-    { "role": "state", "name": "Automatic mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.0" },
-    { "role": "disturbance", "name": "Cold-water flow load", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 1, "binding": "simulation.toml#plant_events[0]" }
+    { "role": "state", "name": "Automatic mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX40.0" },
+    { "role": "disturbance", "name": "Cold-water flow load", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 1, "binding": "simulation.toml#plant_events[0]" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX40.1" }
   ],
   "plant": {
     "modelId": "first_order_dead_time",
@@ -36,12 +37,7 @@
       { "signal": "Outlet-water temperature", "minimum": 0, "maximum": 80, "unit": "degC" },
       { "signal": "Applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "The recirculating volume is one well-mixed thermal state.",
-      "The cold-water load changes the zero-power equilibrium by 3 degC without changing the nominal bias.",
-      "The lesson measures nominal holding power with bounded manual trials instead of reading the plant-model parameter.",
-      "A physical holding-output measurement would include sensor, load and actuator uncertainty that this deterministic simulation omits."
-    ]
+    "simplifications": ["The recirculating volume is one well-mixed thermal state.", "The cold-water load changes the zero-power equilibrium by 3 degC without changing the nominal bias.", "The lesson measures nominal holding power with bounded manual trials instead of reading the plant-model parameter.", "A physical holding-output measurement would include sensor, load and actuator uncertainty that this deterministic simulation omits."]
   },
   "baseline": {
     "executableId": "Control.PID.POnly",
@@ -54,11 +50,11 @@
     "decision": "Measure the nominal holding output with bounded manual trials, add only that measured bias, and repeat the identical proportional-controller experiment."
   },
   "experiment": {
-    "kind": "load_step",
-    "signal": "Cold-water flow load",
+    "kind": "observation",
+    "signal": "Experiment authority",
     "baseline": 0,
-    "amplitude": 100,
-    "durationSeconds": 120,
+    "amplitude": 0,
+    "durationSeconds": 120.1,
     "settlingSeconds": 60,
     "disturbances": ["Cold-water flow increases at 60 s and shifts the zero-power equilibrium from 20 to 17 degC"],
     "seed": 20260828,
@@ -103,17 +99,7 @@
   "learning": {
     "context": "The recirculating water heater needs nonzero power to replace nominal heat loss while holding the desired outlet temperature, and its one-sided heater can apply only 0 to 100 percent power.",
     "reason": "Lesson 4 selected gain 8 percent per degree Celsius but retained 6.9 degrees Celsius changed-load mean absolute error because zero error requested zero holding power.",
-    "theory": [
-      "An operating point is a condition where outlet temperature and heater output remain steady because heat entering the water balances heat leaving it.",
-      "The required steady heater output (MV_required) is the percent heater power that balances normal heat loss at the desired operating point.",
-      "The controller bias (u0) is the measured holding output stored in the controller; it is not integral action and cannot change itself when the load changes.",
-      "The setpoint (SP) is the desired outlet-water temperature and the process value (PV) is the measured outlet-water temperature; both are measured in degrees Celsius.",
-      "The error (e) is the setpoint minus the process value, so a positive error means the measured water is too cold.",
-      "The proportional gain (Kp) states how much heater output is requested for each degree Celsius of error; Lesson 5 retains 8 percent per degree Celsius.",
-      "The temperature deviation is the current temperature minus the operating-point temperature and is measured in degrees Celsius.",
-      "The requested manipulated variable (MV_requested) is the controller calculation before limits, while the applied manipulated variable (MV_applied) is the 0 to 100 percent power the heater receives.",
-      "After all quantities are defined, the positional law is MV_requested = u0 + Kp times e, followed by MV_applied = clamp(MV_requested, 0 percent, 100 percent)."
-    ],
+    "theory": ["An operating point is a condition where outlet temperature and heater output remain steady because heat entering the water balances heat leaving it.", "The required steady heater output (MV_required) is the percent heater power that balances normal heat loss at the desired operating point.", "The controller bias (u0) is the measured holding output stored in the controller; it is not integral action and cannot change itself when the load changes.", "The setpoint (SP) is the desired outlet-water temperature and the process value (PV) is the measured outlet-water temperature; both are measured in degrees Celsius.", "The error (e) is the setpoint minus the process value, so a positive error means the measured water is too cold.", "The proportional gain (Kp) states how much heater output is requested for each degree Celsius of error; Lesson 5 retains 8 percent per degree Celsius.", "The temperature deviation is the current temperature minus the operating-point temperature and is measured in degrees Celsius.", "The requested manipulated variable (MV_requested) is the controller calculation before limits, while the applied manipulated variable (MV_applied) is the 0 to 100 percent power the heater receives.", "After all quantities are defined, the positional law is MV_requested = u0 + Kp times e, followed by MV_applied = clamp(MV_requested, 0 percent, 100 percent)."],
     "workedPrediction": "If a manual trial holds 35 degrees Celsius, use its measured output as bias. At SP 35 degrees Celsius and PV 35 degrees Celsius, error is zero and the Kp 8 proportional correction is zero, so a measured 75 percent bias predicts 75 percent requested and applied heater output. Predict only the direction of the changed-load error.",
     "practicalPreparation": ["Start disabled and compare bounded 70, 75 and 80 percent manual trials from the same initial state, qualifying each 50.1 to 60.0 second window before selection.", "Retain gain 8, use explicit Auto enable, restart after each initialization-only bias change, preserve plant, seed, load event, limits, duration and sample time, then restore Manual with zero output."],
     "baseline": "Measure nominal holding output in Manual, then run the selected Lesson 4 proportional gain 8 with zero bias under the 60-second cold-water event.",

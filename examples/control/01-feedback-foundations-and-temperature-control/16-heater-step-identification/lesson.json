@@ -15,7 +15,7 @@
     { "role": "PV", "name": "Outlet-water temperature", "unit": "degC", "minimum": 0, "maximum": 40, "resolution": 0.01, "binding": "%IL0" },
     { "role": "MV", "name": "Requested heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML0" },
     { "role": "MV", "name": "Applied heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
-    { "role": "state", "name": "Test authority enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.0" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.0" },
     { "role": "state", "name": "Safety abort active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.1" },
     { "role": "quality", "name": "Input validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.2" },
     { "role": "state", "name": "Automatic mode active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.3" },
@@ -25,12 +25,19 @@
   "plant": {
     "modelId": "unknown_local_self_regulating_heater",
     "executable": "simulation.toml#plants[0]",
-    "parameters": [{ "name": "configured_truth_gain", "value": 0.2, "unit": "degC/%" }, { "name": "configured_truth_time_constant", "value": 5, "unit": "s" }, { "name": "configured_truth_dead_time", "value": 1, "unit": "s" }],
+    "parameters": [
+      { "name": "configured_truth_gain", "value": 0.2, "unit": "degC/%" },
+      { "name": "configured_truth_time_constant", "value": 5, "unit": "s" },
+      { "name": "configured_truth_dead_time", "value": 1, "unit": "s" }
+    ],
     "sampleTimeSeconds": 0.1,
     "initialState": { "outletTemperature": 30, "heaterPower": 20 },
     "seed": 20260827,
     "operatingPoint": { "PV": 30, "MV": 20 },
-    "validityRange": [{ "signal": "Outlet-water temperature", "minimum": 30, "maximum": 32, "unit": "degC" }, { "signal": "Applied heater power", "minimum": 20, "maximum": 30, "unit": "%" }],
+    "validityRange": [
+      { "signal": "Outlet-water temperature", "minimum": 30, "maximum": 32, "unit": "degC" },
+      { "signal": "Applied heater power", "minimum": 20, "maximum": 30, "unit": "%" }
+    ],
     "simplifications": ["One local self-regulating response near fixed flow and ambient conditions.", "Deterministic simulation data have no added sensor noise; uncertainty still records search resolution and residual evidence.", "The fitter cannot read configured truth.", "Boiling, flow loss, stratification, efficiency change, sensor dynamics, and actuator faults are omitted."]
   },
   "baseline": {
@@ -40,12 +47,18 @@
   },
   "change": {
     "executableId": "ControlStudio.FopdtIdentification",
-    "settings": { "baselineSeconds": 10, "stepFromPercent": 20, "stepToPercent": 30, "recordingSecondsAfterStep": 40, "requestedModels": ["integrating", "first_order", "first_order_dead_time", "second_order", "second_order_dead_time"] },
+    "settings": {
+      "baselineSeconds": 10,
+      "stepFromPercent": 20,
+      "stepToPercent": 30,
+      "recordingSecondsAfterStep": 40,
+      "requestedModels": ["integrating", "first_order", "first_order_dead_time", "second_order", "second_order_dead_time"]
+    },
     "decision": "Estimate from immutable time/MV/PV/quality samples only, retain all candidates and uncertainty, and leave the selected preview unaccepted until independent validation."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Test authority enabled",
+    "signal": "Experiment authority",
     "baseline": 0,
     "amplitude": 0,
     "durationSeconds": 50.1,
@@ -55,19 +68,23 @@
     "restorationValue": 0
   },
   "acceptance": [
-    { "metric": "baseline_temperature", "signal": "Outlet-water temperature", "window": "last 2 s before step", "comparator": "==", "limit": 30, "unit": "degC", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "baseline_temperature", "signal": "Outlet-water temperature", "window": "last 2 s before step", "comparator": "==", "limit": 30, "unit": "degC", "tolerance": 1e-09, "evidenceClass": "simulation" },
     { "metric": "estimated_gain", "signal": "Outlet-water temperature", "window": "qualified reaction curve", "comparator": "==", "limit": 0.2, "unit": "degC/%", "tolerance": 0.005, "evidenceClass": "model" },
     { "metric": "estimated_dead_time", "signal": "Outlet-water temperature", "window": "qualified reaction curve", "comparator": "==", "limit": 1, "unit": "s", "tolerance": 0.2, "evidenceClass": "model" },
     { "metric": "estimated_time_constant", "signal": "Outlet-water temperature", "window": "qualified reaction curve", "comparator": "==", "limit": 5, "unit": "s", "tolerance": 0.3, "evidenceClass": "model" },
-    { "metric": "maximum_sample_interval", "signal": "Recorded timestamps", "window": "all 500 active samples", "comparator": "<=", "limit": 0.15, "unit": "s", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "baseline_drift", "signal": "Outlet-water temperature", "window": "last 2 s before step", "comparator": "<=", "limit": 0.001, "unit": "degC/s", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "input_span", "signal": "Applied heater power", "window": "all 500 active samples", "comparator": ">=", "limit": 9.99, "unit": "pp", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "output_span", "signal": "Outlet-water temperature", "window": "all 500 active samples", "comparator": ">=", "limit": 1.9, "unit": "degC", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "signal_to_noise_ratio", "signal": "Outlet-water temperature", "window": "qualified reaction curve", "comparator": ">=", "limit": 20, "unit": "dB", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "restored_heater_power", "signal": "Applied heater power", "window": "50.10 s restoration sample", "comparator": "==", "limit": 20, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" }
+    { "metric": "maximum_sample_interval", "signal": "Recorded timestamps", "window": "all 500 active samples", "comparator": "<=", "limit": 0.15, "unit": "s", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "baseline_drift", "signal": "Outlet-water temperature", "window": "last 2 s before step", "comparator": "<=", "limit": 0.001, "unit": "degC/s", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "input_span", "signal": "Applied heater power", "window": "all 500 active samples", "comparator": ">=", "limit": 9.99, "unit": "pp", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "output_span", "signal": "Outlet-water temperature", "window": "all 500 active samples", "comparator": ">=", "limit": 1.9, "unit": "degC", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "signal_to_noise_ratio", "signal": "Outlet-water temperature", "window": "qualified reaction curve", "comparator": ">=", "limit": 20, "unit": "dB", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "restored_heater_power", "signal": "Applied heater power", "window": "50.10 s restoration sample", "comparator": "==", "limit": 20, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Outlet-water temperature", "minimum": 0, "maximum": 40, "unit": "degC" }, { "signal": "Requested heater power", "minimum": 0, "maximum": 100, "unit": "%" }, { "signal": "Applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }],
+    "hardLimits": [
+      { "signal": "Outlet-water temperature", "minimum": 0, "maximum": 40, "unit": "degC" },
+      { "signal": "Requested heater power", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
     "abortPredicates": ["PV, requested MV, applied MV, or timestamp is nonfinite", "quality is bad or a sample gap exceeds 0.15 s", "baseline drift exceeds 0.001 degC/s", "PV leaves 0..40 degC", "requested or applied MV leaves 0..100 percent", "the input or output is clipped or saturated", "an unapproved event changes the operating condition"],
     "safeMv": 0,
     "restorationMode": "Manual at the reviewed 20 percent operating point, then 0 percent on safety abort",

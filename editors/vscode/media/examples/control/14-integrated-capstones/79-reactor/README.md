@@ -107,6 +107,10 @@ time constant of 1 divided by 0.08 times the jacket proportional gain
 
 $\tau_{\mathrm{inner}} = 1 / (0.08 \cdot 10) = 1.25 seconds$
 
+The local jacket transfer is $0.08/(s+0.5)$. The PI is
+$10(s+0.5)/s$ because $K_{i,j}/K_{p,j}=0.5$. Their product cancels the
+qualified plant pole and leaves open loop $0.8/s$; unity feedback then gives
+$0.8/(s+0.8)$, whose time constant is $1/0.8=1.25$ seconds.
 This is a local model-based design that still requires the commissioning test;
 pole cancellation is never assumed exact on physical equipment.
 
@@ -146,6 +150,11 @@ it. Valve characterization also changes installed gain because equal valve
 travel does not necessarily produce equal heat flow. This lesson uses the
 simplest mutually exclusive zero-crossover map so authority can be inspected
 without hiding those later engineering requirements.
+
+For the zero-crossover map, $H=\max(U,0)$ and $C=\max(-U,0)$, where $H$
+and $C$ are steam and cooling requests. Positive $U$ forces $C=0$ and
+negative $U$ forces $H=0$, so $HC=0$ for every command. This derives mutual
+exclusion from the mapping.
 
 ### Let the constraint own the same demand path
 
@@ -233,7 +242,11 @@ without asking the tool to guess what the numeric operating modes mean.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Add only the independently calculated qualified feedforward contribution to the equivalent integrated train. The declared event lasts 150 seconds. It restores Integrated reactor temperature to 0 degC afterward. The deterministic Simulation seed is 20260829.
+The learner-facing workflow is exactly **Monitor → Test**. The project owns the
+complete 150-second inner commissioning, production, feed-load, quality-loss,
+override, manual, and controlled-shutdown sequence for both reactor copies.
+The native test owns the independent calculations and architecture decision;
+revision 79 remains unapplied.
 
 ### Control Studio actions
 
@@ -245,32 +258,15 @@ This procedure tests one declared lesson change under controlled conditions. Add
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0 degC**, and **Maximum duration (s)** = **150**. The affected signal is **Integrated reactor temperature**; it starts at 80 degC and must restore to 0 degC.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **150.1**. Control Studio writes only `P1.ExperimentEnabled`; amplitude zero is intentional because the project owns mode, load, quality, and restoration.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Feedback-only reactor temperature 0 degC to 86 degC; Integrated reactor temperature 0 degC to 86 degC; Feedback-only applied steam valve 0 % to 100 %; Integrated applied steam valve 0 % to 100 %; Integrated applied cooling valve 0 % to 100 %.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Integrated reactor temperature to 0 degC, wait for current data, and review a new test.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, remove experiment authority. The project enters Safe, removes feed load, restores valid measurements and utilities, and requires inner commissioning before Production.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
 
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Coordinated cascade, feedforward, split-range, override, tracking, and mode control** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Coordinated cascade, feedforward, split-range, override, tracking, and mode control** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Coordinated cascade, feedforward, split-range, override, tracking, and mode control** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Coordinated cascade, feedforward, split-range, override, tracking, and mode control**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: qualified_cold_feed_maximum_departure <= 4 degC (tolerance 0.02 degC); protected_peak_temperature < 86 degC (tolerance 0.02 degC); maximum_applied_steam <= 100 % (tolerance 0 %); maximum_applied_cooling <= 100 % (tolerance 0 %).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+Identify, Tune, and Validate are not learner steps. The project and native test
+own the architecture, model, comparison, and pass/fail evidence; disabled
+generic panels cannot establish them.
 
 ## Evidence and decision
 

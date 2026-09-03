@@ -7,6 +7,12 @@ VAR
     FeedforwardController : OvenController;
     IntegratedController : OvenController;
     Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentScan : DINT := DINT#0;
+    ExperimentElapsed : LREAL := 0.0;
     OperatingMode : DINT := DINT#1;
     AutoMode : BOOL := TRUE;
     TemperatureSetpoint : LREAL := 20.0;
@@ -62,6 +68,40 @@ IF NOT Initialized THEN
         InitialTemperature := IntegratedMeasuredTemperature
     );
     Initialized := TRUE;
+END_IF;
+
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    IF NOT ExperimentWasEnabled THEN
+        ExperimentScan := DINT#0;
+        ExperimentElapsed := LREAL#0.0;
+    END_IF;
+    ExperimentScan := ExperimentScan + DINT#1;
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    OperatingMode := DINT#1;
+    UpstreamQualityGood := TRUE;
+    TemperatureQualityGood := TRUE;
+    ModelValid := TRUE;
+    HeaterAvailable := TRUE;
+    IF ExperimentScan <= DINT#100 THEN
+        TemperatureSetpoint := LREAL#20.0;
+    ELSE
+        TemperatureSetpoint := LREAL#35.0;
+    END_IF;
+    IF ExperimentScan <= DINT#540 THEN
+        UpstreamTemperatureDeviation := LREAL#0.0;
+    ELSE
+        UpstreamTemperatureDeviation := LREAL#-2.0;
+    END_IF;
+ELSIF ExperimentWasEnabled THEN
+    ExperimentScan := DINT#0;
+    ExperimentElapsed := LREAL#0.0;
+    OperatingMode := DINT#0;
+    TemperatureSetpoint := LREAL#20.0;
+    UpstreamTemperatureDeviation := LREAL#0.0;
+    UpstreamQualityGood := TRUE;
+    TemperatureQualityGood := TRUE;
+    ModelValid := TRUE;
+    HeaterAvailable := TRUE;
 END_IF;
 
 OrdinaryController.Update(
@@ -128,6 +168,7 @@ IntegratedTrackingActive := IntegratedController.TrackingActive;
 IntegratedFaultActive := IntegratedController.FaultActive;
 AutoMode := OperatingMode = DINT#1;
 ControllerRevision := DINT#81;
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -140,10 +181,14 @@ VAR_CONFIG
     P1.TemperatureSetpoint AT %ML200 : LREAL;
     P1.UpstreamTemperatureDeviation AT %ML208 : LREAL;
     P1.ManualHeaterPower AT %ML216 : LREAL;
+    P1.ExperimentElapsed AT %ML224 : LREAL;
     P1.UpstreamQualityGood AT %MX240.0 : BOOL;
     P1.TemperatureQualityGood AT %MX240.1 : BOOL;
     P1.ModelValid AT %MX240.2 : BOOL;
     P1.HeaterAvailable AT %MX240.3 : BOOL;
+    P1.ExperimentEnabled AT %MX240.4 : BOOL;
+    P1.SafetyAbort AT %MX240.5 : BOOL;
+    P1.InputsValid AT %MX240.6 : BOOL;
     P1.OrdinaryMeasuredTemperature AT %IL0 : LREAL;
     P1.FeedforwardMeasuredTemperature AT %IL8 : LREAL;
     P1.IntegratedMeasuredTemperature AT %IL16 : LREAL;

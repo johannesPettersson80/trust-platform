@@ -2,6 +2,10 @@ PROGRAM Main
 VAR
     ActuatorLayout : INT := 0;
     SensorLayout : INT := 0;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
     FlowRequested : LREAL := 0.0;
     FlowApplied : LREAL := 0.0;
     UpstreamPumpApplied : LREAL := 0.0;
@@ -10,6 +14,26 @@ VAR
     Tank2Truth : LREAL := 0.0;
     SelectedMeasurement : LREAL := 0.0;
 END_VAR
+
+(* The visible case checks the qualified upstream-pump/downstream-sensor
+   layout. Control Studio grants only authority; the project owns the step. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    ActuatorLayout := 0;
+    SensorLayout := 0;
+    IF ExperimentElapsed < LREAL#20.0 THEN
+        FlowRequested := LREAL#0.0;
+    ELSIF ExperimentElapsed < LREAL#200.0 THEN
+        FlowRequested := LREAL#1.0;
+    ELSE
+        FlowRequested := LREAL#0.0;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    ActuatorLayout := 0;
+    SensorLayout := 0;
+    FlowRequested := LREAL#0.0;
+END_IF;
 
 FlowApplied := LIMIT(LREAL#-2.0, FlowRequested, LREAL#2.0);
 (* Layout 0 drives the upstream pump; layout 1 drives the downstream bypass.
@@ -39,6 +63,9 @@ END_RESOURCE
 VAR_CONFIG
     P1.ActuatorLayout AT %MW0 : INT;
     P1.SensorLayout AT %MW2 : INT;
+    P1.ExperimentEnabled AT %MX32.0 : BOOL;
+    P1.SafetyAbort AT %MX32.1 : BOOL;
+    P1.InputsValid AT %MX32.2 : BOOL;
     P1.FlowRequested AT %ML8 : LREAL;
     P1.SelectedMeasurement AT %ML16 : LREAL;
     P1.FlowApplied AT %ML24 : LREAL;

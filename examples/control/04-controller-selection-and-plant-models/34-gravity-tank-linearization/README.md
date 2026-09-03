@@ -27,7 +27,12 @@ integrator. Here, gravity makes outlet flow depend on level. The same inlet-flow
 change produces a different equilibrium and response speed at low and high
 level. One linear model cannot therefore be assumed valid across the tank.
 
-## From the nonlinear balance to a local model
+## What we need
+
+We need a linear model whose gain and time constant are derived at a declared
+tank operating point, with an explicit range where that approximation applies.
+
+## The new idea
 
 Tank-volume accumulation equals inlet flow minus gravity outlet flow. Define
 tank area ($A$) in square metres, level ($h$) in metres, inlet flow ($q$) in
@@ -104,7 +109,7 @@ postpones the response. This first-order model has one pole at $-1/\tau$, no
 finite zero, and no dead time. We do not invent an FOPDT delay merely because
 that model form is familiar.
 
-## Calculate the predictions before running
+## Prediction
 
 Use $A=0.5\ \mathrm{m^2}$ and
 $c=0.02\ \mathrm{m^2\sqrt m/s}$. At $h_0=0.25$ m, for example,

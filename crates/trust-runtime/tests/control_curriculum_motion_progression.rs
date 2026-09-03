@@ -16,11 +16,21 @@ fn project_file(project: &str, relative: &str) -> String {
         .join(match project {
             "servo-position-p" => "02-derivative-action-and-dynamic-response/19-servo-position-p",
             "servo-position-pd" => "02-derivative-action-and-dynamic-response/20-servo-position-pd",
-            "../practitioner/underdamped-pid" => "02-derivative-action-and-dynamic-response/21-underdamped-pid",
-            "servo-derivative-kick" => "02-derivative-action-and-dynamic-response/22-servo-derivative-kick",
-            "servo-filtered-derivative" => "02-derivative-action-and-dynamic-response/23-servo-filtered-derivative",
-            "servo-mechanical-nonidealities" => "02-derivative-action-and-dynamic-response/24-servo-mechanical-nonidealities",
-            "servo-digital-realization" => "02-derivative-action-and-dynamic-response/25-servo-digital-realization",
+            "../practitioner/underdamped-pid" => {
+                "02-derivative-action-and-dynamic-response/21-underdamped-pid"
+            }
+            "servo-derivative-kick" => {
+                "02-derivative-action-and-dynamic-response/22-servo-derivative-kick"
+            }
+            "servo-filtered-derivative" => {
+                "02-derivative-action-and-dynamic-response/23-servo-filtered-derivative"
+            }
+            "servo-mechanical-nonidealities" => {
+                "02-derivative-action-and-dynamic-response/24-servo-mechanical-nonidealities"
+            }
+            "servo-digital-realization" => {
+                "02-derivative-action-and-dynamic-response/25-servo-digital-realization"
+            }
             "pid-forms" => "03-production-quality-digital-pid/26-pid-forms",
             _ => panic!("unknown motion-control lesson: {project}"),
         })
@@ -752,7 +762,9 @@ fn control_curriculum_position_p_boolean_authority_owns_high_gain_run_and_safe_r
     runtime.execute_cycle().expect("initialize safe baseline");
     write_bool(&mut runtime, &authority, true);
     assert!(read_bool(&runtime, &authority));
-    runtime.execute_cycle().expect("start selected high-gain run");
+    runtime
+        .execute_cycle()
+        .expect("start selected high-gain run");
     let selected_kp = read_lreal(&runtime, &kp);
     assert!(
         (selected_kp - 8.0).abs() <= 1e-12,
@@ -884,10 +896,18 @@ fn control_curriculum_position_p_exposes_stiffness_damping_tradeoff() {
 #[test]
 fn control_curriculum_position_pd_boolean_authority_owns_damped_run_and_safe_restoration() {
     let source = project_file("servo-position-pd", "src/Main.st")
-        .split("CONFIGURATION Config").next().unwrap()
-        .replace("ExperimentEnabled : BOOL :=", "ExperimentEnabled AT %IX82.5 : BOOL :=")
+        .split("CONFIGURATION Config")
+        .next()
+        .unwrap()
+        .replace(
+            "ExperimentEnabled : BOOL :=",
+            "ExperimentEnabled AT %IX82.5 : BOOL :=",
+        )
         .replace("AutoMode : BOOL :=", "AutoMode AT %MX100.0 : BOOL :=")
-        .replace("DerivativeGain : LREAL :=", "DerivativeGain AT %ML120 : LREAL :=")
+        .replace(
+            "DerivativeGain : LREAL :=",
+            "DerivativeGain AT %ML120 : LREAL :=",
+        )
         .replace("Setpoint : LREAL :=", "Setpoint AT %ML128 : LREAL :=")
         .replace("Position : LREAL :=", "Position AT %IL0 : LREAL :=")
         .replace("Velocity : LREAL :=", "Velocity AT %IL8 : LREAL :=")
@@ -895,7 +915,10 @@ fn control_curriculum_position_pd_boolean_authority_owns_damped_run_and_safe_res
     let mut runtime = CompileSession::from_sources(vec![
         SourceFile::with_path("Control/control.st", CONTROL_SOURCE),
         SourceFile::with_path("servo-position-pd/src/Main.st", source),
-    ]).label_errors(true).build_runtime().expect("compile project-owned PD sequence");
+    ])
+    .label_errors(true)
+    .build_runtime()
+    .expect("compile project-owned PD sequence");
     let authority = IoAddress::parse("%IX82.5").unwrap();
     let auto = IoAddress::parse("%MX100.0").unwrap();
     let kd = IoAddress::parse("%ML120").unwrap();
@@ -905,7 +928,9 @@ fn control_curriculum_position_pd_boolean_authority_owns_damped_run_and_safe_res
     let torque = IoAddress::parse("%QL0").unwrap();
     write_lreal(&mut runtime, &position, 0.0);
     write_lreal(&mut runtime, &velocity, 0.0);
-    runtime.execute_cycle().expect("initialize safe PD baseline");
+    runtime
+        .execute_cycle()
+        .expect("initialize safe PD baseline");
     write_bool(&mut runtime, &authority, true);
     runtime.execute_cycle().expect("start selected damped run");
     assert!((read_lreal(&runtime, &kd) - 3.0).abs() <= 1e-12);
@@ -913,7 +938,9 @@ fn control_curriculum_position_pd_boolean_authority_owns_damped_run_and_safe_res
     assert!(read_bool(&runtime, &auto));
     assert!((read_lreal(&runtime, &torque) - 8.0).abs() <= 1e-12);
     write_bool(&mut runtime, &authority, false);
-    runtime.execute_cycle().expect("restore undamped Manual baseline");
+    runtime
+        .execute_cycle()
+        .expect("restore undamped Manual baseline");
     assert!((read_lreal(&runtime, &kd) - 0.0).abs() <= 1e-12);
     assert!((read_lreal(&runtime, &sp) - 0.0).abs() <= 1e-12);
     assert!(!read_bool(&runtime, &auto));
@@ -1041,10 +1068,18 @@ fn control_curriculum_position_pd_adds_damping_without_changing_stiffness() {
 #[test]
 fn control_curriculum_loaded_pid_boolean_authority_owns_selected_run_and_supported_restoration() {
     let source = project_file("../practitioner/underdamped-pid", "src/Main.st")
-        .split("CONFIGURATION Config").next().unwrap()
-        .replace("ExperimentEnabled : BOOL :=", "ExperimentEnabled AT %IX82.6 : BOOL :=")
+        .split("CONFIGURATION Config")
+        .next()
+        .unwrap()
+        .replace(
+            "ExperimentEnabled : BOOL :=",
+            "ExperimentEnabled AT %IX82.6 : BOOL :=",
+        )
         .replace("AutoMode : BOOL :=", "AutoMode AT %MX101.0 : BOOL :=")
-        .replace("IntegralGain : LREAL :=", "IntegralGain AT %ML136 : LREAL :=")
+        .replace(
+            "IntegralGain : LREAL :=",
+            "IntegralGain AT %ML136 : LREAL :=",
+        )
         .replace("Setpoint : LREAL :=", "Setpoint AT %ML144 : LREAL :=")
         .replace("Position : LREAL :=", "Position AT %IL0 : LREAL :=")
         .replace("Velocity : LREAL :=", "Velocity AT %IL8 : LREAL :=")
@@ -1052,7 +1087,10 @@ fn control_curriculum_loaded_pid_boolean_authority_owns_selected_run_and_support
     let mut runtime = CompileSession::from_sources(vec![
         SourceFile::with_path("Control/control.st", CONTROL_SOURCE),
         SourceFile::with_path("underdamped-pid/src/Main.st", source),
-    ]).label_errors(true).build_runtime().expect("compile project-owned loaded PID sequence");
+    ])
+    .label_errors(true)
+    .build_runtime()
+    .expect("compile project-owned loaded PID sequence");
     let authority = IoAddress::parse("%IX82.6").unwrap();
     let auto = IoAddress::parse("%MX101.0").unwrap();
     let ki = IoAddress::parse("%ML136").unwrap();
@@ -1062,16 +1100,25 @@ fn control_curriculum_loaded_pid_boolean_authority_owns_selected_run_and_support
     let torque = IoAddress::parse("%QL0").unwrap();
     write_lreal(&mut runtime, &position, 0.0);
     write_lreal(&mut runtime, &velocity, 0.0);
-    runtime.execute_cycle().expect("initialize supported loaded-table baseline");
+    runtime
+        .execute_cycle()
+        .expect("initialize supported loaded-table baseline");
     write_bool(&mut runtime, &authority, true);
-    runtime.execute_cycle().expect("start selected loaded PID run");
+    runtime
+        .execute_cycle()
+        .expect("start selected loaded PID run");
     assert!((read_lreal(&runtime, &ki) - 2.0).abs() <= 1e-12);
     assert!((read_lreal(&runtime, &sp) - 0.5).abs() <= 1e-12);
     assert!(read_bool(&runtime, &auto));
     let selected_torque = read_lreal(&runtime, &torque);
-    assert!((selected_torque - 0.02).abs() <= 1e-12, "selected bumpless torque={selected_torque}");
+    assert!(
+        (selected_torque - 0.02).abs() <= 1e-12,
+        "selected bumpless torque={selected_torque}"
+    );
     write_bool(&mut runtime, &authority, false);
-    runtime.execute_cycle().expect("restore supported Manual baseline");
+    runtime
+        .execute_cycle()
+        .expect("restore supported Manual baseline");
     assert!((read_lreal(&runtime, &ki) - 0.0).abs() <= 1e-12);
     assert!((read_lreal(&runtime, &sp) - 0.0).abs() <= 1e-12);
     assert!(!read_bool(&runtime, &auto));
@@ -1272,19 +1319,36 @@ fn control_curriculum_loaded_position_pid_removes_pd_load_error_with_bounded_tor
 #[test]
 fn control_curriculum_derivative_weight_boolean_authority_owns_selected_run_and_safe_restoration() {
     let source = project_file("servo-derivative-kick", "src/Main.st")
-        .split("CONFIGURATION Config").next().unwrap()
-        .replace("ExperimentEnabled : BOOL :=", "ExperimentEnabled AT %IX82.7 : BOOL :=")
+        .split("CONFIGURATION Config")
+        .next()
+        .unwrap()
+        .replace(
+            "ExperimentEnabled : BOOL :=",
+            "ExperimentEnabled AT %IX82.7 : BOOL :=",
+        )
         .replace("AutoMode : BOOL :=", "AutoMode AT %MX102.0 : BOOL :=")
-        .replace("DerivativeSetpointWeight : LREAL :=", "DerivativeSetpointWeight AT %ML152 : LREAL :=")
+        .replace(
+            "DerivativeSetpointWeight : LREAL :=",
+            "DerivativeSetpointWeight AT %ML152 : LREAL :=",
+        )
         .replace("Setpoint : LREAL :=", "Setpoint AT %ML160 : LREAL :=")
         .replace("Position : LREAL :=", "Position AT %IL0 : LREAL :=")
         .replace("Velocity : LREAL :=", "Velocity AT %IL8 : LREAL :=")
-        .replace("RequestedTorque : LREAL :=", "RequestedTorque AT %ML168 : LREAL :=")
-        .replace("AppliedTorque : LREAL :=", "AppliedTorque AT %QL0 : LREAL :=");
+        .replace(
+            "RequestedTorque : LREAL :=",
+            "RequestedTorque AT %ML168 : LREAL :=",
+        )
+        .replace(
+            "AppliedTorque : LREAL :=",
+            "AppliedTorque AT %QL0 : LREAL :=",
+        );
     let mut runtime = CompileSession::from_sources(vec![
         SourceFile::with_path("Control/control.st", CONTROL_SOURCE),
         SourceFile::with_path("servo-derivative-kick/src/Main.st", source),
-    ]).label_errors(true).build_runtime().expect("compile project-owned derivative-weight sequence");
+    ])
+    .label_errors(true)
+    .build_runtime()
+    .expect("compile project-owned derivative-weight sequence");
     let authority = IoAddress::parse("%IX82.7").unwrap();
     let auto = IoAddress::parse("%MX102.0").unwrap();
     let weight = IoAddress::parse("%ML152").unwrap();
@@ -1295,16 +1359,22 @@ fn control_curriculum_derivative_weight_boolean_authority_owns_selected_run_and_
     let applied = IoAddress::parse("%QL0").unwrap();
     write_lreal(&mut runtime, &position, 0.0);
     write_lreal(&mut runtime, &velocity, 0.0);
-    runtime.execute_cycle().expect("initialize derivative-kick baseline");
+    runtime
+        .execute_cycle()
+        .expect("initialize derivative-kick baseline");
     write_bool(&mut runtime, &authority, true);
-    runtime.execute_cycle().expect("start selected derivative-on-measurement run");
+    runtime
+        .execute_cycle()
+        .expect("start selected derivative-on-measurement run");
     assert!((read_lreal(&runtime, &weight) - 0.0).abs() <= 1e-12);
     assert!((read_lreal(&runtime, &sp) - 0.5).abs() <= 1e-12);
     assert!(read_bool(&runtime, &auto));
     assert!((read_lreal(&runtime, &requested) - 4.02).abs() <= 1e-12);
     assert!((read_lreal(&runtime, &applied) - 4.02).abs() <= 1e-12);
     write_bool(&mut runtime, &authority, false);
-    runtime.execute_cycle().expect("restore rejected full-error Manual baseline");
+    runtime
+        .execute_cycle()
+        .expect("restore rejected full-error Manual baseline");
     assert!((read_lreal(&runtime, &weight) - 1.0).abs() <= 1e-12);
     assert!((read_lreal(&runtime, &sp) - 0.0).abs() <= 1e-12);
     assert!(!read_bool(&runtime, &auto));

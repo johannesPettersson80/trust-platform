@@ -27,7 +27,35 @@ VAR
     Parameters : PIDParameters;
     InitialState : PIDInitialState;
     Input : PIDInput;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
 END_VAR
+
+(* Control Studio grants only authority. The project owns the scheduled-PID
+   wide-angle trajectory; other architectures and payloads stay native tests. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.02;
+    Enabled := TRUE;
+    ControllerMode := INT#1;
+    IF ExperimentElapsed < LREAL#1.0 THEN
+        JointSetpoint := LREAL#0.0;
+    ELSIF ExperimentElapsed < LREAL#11.0 THEN
+        JointSetpoint := LREAL#1.2;
+    ELSIF ExperimentElapsed < LREAL#16.0 THEN
+        JointSetpoint := LREAL#0.0;
+    ELSIF ExperimentElapsed < LREAL#26.0 THEN
+        JointSetpoint := LREAL#-1.2;
+    ELSE
+        JointSetpoint := LREAL#0.0;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    Enabled := FALSE;
+    ControllerMode := INT#1;
+    JointSetpoint := LREAL#0.0;
+END_IF;
 
 SchedulingVariable := MIN(ABS(JointSetpoint), LREAL#1.2);
 IF SchedulingVariable <= LREAL#0.6 THEN
@@ -95,8 +123,6 @@ END_IF;
 Controller.Configure(Parameters := Parameters);
 
 IF NOT ControllerInitialized THEN
-    Enabled := TRUE;
-    JointSetpoint := LREAL#0.0;
     InitialState.Setpoint := JointSetpoint;
     InitialState.ProcessValue := JointAngle;
     InitialState.ProcessValueRate := JointRate;
@@ -133,6 +159,9 @@ VAR_CONFIG
     P1.ModelEligible AT %MX4.1 : BOOL;
     P1.FallbackActive AT %MX4.2 : BOOL;
     P1.TorqueSaturated AT %MX4.3 : BOOL;
+    P1.ExperimentEnabled AT %MX4.4 : BOOL;
+    P1.SafetyAbort AT %MX4.5 : BOOL;
+    P1.InputsValid AT %MX4.6 : BOOL;
     P1.JointSetpoint AT %ML8 : LREAL;
     P1.FixedProportionalGain AT %ML16 : LREAL;
     P1.ScheduledProportionalGain AT %ML24 : LREAL;

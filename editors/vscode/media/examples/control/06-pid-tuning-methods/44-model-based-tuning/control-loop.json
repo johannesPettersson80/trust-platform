@@ -16,21 +16,160 @@
     "modeWhenTrue": "Auto"
   },
   "signals": {
-    "setpoint": { "symbol": "P1.HeaterSetpoint", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 0, "maximum": 60 } },
-    "processVariable": { "symbol": "P1.HeaterTemperature", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 0, "maximum": 60 } },
-    "manipulatedVariable": { "symbol": "P1.HeaterApplied", "address": "%QL0", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+    "setpoint": {
+      "symbol": "P1.HeaterSetpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 60
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.HeaterTemperature",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 60
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.HeaterApplied",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
     "additional": [
-      { "id": "tank-sp", "channel": "tank", "role": "SP", "symbol": "P1.TankSetpoint", "address": "%ML8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "tank-pv", "channel": "tank", "role": "PV", "symbol": "P1.TankLevel", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "tank-mv", "channel": "tank", "role": "MV", "symbol": "P1.TankApplied", "address": "%QL8", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "dryer-sp", "channel": "dryer", "role": "SP", "symbol": "P1.DryerSetpoint", "address": "%ML16", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "dryer-pv", "channel": "dryer", "role": "PV", "symbol": "P1.DryerDryness", "address": "%IL16", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
-      { "id": "dryer-mv", "channel": "dryer", "role": "MV", "symbol": "P1.DryerApplied", "address": "%QL16", "iecType": "LREAL", "direction": "write", "unit": "%", "range": { "minimum": 0, "maximum": 100 } }
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX96.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "tank-sp",
+        "channel": "tank",
+        "role": "SP",
+        "symbol": "P1.TankSetpoint",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "tank-pv",
+        "channel": "tank",
+        "role": "PV",
+        "symbol": "P1.TankLevel",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "tank-mv",
+        "channel": "tank",
+        "role": "MV",
+        "symbol": "P1.TankApplied",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "dryer-sp",
+        "channel": "dryer",
+        "role": "SP",
+        "symbol": "P1.DryerSetpoint",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "dryer-pv",
+        "channel": "dryer",
+        "role": "PV",
+        "symbol": "P1.DryerDryness",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "dryer-mv",
+        "channel": "dryer",
+        "role": "MV",
+        "symbol": "P1.DryerApplied",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
     ]
   },
-  "limits": { "outputMinimum": 0, "outputMaximum": 100 },
-  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
   "plantId": "three_process_simc_training_rig",
   "operatingPoint": "heater 20 degC, tank 50 percent, dryer 40 percent",
-  "experiment": { "execution": "control-studio", "kind": "setpoint_step", "amplitude": 5, "durationSeconds": 220, "seed": 20260829 }
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 220.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX96.1",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
 }

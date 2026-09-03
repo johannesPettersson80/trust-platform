@@ -86,9 +86,9 @@ VAR_CONFIG
     P1.StaticGain AT %ML0 : LREAL;
     P1.TimeConstant AT %ML8 : LREAL;
     P1.PredictedEquilibrium AT %ML16 : LREAL;
-    P1.ModelValid AT %MX20.0 : BOOL;
-    P1.InputsValid AT %MX20.1 : BOOL;
-    P1.ExperimentEnabled AT %MX20.2 : BOOL;
-    P1.ManualMode AT %MX20.3 : BOOL;
+    P1.ModelValid AT %MX40.0 : BOOL;
+    P1.InputsValid AT %MX40.1 : BOOL;
+    P1.ExperimentEnabled AT %MX40.2 : BOOL;
+    P1.ManualMode AT %MX40.3 : BOOL;
 END_VAR
 END_CONFIGURATION

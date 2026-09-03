@@ -12,6 +12,10 @@ VAR
     PredictorInput : Control.SmithPredictorInput;
     PredictorResult : Control.SmithPredictorOutput;
     Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
     AutoMode : BOOL := TRUE;
     PredictorEnabled : BOOL := TRUE;
     PredictorActive : BOOL := FALSE;
@@ -78,6 +82,20 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
+(* Control Studio grants only authority. The project owns the temperature
+   request and restores the operating point on every exit. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    IF ExperimentElapsed < LREAL#10.0 THEN
+        Setpoint := LREAL#20.0;
+    ELSE
+        Setpoint := LREAL#35.0;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    Setpoint := LREAL#20.0;
+END_IF;
+
 PredictorInput.ManipulatedValue := ManipulatedValue;
 PredictorInput.ProcessValue := ProcessValue;
 PredictorInput.CycleTime := LREAL#0.1;
@@ -128,6 +146,9 @@ VAR_CONFIG
     P1.ModelValid AT %MX90.4 : BOOL;
     P1.TemperatureQualityValid AT %MX90.5 : BOOL;
     P1.PredictorHistoryComplete AT %MX90.6 : BOOL;
+    P1.ExperimentEnabled AT %MX90.7 : BOOL;
+    P1.SafetyAbort AT %MX91.0 : BOOL;
+    P1.InputsValid AT %MX91.1 : BOOL;
     P1.Setpoint AT %ML272 : LREAL;
     P1.PredictedProcessValue AT %ML280 : LREAL;
     P1.DelayFreeModel AT %ML288 : LREAL;

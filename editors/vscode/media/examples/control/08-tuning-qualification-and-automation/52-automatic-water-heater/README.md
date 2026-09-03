@@ -1,14 +1,13 @@
 # Audit a complete Automatic Tune sequence
 
-Course position: Lesson 52 of 84. Next: use measured disturbances in feedforward
-control without weakening the feedback loop.
-Prerequisite: `control-tuning-method-comparison`.
+Course position: Lesson 52 of 84. Prerequisite:
+[`control-tuning-method-comparison`](../51-method-comparison/).
+Next lesson:
+[`control-conveyor-oven-feedforward`](../../09-industrial-control-structures/53-conveyor-oven-feedforward/).
 
 **Lesson objective:** Run and audit Automatic Tune for a recirculating water heater, explain why each stage passes or stops, recover from the taught failures, and export one validated but unapplied controller recommendation.
 
 ## The problem
-
-The equipment in this lesson is Recirculating electric water heater with independent candidate-validation copy.
 
 Equipment: Recirculating electric water heater with independent
 candidate-validation copy.
@@ -72,7 +71,13 @@ its raw measures and reason. It may not substitute another formula or change a
 requirement to obtain a result.
 
 A lower comparison score is treated as a meaningful improvement only when it
-is at least 10 percent lower than the current choice. Smaller differences stay
+is at least 10 percent lower than the current choice. If $J_c$ is the current
+score and $J_n$ the new score, the percentage improvement is
+
+$100\frac{J_c-J_n}{J_c}.$
+
+This normalization answers “lower by what fraction of the current cost?” rather
+than comparing score units with a percentage. Smaller differences stay
 inside a 10-percent material-benefit band, where the declared deterministic
 method order breaks the tie. In this experiment AMIGO's raw score is about 7.4
 percent lower, below the 10-percent material-benefit threshold, so SIMC remains
@@ -105,11 +110,23 @@ The Test stage should reuse the exact saved Simulation model with zero
 excitation. Identify should accept plant gain 0.20 degrees Celsius per percent,
 time constant 5.0 seconds, and dead time 1.0 second without fitting.
 
-For the Balanced response objective, predict a SIMC PI recommendation with
+For a FOPDT model, Balanced SIMC uses
+$K_p=T/[K(\lambda+L)]$, $T_i=\min[T,4(\lambda+L)]$, and $K_i=K_p/T_i$.
+With $K=0.20$, $T=5$, $L=1$, and balanced $\lambda=3.333$ s:
+
+$K_p=\frac{5}{0.20(3.333+1)}=5.769,$
+
+$T_i=\min[5,4(4.333)]=5.000\text{ s},$
+
+$K_i=5.769/5=1.154.$
+
+Therefore predict a SIMC PI recommendation with
 proportional gain ($K_p$) `5.769 %/degC`, integral time ($T_i$) `5.000 s`, and
 integral gain ($K_i$) `1.154 %/(degC*s)`. Model prediction should settle in about
 `13.5 s`, overshoot by about `0.094 percent`, and end with normalized absolute
-error below `0.001`. These are predictions to verify, not PLC constants.
+error below `0.001`. Those response values come from evaluating the complete
+delayed closed-loop model, not directly from the gain formula, so the native
+test must reproduce them independently. They are predictions, not PLC constants.
 
 ## Implementation
 
@@ -132,44 +149,29 @@ contains no model fit, stage verdict, method winner, or controller write.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Confirm one exact-simulation Automatic Tune plan and separately exercise each deterministic failure and recovery branch. The declared event lasts 220 seconds. It restores Water-temperature setpoint to 20 degC afterward. The deterministic Simulation seed is 20260829.
+The visible lesson uses the same workflow as Lesson 8. The project owns the
+five-degree setpoint change on both heater copies, the load event, the
+220-second observation, and restoration to 20 degrees and 20-percent power.
+Control Studio may write only `P1.ExperimentEnabled`; it must not inject another
+step. The native lesson test owns the internal automatic stage sequence and its
+failure branches. The 220.1-second timeout lets project restoration finish
+first. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Water-temperature setpoint (SP, degC); Current water temperature (PV, degC) and Candidate water temperature (PV, degC); Current applied heater power (MV, %) and Candidate applied heater power (MV, %), including units, limits, mode, and quality. The initial operating point is Experiment enable = 0 (dimensionless), Water-temperature setpoint = 20 degC, Current requested heater power = 20 %, Candidate requested heater power = 20 %, Current applied heater power = 20 %, Candidate applied heater power = 20 %, Current water temperature = 20 degC, Candidate water temperature = 20 degC. The unresolved baseline problem is: A manually reviewed controller does not yet prove that the complete automatic evidence, candidate, failure, and recovery sequence is inspectable and fail-closed.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept the workflow only when every stage and failure remains inspectable, the recommendation is validated, and the running controller revision remains unchanged.
-   - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
+   - **Successful evidence:** The Response plot advances and the displayed values are finite and current. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **220**. The observed lesson signal is **Water-temperature setpoint**. Control Studio uses the existing Boolean project authority **P1.ExperimentEnabled** at **%MX96.0**; it does not inject a second process event.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **220.1**. The observed lesson signal is **Water-temperature setpoint**. Control Studio uses the existing Boolean project authority **P1.ExperimentEnabled** at **%MX96.0**; it does not inject a second process event.
    - **Decision before action:** Before selecting **Review test**, predict the response to A minus-1-degC equilibrium-temperature load at 100 s. Confirm the live values are current and the reviewed plan stays inside Current applied heater power 0 % to 100 %; Candidate applied heater power 0 % to 100 %; Current water temperature 0 degC to 60 degC; Candidate water temperature 0 degC to 60 degC.
    - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
-   - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Leave **Model selection** at **Automatic · simplest acceptable**, select **Qualify recording**, and inspect usable samples, duration, sample interval, signal/noise, and qualification details.
-   - **Decision before action:** Decide whether excitation and data quality are sufficient before selecting **Fit estimation run**; the first fit is only a preview.
-   - **Successful evidence:** Record a distinct equivalent validation run, qualify it, select **Fit validation run**, and inspect parameters, units, residuals, uncertainty, and validity range. Select **Accept model for design** only when independent validation meets the lesson criteria.
-   - **Recovery:** If qualification or fitting is rejected, retain the displayed reason and repeat Test rather than reusing validation data or weakening a limit. Remove the selected saved plant, provide a negative gain candidate, return to Identify, and confirm Request excitation is rejected with the displayed reason. Remove the selected saved plant, provide a negative gain candidate, return to Identify, and confirm Request excitation is rejected with the displayed reason. Then inject poor data, confirm tuning cannot proceed to Validate, and retain the terminal message No acceptable controller found. Remove the selected saved plant, provide a negative gain candidate, return to Identify, and confirm Request excitation is rejected with the displayed reason. Then inject poor data, confirm tuning cannot proceed to Validate, and retain the terminal message No acceptable controller found. Exercise user abort, automatic abort, and restoration failure as distinct terminal states.
-   - **Record:** State the accepted model structure and parameters, or the exact reason no model was accepted.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** Continue only when Identify shows an accepted model. Set **Design method** = **SIMC** and set **Response** = **Balanced** for the first candidate.
-   - **Decision before action:** Calculate the expected gains and predict the response/robustness trade-off before selecting **Generate candidate**.
-   - **Successful evidence:** Generate the unapplied candidate and compare Response, controller output, Bode evidence, and margins using the same accepted model.
-   - **Recovery:** If generation is disabled, return to Identify and accept a qualified independent model. If the method is rejected, retain the reason instead of substituting another formula.
-   - **Record:** Save the candidate settings and explain why the trade-off is eligible or rejected without applying it.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** Continue only after Tune shows an unapplied candidate, then select **Run required validation**.
-   - **Decision before action:** Open **Requirement details** and use the predeclared comparisons: current_final_mean_absolute_error <= 0.25 degC (tolerance 0.01 degC); candidate_final_mean_absolute_error <= 0.25 degC (tolerance 0.01 degC); candidate_iae_improvement < 0 degC*s (tolerance 0.01 degC*s); candidate_movement_cost > 0 pp (tolerance 0.01 pp).
-   - **Successful evidence:** Inspect Response, constraints, and robustness using the same retained model and conditions. Every requirement reports Pass, Fail, or Inconclusive with value, unit, limit, source, and reason.
-   - **Recovery:** If validation is disabled, stale, or failed, return to the named prerequisite stage, correct the cause, and retain both rejected and replacement evidence; do not open **Review application** for a failed result.
-   - **Record:** Select **Save result** only after source, units, tolerances, and restoration agree, then state the final disposition and failed requirement if any.
+   - **Record:** Compare both heater copies with the derived gains and predictions, then retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test must execute the internal `Test → Identify → Tune → Validate` sequence, every fail-closed branch, the unchanged-controller-revision check, and the unapplied result. Those internal service stages are evidence owned by the test; they are not extra student screens in this lesson.
 
 ## Evidence and decision
 

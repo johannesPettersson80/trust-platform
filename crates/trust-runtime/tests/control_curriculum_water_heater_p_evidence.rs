@@ -67,7 +67,10 @@ fn addressed_source() -> String {
             "ProportionalGain : LREAL :=",
             "ProportionalGain AT %IL8 : LREAL :=",
         )
-        .replace("AutoMode : BOOL :=", "AutoMode AT %IX24.0 : BOOL :=")
+        .replace(
+            "ExperimentEnabled : BOOL :=",
+            "ExperimentEnabled AT %IX24.0 : BOOL :=",
+        )
         .replace("ProcessValue : LREAL :=", "ProcessValue AT %IL0 : LREAL :=")
         .replace(
             "RequestedManipulatedValue : LREAL :=",
@@ -95,6 +98,10 @@ fn control_curriculum_water_heater_p_applies_live_gain_and_exposes_both_outputs(
     let requested_mv = IoAddress::parse("%ML16").expect("requested MV address");
     let applied_mv = IoAddress::parse("%QL0").expect("applied MV address");
 
+    write_bool(&mut runtime, &auto, false);
+    runtime
+        .execute_cycle()
+        .expect("execute safe initialization scan");
     write_lreal(&mut runtime, &sp, 35.0);
     write_lreal(&mut runtime, &pv, 20.0);
     write_lreal(&mut runtime, &kp, 2.0);
@@ -143,6 +150,10 @@ fn run_lesson(proportional_gain: f64) -> Vec<Sample> {
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .expect("publish initial state");
+    write_bool(&mut runtime, &auto, false);
+    runtime
+        .execute_cycle()
+        .expect("execute safe initialization scan");
 
     let mut trace = Vec::with_capacity(1_200);
     for cycle in 1..=1_200 {

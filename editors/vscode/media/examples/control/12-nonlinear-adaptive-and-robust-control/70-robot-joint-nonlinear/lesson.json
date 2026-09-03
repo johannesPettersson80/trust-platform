@@ -11,6 +11,9 @@
   "prerequisites": ["control-pendulum-lyapunov"],
   "nextLesson": "control-extruder-adaptive",
   "signals": [
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX4.4" },
+    { "role": "state", "name": "Safety abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX4.5" },
+    { "role": "state", "name": "Inputs valid", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX4.6" },
     { "role": "state", "name": "Requested architecture", "unit": "1", "minimum": 0, "maximum": 2, "resolution": 1, "binding": "%MW0" },
     { "role": "state", "name": "Active architecture", "unit": "1", "minimum": 0, "maximum": 2, "resolution": 1, "binding": "%MW2" },
     { "role": "state", "name": "Control enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX4.0" },
@@ -52,12 +55,7 @@
       { "signal": "Joint angular rate", "minimum": -4, "maximum": 4, "unit": "rad/s" },
       { "signal": "Applied motor torque", "minimum": -30, "maximum": 30, "unit": "N m" }
     ],
-    "simplifications": [
-      "The rigid joint omits motor electrical dynamics, compliance, backlash, Coulomb friction, encoder noise, trajectory velocity and acceleration feedforward, and coupled robot axes.",
-      "Nominal and heavy payload coefficients are configured Simulation truth; the controller receives only its unchanged nominal estimates.",
-      "Three scheduling points and linear interpolation do not prove stability between points or during switching.",
-      "Feedback linearisation is eligible only because estimated input effectiveness is finite and bounded away from zero."
-    ]
+    "simplifications": ["The rigid joint omits motor electrical dynamics, compliance, backlash, Coulomb friction, encoder noise, trajectory velocity and acceleration feedforward, and coupled robot axes.", "Nominal and heavy payload coefficients are configured Simulation truth; the controller receives only its unchanged nominal estimates.", "Three scheduling points and linear interpolation do not prove stability between points or during switching.", "Feedback linearisation is eligible only because estimated input effectiveness is finite and bounded away from zero."]
   },
   "baseline": {
     "executableId": "Control.PID.FixedRobotJoint",
@@ -66,26 +64,29 @@
   },
   "change": {
     "executableId": "RobotJoint.ScheduledOrLinearisedControl",
-    "settings": { "scheduleAngles": [0, 0.6, 1.2], "scheduleGains": [15.19, 16.903457618, 21.445270429], "integralGain": 12, "estimatedGravity": 9.81, "estimatedInertia": 1, "linearisedFeedback": [24, 8] },
+    "settings": {
+      "scheduleAngles": [0, 0.6, 1.2],
+      "scheduleGains": [15.19, 16.903457618, 21.445270429],
+      "integralGain": 12,
+      "estimatedGravity": 9.81,
+      "estimatedInertia": 1,
+      "linearisedFeedback": [24, 8]
+    },
     "decision": "Select scheduled PID when validated local designs and integral load rejection are stronger evidence than the cancellation model; select feedback linearisation only while model and input-effectiveness eligibility remain qualified."
   },
   "experiment": {
-    "kind": "setpoint_step",
-    "signal": "Joint angle setpoint",
+    "kind": "observation",
+    "signal": "Experiment authority",
     "baseline": 0,
-    "amplitude": 1.2,
-    "durationSeconds": 31,
+    "amplitude": 0,
+    "durationSeconds": 31.1,
     "settlingSeconds": 0.5,
-    "disturbances": [
-      "Command plus 1.2 rad from one through eleven seconds, zero through sixteen seconds, minus 1.2 rad through twenty-six seconds, and zero through thirty-one seconds.",
-      "Repeat fixed, scheduled, and feedback-linearised architectures against a 20 percent heavier payload without changing controller estimates.",
-      "Request feedback linearisation with zero estimated inertia and verify scheduled fallback."
-    ],
+    "disturbances": ["Command plus 1.2 rad from one through eleven seconds, zero through sixteen seconds, minus 1.2 rad through twenty-six seconds, and zero through thirty-one seconds.", "Repeat fixed, scheduled, and feedback-linearised architectures against a 20 percent heavier payload without changing controller estimates.", "Request feedback linearisation with zero estimated inertia and verify scheduled fallback."],
     "seed": 20260829,
     "restorationValue": 0
   },
   "acceptance": [
-    { "metric": "maximum_applied_torque", "signal": "Applied motor torque", "window": "all nominal, mismatch, fallback and disabled records", "comparator": "<=", "limit": 30, "unit": "N m", "tolerance": 0.000001, "evidenceClass": "simulation" },
+    { "metric": "maximum_applied_torque", "signal": "Applied motor torque", "window": "all nominal, mismatch, fallback and disabled records", "comparator": "<=", "limit": 30, "unit": "N m", "tolerance": 1e-06, "evidenceClass": "simulation" },
     { "metric": "scheduled_heavy_payload_final_error", "signal": "Joint angle", "window": "final 0.5 seconds of each nonzero heavy-payload plateau", "comparator": "<=", "limit": 0.02, "unit": "rad", "tolerance": 0.0001, "evidenceClass": "simulation" },
     { "metric": "nominal_linearised_segment_settling", "signal": "Joint angle", "window": "each commanded plateau with 0.02 rad and 0.05 rad/s tolerance held for 0.5 seconds", "comparator": "<=", "limit": 4, "unit": "s", "tolerance": 0.02, "evidenceClass": "simulation" },
     { "metric": "invalid_model_fallback", "signal": "Scheduled fallback active", "window": "first invalid-model controller interval", "comparator": "==", "limit": 1, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" }
@@ -96,43 +97,24 @@
       { "signal": "Joint angle", "minimum": -1.5, "maximum": 1.5, "unit": "rad" },
       { "signal": "Joint angular rate", "minimum": -4, "maximum": 4, "unit": "rad/s" }
     ],
-    "abortPredicates": [
-      "Any required setpoint, angle, rate, architecture, model, gain, torque or quality signal is nonfinite, stale, forced, invalid, missing or bound incorrectly.",
-      "The plant, payload, interval, schedule, initial state, envelope, local design, interpolation, PID form, model coefficient or torque limit differs without declaration.",
-      "Scheduling extrapolates beyond 1.2 rad instead of clamping or rejecting the request.",
-      "Feedback linearisation divides by invalid input effectiveness or uses an ineligible model instead of scheduled fallback.",
-      "Applied torque leaves plus or minus 30 N m or disabled output is nonzero."
-    ],
+    "abortPredicates": ["Any required setpoint, angle, rate, architecture, model, gain, torque or quality signal is nonfinite, stale, forced, invalid, missing or bound incorrectly.", "The plant, payload, interval, schedule, initial state, envelope, local design, interpolation, PID form, model coefficient or torque limit differs without declaration.", "Scheduling extrapolates beyond 1.2 rad instead of clamping or rejecting the request.", "Feedback linearisation divides by invalid input effectiveness or uses an ineligible model instead of scheduled fallback.", "Applied torque leaves plus or minus 30 N m or disabled output is nonzero."],
     "safeMv": 0,
     "restorationMode": "Return the simulated setpoint to zero, disable control, and verify exactly zero applied motor torque.",
     "physicalApprovalRole": "authorised robot-controls engineer with mechanical, electrical, functional-safety and cell owners",
-    "simulationOnlyRestrictions": [
-      "No physical robot joint, motor, payload or cell is operated.",
-      "Payload, motion and model coefficients are Simulation evidence.",
-      "Physical use requires identified payload-dependent dynamics, collision and travel limits, guarding, independent stop functions, explicit immediate approval and rollback."
-    ]
+    "simulationOnlyRestrictions": ["No physical robot joint, motor, payload or cell is operated.", "Payload, motion and model coefficients are Simulation evidence.", "Physical use requires identified payload-dependent dynamics, collision and travel limits, guarding, independent stop functions, explicit immediate approval and rollback."]
   },
-  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-70--gain-scheduling-versus-feedback-linearization-robot-joint",
     "nativeTest": "control_curriculum_robot_joint_compares_scheduling_and_linearisation",
     "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_robot_joint_nonlinear control_curriculum_robot_joint_compares_scheduling_and_linearisation -- --exact --nocapture",
     "projectPath": "examples/control/12-nonlinear-adaptive-and-robust-control/70-robot-joint-nonlinear",
-    "runArtifactFields": [
-      "projectIdentity", "plantIdentity", "payloadIdentity", "evidenceClass", "sampleTime", "schedule",
-      "requestedArchitecture", "activeArchitecture", "localDesigns", "activeGain", "modelEstimate",
-      "modelEligibility", "fallbackState", "setpoint", "angle", "rate", "modelCompensation",
-      "requestedTorque", "appliedTorque", "saturation", "metrics", "comparisonDecision"
-    ],
+    "runArtifactFields": ["projectIdentity", "plantIdentity", "payloadIdentity", "evidenceClass", "sampleTime", "schedule", "requestedArchitecture", "activeArchitecture", "localDesigns", "activeGain", "modelEstimate", "modelEligibility", "fallbackState", "setpoint", "angle", "rate", "modelCompensation", "requestedTorque", "appliedTorque", "saturation", "metrics", "comparisonDecision"],
     "renderedJourneyId": "control-robot-joint-nonlinear"
   },
   "video": {
     "viewerOutcome": "Choose between scheduled PID and feedback linearisation from nominal and payload-mismatch robot-joint evidence.",
-    "requiredVisibleEvidence": [
-      "robot-joint physical balance", "wide-angle schedule", "three local gains and interpolation", "active gain",
-      "nominal cancellation term", "requested and applied torque", "fixed, scheduled and linearised traces",
-      "heavy-payload residual", "model eligibility and fallback", "Simulation and physical boundary"
-    ],
+    "requiredVisibleEvidence": ["robot-joint physical balance", "wide-angle schedule", "three local gains and interpolation", "active gain", "nominal cancellation term", "requested and applied torque", "fixed, scheduled and linearised traces", "heavy-payload residual", "model eligibility and fallback", "Simulation and physical boundary"],
     "durationClass": "extended",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
@@ -142,17 +124,9 @@
   "learning": {
     "context": "A gravity-loaded industrial robot joint must track wide-angle commands with bounded bidirectional motor torque.",
     "reason": "The preceding local certificate does not select an architecture for continuously changing gravity stiffness across the working range.",
-    "theory": [
-      "Gain scheduling interpolates independently validated local controller parameters using a measurable bounded variable.",
-      "Feedback linearisation cancels declared nonlinear model terms before applying desired linear error dynamics.",
-      "Input effectiveness must stay finite and away from zero; model mismatch creates residual dynamics.",
-      "Integral feedback can reject a constant payload residual that no-integral nominal cancellation leaves visible."
-    ],
+    "theory": ["Gain scheduling interpolates independently validated local controller parameters using a measurable bounded variable.", "Feedback linearisation cancels declared nonlinear model terms before applying desired linear error dynamics.", "Input effectiveness must stay finite and away from zero; model mismatch creates residual dynamics.", "Integral feedback can reject a constant payload residual that no-integral nominal cancellation leaves visible."],
     "workedPrediction": "Calculate local Kp values 15.190, 16.904 and 21.445 N m/rad, nominal gravity torque 4.703 N m at 0.5 rad, the 1.2 N m nominal command margin, and about 0.076 rad predicted heavy-payload residual at 1.2 rad.",
-    "practicalPreparation": [
-      "Verify plant and controller intervals, payload identity, motion schedule, local design points, interpolation, model estimates, torque limit and Simulation class.",
-      "Reproduce scheduled gains, nominal compensation and mismatch residual before enabling an advanced architecture."
-    ],
+    "practicalPreparation": ["Verify plant and controller intervals, payload identity, motion schedule, local design points, interpolation, model estimates, torque limit and Simulation class.", "Reproduce scheduled gains, nominal compensation and mismatch residual before enabling an advanced architecture."],
     "baseline": "Run the zero-angle fixed PID through the complete wide-angle trajectory on nominal and heavy payloads.",
     "change": "Run scheduled PID and eligible feedback linearisation separately under the same nominal and mismatch conditions.",
     "comparison": "Compare segment error, overshoot, qualified settling, torque peaks and movement, saturation, active gains, residual error and fallback.",

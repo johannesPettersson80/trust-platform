@@ -193,7 +193,7 @@ running.
 
 ## Implementation
 
-Control Studio writes one Boolean, `P1.TestAuthorityEnabled`. The project owns
+Control Studio writes one Boolean, `P1.ExperimentEnabled`. The project owns
 the complete power sequence: scans 1 through 100 hold 20 percent; scans 101
 through 600 request 25 percent; false restoration returns 20 percent. A stale
 direct write to `ExperimentInput` cannot bypass that sequence. The simulation
@@ -206,7 +206,7 @@ remain in retained project evidence so they cannot overwrite the measurement
 being tested.
 
 ```st
-IF TestAuthorityEnabled THEN
+IF ExperimentEnabled THEN
     TestCycle := TestCycle + UDINT#1;
     IF TestCycle <= UDINT#100 THEN
         ExperimentInput := LREAL#20.0;
@@ -235,7 +235,7 @@ ManipulatedValue := Controller.Update(Input := Input);
 ## Experiment in Control Studio
 
 The complete learner workflow is **Monitor → Test**. Test writes only
-`P1.TestAuthorityEnabled`; the project runs the exact validation sequence used
+`P1.ExperimentEnabled`; the project runs the exact validation sequence used
 by the native evidence. There is no Identify step because the model must remain
 frozen, and there is no separate Validate action: this Test is the independent
 validation experiment.
@@ -243,14 +243,14 @@ validation experiment.
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait for **Simulation**, **Running**, current data, and good quality. Confirm measured outlet-water temperature = 30 degC, requested heater power = 20%, applied heater power = 20%, Manual mode true, input validity true, safety abort false, and `P1.TestAuthorityEnabled` false. Confirm the 100-millisecond interval, frozen Lesson 16 model identity and intervals, distinct planned validation run ID, and 0–40 degC / 0–100% limits.
+   - **Baseline check:** Wait for **Simulation**, **Running**, current data, and good quality. Confirm measured outlet-water temperature = 30 degC, requested heater power = 20%, applied heater power = 20%, Manual mode true, input validity true, safety abort false, and `P1.ExperimentEnabled` false. Confirm the 100-millisecond interval, frozen Lesson 16 model identity and intervals, distinct planned validation run ID, and 0–40 degC / 0–100% limits.
    - **Decision before action:** Read your written prediction and the rules above. Confirm the model remains frozen, the 20-to-25-percent step is inside its planned range, and the cold-flow event is intentionally absent from its inputs.
    - **Successful evidence:** Response advances with finite current values and **Start recording** is enabled. Select **Start recording** before opening Test.
    - **Recovery:** If data are stale, unavailable, invalid, outside limits, in the wrong mode, or model identity differs from Lesson 16, stop the Simulator, correct the displayed problem, restart, and repeat the full baseline check.
    - **Record:** Write down the estimation and validation run IDs, frozen parameters and intervals, initial PV, requested/applied power, mode, quality, evidence classes, and all four predictions.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **60.1**. The sole reviewed write is `P1.TestAuthorityEnabled`. Its false-to-true transition starts 10.0 seconds at 20%, then 50.0 seconds at 25%. The simulation applies the declared cold-flow load at 30.00 seconds. False restoration produces the separate 60.10-second sample at 20%.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **60.1**. The sole reviewed write is `P1.ExperimentEnabled`. Its false-to-true transition starts 10.0 seconds at 20%, then 50.0 seconds at 25%. The simulation applies the declared cold-flow load at 30.00 seconds. False restoration produces the separate 60.10-second sample at 20%.
    - **Decision before action:** Confirm that Test changes only Boolean authority, the project owns every power transition, the model cannot refit, and completion restores the 20-percent Manual point. Keep the fixed-flow and cold-flow decisions separate.
    - **Successful evidence:** Select **Review test**, verify the Boolean signal, 60.1-second timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** available. Response must show 20% through 10.00 seconds, 25% from 10.10 through 60.00 seconds, the measured temperature departing below the frozen prediction after 30.00 seconds, and 20% after authority returns false at 60.10 seconds.
    - **Recovery:** Select **Abort test** if any value is nonfinite, quality or timing fails, model parameters change, estimation samples are reused, PV leaves 0–40 degC, power leaves 0–100%, or an unexpected event occurs. Safety abort commands zero. Before retrying, confirm authority false and normal Manual restoration at 20%.

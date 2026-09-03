@@ -11,7 +11,7 @@
   "prerequisites": ["control-two-tank-state-space"],
   "nextLesson": "control-excitation-methods",
   "signals": [
-    { "role": "state", "name": "Experiment authority", "unit": "bool", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX17.1" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX17.1" },
     { "role": "state", "name": "Proposed valve change", "unit": "%", "minimum": -20, "maximum": 20, "resolution": 0.1, "binding": "%ML0" },
     { "role": "PV", "name": "Product outlet temperature", "unit": "degC", "minimum": 45, "maximum": 58, "resolution": 0.01, "binding": "%IL0" },
     { "role": "MV", "name": "Requested steam-valve position", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML32" },
@@ -37,17 +37,38 @@
     ],
     "simplifications": ["Local first-order-plus-dead-time response at one operating point", "No steam-pressure, flow, fouling, sensor, valve, or product-property variation", "Direct simulated actuator after the requested-versus-applied clamp", "No physical I/O authority"]
   },
-  "baseline": { "executableId": "HeatExchanger.UnreviewedPlan", "settings": { "baselineValvePercent": 60, "baselineTemperatureDegC": 50, "baselineDurationSeconds": 10 }, "limitation": "Constant data are uninformative and an unreviewed excitation may be unsafe or causally ambiguous." },
-  "change": { "executableId": "HeatExchanger.ReviewedBoundedStep", "settings": { "stepPercentagePoints": 10, "durationSeconds": 63, "temperatureHardMaximumDegC": 58, "simulationOnly": true }, "decision": "Collect data only after plan bounds, baseline qualification, aborts, restoration, evidence class, and approval boundary are explicit." },
-  "experiment": { "kind": "observation", "signal": "Experiment authority", "baseline": 0, "amplitude": 0, "durationSeconds": 160.1, "settlingSeconds": 10, "disturbances": [], "seed": 20260829, "restorationValue": 0 },
+  "baseline": {
+    "executableId": "HeatExchanger.UnreviewedPlan",
+    "settings": { "baselineValvePercent": 60, "baselineTemperatureDegC": 50, "baselineDurationSeconds": 10 },
+    "limitation": "Constant data are uninformative and an unreviewed excitation may be unsafe or causally ambiguous."
+  },
+  "change": {
+    "executableId": "HeatExchanger.ReviewedBoundedStep",
+    "settings": { "stepPercentagePoints": 10, "durationSeconds": 63, "temperatureHardMaximumDegC": 58, "simulationOnly": true },
+    "decision": "Collect data only after plan bounds, baseline qualification, aborts, restoration, evidence class, and approval boundary are explicit."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 160.1,
+    "settlingSeconds": 10,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
   "acceptance": [
     { "metric": "baseline_temperature_range", "signal": "Product outlet temperature", "window": "0 to 10 s before excitation", "comparator": "<=", "limit": 0.05, "unit": "degC", "tolerance": 0.001, "evidenceClass": "simulation" },
     { "metric": "baseline_absolute_slope", "signal": "Product outlet temperature", "window": "first to last sample of 10 s baseline", "comparator": "<=", "limit": 0.01, "unit": "degC/s", "tolerance": 0.001, "evidenceClass": "simulation" },
     { "metric": "late_window_prediction_error", "signal": "Product outlet temperature", "window": "final 10 s of qualified 63 s excitation", "comparator": "<=", "limit": 0.35, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
-    { "metric": "requested_valve_restoration_error", "signal": "Requested steam-valve position", "window": "first restoration scan", "comparator": "==", "limit": 0, "unit": "%", "tolerance": 0.000001, "evidenceClass": "simulation" }
+    { "metric": "requested_valve_restoration_error", "signal": "Requested steam-valve position", "window": "first restoration scan", "comparator": "==", "limit": 0, "unit": "%", "tolerance": 1e-06, "evidenceClass": "simulation" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Product outlet temperature", "minimum": 45, "maximum": 58, "unit": "degC" }, { "signal": "Applied steam-valve position", "minimum": 40, "maximum": 80, "unit": "%" }],
+    "hardLimits": [
+      { "signal": "Product outlet temperature", "minimum": 45, "maximum": 58, "unit": "degC" },
+      { "signal": "Applied steam-valve position", "minimum": 40, "maximum": 80, "unit": "%" }
+    ],
     "abortPredicates": ["Outlet-temperature quality is bad or stale", "Any required value is nonfinite", "A confounding disturbance becomes active", "The authorised operating mode is lost", "Product temperature or valve position leaves its declared envelope"],
     "safeMv": 60,
     "restorationMode": "Restore 60 percent valve and wait until product temperature is within 0.1 degC of baseline",
@@ -63,7 +84,15 @@
     "runArtifactFields": ["time", "plan", "seed", "sampleInterval", "requestedValve", "appliedValve", "outletTemperature", "quality", "disturbanceState", "experimentState", "reasonCode", "evidenceClass"],
     "renderedJourneyId": "control-safe-heat-exchanger-experiment"
   },
-  "video": { "viewerOutcome": "Design and execute a bounded simulation experiment, reject an unsafe plan, and prove abort plus restoration.", "requiredVisibleEvidence": ["Plan A prediction", "Plan B rejection", "qualified baseline", "requested and applied valve traces", "temperature trace", "abort reason", "restoration", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Design and execute a bounded simulation experiment, reject an unsafe plan, and prove abort plus restoration.",
+    "requiredVisibleEvidence": ["Plan A prediction", "Plan B rejection", "qualified baseline", "requested and applied valve traces", "temperature trace", "abort reason", "restoration", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "A steam-side valve controls product outlet temperature on a plate heat exchanger near a declared operating point.",
     "reason": "An unknown model requires informative data, while an arbitrary excitation can be unsafe, too short, or confounded.",

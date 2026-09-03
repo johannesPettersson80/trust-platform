@@ -1,6 +1,8 @@
 PROGRAM Main
 VAR
     ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     ExperimentElapsed : LREAL := 0.0;
     CycleTime : LREAL := 0.01;
     ProbeAmplitude : LREAL := 1.0;
@@ -18,7 +20,7 @@ VAR
     HighSpeed : LREAL := 1000.0;
 END_VAR
 
-IF NOT ExperimentEnabled THEN
+IF (NOT ExperimentEnabled) OR SafetyAbort OR (NOT InputsValid) THEN
     ExperimentElapsed := LREAL#0.0;
     LowRequested := LREAL#0.0;
     ResonantRequested := LREAL#0.0;
@@ -43,6 +45,8 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.ExperimentEnabled AT %MX96.0 : BOOL;
+    P1.SafetyAbort AT %MX96.1 : BOOL;
+    P1.InputsValid AT %MX96.2 : BOOL;
     P1.LowRequested AT %ML0 : LREAL;
     P1.ResonantRequested AT %ML8 : LREAL;
     P1.HighRequested AT %ML16 : LREAL;

@@ -50,7 +50,9 @@ The prediction uses preceding evidence only. The preceding predicted pressure is
 
 $\hat{p}_{k} = \hat{p}_{k-1} + (T/\tau) \cdot (p_{0} + K_{\mathrm{plant}} \cdot u_{\mathrm{applied},k-1} - \hat{p}_{k-1})$
 
-The predictor is diagnostic redundancy. It is not a hidden Simulation-truth input and does not drive the pressure controller directly.
+This expression comes from the same continuous pressure balance used in Lesson 73,
+$d\hat{p}/dt=(p_0+K_{\mathrm{plant}}u-\hat{p})/\tau$. Over one short task interval, forward Euler approximates the derivative by
+$(\hat{p}_k-\hat{p}_{k-1})/T$. Substituting that approximation and solving for $\hat{p}_k$ produces the update above. Here $T/\tau=0.1/4=0.025$, which explains the literal `0.025` in the program. The predictor is diagnostic redundancy. It is not a hidden Simulation-truth input and does not drive the pressure controller directly.
 
 A pressure discrepancy greater than 0.30 bar for three consecutive new pressure samples confirms disagreement. If exactly one transmitter has a model residual greater than 0.50 bar while the other remains no greater than 0.50 bar, the larger-residual transmitter is isolated. The controller may continue from the other qualified transmitter in degraded single-sensor mode. If the evidence cannot distinguish a sensor, automatic authority is removed.
 
@@ -60,7 +62,7 @@ Retained level can fall between measurements. Conservative available level ($lev
 
 $level_{\mathrm{safe}} = level_{\mathrm{sample}} - v_{\mathrm{level}} \cdot age_{\mathrm{level}}$
 
-The low-suction trip is 20 percent. Recovery requires at least 30 percent. The conservative projection does not extend the 1.0-s freshness limit; stale level still removes authority.
+The subtraction follows from the worst allowed case: if the reservoir has fallen at its maximum rate for the entire unobserved interval, the true level can be lower than the held sample by at most $v_{\mathrm{level}}age_{\mathrm{level}}$. The low-suction trip is 20 percent. Recovery requires at least 30 percent. The conservative projection does not extend the 1.0-s freshness limit; stale level still removes authority.
 
 ### Check whether the drive moved
 
@@ -68,7 +70,7 @@ The applied drive request ($u_{\mathrm{requested}}$) is the command sent after c
 
 $r_{u} = |u_{\mathrm{requested}} - u_{\mathrm{feedback}}|$
 
-A residual greater than 5 percentage points for three consecutive new drive-feedback samples confirms an actuator tracking fault. Because drive feedback arrives every 200 ms, the declared confirmation interval is at most 0.6 s after the first affected feedback update.
+A residual greater than 5 percentage points for three consecutive new drive-feedback samples confirms an actuator tracking fault. Three samples occupy two 200-ms gaps from the first affected sample to the decision, or 0.4 s. The 0.6-s requirement is deliberately conservative because a fault can begin just after one update and wait almost 0.2 s before the first affected sample.
 
 ### Separate the fault decisions
 
@@ -124,7 +126,7 @@ Read `src/Main.st` before running. It contains the complete sample retention, ag
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Run the fault-aware controller from the qualified selected pressure with multirate supervision, degradation, safe modes and supervised recovery. The declared event lasts 28 seconds. It restores Protected pressure transmitter A to 6 bar afterward. The deterministic Simulation seed is 20260829.
+The visible workflow is exactly **Monitor → Test**. Control Studio supplies authority, while the runnable project supplies the complete 28-second record: healthy multirate sampling, pressure-A bias, qualified recovery, ambiguous pressure, stale level, low level, stuck drive, acknowledgements, approved resets, and rate-limited restoration. That ownership matters because every learner runs the same sequence and cannot accidentally edit a diagnostic input halfway through the comparison. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -136,32 +138,13 @@ This procedure tests one declared lesson change under controlled conditions. Run
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0 bar**, and **Maximum duration (s)** = **28**. The affected signal is **Protected pressure transmitter A**; it starts at 6 bar and must restore to 6 bar.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Naive applied pump speed 0 % to 100 %; Protected applied pump speed 0 % to 100 %; Naive pressure transmitter A 0 bar to 12 bar; Protected pressure transmitter A 0 bar to 12 bar; Protected pressure transmitter B 0 bar to 12 bar.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **28.1**. Amplitude zero is intentional. Control Studio writes only the Boolean `P1.ExperimentEnabled`; it does not write a pressure, quality flag, timestamp, acknowledgement, reset, setpoint, or pump command.
+   - **Decision before action:** Before selecting **Review test**, predict each mode transition from the schedule above and confirm every pressure and pump-speed limit shown in Monitor.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Protected pressure transmitter A to 6 bar, wait for current data, and review a new test.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason and remove experiment authority. The project restores healthy qualities, samples, a 6-bar setpoint, 35-percent level, and false acknowledgement/reset requests before another run.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
 
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Multirate freshness, analytical redundancy, fault isolation, degradation, watchdog, and supervised recovery** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Multirate freshness, analytical redundancy, fault isolation, degradation, watchdog, and supervised recovery** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Multirate freshness, analytical redundancy, fault isolation, degradation, watchdog, and supervised recovery** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Multirate freshness, analytical redundancy, fault isolation, degradation, watchdog, and supervised recovery**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: pressure_a_isolation_latency <= 0.3 s (tolerance 1e-9 s); healthy_false_trip_count == 0 (dimensionless) (tolerance 0 (dimensionless)); wrong_sensor_selection_count == 0 (dimensionless) (tolerance 0 (dimensionless)); safe_output == 0 % (tolerance 0 %).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+Identify, Tune, and Validate are not learner steps here. The fault logic and predictor belong to the runnable project, and the independent native test owns the pass/fail judgment. A disabled generic PID or identification control is not evidence.
 
 ## Evidence and decision
 

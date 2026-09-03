@@ -36,11 +36,21 @@ $e_2=SP_2-PV_2$
 
 Both are parallel, positional `Control.PID` instances with derivative action disabled, so they operate as proportional-integral controllers. They use a 0.1-second cycle interval, explicit initialization, finite virtual-output limits, rate limits, tracking time, and combined anti-windup. Their tuning never changes between architectures.
 
+The overhead loop uses $K_p=T/(K\lambda)$, $T_i=T$, and
+$K_i=K_p/T_i$ with $K=0.8$, $T=20$ seconds, and $\lambda=15$ seconds.
+Thus $K_p=20/(0.8\cdot15)=1.6667$ and $K_i=1.6667/20=0.08333$.
+For the bottoms loop, $K=0.7$, $T=30$ seconds, and $\lambda=20$ seconds
+give $K_p=30/(0.7\cdot20)=2.142857$ and $K_i=0.0714286$.
+
 ### Static decoupling
 
 A static decoupler is a steady linear map from the two virtual corrections to the two physical actuator changes. Divide each measured matrix row by its diagonal gain to preserve the direct loop gains. The normalized interaction matrix ($M$) is:
 
 $\mathbf{M}=\begin{bmatrix}1&-0.5\\-0.428571&1\end{bmatrix}$
+
+Each row of the measured $G$ matrix is divided by its direct gain: the first
+becomes $[0.8/0.8,-0.4/0.8]=[1,-0.5]$, and the second becomes
+$[-0.3/0.7,0.7/0.7]=[-0.428571,1]$.
 
 The physical-input vector ($u$) contains reflux and reboiler changes. The virtual-correction vector ($v$) contains v1 and v2. The static mapping is:
 
@@ -49,6 +59,11 @@ $\mathbf{u}=\mathbf{M}^{-1}\mathbf{v}$
 With the Lesson 61 steady gain matrix ($G$), the predicted product is:
 
 $\mathbf{G}\mathbf{M}^{-1}=\begin{bmatrix}0.8&0\\0&0.7\end{bmatrix}$
+
+Here $\det(M)=1-(-0.5)(-0.428571)=0.785714$ and
+$M^{-1}=\det(M)^{-1}\begin{bmatrix}1&0.5\\0.428571&1\end{bmatrix}$.
+Multiplying $G$ by this inverse makes both off-diagonal terms zero, which is
+why the final cross effect cancels in the exact steady model.
 
 The off-diagonal actuator command is feedforward from the other controller's demand. Feedback remains active to remove residual error. Matrix inversion is rejected when the measured matrix is missing, invalid, singular, or poorly conditioned.
 
@@ -67,6 +82,11 @@ Both ratios are proper and causal because the numerator order is no greater than
 $D_{12}(s)=0.285714+\frac{0.214286}{35s+1}$
 
 $D_{21}(s)=0.321429+\frac{0.107143}{40s+1}$
+
+The ratios are $D_{12}=-G_{12}(s)/G_{11}(s)$ and
+$D_{21}=-G_{21}(s)/G_{22}(s)$. A term $A(as+1)/(bs+1)$ separates as
+$Aa/b+A(1-a/b)/(bs+1)$. Using $A=0.5,a=20,b=35$ gives 0.285714 and
+0.214286; using $A=0.428571,a=30,b=40$ gives 0.321429 and 0.107143.
 
 An inverse requiring prediction, an improper transfer function, uncertain unstable-zero cancellation, excessive high-frequency gain, or unavailable fresh signals is not eligible. Dynamic decoupling adds model, noise, and timing dependence.
 
@@ -98,44 +118,27 @@ The filters update continuously so a selected dynamic path does not begin with s
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Select static and then dynamic mapping without changing either PI tuning, plant event, timing, limits, or metric windows. The declared event lasts 220 seconds. It restores Overhead purity setpoint to 0 pp afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the qualified nominal dynamic-decoupling case. The
+project owns architecture selection, the setpoint event, and zero restoration;
+Control Studio writes only one Boolean authority signal. The native lesson test
+owns the separately restored direct, static, disturbance, and perturbed-model
+comparisons. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Overhead purity setpoint (SP, pp) and Bottoms purity setpoint (SP, pp); Overhead light-product purity deviation (PV, pp) and Bottoms heavy-product purity deviation (PV, pp); Requested reflux change (MV, pp) and Requested reboiler steam change (MV, pp), including units, limits, mode, and quality. The initial operating point is Overhead purity setpoint = 0 pp, Bottoms purity setpoint = 0 pp, Applied reflux change = 0 pp, Applied reboiler steam change = 0 pp, Applied feed-composition disturbance = 0 pp. The unresolved baseline problem is: The RGA-selected diagonal PI loops remain coupled because each physical actuator still moves both products. Control Studio Monitor must show Simulation mode and Auto authority, with requested and applied inputs visible separately. Control Studio Monitor must show Simulation mode and Auto authority, with requested and applied inputs visible separately. Execute the overhead-only event from 0 to +2 and restore it before starting the bottoms-only event. Control Studio Monitor must show Simulation mode and Auto authority, with requested and applied inputs visible separately. Execute the overhead-only event from 0 to +2 and restore it before starting the bottoms-only event. Repeat both events under the feed-composition disturbance and the perturbed interaction model.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm both SP/PV pairs, virtual corrections, requested/applied inputs, architecture, decoupler qualification, limits, Auto modes, and quality. All deviations and inputs begin at zero. Retain the 20-second baseline and the 20-to-220-second overhead-only dynamic response.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Use the simplest architecture whose nominal and perturbed executed evidence satisfies the declared cross-response, primary-loop, effort, limit, and restoration requirements.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Setpoint step**, **Amplitude** = **2 pp**, and **Maximum duration (s)** = **220**. The affected signal is **Overhead purity setpoint**; it starts at 0 pp and must restore to 0 pp.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Overhead purity setpoint -4 pp to 4 pp; Bottoms purity setpoint -4 pp to 4 pp; Applied reflux change -10 pp to 10 pp; Applied reboiler steam change -10 pp to 10 pp; Overhead light-product purity deviation -6 pp to 6 pp; Bottoms heavy-product purity deviation -6 pp to 6 pp.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Overhead purity setpoint to 0 pp, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Decentralized PI with qualified static and dynamic decoupling** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Decentralized PI with qualified static and dynamic decoupling** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Decentralized PI with qualified static and dynamic decoupling** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Decentralized PI with qualified static and dynamic decoupling**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: final_window_combined_absolute_error <= 0.05 pp (tolerance 0.001 pp); dynamic_to_static_nominal_cross_peak_ratio < 1 (dimensionless) (tolerance 0.001 (dimensionless)); nominal_cross_peak <= 0.05 pp (tolerance 0.001 pp); nominal_servo_combined_iae <= 100 pp*s (tolerance 0.001 pp*s).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **220.1**. Confirm the only writable signal is **Experiment authority** (`P1.ExperimentEnabled`, `%MX24.3`). The project selects qualified dynamic decoupling, holds zero for 20 seconds, then requests a +2-point overhead change while keeping the bottoms setpoint and feed disturbance at zero.
+   - **Decision before action:** Before selecting **Review test**, predict the compensating reboiler direction and confirm both inputs can remain within -10 through +10 points and both product deviations within -6 through +6 points.
+   - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must expose virtual, requested, and applied commands separately. At termination authority clears, architecture returns to direct, and both setpoints and the disturbance return to zero.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the reason, confirm authority is false and every project-owned event signal restored to zero, wait for current data, and review a new observation.
+   - **Record:** Compare the cross response with your prediction and retain terminal state, restoration, and seed **20260829**. The native lesson test owns the direct/static/dynamic, load, and mismatch verdicts; this observation does not create generic Identify, Tune, or Validate evidence.
 
 ## Evidence and decision
 

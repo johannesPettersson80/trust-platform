@@ -13,6 +13,10 @@ VAR
     DisturbanceFilter : Control.LowPass;
     FilterParameters : Control.LowPassParameters;
     Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
     SpeedValid : BOOL := TRUE;
     Setpoint : LREAL := 120.0;
     ActualLineSpeed : LREAL := 1.0;
@@ -70,6 +74,19 @@ IF NOT Initialized THEN
     DisturbanceFilter.Initialize(Input := LREAL#0.0);
     Initialized := TRUE;
 END_IF;
+
+IF ExperimentEnabled AND (NOT SafetyAbort) AND InputsValid THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    IF ExperimentElapsed >= LREAL#30.0 THEN
+        ActualLineSpeed := LREAL#2.0;
+    ELSE
+        ActualLineSpeed := LREAL#1.0;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    ActualLineSpeed := LREAL#1.0;
+END_IF;
+MeasuredLineSpeed := ActualLineSpeed;
 
 FeedbackSpeedInput := ActualLineSpeed;
 StaticSpeedInput := ActualLineSpeed;
@@ -129,6 +146,9 @@ END_RESOURCE
 VAR_CONFIG
     P1.SpeedValid AT %MX136.0 : BOOL;
     P1.AutomaticMode AT %MX136.1 : BOOL;
+    P1.ExperimentEnabled AT %MX136.2 : BOOL;
+    P1.SafetyAbort AT %MX136.3 : BOOL;
+    P1.InputsValid AT %MX136.4 : BOOL;
     P1.Setpoint AT %ML88 : LREAL;
     P1.ActualLineSpeed AT %ML96 : LREAL;
     P1.MeasuredLineSpeed AT %ML104 : LREAL;

@@ -46,13 +46,15 @@ Controller interval ($\Delta t$) is 0.1 seconds. Previous pressure ($p_{\mathrm{
 
 $z=p_{\mathrm{previous}}+\tau_{p} \cdot (p-p_{\mathrm{previous}})/\Delta t$
 
+This follows by rearranging the plant balance to $Ku+B=p+\tau_p\,dp/dt$, approximating the rate by $(p-p_{previous})/\Delta t$, and using the pressure at the beginning of that interval. Thus $z$ estimates the equilibrium-pressure term $Ku+B$; it is not another pressure sensor.
+
 Previous applied screw speed ($u_{\mathrm{previous}}$) is the command that produced that pressure change. Estimated gain parameter ($\theta_{K}$) represents process gain. Estimated scaled bias parameter ($\theta_{B}$) represents pressure bias divided by 100. Both sides are scaled by 100 to keep PLC arithmetic well conditioned:
 
 $z/100=\theta_{K} \cdot (u_{\mathrm{previous}}/100)+\theta_{B}$
 
 Estimated process gain ($\hat{K}$) equals $\theta_{K}$. Estimated pressure bias ($\hat{B}$) equals 100 times $\theta_{B}$.
 
-Recursive least squares (RLS) is an online estimator that corrects parameters from prediction error and an uncertainty matrix. Regressor vector ($\phi$) contains previous applied speed divided by 100 and a constant one. Scaled observation ($y_{\mathrm{id}}$) is z divided by 100. Innovation ($\varepsilon$) is the measured observation minus the model prediction. Covariance matrix (P) represents remaining parameter uncertainty. Forgetting factor ($\lambda$) states how much older evidence is retained; it is 0.98 here. At a 100-millisecond update interval, that corresponds to an effective evidence horizon of about 5 seconds, short enough to follow the declared slow material drift without treating one sample as truth.
+Recursive least squares (RLS) is an online estimator that corrects parameters from prediction error and an uncertainty matrix. Regressor vector ($\phi$) contains previous applied speed divided by 100 and a constant one. Scaled observation ($y_{\mathrm{id}}$) is z divided by 100. Innovation ($\varepsilon$) is the measured observation minus the model prediction. Covariance matrix (P) represents remaining parameter uncertainty. Forgetting factor ($\lambda$) states how much older evidence is retained; it is 0.98 here. A geometric record retains roughly $1/(1-\lambda)=50$ effective samples. At 0.1 second per sample this is about 5 seconds, short enough to follow the declared slow material drift without treating one sample as truth.
 
 The estimator first calculates estimator gain vector ($L$), then corrects parameter vector ($\theta$), then updates covariance:
 
@@ -89,6 +91,8 @@ Indirect adaptive control means estimating a plant parameter and deriving ordina
 $K_p=\tau_{p}/(K_{\mathrm{design}} \cdot \lambda_{\mathrm{c}})$
 
 $K_i=1/(K_{\mathrm{design}} \cdot \lambda_{\mathrm{c}})$
+
+These equations ask the first-order plant to follow the desired closed-loop time $\lambda_c$. The proportional term is the plant time constant divided by process gain and desired response time. The integral gain is $K_p/\tau_p$, so substituting the proportional expression gives $K_i=1/(K_{design}\lambda_c)$.
 
 Fixed PI, scheduled PI, and adaptive PI all use the same shared Control.PID function block, zero derivative gain, combined anti-windup, the same probe, and the same applied-speed limits.
 
@@ -144,7 +148,7 @@ RequestedArchitecture selects fixed, scheduled, or adaptive PI. ActiveArchitectu
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Run recipe-scheduled and supervised-adaptive PI under identical plant, setpoint, probe and timing conditions. The declared event lasts 120 seconds. It restores Die-pressure setpoint to 0 bar afterward. The deterministic Simulation seed is 20260829.
+This procedure observes supervised adaptive PI through the nominal recipe, drift, probe, and setpoint schedule. The project owns adaptation authorization, the grade change, the two setpoint changes, and zero-speed restoration. Fixed PI, recipe-scheduled PI, lost-excitation, bad-quality, recovery, and forced-projection comparisons remain separate native test records. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -156,32 +160,11 @@ This procedure tests one declared lesson change under controlled conditions. Run
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Setpoint step**, **Amplitude** = **10 bar**, and **Maximum duration (s)** = **120**. The affected signal is **Die-pressure setpoint**; it starts at 40 bar and must restore to 0 bar.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **120.1**. The affected signal is **Experiment authority**. Amplitude zero is intentional: Test writes only `P1.ExperimentEnabled`; the project owns adaptation, probing, grade, and pressure schedules.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Applied screw speed 0 % to 100 %; Die pressure 0 bar to 90 bar; Estimated process gain 0.5 bar/% to 1.5 bar/%; Estimated pressure bias -20 bar to 20 bar.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Die-pressure setpoint to 0 bar, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Two-parameter recursive least squares with persistent-excitation, projection, confidence, fallback and recovery supervision** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Two-parameter recursive least squares with persistent-excitation, projection, confidence, fallback and recovery supervision** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Two-parameter recursive least squares with persistent-excitation, projection, confidence, fallback and recovery supervision** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Two-parameter recursive least squares with persistent-excitation, projection, confidence, fallback and recovery supervision**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: scheduled_grade_b_iae < 999 bar*s (tolerance 0.001 bar*s); adaptive_gain_rmse <= 0.08 bar/% (tolerance 0.0001 bar/%); frozen_estimate_change <= 1e-12 bar/% (tolerance 0 bar/%); bad_quality_safe_output == 0 % (tolerance 0 %).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify frozen adaptation, zero setpoint, and zero applied speed, wait for current data, and review a new test.
+   - **Record:** Stop recording only after restoration. Retain information determinant, covariance, estimate, qualification, projection, fallback, active gains, probe, pressure, requested/applied speed, terminal state, restoration result, and seed **20260829**. Use native evidence for alternative and fault cases; do not claim this visible run executed them.
 
 ## Evidence and decision
 

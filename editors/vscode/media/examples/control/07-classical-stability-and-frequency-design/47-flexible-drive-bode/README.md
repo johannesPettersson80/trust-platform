@@ -1,7 +1,8 @@
 # Measure resonance with a Bode plot
 
-Course position: Lesson 47 of 84. Prerequisite: `control-servo-root-locus`.
-Next lesson: `control-delayed-thermal-nyquist`.
+Course position: Lesson 47 of 84. Prerequisite:
+[`control-servo-root-locus`](../46-servo-root-locus/).
+Next lesson: [`control-delayed-thermal-nyquist`](../48-delayed-thermal-nyquist/).
 
 **Equipment:** Flexible-shaft motor and load.
 
@@ -9,8 +10,6 @@ Next lesson: `control-delayed-thermal-nyquist`.
 resonance, and compare qualified unshaped and resonance-shaped margins.
 
 ## The problem
-
-The equipment in this lesson is Flexible-shaft motor and load.
 
 This lesson studies an industrial motor connected to its load through a flexible
 shaft. The motor-torque actuator is bidirectional. Requested and applied torque
@@ -55,7 +54,11 @@ A logarithmic frequency axis gives equal space to equal frequency ratios. A
 decade is a ten-to-one frequency interval. A decibel expresses an amplitude
 ratio logarithmically. After magnitude has been defined, its decibel value is
 
-$M_{\mathrm{dB}}=20\log_{10}($M$)$
+$M_{\mathrm{dB}}=20\log_{10}(M)$
+
+The factor 20 appears because power is proportional to amplitude squared:
+$10\log_{10}(M^2)=20\log_{10}(M)$. A ratio of 1 is therefore 0 dB, a ratio of
+10 is 20 dB, and a ratio of 0.1 is -20 dB.
 
 A Bode magnitude plot shows magnitude against logarithmic frequency. A Bode
 phase plot shows phase against the same frequency. Resonance is a frequency
@@ -85,13 +88,24 @@ operating speed. The continuous frequency variable ($s$) describes the model's
 dynamic response.
 
 Shaft stiffness restores displacement, inertia resists acceleration, and
-viscous damping removes stored motion. In local deviation units the declared
-plant model is
+viscous damping removes stored motion. After the physical coefficients are
+scaled into the lesson's local units, the load-speed deviation obeys
+
+$\ddot{y}+0.2\dot{y}+4y=u.$
+
+Taking the zero-initial-condition Laplace transform gives
 
 $G(s)=\frac{y(s)}{u(s)}=\frac{1}{s^{2}+0.2s+4}$
 
-Its static gain is 0.25 rpm/%, natural frequency is 2 rad/s, and damping ratio
-is 0.05. At a chosen angular frequency, the magnitude and phase are
+Setting $s=0$ gives the static gain $1/4=0.25$ rpm/%. Comparing the denominator
+with $s^2+2\zeta\omega_n s+\omega_n^2$ gives $\omega_n=2$ rad/s and
+$\zeta=0.2/(2\times2)=0.05$. The small damping ratio explains why resonance is
+expected.
+
+For a sinusoidal prediction, substitute $s=j\omega$. Because
+$(j\omega)^2=-\omega^2$, the denominator is
+$(4-\omega^2)+j0.2\omega$. Its length gives the inverse magnitude and its angle
+becomes a negative output phase:
 
 $\lvert G(j\omega) \rvert =\frac{1}{\sqrt{\left(4-\omega^{2}\right)^{2}+\left(0.2\omega\right)^{2}}}$
 
@@ -107,27 +121,41 @@ Before running, calculate three responses:
 
 | Probe frequency | Predicted magnitude | Predicted phase |
 |---:|---:|---:|
-| 0.5 rad/s | 0.267 rpm/% | -1.5 degrees |
-| 2 rad/s | 2.500 rpm/% | -90.0 degrees |
-| 8 rad/s | 0.0167 rpm/% | -178.5 degrees |
+| 0.5 rad/s | $1/\sqrt{3.75^2+0.1^2}=0.267$ rpm/% | $-\operatorname{atan2}(0.1,3.75)=-1.5^\circ$ |
+| 2 rad/s | $1/\sqrt{0^2+0.4^2}=2.500$ rpm/% | $-\operatorname{atan2}(0.4,0)=-90.0^\circ$ |
+| 8 rad/s | $1/\sqrt{(-60)^2+1.6^2}=0.0167$ rpm/% | $-\operatorname{atan2}(1.6,-60)=-178.5^\circ$ |
 
 At 2 rad/s, the stiffness term and inertia term cancel in the real part of the
 denominator. Only the small damping term remains, so the flexible mode amplifies
 the 1-percent torque probe to approximately 2.5 rpm.
 
-The baseline controller gain is 5. Its unshaped open loop has one gain
-crossover near 2.99 rad/s and only about 6.9 degrees phase margin. The
-resonance-shaped candidate is
+The baseline controller gain is 5, so $L(s)=5G(s)$. Gain crossover means
+$|L(j\omega)|=1$. Squaring that condition gives
+$(4-\omega^2)^2+(0.2\omega)^2=25$. Letting $x=\omega^2$ produces
+$x^2-7.96x-9=0$. Its positive root is $x=8.964$, so
+$\omega=2.99$ rad/s. The loop phase there is
+$-\operatorname{atan2}(0.598,-4.964)=-173.1^\circ$. Phase margin is the distance
+to $-180^\circ$, hence $180-173.1=6.9^\circ$. This is very little allowance for
+extra lag or model error.
+
+The resonance-shaped candidate is
 
 $C_{\mathrm{shape}}(s) =5\frac{s^{2}+0.2s+4}{s^{2}+3.2s+4}$
 
-For the nominal model, its open loop reduces to
+For the nominal model, its numerator cancels the nominal plant denominator, so
+the open loop reduces algebraically to
 
 $L_{\mathrm{shape}}(s)=\frac{5}{s^{2}+3.2s+4}$
 
-Predict one gain crossover near 1.44 rad/s and about 112.6 degrees phase
-margin. This apparent pole-zero cancellation is model-dependent, so the
-candidate remains unapplied until perturbed-model validation is complete.
+Its crossover equation is
+$(4-\omega^2)^2+(3.2\omega)^2=25$. With $x=\omega^2$, this becomes
+$x^2+2.24x-9=0$. The positive root is $x=2.082$, hence
+$\omega=1.44$ rad/s. The phase is
+$-\operatorname{atan2}(4.62,1.92)=-67.4^\circ$, giving
+$180-67.4=112.6^\circ$ phase margin. This nominal result is much better, but
+the cancellation is exact only if the shaft model is exact. The candidate
+therefore remains unapplied until the native test perturbs damping and natural
+frequency.
 
 ## Implementation
 
@@ -150,44 +178,27 @@ those results from retained samples and the qualified model.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Calculate an unapplied resonance-shaped candidate with the same controller gain and test its model dependence. The declared event lasts 120 seconds. It restores Low applied motor torque to 0 % afterward. The deterministic Simulation seed is 20260829.
+The runnable project owns all three one-percent sine probes, their frequencies,
+the 120-second data window, and restoration to zero torque. Control Studio may
+write only the Boolean authority `P1.ExperimentEnabled`; it must not add a
+fourth excitation. The Test timeout is 120.1 seconds so the project can finish
+its complete window first. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Low-frequency load speed (PV, rpm) and Resonant load speed (PV, rpm); Low applied motor torque (MV, %) and Resonant applied motor torque (MV, %), including units, limits, mode, and quality. The initial operating point is Low applied motor torque = 0 %, Resonant applied motor torque = 0 %, High applied motor torque = 0 %, Low-frequency load speed = 1000 rpm, Resonant load speed = 1000 rpm, High-frequency load speed = 1000 rpm. The unresolved baseline problem is: The unshaped loop has a large resonant peak and approximately 6.9 degrees phase margin.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept for further simulation only when measured response, all crossings, margins, and perturbed-model checks meet the declared criteria.
-   - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
+   - **Successful evidence:** The Response plot advances and the displayed values are finite and current. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120**. The observed lesson signal is **Low applied motor torque**. Control Studio uses the existing Boolean project authority **P1.ExperimentEnabled** at **%MX96.0**; it does not inject a second process event.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The observed lesson signal is **Low applied motor torque**. Control Studio uses the existing Boolean project authority **P1.ExperimentEnabled** at **%MX96.0**; it does not inject a second process event.
    - **Decision before action:** Before selecting **Review test**, predict the response to Low applied motor torque. Confirm the live values are current and the reviewed plan stays inside Low applied motor torque -100 % to 100 %; Resonant applied motor torque -100 % to 100 %; High applied motor torque -100 % to 100 %; Low-frequency load speed 990 rpm to 1010 rpm; Resonant load speed 990 rpm to 1010 rpm; High-frequency load speed 990 rpm to 1010 rpm.
    - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
-   - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **FrequencyProbeBank** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Measured Bode response and stability margins** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **FrequencyProbeBank** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Measured Bode response and stability margins**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: resonant_frequency_response_magnitude >= 2.425 rpm/% (tolerance 0.075 rpm/%); unshaped_phase_margin >= 6.8 deg (tolerance 0.1 deg); shaped_phase_margin >= 112.4 deg (tolerance 0.2 deg).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Record:** Compare each measured magnitude and phase with your hand calculation and retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test owns fitting windows, coherence, every crossover, perturbed-model checks, and final eligibility; a disabled Identify, Tune, or Validate screen is not evidence.
 
 ## Evidence and decision
 

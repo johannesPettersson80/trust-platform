@@ -1,6 +1,10 @@
 PROGRAM Main
 VAR
     AutoMode : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
     RefluxRequested : LREAL := 0.0;
     ReboilerRequested : LREAL := 0.0;
     RefluxApplied : LREAL := 0.0;
@@ -8,6 +12,31 @@ VAR
     OverheadPurityDeviation : LREAL := 0.0;
     BottomsPurityDeviation : LREAL := 0.0;
 END_VAR
+
+(* One observation contains two independently excited windows separated by a
+   restored baseline. Control Studio grants only Boolean authority. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    AutoMode := FALSE;
+    IF ExperimentElapsed < LREAL#20.0 THEN
+        RefluxRequested := LREAL#0.0;
+        ReboilerRequested := LREAL#0.0;
+    ELSIF ExperimentElapsed < LREAL#200.0 THEN
+        RefluxRequested := LREAL#5.0;
+        ReboilerRequested := LREAL#0.0;
+    ELSIF ExperimentElapsed < LREAL#220.0 THEN
+        RefluxRequested := LREAL#0.0;
+        ReboilerRequested := LREAL#0.0;
+    ELSE
+        RefluxRequested := LREAL#0.0;
+        ReboilerRequested := LREAL#5.0;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    AutoMode := FALSE;
+    RefluxRequested := LREAL#0.0;
+    ReboilerRequested := LREAL#0.0;
+END_IF;
 
 // This lesson identifies plant interaction, so no feedback controller is hidden in the test path.
 IF NOT AutoMode THEN
@@ -29,6 +58,9 @@ VAR_CONFIG
     P1.RefluxRequested AT %ML0 : LREAL;
     P1.ReboilerRequested AT %ML8 : LREAL;
     P1.AutoMode AT %MX16.0 : BOOL;
+    P1.ExperimentEnabled AT %MX16.1 : BOOL;
+    P1.SafetyAbort AT %MX16.2 : BOOL;
+    P1.InputsValid AT %MX16.3 : BOOL;
     P1.RefluxApplied AT %QL0 : LREAL;
     P1.ReboilerApplied AT %QL8 : LREAL;
     P1.OverheadPurityDeviation AT %IL0 : LREAL;

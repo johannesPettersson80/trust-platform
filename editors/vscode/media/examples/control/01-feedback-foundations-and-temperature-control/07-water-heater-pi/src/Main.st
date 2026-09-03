@@ -9,6 +9,9 @@ VAR
     Initialized : BOOL := FALSE;
     AutoMode : BOOL := FALSE;
     LastAutoMode : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     ProportionalGain : LREAL := 8.0;
     IntegralGain : LREAL := 4.0;
     Setpoint : LREAL := 35.0;
@@ -44,6 +47,10 @@ IF NOT Initialized THEN
     PreviousProcessValue := ProcessValue;
     Initialized := TRUE;
 END_IF;
+
+(* Control Studio grants only experiment authority. The project derives mode
+   and owns the fixed gains, preload, disturbance timing, and restoration. *)
+AutoMode := ExperimentEnabled AND InputsValid AND NOT SafetyAbort;
 
 (* Control Studio gain edits are adopted together at the next scan boundary.
    Configure changes parameters without resetting the retained PI state. *)
@@ -96,7 +103,10 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.AutoMode AT %MX16.0 : BOOL;
+    P1.ExperimentEnabled AT %MX64.0 : BOOL;
+    P1.SafetyAbort AT %MX64.1 : BOOL;
+    P1.InputsValid AT %MX64.2 : BOOL;
+    P1.AutoMode AT %MX64.3 : BOOL;
     P1.Setpoint AT %ML0 : LREAL;
     P1.ProportionalGain AT %ML8 : LREAL;
     P1.IntegralGain AT %ML16 : LREAL;

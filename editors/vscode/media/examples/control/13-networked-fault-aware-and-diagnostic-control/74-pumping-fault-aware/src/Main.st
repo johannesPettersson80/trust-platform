@@ -2,16 +2,23 @@ USING Control;
 
 PROGRAM Main
 VAR
-    PressureASampleReceived : BOOL := FALSE;
-    PressureBSampleReceived : BOOL := FALSE;
-    LevelSampleReceived : BOOL := FALSE;
-    DriveFeedbackReceived : BOOL := FALSE;
+    PressureASampleReceived : BOOL := TRUE;
+    PressureBSampleReceived : BOOL := TRUE;
+    LevelSampleReceived : BOOL := TRUE;
+    DriveFeedbackReceived : BOOL := TRUE;
     PressureAQualityGood : BOOL := TRUE;
     PressureBQualityGood : BOOL := TRUE;
     LevelQualityGood : BOOL := TRUE;
     DriveFeedbackQualityGood : BOOL := TRUE;
     AcknowledgeRequest : BOOL := FALSE;
     ResetApproved : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentScan : ULINT := ULINT#0;
+    ExperimentElapsed : LREAL := 0.0;
+    HeldDriveFeedback : LREAL := 50.0;
     Setpoint : LREAL := 6.0;
     LocalTimeSeconds : LREAL := 0.0;
     PressureASourceTime : LREAL := 0.0;
@@ -46,6 +53,93 @@ VAR
     ProtectedApplied : LREAL := 50.0;
     Supervisor : FaultAwarePumpSupervisor;
 END_VAR
+
+(* Control Studio writes only ExperimentEnabled. The project owns the complete
+   healthy, fault, acknowledgement, reset, and restoration record. Device
+   pulses still follow their real 100/500/200 ms rates; held values do not gain
+   new timestamps between pulses. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    IF NOT ExperimentWasEnabled THEN
+        ExperimentScan := ULINT#0;
+        LocalTimeSeconds := LREAL#0.0;
+    END_IF;
+    ExperimentScan := ExperimentScan + ULINT#1;
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    LocalTimeSeconds := ExperimentElapsed;
+
+    PressureASampleReceived := TRUE;
+    PressureBSampleReceived := TRUE;
+    LevelSampleReceived := (ExperimentScan MOD ULINT#5) = ULINT#1;
+    DriveFeedbackReceived := (ExperimentScan MOD ULINT#2) = ULINT#1;
+    PressureAQualityGood := NOT ((ExperimentScan >= ULINT#116)
+        AND (ExperimentScan <= ULINT#130));
+    PressureBQualityGood := NOT ((ExperimentScan >= ULINT#121)
+        AND (ExperimentScan <= ULINT#130));
+    LevelQualityGood := TRUE;
+    DriveFeedbackQualityGood := TRUE;
+    IF (ExperimentScan >= ULINT#151) AND (ExperimentScan <= ULINT#170) THEN
+        LevelSampleReceived := FALSE;
+    END_IF;
+
+    PressureASourceTime := LocalTimeSeconds;
+    PressureBSourceTime := LocalTimeSeconds;
+    IF LevelSampleReceived THEN
+        LevelSourceTime := LocalTimeSeconds;
+    END_IF;
+    IF DriveFeedbackReceived THEN
+        DriveFeedbackSourceTime := LocalTimeSeconds;
+    END_IF;
+
+    Setpoint := LREAL#6.0;
+    LevelRaw := LREAL#35.0;
+    PressureARaw := PressureBRaw;
+    NaivePressureA := NaiveEvidencePressure;
+    IF (ExperimentScan >= ULINT#51) AND (ExperimentScan <= ULINT#100) THEN
+        PressureARaw := PressureBRaw + LREAL#1.0;
+        NaivePressureA := NaiveEvidencePressure + LREAL#1.0;
+    END_IF;
+    IF (ExperimentScan >= ULINT#191) AND (ExperimentScan <= ULINT#200) THEN
+        LevelRaw := LREAL#19.0;
+    END_IF;
+    IF (ExperimentScan >= ULINT#216) AND (ExperimentScan <= ULINT#240) THEN
+        Setpoint := LREAL#7.0;
+    END_IF;
+    IF ExperimentScan = ULINT#221 THEN
+        HeldDriveFeedback := DriveFeedbackRaw;
+    END_IF;
+    IF (ExperimentScan >= ULINT#221) AND (ExperimentScan <= ULINT#240) THEN
+        DriveFeedbackRaw := HeldDriveFeedback;
+    END_IF;
+
+    AcknowledgeRequest := (ExperimentScan = ULINT#101)
+        OR (ExperimentScan = ULINT#131)
+        OR (ExperimentScan = ULINT#171)
+        OR (ExperimentScan = ULINT#201)
+        OR (ExperimentScan = ULINT#242);
+    ResetApproved := (ExperimentScan = ULINT#111)
+        OR (ExperimentScan = ULINT#141)
+        OR (ExperimentScan = ULINT#181)
+        OR (ExperimentScan = ULINT#211)
+        OR (ExperimentScan = ULINT#253);
+ELSIF ExperimentWasEnabled THEN
+    ExperimentScan := ULINT#0;
+    ExperimentElapsed := LREAL#0.0;
+    LocalTimeSeconds := LREAL#0.0;
+    PressureASampleReceived := TRUE;
+    PressureBSampleReceived := TRUE;
+    LevelSampleReceived := TRUE;
+    DriveFeedbackReceived := TRUE;
+    PressureAQualityGood := TRUE;
+    PressureBQualityGood := TRUE;
+    LevelQualityGood := TRUE;
+    DriveFeedbackQualityGood := TRUE;
+    AcknowledgeRequest := FALSE;
+    ResetApproved := FALSE;
+    Setpoint := LREAL#6.0;
+    LevelRaw := LREAL#35.0;
+    PressureARaw := PressureBRaw;
+    NaivePressureA := NaiveEvidencePressure;
+END_IF;
 
 Supervisor(
     PressureASampleReceived := PressureASampleReceived,
@@ -91,6 +185,7 @@ NaiveRequested := Supervisor.NaiveRequested;
 ProtectedRequested := Supervisor.ProtectedRequested;
 NaiveApplied := Supervisor.NaiveApplied;
 ProtectedApplied := Supervisor.ProtectedApplied;
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -109,12 +204,15 @@ VAR_CONFIG
     P1.DriveFeedbackQualityGood AT %MX32.7 : BOOL;
     P1.AcknowledgeRequest AT %MX33.0 : BOOL;
     P1.ResetApproved AT %MX33.1 : BOOL;
+    P1.ExperimentEnabled AT %MX82.5 : BOOL;
+    P1.SafetyAbort AT %MX82.6 : BOOL;
+    P1.InputsValid AT %MX82.7 : BOOL;
     P1.Setpoint AT %ML40 : LREAL;
     P1.LocalTimeSeconds AT %ML48 : LREAL;
     P1.PressureASourceTime AT %ML56 : LREAL;
     P1.PressureBSourceTime AT %ML64 : LREAL;
-    P1.LevelSourceTime AT %ML72 : LREAL;
-    P1.DriveFeedbackSourceTime AT %ML80 : LREAL;
+    P1.LevelSourceTime AT %ML176 : LREAL;
+    P1.DriveFeedbackSourceTime AT %ML184 : LREAL;
     P1.LevelRaw AT %ML88 : LREAL;
     P1.PressureAResidual AT %ML96 : LREAL;
     P1.PressureBResidual AT %ML104 : LREAL;
@@ -134,6 +232,7 @@ VAR_CONFIG
     P1.RecoveryReady AT %MX82.4 : BOOL;
     P1.NaiveRequested AT %ML152 : LREAL;
     P1.ProtectedRequested AT %ML160 : LREAL;
+    P1.ExperimentElapsed AT %ML168 : LREAL;
     P1.NaiveApplied AT %QL0 : LREAL;
     P1.ProtectedApplied AT %QL8 : LREAL;
     P1.NaivePressureA AT %IL0 : LREAL;

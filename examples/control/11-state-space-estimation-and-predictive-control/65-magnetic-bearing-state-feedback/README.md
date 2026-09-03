@@ -30,21 +30,62 @@ We need feedback from the bearing's dynamic state and a separate estimate of con
 
 ### Bearing state feedback
 
-The bearing state vector ($\mathbf{x}_{\mathrm{b}}$) contains rotor displacement and rotor velocity. The bearing input ($\mathbf{u}_{\mathrm{b}}$) is applied coil-current deviation in amperes. The bearing state matrix ($\mathbf{A}_{\mathrm{b}}$) describes the open-loop motion, and the bearing input matrix ($\mathbf{B}_{\mathrm{b}}$) describes current-to-acceleration action:
+The rotor-displacement deviation ($x_b$) is measured in millimetres, rotor
+velocity ($v_b$) in millimetres per second, and applied coil-current deviation
+($u_b$) in amperes. Newton's law starts with rotor mass times acceleration equal
+to the net magnetic force. Near the chosen centre point, a first-order Taylor
+approximation separates that force into a displacement term and a coil-current
+term. Dividing by rotor mass gives
+
+$\dot x_b=v_b,$
+
+$\dot v_b=a_bx_b+b_bu_b.$
+
+The local magnetic acceleration coefficient ($a_b$) is measured in inverse
+seconds squared. It is positive because a small displacement increases the
+unbalanced force away from centre. The current-to-acceleration coefficient
+($b_b$) is measured in millimetres per second squared per ampere. This scaled
+training model configures $a_b=4\ \mathrm{s^{-2}}$ and
+$b_b=1\ \mathrm{mm/(s^2 A)}$.
+
+These are configured Simulation values, not measurements of a bearing. A real
+design obtains initial values from rotor mass, pole geometry, air gap, bias
+current, and electromagnetic force data; a guarded small-current test then
+estimates the local slopes, and unused records validate them throughout the
+declared gap and speed range. Coil dynamics, force curvature, eddy currents,
+sensor dynamics, and structural modes omitted here would require additional
+states or a narrower validity claim.
+
+The bearing state vector ($\mathbf{x}_{\mathrm{b}}$) contains $x_b$ followed by
+$v_b$. The bearing state matrix ($\mathbf{A}_{\mathrm{b}}$) collects the two
+unforced coefficients, and the bearing input matrix
+($\mathbf{B}_{\mathrm{b}}$) collects the current coefficient. Writing the two
+derived equations in state order gives
 
 $\mathbf{A}_b=\begin{bmatrix}0&1\\4&0\end{bmatrix}$
 
-$\mathbf{B}_b=\begin{bmatrix}0\\1\end{bmatrix}$
+$\mathbf{B}_b=\begin{bmatrix}0\\1\end{bmatrix}.$
 
-Velocity changes displacement. Near the chosen centre point, displacement produces an acceleration away from centre, so the uncontrolled model is unstable. One ampere produces one millimetre per second squared of acceleration in this scaled training model.
+The first row says velocity changes displacement. The second says displacement
+drives unstable acceleration and one ampere adds one millimetre per second
+squared. This row-by-row interpretation is why the matrices have those entries.
 
-The feedback-gain row ($\mathbf{K}_{\mathrm{b}}$) contains the displacement and velocity weights used to oppose motion. The reference gain ($\mathbf{N}_{\mathrm{b}}$) scales a constant requested displacement so the model reaches that displacement at equilibrium. The bearing reference ($\mathbf{r}_{\mathrm{b}}$) is the requested displacement. Only after defining these quantities do we write:
+The feedback-gain row ($\mathbf{K}_{\mathrm{b}}$) contains the displacement and
+velocity weights used to oppose motion. Its displacement entry is measured in
+amperes per millimetre and its velocity entry in ampere seconds per millimetre.
+The reference gain ($N_b$), measured in amperes per millimetre, scales a
+constant requested displacement so the model reaches that displacement at
+equilibrium. The bearing reference ($r_b$) is the requested displacement in
+millimetres. Only after defining these quantities do we write:
 
 $u_{b,\mathrm{requested}}=N_b r_b-\mathbf{K}_b\mathbf{x}_b$
 
 Applied bearing current is the requested value limited to -2 through +2 amperes.
 
-To see how the gains are obtained, write
+The complex frequency variable ($s$) has unit inverse seconds, and the identity
+matrix ($\mathbf I$) leaves a vector unchanged. The displacement-feedback gain
+($k_x$) and velocity-feedback gain ($k_v$) are the two entries of
+$\mathbf K_b$. To see how the gains are obtained, write
 
 $\mathbf A_b-\mathbf B_b\mathbf K_b=\begin{bmatrix}0&1\\4-k_x&-k_v\end{bmatrix}$.
 
@@ -52,7 +93,11 @@ Its characteristic polynomial is the determinant of $s\mathbf I-(\mathbf A_b-\ma
 
 $s^2+k_v s+(k_x-4)$.
 
-This polynomial matters because its roots are the closed-loop modes. With position-only gain $k_x=5$ and $k_v=0$, it becomes $s^{2}+1=0$. Its roots are $+j$ and $-j$: neither has a negative real part, so the ideal response oscillates without decaying. Desired poles at -3 and -4 per second instead require
+This polynomial matters because its roots are the closed-loop modes. The
+imaginary unit ($j$) satisfies $j^2=-1$. With position-only gain $k_x=5$ and
+$k_v=0$, the polynomial becomes $s^{2}+1=0$. Its roots are $+j$ and $-j$:
+neither has a negative real part, so the ideal response oscillates without
+decaying. Desired poles at -3 and -4 per second instead require
 
 $(s+3)(s+4)=s^2+7s+12$.
 
@@ -68,7 +113,28 @@ From an initial +0.1-millimetre displacement at zero reference, the first reques
 
 ### Motor state observation
 
-The motor state vector ($\mathbf{x}_{m}$) contains shaft speed and opposing load torque. The measured motor output ($\mathbf{y}_{m}$) is encoder speed. The motor state matrix ($\mathbf{A}_{m}$), input matrix ($\mathbf{B}_{m}$), and output matrix ($\mathbf{C}_{m}$) are:
+The shaft speed ($\omega_m$) is measured in radians per second. Applied drive
+torque ($u_m$) and opposing load torque ($d_m$) are measured in newton metres.
+Rotational inertia ($J_m$) is measured in kilogram square metres and viscous
+damping ($c_m$) in newton metre seconds per radian. Newton's rotational balance
+says inertia times angular acceleration equals drive torque minus damping torque
+minus load torque:
+
+$J_m\dot\omega_m=u_m-c_m\omega_m-d_m.$
+
+The nominal record treats load torque as constant, so $\dot d_m=0$. Dividing
+the balance by $J_m$ produces the speed row. The scaled training values make
+$c_m/J_m=1\ \mathrm{s^{-1}}$ and convert both torque terms to speed rate with
+unit numerical coefficients. On physical equipment, inertia begins with rotor
+and load geometry, the drive torque scale comes from calibrated current-to-
+torque data, damping is estimated from a coast-down or torque-step record, and
+load constancy is checked over the intended observation window. Independent
+records must then validate the model at the declared speeds and loads.
+
+The motor state vector ($\mathbf{x}_{m}$) contains shaft speed followed by
+opposing load torque. The measured motor output ($\mathbf{y}_{m}$) is encoder
+speed. The motor state matrix ($\mathbf{A}_{m}$), input matrix
+($\mathbf{B}_{m}$), and output matrix ($\mathbf{C}_{m}$) are therefore
 
 $\mathbf{A}_m=\begin{bmatrix}-1&-1\\0&0\end{bmatrix}$
 
@@ -76,22 +142,43 @@ $\mathbf{B}_m=\begin{bmatrix}1\\0\end{bmatrix}$
 
 $\mathbf{C}_m=\begin{bmatrix}1&0\end{bmatrix}$
 
-Speed naturally decays, positive load reduces acceleration, drive torque increases acceleration, and load remains constant during a nominal record.
+The first matrix row is the divided torque balance: speed naturally decays,
+positive load reduces acceleration, and drive torque increases acceleration.
+The second row retains constant load, while the output row selects encoder
+speed. The model omits changing load dynamics, nonlinear friction, shaft
+flexibility, drive delay, and encoder quantisation; an observer cannot recover
+effects absent from that model as uniquely identified physical truth.
 
-The estimated state ($\hat{\mathbf{x}}$) is the observer's speed and load prediction. Innovation ($\nu$) is measured encoder speed minus estimated speed. Observer gain ($\mathbf L$) states how strongly that innovation corrects the two state predictions. Applied motor torque ($u_{m,\mathrm{applied}}$) is the torque that actually entered the plant. The observer is:
+The estimated state ($\hat{\mathbf{x}}$) is the observer's speed and load
+prediction. Innovation ($\nu$) is measured encoder speed minus estimated speed.
+Observer gain ($\mathbf L$) states how strongly that innovation corrects the
+two state predictions. Its first entry has unit inverse seconds; its second has
+the unit that converts speed innovation into load-torque change per second,
+newton metres per radian. Applied motor torque ($u_{m,\mathrm{applied}}$) is the
+torque that actually entered the plant. The observer is:
 
 $\dot{\hat{\mathbf{x}}} =\mathbf{A}_m\hat{\mathbf{x}}+\mathbf{B}_m u_{m,\mathrm{applied}} +\mathbf{L}\nu$
 
 $\nu=y_m-\mathbf{C}_m\hat{\mathbf{x}}$
 
-Observer error follows $\dot{\mathbf e}=(\mathbf A_m-\mathbf L\mathbf C_m)\mathbf e$. If $\mathbf L=[l_1,l_2]^T$, its characteristic polynomial is
+The estimation-error vector ($\mathbf e$) is actual motor state minus estimated
+motor state. Subtracting the observer equation from the plant equation cancels
+the shared applied input. Because innovation equals measured-state error through
+$\mathbf C_m$, the remaining error dynamics are
+$\dot{\mathbf e}=(\mathbf A_m-\mathbf L\mathbf C_m)\mathbf e$. If the first and
+second observer-gain entries are $l_1$ and $l_2$, so
+$\mathbf L=[l_1,l_2]^T$, its characteristic polynomial is
 
 $s^2+(1+l_1)s-l_2$.
 
 The desired poles give $(s+4)(s+5)=s^2+9s+20$. Coefficient matching therefore gives $1+l_1=9$ and $-l_2=20$, or
-$\mathbf{L}=\begin{bmatrix}8&-20\end{bmatrix}^{T}$. The load correction is negative because a positive physical load reduces speed; when measured speed falls below predicted speed, the observer must raise its positive load estimate. Forward Euler maps a continuous pole $\lambda$ to $z=1+0.1\lambda$, so -4 and -5 become 0.6 and 0.5. Their magnitudes are below one, which means the sampled estimation errors decay in the ideal model.
+$\mathbf{L}=\begin{bmatrix}8&-20\end{bmatrix}^{T}$. The load correction is negative because a positive physical load reduces speed; when measured speed falls below predicted speed, the observer must raise its positive load estimate. A continuous pole ($\lambda$), measured in inverse seconds, becomes a sampled pole ($z$), which is dimensionless. Forward Euler with the 0.1-second interval maps them by $z=1+0.1\lambda$, so -4 and -5 become 0.6 and 0.5. Their magnitudes are below one, which means the sampled estimation errors decay in the ideal model.
 
-The motor speed-feedback gain ($K_m$) is 2 newton metres per radian per second. The motor reference gain ($N_m$) is 3 newton metres per radian per second. The motor reference ($r_m$) is desired speed, estimated speed ($\hat{\omega}$) is the observer's speed state, and estimated load ($\hat d$) is its load state:
+The motor speed-feedback gain ($K_m$) is 2 newton metres per unit of radians
+per second, written $2\ \mathrm{N\,m/(rad/s)}$. The motor reference gain
+($N_m$) is $3\ \mathrm{N\,m/(rad/s)}$. The motor reference ($r_m$) is desired
+speed, estimated speed ($\hat{\omega}$) is the observer's speed state, and
+estimated load ($\hat d$) is its load state:
 
 $u_{m,\mathrm{requested}} =N_m r_m-K_m\hat{\omega}+\hat{d}$
 
@@ -101,7 +188,9 @@ The separation principle says feedback and observer-error poles can be selected 
 
 ## Prediction
 
-Before running, calculate the position-only poles, $K_{\mathrm{b}}$, $N_{\mathrm{b}}$, $L$, both continuous and discrete observer-error poles, and both motor equilibria.
+Before running, calculate the position-only poles, $\mathbf K_{\mathrm{b}}$,
+$N_{\mathrm{b}}$, $\mathbf L$, both continuous and discrete observer-error
+poles, and both motor equilibria.
 
 Predict that position-only bearing feedback is **Not settled**, while state feedback restores the initial displacement and tracks the reference. Predict that nominal load estimation removes the motor bias. For a motor whose real damping is 1.2 while the observer retains 1.0, predict good speed regulation but a load estimate about 0.2 newton metres above physical load near 1 radian per second.
 

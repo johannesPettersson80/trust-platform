@@ -13,7 +13,7 @@ maintenance interval.
 
 **Equipment:** Geared industrial positioning table.
 
-## Where this lesson begins
+## The problem
 
 Lesson 23 showed that a noisy torque trace can come from the measurement path,
 and that filtering has a measurable cost. This lesson keeps the same PID and
@@ -28,7 +28,12 @@ instead of responding to every large error by increasing PID gains. Blindly
 raising gains can increase current, heating, impacts, and wear without removing
 the defect.
 
-## Separate the command, drive, and mechanism
+## What we need
+
+We need separate command, drive, and mechanism signals so a learner can tell a
+controller request from torque limiting and from lost mechanical motion.
+
+## The new idea
 
 The **target position ($SP_{\mathrm{target}}$)** is the desired final table angle in radians
 (rad). The **profiled position ($SP_{\mathrm{profile}}$)** is the acceleration- and
@@ -85,7 +90,7 @@ being stuck; backlash is tied specifically to taking up clearance after a
 direction reversal. Similar delayed PV traces therefore need torque and state
 signals to distinguish them.
 
-## Deriving the motion profile
+### Deriving the motion profile
 
 At zero angle and speed, the maximum ideal acceleration is:
 
@@ -131,6 +136,8 @@ v_{\mathrm{stop}}=\sqrt{2a_{\mathrm{profile}}d}.
 The program chooses the smaller of this stopping speed and the 0.5 rad/s
 cruise limit. Far from the target it cruises; near the target the square-root
 bound starts deceleration.
+
+## Prediction
 
 The configured \(w_{\mathrm{backlash}}\) is 0.05 rad. Predict that a reversal
 can consume 0.05 rad of motor-side travel before the load follows. The time is

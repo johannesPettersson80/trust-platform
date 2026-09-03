@@ -41,7 +41,7 @@
       "symbol": "P1.ManipulatedValue",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -99,7 +99,7 @@
         "address": "%MX80.0",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "1",
+        "unit": "",
         "range": {
           "minimum": 0,
           "maximum": 1

@@ -74,10 +74,7 @@ fn addressed_source() -> String {
             "    ExperimentEnabled : BOOL :=",
             "    ExperimentEnabled AT %MX80.0 : BOOL :=",
         )
-        .replace(
-            "    Setpoint : LREAL :=",
-            "    Setpoint AT %ML0 : LREAL :=",
-        )
+        .replace("    Setpoint : LREAL :=", "    Setpoint AT %ML0 : LREAL :=")
         .replace(
             "    ProcessValue : LREAL :=",
             "    ProcessValue AT %IL0 : LREAL :=",
@@ -147,8 +144,12 @@ fn control_curriculum_heating_valve_executes_the_shipped_project_sequence() {
     assert!(trace[1].auto && trace[1].setpoint == 10.0);
     assert!(trace[150].auto && trace[150].setpoint == 10.0);
     assert!(trace[151].auto && trace[151].setpoint == 0.0);
-    assert!(trace[1..151].iter().any(|sample| (sample.travel_rate - 1.5).abs() <= 1.0e-9));
-    assert!(trace[151..900].iter().any(|sample| (sample.travel_rate + 0.5).abs() <= 1.0e-9));
+    assert!(trace[1..151]
+        .iter()
+        .any(|sample| (sample.travel_rate - 1.5).abs() <= 1.0e-9));
+    assert!(trace[151..900]
+        .iter()
+        .any(|sample| (sample.travel_rate + 0.5).abs() <= 1.0e-9));
     let safe = trace.last().unwrap();
     assert!(!safe.auto && safe.setpoint == 0.0 && safe.requested == 0.0 && safe.applied == 0.0);
 }
@@ -206,7 +207,13 @@ fn run_rate_experiment() -> Vec<Sample> {
             travel_rate: read_lreal(&runtime, "%ML16"),
             lower: read_lreal(&runtime, "%ML56"),
             upper: read_lreal(&runtime, "%ML64"),
-            auto: matches!(runtime.io().read(&IoAddress::parse("%MX72.0").unwrap()).unwrap(), Value::Bool(true)),
+            auto: matches!(
+                runtime
+                    .io()
+                    .read(&IoAddress::parse("%MX72.0").unwrap())
+                    .unwrap(),
+                Value::Bool(true)
+            ),
         });
     }
 
@@ -224,7 +231,13 @@ fn run_rate_experiment() -> Vec<Sample> {
         travel_rate: read_lreal(&runtime, "%ML16"),
         lower: read_lreal(&runtime, "%ML56"),
         upper: read_lreal(&runtime, "%ML64"),
-        auto: matches!(runtime.io().read(&IoAddress::parse("%MX72.0").unwrap()).unwrap(), Value::Bool(true)),
+        auto: matches!(
+            runtime
+                .io()
+                .read(&IoAddress::parse("%MX72.0").unwrap())
+                .unwrap(),
+            Value::Bool(true)
+        ),
     });
     trace
 }

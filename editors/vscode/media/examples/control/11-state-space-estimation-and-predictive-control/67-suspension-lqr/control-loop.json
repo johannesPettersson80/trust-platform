@@ -12,7 +12,9 @@
     "design": "project",
     "revision": "sha256:curriculum-controller-67",
     "action": "direct",
-    "taskPeriodMs": 100
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX120.3",
+    "modeWhenTrue": "Auto"
   },
   "signals": {
     "processVariable": {
@@ -30,7 +32,7 @@
       "symbol": "P1.ForceRequested",
       "address": "%ML8",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "kN",
       "range": {
         "minimum": -10,
@@ -38,6 +40,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX120.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "controller-enabled",
         "channel": "controller-enabled",
@@ -143,7 +159,7 @@
         "symbol": "P1.RoadAccelerationRequested",
         "address": "%ML40",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "m/s2",
         "range": {
           "minimum": -2,
@@ -157,7 +173,7 @@
         "symbol": "P1.ForceApplied",
         "address": "%QL0",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "kN",
         "range": {
           "minimum": -5,
@@ -231,10 +247,16 @@
   },
   "plantId": "equivalent_active_suspension_truth_and_position_sensor_copies",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "mv_pulse",
-    "amplitude": 0.5,
-    "durationSeconds": 12,
-    "seed": 20260829
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 12.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX120.3",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

@@ -1,8 +1,9 @@
 # Prove sampled positioning stability in the z-plane
 
 Course position: Lesson 50 of 84. Prerequisite:
-`control-motor-sensitivity-loop-shaping`. Next lesson:
-`control-tuning-method-comparison`.
+[`control-motor-sensitivity-loop-shaping`](../49-motor-sensitivity/).
+Next lesson:
+[`control-tuning-method-comparison`](../../08-tuning-qualification-and-automation/51-method-comparison/).
 
 **Equipment:** Industrial positioning table.
 
@@ -85,15 +86,29 @@ The force-to-position response is:
 
 $G(s)=\frac{10}{s(s+2)}\;\frac{\mathrm{mm}}{\%}$
 
-For one sample interval, define the continuous velocity-decay factor ($a$) as
-$a = \exp\left(-2T_s\right)$. Exact zero-order-hold discretization gives:
+To obtain it, take Laplace transforms with zero initial state. The first balance
+gives $sX=V$. The second gives $sV=-2V+10U$, hence
+$V/U=10/(s+2)$. Since $X=V/s$, multiplying the two stages gives
+$X/U=10/[s(s+2)]$.
+
+For one sample interval with constant force, solve
+$\dot v+2v=10u$. Its exact endpoint is
+$v_{k+1}=av_k+5(1-a)u_k$, where $a=e^{-2T_s}$. Integrating that velocity over
+the interval gives
+$x_{k+1}=x_k+[(1-a)/2]v_k+[5T_s-2.5(1-a)]u_k$. Writing those two scalar
+updates as one matrix equation gives
 
 $\mathbf{A}_d=\begin{bmatrix}1 & \frac{1-a}{2}\\0 & a\end{bmatrix}$
 
 $\mathbf{B}_d=\begin{bmatrix}5T_s-2.5(1-a)\\5(1-a)\end{bmatrix}$
 
-The exact sampled denominator is $z^{2}-(1+a)z+a$. The sampled numerator creates
-zeros of approximately -0.9934 at 10 ms and -0.9355 at 100 ms.
+With no feedback, the eigenvalues of $\mathbf A_d$ are its diagonal entries 1
+and $a$, so its characteristic denominator is
+$(z-1)(z-a)=z^2-(1+a)z+a$. Combining $\mathbf A_d$, $\mathbf B_d$, and the
+position output into the sampled input-output transfer function creates a
+sampling zero: approximately -0.9934 at 10 ms and -0.9355 at 100 ms. It is a
+consequence of how a held force changes both velocity and position during one
+sample, not a physical flexible mode.
 
 The proportional gain ($K_{p}$) requests force from position error. The
 derivative gain ($K_{\mathrm{d}}$) requests damping force from measured velocity. The
@@ -103,13 +118,17 @@ $u_{\mathrm{requested}}=K_p(SP-x)-K_dv$
 
 The continuous-design gains are $K_{p} = 4 \%/mm$ and
 $K_{\mathrm{d}} = 0.4 \%/(mm/s)$. The held-force state stores the preceding request. The
-sampled closed-loop state is position, velocity, and held force, and its
-transition matrix is
+sampled closed-loop state is position, velocity, and held force. The first two
+rows propagate the plant using held force. The last row calculates the next
+held force from $-K_px-K_dv$; setpoint changes the forced response but not pole
+locations. Its homogeneous transition matrix is
 $\begin{bmatrix}\mathbf{A}_d & \mathbf{B}_d\\-K_p & -K_d & 0\end{bmatrix}$.
 
 ## Prediction
 
-Calculate these values before moving any simulated carriage:
+Substitute each sample interval into $a$, build its augmented matrix, and
+calculate all three eigenvalues. Stability requires every magnitude
+$|z|=\sqrt{(\Re z)^2+(\Im z)^2}$ to be strictly below one:
 
 | Case | Predicted sampled poles | Largest magnitude | Verdict |
 |---|---|---:|---|
@@ -119,10 +138,12 @@ Calculate these values before moving any simulated carriage:
 
 The corrected case uses $K_{p} = 1 \%/mm$ and $K_{\mathrm{d}} = 0.4 \%/(mm/s)$.
 
-The 10 ms and 100 ms Nyquist angular frequencies are 314.16 rad/s and
-31.416 rad/s. A 40 rad/s encoder component is representable at 10 ms but aliases
-to 22.832 rad/s at 100 ms. This is an analysis-only prediction; the motion run
-does not inject it into the controller.
+The 10 ms Nyquist frequency is $\pi/0.01=314.16$ rad/s; the 100 ms value is
+$\pi/0.1=31.416$ rad/s. At 100 ms the sampling angular frequency is
+$2\pi/T_s=62.832$ rad/s. A 40 rad/s component lies above Nyquist, so its samples
+are indistinguishable from $|40-62.832|=22.832$ rad/s. At 10 ms it is below
+Nyquist and remains representable. This is an analysis-only prediction; the
+motion run does not inject it into the controller.
 
 ## Implementation
 
@@ -143,44 +164,28 @@ latched out and a separate velocity-damping controlled stop removes motion.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. At the same 100 ms interval and delay, reduce only proportional gain to the qualified discrete value. The declared event lasts 10 seconds. It restores Carriage-position setpoint to 0 mm afterward. The deterministic Simulation seed is 20260829.
+The project owns all three one-millimetre moves, their sample/hold schedules,
+the explicit one-sample delays, the ten-second observation, controlled stops,
+and restoration to zero. Control Studio may write only
+`P1.ExperimentEnabled`; it must not inject another move. The 10.1-second timeout
+lets project restoration finish first. The deterministic Simulation seed is
+20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Carriage-position setpoint (SP, mm); Fine carriage position (PV, mm) and Coarse carriage position (PV, mm); Fine applied force (MV, %) and Coarse applied force (MV, %), including units, limits, mode, and quality. The initial operating point is Carriage-position setpoint = 0 mm, Fine applied force = 0 %, Coarse applied force = 0 %, Corrected applied force = 0 %, Fine carriage position = 0 mm, Coarse carriage position = 0 mm, Corrected carriage position = 0 mm. The unresolved baseline problem is: The unchanged gains create a sampled pole pair of magnitude 1.04126 and therefore an unstable 100 ms implementation.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept the corrected controller only when exact augmented poles and bounded executable motion agree under the actual sample, hold, delay, and limits.
-   - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
+   - **Successful evidence:** The Response plot advances and the displayed values are finite and current. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **10**. The observed lesson signal is **Carriage-position setpoint**. Control Studio uses the existing Boolean project authority **P1.ExperimentEnabled** at **%MX96.0**; it does not inject a second process event.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **10.1**. The observed lesson signal is **Carriage-position setpoint**. Control Studio uses the existing Boolean project authority **P1.ExperimentEnabled** at **%MX96.0**; it does not inject a second process event.
    - **Decision before action:** Before selecting **Review test**, predict the response to Analysis-only 40 rad/s alias calculation; no injected motion-run disturbance. Confirm the live values are current and the reviewed plan stays inside Fine applied force -10 % to 10 %; Coarse applied force -10 % to 10 %; Corrected applied force -10 % to 10 %; Fine carriage position -5 mm to 5 mm; Coarse carriage position -5 mm to 5 mm; Corrected carriage position -5 mm to 5 mm.
    - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
-   - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **SampledAxisComparison** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Exact hold discretization and z-plane stability** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **SampledAxisComparison** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Exact hold discretization and z-plane stability**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: fine_largest_pole_magnitude < 1 (dimensionless) (tolerance 0.000001 (dimensionless)); coarse_baseline_largest_pole_magnitude > 1 (dimensionless) (tolerance 0.000001 (dimensionless)); corrected_largest_pole_magnitude < 1 (dimensionless) (tolerance 0.000001 (dimensionless)); fine_final_position_error < 0.02 mm (tolerance 0.001 mm).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Record:** Compare the fine, coarse, and corrected motion with the pole predictions and retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test owns exact matrices, sampling zeros, eigenvalues, aliasing, time metrics, and verdicts; disabled Identify, Tune, or Validate controls are not evidence.
 
 ## Evidence and decision
 

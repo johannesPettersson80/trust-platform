@@ -15,10 +15,15 @@ VAR
     TableInitialState : Control.PIDInitialState;
     TableInput : Control.PIDInput;
     Initialized : BOOL := FALSE;
-    ColdRoomSetpoint : LREAL := 2.0;
-    HeaterSetpoint : LREAL := 30.0;
-    TankSetpoint : LREAL := 60.0;
-    TableSetpoint : LREAL := 1.0;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    AutoMode : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ColdRoomSetpoint : LREAL := 4.0;
+    HeaterSetpoint : LREAL := 20.0;
+    TankSetpoint : LREAL := 50.0;
+    TableSetpoint : LREAL := 0.0;
     ColdRoomTemperature : LREAL := 4.0;
     HeaterTemperature : LREAL := 20.0;
     TankLevel : LREAL := 50.0;
@@ -27,7 +32,7 @@ VAR
     ColdRoomCompressor : LREAL := 0.0;
     HeaterPower : LREAL := 0.0;
     TankPump : LREAL := 20.0;
-    TableTorque : LREAL := 4.0;
+    TableTorque : LREAL := 0.0;
     ColdRoomStructure : INT := 1;
     HeaterStructure : INT := 3;
     TankStructure : INT := 2;
@@ -94,8 +99,8 @@ IF NOT Initialized THEN
     TableController.Configure(Parameters := TableParameters);
     TableInitialState.Setpoint := TablePosition;
     TableInitialState.ProcessValue := TablePosition;
-    TableInitialState.NominalOutput := LREAL#4.0;
-    TableInitialState.SaturatedOutput := LREAL#4.0;
+    TableInitialState.NominalOutput := LREAL#0.0;
+    TableInitialState.SaturatedOutput := LREAL#0.0;
     TableController.Initialize(State := TableInitialState);
 
     ColdRoomStructure := 1;
@@ -105,12 +110,42 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
+(* One reviewed authority starts and restores all four selected structures.
+   The project records engineering selections; it does not select structures
+   automatically. *)
+IF ExperimentEnabled THEN
+    ColdRoomSetpoint := LREAL#2.0;
+    HeaterSetpoint := LREAL#30.0;
+    TankSetpoint := LREAL#60.0;
+    TableSetpoint := LREAL#1.0;
+    AutoMode := TRUE;
+ELSIF ExperimentWasEnabled THEN
+    ColdRoomSetpoint := LREAL#4.0;
+    HeaterSetpoint := LREAL#20.0;
+    TankSetpoint := LREAL#50.0;
+    TableSetpoint := LREAL#0.0;
+    AutoMode := FALSE;
+    CompressorOn := FALSE;
+    DwellScans := 50;
+END_IF;
+
+InputsValid := ColdRoomTemperature >= LREAL#-10.0
+    AND ColdRoomTemperature <= LREAL#20.0
+    AND HeaterTemperature >= LREAL#0.0 AND HeaterTemperature <= LREAL#60.0
+    AND TankLevel >= LREAL#0.0 AND TankLevel <= LREAL#100.0
+    AND TablePosition >= LREAL#-4.0 AND TablePosition <= LREAL#4.0
+    AND TableVelocity >= LREAL#-20.0 AND TableVelocity <= LREAL#20.0;
+IF SafetyAbort OR NOT InputsValid THEN
+    AutoMode := FALSE;
+    CompressorOn := FALSE;
+END_IF;
+
 (* A binary compressor cannot realize a continuous PID output. Hysteresis and
    five-second dwell implement the declared temperature-band requirement. *)
 IF DwellScans < 50 THEN
     DwellScans := DwellScans + 1;
 END_IF;
-IF (ColdRoomTemperature >= ColdRoomSetpoint + LREAL#0.5)
+IF AutoMode AND (ColdRoomTemperature >= ColdRoomSetpoint + LREAL#0.5)
     AND NOT CompressorOn AND (DwellScans >= 50) THEN
     CompressorOn := TRUE;
     DwellScans := 0;
@@ -128,23 +163,39 @@ END_IF;
 HeaterInput.Setpoint := HeaterSetpoint;
 HeaterInput.ProcessValue := HeaterTemperature;
 HeaterInput.FeedForward := LREAL#0.0;
-HeaterInput.Mode := PIDMode#Auto;
+IF AutoMode THEN
+    HeaterInput.Mode := PIDMode#Auto;
+ELSE
+    HeaterInput.Mode := PIDMode#Manual;
+    HeaterInput.ManualOutput := LREAL#0.0;
+END_IF;
 HeaterInput.CycleTime := LREAL#0.1;
 HeaterPower := HeaterController.Update(Input := HeaterInput);
 
 TankInput.Setpoint := TankSetpoint;
 TankInput.ProcessValue := TankLevel;
 TankInput.FeedForward := LREAL#0.0;
-TankInput.Mode := PIDMode#Auto;
+IF AutoMode THEN
+    TankInput.Mode := PIDMode#Auto;
+ELSE
+    TankInput.Mode := PIDMode#Manual;
+    TankInput.ManualOutput := LREAL#20.0;
+END_IF;
 TankInput.CycleTime := LREAL#0.1;
 TankPump := TankController.Update(Input := TankInput);
 
 TableInput.Setpoint := TableSetpoint;
 TableInput.ProcessValue := TablePosition;
 TableInput.FeedForward := LREAL#0.0;
-TableInput.Mode := PIDMode#Auto;
+IF AutoMode THEN
+    TableInput.Mode := PIDMode#Auto;
+ELSE
+    TableInput.Mode := PIDMode#Manual;
+    TableInput.ManualOutput := LREAL#0.0;
+END_IF;
 TableInput.CycleTime := LREAL#0.1;
 TableTorque := TableController.Update(Input := TableInput);
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -157,6 +208,10 @@ VAR_CONFIG
     P1.HeaterStructure AT %MW82 : INT;
     P1.TankStructure AT %MW84 : INT;
     P1.TableStructure AT %MW86 : INT;
+    P1.ExperimentEnabled AT %MX88.0 : BOOL;
+    P1.AutoMode AT %MX88.1 : BOOL;
+    P1.SafetyAbort AT %MX88.2 : BOOL;
+    P1.InputsValid AT %MX88.3 : BOOL;
     P1.ColdRoomSetpoint AT %ML0 : LREAL;
     P1.HeaterSetpoint AT %ML8 : LREAL;
     P1.TankSetpoint AT %ML16 : LREAL;

@@ -11,61 +11,64 @@
   "nextLesson": "control-capstone-reactor",
   "physicalPurpose": "Position a payload table accurately without excessive oscillation, motor torque, noise-driven activity, or unqualified digital behavior.",
   "signals": [
-    {"role":"authority","name":"Experiment authority","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX192.2"},
-    {"role":"safety","name":"Safety abort","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX192.3"},
-    {"role":"quality","name":"Experiment inputs valid","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX192.4"},
-    {"role":"SP","name":"Payload-position setpoint","unit":"rad","minimum":-1.5,"maximum":1.5,"resolution":0.001,"binding":"%ML200"},
-    {"role":"PV","name":"P raw encoder position","unit":"rad","minimum":-1.5,"maximum":1.5,"resolution":0.001,"binding":"%IL0"},
-    {"role":"PV","name":"PD raw encoder position","unit":"rad","minimum":-1.5,"maximum":1.5,"resolution":0.001,"binding":"%IL24"},
-    {"role":"PV","name":"PID raw encoder position","unit":"rad","minimum":-1.5,"maximum":1.5,"resolution":0.001,"binding":"%IL48"},
-    {"role":"PV","name":"Coarse PID raw encoder position","unit":"rad","minimum":-1.5,"maximum":1.5,"resolution":0.001,"binding":"%IL72"},
-    {"role":"MV","name":"P applied motor torque","unit":"N m","minimum":-10,"maximum":10,"resolution":0.01,"binding":"%QL0"},
-    {"role":"MV","name":"PD applied motor torque","unit":"N m","minimum":-10,"maximum":10,"resolution":0.01,"binding":"%QL16"},
-    {"role":"MV","name":"PID applied motor torque","unit":"N m","minimum":-10,"maximum":10,"resolution":0.01,"binding":"%QL32"},
-    {"role":"MV","name":"Coarse PID applied motor torque","unit":"N m","minimum":-10,"maximum":10,"resolution":0.01,"binding":"%QL48"},
-    {"role":"state","name":"PID filtered encoder position","unit":"rad","minimum":-1.5,"maximum":1.5,"resolution":0.001,"binding":"%ML112"},
-    {"role":"state","name":"PID requested motor torque","unit":"N m","minimum":-10,"maximum":10,"resolution":0.01,"binding":"%ML144"},
-    {"role":"quality","name":"Encoder quality good","unit":"1","minimum":0,"maximum":1,"resolution":1,"binding":"%MX192.1"},
-    {"role":"state","name":"Controller revision","unit":"1","minimum":0,"maximum":2147483647,"resolution":1,"binding":"%MD176"}
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX192.2" },
+    { "role": "state", "name": "Safety abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX192.3" },
+    { "role": "quality", "name": "Experiment inputs valid", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX192.4" },
+    { "role": "SP", "name": "Payload-position setpoint", "unit": "rad", "minimum": -1.5, "maximum": 1.5, "resolution": 0.001, "binding": "%ML200" },
+    { "role": "PV", "name": "P raw encoder position", "unit": "rad", "minimum": -1.5, "maximum": 1.5, "resolution": 0.001, "binding": "%IL0" },
+    { "role": "PV", "name": "PD raw encoder position", "unit": "rad", "minimum": -1.5, "maximum": 1.5, "resolution": 0.001, "binding": "%IL24" },
+    { "role": "PV", "name": "PID raw encoder position", "unit": "rad", "minimum": -1.5, "maximum": 1.5, "resolution": 0.001, "binding": "%IL48" },
+    { "role": "PV", "name": "Coarse PID raw encoder position", "unit": "rad", "minimum": -1.5, "maximum": 1.5, "resolution": 0.001, "binding": "%IL72" },
+    { "role": "MV", "name": "P applied motor torque", "unit": "N m", "minimum": -10, "maximum": 10, "resolution": 0.01, "binding": "%QL0" },
+    { "role": "MV", "name": "PD applied motor torque", "unit": "N m", "minimum": -10, "maximum": 10, "resolution": 0.01, "binding": "%QL16" },
+    { "role": "MV", "name": "PID applied motor torque", "unit": "N m", "minimum": -10, "maximum": 10, "resolution": 0.01, "binding": "%QL32" },
+    { "role": "MV", "name": "Coarse PID applied motor torque", "unit": "N m", "minimum": -10, "maximum": 10, "resolution": 0.01, "binding": "%QL48" },
+    { "role": "state", "name": "PID filtered encoder position", "unit": "rad", "minimum": -1.5, "maximum": 1.5, "resolution": 0.001, "binding": "%ML112" },
+    { "role": "state", "name": "PID requested motor torque", "unit": "N m", "minimum": -10, "maximum": 10, "resolution": 0.01, "binding": "%ML144" },
+    { "role": "quality", "name": "Encoder quality good", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX192.1" },
+    { "role": "state", "name": "Controller revision", "unit": "1", "minimum": 0, "maximum": 2147483647, "resolution": 1, "binding": "%MD176" }
   ],
   "plant": {
     "modelId": "four_equivalent_flexible_rotary_indexing_tables",
     "executable": "simulation.toml",
     "parameters": [
-      {"name":"motor_inertia","value":0.2,"unit":"kg m2"},
-      {"name":"payload_inertia","value":0.8,"unit":"kg m2"},
-      {"name":"shaft_stiffness","value":20,"unit":"N m/rad"},
-      {"name":"shaft_damping","value":0.5,"unit":"N m s/rad"},
-      {"name":"motor_damping","value":0.2,"unit":"N m s/rad"},
-      {"name":"payload_damping","value":0.3,"unit":"N m s/rad"},
-      {"name":"encoder_interference_amplitude","value":0.002,"unit":"rad"},
-      {"name":"fine_controller_interval","value":10,"unit":"ms"}
+      { "name": "motor_inertia", "value": 0.2, "unit": "kg m2" },
+      { "name": "payload_inertia", "value": 0.8, "unit": "kg m2" },
+      { "name": "shaft_stiffness", "value": 20, "unit": "N m/rad" },
+      { "name": "shaft_damping", "value": 0.5, "unit": "N m s/rad" },
+      { "name": "motor_damping", "value": 0.2, "unit": "N m s/rad" },
+      { "name": "payload_damping", "value": 0.3, "unit": "N m s/rad" },
+      { "name": "encoder_interference_amplitude", "value": 0.002, "unit": "rad" },
+      { "name": "fine_controller_interval", "value": 10, "unit": "ms" }
     ],
     "sampleTimeSeconds": 0.01,
-    "initialState": {"P raw encoder position":0,"PD raw encoder position":0,"PID raw encoder position":0,"Coarse PID raw encoder position":0},
+    "initialState": { "P raw encoder position": 0, "PD raw encoder position": 0, "PID raw encoder position": 0, "Coarse PID raw encoder position": 0 },
     "seed": 20260829,
-    "operatingPoint": {"Payload-position setpoint":0,"P raw encoder position":0,"PD raw encoder position":0,"PID raw encoder position":0,"Coarse PID raw encoder position":0,"P applied motor torque":0,"PD applied motor torque":0,"PID applied motor torque":0,"Coarse PID applied motor torque":0,"Encoder quality good":1,"Controller revision":78},
+    "operatingPoint": { "Payload-position setpoint": 0, "P raw encoder position": 0, "PD raw encoder position": 0, "PID raw encoder position": 0, "Coarse PID raw encoder position": 0, "P applied motor torque": 0, "PD applied motor torque": 0, "PID applied motor torque": 0, "Coarse PID applied motor torque": 0, "Encoder quality good": 1, "Controller revision": 78 },
     "validityRange": [
-      {"signal":"PID raw encoder position","minimum":-1.5,"maximum":1.5,"unit":"rad"},
-      {"signal":"PID applied motor torque","minimum":-10,"maximum":10,"unit":"N m"},
-      {"signal":"Coarse PID raw encoder position","minimum":-1.5,"maximum":1.5,"unit":"rad"},
-      {"signal":"Coarse PID applied motor torque","minimum":-10,"maximum":10,"unit":"N m"}
+      { "signal": "PID raw encoder position", "minimum": -1.5, "maximum": 1.5, "unit": "rad" },
+      { "signal": "PID applied motor torque", "minimum": -10, "maximum": 10, "unit": "N m" },
+      { "signal": "Coarse PID raw encoder position", "minimum": -1.5, "maximum": 1.5, "unit": "rad" },
+      { "signal": "Coarse PID applied motor torque", "minimum": -10, "maximum": 10, "unit": "N m" }
     ],
-    "simplifications": [
-      "The table is represented by a local linear two-inertia motor, elastic shaft, and payload model.",
-      "Only one flexible shaft mode is represented; backlash, Coulomb friction, current-loop dynamics, thermal limits, hard stops, and higher structural modes are omitted.",
-      "Duplicated true-state outputs are synchronized Simulation validation truth, not installed physical sensors.",
-      "All controller and plant results are Simulation evidence and do not authorize physical motion."
-    ]
+    "simplifications": ["The table is represented by a local linear two-inertia motor, elastic shaft, and payload model.", "Only one flexible shaft mode is represented; backlash, Coulomb friction, current-loop dynamics, thermal limits, hard stops, and higher structural modes are omitted.", "Duplicated true-state outputs are synchronized Simulation validation truth, not installed physical sensors.", "All controller and plant results are Simulation evidence and do not authorize physical motion."]
   },
   "baseline": {
     "executableId": "Servo.PAndFilteredPD",
-    "settings": {"p":{"kp":7,"ki":0,"kd":0},"pd":{"kp":7,"ki":0,"kd":2,"filterSeconds":0.05}},
+    "settings": {
+      "p": { "kp": 7, "ki": 0, "kd": 0 },
+      "pd": { "kp": 7, "ki": 0, "kd": 2, "filterSeconds": 0.05 }
+    },
     "limitation": "P does not satisfy the settling requirement; filtered PD damps the move but retains constant-load position error."
   },
   "change": {
     "executableId": "Servo.FilteredPIDDigitalQualification",
-    "settings": {"pid":{"kp":7,"ki":1.2,"kd":2,"filterSeconds":0.05,"sampleSeconds":0.01},"coarse":{"sampleSeconds":0.1,"updateDelay":1},"activeControllerRevision":78,"application":"unapplied"},
+    "settings": {
+      "pid": { "kp": 7, "ki": 1.2, "kd": 2, "filterSeconds": 0.05, "sampleSeconds": 0.01 },
+      "coarse": { "sampleSeconds": 0.1, "updateDelay": 1 },
+      "activeControllerRevision": 78,
+      "application": "unapplied"
+    },
     "decision": "Qualify filtered PID across time, frequency, discrete, actuator, noise, uncertainty, and abnormal evidence while retaining revision 78 unapplied."
   },
   "experiment": {
@@ -75,60 +78,42 @@
     "amplitude": 0,
     "durationSeconds": 30.01,
     "settlingSeconds": 1,
-    "disturbances": [
-      "Command a common 0.5 radian position step at 1 second.",
-      "Apply a common opposing 1.5 newton-metre payload torque at 10 seconds.",
-      "Repeat the selected PID with 25 percent higher payload inertia, half shaft damping, and doubled encoder interference.",
-      "Compare the selected 10 millisecond implementation with unchanged gains at 100 milliseconds and one update of delay.",
-      "Validate torque saturation and restoration, manual tracking, invalid quality, and controlled stop separately from the nominal metric window."
-    ],
+    "disturbances": ["Command a common 0.5 radian position step at 1 second.", "Apply a common opposing 1.5 newton-metre payload torque at 10 seconds.", "Repeat the selected PID with 25 percent higher payload inertia, half shaft damping, and doubled encoder interference.", "Compare the selected 10 millisecond implementation with unchanged gains at 100 milliseconds and one update of delay.", "Validate torque saturation and restoration, manual tracking, invalid quality, and controlled stop separately from the nominal metric window."],
     "seed": 20260829,
-    "restorationValue": 0,
-    "activation": {"symbol":"P1.ExperimentEnabled","address":"%MX192.2","activeValue":true,"inactiveValue":false}
+    "restorationValue": 0
   },
   "acceptance": [
-    {"metric":"selected_pid_overshoot","signal":"PID raw encoder position","window":"1 through 10 seconds with eligible quality","comparator":"<=","limit":35,"unit":"%","tolerance":0.5,"evidenceClass":"simulation"},
-    {"metric":"selected_pid_settling_time","signal":"PID raw encoder position","window":"after the 0.5 radian step and before the load event","comparator":"<=","limit":5,"unit":"s","tolerance":0.02,"evidenceClass":"simulation"},
-    {"metric":"selected_pid_load_error","signal":"PID raw encoder position","window":"25 through 30 seconds after settling qualification","comparator":"<=","limit":0.02,"unit":"rad","tolerance":0.001,"evidenceClass":"simulation"},
-    {"metric":"selected_pid_quiet_torque_rms","signal":"PID applied motor torque","window":"7 through 9 seconds","comparator":"<=","limit":0.1,"unit":"N m","tolerance":0.005,"evidenceClass":"simulation"},
-    {"metric":"active_revision_changes","signal":"Controller revision","window":"complete campaign","comparator":"==","limit":0,"unit":"1","tolerance":0,"evidenceClass":"simulation"}
+    { "metric": "selected_pid_overshoot", "signal": "PID raw encoder position", "window": "1 through 10 seconds with eligible quality", "comparator": "<=", "limit": 35, "unit": "%", "tolerance": 0.5, "evidenceClass": "simulation" },
+    { "metric": "selected_pid_settling_time", "signal": "PID raw encoder position", "window": "after the 0.5 radian step and before the load event", "comparator": "<=", "limit": 5, "unit": "s", "tolerance": 0.02, "evidenceClass": "simulation" },
+    { "metric": "selected_pid_load_error", "signal": "PID raw encoder position", "window": "25 through 30 seconds after settling qualification", "comparator": "<=", "limit": 0.02, "unit": "rad", "tolerance": 0.001, "evidenceClass": "simulation" },
+    { "metric": "selected_pid_quiet_torque_rms", "signal": "PID applied motor torque", "window": "7 through 9 seconds", "comparator": "<=", "limit": 0.1, "unit": "N m", "tolerance": 0.005, "evidenceClass": "simulation" },
+    { "metric": "active_revision_changes", "signal": "Controller revision", "window": "complete campaign", "comparator": "==", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" }
   ],
   "safety": {
     "hardLimits": [
-      {"signal":"PID raw encoder position","minimum":-1.5,"maximum":1.5,"unit":"rad"},
-      {"signal":"PID applied motor torque","minimum":-10,"maximum":10,"unit":"N m"},
-      {"signal":"Coarse PID raw encoder position","minimum":-1.5,"maximum":1.5,"unit":"rad"},
-      {"signal":"Coarse PID applied motor torque","minimum":-10,"maximum":10,"unit":"N m"}
+      { "signal": "PID raw encoder position", "minimum": -1.5, "maximum": 1.5, "unit": "rad" },
+      { "signal": "PID applied motor torque", "minimum": -10, "maximum": 10, "unit": "N m" },
+      { "signal": "Coarse PID raw encoder position", "minimum": -1.5, "maximum": 1.5, "unit": "rad" },
+      { "signal": "Coarse PID applied motor torque", "minimum": -10, "maximum": 10, "unit": "N m" }
     ],
-    "abortPredicates": [
-      "Position, velocity, torque, timing, model, or frequency data is nonfinite, stale, invalid, or outside its declared range.",
-      "The executed sample interval, hold, delay, filter, model, controller, or revision differs from the analyzed identity.",
-      "Applied torque leaves minus 10 through plus 10 newton metres or speed leaves minus 5 through plus 5 radians per second.",
-      "A saturated or controlled-stop run is ranked by a metric whose validity prerequisite it failed.",
-      "The confirmed controller revision changes without explicit application approval.",
-      "Simulation evidence is presented as physical machine commissioning or personnel-safety evidence."
-    ],
+    "abortPredicates": ["Position, velocity, torque, timing, model, or frequency data is nonfinite, stale, invalid, or outside its declared range.", "The executed sample interval, hold, delay, filter, model, controller, or revision differs from the analyzed identity.", "Applied torque leaves minus 10 through plus 10 newton metres or speed leaves minus 5 through plus 5 radians per second.", "A saturated or controlled-stop run is ranked by a metric whose validity prerequisite it failed.", "The confirmed controller revision changes without explicit application approval.", "Simulation evidence is presented as physical machine commissioning or personnel-safety evidence."],
     "safeMv": 0,
     "restorationMode": "Enter the reviewed zero-torque controlled stop, verify valid stationary encoder and drive state, track the applied torque, then explicitly restore the unchanged automatic controller.",
     "physicalApprovalRole": "authorised motion-controls engineer with machine-safety, electrical, mechanical, operations, drive, and equipment owners",
-    "simulationOnlyRestrictions": [
-      "Do not energize or move a physical axis from this capstone.",
-      "A physical test requires independently reviewed hard-stop clearance, load support, guarding, safe speed, torque, travel, stop category, excitation, abort, approval, and rollback immediately before motion.",
-      "Applying the exported revision requires separate explicit approval and a rollback-ready commissioning window."
-    ]
+    "simulationOnlyRestrictions": ["Do not energize or move a physical axis from this capstone.", "A physical test requires independently reviewed hard-stop clearance, load support, guarding, safe speed, torque, travel, stop category, excitation, abort, approval, and rollback immediately before motion.", "Applying the exported revision requires separate explicit approval and a rollback-ready commissioning window."]
   },
-  "workflowStages": ["Monitor","Test"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-78--motion-capstone-servo-positioning-system",
     "nativeTest": "control_curriculum_servo_capstone_qualifies_filtered_pid_digitally",
     "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_motion_capstone control_curriculum_servo_capstone_qualifies_filtered_pid_digitally -- --exact --nocapture",
     "projectPath": "examples/control/14-integrated-capstones/78-servo",
-    "runArtifactFields": ["projectIdentity","plantIdentity","controllerRevision","evidenceClass","mechanicalModel","identificationRecord","residuals","sampleTime","hold","delay","filter","SP","rawPV","filteredPV","validationState","MVRequested","MVPending","MVApplied","loadTorque","mode","quality","limits","events","candidateGains","rootLocus","frequencyGrid","margins","sensitivity","discretePoles","settling","overshoot","finalError","torqueMovement","noiseActivity","uncertainty","abnormalState","selectedRecommendation","applicationState","rollback","limitations"],
+    "runArtifactFields": ["projectIdentity", "plantIdentity", "controllerRevision", "evidenceClass", "mechanicalModel", "identificationRecord", "residuals", "sampleTime", "hold", "delay", "filter", "SP", "rawPV", "filteredPV", "validationState", "MVRequested", "MVPending", "MVApplied", "loadTorque", "mode", "quality", "limits", "events", "candidateGains", "rootLocus", "frequencyGrid", "margins", "sensitivity", "discretePoles", "settling", "overshoot", "finalError", "torqueMovement", "noiseActivity", "uncertainty", "abnormalState", "selectedRecommendation", "applicationState", "rollback", "limitations"],
     "renderedJourneyId": "curriculum-capstone-servo-commissioning"
   },
   "video": {
     "viewerOutcome": "Commission and defend a flexible servo controller from mechanical physics through exact digital execution without silently applying it.",
-    "requiredVisibleEvidence": ["requirements","two-inertia mechanics","P PD PID structure comparison","raw and filtered encoder","root locus","Bode and sensitivity","10 and 100 millisecond execution","requested pending and applied torque","load event","uncertainty campaign","abnormal recovery","unapplied recommendation","Simulation boundary"],
+    "requiredVisibleEvidence": ["requirements", "two-inertia mechanics", "P PD PID structure comparison", "raw and filtered encoder", "root locus", "Bode and sensitivity", "10 and 100 millisecond execution", "requested pending and applied torque", "load event", "uncertainty campaign", "abnormal recovery", "unapplied recommendation", "Simulation boundary"],
     "durationClass": "extended",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
@@ -138,15 +123,9 @@
   "learning": {
     "context": "A motor drives a payload indexing table through one flexible shaft while encoder noise, load torque, drive limits, sampling, hold, and computation delay affect the loop.",
     "reason": "Earlier lessons supplied P, PD, PID, filtering, mechanical diagnosis, classical analysis, and discrete design separately; the capstone requires one controller to satisfy all of their evidence at once.",
-    "theory": [
-      "The two-inertia balance predicts the flexible mode and explains why gain-only correction does not guarantee useful damping.",
-      "Derivative action on measured motion adds damping without setpoint kick; integral action supplies the constant torque that PD cannot produce at zero error.",
-      "Encoder filtering reduces derivative noise but adds phase lag, so raw and filtered signals and frequency effects remain visible.",
-      "Root locus, Bode margins, sensitivity, exact sampled poles, time response, torque effort, and abnormal behavior answer different commissioning questions.",
-      "The implemented sample interval, zero-order hold, computation delay, and controller revision are part of the controller evidence."
-    ],
+    "theory": ["The two-inertia balance predicts the flexible mode and explains why gain-only correction does not guarantee useful damping.", "Derivative action on measured motion adds damping without setpoint kick; integral action supplies the constant torque that PD cannot produce at zero error.", "Encoder filtering reduces derivative noise but adds phase lag, so raw and filtered signals and frequency effects remain visible.", "Root locus, Bode margins, sensitivity, exact sampled poles, time response, torque effort, and abnormal behavior answer different commissioning questions.", "The implemented sample interval, zero-order hold, computation delay, and controller revision are part of the controller evidence."],
     "workedPrediction": "Predict the 11.18 radian-per-second flexible mode, 3.5 newton-metre initial P request, 0.2143-radian PD load offset, approximately 38-degree phase margin, 1.94 gain margin, and failure of unchanged delayed 100-millisecond execution.",
-    "practicalPreparation": ["Declare mechanics, sensor and drive identities, limits, noise, sample and delay convention, model and controller revisions, controlled stop, approval, rollback, and Simulation label.","Predict P, PD, PID, and coarse-execution outcomes before enabling the equivalent table copies."],
+    "practicalPreparation": ["Declare mechanics, sensor and drive identities, limits, noise, sample and delay convention, model and controller revisions, controlled stop, approval, rollback, and Simulation label.", "Predict P, PD, PID, and coarse-execution outcomes before enabling the equivalent table copies."],
     "baseline": "Run P and filtered PD under the common move and load event; retain P nonsettling and PD load offset as structure evidence.",
     "change": "Add only the integral action required by the load evidence, then compare the same filtered PID at qualified 10-millisecond and unchanged delayed 100-millisecond execution.",
     "comparison": "Classify validity before comparing settling, overshoot, final-window load error, torque movement, noise activity, margins, sensitivity, discrete poles, limits, and uncertainty.",

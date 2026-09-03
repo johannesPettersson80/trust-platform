@@ -171,7 +171,8 @@ runs the shipped measured-bias candidate. The retained manual trials and
 zero-bias comparison come from the native evidence test, which executes the
 same Structured Text under equivalent declared conditions. Control Studio does
 not pretend to sequence those four additional runs. It writes the reviewed
-Boolean `P1.AutoMode` authority and restores it false. The project owns the
+Boolean `P1.ExperimentEnabled` authority and restores it false. The project
+derives Auto and owns the
 measured 75% bias and scheduled load event. The seed is 20260828.
 
 ### Control Studio actions
@@ -184,9 +185,9 @@ measured 75% bias and scheduled load event. The seed is 20260828.
    - **Record:** Write down the initial SP, PV, requested and applied MV, bias, gain, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120**. The reviewed authority is **P1.AutoMode**. Control Studio sets it true; the project owns `Kp = 8 %/°C`, the measured 75% bias, and the timed load event.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The sole Control Studio write is Boolean **P1.ExperimentEnabled**. The project derives Auto and owns `Kp = 8 %/°C`, the measured 75% bias, and the timed load event.
    - **Decision before action:** Before selecting **Review test**, predict the response to Cold-water flow increases at 60 s and shifts the zero-power equilibrium from 20 to 17 degC. Confirm the live values are current and the reviewed plan stays inside Outlet-water temperature 0 degC to 80 degC; Applied heater power 0 % to 100 %.
-   - **Successful evidence:** Select **Review test**, verify **P1.AutoMode**, the timeout, stop conditions, and false restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and completion restores Auto false and requested and applied power to 0%.
+   - **Successful evidence:** Select **Review test**, verify **P1.ExperimentEnabled**, the timeout, stop conditions, and false restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and completion restores authority false and requested and applied power to 0%.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test. Return to Manual mode and confirm zero percent requested and applied output as the restoration state.
    - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260828**.
 

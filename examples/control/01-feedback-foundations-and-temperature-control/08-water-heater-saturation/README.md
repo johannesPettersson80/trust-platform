@@ -191,7 +191,10 @@ AppliedHeaterPower := MAX(MIN(RequestedHeaterPower, LREAL#100.0), LREAL#0.0);
 SaturationError := RequestedHeaterPower - AppliedHeaterPower;
 ```
 
-Both gains are live Control Studio settings. A live edit is adopted on the next 0.1-second scan without resetting the retained integral state. A gain edit is not a new experiment; restore the plant and controller before comparing another setting.
+The project keeps the selected Lesson 7 gains fixed during this observation.
+It applies them on every 0.1-second scan without resetting the retained
+integral state. Any separate gain comparison belongs in a fresh restored native
+run; Control Studio writes only experiment authority here.
 
 ## Experiment in Control Studio
 

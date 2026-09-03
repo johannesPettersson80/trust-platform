@@ -11,7 +11,7 @@
   "prerequisites": ["control-gravity-tank-scheduling"],
   "nextLesson": "control-valve-stiction",
   "signals": [
-    { "role": "authority", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX90.7" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX90.7" },
     { "role": "state", "name": "Automatic mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX90.0" },
     { "role": "state", "name": "Predictor enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX90.1" },
     { "role": "state", "name": "Predictor active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX90.2" },
@@ -25,7 +25,7 @@
     { "role": "state", "name": "Delayed model output", "unit": "degC", "minimum": 15, "maximum": 60, "resolution": 0.01, "binding": "%ML296" },
     { "role": "state", "name": "Model correction", "unit": "degC", "minimum": -5, "maximum": 5, "resolution": 0.01, "binding": "%ML304" },
     { "role": "state", "name": "Selected proportional gain", "unit": "%/degC", "minimum": 0.4, "maximum": 2.0, "resolution": 0.0001, "binding": "%ML312" },
-    { "role": "state", "name": "Selected integral gain", "unit": "%/(degC*s)", "minimum": 0.03, "maximum": 0.16, "resolution": 0.000001, "binding": "%ML320" },
+    { "role": "state", "name": "Selected integral gain", "unit": "%/(degC*s)", "minimum": 0.03, "maximum": 0.16, "resolution": 1e-06, "binding": "%ML320" },
     { "role": "PV", "name": "Downstream product temperature", "unit": "degC", "minimum": 15, "maximum": 60, "resolution": 0.01, "binding": "%IL160" },
     { "role": "MV", "name": "Heater-power request", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL176" }
   ],
@@ -44,24 +44,13 @@
     "sampleTimeSeconds": 0.1,
     "initialState": { "productTemperatureDegC": 20, "heaterPercent": 0 },
     "seed": 20260829,
-    "operatingPoint": {
-      "Product-temperature setpoint": 20,
-      "Downstream product temperature": 20,
-      "Predicted current product temperature": 20,
-      "Heater-power request": 0
-    },
+    "operatingPoint": { "Product-temperature setpoint": 20, "Downstream product temperature": 20, "Predicted current product temperature": 20, "Heater-power request": 0 },
     "validityRange": [
       { "signal": "Product-temperature setpoint", "minimum": 20, "maximum": 50, "unit": "degC" },
       { "signal": "Downstream product temperature", "minimum": 15, "maximum": 60, "unit": "degC" },
       { "signal": "Predicted current product temperature", "minimum": 15, "maximum": 60, "unit": "degC" }
     ],
-    "simplifications": [
-      "One local first-order-plus-dead-time product-temperature path around fixed belt speed and airflow",
-      "The declared inlet-temperature event directly changes the local thermal state",
-      "One ideal bounded heater request with actuator lag and slew but no installed-valve nonlinearity",
-      "Internal model parameters remain nominal while test-only plant cases declare mismatch",
-      "Simulation-only I/O and evidence; no physical oven is operated"
-    ]
+    "simplifications": ["One local first-order-plus-dead-time product-temperature path around fixed belt speed and airflow", "The declared inlet-temperature event directly changes the local thermal state", "One ideal bounded heater request with actuator lag and slew but no installed-valve nonlinearity", "Internal model parameters remain nominal while test-only plant cases declare mismatch", "Simulation-only I/O and evidence; no physical oven is operated"]
   },
   "baseline": {
     "executableId": "ConveyorOven.AcceptedOrdinaryPI",
@@ -82,13 +71,12 @@
     "settlingSeconds": 10,
     "disturbances": ["Request 35 degC at 10 s", "Apply a -2 degC inlet-temperature disturbance at 70 s", "Repeat with moderate actual gain 0.76 degC/%, time constant 13 s and delay 17 s", "Repeat with severe actual gain 0.60 degC/%, time constant 18 s and delay 22 s"],
     "seed": 20260829,
-    "restorationValue": 0,
-    "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX90.7", "activeValue": true, "inactiveValue": false }
+    "restorationValue": 0
   },
   "acceptance": [
     { "metric": "nominal_smith_ninety_percent_rise_time", "signal": "Downstream product temperature", "window": "time from the 10-s request until first reaching 33.5 degC", "comparator": "<", "limit": 45, "unit": "s", "tolerance": 0.1, "evidenceClass": "simulation" },
     { "metric": "nominal_smith_final_error", "signal": "Downstream product temperature", "window": "mean absolute error from 170 through 180 s after settling qualification", "comparator": "<=", "limit": 0.5, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
-    { "metric": "model_correction_limit", "signal": "Model correction", "window": "complete predictor run", "comparator": "<=", "limit": 5, "unit": "degC", "tolerance": 0.000001, "evidenceClass": "simulation" },
+    { "metric": "model_correction_limit", "signal": "Model correction", "window": "complete predictor run", "comparator": "<=", "limit": 5, "unit": "degC", "tolerance": 1e-06, "evidenceClass": "simulation" },
     { "metric": "severe_mismatch_fallback_count", "signal": "Measured-feedback fallback", "window": "10 through 180 s in the severe-mismatch run", "comparator": ">=", "limit": 1, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" }
   ],
   "safety": {

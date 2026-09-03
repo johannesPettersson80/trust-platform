@@ -1,5 +1,8 @@
 PROGRAM Main
 VAR
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     RelayAmplitude : LREAL := 0.0;
     ExperimentElapsed : LREAL := 0.0;
     QualifiedRelayHigh : BOOL := TRUE;
@@ -9,6 +12,16 @@ VAR
     QualifiedTemperature : LREAL := 50.0;
     RejectedTemperature : LREAL := 50.0;
 END_VAR
+
+InputsValid := QualifiedTemperature >= LREAL#40.0
+    AND QualifiedTemperature <= LREAL#60.0
+    AND RejectedTemperature >= LREAL#40.0
+    AND RejectedTemperature <= LREAL#60.0;
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    RelayAmplitude := LREAL#18.0;
+ELSE
+    RelayAmplitude := LREAL#0.0;
+END_IF;
 
 IF RelayAmplitude <= LREAL#0.0 THEN
     ExperimentElapsed := LREAL#0.0;
@@ -58,6 +71,9 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
+    P1.ExperimentEnabled AT %MX8.0 : BOOL;
+    P1.SafetyAbort AT %MX8.1 : BOOL;
+    P1.InputsValid AT %MX8.2 : BOOL;
     P1.RelayAmplitude AT %ML0 : LREAL;
     P1.QualifiedRelayApplied AT %QL0 : LREAL;
     P1.RejectedRelayApplied AT %QL8 : LREAL;

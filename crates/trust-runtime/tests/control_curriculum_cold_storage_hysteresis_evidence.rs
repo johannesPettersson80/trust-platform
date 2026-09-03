@@ -51,7 +51,10 @@ fn addressed_source() -> String {
         .split("CONFIGURATION Config")
         .next()
         .expect("lesson program before configuration")
-        .replace("AutoMode : BOOL :=", "AutoMode AT %MX44.0 : BOOL :=")
+        .replace(
+            "ExperimentEnabled : BOOL :=",
+            "ExperimentEnabled AT %IX44.4 : BOOL :=",
+        )
         .replace(
             "RequestedCooling : BOOL :=",
             "RequestedCooling AT %MX44.1 : BOOL :=",
@@ -153,7 +156,7 @@ fn run_candidate(candidate: Candidate) -> Vec<Sample> {
     let minimum_off = IoAddress::parse("%ML24").expect("minimum-off address");
     let dwell_elapsed = IoAddress::parse("%ML32").expect("dwell address");
     let switch_count = IoAddress::parse("%MD40").expect("switch-count address");
-    let auto = IoAddress::parse("%MX44.0").expect("Auto address");
+    let auto = IoAddress::parse("%IX44.4").expect("experiment authority address");
     let requested = IoAddress::parse("%MX44.1").expect("requested-state address");
     let applied = IoAddress::parse("%MX44.2").expect("applied-state address");
     let dwell_inhibit = IoAddress::parse("%MX44.3").expect("dwell-inhibit address");
@@ -221,7 +224,7 @@ fn run_memory_and_dwell_sequence() -> Vec<(f64, bool, bool, bool)> {
     let hysteresis = IoAddress::parse("%ML8").expect("hysteresis address");
     let minimum_on = IoAddress::parse("%ML16").expect("minimum-on address");
     let minimum_off = IoAddress::parse("%ML24").expect("minimum-off address");
-    let auto = IoAddress::parse("%MX44.0").expect("Auto address");
+    let auto = IoAddress::parse("%IX44.4").expect("experiment authority address");
     let requested = IoAddress::parse("%MX44.1").expect("requested-state address");
     let applied = IoAddress::parse("%MX44.2").expect("applied-state address");
     let dwell_inhibit = IoAddress::parse("%MX44.3").expect("dwell-inhibit address");

@@ -143,7 +143,7 @@ must never hide the raw measures. If no candidate passes, report
 `No acceptable candidate`. If several remain and no declared preference
 separates them, report `Inconclusive`.
 
-## Work the gain calculations
+## Prediction
 
 The heater model has plant gain $K = 0.20 {}^\circ\mathrm{C}/\%$, time constant $T = 5.0 s$,
 and dead time $L = 1.0 s$. Balanced SIMC gives $K_p = 5.769 \%/{}^\circ\mathrm{C}$,

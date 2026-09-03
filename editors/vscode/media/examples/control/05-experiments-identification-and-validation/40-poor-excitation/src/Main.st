@@ -1,6 +1,8 @@
 PROGRAM Main
 VAR
     ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     PoorRequested : LREAL := 20.0;
     QualifiedRequested : LREAL := 20.0;
     ClosedRequested : LREAL := 20.0;
@@ -17,7 +19,14 @@ END_VAR
    controller-created input/noise relationship visible to the learner. *)
 ClosedMeasurementUsed := ClosedTemperature;
 
-IF ExperimentEnabled THEN
+InputsValid := PoorTemperature >= LREAL#40.0
+    AND PoorTemperature <= LREAL#60.0
+    AND QualifiedTemperature >= LREAL#40.0
+    AND QualifiedTemperature <= LREAL#60.0
+    AND ClosedTemperature >= LREAL#40.0
+    AND ClosedTemperature <= LREAL#60.0;
+
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
     PoorRequested := LREAL#20.2;
     QualifiedRequested := LREAL#30.0;
     ClosedRequested := 20.0 + 2.0 * (50.0 - ClosedMeasurementUsed);
@@ -61,6 +70,8 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.ExperimentEnabled AT %MX64.0 : BOOL;
+    P1.SafetyAbort AT %MX64.1 : BOOL;
+    P1.InputsValid AT %MX64.2 : BOOL;
     P1.PoorRequested AT %ML0 : LREAL;
     P1.QualifiedRequested AT %ML8 : LREAL;
     P1.ClosedRequested AT %ML16 : LREAL;

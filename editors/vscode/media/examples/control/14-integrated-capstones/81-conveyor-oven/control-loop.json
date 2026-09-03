@@ -42,7 +42,7 @@
       "symbol": "P1.OrdinaryRequestedHeater",
       "address": "%ML0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -50,6 +50,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX240.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "feedforward-product-temperature",
         "channel": "feedforward-product-temperature",
@@ -299,10 +313,16 @@
   },
   "plantId": "equivalent_ordinary_feedforward_and_integrated_delayed_ovens",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "setpoint_step",
-    "amplitude": 15,
-    "durationSeconds": 180,
-    "seed": 20260829
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 180.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX240.4",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

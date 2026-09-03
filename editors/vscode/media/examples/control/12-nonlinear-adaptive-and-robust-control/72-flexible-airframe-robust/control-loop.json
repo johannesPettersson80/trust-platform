@@ -12,7 +12,9 @@
     "design": "project",
     "revision": "sha256:curriculum-controller-72",
     "action": "direct",
-    "taskPeriodMs": 20
+    "taskPeriodMs": 20,
+    "modeSignal": "%MX64.2",
+    "modeWhenTrue": "Auto"
   },
   "signals": {
     "processVariable": {
@@ -30,7 +32,7 @@
       "symbol": "P1.NominalRequested",
       "address": "%ML72",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": -100,
@@ -38,6 +40,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX64.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "controller-enabled",
         "channel": "controller-enabled",
@@ -115,7 +131,7 @@
         "symbol": "P1.GustLoad",
         "address": "%ML96",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "g",
         "range": {
           "minimum": 0,
@@ -143,7 +159,7 @@
         "symbol": "P1.NominalApplied",
         "address": "%QL0",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": -15,
@@ -157,7 +173,7 @@
         "symbol": "P1.RobustRequested",
         "address": "%ML80",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": -100,
@@ -171,7 +187,7 @@
         "symbol": "P1.RobustApplied",
         "address": "%QL16",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": -15,
@@ -189,10 +205,16 @@
   },
   "plantId": "flexible_wing_uncertainty_grid",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "load_step",
-    "amplitude": 0.1,
-    "durationSeconds": 25,
-    "seed": 20260829
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 25.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX64.2",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

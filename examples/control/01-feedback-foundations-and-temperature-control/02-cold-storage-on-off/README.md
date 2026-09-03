@@ -150,21 +150,22 @@ END_IF;
 The shipped configuration binds the mode and plant-facing signals explicitly:
 
 ```st
-P1.AutoMode AT %MX16.0 : BOOL;
+P1.ExperimentEnabled AT %MX16.2 : BOOL;
 P1.ManipulatedValue AT %QL0 : LREAL;
 P1.ProcessValue AT %IL0 : LREAL;
 ```
 
-`ProcessValue` is mapped to `%IL0`, `Setpoint` to `%ML0`, `AutoMode` to
-`%MX16.0`, the applied `ManipulatedValue` to `%QL0`, and `SwitchCount` to
+`ProcessValue` is mapped to `%IL0`, `Setpoint` to `%ML0`, experiment authority
+to `%MX16.2`, the applied `ManipulatedValue` to `%QL0`, and `SwitchCount` to
 `%MD24`. The simulated door-open indication is mapped to `%IL8`, and the
 effective surrounding temperature is mapped to `%IL16`.
 
 ## Experiment in Control Studio
 
 This procedure enables the shipped single-threshold law for one 120-second
-Simulation run. The project owns the scheduled door event; Control Studio owns
-the reviewed Boolean experiment authority and restores it disabled. The
+Simulation run. Control Studio writes only `P1.ExperimentEnabled`; the project
+derives Auto mode and owns the scheduled door event. Completion restores the
+authority false and therefore restores Manual zero. The
 deterministic seed is 20260828.
 
 ### Control Studio actions
@@ -177,9 +178,9 @@ deterministic seed is 20260828.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120**. The reviewed lesson experiment authority is **P1.AutoMode**. Control Studio sets that Boolean authority true; the project and simulator own the single-threshold decisions and door event, so no second excitation is written.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The sole reviewed write is Boolean **P1.ExperimentEnabled**. Control Studio sets it true; the project derives Auto mode, and the project and simulator own the single-threshold decisions and door event.
    - **Decision before action:** Before selecting **Review test**, predict that AutoMode will enable the Boolean law, the door will open at simulator time 60 s and close at 90 s, and small threshold crossings will repeatedly reverse compressor demand. Confirm the limits are Cold-room air temperature -10 degC to 10 degC and Compressor demand 0 % to 100 %.
-   - **Successful evidence:** Select **Review test**, verify **P1.AutoMode**, the 120-second timeout, stop conditions, and false restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, Auto becomes enabled, and the terminal state reports completion with Auto restored false and compressor demand restored to 0 percent.
+   - **Successful evidence:** Select **Review test**, verify **P1.ExperimentEnabled**, the 120.1-second timeout, stop conditions, and false restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, the project derives Auto enabled, and the terminal state reports completion with experiment authority false, Auto false, and compressor demand restored to 0 percent.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test. At the end of the run, disable Auto, confirm 0 percent compressor demand, and retain that safe restoration state.
    - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260828**.
 

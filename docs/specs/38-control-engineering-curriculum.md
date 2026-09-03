@@ -71,6 +71,17 @@ test`, `Practical preparation`, `Baseline`, `Change`, `Comparison`,
 learner-facing structure. Necessary detail from those former sections belongs
 inside the applicable canonical section above.
 
+Every lesson shall use the same executable Control Studio workflow established
+by Lesson 8: exactly **Monitor -> Test**. In Test, the experiment is **Observe
+without excitation**, amplitude is `0` and disabled, and the only writable
+lesson signal is the Boolean `P1.ExperimentEnabled`. That Boolean grants or
+removes authority; it is not the experiment input. The runnable project owns
+all setpoints, disturbances, candidate selection, mismatch injection, abnormal
+conditions, mode changes, timing, and safe restoration. Identify, Tune, and
+Validate shall not appear as disabled, fictional, or alternate learner steps.
+Native evidence may compare additional cases, but the README shall state that
+boundary instead of implying that Control Studio executed unavailable stages.
+
 The first lesson, or a lesson that begins a genuinely independent learning
 spine, shall use an uncontrolled, manual, existing-equipment, or previously
 taught baseline as the solution under examination. It shall not invent a
@@ -106,6 +117,16 @@ numbers shall show the intermediate calculation and the prose immediately
 afterward shall interpret the sign and magnitude physically. Merely naming a
 formula, presenting a symbolic result, or asking the learner to copy it into a
 tool is not pedagogical completion.
+
+Every plant-model parameter shall also have an explicit provenance. The lesson
+shall say whether each value is calculated from geometry or conservation data,
+taken from rated equipment or component data, estimated from a named
+experiment, inherited from a previously identified and validated lesson, or
+chosen as a configured teaching value. It shall explain how the learner would
+obtain the value on the named physical equipment, which measurements and
+assumptions that route requires, and how unused evidence would test the result.
+A simulator constant, unexplained coefficient, or phrase such as “the model
+is” does not answer how the model was found.
 
 Every symbol shall be introduced in a complete plain-language sentence before
 its first appearance anywhere in the lesson. The introduction shall use the
@@ -206,7 +227,7 @@ where it is applicable:
    turn an observation from one plant into a universal controller rule. It
    shall name the applicable plant class, operating region, equilibrium
    requirement, saturation state, model assumptions, and other conditions that
-   make the conclusion true. The Transfer section shall name a counterexample
+   make the conclusion true. The Conclusion or Reason for the next lesson shall name a counterexample
    or boundary where that conclusion does not apply when one is pedagogically
    important.
 6. **Connect physical reasoning to the governing relationship.** When a simple
@@ -248,7 +269,7 @@ where it is applicable:
     concept only after defining it, but shall use the same precise name that
     later lessons build upon. For example, a zero operating-point bias shall
     not be introduced as an unexplained "fixed holding output" before bias is
-    taught. The Transfer section may name the next concept and its purpose, but
+   taught. The Reason for the next lesson may name the next concept and its purpose, but
     shall not rely on that concept to explain the current experiment.
 
 These rules apply to README prose, lesson metadata, executable tests, retained
@@ -676,9 +697,9 @@ the reviewer to infer a missing explanation, the lesson remains incomplete.
 The progression between consecutive lessons is an executable teaching
 contract:
 
-1. the earlier lesson's Validation stage shall retain the evidence for an
+1. the earlier lesson's Evidence and decision section shall retain the evidence for an
    unresolved limitation;
-2. its Transfer stage shall name that limitation without pretending that the
+2. its Reason for the next lesson section shall name that limitation without pretending that the
    next technique has already solved it;
 3. the next lesson's Reason stage shall refer to the same limitation and the
    same retained evidence;
@@ -687,7 +708,7 @@ contract:
 5. its Comparison and Validation stages shall test that prediction under
    equivalent conditions.
 
-A lesson therefore does not conform merely because all eleven headings are
+A lesson therefore does not conform merely because all nine headings are
 present. The headings shall form one causal argument from a physical problem
 to an evidence-backed engineering decision.
 
@@ -946,14 +967,15 @@ next lesson`.
   than desired. It shall derive the requested-to-applied command clamp from the
   below-range, in-range, and above-range physical cases before using its compact
   formula, then work the exact `150% requested -> 100% applied` example.
-- **Practical flow:** Monitor room temperature, compressor command, door state,
-  and effective surrounding temperature. In Test, select the writable operator
-  request, a `150%` Manual output step, and `20 s`; review it, confirm it, watch
-  the separately observed applied demand stop at `100%`, and prove restoration
-  to `0%`. Then restart from the declared state and use Monitor to observe the
-  uncontrolled door event from `60` through `90 s` in a separate `120 s`
-  recording. Lesson 1 shall expose only Monitor and Test; it shall not direct a
-  beginner to disabled shared PID Identify, Tune, or Validate controls.
+- **Practical flow:** Monitor room temperature, requested and applied compressor
+  demand, door state, and effective surrounding temperature. In Test, select
+  **Observe without excitation**, disabled amplitude `0`, and `120.1 s`.
+  Review the sole Boolean write `P1.ExperimentEnabled`. The project shall own
+  the `150%` requested demand through `20.0 s`, its restoration to zero, and
+  the safe terminal state; the simulator shall own the door event from `60.0`
+  through `90.0 s`. One recording shall show applied demand clamped at `100%`,
+  cooling and recovery, the uncontrolled door-load rise, and final false
+  authority with zero requested and applied demand.
 - **Required conclusion:** The learner can identify every loop element and
   explain why continuous observation alone does not regulate temperature.
 
@@ -986,11 +1008,12 @@ next lesson`.
 - **Practical flow:** In Monitor, establish the declared initial state, record
   SP, PV, requested/applied MV where available, mode, and the predicted
   switching direction. Restart the Simulator, then use Test with **Observe
-  without excitation**, disabled zero amplitude, and a `120 s` duration. The
-  reviewed project-scripted experiment authority is the writable Boolean
-  `P1.AutoMode` at `%MX16.0`: Confirm and start shall set it true so the shipped
-  controller and door schedule execute, and completion or abort shall restore
-  it false. The learner shall review that authority and restoration before
+  without excitation**, disabled zero amplitude, and a `120.1 s` duration. The
+  reviewed project-scripted experiment authority is the sole writable Boolean
+  `P1.ExperimentEnabled` at `%MX16.2`: Confirm and start shall set it true; the
+  project shall derive Auto mode and the controller and door schedule shall
+  execute. Completion or abort shall restore authority false, Auto false, and
+  compressor demand zero. The learner shall review that authority and restoration before
   starting, observe the `60`-to-`90 s` door event, record temperature range and
   switch count, and reproduce switching frequency from retained samples.
   Lesson 2 shall expose only Monitor and Test; it shall not send the learner to
@@ -1025,8 +1048,8 @@ next lesson`.
 - **Practical flow:** Monitor the declared initial state and make the threshold,
   state-memory, and dwell prediction first. Restart the Simulator, then use
   Test with **Observe without excitation**, disabled zero amplitude, and a
-  `120 s` duration. The reviewed project-scripted experiment authority is
-  `P1.AutoMode` at `%MX44.0`; Confirm and start shall set it true to run the
+  `120.1 s` duration. The sole writable signal is
+  `P1.ExperimentEnabled` at `%MX44.4`; the project derives Auto and runs the
   shipped `H = 1.00 degC`, `8.00 s` minimum-on, `8.00 s` minimum-off candidate,
   and completion or abort shall restore it false. Control Studio does not run
   the two other comparison candidates: the retained three-candidate artifact
@@ -1065,8 +1088,8 @@ next lesson`.
   `Kp = 8 %/degC`, Auto disabled, and zero applied heat. Monitor SP, PV,
   requested heat, and applied heat and predict the initial `120%` request and
   `100%` clamp. In Test, select **Observe without excitation**, disabled zero
-  amplitude, and `120 s`. Confirm and start shall write the Boolean
-  `P1.AutoMode` authority at `%MX16.0`; completion or abort shall restore it
+  amplitude, and `120.1 s`. Confirm and start shall write only Boolean
+  `P1.ExperimentEnabled` at `%MX16.1`; the project derives Auto, and completion or abort shall restore authority
   false and restore zero applied heater output. The project owns the scheduled
   load event. Control Studio runs the selected gain-8 candidate only; the
   retained gain-2, gain-8, and gain-40 comparison is produced by the named
@@ -1119,8 +1142,9 @@ next lesson`.
   measured bias 75 percent, retained gain 8 percent per degree Celsius, and
   Manual mode. It shall distinguish that initial state from the intended
   35-degree / 75-percent operating point. Control Studio Test shall run only the
-  shipped measured-bias candidate by explicitly writing `P1.AutoMode` true for
-  120 seconds and restoring it false. It shall not claim to sequence candidate
+  shipped measured-bias candidate by explicitly writing only
+  `P1.ExperimentEnabled` at `%MX16.1` true for 120.1 seconds; the project derives
+  Auto and completion restores authority false. It shall not claim to sequence candidate
   trials that its reviewed activation cannot execute. The native evidence test
   shall execute bounded 70-, 75-, and 80-percent manual-output trials, qualify
   each trial, select the eligible output with the smallest final-window
@@ -1206,8 +1230,9 @@ next lesson`.
   35 degrees Celsius, PV 20 degrees Celsius, zero requested and applied output,
   measured holding output 75 percent, integral gain 0.5 percent per degree
   Celsius-second, and Manual mode. Control Studio Test shall run only the
-  shipped integral-only candidate by explicitly writing `P1.AutoMode` true for
-  120 seconds and restoring it false. Its first scan shall preload the visible
+  shipped integral-only candidate by writing only `P1.ExperimentEnabled` at
+  `%MX16.1` true for 120.1 seconds; the project derives Auto and completion
+  restores authority false. Its first scan shall preload the visible
   measured 75 percent inherited from Lesson 5 and then add the calculated
   integral increment; at the declared 15-degree error that unsaturated request
   is 75.75 percent. Test shall not claim to run the biased-P comparison that its
@@ -1320,8 +1345,8 @@ next lesson`.
   Establish the Lesson 5 measured `75 percent` holding output and qualified
   `35 degrees Celsius` operating point in bounded Manual operation, then
   preload that observed output on an explicit Manual-to-Auto transition. The
-  proportional and integral gains are live-mapped Control Studio settings. At
-  the beginning of every `0.1-second` scan, the program shall copy their current
+  proportional and integral gains are project-owned settings in the visible
+  run. At the beginning of every `0.1-second` scan, the program shall copy their current
   values into `PIDParameters` and call `Controller.Configure` without
   reinitializing controller state. A changed gain therefore affects both the
   exposed diagnostic increments and the real `Controller.Update` calculation
@@ -1329,8 +1354,7 @@ next lesson`.
   it shall not present a live diagnostic calculated with a gain that the
   running controller has not adopted.
 
-  Changing a live gain does not restore the plant or controller state. Each
-  independent tuning case shall still begin from the declared Manual holding
+  Each independent native tuning case shall begin from the declared Manual holding
   condition and explicit Manual-to-Auto preload so the comparison remains
   reproducible. The
   README shall show the short actual Structured Text that configures the block,
@@ -1358,9 +1382,10 @@ next lesson`.
   temperature boundary `0..80 degrees Celsius`, and heater boundary `0..100
   percent`.
 
-  In Test, the only authority-changing action writes `P1.AutoMode` from false
-  to true, runs the shipped selected PI candidate for 120 seconds, and restores
-  `P1.AutoMode` to false. On the first Auto scan, the error history is reset,
+  In Test, the only authority-changing action writes the Boolean
+  `P1.ExperimentEnabled` from false to true. The project derives Auto mode,
+  runs the shipped selected PI candidate for 120 seconds, and restores
+  `P1.ExperimentEnabled` to false, which also restores Auto false. On the first Auto scan, the error history is reset,
   so proportional increment is zero; integral increment is
   `4 * (35 - 20) * 0.1 = 6 percentage points`; and the measured 75-percent
   holding output produces an 81-percent preliminary request. The lesson shall
@@ -3168,7 +3193,7 @@ next lesson`.
   `Control.PID` Manual path so the plant sees the same controller-facing output
   used elsewhere. Keep the requested validation input distinct from applied
   heater power. Control Studio Test writes only the Boolean
-  `P1.TestAuthorityEnabled`. While it is true, the project owns the complete
+  `P1.ExperimentEnabled`. While it is true, the project owns the complete
   sequence: 20-percent power for scans 1 through 100 and 25-percent power for
   scans 101 through 600. A stale direct write to `ExperimentInput` shall not
   bypass that sequence. Safety abort, invalid input, nonfinite data,
@@ -4703,7 +4728,21 @@ next lesson`.
     drum level initially negative and eventually approach a positive unit
     change.
 - **Derivation requirement:** Do not present the six signatures as a lookup
-  table. Derive the heater result from `1 - exp(-t/5)` and the tank ramp from
+  table or present the six plant equations as unexplained givens. Before
+  deriving response signatures, explain the physical origin, units, parameter
+  provenance, assumptions, and identification or calculation route for every
+  model. Derive the heated-vessel lag from an energy balance and explain its
+  normalization; derive the storage-tank integrator from volume conservation;
+  derive the flexible-drive denominator from rotational inertia, damping, and
+  stiffness; identify the crane equation explicitly as a reduced fitted modal
+  model and expand its modal factors; derive the bearing's unstable local term
+  from a linearized force imbalance and state the units of its force
+  coefficient; and derive the boiler transfer function by combining slow
+  positive inventory and fast negative shrink modes. Distinguish configured
+  teaching parameters from equipment data, first-principles calculation, and
+  identified parameters, and state how a physical installation would obtain
+  and independently validate them. Then derive the heater result from
+  `1 - exp(-t/5)` and the tank ramp from
   the inverse transform of `0.2/s2`. Derive the flexible-drive roots from
   `s2 + 2*zeta*omega_n*s + omega_n2` and its overshoot from
   `exp(-pi*zeta/sqrt(1-zeta2))`. Compare the crane envelopes `exp(-0.1t)` and
@@ -6029,7 +6068,15 @@ next lesson`.
   symmetric roots, including a possible imaginary-axis boundary.
 - **Physical model and prediction:** Explain the crane force balance and
   linearised trolley/load dynamics in words before presenting the resulting
-  loop polynomial. From the declared state model derive
+  loop polynomial. State honestly that the executable equation is a reduced
+  local modal model, not a complete nonlinear crane model. Define position and
+  its first three time derivatives, applied drive percentage, and the scaled
+  input conversion with their units. Explain that physical coefficients begin
+  with trolley mass, suspended mass, rope length, and friction and are then
+  estimated by a guarded small-force modal test and checked on unused motions;
+  identify the shipped coefficients as configured teaching values. State the
+  small-angle, fixed-load, fixed-rope, ideal-sensing, ideal-drive, and omitted-
+  flexibility assumptions. From the declared state model derive
   `x''' = -2*x'' - 3*x' + u`, then
   `G(s)=1/(s^3+2*s^2+3*s)`. Closing negative proportional feedback adds `K`
   to the characteristic denominator. With positive proportional gain (K), the declared local
@@ -6369,7 +6416,11 @@ next lesson`.
   `(N_ccw)`, open-loop right-half-plane pole count `(P)`, and closed-loop
   right-half-plane pole count `(Z)` in that order. With the contour traversal
   and negative-feedback convention used by Control Studio, explain the
-  relationship in words before writing `Z = P - N_ccw`. A negative
+  relationship in words before writing `Z = P - N_ccw`. Derive the count from
+  the argument principle applied to the closed-loop characteristic factor
+  `1+Loop(s)`: its zeros are closed-loop poles, its poles are open-loop poles,
+  and shifting by one maps turns around zero to turns of `Loop(s)` around minus
+  one. A negative
   counter-clockwise count represents clockwise encirclements. The inference is
   invalid if the contour crosses the minus-one point, the sweep omits a
   material part of the curve, a pole lies on the contour without an explicit
@@ -6378,8 +6429,18 @@ next lesson`.
   `(y)` as measured product temperature minus 100 degrees Celsius, applied
   heater-command deviation `(u)` as applied command minus 50 percent, the
   continuous frequency variable `(s)`, thermal time constant `(T)` in seconds,
-  and transport delay `(L)` in seconds before presenting
-  `G(s) = exp(-L*s)/(T*s + 1)`, with `T = 20 s`. Explain why the delay factor
+  and transport delay `(L)` in seconds. Before presenting the transfer
+  function, derive `C*dy/dt = k_u*u(t-L)-H*y` from stored product heat, heater
+  input, proportional heat loss, and conveyor travel. Define `C`, `H`, `k_u`,
+  their units, `K_g=k_u/H`, and `T=C/H`, then derive
+  `G(s) = K_g*exp(-L*s)/(T*s + 1)`, with `K_g=1 degC/%` and `T = 20 s`.
+  Identify all numerical values as configured teaching values. Explain how a
+  physical installation would calculate initial values from product thermal
+  data, heater rating, heat-loss data, sensor distance, and conveyor speed,
+  refine them with a bounded step test, and validate them on unused runs at the
+  same product and loading. State the well-mixed effective-temperature,
+  constant-speed, constant-coefficient, pure-delay, ideal-actuator, and omitted-
+  sensor-dynamics assumptions. Explain why the delay factor
   has unit magnitude and contributes phase `-L*omega`. Define proportional gain `(K)`
   as requested heater percentage points per degree Celsius of error, use
   `K = 2 %/degC`, and define the open-loop response
@@ -9343,7 +9404,14 @@ navigation.
   assumes zero load retains speed error. This creates the need for an observer.
 - **Theory before practice:** Define the magnetic-bearing state vector (`x_b`)
   as displacement and velocity. Define the bearing input (`u_b`) as applied
-  coil-current deviation. Define the bearing state matrix (`A_b`) as
+  coil-current deviation. Before giving matrices, derive `x_dot=v` and
+  `v_dot=a_b*x+b_b*u` by linearising Newton's force balance around the centre
+  gap. Define the units and signs of `a_b` and `b_b`, identify `4 1/s2` and
+  `1 mm/(s2*A)` as configured teaching values, and explain how rotor mass,
+  electromagnetic geometry, force data, and a guarded small-current test would
+  provide and independently validate physical values. State the omitted coil,
+  force-curvature, eddy-current, sensor, and structural dynamics. Then define
+  the bearing state matrix (`A_b`) as
   `[[0, 1], [4, 0]]` and the input matrix (`B_b`) as `[[0], [1]]`. In physical
   words, velocity changes displacement, the local magnetic force drives the
   rotor away from centre at four millimetres per second squared for each
@@ -9373,7 +9441,15 @@ navigation.
   inside the current limit. For a `+0.1 mm` reference from centred conditions,
   the first requested current is `+1.2 A`.
 
-  Define the motor state vector (`x_m`) as shaft speed and opposing load torque.
+  Before defining the motor matrices, derive
+  `J_m*speed_dot=drive_torque-c_m*speed-load_torque` from rotational force
+  balance and state why the nominal load derivative is zero. Define every
+  quantity and unit, show how division by inertia produces the configured unit
+  coefficients, and identify them as scaled teaching values. Explain how rotor
+  and load geometry, calibrated torque data, coast-down or torque-step records,
+  and an unused validation record would establish a physical model. State the
+  constant-load, linear-damping, rigid-shaft, ideal-drive, and ideal-encoder
+  assumptions. Define the motor state vector (`x_m`) as shaft speed and opposing load torque.
   Define the measured motor output (`y_m`) as encoder speed. Define the motor
   state matrix (`A_m`) as `[[-1, -1], [0, 0]]`, input matrix (`B_m`) as
   `[[1], [0]]`, and output matrix (`C_m`) as `[[1, 0]]`. In physical words,
@@ -9386,7 +9462,9 @@ navigation.
   speed. Define observer gain (`L`) as the weights that feed innovation into
   the two state predictions. Only then write
   `dx_hat/dt = A_m*x_hat + B_m*u_m_applied + L*nu` and
-  `nu = y_m - C_m*x_hat`. Observer error follows `de/dt = (A_m - L*C_m)*e`.
+  `nu = y_m - C_m*x_hat`. Define estimation error (`e`) as actual state minus
+  estimated state and derive `de/dt = (A_m - L*C_m)*e` by subtracting observer
+  dynamics from plant dynamics and cancelling the shared applied input.
   For `L=[l_1,l_2]^T`, derive the error polynomial
   `s^2+(1+l_1)*s-l_2`. The desired poles expand as
   `(s+4)(s+5)=s^2+9*s+20`; coefficient matching gives `l_1=8` and
@@ -10003,28 +10081,48 @@ navigation.
   a relative cost per unit heating energy.
 
   Heat is lost from each zone to outdoor air, exchanged between zones, added by
-  its heater, and added by occupancy. The continuous local model uses a
-  `600 s` outdoor-loss time constant, `1800 s` inter-zone coupling time constant
-  and heater coefficient `1/3000 degC/(percent*s)`. Only after these physical
-  meanings are established shall the two-state matrix model be introduced.
+  its heater, and added by occupancy. Define zone thermal capacitance, outdoor
+  and inter-zone thermal resistance, full-scale heater power, and occupancy
+  heat with physical units. Derive the Zone-1 energy balance before defining
+  `tau_o=R_o*C_z`, `tau_12=R_12*C_z`, `k_h=P_100/(100*C_z)`, and the equivalent-
+  temperature occupancy input. The continuous local model then uses a `600 s`
+  outdoor-loss time constant, `1800 s` inter-zone coupling time constant and
+  heater coefficient `1/3000 degC/(percent*s)`. Identify these as configured
+  teaching values. Explain how construction thermal data and heater ratings
+  provide initial physical values, how heating, cooldown, and inter-zone tests
+  estimate effective values, and how unused weather and occupancy records
+  validate them. State the one-temperature-per-zone, constant-property, linear-
+  flow, calibrated-occupancy, ideal-heater, and omitted solar, ventilation,
+  humidity, hydronic, sensor, and actuator assumptions. Only after these
+  physical meanings are established shall the two-state matrix model be introduced.
   Derive, for example,
   `dT1/dt=(To-T1)/600+(T2-T1)/1800+u1/3000+q1/600`, with the zone indices
   exchanged for Zone 2. At `T1=T2=21`, `To=5`, `q1=0`, and `u1=80`, outdoor
   loss is `(5-21)/600=-0.026667 degC/s`, neighbour exchange is zero, and heater
   gain is `80/3000=+0.026667 degC/s`; this derives the initial equilibrium.
 
-  Exact zero-order-hold sampling at `60 s` uses `A_d=exp(A*60)` and
+  Show the continuous `A` and `B` matrices collected directly from those two
+  balances and explain every row and input column. Exact zero-order-hold sampling at `60 s` uses `A_d=exp(A*60)` and
   `B_d=integral_0^60 exp(A*tau)*B d tau`; the first advances stored thermal
   state and the second accumulates inputs held constant for the minute. It
-  produces:
+  produces the following `A_d`; explain that its diagonal entries retain each
+  zone's stored temperature and its off-diagonal entries transfer neighbour
+  influence:
 
   `A_d = [[0.875659571463,0.029177846573],`
   `       [0.029177846573,0.875659571463]]`
 
-  For input vector `[u1,u2,To,q1,q2]^T`, sampled input matrix (`B_d`) is:
+  For input vector `[u1,u2,To,q1,q2]^T`, sampled input matrix (`B_d`) is shown
+  below. Explain every column and state that both sampled matrices are computed
+  from the continuous physical balance rather than independently selected:
 
   `B_d = [[0.018727354703,0.000305161690,0.095162581964,0.093636773515,0.001525808449],`
   `       [0.000305161690,0.018727354703,0.095162581964,0.001525808449,0.093636773515]]`
+
+  State that continuous `A` has unit `1/s`; distinguish the heater and
+  equivalent-temperature column units in continuous `B`; state that `A_d` is
+  dimensionless; and explain the corresponding heater-to-temperature and
+  temperature-to-temperature column units in `B_d`.
 
   Each heater is limited to `0..100 percent`, each one-minute change to
   `-20..20 percentage points`, and their shared electrical limit to `170
@@ -10058,14 +10156,17 @@ navigation.
   setpoint for zone `i` at horizon position `j`; squaring treats positive and
   negative errors alike while penalizing larger misses more strongly. Define
   tariff-weighted energy as forecast price times total heat, and define move
-  effort as squared heater change so grid-point chatter costs more. After defining temperature
-  weight (`w_T`), energy weight (`w_E`) and move weight (`w_Delta`), write:
+  effort as squared heater change so grid-point chatter costs more. Define the
+  score-unit conversion performed by temperature weight (`w_T`), energy weight
+  (`w_E`), and move weight (`w_Delta`), and define the candidate objective (`J`)
+  before writing:
 
   `J = sum(j=1..3, w_T*(e_1,j^2 + e_2,j^2)`
   `    + w_E*p_j*(u_1,j + u_2,j)`
   `    + w_Delta*(Delta u_1,j^2 + Delta u_2,j^2))`
 
-  The nominal weights are `w_T=100`, `w_E=0.01` and `w_Delta=0.0025`. All terms
+  The nominal weights are `w_T=100`, `w_E=0.01` and `w_Delta=0.0025`. All terms,
+  units, arbitrary common score scale, provenance from engineering preferences,
   and scale consequences shall be explained before tuning. A private objective
   cannot replace common temperature, energy, movement and constraint measures.
 
@@ -10086,7 +10187,8 @@ navigation.
   three-step forecasts, predict that the zero-move sequence maintains both
   zones at `21 degC`. It is feasible because individual power, rate, shared
   power and comfort limits are satisfied. Calculate its first predicted state
-  and objective before running. Predict that a comfort minimum of `22 degC`
+  term by term and derive its three-position objective `J=0.48` before running.
+  Predict that a comfort minimum of `22 degC`
   from the same state is infeasible in the first horizon step under the shared
   limit; a completed solver shall report infeasible and select PI fallback, not
   clip a fictitious optimum.

@@ -53,12 +53,12 @@
       {
         "id": "experiment-authority",
         "channel": "experiment-authority",
-        "role": "authority",
+        "role": "state",
         "symbol": "P1.ExperimentEnabled",
         "address": "%MX4.4",
         "iecType": "BOOL",
-        "direction": "write",
-        "unit": "1",
+        "direction": "read",
+        "unit": "",
         "range": {
           "minimum": 0,
           "maximum": 1
@@ -313,10 +313,16 @@
   },
   "plantId": "gravity_loaded_industrial_robot_joint",
   "experiment": {
-    "execution": "control-studio",
+    "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
     "durationSeconds": 31.1,
-    "seed": 20260829
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX4.4",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

@@ -50,11 +50,7 @@
       { "signal": "Drive torque", "minimum": -2, "maximum": 2, "unit": "N m" },
       { "signal": "Drive position", "minimum": -5, "maximum": 5, "unit": "rad" }
     ],
-    "simplifications": [
-      "Each module isolates one dominant signature; real equipment can combine regulation, integration, delay, and oscillation.",
-      "The common normalized experiment command is mapped to different physical actuator units and is not plotted as a substitute for those commands.",
-      "No controller, model fit, or configured model label is used to produce the learner's classification."
-    ]
+    "simplifications": ["Each module isolates one dominant signature; real equipment can combine regulation, integration, delay, and oscillation.", "The common normalized experiment command is mapped to different physical actuator units and is not plotted as a substitute for those commands.", "No controller, model fit, or configured model label is used to produce the learner's classification."]
   },
   "baseline": {
     "executableId": "PlantClasses.ShortAmbiguousView",
@@ -118,12 +114,7 @@
   "learning": {
     "context": "A modular training skid contains a heated vessel, buffer tank, conveyor oven, and flexible drive whose early trends can look deceptively similar.",
     "reason": "Lesson 31 assumed known plant classes. An unfamiliar loop must be classified from sufficient evidence before model or controller selection.",
-    "theory": [
-      "Self-regulating output approaches a finite equilibrium; integrating output retains slope; delayed output initially remains unchanged; oscillatory output crosses its eventual value as stored energy exchanges.",
-      "Operating point, physical scaling, control direction, observation duration, sensor resolution, and excitation are part of the classification evidence.",
-      "Late slope, first response time, overshoot, and crossing count distinguish classes more reliably than one final sample.",
-      "Real plants may combine signatures, so an isolated teaching classification is a starting hypothesis rather than universal truth."
-    ],
+    "theory": ["Self-regulating output approaches a finite equilibrium; integrating output retains slope; delayed output initially remains unchanged; oscillatory output crosses its eventual value as stored energy exchanges.", "Operating point, physical scaling, control direction, observation duration, sensor resolution, and excitation are part of the classification evidence.", "Late slope, first response time, overshoot, and crossing count distinguish classes more reliably than one final sample.", "Real plants may combine signatures, so an isolated teaching classification is a starting hypothesis rather than universal truth."],
     "workedPrediction": "The vessel predicts 54 degC equilibrium and 53.93 degC at 12 s; the tank predicts 62 cm with 1 cm/s slope; the oven predicts 4 s delay and 84.91 degC at 12 s; the drive predicts 52.7 percent overshoot around 1 rad.",
     "practicalPreparation": ["Verify open-loop Manual authority, initial operating points, normalized-to-physical scaling, units, limits, quality, 100 ms sampling, 12 s duration, aborts, and simulation label.", "Sketch four physical responses and state observable classification criteria before applying the step; hide configured model labels."],
     "baseline": "Inspect only the first second and record which traces remain ambiguous.",

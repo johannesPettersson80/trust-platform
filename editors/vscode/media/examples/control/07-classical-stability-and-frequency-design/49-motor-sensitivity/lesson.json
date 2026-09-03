@@ -11,7 +11,7 @@
   "prerequisites": ["control-delayed-thermal-nyquist"],
   "nextLesson": "control-position-z-plane-sampling",
   "signals": [
-    { "role": "state", "name": "Experiment enable", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.0" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.0" },
     { "role": "quality", "name": "Baseline abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX97.0" },
     { "role": "quality", "name": "Shaped abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX97.1" },
     { "role": "state", "name": "Baseline requested torque", "unit": "%", "minimum": -20, "maximum": 20, "resolution": 0.001, "binding": "%ML0" },
@@ -60,7 +60,18 @@
     "settings": { "zeroFrequencyGainPercentPerRpm": 0.4, "leadZeroRadPerSecond": 0.3, "leadPoleRadPerSecond": 3, "lagZeroRadPerSecond": 0.8, "lagPoleRadPerSecond": 0.08, "rollOffPoleRadPerSecond": 8 },
     "decision": "Accept shaping only when common frequency and executable time evidence satisfy load, noise, robustness, bandwidth, effort, limit, and validity requirements together."
   },
-  "experiment": { "kind": "load_step", "signal": "Baseline opposing load torque", "baseline": 0, "amplitude": 0.1, "durationSeconds": 120, "settlingSeconds": 60, "disturbances": ["Identical 10 rad/s, 0.02 rpm measured-speed interference on both encoder channels"], "seed": 20260829, "restorationValue": 0 },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 120.1,
+    "settlingSeconds": 60,
+    "disturbances": ["Project-owned identical 10 rad/s, 0.02 rpm measured-speed interference on both encoder channels"],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
   "acceptance": [
     { "metric": "shaped_maximum_sensitivity", "signal": "Shaped true speed deviation", "window": "qualified common 0.001-through-100-rad/s grid", "comparator": "<", "limit": 1.8, "unit": "1", "tolerance": 0.003, "evidenceClass": "model" },
     { "metric": "shaped_maximum_complementary_sensitivity", "signal": "Shaped true speed deviation", "window": "qualified common 0.001-through-100-rad/s grid", "comparator": "<", "limit": 1.4, "unit": "1", "tolerance": 0.003, "evidenceClass": "model" },
@@ -83,7 +94,7 @@
     "physicalApprovalRole": "authorised motion-control engineer and responsible machine operator",
     "simulationOnlyRestrictions": ["The lesson does not apply either controller to a physical motor", "Simulation sensitivity and effort evidence cannot authorise physical motion", "Physical work requires independent topology, current, speed, vibration, coupling, guarding, emergency-stop, motion-zone, abort, rollback, and immediate approval review"]
   },
-  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-49--sensitivity-and-loop-shaping-precision-motor-speed",
     "nativeTest": "control_curriculum_loop_shaping_balances_motor_sensitivity_and_effort",
@@ -92,7 +103,15 @@
     "runArtifactFields": ["plantIdentity", "modelRevision", "controllerRevision", "operatingSpeed", "sampleInterval", "speedSetpoint", "measuredSpeed", "trueSpeed", "speedError", "requestedTorque", "appliedTorque", "loadTorque", "encoderInterference", "frequencyGrid", "loopResponse", "sensitivity", "complementarySensitivity", "inputDisturbanceSensitivity", "controlSensitivity", "complementarityResidual", "gainCrossovers", "phaseMargin", "maximumSensitivity", "maximumComplementarySensitivity", "bandwidth", "overshoot", "settlingTime", "loadDeparture", "requestedTorqueTotalVariation", "appliedTorqueTotalVariation", "limitContact", "aborted", "stopReason", "seed", "evidenceClass"],
     "renderedJourneyId": "control-motor-sensitivity-loop-shaping"
   },
-  "video": { "viewerOutcome": "Use sensitivity functions and executable traces to balance load rejection, encoder noise, robustness, response speed, and torque effort on one precision drive.", "requiredVisibleEvidence": ["precision motor and compliant load", "measured and true speed", "baseline and shaped controller paths", "L, S, T, GS, and CS curves", "maximum sensitivity and bandwidth", "setpoint and load traces", "requested and applied torque", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Use sensitivity functions and executable traces to balance load rejection, encoder noise, robustness, response speed, and torque effort on one precision drive.",
+    "requiredVisibleEvidence": ["precision motor and compliant load", "measured and true speed", "baseline and shaped controller paths", "L, S, T, GS, and CS curves", "maximum sensitivity and bandwidth", "setpoint and load traces", "requested and applied torque", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "Two equivalent precision-drive copies expose measured and true speed while receiving the same setpoint, load torque, and encoder interference.",
     "reason": "Stability and classical margins do not quantify disturbance, noise, model-error, and controller-effort propagation across frequency.",

@@ -41,7 +41,7 @@
       "symbol": "P1.ManipulatedValue",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -90,6 +90,20 @@
           "minimum": 0,
           "maximum": 10000
         }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX16.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     ]
   },
@@ -106,11 +120,11 @@
     "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 120,
+    "durationSeconds": 120.1,
     "seed": 20260828,
     "activation": {
-      "symbol": "P1.AutoMode",
-      "address": "%MX16.0",
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX16.2",
       "iecType": "BOOL",
       "direction": "write"
     }

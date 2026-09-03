@@ -1,5 +1,8 @@
 PROGRAM Main
 VAR
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     ExperimentInput : LREAL := 0.0;
     BoundedExperiment : LREAL := 0.0;
     BearingExperimentEnabled : BOOL := FALSE;
@@ -18,6 +21,26 @@ VAR
     BearingDisplacement : LREAL := 0.0;
     BoilerDrumLevel : LREAL := 0.0;
 END_VAR
+
+IF ExperimentEnabled OR BearingExperimentEnabled THEN
+    ExperimentInput := LREAL#1.0;
+ELSE
+    ExperimentInput := LREAL#0.0;
+END_IF;
+
+InputsValid := HeaterTemperature >= LREAL#0.0
+    AND HeaterTemperature <= LREAL#100.0
+    AND TankLevel >= LREAL#0.0 AND TankLevel <= LREAL#100.0
+    AND DrivePosition >= LREAL#-5.0 AND DrivePosition <= LREAL#5.0
+    AND CranePayloadPosition >= LREAL#-2.0
+    AND CranePayloadPosition <= LREAL#2.0
+    AND BearingDisplacement >= LREAL#-0.01
+    AND BearingDisplacement <= LREAL#0.01
+    AND BoilerDrumLevel >= LREAL#-2.0 AND BoilerDrumLevel <= LREAL#2.0;
+IF SafetyAbort OR NOT InputsValid THEN
+    ExperimentInput := LREAL#0.0;
+    BearingExperimentEnabled := FALSE;
+END_IF;
 
 IF ExperimentInput < LREAL#0.0 THEN
     BoundedExperiment := LREAL#0.0;
@@ -48,6 +71,9 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
+    P1.ExperimentEnabled AT %MX8.1 : BOOL;
+    P1.SafetyAbort AT %MX8.2 : BOOL;
+    P1.InputsValid AT %MX8.3 : BOOL;
     P1.ExperimentInput AT %ML0 : LREAL;
     P1.BearingExperimentEnabled AT %MX8.0 : BOOL;
     P1.HeaterCommand AT %QL0 : LREAL;

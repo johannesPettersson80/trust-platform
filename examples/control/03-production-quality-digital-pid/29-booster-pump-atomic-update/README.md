@@ -11,7 +11,7 @@ This lesson uses simulation. Its results are not physical-plant evidence.
 
 **Equipment:** Variable-speed booster pump with recirculation valve.
 
-## Where this lesson begins
+## The problem
 
 Lesson 28 aligned state when valve authority changed. Alignment can still be
 destroyed inside one scan if that scan sees half of one tuning record and half
@@ -27,7 +27,12 @@ Every scan must use one complete parameter revision and one constraint-aware
 path for every contribution. A half-applied configuration or a feedforward sum
 added after limits must be impossible.
 
-## Coherent state and calculation order
+## What we need
+
+We need each scan to use one coherent parameter revision and one defined
+calculation order so the valve never receives a mixture of old and new tuning.
+
+## The new idea
 
 The **candidate configuration** is the complete proposed set of PID parameters.
 The **active configuration** is the complete record the controller uses for the
@@ -62,7 +67,7 @@ Feedforward enters `PIDInput.FeedForward` before anti-windup and limits. Adding
 it after `Control.PID` returns would bypass both the constraints and the state
 used by the next scan.
 
-## Deriving the two predictions
+## Prediction
 
 The previous applied valve output is 40 percent. The old proportional gain is
 5 percent per bar and the old integral gain is 1 percent per bar-second. The

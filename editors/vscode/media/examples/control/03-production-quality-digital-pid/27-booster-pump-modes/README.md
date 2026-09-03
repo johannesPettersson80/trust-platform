@@ -2,7 +2,7 @@
 
 Course position: Lesson 27 of 84. Previous lesson:
 [PID realization forms](../26-pid-forms/README.md). Next lesson: Bumpless transfer
-and external tracking.
+and [external tracking](../28-booster-pump-bumpless-transfer/README.md).
 
 **Lesson objective:** Initialize controller and filter histories from the
 running booster pump, distinguish Disabled, Manual, Auto, and Track authority,
@@ -14,9 +14,9 @@ This lesson uses simulation. Its results are not physical-plant evidence.
 
 ## The problem
 
-The equipment in this lesson is Variable-speed booster pump with recirculation valve.
-
-A variable-speed booster pump is already running when its pressure controller
+Lesson 26 established that a production PI controller retains output and signal
+history. This lesson asks where that history comes from when software joins a
+process that is already running. A variable-speed booster pump is already running when its pressure controller
 starts. A recirculation valve is 40 percent open and discharge pressure is
 6 bar. Starting software does not make those physical values zero.
 
@@ -28,9 +28,14 @@ Lesson 26 showed that a digital controller retains output and previous signals.
 If those histories or the pressure filter start at arbitrary zero values, the
 first controller request can disagree sharply with the already-running valve.
 
+The controller and filter histories must match that physical state before Auto
+is allowed. Disabled, Manual, Auto, and Track must also have one explicit owner
+of the applied valve command.
+
 ## What we need
 
-We need every retained controller and filter history to match the already-running pump before automatic authority is allowed. Disabled, Manual, Auto, and Track must each have one explicit owner of the applied valve command.
+We need explicit ownership and initialization rules for Disabled, Manual, and
+Auto so enabling control cannot create an unexplained pressure or valve jump.
 
 ## The new idea
 
@@ -72,23 +77,49 @@ Auto remains under Manual authority at the actual valve position.
 The simulator's local equilibrium says that discharge pressure rises by
 0.1 bar for every percentage point of valve position, above a 2 bar base:
 
-$PV = 2 bar + 0.1 bar/\% \times MV$
+\[
+PV_{\mathrm{eq}}=2\ \mathrm{bar}
++(0.1\ \mathrm{bar/\%})MV.
+\]
 
 This is a bounded first-order teaching model, not a pump curve.
 
 ## Prediction
 
-At 20 percent valve position, predicted equilibrium pressure is 4 bar. At
-40 percent it is 6 bar, and at 70 percent it is 9 bar. Set SP equal to the
-corresponding PV in each startup case.
+The model has 2 bar at zero valve command. Each percentage point adds 0.1 bar,
+so substitution gives \(2+0.1(20)=4\) bar,
+\(2+0.1(40)=6\) bar, and \(2+0.1(70)=9\) bar. Set SP equal to the corresponding
+PV in each startup case so initial feedback error is zero.
 
 With measured-state initialization, error and signal differences are zero and
 retained output equals $MV_{\mathrm{actual}}$. The first permitted Auto request should
 therefore be 20, 40, or 70 percent respectively.
 
-With zero histories at the 40 percent case, the two-stage filter's first output
-is only 0.198 bar. The rate-limited controller starts at 10 percent rather than
-the physical 40 percent. Predict a material startup mismatch.
+With zero histories at the 40% case, the filter begins at zero even though its
+input is 6 bar. From Lesson 23, one stage uses
+\(a=\Delta t/(\tau+0.5\Delta t)\). Here
+
+\[
+a=\frac{0.1}{0.5+0.5(0.1)}=0.181818.
+\]
+
+The first stage moves to \(0+a(6-0)=1.09091\) bar. The second identical stage
+moves to
+
+\[
+0+a(1.09091-0)=0.19835\ \mathrm{bar}.
+\]
+
+That 0.198 bar is an invented startup transient, not a pressure the sensor
+measured. The controller's retained applied output is also zero. Its rate limit
+is 100 percentage points per second, so one 0.1-second update may move by only
+
+\[
+\Delta MV_{\max}=100(0.1)=10\%.
+\]
+
+The large false error asks for more, but limiting produces a first request of
+10%, 30 percentage points away from the physical 40% valve position.
 
 ## Implementation
 
@@ -108,39 +139,57 @@ the external Disabled action. There is no parallel controller path.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Restore, initialize from current pressure, setpoint, and actual valve feedback, wait for three settled-filter updates under Manual authority, then permit Auto. Repeat at the 20, 40, and 70 percent equilibria. The declared event lasts 10 seconds. It restores Actual valve position to 30 % afterward. The deterministic Simulation seed is 20260829.
+Control Studio executes the measured-state 40% startup. Test writes one
+reviewed Boolean authority, \(\mathtt{P1.ExperimentEnabled}\), for 10.1 seconds.
+Its rising edge makes one atomic initialization request from SP 6 bar, raw
+pressure 6 bar, and actual valve feedback 40%. The project requests Auto, but
+the supervisor keeps Manual authority at the actual 40% position until the
+filter has met its 0.01 bar condition for three consecutive 100 ms updates.
+Returning authority false selects station Disabled and its declared safe 30%
+recirculation command.
+
+Fresh native runtimes own the deliberately unsafe zero-state baseline and the
+20%, 40%, and 70% measured-state comparisons. One UI run must not claim those
+four independent initial states. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Discharge-pressure setpoint (SP, bar); Raw discharge pressure (PV, bar); Requested valve command (MV, %), including units, limits, mode, and quality. The initial operating point is Raw discharge pressure = 6 bar, Requested valve command = 40 %, Actual valve position = 40 %, Applied valve command = 40 %. The unresolved baseline problem is: Arbitrary zero controller and filter histories produce a first request of 10 percent and filtered pressure of 0.198 bar on a pump already operating at 40 percent and 6 bar.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Copy current pressure, setpoint, and actual valve position into filter and controller histories atomically, retain Manual authority until the filter is qualified, then permit Auto.
-   - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
-   - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm SP/raw PV = 6 bar, actual valve = 40%, station Disabled, requested/applied safe command = 30%, controller not ready, filter not settled, and experiment authority false. Add raw/filtered pressure, actual/requested/applied valve, requested mode, active authority, ready/settled/blocked states, and experiment authority to **Signals**.
+   - **Decision before action:** Write the measured-state prediction of zero initialization error and first Auto request 40%. Also write the rejected zero-state predictions 0.198 bar and 10%, but do not expect the UI run to execute that unsafe baseline.
+   - **Successful evidence:** The plot advances, all values are finite/current, quality is good, and **Start recording** is enabled. Select **Start recording**.
+   - **Recovery:** For stale, unavailable, nonfinite, or poor-quality data, stop the Simulator, correct the displayed fault, restart, and repeat the baseline check.
+   - **Record:** Note the complete initial physical state, ownership state, and both prediction sets.
 
-2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **10**. The observed lesson signal is **Actual valve position**. Control Studio observes the project's existing timed sequence and does not write a second process event. Retain the zero-state startup comparison: it produces a 10.000 percent command step and a 0.198 bar pressure deviation before measured-state initialization is enabled.
-   - **Decision before action:** Before selecting **Review test**, predict the response to Repeat at 20, 40, and 70 percent equilibrium valve positions. Confirm the live values are current and the reviewed plan stays inside Raw discharge pressure 0 bar to 12 bar; Filtered discharge pressure 0 bar to 12 bar; Requested valve command 0 % to 100 %; Applied valve command 0 % to 100 %.
-   - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
-   - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
+2. **Test** — Open **truST sidebar → Control Studio → Test**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **10.1**. The reviewed authority is \(\mathtt{P1.ExperimentEnabled}\); the project owns initialization and requested mode.
+   - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Require raw/filtered pressure within 0–12 bar and all valve values within 0–100%. Auto must not become active before ready and three settled samples.
+   - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe one initialization, three Manual settling updates, Auto at 40%, stable 6 bar pressure, and final Disabled 30% restoration.
+   - **Recovery:** Abort for nonfinite, stale, out-of-range data or premature Auto authority. Confirm authority false, station Disabled, and requested safe command 30% before retrying.
+   - **Record:** Retain terminal state, false restoration, initialization sample, readiness/settling sequence, first Auto request, equilibrium drift, active authority, limits, and seed.
 
-3. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: measured_initialization_first_update_valve_mismatch <= 1e-9 % (tolerance 1e-9 %); measured_initialization_filter_error <= 1e-9 bar (tolerance 1e-9 bar); zero_state_first_update_valve_mismatch >= 10 % (tolerance 0.001 %); equilibrium_pressure_drift <= 0.05 bar (tolerance 0.005 bar).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+There is no separate disabled Validate stage. The native test owns the unsafe
+baseline and all three equilibria; Monitor and Test expose the safe 40% start.
 
 ## Evidence and decision
 
 ### Measures and comparison
 
-The **first-update valve mismatch** is the absolute value of $MV_{\mathrm{requested}}$
-minus $MV_{\mathrm{actual}}$ at the first permitted Auto update, measured in percentage
-points. The **filter initialization error** is the absolute value of
-$PV_{\mathrm{filtered}}$ minus $PV_{\mathrm{raw}}$ immediately after initialization, measured in bar.
+The **first-update valve mismatch** is
+
+\[
+e_{MV,1}=|MV_{\mathrm{requested},1}-MV_{\mathrm{actual}}|.
+\]
+
+The absolute value measures bump size regardless of direction, in percentage
+points. The **filter initialization error** is
+
+\[
+e_{filter,0}=|PV_{\mathrm{filtered},0}-PV_{\mathrm{raw},0}|.
+\]
+
+It is evaluated immediately after initialization, before plant evolution can
+hide an invented filter state.
 
 | Initialization | Actual valve | First request | Filtered pressure | Result |
 | --- | ---: | ---: | ---: | --- |

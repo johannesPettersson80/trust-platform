@@ -3,6 +3,10 @@ USING Control;
 PROGRAM Main
 VAR
     SchedulingAvailable : BOOL := TRUE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
     LevelSetpoint : LREAL := 0.30;
     FixedLevel : LREAL := 0.30;
     InterpolatedLevel : LREAL := 0.30;
@@ -24,6 +28,26 @@ END_VAR
 IF NOT Initialized THEN
     LevelSetpoint := LREAL#0.30;
     Initialized := TRUE;
+END_IF;
+
+(* Control Studio grants only authority. This project owns the complete
+   low-middle-high-middle-low sequence and restoration. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    IF ExperimentElapsed < LREAL#30.0 THEN
+        LevelSetpoint := LREAL#0.30;
+    ELSIF ExperimentElapsed < LREAL#120.0 THEN
+        LevelSetpoint := LREAL#0.55;
+    ELSIF ExperimentElapsed < LREAL#240.0 THEN
+        LevelSetpoint := LREAL#0.80;
+    ELSIF ExperimentElapsed < LREAL#330.0 THEN
+        LevelSetpoint := LREAL#0.55;
+    ELSE
+        LevelSetpoint := LREAL#0.30;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    LevelSetpoint := LREAL#0.30;
 END_IF;
 
 Controller(
@@ -52,6 +76,9 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.SchedulingAvailable AT %MX89.1 : BOOL;
+    P1.ExperimentEnabled AT %MX89.2 : BOOL;
+    P1.SafetyAbort AT %MX89.3 : BOOL;
+    P1.InputsValid AT %MX89.4 : BOOL;
     P1.AutomaticMode AT %MX272.0 : BOOL;
     P1.LevelSetpoint AT %ML216 : LREAL;
     P1.FilteredSchedulingLevel AT %ML224 : LREAL;

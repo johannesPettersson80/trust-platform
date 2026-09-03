@@ -99,10 +99,7 @@ fn addressed_source() -> String {
             "    ExperimentEnabled : BOOL :=",
             "    ExperimentEnabled AT %IX80.0 : BOOL :=",
         )
-        .replace(
-            "    Setpoint : LREAL :=",
-            "    Setpoint AT %ML0 : LREAL :=",
-        )
+        .replace("    Setpoint : LREAL :=", "    Setpoint AT %ML0 : LREAL :=")
         .replace(
             "    ProcessValue : LREAL :=",
             "    ProcessValue AT %IL0 : LREAL :=",

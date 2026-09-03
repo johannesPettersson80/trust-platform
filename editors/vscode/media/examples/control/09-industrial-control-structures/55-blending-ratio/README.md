@@ -1,7 +1,9 @@
 # Hold a two-stream blending ratio
 
-Course position: Lesson 55 of 84. Prerequisite: jacketed-reactor cascade in Lesson
-54. Every result here is **Simulation evidence** and does not authorize work on
+Course position: Lesson 55 of 84. Prerequisite:
+[jacketed-reactor cascade](../54-reactor-cascade/) in Lesson 54. Next lesson:
+[split-range control](../56-reactor-split-range/). Every result here is
+**Simulation evidence** and does not authorize work on
 a physical skid.
 
 **Lesson objective:** Configure a blending ratio station, make additive demand follow a valid production-flow change immediately, use downstream composition feedback only as trim, and remove ratio authority safely when wild-flow data are invalid or below the controllable range.
@@ -61,6 +63,10 @@ the ratio is $R_{\mathrm{SP}}$, that fraction would be:
 
 $additive fraction = R_{\mathrm{SP}} / (1 + R_{\mathrm{SP}})$
 
+The denominator is total flow: one base-flow unit plus $R_{\mathrm{SP}}$
+additive-flow units. Thus a flow ratio of 0.30 means an additive fraction
+$0.30/1.30=0.2308$, or 23.08 percent of combined flow, not 30 percent.
+
 Confusing those two definitions changes product formulation. Engineering units,
 meter zero, range, and scaling must therefore be checked before enabling the
 ratio calculation.
@@ -95,10 +101,12 @@ Measured ratio minus 0.30 is the **blend-ratio deviation ($x_{R}$)**. Applied
 additive flow minus 30 L/min is the **additive-flow deviation ($u_{\mathrm{a}}$)**. Actual
 wild flow minus 100 L/min is the **wild-flow deviation ($u_{\mathrm{w}}$)**.
 
-The analyser sees mixed product after a two-second lag. Linearising the
-physical flow ratio near the operating point gives a 0.01 ratio change per
-L/min of additive-flow change and a -0.003 ratio change per L/min of wild-flow
-change. The simulator therefore uses:
+The analyser sees mixed product after a two-second lag. The physical ratio is
+$R=q_{\mathrm{a}}/q_{\mathrm{w}}$. At $q_{\mathrm{a}}=30$ and
+$q_{\mathrm{w}}=100$, its local slopes are
+$\partial R/\partial q_{\mathrm{a}}=1/100=0.01$ and
+$\partial R/\partial q_{\mathrm{w}}=-30/100^2=-0.003$. Keeping only these
+first-order changes gives:
 
 $2 \cdot dx_{R}/dt = -x_{R} + 0.01 \cdot u_{\mathrm{a}} - 0.003 \cdot u_{\mathrm{w}}$
 
@@ -113,14 +121,17 @@ demand before running:
 
 $q_{\mathrm{a}},requested = 0.30 \cdot 120 L/min = 36 L/min$
 
-Feedback-only remains near 30 L/min until the analyser moves. The local model
-predicts its ratio will head toward 0.24. Ratio demand changes from 30 to 36
-L/min immediately, cancelling the two model-input deviations and predicting a
-ratio of 0.30.
+Feedback-only remains near 30 L/min until the analyser moves. Its additive
+deviation is zero and its wild-flow deviation is 20, so the local model
+predicts $x_R=0.01(0)-0.003(20)=-0.06$ and a ratio of $0.30-0.06=0.24$.
+Ratio demand changes from 30 to 36 L/min immediately; then
+$0.01(6)-0.003(20)=0$, so the two input effects cancel and predict 0.30.
 
 In a separate run, actual wild flow remains 120 L/min while the meter reads
-125 L/min, a +5 L/min bias. Untrimmed demand becomes 37.5 L/min. Predict that
-analyser feedback trim approaches -1.5 L/min so applied demand returns near 36
+125 L/min, a +5 L/min bias. Untrimmed demand becomes
+$0.30\times125=37.5$ L/min. The physical stream still needs 36 L/min, so
+predict that analyser feedback trim approaches $36-37.5=-1.5$ L/min and
+applied demand returns near 36
 L/min. For invalid quality or 5 L/min measured wild flow, predict loss of ratio
 authority and a tracked zero additive request.
 
@@ -144,44 +155,28 @@ performance metric, or preferred-controller flag.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Add valid measured-wild-flow ratio demand ahead of the same PI trim, then separately introduce meter bias, invalid quality and below-minimum flow. The declared event lasts 90 seconds. It restores Actual wild-stream flow to 100 L/min afterward. The deterministic Simulation seed is 20260829.
+The project owns the 100-to-120-L/min event at 30 seconds, both blender paths,
+the 90-second observation, and restoration to 100 L/min. Control Studio may
+write only \`P1.ExperimentEnabled\`; it must not inject another flow step. The
+90.1-second timeout lets project restoration finish first. Fresh native cases
+own meter bias, invalid quality, and low flow. The deterministic Simulation
+seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Blend-ratio setpoint (SP, dimensionless); Feedback-only blend ratio (PV, dimensionless); Feedback-only additive request (MV, L/min), including units, limits, mode, and quality. The initial operating point is Blend-ratio setpoint = 0.3 (dimensionless), Actual wild-stream flow = 100 L/min, Measured wild-stream flow = 100 L/min, Untrimmed ratio demand = 30 L/min, Composition feedback trim = 0 L/min, Feedback-only blend ratio = 0.3 (dimensionless), Ratio-controlled blend ratio = 0.3 (dimensionless), Feedback-only additive request = 30 L/min. The unresolved baseline problem is: Downstream composition feedback cannot move additive flow until mixing lag has produced a measured ratio error. In Control Studio Monitor retain the normal-flow boundary at 30.0 s and the restored boundary at 90.0 s.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Use ratio authority only with valid scaled wild-flow data above the reviewed minimum, and retain analyser PI as bounded trim rather than a substitute for meter validity.
-   - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
+   - **Successful evidence:** The Response plot advances and the displayed values are finite and current. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Load disturbance step**, **Amplitude** = **20 L/min**, and **Maximum duration (s)** = **90**. The affected signal is **Actual wild-stream flow**; it starts at 100 L/min and must restore to 100 L/min.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **90.1**. The observed signal is **Actual wild-stream flow**. Control Studio uses the Boolean project authority **P1.ExperimentEnabled** at **%MX160.1**; it does not inject another flow step.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Feedback-only additive request 0 L/min to 60 L/min; Ratio-controlled additive request 0 L/min to 60 L/min; Feedback-only blend ratio 0.1 (dimensionless) to 0.5 (dimensionless); Ratio-controlled blend ratio 0.1 (dimensionless) to 0.5 (dimensionless).
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Actual wild-stream flow to 100 L/min, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Wild-stream ratio station with analyser PI trim and low-flow authority** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Wild-stream ratio station with analyser PI trim and low-flow authority** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Wild-stream ratio station with analyser PI trim and low-flow authority** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Wild-stream ratio station with analyser PI trim and low-flow authority**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: first_scan_ratio_demand == 36 L/min (tolerance 0.05 L/min); nominal_ratio_event_iae_ratio < 0.35 (dimensionless) (tolerance 0.01 (dimensionless)); biased_final_mean_absolute_error < 0.002 (dimensionless) (tolerance 0.0001 (dimensionless)); biased_final_trim == -1.5 L/min (tolerance 0.2 L/min).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Record:** Compare immediate demand, downstream ratio, trim, and additive movement with the prediction. Retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test owns meter-bias and fallback cases, metrics, and verdicts; disabled Identify, Tune, or Validate controls are not evidence.
 
 ## Evidence and decision
 

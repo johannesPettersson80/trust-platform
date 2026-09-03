@@ -204,7 +204,8 @@ Simulation experiment. Test runs the shipped Kp 8 candidate; the retained
 three-gain comparison is generated separately by the lesson's native evidence
 test from the same Structured Text, plant, initial state, load event, sample
 interval, duration, limits, and seed. Control Studio owns the reviewed Boolean
-`P1.AutoMode` authority and restores it disabled. The project owns the scheduled
+`P1.ExperimentEnabled` authority and restores it disabled. The project derives
+Auto mode and owns the scheduled
 cold-water load event. The deterministic seed is 20260824.
 
 ### Control Studio actions
@@ -217,9 +218,9 @@ cold-water load event. The deterministic seed is 20260824.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120**. The reviewed lesson experiment authority is **P1.AutoMode**. Control Studio sets that Boolean authority true; the project owns the 35 °C setpoint, `Kp = 8 %/°C`, and 60-second load event, so Test writes no second excitation.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The sole Control Studio write is Boolean **P1.ExperimentEnabled**. The project derives Auto and owns the 35 °C setpoint, `Kp = 8 %/°C`, and 60-second load event.
    - **Decision before action:** Before selecting **Review test**, predict an initial 120% request clamped to 100%, then decreasing heat as PV rises; at 60 s the colder flow load should increase error and heater demand. Confirm the limits are Outlet-water temperature 0 °C to 80 °C and Applied heater power 0% to 100%.
-   - **Successful evidence:** Select **Review test**, verify **P1.AutoMode**, the 120-second timeout, stop conditions, and false restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, Auto becomes enabled, and the terminal state reports completion with Auto restored false and applied heater power restored to 0%.
+   - **Successful evidence:** Select **Review test**, verify **P1.ExperimentEnabled**, the 120.1-second timeout, stop conditions, and false restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, Auto becomes enabled, and the terminal state reports completion with authority restored false and applied heater power restored to 0%.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test. Confirm Auto is false and applied heat is 0% before leaving the lesson.
    - **Record:** Compare requested and applied heat, PV, the load response, and restoration with your prediction. Retain the terminal state and seed **20260824**. Use the predeclared measures above when reading the retained three-gain comparison; do not present its table as a newly executed Control Studio run.
 

@@ -220,15 +220,15 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.ExperimentEnabled AT %MX85.0 : BOOL;
-    P1.AutoMode AT %MX16.0 : BOOL;
-    P1.RunApproved AT %MX16.1 : BOOL;
+    P1.AutoMode AT %MX144.0 : BOOL;
+    P1.RunApproved AT %MX144.1 : BOOL;
     P1.GenerateCandidate AT %MX84.1 : BOOL;
     P1.ValidationPassed AT %MX84.2 : BOOL;
     P1.ApplyApproved AT %MX84.3 : BOOL;
     P1.RollbackRequested AT %MX84.4 : BOOL;
-    P1.SafetyAbort AT %MX16.2 : BOOL;
-    P1.InputsValid AT %MX16.3 : BOOL;
-    P1.ManualMode AT %MX16.4 : BOOL;
+    P1.SafetyAbort AT %MX144.2 : BOOL;
+    P1.InputsValid AT %MX144.3 : BOOL;
+    P1.ManualMode AT %MX144.4 : BOOL;
     P1.TuningSelection AT %MW80 : INT;
     P1.TuningValid AT %MX84.0 : BOOL;
     P1.CandidateValidated AT %MX84.5 : BOOL;

@@ -8,11 +8,12 @@
   "physicalPurpose": "Coordinate zone comfort and tariff-aware heating under individual, rate, shared-power, and predicted-temperature constraints.",
   "principalTechnique": "Three-step receding-horizon finite-grid model-predictive control with explicit PI fallback",
   "objective": "Formulate and execute all 729 constrained heater-move sequences online, compare the resulting MPC with qualified PI, and distinguish feasible, infeasible, invalid, fallback, and recovery states.",
-  "prerequisites": [
-    "control-suspension-lqr"
-  ],
+  "prerequisites": ["control-suspension-lqr"],
   "nextLesson": "control-pendulum-lyapunov",
   "signals": [
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX241.0" },
+    { "role": "state", "name": "Safety abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX241.1" },
+    { "role": "state", "name": "Inputs valid", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX241.2" },
     { "role": "state", "name": "Control enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX240.0" },
     { "role": "state", "name": "MPC selected", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX240.1" },
     { "role": "quality", "name": "Solver configuration valid", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX240.2" },
@@ -69,46 +70,20 @@
       { "name": "prediction_horizon", "value": 3, "unit": "1" }
     ],
     "sampleTimeSeconds": 60,
-    "initialState": {
-      "zoneOneTemperature": 21,
-      "zoneTwoTemperature": 21,
-      "zoneOneHeating": 80,
-      "zoneTwoHeating": 80,
-      "zoneOneIntegralState": 0,
-      "zoneTwoIntegralState": 0
-    },
+    "initialState": { "zoneOneTemperature": 21, "zoneTwoTemperature": 21, "zoneOneHeating": 80, "zoneTwoHeating": 80, "zoneOneIntegralState": 0, "zoneTwoIntegralState": 0 },
     "seed": 20260829,
-    "operatingPoint": {
-      "Zone-one temperature setpoint": 21,
-      "Zone-two temperature setpoint": 21,
-      "Zone-one temperature": 21,
-      "Zone-two temperature": 21,
-      "Applied zone-one heating": 80,
-      "Applied zone-two heating": 80,
-      "Applied outdoor temperature": 5
-    },
+    "operatingPoint": { "Zone-one temperature setpoint": 21, "Zone-two temperature setpoint": 21, "Zone-one temperature": 21, "Zone-two temperature": 21, "Applied zone-one heating": 80, "Applied zone-two heating": 80, "Applied outdoor temperature": 5 },
     "validityRange": [
       { "signal": "Zone-one temperature", "minimum": 15, "maximum": 27, "unit": "degC" },
       { "signal": "Zone-two temperature", "minimum": 15, "maximum": 27, "unit": "degC" },
       { "signal": "Applied zone-one heating", "minimum": 0, "maximum": 100, "unit": "%" },
       { "signal": "Applied zone-two heating", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "The two-zone linear model omits humidity, ventilation, solar gain, wall states, water-loop and valve dynamics, equipment staging, delay and sensor faults.",
-      "Occupancy heat is an equivalent temperature input and contains no person-level data.",
-      "The three-step move grid is exhaustive but coarser than a continuous quadratic-program solution.",
-      "Forecasts are exact configured Simulation inputs in the nominal record and do not qualify a physical forecast service.",
-      "Simulation evidence does not qualify a physical building or heating plant."
-    ]
+    "simplifications": ["The two-zone linear model omits humidity, ventilation, solar gain, wall states, water-loop and valve dynamics, equipment staging, delay and sensor faults.", "Occupancy heat is an equivalent temperature input and contains no person-level data.", "The three-step move grid is exhaustive but coarser than a continuous quadratic-program solution.", "Forecasts are exact configured Simulation inputs in the nominal record and do not qualify a physical forecast service.", "Simulation evidence does not qualify a physical building or heating plant."]
   },
   "baseline": {
     "executableId": "Building.TwoZoneIncrementalPi",
-    "settings": {
-      "proportionalGain": 20,
-      "integralGain": 0.02,
-      "intervalSeconds": 60,
-      "sharedPowerLimit": 170
-    },
+    "settings": { "proportionalGain": 20, "integralGain": 0.02, "intervalSeconds": 60, "sharedPowerLimit": 170 },
     "limitation": "The reactive PI pair cannot choose three future coupled moves from tariff, weather and occupancy forecasts or prove predicted comfort feasibility."
   },
   "change": {
@@ -124,20 +99,15 @@
     "decision": "Use the first move only after all 729 sequences complete and at least one satisfies every hard constraint; otherwise use the explicitly identified PI fallback."
   },
   "experiment": {
-    "kind": "load_step",
-    "signal": "Current outdoor temperature",
-    "baseline": 5,
-    "amplitude": -1,
-    "durationSeconds": 1200,
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 1200.1,
     "settlingSeconds": 360,
-    "disturbances": [
-      "Outdoor temperature falls from 5 to 4 degC at minute 6.",
-      "Zone-one occupancy gain becomes 2 degC at minute 8 and zone-two gain becomes 1 degC at minute 10.",
-      "Relative tariff rises from 0.10 to 0.60 from minute 8 through 12 and then becomes 0.15.",
-      "Repeat with 22 degC comfort minimum for completed-search infeasibility and negative temperature weight for invalid configuration."
-    ],
+    "disturbances": ["Outdoor temperature falls from 5 to 4 degC at minute 6.", "Zone-one occupancy gain becomes 2 degC at minute 8 and zone-two gain becomes 1 degC at minute 10.", "Relative tariff rises from 0.10 to 0.60 from minute 8 through 12 and then becomes 0.15.", "Repeat with 22 degC comfort minimum for completed-search infeasibility and negative temperature weight for invalid configuration."],
     "seed": 20260829,
-    "restorationValue": 5
+    "restorationValue": 0
   },
   "acceptance": [
     { "metric": "normal_mpc_candidate_count", "signal": "Enumerated sequence count", "window": "every valid normal MPC interval", "comparator": "==", "limit": 729, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
@@ -152,46 +122,24 @@
       { "signal": "Zone-one temperature", "minimum": 15, "maximum": 27, "unit": "degC" },
       { "signal": "Zone-two temperature", "minimum": 15, "maximum": 27, "unit": "degC" }
     ],
-    "abortPredicates": [
-      "Any required state, forecast, tariff, constraint or solver signal is nonfinite, stale, forced, invalid, missing or bound incorrectly.",
-      "Either heater leaves 0 through 100 percent, changes by more than 20 percentage points per interval or combined heat exceeds 170 percent.",
-      "A comparison changes model, schedule, forecast, interval, initial state, grid, horizon, weights or PI state without declaration.",
-      "Candidate count differs from 729 for a valid completed search.",
-      "An infeasible or failed result is presented as an optimum."
-    ],
+    "abortPredicates": ["Any required state, forecast, tariff, constraint or solver signal is nonfinite, stale, forced, invalid, missing or bound incorrectly.", "Either heater leaves 0 through 100 percent, changes by more than 20 percentage points per interval or combined heat exceeds 170 percent.", "A comparison changes model, schedule, forecast, interval, initial state, grid, horizon, weights or PI state without declaration.", "Candidate count differs from 729 for a valid completed search.", "An infeasible or failed result is presented as an optimum."],
     "safeMv": 0,
     "restorationMode": "Restore nominal comfort and weights, obtain one complete feasible solve, then disable and verify both applied heater commands are exactly zero.",
     "physicalApprovalRole": "authorised building-controls engineer with facilities, electrical, hydronic, occupant-safety and cybersecurity owners",
-    "simulationOnlyRestrictions": [
-      "Exact thermal matrices, forecasts, tariff and state are Simulation evidence.",
-      "No physical boiler, heat pump, valve, pump, building zone or occupant environment is operated.",
-      "Physical use requires identified dynamics, qualified forecasts, equipment interlocks, privacy review, explicit immediate approval and rollback."
-    ]
+    "simulationOnlyRestrictions": ["Exact thermal matrices, forecasts, tariff and state are Simulation evidence.", "No physical boiler, heat pump, valve, pump, building zone or occupant environment is operated.", "Physical use requires identified dynamics, qualified forecasts, equipment interlocks, privacy review, explicit immediate approval and rollback."]
   },
-  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-68--constrained-model-predictive-control-building-hvac",
     "nativeTest": "control_curriculum_building_hvac_mpc_executes_constrained_search",
     "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_building_hvac_mpc control_curriculum_building_hvac_mpc_executes_constrained_search -- --exact --nocapture",
     "projectPath": "examples/control/11-state-space-estimation-and-predictive-control/68-building-hvac-mpc",
-    "runArtifactFields": [
-      "projectIdentity", "plantIdentity", "evidenceClass", "sampleTime", "scheduleRevision",
-      "continuousModel", "sampledModel", "horizon", "moveGrid", "weights", "constraints",
-      "measurements", "forecasts", "previousCommands", "candidateCount", "feasibleCount",
-      "bestObjective", "requestedCommands", "appliedCommands", "solverStatus", "fallbackStatus",
-      "comfortState", "abortState", "disabledState", "metrics", "comparisonDecision"
-    ],
+    "runArtifactFields": ["projectIdentity", "plantIdentity", "evidenceClass", "sampleTime", "scheduleRevision", "continuousModel", "sampledModel", "horizon", "moveGrid", "weights", "constraints", "measurements", "forecasts", "previousCommands", "candidateCount", "feasibleCount", "bestObjective", "requestedCommands", "appliedCommands", "solverStatus", "fallbackStatus", "comfortState", "abortState", "disabledState", "metrics", "comparisonDecision"],
     "renderedJourneyId": "control-building-hvac-mpc"
   },
   "video": {
     "viewerOutcome": "Formulate and verify a genuine online constrained two-zone MPC solve, including infeasibility, PI fallback and recovery.",
-    "requiredVisibleEvidence": [
-      "two-zone office identity", "present state and three-step forecasts", "decision move grid and horizon",
-      "objective terms and weights", "individual, rate, shared and comfort constraints",
-      "729 evaluated sequences", "feasible count and best objective", "first applied move",
-      "PI and MPC comparison", "infeasible versus invalid distinction", "fallback and recovery",
-      "Simulation and physical-approval boundary"
-    ],
+    "requiredVisibleEvidence": ["two-zone office identity", "present state and three-step forecasts", "decision move grid and horizon", "objective terms and weights", "individual, rate, shared and comfort constraints", "729 evaluated sequences", "feasible count and best objective", "first applied move", "PI and MPC comparison", "infeasible versus invalid distinction", "fallback and recovery", "Simulation and physical-approval boundary"],
     "durationClass": "extended",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
@@ -201,17 +149,9 @@
   "learning": {
     "context": "Two coupled office zones share constrained heating while weather, occupancy and tariff changes are forecast.",
     "reason": "Reactive or unconstrained feedback cannot coordinate several future coupled moves under hard limits.",
-    "theory": [
-      "MPC defines decisions, a prediction model, objective, horizon and hard constraints before solving.",
-      "The shipped optimizer exhaustively evaluates 729 finite-grid sequences every valid interval.",
-      "Receding horizon applies one move and resolves after the next measurement.",
-      "Completed-search infeasibility and invalid solver configuration are distinct states with explicit PI fallback."
-    ],
+    "theory": ["MPC defines decisions, a prediction model, objective, horizon and hard constraints before solving.", "The shipped optimizer exhaustively evaluates 729 finite-grid sequences every valid interval.", "Receding horizon applies one move and resolves after the next measurement.", "Completed-search infeasibility and invalid solver configuration are distinct states with explicit PI fallback."],
     "workedPrediction": "At 21 degC in both zones with 5 degC outdoors and previous heat 80/80 percent, the zero-move sequence predicts 21 degC and is feasible on all declared limits.",
-    "practicalPreparation": [
-      "Verify the coupled model, interval, schedule, three forecast positions, move grid, horizon, weights, limits, PI state and disabled output.",
-      "Reproduce one 729-sequence result with the independent enumeration oracle before operating the normal schedule."
-    ],
+    "practicalPreparation": ["Verify the coupled model, interval, schedule, three forecast positions, move grid, horizon, weights, limits, PI state and disabled output.", "Reproduce one 729-sequence result with the independent enumeration oracle before operating the normal schedule."],
     "baseline": "Run the qualified bounded incremental PI pair against the twenty-minute schedule without forecast access.",
     "change": "Run the three-step finite-grid optimizer against the identical plant and schedule, applying only each solve's first move.",
     "comparison": "Compare temperature error, comfort violation, tariff-weighted use, heater movement, power peaks, active constraints, solves and fallback on common evidence.",

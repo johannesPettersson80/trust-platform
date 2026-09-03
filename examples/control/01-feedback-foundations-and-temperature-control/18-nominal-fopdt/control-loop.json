@@ -12,7 +12,7 @@
     "revision": "sha256:7b69ac3480ab0fdb0b57d09234817d61e34731aeeeec3dcb99dbf291df5f8197",
     "action": "direct",
     "taskPeriodMs": 100,
-    "modeSignal": "%MX16.0"
+    "modeSignal": "%MX144.0"
   },
   "signals": {
     "setpoint": {
@@ -50,14 +50,14 @@
     },
     "additional": [
       {
-        "id": "experiment-authority-enabled",
-        "channel": "experiment-authority-enabled",
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
         "address": "%MX85.0",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "1",
+        "unit": "",
         "range": {
           "minimum": 0,
           "maximum": 1
@@ -82,7 +82,7 @@
         "channel": "input-validity",
         "role": "quality",
         "symbol": "P1.InputsValid",
-        "address": "%MX16.3",
+        "address": "%MX144.3",
         "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
@@ -138,8 +138,8 @@
     "activation": {
       "symbol": "P1.ExperimentEnabled",
       "address": "%MX85.0",
-      "activeValue": true,
-      "restorationValue": false
+      "iecType": "BOOL",
+      "direction": "write"
     },
     "seed": 20260824
   }

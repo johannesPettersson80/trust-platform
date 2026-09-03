@@ -150,7 +150,7 @@ VAR_CONFIG
     P1.InputsValid AT %MX17.0 : BOOL;
     P1.Setpoint AT %ML0 : LREAL;
     P1.HysteresisWidth AT %ML8 : LREAL;
-    P1.MinimumOnTime AT %ML16 : LREAL;
+    P1.MinimumOnTime AT %ML64 : LREAL;
     P1.MinimumOffTime AT %ML24 : LREAL;
     P1.MeasuredCycleTime AT %ML32 : LREAL;
     P1.DwellElapsed AT %ML40 : LREAL;

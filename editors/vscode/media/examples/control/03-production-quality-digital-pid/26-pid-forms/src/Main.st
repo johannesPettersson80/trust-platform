@@ -11,10 +11,16 @@ VAR
     HeaterInitialState : Control.PIDInitialState;
     HeaterInput : Control.PIDInput;
     Initialized : BOOL := FALSE;
-    AutoMode : BOOL := TRUE;
-    PositionSetpoint : LREAL := 0.5;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    ExperimentCycle : ULINT := ULINT#0;
+    AutoMode : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ManualMode : BOOL := TRUE;
+    PositionSetpoint : LREAL := 0.0;
     PositionProportionalGain : LREAL := 4.0;
-    HeaterSetpoint : LREAL := 35.0;
+    HeaterSetpoint : LREAL := 20.0;
     HeaterProportionalGain : LREAL := 4.0;
     HeaterIntegralGain : LREAL := 0.8;
     DiagnosticError : LREAL := 0.5;
@@ -27,7 +33,7 @@ VAR
     Velocity : LREAL := 0.0;
     HeaterTemperature : LREAL := 20.0;
     PositionTorque : LREAL := 0.0;
-    HeaterPower : LREAL := 30.0;
+    HeaterPower : LREAL := 0.0;
     PositionUsesPositionalForm : BOOL := TRUE;
     HeaterUsesIncrementalForm : BOOL := TRUE;
 END_VAR
@@ -76,6 +82,35 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
+(* Control Studio writes one reviewed authority. The project owns the two
+   setpoints, simultaneous gain edit, and safe restoration. The exact
+   unchanged-input proof remains in the fresh-state native comparison. *)
+IF ExperimentEnabled THEN
+    IF NOT ExperimentWasEnabled THEN
+        ExperimentCycle := ULINT#0;
+        PositionProportionalGain := LREAL#4.0;
+        HeaterProportionalGain := LREAL#4.0;
+        RejectedIncrementalPGain := LREAL#4.0;
+    END_IF;
+    ExperimentCycle := ExperimentCycle + ULINT#1;
+    PositionSetpoint := LREAL#0.5;
+    HeaterSetpoint := LREAL#35.0;
+    AutoMode := TRUE;
+    IF ExperimentCycle > ULINT#250 THEN
+        PositionProportionalGain := LREAL#8.0;
+        HeaterProportionalGain := LREAL#8.0;
+        RejectedIncrementalPGain := LREAL#8.0;
+    END_IF;
+ELSIF ExperimentWasEnabled THEN
+    ExperimentCycle := ULINT#0;
+    PositionSetpoint := LREAL#0.0;
+    HeaterSetpoint := LREAL#20.0;
+    PositionProportionalGain := LREAL#4.0;
+    HeaterProportionalGain := LREAL#4.0;
+    RejectedIncrementalPGain := LREAL#4.0;
+    AutoMode := FALSE;
+END_IF;
+
 (* Reconfigure the shipped controllers so a gain change is observed on the
    same scan instead of being hidden behind lesson-specific controller code. *)
 PositionParameters.ProportionalGain := PositionProportionalGain;
@@ -90,14 +125,19 @@ PositionInput.CycleTime := LREAL#0.02;
 HeaterInput.Setpoint := HeaterSetpoint;
 HeaterInput.ProcessValue := HeaterTemperature;
 HeaterInput.CycleTime := LREAL#0.02;
-IF AutoMode THEN
+InputsValid := Position >= LREAL#-4.0 AND Position <= LREAL#4.0
+    AND Velocity >= LREAL#-20.0 AND Velocity <= LREAL#20.0
+    AND HeaterTemperature >= LREAL#0.0 AND HeaterTemperature <= LREAL#80.0;
+IF AutoMode AND InputsValid AND NOT SafetyAbort THEN
     PositionInput.Mode := PIDMode#Auto;
     HeaterInput.Mode := PIDMode#Auto;
+    ManualMode := FALSE;
 ELSE
     PositionInput.Mode := PIDMode#Manual;
     PositionInput.ManualOutput := LREAL#0.0;
     HeaterInput.Mode := PIDMode#Manual;
     HeaterInput.ManualOutput := LREAL#0.0;
+    ManualMode := TRUE;
 END_IF;
 
 PositionTorque := PositionController.Update(Input := PositionInput);
@@ -112,6 +152,7 @@ RejectedIncrementalPOutput := RejectedIncrementalPOutput
     + RejectedIncrementalPGain * DiagnosticErrorChange;
 PositionalPOutput := RejectedIncrementalPGain * DiagnosticError;
 PreviousDiagnosticError := DiagnosticError;
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -121,6 +162,10 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.AutoMode AT %MX120.0 : BOOL;
+    P1.ExperimentEnabled AT %MX120.1 : BOOL;
+    P1.SafetyAbort AT %MX120.2 : BOOL;
+    P1.InputsValid AT %MX120.3 : BOOL;
+    P1.ManualMode AT %MX120.4 : BOOL;
     P1.PositionSetpoint AT %ML0 : LREAL;
     P1.PositionProportionalGain AT %ML8 : LREAL;
     P1.HeaterSetpoint AT %ML16 : LREAL;

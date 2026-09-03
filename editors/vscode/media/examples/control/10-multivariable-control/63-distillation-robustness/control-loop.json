@@ -42,7 +42,7 @@
       "symbol": "P1.RefluxRequested",
       "address": "%ML72",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "pp",
       "range": {
         "minimum": -16,
@@ -50,6 +50,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX24.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "overhead-automatic-mode",
         "channel": "overhead-automatic-mode",
@@ -155,7 +169,7 @@
         "symbol": "P1.ReboilerRequested",
         "address": "%ML80",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "pp",
         "range": {
           "minimum": -16,
@@ -183,7 +197,7 @@
         "symbol": "P1.RefluxApplied",
         "address": "%QL0",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "pp",
         "range": {
           "minimum": -10,
@@ -197,7 +211,7 @@
         "symbol": "P1.ReboilerApplied",
         "address": "%QL8",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "pp",
         "range": {
           "minimum": -10,
@@ -271,10 +285,16 @@
   },
   "plantId": "local_binary_distillation_nominal_and_strong_interaction_set",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "setpoint_step",
-    "amplitude": 1,
-    "durationSeconds": 720,
-    "seed": 20260829
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 720.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX24.4",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

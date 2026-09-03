@@ -40,7 +40,7 @@
       "symbol": "P1.FeedbackHeatingApplied",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -48,6 +48,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX240.5",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "integrated-reactor-temperature",
         "channel": "integrated-reactor-temperature",
@@ -97,7 +111,7 @@
         "symbol": "P1.FeedbackCoolingApplied",
         "address": "%QL8",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -111,7 +125,7 @@
         "symbol": "P1.IntegratedHeatingApplied",
         "address": "%QL24",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -125,7 +139,7 @@
         "symbol": "P1.IntegratedCoolingApplied",
         "address": "%QL32",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -227,10 +241,16 @@
   },
   "plantId": "equivalent_feedback_and_integrated_jacketed_reactors",
   "experiment": {
-    "execution": "control-studio",
+    "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 150,
-    "seed": 20260829
+    "durationSeconds": 150.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX240.5",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

@@ -93,7 +93,7 @@ fn read_lreal(runtime: &Runtime, address: &str) -> f64 {
 }
 
 fn build_runtime() -> Runtime {
-    let source = project_file("src/Main.st")
+    let mut source = project_file("src/Main.st")
         .split("CONFIGURATION Config")
         .next()
         .expect("Lesson 65 program before configuration")
@@ -162,6 +162,20 @@ fn build_runtime() -> Runtime {
             "MotorLoadTruth : LREAL :=",
             "MotorLoadTruth AT %IL24 : LREAL :=",
         );
+
+    // The visible lesson sequence owns the nominal state-feedback run. These
+    // native comparison runs deliberately exercise the shipped controller
+    // section with direct architecture, reference, and enable inputs so the
+    // position-only and observer-off baselines remain independent evidence.
+    let sequence_start = source
+        .find("IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN")
+        .expect("Lesson 65 project-owned sequence start");
+    let controller_start = source[sequence_start..]
+        .find("IF BearingEnabled THEN")
+        .map(|offset| sequence_start + offset)
+        .expect("Lesson 65 bearing controller start");
+    source.replace_range(sequence_start..controller_start, "");
+
     CompileSession::from_sources(vec![SourceFile::with_path(
         "magnetic-bearing-state-feedback/src/Main.st",
         source,

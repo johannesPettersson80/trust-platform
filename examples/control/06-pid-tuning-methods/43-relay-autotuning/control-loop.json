@@ -15,18 +15,104 @@
     "taskPeriodMs": 100
   },
   "signals": {
-    "processVariable": { "symbol": "P1.QualifiedTemperature", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 40, "maximum": 60 } },
-    "manipulatedVariable": { "symbol": "P1.RelayAmplitude", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 20 } },
-    "actuator": { "symbol": "P1.QualifiedRelayApplied", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+    "processVariable": {
+      "symbol": "P1.QualifiedTemperature",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 40,
+        "maximum": 60
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.RelayAmplitude",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 20
+      }
+    },
+    "actuator": {
+      "symbol": "P1.QualifiedRelayApplied",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
     "additional": [
-      { "id": "experiment-authority", "channel": "experiment-authority", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX8.0", "iecType": "BOOL", "direction": "write", "unit": "bool", "range": { "minimum": 0, "maximum": 1 } },
-      { "id": "weak-relay-pv", "channel": "weak-relay", "role": "PV", "symbol": "P1.RejectedTemperature", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 40, "maximum": 60 } },
-      { "id": "weak-relay-actuator", "channel": "weak-relay", "role": "actuator", "symbol": "P1.RejectedRelayApplied", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } }
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX8.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "weak-relay-pv",
+        "channel": "weak-relay",
+        "role": "PV",
+        "symbol": "P1.RejectedTemperature",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 40,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "weak-relay-actuator",
+        "channel": "weak-relay",
+        "role": "actuator",
+        "symbol": "P1.RejectedRelayApplied",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
     ]
   },
-  "limits": { "outputMinimum": 0, "outputMaximum": 20 },
-  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 20
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
   "plantId": "two_independent_plate_heat_exchanger_feedback_relay_copies",
   "operatingPoint": "50 degC at 20 percent valve position",
-  "experiment": { "execution": "project-scripted", "kind": "observation", "activationSignal": "P1.ExperimentEnabled", "amplitude": 0, "durationSeconds": 180.1, "restorationValue": 0, "seed": 20260829 }
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 180.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX8.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
 }

@@ -11,8 +11,6 @@ Next lesson: `control-building-hvac-mpc`.
 
 ## The problem
 
-The equipment in this lesson is Reduced body-bounce mode of an active road-vehicle suspension.
-
 The equipment is the locally linear body-bounce mode of one corner of an active road-vehicle suspension. Suspension deflection ($z$) says how far the body moves relative to its local rest position, in metres. Body vertical velocity ($v$) says how quickly that deflection changes, in metres per second. Hydraulic force ($u$) is the bidirectional actuator command, in kilonewtons. Road-equivalent vertical acceleration disturbance ($d$) represents the bump force reaching the body mode, in metres per squared second.
 
 Velocity changes deflection. Spring and damper action oppose body motion, while hydraulic force and the road disturbance change vertical velocity. In equations:
@@ -54,7 +52,7 @@ Larger state weight asks the design to suppress that state more strongly. Larger
 
 Raw numerical weights depend on engineering units. A value written in millimetres is numerically one thousand times the same displacement written in metres, so reusing an unchanged weight would change the design.
 
-Normalize deflection by 0.05 metres, velocity by 0.25 metres per second, and force by 5 kilonewtons before expressing a preference. Transform the normalized preference back into dimensional Q and R before solving. Unit conversion without the matching weight transformation is a configuration error.
+Normalize deflection by 0.05 metres, velocity by 0.25 metres per second, and force by 5 kilonewtons before expressing a preference. If the normalized penalties are $q_z(z/0.05)^2$, $q_v(v/0.25)^2$, and $r_u(u/5)^2$, expansion shows that the dimensional weights are $Q_{zz}=q_z/0.05^2$, $Q_{vv}=q_v/0.25^2$, and $R=r_u/5^2$. This division by the squared engineering scale is why changing metres to millimetres without transforming the weight changes the controller.
 
 ### From cost to feedback
 
@@ -67,6 +65,8 @@ Linear-quadratic regulator gain ($K$) converts state into requested force:
 $\mathbf{K}=\mathbf{R}^{-1}\mathbf{B}^{T}\mathbf{P}$
 
 $u_{\mathrm{requested}}=-\mathbf{K}\mathbf{x}$
+
+The Riccati equation is solved for the symmetric matrix $P$; it is not a guessed gain. Because $B=[0,0.5]^T$, the gain relation becomes $K=[0.5P_{12}/R,\;0.5P_{22}/R]$. For the balanced case, the numerical Riccati solution has $P_{12}=4.39607806$ and $P_{22}=3.81444278$, so with $R=1$ it gives $K=[2.19803903,1.90722139]$. Substitution into the Riccati equation and a stability check of $A-BK$ are the independent checks that those numbers solve the declared problem.
 
 This solution is optimal for the declared linear model, quadratic cost, complete state, and unconstrained calculation. Saturation breaks the unconstrained optimum. Two candidates designed with different Q and R also have different private cost definitions, so their private J values cannot rank one another. Compare them using the same physical measures.
 
@@ -90,6 +90,8 @@ $\mathbf{A}_d=\begin{bmatrix}0.98084004&0.09360616\\-0.37442462&0.86851265\end{b
 $\mathbf{B}_d=\begin{bmatrix}0.00239499\\0.04680308\end{bmatrix}$
 
 $\mathbf{E}_d=\begin{bmatrix}0.00478999\\0.09360616\end{bmatrix}$
+
+These matrices come from exact zero-order-hold sampling: $A_d=e^{A\Delta t}$, $B_d=\int_0^{\Delta t}e^{A\tau}B\,d\tau$, and $E_d=\int_0^{\Delta t}e^{A\tau}E\,d\tau$. The exponential carries the unforced state through 0.1 seconds; each integral accumulates the effect of an input held constant over that interval.
 
 Measured position ($y$) is the noisy sensor sample. Predicted state estimate ($x_{\mathrm{prior}}$) is the state expected from the previous corrected estimate and applied inputs. Innovation ($\nu$) is measured position minus predicted position. Estimator gain ($L$) says how much of that surprise corrects deflection and velocity.
 
@@ -139,44 +141,23 @@ Design modes are 0 pole placement, 1 body motion, 2 suspension travel, 3 balance
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Execute four independently solved LQR gains, select from common physical measures, then combine the balanced gain with the position-only Kalman estimator. The declared event lasts 12 seconds. It restores Requested road-equivalent acceleration to 0 m/s2 afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the balanced position-only LQG design under the nominal road pulse. The project owns the complete event: zero road acceleration for one second, +0.5 metres per squared second for half a second, then zero. Removing authority or detecting invalid inputs or a safety abort disables hydraulic force and restores the road request to zero. The pole-placement, four full-state LQR, doubled-noise, and mismatch comparisons remain separate native test records. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Full-state suspension-deflection measurement (PV, m) and Full-state body-velocity measurement (PV, m/s); Requested hydraulic force (MV, kN) and Applied hydraulic force (MV, kN), including units, limits, mode, and quality. The initial operating point is Requested hydraulic force = 0 kN, Applied hydraulic force = 0 kN, Requested road-equivalent acceleration = 0 m/s2, Applied road-equivalent acceleration = 0 m/s2. The unresolved baseline problem is: Pole placement stabilizes the local mode but does not encode a reproducible preference among suspension travel, body motion and hydraulic effort. Use Control Studio Monitor before Tune/Design, then execute Test and finish in Validate on common physical measures.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm clean validation state, noisy position, estimated state, innovation, requested/applied force, requested/applied road acceleration, design selector, saturation, units, limits, mode, and quality. Confirm Simulation-truth velocity is labelled as validation data and is not an estimator input. Before authority is granted, applied force and road acceleration are zero.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Select a regulator only from common physical tradeoff measures, then accept position-only LQG only when estimator and abnormal-case evidence remain inside declared bounds.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **mv_pulse**, **Amplitude** = **0.5 m/s2**, and **Maximum duration (s)** = **12**. The affected signal is **Requested road-equivalent acceleration**; it starts at 0 m/s2 and must restore to 0 m/s2.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Applied hydraulic force -5 kN to 5 kN; Applied road-equivalent acceleration -2 m/s2 to 2 m/s2; Full-state suspension-deflection measurement -0.08 m to 0.08 m.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **12.1**. The affected signal is **Experiment authority**. Amplitude zero is intentional: Test writes only `P1.ExperimentEnabled`; the project owns the road pulse and balanced-LQG selection.
+   - **Decision before action:** Before selecting **Review test**, predict that positive road acceleration first drives positive body velocity and deflection, while the feedback requests opposing force. Confirm the scheduled pulse and expected response remain inside the force, road, deflection, and velocity limits.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Requested road-equivalent acceleration to 0 m/s2, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Linear-quadratic regulation and position-only linear-quadratic-Gaussian control** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Linear-quadratic regulation and position-only linear-quadratic-Gaussian control** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Linear-quadratic regulation and position-only linear-quadratic-Gaussian control** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Linear-quadratic regulation and position-only linear-quadratic-Gaussian control**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: maximum_applied_hydraulic_force <= 5 kN (tolerance 0.001 kN); maximum_absolute_suspension_deflection <= 0.08 m (tolerance 0.0001 m); nominal_lqg_position_estimation_rms <= 0.01 m (tolerance 0.0001 m); nominal_lqg_velocity_estimation_rms <= 0.1 m/s (tolerance 0.001 m/s).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero applied force and road acceleration, wait for current data, and review a new test.
+   - **Record:** Stop recording only after restoration. Compare the nominal LQG response and estimate with your prediction, then retain the terminal state, restoration result, and deterministic seed **20260829**. Use the native evidence below for the other designs and abnormal cases; do not claim this visible run executed them.
 
 ## Evidence and decision
 

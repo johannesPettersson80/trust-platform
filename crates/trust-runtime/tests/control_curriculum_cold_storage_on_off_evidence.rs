@@ -48,7 +48,11 @@ fn addressed_source() -> String {
         .split("CONFIGURATION Config")
         .next()
         .expect("lesson program before configuration")
-        .replace("AutoMode : BOOL :=", "AutoMode AT %IX24.0 : BOOL :=")
+        .replace("AutoMode : BOOL :=", "AutoMode AT %MX28.0 : BOOL :=")
+        .replace(
+            "ExperimentEnabled : BOOL :=",
+            "ExperimentEnabled AT %IX24.0 : BOOL :=",
+        )
         .replace("Setpoint : LREAL :=", "Setpoint AT %IL32 : LREAL :=")
         .replace("ProcessValue : LREAL :=", "ProcessValue AT %IL0 : LREAL :=")
         .replace(
@@ -120,7 +124,8 @@ fn run_closed_loop() -> Vec<Sample> {
         SimulationConfig::load(&config_path).expect("load ON/OFF simulation configuration"),
     );
     let sp = IoAddress::parse("%IL32").expect("SP address");
-    let auto = IoAddress::parse("%IX24.0").expect("Auto address");
+    let authority = IoAddress::parse("%IX24.0").expect("experiment authority address");
+    let auto = IoAddress::parse("%MX28.0").expect("derived Auto address");
     let pv = IoAddress::parse("%IL0").expect("PV address");
     let mv = IoAddress::parse("%QL0").expect("MV address");
     let switch_count = IoAddress::parse("%MD24").expect("switch-count address");
@@ -131,7 +136,7 @@ fn run_closed_loop() -> Vec<Sample> {
         .expect("publish initial plant state");
 
     write_lreal(&mut runtime, &sp, 2.0);
-    write_bool(&mut runtime, &auto, false);
+    write_bool(&mut runtime, &authority, false);
     runtime.execute_cycle().expect("execute initial safe scan");
     assert_eq!(
         read_lreal(&runtime, &mv),
@@ -142,7 +147,7 @@ fn run_closed_loop() -> Vec<Sample> {
     let mut trace = Vec::with_capacity(1201);
     for cycle in 1..=1200 {
         write_lreal(&mut runtime, &sp, 2.0);
-        write_bool(&mut runtime, &auto, true);
+        write_bool(&mut runtime, &authority, true);
         runtime.execute_cycle().expect("execute ON/OFF controller");
         let now = Duration::from_millis((cycle * 100) as i64);
         simulation
@@ -162,7 +167,7 @@ fn run_closed_loop() -> Vec<Sample> {
         });
     }
 
-    write_bool(&mut runtime, &auto, false);
+    write_bool(&mut runtime, &authority, false);
     runtime
         .execute_cycle()
         .expect("execute explicit safe restoration");
@@ -182,7 +187,7 @@ fn run_closed_loop() -> Vec<Sample> {
 fn run_noisy_crossings() -> Vec<NoiseSample> {
     let mut runtime = compile_controller();
     let sp = IoAddress::parse("%IL32").expect("SP address");
-    let auto = IoAddress::parse("%IX24.0").expect("Auto address");
+    let authority = IoAddress::parse("%IX24.0").expect("experiment authority address");
     let pv = IoAddress::parse("%IL0").expect("PV address");
     let mv = IoAddress::parse("%QL0").expect("MV address");
     let mut previous = None;
@@ -192,7 +197,7 @@ fn run_noisy_crossings() -> Vec<NoiseSample> {
             let underlying_temperature = 2.0;
             let process_value = underlying_temperature + measurement_noise;
             write_lreal(&mut runtime, &sp, 2.0);
-            write_bool(&mut runtime, &auto, true);
+            write_bool(&mut runtime, &authority, true);
             write_lreal(&mut runtime, &pv, process_value);
             runtime.execute_cycle().expect("execute noisy crossing");
             let output = read_lreal(&runtime, &mv);

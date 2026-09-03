@@ -715,7 +715,9 @@ fn lesson_14_project_executes_selected_timing_fault_and_recovery_sequence() {
     write_lreal(&mut runtime, "%IL16", 0.5);
     set_inputs(&mut runtime, 0.1, true, 0.0, false, false);
     write_bool(&mut runtime, "%MX80.0", false);
-    runtime.execute_cycle().expect("initialize Lesson 14 safely");
+    runtime
+        .execute_cycle()
+        .expect("initialize Lesson 14 safely");
 
     assert!(!read_bool(&runtime, "%MX64.0"));
     assert_eq!(read_lreal(&runtime, "%ML0"), 0.0);

@@ -18,7 +18,8 @@
     { "role": "state", "name": "Feedforward contribution", "unit": "%", "minimum": -100, "maximum": 100, "resolution": 0.1, "binding": "%ML40" },
     { "role": "state", "name": "Active proportional gain", "unit": "%/bar", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML56" },
     { "role": "state", "name": "Active integral gain", "unit": "%/(bar*s)", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML64" },
-    { "role": "state", "name": "Active revision", "unit": "1", "minimum": 0, "maximum": 32767, "resolution": 1, "binding": "%MW112" }
+    { "role": "state", "name": "Active revision", "unit": "1", "minimum": 0, "maximum": 32767, "resolution": 1, "binding": "%MW112" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX121.0" }
   ],
   "plant": {
     "modelId": "first_order",
@@ -38,11 +39,7 @@
       { "signal": "Applied valve command", "minimum": 0, "maximum": 100, "unit": "%" },
       { "signal": "Feedforward contribution", "minimum": -100, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "The unsafe sequential update is a simulation-only diagnostic and is not a supported configuration path.",
-      "The feedforward value is prescribed to expose signal ordering; disturbance modelling and feedforward design are deferred to Lesson 53.",
-      "The diagnostic nominal request mirrors this lesson's PI increment only and never participates in the plant-command path."
-    ]
+    "simplifications": ["The unsafe sequential update is a simulation-only diagnostic and is not a supported configuration path.", "The feedforward value is prescribed to expose signal ordering; disturbance modelling and feedforward design are deferred to Lesson 53.", "The diagnostic nominal request mirrors this lesson's PI increment only and never participates in the plant-command path."]
   },
   "baseline": {
     "executableId": "BoosterPump.MixedRevisionDiagnostic",
@@ -56,20 +53,20 @@
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Discharge-pressure setpoint",
-    "baseline": 6,
-    "amplitude": 1,
-    "durationSeconds": 10,
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 10.1,
     "settlingSeconds": 0,
     "disturbances": ["20 percent prescribed feedforward contribution in the ordering comparison"],
     "seed": 20260829,
-    "restorationValue": 6
+    "restorationValue": 0
   },
   "acceptance": [
-    { "metric": "atomic_first_update_increment", "signal": "Applied valve command", "window": "first 100 ms update with complete revision 1 and 1 bar setpoint step", "comparator": "<=", "limit": 15.300000001, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "mixed_first_update_increment", "signal": "Applied valve command", "window": "first 100 ms simulation-only mixed-revision update", "comparator": ">=", "limit": 15.099999999, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "constraint_aware_feedforward_output", "signal": "Applied valve command", "window": "first update after 20 percent feedforward from 40 percent applied output", "comparator": "<=", "limit": 42.000000001, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "rejected_external_sum", "signal": "Diagnostic nominal request", "window": "same feedforward update, calculation-only", "comparator": ">=", "limit": 59.999999999, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" }
+    { "metric": "atomic_first_update_increment", "signal": "Applied valve command", "window": "first 100 ms update with complete revision 1 and 1 bar setpoint step", "comparator": "<=", "limit": 15.300000001, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "mixed_first_update_increment", "signal": "Applied valve command", "window": "first 100 ms simulation-only mixed-revision update", "comparator": ">=", "limit": 15.099999999, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "constraint_aware_feedforward_output", "signal": "Applied valve command", "window": "first update after 20 percent feedforward from 40 percent applied output", "comparator": "<=", "limit": 42.000000001, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "rejected_external_sum", "signal": "Diagnostic nominal request", "window": "same feedforward update, calculation-only", "comparator": ">=", "limit": 59.999999999, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" }
   ],
   "safety": {
     "hardLimits": [
@@ -82,7 +79,7 @@
     "physicalApprovalRole": "authorised pump-station control engineer",
     "simulationOnlyRestrictions": ["Never reproduce the mixed-revision or external post-limit sum on physical equipment; physical online changes require validated parameters, reviewed topology, rollback, and explicit approval."]
   },
-  "workflowStages": ["Monitor", "Test", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-29--atomic-updates-and-signal-ordering-booster-pump-station",
     "nativeTest": "control_curriculum_booster_pump_applies_atomic_parameters_and_orders_feedforward",
@@ -103,12 +100,7 @@
   "learning": {
     "context": "The booster-pump pressure controller remains online while an engineer prepares a new PID configuration and while a measured disturbance may contribute feedforward output.",
     "reason": "Lesson 28 aligned controller state between authority owners, but a scan can still be wrong if it mixes parameter revisions or adds a contribution after constraints have executed.",
-    "theory": [
-      "A candidate configuration is the complete proposed PID record. The active configuration is the record used by the current controller scan. A revision identifies one complete record.",
-      "Atomic application exposes either the complete old record or complete new record to one update. A mixed record is invalid even if every individual value is numerically valid.",
-      "Feedback and feedforward combine inside Control.PID before anti-windup, amplitude limits, and rate limits. The rate interval begins at the previous applied output.",
-      "Requested and applied outputs are distinct engineering signals. A calculation added after the returned applied output bypasses controller state and limits and is rejected."
-    ],
+    "theory": ["A candidate configuration is the complete proposed PID record. The active configuration is the record used by the current controller scan. A revision identifies one complete record.", "Atomic application exposes either the complete old record or complete new record to one update. A mixed record is invalid even if every individual value is numerically valid.", "Feedback and feedforward combine inside Control.PID before anti-windup, amplitude limits, and rate limits. The rate interval begins at the previous applied output.", "Requested and applied outputs are distinct engineering signals. A calculation added after the returned applied output bypasses controller state and limits and is rejected."],
     "workedPrediction": "From 40 percent at 6 bar, new Kp 15 and Ki 3 produce a 15.3-point first increment for a 1 bar step; new Kp with old Ki produces 15.1. At zero error, 20 percent feedforward with a 20 percent-per-second limit over 0.1 seconds permits 42 percent from the previous 40, while a rejected post-limit sum is 60 percent.",
     "practicalPreparation": ["Verify SP, PV, actual and applied valve values, candidate and active parameters, revision, configured-this-scan, feedforward, rate bounds, limit flags, and simulation label.", "Restore 6 bar and 40 percent. Keep plant, state, sample interval, limit, seed, and event timing equal across comparisons."],
     "baseline": "Run the simulation-only sequential update for one scan so new proportional gain is combined with old integral gain, then reject the mixed revision.",

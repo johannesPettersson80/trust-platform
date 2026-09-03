@@ -12,7 +12,7 @@ This lesson uses simulation. Its results are not physical-plant evidence.
 
 **Equipment:** Variable-speed booster pump with recirculation valve.
 
-## Where this lesson begins
+## The problem
 
 Lesson 26 established that a production PI controller retains output and signal
 history. This lesson asks where that history comes from when software joins a
@@ -32,7 +32,12 @@ The controller and filter histories must match that physical state before Auto
 is allowed. Disabled, Manual, Auto, and Track must also have one explicit owner
 of the applied valve command.
 
-## State and authority
+## What we need
+
+We need explicit ownership and initialization rules for Disabled, Manual, and
+Auto so enabling control cannot create an unexplained pressure or valve jump.
+
+## The new idea
 
 The **discharge-pressure setpoint ($SP$)** is the desired pump discharge pressure
 in bar. The **raw discharge pressure ($PV_{\mathrm{raw}}$)** is the value received directly
@@ -79,7 +84,7 @@ PV_{\mathrm{eq}}=2\ \mathrm{bar}
 
 This is a bounded first-order teaching model, not a pump curve.
 
-## Deriving the startup predictions
+## Prediction
 
 The model has 2 bar at zero valve command. Each percentage point adds 0.1 bar,
 so substitution gives \(2+0.1(20)=4\) bar,

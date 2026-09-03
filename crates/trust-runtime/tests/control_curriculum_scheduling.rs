@@ -257,10 +257,7 @@ fn control_curriculum_gain_scheduling_crosses_gravity_tank_regions_without_chatt
     );
     let controller = project_file("src/GainScheduledTankController.st");
     assert_eq!(controller.matches("Control.PID;").count(), 5);
-    assert_eq!(
-        controller.matches("Control.PIDGainScheduler;").count(),
-        1
-    );
+    assert_eq!(controller.matches("Control.PIDGainScheduler;").count(), 1);
     assert_eq!(
         project_file("simulation.toml")
             .matches("model = \"gravity_tank\"")

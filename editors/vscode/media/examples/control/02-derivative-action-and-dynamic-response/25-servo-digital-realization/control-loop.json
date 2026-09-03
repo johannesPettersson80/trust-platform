@@ -42,7 +42,7 @@
       "symbol": "P1.RequestedTorque",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "N m",
       "range": {
         "minimum": -10,
@@ -50,6 +50,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX16.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "motor-velocity",
         "channel": "motor-velocity",
@@ -75,10 +89,16 @@
   },
   "plantId": "digital-positioning-table",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "setpoint_step",
-    "amplitude": 0.5,
-    "durationSeconds": 20,
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 20.01,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX16.1",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
     "seed": 20260828
   }
 }

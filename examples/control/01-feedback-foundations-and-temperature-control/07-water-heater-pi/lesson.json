@@ -21,8 +21,9 @@
     { "role": "state", "name": "Integral increment", "unit": "pp", "minimum": -1000, "maximum": 1000, "resolution": 0.01, "binding": "%ML48" },
     { "role": "state", "name": "Measured holding output", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML56" },
     { "role": "MV", "name": "Applied heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
-    { "role": "state", "name": "Automatic mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.0" },
-    { "role": "disturbance", "name": "Cold-water flow load", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 1, "binding": "simulation.toml#plant_events[0]" }
+    { "role": "state", "name": "Automatic mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX64.3" },
+    { "role": "disturbance", "name": "Cold-water flow load", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 1, "binding": "simulation.toml#plant_events[0]" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX64.0" }
   ],
   "plant": {
     "modelId": "first_order_dead_time",
@@ -40,11 +41,7 @@
       { "signal": "Outlet-water temperature", "minimum": 0, "maximum": 80, "unit": "degC" },
       { "signal": "Applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "The recirculating volume is one well-mixed thermal state.",
-      "The constant cold-water load changes the zero-power equilibrium by 3 degC.",
-      "The separate 45 degC setpoint is unreachable when the no-load equilibrium is 20 degC and heater power is limited to 100 percent."
-    ]
+    "simplifications": ["The recirculating volume is one well-mixed thermal state.", "The constant cold-water load changes the zero-power equilibrium by 3 degC.", "The separate 45 degC setpoint is unreachable when the no-load equilibrium is 20 degC and heater power is limited to 100 percent."]
   },
   "baseline": {
     "executableId": "Control.PID.PAndISeparate",
@@ -67,18 +64,15 @@
     "decision": "Keep Kp fixed at 8, qualify each Ki candidate, and select Ki 4 by shortest eligible recovery before separately exposing an unreachable setpoint."
   },
   "experiment": {
-    "kind": "load_step",
-    "signal": "Cold-water flow load",
+    "kind": "observation",
+    "signal": "Experiment authority",
     "baseline": 0,
-    "amplitude": 100,
+    "amplitude": 0,
     "durationSeconds": 120,
     "settlingSeconds": 50,
     "manualPreparationEndsSeconds": 50,
     "settlingWindow": "110.1-120.0 s",
-    "disturbances": [
-      "Cold-water flow increases at 60 s in the normal comparison.",
-      "A separate no-load exposure changes SP to the unreachable 45 degC at 60 s."
-    ],
+    "disturbances": ["Cold-water flow increases at 60 s in the normal comparison.", "A separate no-load exposure changes SP to the unreachable 45 degC at 60 s."],
     "seed": 20260828,
     "restorationValue": 0
   },
@@ -99,10 +93,7 @@
     "safeMv": 0,
     "restorationMode": "Manual with 0% requested and applied heater power",
     "physicalApprovalRole": "authorised controls engineer",
-    "simulationOnlyRestrictions": [
-      "The PI tuning criteria and selected gains are simulation teaching evidence, not approved physical heater settings.",
-      "The unreachable setpoint exposure shall not be performed on physical equipment from this lesson."
-    ]
+    "simulationOnlyRestrictions": ["The PI tuning criteria and selected gains are simulation teaching evidence, not approved physical heater settings.", "The unreachable setpoint exposure shall not be performed on physical equipment from this lesson."]
   },
   "workflowStages": ["Monitor", "Test"],
   "proof": {
@@ -125,22 +116,9 @@
   "learning": {
     "context": "The same one-sided recirculating heater holds 35 degC with 75 percent power while cold-water flow changes.",
     "reason": "Lesson 5 retained 1.15 degC offset; Lesson 6 removed it but had 1.62 degC early error and 17.38 pp movement.",
-    "theory": [
-      "The setpoint (SP) is desired outlet temperature, process value (PV) is measured outlet temperature, and error (e) is SP minus PV in degrees Celsius.",
-      "The proportional gain (Kp) is requested-output percentage points per degree Celsius of present error.",
-      "The integral gain (Ki) is stored-output change in percentage points per degree Celsius-second.",
-      "The proportional increment (delta_uP) is caused by change in error; the integral increment (delta_uI) is caused by present error and cycle time.",
-      "The requested manipulated variable (MV_requested) is preliminary controller output before limits; the applied manipulated variable (MV_applied) is the bounded heater command.",
-      "After those quantities are defined, incremental PI adds delta_uP and delta_uI to the previous output.",
-      "The integral time (Ti) is seconds for integral action to accumulate the same output contribution as proportional action under unchanged error; Ti equals Kp divided by Ki.",
-      "Increasing Ki can improve recovery but can also increase overshoot, saturation, and actuator movement."
-    ],
+    "theory": ["The setpoint (SP) is desired outlet temperature, process value (PV) is measured outlet temperature, and error (e) is SP minus PV in degrees Celsius.", "The proportional gain (Kp) is requested-output percentage points per degree Celsius of present error.", "The integral gain (Ki) is stored-output change in percentage points per degree Celsius-second.", "The proportional increment (delta_uP) is caused by change in error; the integral increment (delta_uI) is caused by present error and cycle time.", "The requested manipulated variable (MV_requested) is preliminary controller output before limits; the applied manipulated variable (MV_applied) is the bounded heater command.", "After those quantities are defined, incremental PI adds delta_uP and delta_uI to the previous output.", "The integral time (Ti) is seconds for integral action to accumulate the same output contribution as proportional action under unchanged error; Ti equals Kp divided by Ki.", "Increasing Ki can improve recovery but can also increase overshoot, saturation, and actuator movement."],
     "workedPrediction": "With unchanged 2 degC error, Kp 8, Ki 4, dt 0.1 s, and previous output 75 percent, delta_uP is 0 pp, delta_uI is 0.8 pp, and the preliminary request is 75.8 percent.",
-    "practicalPreparation": [
-      "Start disabled, establish the measured 75 percent Manual holding output, and qualify 35 degC before Auto.",
-      "Keep Kp 8 and change only Ki through 0.5, 2, 4, and 8 under one plant, event, timing, limits, and seed.",
-      "A live gain edit is adopted by both diagnostics and Control.PID at the beginning of the next 0.1 s scan without resetting retained state; restore and re-establish the Manual holding condition before each independent candidate."
-    ],
+    "practicalPreparation": ["Start disabled, establish the measured 75 percent Manual holding output, and qualify 35 degC before Auto.", "Keep Kp 8 and change only Ki through 0.5, 2, 4, and 8 under one plant, event, timing, limits, and seed.", "A live gain edit is adopted by both diagnostics and Control.PID at the beginning of the next 0.1 s scan without resetting retained state; restore and re-establish the Manual holding condition before each independent candidate."],
     "baseline": "Use the frozen gain-8 bias-75 and integral-only Ki-0.5 evidence as explanatory references.",
     "change": "Execute the bounded Ki sweep, select by declared criteria, then run a separate unreachable 45 degC exposure.",
     "comparison": "Define settling, early and final error, recovery, overshoot, applied movement, saturation, eligibility, ranking, and the physical-evidence boundary before results.",

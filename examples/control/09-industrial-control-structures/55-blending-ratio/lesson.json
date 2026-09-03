@@ -33,32 +33,16 @@
       { "name": "wild_flow_sensitivity", "value": -0.003, "unit": "1" }
     ],
     "sampleTimeSeconds": 0.1,
-    "initialState": { "blendRatio": 0.30, "additiveFlowLMin": 30, "wildFlowLMin": 100 },
+    "initialState": { "blendRatio": 0.3, "additiveFlowLMin": 30, "wildFlowLMin": 100 },
     "seed": 20260829,
-    "operatingPoint": {
-      "Blend-ratio setpoint": 0.30,
-      "Actual wild-stream flow": 100,
-      "Measured wild-stream flow": 100,
-      "Untrimmed ratio demand": 30,
-      "Composition feedback trim": 0,
-      "Feedback-only blend ratio": 0.30,
-      "Ratio-controlled blend ratio": 0.30,
-      "Feedback-only additive request": 30,
-      "Ratio-controlled additive request": 30
-    },
+    "operatingPoint": { "Blend-ratio setpoint": 0.3, "Actual wild-stream flow": 100, "Measured wild-stream flow": 100, "Untrimmed ratio demand": 30, "Composition feedback trim": 0, "Feedback-only blend ratio": 0.3, "Ratio-controlled blend ratio": 0.3, "Feedback-only additive request": 30, "Ratio-controlled additive request": 30 },
     "validityRange": [
       { "signal": "Actual wild-stream flow", "minimum": 80, "maximum": 130, "unit": "L/min" },
       { "signal": "Measured wild-stream flow", "minimum": 10, "maximum": 160, "unit": "L/min" },
       { "signal": "Feedback-only blend ratio", "minimum": 0.1, "maximum": 0.5, "unit": "1" },
       { "signal": "Ratio-controlled blend ratio", "minimum": 0.1, "maximum": 0.5, "unit": "1" }
     ],
-    "simplifications": [
-      "Local material-balance linearisation around 100 L/min wild flow and ratio 0.30",
-      "One two-second state combines mixing transport and analyser lag",
-      "The low-flow case proves authority fallback only and is outside the local composition model",
-      "Two deterministic equivalent plants isolate ratio feedforward from identical PI trim",
-      "Simulation-only I/O and evidence"
-    ]
+    "simplifications": ["Local material-balance linearisation around 100 L/min wild flow and ratio 0.30", "One two-second state combines mixing transport and analyser lag", "The low-flow case proves authority fallback only and is outside the local composition model", "Two deterministic equivalent plants isolate ratio feedforward from identical PI trim", "Simulation-only I/O and evidence"]
   },
   "baseline": {
     "executableId": "Blender.CompositionFeedbackOnly",
@@ -67,12 +51,12 @@
   },
   "change": {
     "executableId": "Blender.RatioPlusTrim",
-    "settings": { "ratioSetpoint": 0.30, "minimumWildFlowLMin": 10, "maximumWildFlowLMin": 160, "safeAdditiveFlowLMin": 0, "feedbackTrimKp": 50, "feedbackTrimKi": 10 },
+    "settings": { "ratioSetpoint": 0.3, "minimumWildFlowLMin": 10, "maximumWildFlowLMin": 160, "safeAdditiveFlowLMin": 0, "feedbackTrimKp": 50, "feedbackTrimKi": 10 },
     "decision": "Use ratio authority only with valid scaled wild-flow data above the reviewed minimum, and retain analyser PI as bounded trim rather than a substitute for meter validity."
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Actual wild-stream flow",
+    "signal": "Experiment authority",
     "baseline": 100,
     "amplitude": 0,
     "durationSeconds": 90.1,

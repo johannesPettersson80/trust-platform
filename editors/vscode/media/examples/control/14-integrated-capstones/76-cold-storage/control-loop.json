@@ -40,7 +40,7 @@
       "symbol": "P1.CompressorCommand",
       "address": "%QL0",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -55,11 +55,25 @@
         "symbol": "P1.CompressorRunning",
         "address": "%IL8",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
           "maximum": 100
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX16.6",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
         }
       },
       {
@@ -129,10 +143,16 @@
   },
   "plantId": "cold_storage_room_with_running_feedback",
   "experiment": {
-    "execution": "control-studio",
+    "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 140,
-    "seed": 20260829
+    "durationSeconds": 140.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX16.6",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

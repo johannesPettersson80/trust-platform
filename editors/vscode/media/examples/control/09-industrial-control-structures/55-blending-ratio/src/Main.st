@@ -10,6 +10,10 @@ VAR
     FeedbackInput : Control.PIDInput;
     RatioInput : Control.PIDInput;
     Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
     WildFlowValid : BOOL := TRUE;
     RatioAuthority : BOOL := TRUE;
     RatioSetpoint : LREAL := 0.30;
@@ -25,6 +29,21 @@ VAR
     RatioWildFlowInput : LREAL := 100.0;
     AutomaticMode : BOOL := TRUE;
 END_VAR
+
+IF ExperimentEnabled AND (NOT SafetyAbort) AND InputsValid THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    IF ExperimentElapsed >= LREAL#30.0 THEN
+        ActualWildFlow := LREAL#120.0;
+        MeasuredWildFlow := LREAL#120.0;
+    ELSE
+        ActualWildFlow := LREAL#100.0;
+        MeasuredWildFlow := LREAL#100.0;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    ActualWildFlow := LREAL#100.0;
+    MeasuredWildFlow := LREAL#100.0;
+END_IF;
 
 RatioAuthority := WildFlowValid
     AND MeasuredWildFlow >= LREAL#10.0
@@ -106,6 +125,9 @@ VAR_CONFIG
     P1.WildFlowValid AT %MX88.2 : BOOL;
     P1.RatioAuthority AT %MX88.3 : BOOL;
     P1.AutomaticMode AT %MX160.0 : BOOL;
+    P1.ExperimentEnabled AT %MX160.1 : BOOL;
+    P1.SafetyAbort AT %MX160.2 : BOOL;
+    P1.InputsValid AT %MX160.3 : BOOL;
     P1.RatioSetpoint AT %ML120 : LREAL;
     P1.ActualWildFlow AT %ML128 : LREAL;
     P1.MeasuredWildFlow AT %ML136 : LREAL;

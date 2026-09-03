@@ -27,7 +27,12 @@ increase tolerance to model error. A validated process model lets us make that
 speed-versus-robustness choice explicitly. It also prevents us from applying a
 self-regulating formula blindly to an integrating tank.
 
-## Derive PI gains from an explicit response target
+## What we need
+
+We need to derive PI gains from the validated plant model and an explicit
+closed-loop response target, then qualify robustness before applying anything.
+
+## The new idea
 
 The desired closed-loop time ($\lambda$) is the response-speed target in seconds.
 A smaller value asks for a faster response and usually leaves less tolerance

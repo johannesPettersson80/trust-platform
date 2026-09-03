@@ -34,6 +34,19 @@ a `20 second` time constant, and a closed-door no-cooling equilibrium of
 `100 milliseconds`; qualified sensor noise has a `0.03 degrees Celsius`
 standard deviation and fixed seed `20260829`.
 
+The model states that temperature moves toward the current equilibrium plus
+the cooling effect:
+
+$dT/dt=(T_{\mathrm{eq}}+K_u u-T)/\tau$
+
+The numerator is the remaining temperature difference, and division by the
+time constant turns it into degrees Celsius per second. With the door closed
+and full cooling, the final value would be
+$4+(-0.05)(100)=-1$ degrees Celsius; with the door open it would be
+$6-5=1$ degree Celsius. Those equilibrium calculations explain both why the
+compressor has enough simulated authority and why a dwell-constrained
+thermostat, rather than continuous output, is the relevant decision.
+
 ![Cold-storage capstone signal path](figures/cold-storage-capstone-signal-path.svg)
 The controller owns the thermostat request. The starter owns restart
 permission. The running feedback, not the request, establishes applied-state
@@ -76,7 +89,9 @@ $T_{\mathrm{on}} = SP + \Delta T_{\mathrm{hys}}/2$
 
 $T_{\mathrm{off}} = SP - \Delta T_{\mathrm{hys}}/2$
 
-The equations describe a cooling thermostat: high temperature requests
+The two offsets are half the desired total separation because a symmetric band
+places equal distance above and below the setpoint; subtracting the equations
+recovers $T_{\mathrm{on}}-T_{\mathrm{off}}=\Delta T_{\mathrm{hys}}$. The equations describe a cooling thermostat: high temperature requests
 cooling; low temperature releases it.
 
 ### Protect applied equipment time
@@ -156,7 +171,11 @@ explicit return to automatic mode.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Run hysteresis-only and hysteresis-plus-dwell candidates with all other conditions identical, then select the simplest eligible design. The declared event lasts 140 seconds. It restores Cold-room air temperature to 0 degC afterward. The deterministic Simulation seed is 20260829.
+The visible workflow is exactly **Monitor → Test** and runs the selected
+hysteresis-plus-dwell design. The project owns the 140-second door-load,
+starter-lockout, bad-quality, manual, recovery, and safe-restoration record.
+The native comparison owns the single-threshold and hysteresis-only candidates,
+so their rejection cannot be manufactured by changing settings during a run.
 
 ### Control Studio actions
 
@@ -168,32 +187,15 @@ This procedure tests one declared lesson change under controlled conditions. Run
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0 degC**, and **Maximum duration (s)** = **140**. The affected signal is **Cold-room air temperature**; it starts at 2 degC and must restore to 0 degC.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **140.1**. Control Studio writes only `P1.ExperimentEnabled`; amplitude zero is intentional because the project owns the sequence.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Cold-room air temperature -30 degC to 20 degC; Requested compressor demand 0 % to 100 %; Applied compressor-running feedback 0 % to 100 %. For the walk-in cold-storage room, select the simplest discrete controller that keeps temperature inside the product band without compressor short-cycling.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Cold-room air temperature to 0 degC, wait for current data, and review a new test.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason and remove experiment authority. The project commands manual safe output and restores valid quality and starter readiness.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
 
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Independent discrete-controller selection and commissioning** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Independent discrete-controller selection and commissioning** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Independent discrete-controller selection and commissioning** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Independent discrete-controller selection and commissioning**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: door_event_maximum_temperature <= 3 degC (tolerance 0.02 degC); minimum_completed_on_duration >= 5 s (tolerance 0.1 s); minimum_completed_off_duration >= 5 s (tolerance 0.1 s); ineligible_command_count == 0 (dimensionless) (tolerance 0 (dimensionless)).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+Identify, Tune, and Validate are not learner steps. Candidate comparison and
+pass/fail evaluation belong to the native executable test; disabled generic
+panels are not evidence.
 
 ## Evidence and decision
 

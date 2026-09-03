@@ -74,15 +74,91 @@ VAR
     FaultActive : BOOL := FALSE;
     ControllerRevision : DINT := DINT#83;
     StartupInitialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentScan : DINT := DINT#0;
+    ExperimentElapsedSeconds : LREAL := 0.0;
 END_VAR
 
 // The simulated capstone starts from its reviewed automatic operating state.
 IF NOT StartupInitialized THEN
-    Enabled := TRUE;
+    Enabled := FALSE;
     OperatingMode := DINT#1;
     Zone1Setpoint := LREAL#21.0;
     Zone2Setpoint := LREAL#21.0;
     StartupInitialized := TRUE;
+END_IF;
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentScan := ExperimentScan + DINT#1;
+    ExperimentElapsedSeconds := ExperimentElapsedSeconds + LREAL#60.0;
+    Enabled := TRUE;
+    UseMpc := TRUE;
+    OperatingMode := DINT#1;
+    QualityGood := TRUE;
+    Heater1Available := TRUE;
+    Heater2Available := TRUE;
+    ComfortMinimum := LREAL#20.0;
+    ComfortMaximum := LREAL#22.5;
+    TemperatureWeight := LREAL#100.0;
+    EnergyWeight := LREAL#0.01;
+    MoveWeight := LREAL#0.0025;
+    OutsideCurrent := LREAL#5.0;
+    Occupancy1Current := LREAL#0.0;
+    Occupancy2Current := LREAL#0.0;
+    TariffForecast1 := LREAL#0.1;
+    TariffForecast2 := LREAL#0.1;
+    TariffForecast3 := LREAL#0.1;
+    IF ExperimentScan >= DINT#6 THEN OutsideCurrent := LREAL#4.0; END_IF;
+    IF ExperimentScan >= DINT#8 THEN
+        Occupancy1Current := LREAL#2.0;
+        TariffForecast1 := LREAL#0.6;
+        TariffForecast2 := LREAL#0.6;
+        TariffForecast3 := LREAL#0.6;
+    END_IF;
+    IF ExperimentScan >= DINT#10 THEN Occupancy2Current := LREAL#1.0; END_IF;
+    IF ExperimentScan >= DINT#13 THEN
+        TariffForecast1 := LREAL#0.15;
+        TariffForecast2 := LREAL#0.15;
+        TariffForecast3 := LREAL#0.15;
+    END_IF;
+    IF ExperimentScan = DINT#14 THEN
+        ComfortMinimum := LREAL#22.0;
+    ELSIF ExperimentScan = DINT#15 THEN
+        TemperatureWeight := LREAL#-1.0;
+    ELSIF ExperimentScan = DINT#16 THEN
+        QualityGood := FALSE;
+    ELSIF ExperimentScan = DINT#17 THEN
+        Heater1Available := FALSE;
+    ELSIF ExperimentScan = DINT#18 THEN
+        OperatingMode := DINT#2;
+        ManualZone1Heat := LREAL#60.0;
+        ManualZone2Heat := LREAL#60.0;
+    ELSIF ExperimentScan = DINT#19 THEN
+        OperatingMode := DINT#3;
+    END_IF;
+    OutsideForecast1 := OutsideCurrent;
+    OutsideForecast2 := OutsideCurrent;
+    OutsideForecast3 := OutsideCurrent;
+    Occupancy1Forecast1 := Occupancy1Current;
+    Occupancy1Forecast2 := Occupancy1Current;
+    Occupancy1Forecast3 := Occupancy1Current;
+    Occupancy2Forecast1 := Occupancy2Current;
+    Occupancy2Forecast2 := Occupancy2Current;
+    Occupancy2Forecast3 := Occupancy2Current;
+ELSE
+    Enabled := FALSE;
+    OperatingMode := DINT#0;
+    QualityGood := TRUE;
+    Heater1Available := TRUE;
+    Heater2Available := TRUE;
+    OutsideCurrent := LREAL#5.0;
+    Occupancy1Current := LREAL#0.0;
+    Occupancy2Current := LREAL#0.0;
+    ManualZone1Heat := LREAL#0.0;
+    ManualZone2Heat := LREAL#0.0;
+    ExperimentScan := DINT#0;
+    ExperimentElapsedSeconds := LREAL#0.0;
 END_IF;
 AutoMode := Enabled AND (OperatingMode = DINT#1);
 ControllerRevision := DINT#83;
@@ -302,7 +378,7 @@ END_PROGRAM
 
 CONFIGURATION Config
 RESOURCE Res ON PLC
-    TASK MainTask(INTERVAL := T#1s, PRIORITY := 1);
+    TASK MainTask(INTERVAL := T#60s, PRIORITY := 1);
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
@@ -352,6 +428,10 @@ VAR_CONFIG
     P1.TrackingActive AT %MX241.5 : BOOL;
     P1.FaultActive AT %MX241.6 : BOOL;
     P1.AutoMode AT %MX241.7 : BOOL;
+    P1.ExperimentEnabled AT %MX242.0 : BOOL;
+    P1.SafetyAbort AT %MX242.1 : BOOL;
+    P1.InputsValid AT %MX242.2 : BOOL;
+    P1.ExperimentElapsedSeconds AT %ML328 : LREAL;
     P1.ManualZone1Heat AT %ML248 : LREAL;
     P1.ManualZone2Heat AT %ML256 : LREAL;
     P1.PreviousPrediction1 AT %ML264 : LREAL;

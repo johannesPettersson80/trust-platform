@@ -30,7 +30,7 @@
       "symbol": "P1.FlowRequested",
       "address": "%ML8",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "L/min",
       "range": {
         "minimum": -2,
@@ -38,6 +38,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX32.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "actuator-layout",
         "channel": "actuator-layout",
@@ -73,7 +87,7 @@
         "symbol": "P1.FlowApplied",
         "address": "%ML24",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "L/min",
         "range": {
           "minimum": -2,
@@ -87,7 +101,7 @@
         "symbol": "P1.UpstreamPumpApplied",
         "address": "%QL0",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "L/min",
         "range": {
           "minimum": -2,
@@ -101,7 +115,7 @@
         "symbol": "P1.BypassPumpApplied",
         "address": "%QL8",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "L/min",
         "range": {
           "minimum": -2,
@@ -147,10 +161,16 @@
   },
   "plantId": "interconnected_buffer_tanks_two_actuator_truth_outputs",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "mv_step",
-    "amplitude": 1,
-    "durationSeconds": 300,
-    "seed": 20260829
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 300.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX32.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

@@ -94,6 +94,13 @@ $K_h=\frac{2\sqrt{h_{\mathrm{eq}}}}{c}$
 
 $T_h=\frac{2A\sqrt{h_{\mathrm{eq}}}}{c}$
 
+The tangent slope of outflow is
+$dq_{out}/dh=c/(2\sqrt{h_{eq}})$. Substitution of small deviations into the
+volume balance gives
+$A\,d\Delta h/dt=\Delta q-[c/(2\sqrt{h_{eq}})]\Delta h$. Dividing by that
+outflow slope and comparing with
+$T_h d\Delta h/dt+\Delta h=K_h\Delta q$ produces the two expressions above.
+
 At 0.30, 0.55, and 0.80 metres, local steady gain $K_{h}$ is 21.91, 29.66, and
 35.78 metres per cubic metre per second. Local time constant $T_{h}$ is 21.91,
 29.66, and 35.78 seconds. The equal numerical values result from A being 1.0;
@@ -116,6 +123,11 @@ For the declared 10-second local design time, all three records use $K_p$ equal 
 and 0.00280 cubic metres per second per metre-second from low to high level. The
 fixed baseline uses the conservative high-level value 0.00280 everywhere. It is
 expected to be unnecessarily slow low in the tank.
+
+The integral values follow from $K_i=K_p/T_h$: `0.100/21.91 = 0.00456`,
+`0.100/29.66 = 0.00337`, and `0.100/35.78 = 0.00280`. The gain falls as the
+tank becomes slower, explaining why one high-level value gives away low-level
+speed.
 
 ### Interpolate only accepted records
 
@@ -197,7 +209,10 @@ experiment clock, result metric, accepted label, or precomputed winner.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Change only the integral gain through one filtered, atomically applied schedule built from three accepted local models. The declared event lasts 420 seconds. It restores Requested liquid level to 0.3 m afterward. The deterministic Simulation seed is 20260829.
+The learner-facing workflow is exactly **Monitor → Test**. The project owns the
+complete 420-second low-middle-high-middle-low sequence for both equivalent
+tanks and restores the safe 0.30-metre request. Native tests own local-model
+qualification, comparison, faults, and pass/fail result.
 
 ### Control Studio actions
 
@@ -209,32 +224,15 @@ This procedure tests one declared lesson change under controlled conditions. Cha
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Setpoint step**, **Amplitude** = **0.5 m**, and **Maximum duration (s)** = **420**. The affected signal is **Requested liquid level**; it starts at 0.3 m and must restore to 0.3 m. Retain the complete operating-envelope boundaries at 30 seconds, 120 seconds, 240 seconds, 330 seconds, and 420 seconds.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **420.1**. Control Studio writes only `P1.ExperimentEnabled`; the project owns all setpoint boundaries at 30, 120, 240, 330, and 420 seconds.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Fixed-PI measured level 0.2 m to 0.9 m; Scheduled-PI measured level 0.2 m to 0.9 m; Fixed-PI applied pump flow 0 m3/s to 0.06 m3/s; Scheduled-PI applied pump flow 0 m3/s to 0.06 m3/s.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Requested liquid level to 0.3 m, wait for current data, and review a new test.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, remove experiment authority. The project closes the pump, restores valid scheduling inputs, and restores the 0.30-metre request.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
 
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Validated local models and atomically interpolated PI gain scheduling** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Validated local models and atomically interpolated PI gain scheduling** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Validated local models and atomically interpolated PI gain scheduling** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Validated local models and atomically interpolated PI gain scheduling**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: scheduled_worst_regional_iae < 11 m*s (tolerance 0.0001 m*s); scheduled_maximum_level_departure <= 0.3 m (tolerance 0.001 m); maximum_applied_pump_flow <= 0.06 m3/s (tolerance 0 m3/s); active_revision_changes == 0 (dimensionless) (tolerance 0 (dimensionless)).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+Identify, Tune, and Validate are not learner steps. The native executable test
+owns local-model fitting, schedule comparison, abnormal cases, and pass/fail;
+disabled generic panels are not evidence.
 
 ## Evidence and decision
 

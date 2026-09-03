@@ -17,10 +17,10 @@
     { "role": "state", "name": "Derived static gain", "unit": "degC/%", "minimum": 0, "maximum": 10, "resolution": 0.001, "binding": "%ML0" },
     { "role": "state", "name": "Derived time constant", "unit": "s", "minimum": 0, "maximum": 1000, "resolution": 0.01, "binding": "%ML8" },
     { "role": "SP", "name": "Predicted equilibrium temperature", "unit": "degC", "minimum": 0, "maximum": 80, "resolution": 0.01, "binding": "%ML16" },
-    { "role": "state", "name": "Model validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX20.0" },
-    { "role": "state", "name": "Input validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX20.1" },
-    { "role": "state", "name": "Test authority enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX20.2" },
-    { "role": "state", "name": "Manual mode active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX20.3" }
+    { "role": "state", "name": "Model validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX40.0" },
+    { "role": "state", "name": "Input validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX40.1" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX40.2" },
+    { "role": "state", "name": "Manual mode active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX40.3" }
   ],
   "plant": {
     "modelId": "first_order_dead_time_from_energy_balance",
@@ -56,7 +56,7 @@
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Test authority enabled",
+    "signal": "Experiment authority",
     "baseline": 0,
     "amplitude": 0,
     "durationSeconds": 30.1,
@@ -66,19 +66,22 @@
     "restorationValue": 0
   },
   "acceptance": [
-    { "metric": "derived_static_gain", "signal": "Derived static gain", "window": "complete run", "comparator": "==", "limit": 0.2, "unit": "degC/%", "tolerance": 0.000000001, "evidenceClass": "model" },
-    { "metric": "derived_time_constant", "signal": "Derived time constant", "window": "complete run", "comparator": "==", "limit": 5, "unit": "s", "tolerance": 0.000000001, "evidenceClass": "model" },
-    { "metric": "predicted_equilibrium", "signal": "Predicted equilibrium temperature", "window": "complete run", "comparator": "==", "limit": 24, "unit": "degC", "tolerance": 0.000000001, "evidenceClass": "model" },
+    { "metric": "derived_static_gain", "signal": "Derived static gain", "window": "complete run", "comparator": "==", "limit": 0.2, "unit": "degC/%", "tolerance": 1e-09, "evidenceClass": "model" },
+    { "metric": "derived_time_constant", "signal": "Derived time constant", "window": "complete run", "comparator": "==", "limit": 5, "unit": "s", "tolerance": 1e-09, "evidenceClass": "model" },
+    { "metric": "predicted_equilibrium", "signal": "Predicted equilibrium temperature", "window": "complete run", "comparator": "==", "limit": 24, "unit": "degC", "tolerance": 1e-09, "evidenceClass": "model" },
     { "metric": "delay_plus_tau_prediction_error", "signal": "Outlet-water temperature", "window": "at 6 s", "comparator": "<=", "limit": 0.08, "unit": "degC", "tolerance": 0.001, "evidenceClass": "simulation" },
     { "metric": "final_window_pv_range", "signal": "Outlet-water temperature", "window": "29.0 s through 30.0 s", "comparator": "<=", "limit": 0.004, "unit": "degC", "tolerance": 0, "evidenceClass": "simulation" },
     { "metric": "final_window_equilibrium_error", "signal": "Outlet-water temperature", "window": "29.0 s through 30.0 s", "comparator": "<=", "limit": 0.02, "unit": "degC", "tolerance": 0.001, "evidenceClass": "simulation" },
-    { "metric": "active_requested_heater_power", "signal": "Requested heater power command", "window": "0.0 s through 30.0 s", "comparator": "==", "limit": 20, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "active_applied_heater_power", "signal": "Applied heater power command", "window": "0.0 s through 30.0 s", "comparator": "==", "limit": 20, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "requested_power_safe_restoration", "signal": "Requested heater power command", "window": "retained sample at 30.1 s", "comparator": "==", "limit": 0, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "applied_power_safe_restoration", "signal": "Applied heater power command", "window": "retained sample at 30.1 s", "comparator": "==", "limit": 0, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" }
+    { "metric": "active_requested_heater_power", "signal": "Requested heater power command", "window": "0.0 s through 30.0 s", "comparator": "==", "limit": 20, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "active_applied_heater_power", "signal": "Applied heater power command", "window": "0.0 s through 30.0 s", "comparator": "==", "limit": 20, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "requested_power_safe_restoration", "signal": "Requested heater power command", "window": "retained sample at 30.1 s", "comparator": "==", "limit": 0, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "applied_power_safe_restoration", "signal": "Applied heater power command", "window": "retained sample at 30.1 s", "comparator": "==", "limit": 0, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Outlet-water temperature", "minimum": 0, "maximum": 80, "unit": "degC" }, { "signal": "Applied heater power command", "minimum": 0, "maximum": 100, "unit": "%" }],
+    "hardLimits": [
+      { "signal": "Outlet-water temperature", "minimum": 0, "maximum": 80, "unit": "degC" },
+      { "signal": "Applied heater power command", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
     "abortPredicates": ["the typed runtime rejects a nonfinite process-image value before the Structured Text scan", "a finite model parameter or signal leaves the declared diagnostic envelope", "PV or applied MV leaves its hard limit", "Control Studio does not enable Test authority for an unapproved experiment"],
     "safeMv": 0,
     "restorationMode": "Manual with 0 percent heater power",

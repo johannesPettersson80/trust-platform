@@ -1,14 +1,12 @@
 # Compare PI tuning methods without inventing a winner
 
-Course position: Lesson 51 of 84. Next: inspect a complete automatic tuning sequence
-without allowing automation to apply gains.
-Prerequisite: `control-position-z-plane-sampling`.
+Course position: Lesson 51 of 84. Prerequisite:
+[`control-position-z-plane-sampling`](../../07-classical-stability-and-frequency-design/50-position-z-plane/).
+Next lesson: [`control-automatic-tuning-sequence`](../52-automatic-water-heater/).
 
 **Lesson objective:** Use accepted models of three real industrial processes to decide which PI tuning methods are eligible, validate every real candidate under the same conditions, and conclude whether one candidate, several trade-off candidates, or no acceptable candidate meets the requirements.
 
 ## The problem
-
-The equipment in this lesson is Recirculating water heater, integrating buffer tank, and continuous belt dryer.
 
 Plants: Recirculating water heater, integrating buffer tank, and continuous belt
 dryer. Heater power controls water temperature, inlet-valve position controls
@@ -58,6 +56,27 @@ SIMC uses a desired closed-loop time called lambda to make response speed an
 explicit choice. This lesson uses the Balanced value already justified in
 Lesson 44. Published AMIGO PI has no adjustable response-speed parameter. A
 later comparison preference must not silently rewrite the AMIGO formula.
+
+For a stable first-order-plus-dead-time model with gain $K$, time constant $T$,
+dead time $L$, and selected response time $\lambda$, SIMC PI uses
+
+$K_p=\frac{T}{K(\lambda+L)},\qquad
+T_i=\min[T,4(\lambda+L)],\qquad K_i=K_p/T_i.$
+
+The gain rises for a slower plant and falls for a larger plant gain or a more
+conservative response target. For an integrating model with rate gain $K'$ and
+effective delay $L$, SIMC instead uses
+$K_p=1/[K'(\lambda+L)]$ and $T_i=4(\lambda+L)$.
+
+For an eligible stable FOPDT model, the AMIGO PI equations used here are
+
+$K_p=\frac{1}{K}\left[0.15+\left(0.35-\frac{LT}{(L+T)^2}\right)\frac{T}{L}\right]$
+
+$T_i=0.35L+\frac{13LT^2}{T^2+12LT+7L^2},\qquad K_i=K_p/T_i.$
+
+These empirical coefficients belong to the published rule; they are not knobs
+to change after seeing a response. The divisions by $K$ and $L$ explain why
+positive finite gain and dead time are eligibility requirements.
 
 The setpoint ($SP$) is the desired temperature, level, or dryness. The process
 value ($PV$) is the corresponding measured value. The control error ($e$) is the
@@ -131,12 +150,16 @@ and dead time $L = 1.0 s$. Balanced SIMC gives $K_p = 5.769 \%/{}^\circ\mathrm{C
 $T_i = 5.000 s$, and $K_i = 1.154 \%/({}^\circ\mathrm{C} \cdot s)$. AMIGO gives
 $K_p = 6.028 \%/{}^\circ\mathrm{C}$, $T_i = 3.883 s$, and $K_i = 1.552 \%/({}^\circ\mathrm{C} \cdot s)$.
 Predict that AMIGO rejects heater error sooner but uses more heater movement
-and has smaller margins.
+and has smaller margins. For SIMC, $\lambda=3.333$ s, so
+$K_p=5/[0.2(3.333+1)]=5.769$, $T_i=\min(5,17.333)=5$, and
+$K_i=5.769/5=1.154$. Substitution in AMIGO gives $K_p=6.028$ and
+$T_i=3.883$ s, hence $K_i=6.028/3.883=1.552$.
 
 The tank model has integrating rate gain
 $Kprime = 0.05 level-\%/(valve-\% \cdot s)$ and effective delay $L = 0.5 s$.
 Balanced SIMC gives $K_p = 13.333 valve-\%/level-\%$, $T_i = 6.000 s$, and
-$K_i = 2.222 valve-\%/(level-\% \cdot s)$. AMIGO must be `Unavailable` for this
+$K_i = 2.222 valve-\%/(level-\% \cdot s)$. With $\lambda=1.0$ s, these follow
+from $K_p=1/[0.05(1+0.5)]=13.333$ and $T_i=4(1+0.5)=6$. AMIGO must be `Unavailable` for this
 integrating model; there is no finite steady plant gain or time constant to put
 into its formula.
 
@@ -144,7 +167,9 @@ The dryer model has $K = 0.40 dryness-\%/heater-\%$, $T = 20.0 s$, and
 $L = 8.0 s$. Balanced SIMC gives $K_p = 2.083 heater-\%/dryness-\%$,
 $T_i = 20.000 s$, and $K_i = 0.104 heater-\%/(dryness-\% \cdot s)$. AMIGO gives
 $K_p = 1.287 heater-\%/dryness-\%$, $T_i = 17.829 s$, and
-$K_i = 0.072 heater-\%/(dryness-\% \cdot s)$. Predict that AMIGO trades slower dryer
+$K_i = 0.072 heater-\%/(dryness-\% \cdot s)$. For SIMC, $\lambda=16$ s gives
+$K_p=20/[0.4(16+8)]=2.083$ and $T_i=\min(20,96)=20$; both integral gains then
+follow from $K_i=K_p/T_i$. Predict that AMIGO trades slower dryer
 recovery for less actuator movement and larger robustness margins.
 
 ## Implementation
@@ -169,37 +194,27 @@ There is no tank AMIGO controller. `TankAmigoEligible` remains false.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Add AMIGO only where its model domain is satisfied and compare every real candidate with the unchanged validation plan. The declared event lasts 220 seconds. It restores Heater temperature setpoint to 20 degC afterward. The deterministic Simulation seed is 20260829.
+The project owns all five real controller runs, their setpoint and disturbance
+schedule, the 220-second observation, and restoration to the declared operating
+points. Control Studio may write only `P1.ExperimentEnabled`; it must not inject
+another step. The 220.1-second timeout lets project restoration finish first.
+The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Heater temperature setpoint (SP, degC) and Tank level setpoint (SP, %); Heater SIMC temperature (PV, degC) and Heater AMIGO temperature (PV, degC); Heater SIMC applied power (MV, %) and Heater AMIGO applied power (MV, %), including units, limits, mode, and quality. The initial operating point is Experiment enable = 0 (dimensionless), Tank AMIGO eligible = 0 (dimensionless), Heater temperature setpoint = 20 degC, Tank level setpoint = 50 %, Dryer dryness setpoint = 40 %, Heater SIMC applied power = 20 %, Heater AMIGO applied power = 20 %, Tank SIMC applied inlet valve = 50 %. The unresolved baseline problem is: One qualified method does not show whether another eligible published method offers a different response, robustness, or actuator-use trade-off.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Retain eligibility, unavailability reasons, raw measures, failed requirements, and Pareto trade-offs without inventing a universal winner.
-   - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
+   - **Successful evidence:** The Response plot advances and the displayed values are finite and current. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **220**. The observed lesson signal is **Heater temperature setpoint**. Control Studio uses the existing Boolean project authority **P1.ExperimentEnabled** at **%MX96.0**; it does not inject a second process event.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **220.1**. The observed lesson signal is **Heater temperature setpoint**. Control Studio uses the existing Boolean project authority **P1.ExperimentEnabled** at **%MX96.0**; it does not inject a second process event.
    - **Decision before action:** Before selecting **Review test**, predict the response to A minus-1-degC heater equilibrium shift at 100 s. Confirm the live values are current and the reviewed plan stays inside Heater SIMC applied power 0 % to 100 %; Heater AMIGO applied power 0 % to 100 %; Tank SIMC applied inlet valve 0 % to 100 %; Dryer SIMC applied heater command 0 % to 100 %; Dryer AMIGO applied heater command 0 % to 100 %; Tank SIMC level 0 % to 100 %.
    - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
-   - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Control.PID comparison** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Qualified SIMC and AMIGO PI comparison with Pareto trade-offs**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-4. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: heater_simc_final_mean_absolute_error <= 0.25 degC (tolerance 0.01 degC); heater_amigo_final_mean_absolute_error <= 0.25 degC (tolerance 0.01 degC); tank_simc_final_mean_absolute_error <= 0.25 % (tolerance 0.01 %); tank_simc_peak_level_above_setpoint <= 0.8 % (tolerance 0.01 %).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Record:** Compare each real candidate with your calculated gains and predicted trade-off. Retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test owns eligibility, common-plan metrics, margins, Pareto results, and verdicts; disabled Tune or Validate controls are not evidence.
 
 ## Evidence and decision
 

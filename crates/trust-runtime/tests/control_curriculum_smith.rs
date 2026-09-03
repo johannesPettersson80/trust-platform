@@ -14,8 +14,9 @@ const ADVANCED_CONTROL_SOURCE: &str =
 mod evidence;
 
 fn evidence_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/control/09-industrial-control-structures/59-heated-air-duct-smith/figures")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../../examples/control/09-industrial-control-structures/59-heated-air-duct-smith/figures",
+    )
 }
 
 fn time_axis(samples: usize) -> Vec<f64> {

@@ -36,6 +36,11 @@ $c = (R^(x/100) - 1) / (R - 1)$
 
 Equal stem increments therefore multiply inherent capacity by approximately the same factor; they do not add equal flow. That is the valve's inherent reference, not automatically its installed flow curve.
 
+The normalization explains every part of the expression. $x/100$ converts
+percent travel to a zero-to-one fraction. Raising $R$ to that fraction creates
+the exponential shape. Subtracting one makes capacity zero at closed position,
+and dividing by $R-1$ makes capacity exactly one at full travel.
+
 The installed target flow ($q_{\mathrm{target}}$) is the flow this fixed-head piping approximation reaches after the hydraulics settle, in cubic metres per hour. The hydraulic response time ($T_{q}$) is three seconds. The simulator uses a square-law installed target and a first-order flow response:
 
 $q_{\mathrm{target}} = 100 \cdot (x/100)^{2}$
@@ -84,6 +89,12 @@ Calculate the six table values before running the plant:
 
 The average local flow gain is 0.20 cubic metres per hour per percentage point between 0 and 20 percent. It rises to 1.80 cubic metres per hour per percentage point between 80 and 100 percent. One constant valve gain cannot describe the complete travel range.
 
+For example, at 40 percent the square-law prediction is
+$100(40/100)^2=16$ cubic metres per hour. The low-travel secant gain is
+$(4-0)/(20-0)=0.20$ cubic metres per hour per point; the high-travel value is
+$(100-64)/(100-80)=1.80$. These slopes explain why the same stem increment has
+a much larger process effect near the top of travel.
+
 ### Predict the reversal probe
 
 Restore every stem to 70 percent. Increase their common request in 0.5-percentage-point increments.
@@ -119,7 +130,11 @@ Manual mode sends one common demand through all three controllers. Automatic mod
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Change only actuator condition to command deadband or stiction and apply one equivalent opening, closing and closed-loop experiment. The declared event lasts 180 seconds. It restores Common manual valve demand to 0 % afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the project's installed-curve sweep, reversal probe,
+and closed-loop comparison. The project owns every demand, mode change, and
+safe closure; Control Studio writes only one Boolean authority signal. The
+native lesson test repeats the independently restored probe three times. The
+deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -131,32 +146,11 @@ This procedure tests one declared lesson change under controlled conditions. Cha
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Manual output step**, **Amplitude** = **5.5 %**, and **Maximum duration (s)** = **180**. The affected signal is **Common manual valve demand**; it starts at 70 % and must restore to 0 %.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Common manual valve demand 0 % to 100 %; Healthy requested valve position 0 % to 100 %; Deadband requested valve position 0 % to 100 %; Stiction requested valve position 0 % to 100 %; Healthy measured flow 0 m3/h to 105 m3/h; Deadband measured flow 0 m3/h to 105 m3/h.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Common manual valve demand to 0 %, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**. This is Simulation evidence; a diagnosis on a physical valve requires installed position and flow evidence.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Installed-valve characterization and position-feedback stiction diagnosis** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Installed-valve characterization and position-feedback stiction diagnosis** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Installed-valve characterization and position-feedback stiction diagnosis** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Installed-valve characterization and position-feedback stiction diagnosis**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: installed_curve_point_error <= 0.05 m3/h (tolerance 0.001 m3/h); deadband_held_request_travel >= 2 pp (tolerance 0.001 pp); stiction_breakaway_size == 2 pp (tolerance 0.001 pp); qualified_stiction_reversal_probes >= 3 (dimensionless) (tolerance 0 (dimensionless)).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **180.1**. Confirm the only writable signal is **Experiment authority** (`P1.ExperimentEnabled`, `%MX91.1`). The project owns the six-point curve sweep, the 0.5-point opening and closing probe about 70 percent, the bumpless Auto entry at 110 seconds, the 70-cubic-metre-per-hour flow request, and safe closure.
+   - **Decision before action:** Before selecting **Review test**, predict the healthy, deadband, and stiction position signatures and confirm every demand/position can remain within 0 through 100 percent and every flow within 0 through 105 cubic metres per hour.
+   - **Successful evidence:** Select **Review test**, verify zero external excitation, authority, duration, restoration, and stop conditions, then select **Confirm and start**. Response must show controller request, independent physical position, and flow for all three benches. At termination authority clears, controllers return to Manual, and manual demand is zero.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the reason, confirm authority is false and all valve requests are restoring closed, wait for current data, and review a new observation.
+   - **Record:** Compare each position signature with your prediction and retain terminal state, restoration, and seed **20260829**. The native lesson test owns the three independently restored probes and numeric diagnosis; this observation does not create generic Identify, Tune, or Validate evidence. Physical diagnosis still requires real installed position and flow evidence.
 
 ## Evidence and decision
 

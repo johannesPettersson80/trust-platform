@@ -11,7 +11,7 @@
   "prerequisites": ["control-motor-sensitivity-loop-shaping"],
   "nextLesson": "control-tuning-method-comparison",
   "signals": [
-    { "role": "state", "name": "Experiment enable", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.0" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.0" },
     { "role": "quality", "name": "Fine abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX97.0" },
     { "role": "quality", "name": "Coarse abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX97.1" },
     { "role": "quality", "name": "Corrected abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX97.2" },
@@ -68,11 +68,22 @@
     "settings": { "sampleIntervalSeconds": 0.1, "computationDelaySamples": 1, "proportionalGainPercentPerMillimetre": 1, "derivativeGainPercentPerMillimetrePerSecond": 0.4 },
     "decision": "Accept the corrected controller only when exact augmented poles and bounded executable motion agree under the actual sample, hold, delay, and limits."
   },
-  "experiment": { "kind": "setpoint_step", "signal": "Carriage-position setpoint", "baseline": 0, "amplitude": 1, "durationSeconds": 10, "settlingSeconds": 0, "disturbances": ["Analysis-only 40 rad/s alias calculation; no injected motion-run disturbance"], "seed": 20260829, "restorationValue": 0 },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 10.1,
+    "settlingSeconds": 0,
+    "disturbances": ["Analysis-only 40 rad/s alias calculation; no injected motion-run disturbance"],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
   "acceptance": [
-    { "metric": "fine_largest_pole_magnitude", "signal": "Fine carriage position", "window": "exact augmented 10 ms model with one-sample delay", "comparator": "<", "limit": 1, "unit": "1", "tolerance": 0.000001, "evidenceClass": "model" },
-    { "metric": "coarse_baseline_largest_pole_magnitude", "signal": "Coarse carriage position", "window": "exact augmented 100 ms model with unchanged gains and one-sample delay", "comparator": ">", "limit": 1, "unit": "1", "tolerance": 0.000001, "evidenceClass": "model" },
-    { "metric": "corrected_largest_pole_magnitude", "signal": "Corrected carriage position", "window": "exact augmented 100 ms model with corrected gains and one-sample delay", "comparator": "<", "limit": 1, "unit": "1", "tolerance": 0.000001, "evidenceClass": "model" },
+    { "metric": "fine_largest_pole_magnitude", "signal": "Fine carriage position", "window": "exact augmented 10 ms model with one-sample delay", "comparator": "<", "limit": 1, "unit": "1", "tolerance": 1e-06, "evidenceClass": "model" },
+    { "metric": "coarse_baseline_largest_pole_magnitude", "signal": "Coarse carriage position", "window": "exact augmented 100 ms model with unchanged gains and one-sample delay", "comparator": ">", "limit": 1, "unit": "1", "tolerance": 1e-06, "evidenceClass": "model" },
+    { "metric": "corrected_largest_pole_magnitude", "signal": "Corrected carriage position", "window": "exact augmented 100 ms model with corrected gains and one-sample delay", "comparator": "<", "limit": 1, "unit": "1", "tolerance": 1e-06, "evidenceClass": "model" },
     { "metric": "fine_final_position_error", "signal": "Fine carriage position", "window": "mean absolute error over 9 through 10 seconds after settling qualification", "comparator": "<", "limit": 0.02, "unit": "mm", "tolerance": 0.001, "evidenceClass": "simulation" },
     { "metric": "corrected_final_position_error", "signal": "Corrected carriage position", "window": "mean absolute error over 9 through 10 seconds after settling qualification", "comparator": "<", "limit": 0.02, "unit": "mm", "tolerance": 0.001, "evidenceClass": "simulation" },
     { "metric": "coarse_baseline_controlled_stop", "signal": "Coarse abort", "window": "complete ten-second bounded motion record", "comparator": "==", "limit": 1, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" }
@@ -92,7 +103,7 @@
     "physicalApprovalRole": "authorised motion-control engineer and responsible machine operator",
     "simulationOnlyRestrictions": ["The lesson does not move a physical table", "Simulation pole and stop evidence cannot authorise physical motion", "Physical execution requires independent drive topology, force, current, speed, travel, end-stop, guard, emergency-stop, motion-zone, stopping-distance, abort, rollback, and immediate approval review"]
   },
-  "workflowStages": ["Monitor", "Test", "Identify", "Tune", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-50--discrete-time-stability-and-the-z-plane-positioning-system",
     "nativeTest": "control_curriculum_z_plane_predicts_sampled_axis_failure_and_recovery",
@@ -101,7 +112,15 @@
     "runArtifactFields": ["plantIdentity", "continuousModelRevision", "discreteModelRevision", "controllerRevision", "plantIntegrationInterval", "controllerUpdateInterval", "holdConvention", "computationDelaySamples", "positionSetpoint", "position", "velocity", "requestedForce", "pendingForce", "appliedForce", "exactAd", "exactBd", "sampledTransferNumerator", "sampledTransferDenominator", "samplingZero", "augmentedPoles", "poleMagnitudes", "unitCircleClearance", "nyquistFrequency", "aliasFrequency", "rootLocusGains", "overshoot", "settlingTime", "finalWindowError", "requestedForceTotalVariation", "appliedForceTotalVariation", "saturationDuration", "aborted", "abortTrigger", "controlledStopComplete", "seed", "evidenceClass"],
     "renderedJourneyId": "control-position-z-plane-sampling"
   },
-  "video": { "viewerOutcome": "Prove a sampled position loop in the z-plane and recover an unstable coarse implementation with a qualified discrete redesign.", "requiredVisibleEvidence": ["industrial positioning table", "10 ms and 100 ms update events", "requested, pending, and applied force", "exact hold model", "sampling zeros", "three augmented pole sets", "unit circle and discrete root locus", "bounded unstable trace and controlled stop", "corrected position trace", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Prove a sampled position loop in the z-plane and recover an unstable coarse implementation with a qualified discrete redesign.",
+    "requiredVisibleEvidence": ["industrial positioning table", "10 ms and 100 ms update events", "requested, pending, and applied force", "exact hold model", "sampling zeros", "three augmented pole sets", "unit circle and discrete root locus", "bounded unstable trace and controlled stop", "corrected position trace", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "Three equivalent positioning tables isolate fine sampling, unchanged coarse sampling, and corrected coarse digital gains.",
     "reason": "A continuous design does not include the sample, hold, computation delay, or realization that the PLC executes.",

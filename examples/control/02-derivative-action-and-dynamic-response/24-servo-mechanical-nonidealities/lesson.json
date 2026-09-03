@@ -43,20 +43,28 @@
       { "signal": "Motor-side velocity", "minimum": -20, "maximum": 20, "unit": "rad/s" },
       { "signal": "Applied motor torque", "minimum": -2.5, "maximum": 2.5, "unit": "N m" }
     ],
-    "simplifications": [
-      "The rigid joint omits flexible shaft and gear-tooth modes.",
-      "Backlash is a rate-independent load-position play operator; it omits impact, compliance, contact force, wear, and lubrication.",
-      "Coulomb friction and stiction are deterministic approximations for diagnosis, not tribology or mechanical-life calculations."
-    ]
+    "simplifications": ["The rigid joint omits flexible shaft and gear-tooth modes.", "Backlash is a rate-independent load-position play operator; it omits impact, compliance, contact force, wear, and lubrication.", "Coulomb friction and stiction are deterministic approximations for diagnosis, not tribology or mechanical-life calculations."]
   },
   "baseline": {
     "executableId": "Control.PID.ProfiledIdealServo",
-    "settings": { "proportionalGain": 8, "integralGain": 2, "derivativeGain": 3, "profileEnabled": false, "actuatorLimitNm": 10, "actuatorSlewNmPerSecond": 500, "targetSequenceRad": [0.5, -0.5] },
+    "settings": {
+      "proportionalGain": 8,
+      "integralGain": 2,
+      "derivativeGain": 3,
+      "profileEnabled": false,
+      "actuatorLimitNm": 10,
+      "actuatorSlewNmPerSecond": 500,
+      "targetSequenceRad": [0.5, -0.5]
+    },
     "limitation": "The ideal servo response does not explain delayed reversal, requested-to-applied torque separation, or actuator-state flags seen after real drive and transmission effects are introduced."
   },
   "change": {
     "executableId": "Control.PID.ProfiledNonidealServo",
-    "settings": { "oneEffectAtATime": ["trajectory_profile", "torque_limit", "coulomb_friction", "command_deadband", "backlash", "stiction"], "isolatedTorqueLimitNm": 1.0, "finalCombinedCase": true },
+    "settings": {
+      "oneEffectAtATime": ["trajectory_profile", "torque_limit", "coulomb_friction", "command_deadband", "backlash", "stiction"],
+      "isolatedTorqueLimitNm": 1.0,
+      "finalCombinedCase": true
+    },
     "decision": "Classify each synchronized signature before choosing trajectory redesign, constraint-aware control, characterized compensation, inspection, or mechanical maintenance; do not retune PID merely because error increased."
   },
   "experiment": {
@@ -73,8 +81,8 @@
   "acceptance": [
     { "metric": "nonideal_minus_ideal_reversal_delay", "signal": "Load position", "window": "first 0.020 rad movement after 10 s reversal", "comparator": ">=", "limit": 0.04, "unit": "s", "tolerance": 0.02, "evidenceClass": "simulation" },
     { "metric": "maximum_requested_to_applied_torque_gap", "signal": "Applied motor torque", "window": "complete 20 s run", "comparator": ">=", "limit": 0.5, "unit": "N m", "tolerance": 0.01, "evidenceClass": "simulation" },
-    { "metric": "profiled_velocity_absolute_maximum", "signal": "Profiled velocity", "window": "complete 20 s run", "comparator": "<=", "limit": 0.5, "unit": "rad/s", "tolerance": 0.000001, "evidenceClass": "simulation" },
-    { "metric": "profiled_acceleration_absolute_maximum", "signal": "Profiled velocity", "window": "successive samples over complete 20 s run", "comparator": "<=", "limit": 1, "unit": "rad/s2", "tolerance": 0.000001, "evidenceClass": "simulation" },
+    { "metric": "profiled_velocity_absolute_maximum", "signal": "Profiled velocity", "window": "complete 20 s run", "comparator": "<=", "limit": 0.5, "unit": "rad/s", "tolerance": 1e-06, "evidenceClass": "simulation" },
+    { "metric": "profiled_acceleration_absolute_maximum", "signal": "Profiled velocity", "window": "successive samples over complete 20 s run", "comparator": "<=", "limit": 1, "unit": "rad/s2", "tolerance": 1e-06, "evidenceClass": "simulation" },
     { "metric": "declared_actuator_states_observed", "signal": "Requested motor torque", "window": "complete combined run", "comparator": "==", "limit": 1, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" }
   ],
   "safety": {
@@ -110,13 +118,7 @@
   "learning": {
     "context": "A geared positioning table reverses a payload between plus and minus 0.5 rad while a bounded trajectory feeds the same PID used in the preceding servo lessons.",
     "reason": "Filtering reduced encoder-noise torque activity, but a real drive and transmission can still delay or distort motion in ways that gain changes cannot identify or mechanically repair.",
-    "theory": [
-      "Target position SP_target is the desired final load angle in radians. Profiled position SP_profile is the acceleration- and velocity-limited command passed to PID. Load position PV_load is the load-side encoder angle in radians.",
-      "Requested motor torque T_requested is the controller calculation in newton metres. Applied motor torque T_applied is the drive output after torque amplitude, slew, deadband, and stiction behavior; the two values are not interchangeable.",
-      "Trajectory velocity limit v_profile is the largest allowed profiled angular speed in radians per second. Trajectory acceleration limit a_profile is the largest allowed change of profiled velocity in radians per second squared.",
-      "Coulomb friction opposes motion with nearly constant torque. Command deadband ignores a small command change. Backlash width w_backlash is total reversal travel through mechanical clearance. Stiction holds actuator motion until breakaway and may then produce a slip jump.",
-      "Reversal delay is time from the 10 s target reversal to the first load-position sample at least 0.020 rad below its reversal value. Requested-to-applied torque gap is the maximum absolute difference between T_requested and T_applied over the complete run."
-    ],
+    "theory": ["Target position SP_target is the desired final load angle in radians. Profiled position SP_profile is the acceleration- and velocity-limited command passed to PID. Load position PV_load is the load-side encoder angle in radians.", "Requested motor torque T_requested is the controller calculation in newton metres. Applied motor torque T_applied is the drive output after torque amplitude, slew, deadband, and stiction behavior; the two values are not interchangeable.", "Trajectory velocity limit v_profile is the largest allowed profiled angular speed in radians per second. Trajectory acceleration limit a_profile is the largest allowed change of profiled velocity in radians per second squared.", "Coulomb friction opposes motion with nearly constant torque. Command deadband ignores a small command change. Backlash width w_backlash is total reversal travel through mechanical clearance. Stiction holds actuator motion until breakaway and may then produce a slip jump.", "Reversal delay is time from the 10 s target reversal to the first load-position sample at least 0.020 rad below its reversal value. Requested-to-applied torque gap is the maximum absolute difference between T_requested and T_applied over the complete run."],
     "workedPrediction": "At zero angle and speed, the 2.5 N m drive limit and 1.0 kg m2 inertia give ideal acceleration 2.5 rad/s2 before gravity and friction. The 1.0 rad/s2 trajectory limit changes velocity by at most 0.02 rad/s per 20 ms scan; at 0.5 rad/s it changes position by 0.01 rad per scan. A 0.05 rad backlash width predicts 0.05 rad of ideal reversal travel between engaged flanks before load motion resumes.",
     "practicalPreparation": ["Bind target position, profiled position and velocity, load position, motor-side velocity, requested torque, applied torque, and actuator-state flags; retain the exact plant settings and simulation label.", "Run the ideal baseline, restore the same initial state, then enable exactly one effect per comparison before the final combined diagnosis."],
     "baseline": "Disable the trajectory profile; remove backlash; set Coulomb friction, deadband, stiction, and slip jump to zero; use plus or minus 10 N m and 500 N m/s actuator bounds; then run the same 0.5 to -0.5 rad reversal.",

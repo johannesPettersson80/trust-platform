@@ -18,6 +18,10 @@ VAR
     VirtualCommand : Control.ControlVector2;
     StaticCommand : Control.ControlVector2;
     Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
     AutoMode1 : BOOL := TRUE;
     AutoMode2 : BOOL := TRUE;
     Architecture : INT := 0;
@@ -83,6 +87,27 @@ IF NOT Initialized THEN
     DynamicFilter21.Configure(Parameters := Filter21Parameters);
     DynamicFilter21.Initialize(Input := LREAL#0.0);
     Initialized := TRUE;
+END_IF;
+
+(* The interactive observation is the qualified nominal dynamic case. Control
+   Studio grants only authority; native tests own the restored architecture and
+   mismatch comparison. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    Architecture := 2;
+    Setpoint2 := LREAL#0.0;
+    FeedDisturbanceRequested := LREAL#0.0;
+    IF ExperimentElapsed < LREAL#20.0 THEN
+        Setpoint1 := LREAL#0.0;
+    ELSE
+        Setpoint1 := LREAL#2.0;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    Architecture := 0;
+    Setpoint1 := LREAL#0.0;
+    Setpoint2 := LREAL#0.0;
+    FeedDisturbanceRequested := LREAL#0.0;
 END_IF;
 
 OverheadInput.Setpoint := Setpoint1;
@@ -159,6 +184,9 @@ VAR_CONFIG
     P1.RefluxRequested AT %ML72 : LREAL;
     P1.ReboilerRequested AT %ML80 : LREAL;
     P1.StaticQualified AT %MX24.2 : BOOL;
+    P1.ExperimentEnabled AT %MX24.3 : BOOL;
+    P1.SafetyAbort AT %MX24.4 : BOOL;
+    P1.InputsValid AT %MX24.5 : BOOL;
     P1.RefluxApplied AT %QL0 : LREAL;
     P1.ReboilerApplied AT %QL8 : LREAL;
     P1.FeedDisturbanceApplied AT %QL16 : LREAL;

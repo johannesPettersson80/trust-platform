@@ -210,17 +210,17 @@ RESOURCE Res ON PLC
     PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
-    P1.InitializeRequest AT %MX56.0 : BOOL;
-    P1.ApplyConfiguration AT %MX56.1 : BOOL;
-    P1.UnsafeSequentialUpdate AT %MX56.2 : BOOL;
-    P1.ControllerReady AT %MX56.3 : BOOL;
-    P1.ConfiguredThisScan AT %MX56.4 : BOOL;
-    P1.MixedConfigurationObserved AT %MX56.5 : BOOL;
-    P1.RateLimited AT %MX56.6 : BOOL;
-    P1.AmplitudeLimited AT %MX56.7 : BOOL;
-    P1.ExperimentEnabled AT %MX57.0 : BOOL;
-    P1.SafetyAbort AT %MX57.1 : BOOL;
-    P1.InputsValid AT %MX57.2 : BOOL;
+    P1.InitializeRequest AT %MX120.0 : BOOL;
+    P1.ApplyConfiguration AT %MX120.1 : BOOL;
+    P1.UnsafeSequentialUpdate AT %MX120.2 : BOOL;
+    P1.ControllerReady AT %MX120.3 : BOOL;
+    P1.ConfiguredThisScan AT %MX120.4 : BOOL;
+    P1.MixedConfigurationObserved AT %MX120.5 : BOOL;
+    P1.RateLimited AT %MX120.6 : BOOL;
+    P1.AmplitudeLimited AT %MX120.7 : BOOL;
+    P1.ExperimentEnabled AT %MX121.0 : BOOL;
+    P1.SafetyAbort AT %MX121.1 : BOOL;
+    P1.InputsValid AT %MX121.2 : BOOL;
     P1.ActiveRevision AT %MW112 : INT;
     P1.Setpoint AT %ML0 : LREAL;
     P1.ActualValvePosition AT %ML8 : LREAL;

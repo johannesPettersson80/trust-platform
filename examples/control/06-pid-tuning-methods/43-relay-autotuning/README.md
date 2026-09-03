@@ -29,7 +29,13 @@ loop toward instability is imprecise and hazardous. A feedback relay creates a
 bounded oscillation automatically. It is not a time-driven square wave: the
 measured outlet temperature decides every switch.
 
-## Build and qualify the relay experiment
+## What we need
+
+We need a bounded relay experiment that creates measurable oscillation only
+under qualified conditions and converts its period and amplitude into an
+unapplied tuning candidate.
+
+## The new idea
 
 The relay bias is the valve position that holds the initial operating point,
 in percent. It is 20 percent here. The relay amplitude ($d$) is the positive

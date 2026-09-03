@@ -11,6 +11,7 @@
   "prerequisites": ["control-pole-zero-plant-classes"],
   "nextLesson": "control-safe-heat-exchanger-experiment",
   "signals": [
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.0" },
     { "role": "state", "name": "Requested pump flow", "unit": "m3/s", "minimum": 0, "maximum": 0.2, "resolution": 0.0001, "binding": "%ML0" },
     { "role": "MV", "name": "Main pump flow", "unit": "m3/s", "minimum": 0, "maximum": 0.2, "resolution": 0.0001, "binding": "%QL0" },
     { "role": "PV", "name": "Main upstream level", "unit": "m", "minimum": 0, "maximum": 1, "resolution": 0.0001, "binding": "%IL0" },
@@ -33,7 +34,7 @@
     "sampleTimeSeconds": 0.1,
     "initialState": { "mainUpstreamMetres": 0, "mainDownstreamMetres": 0, "emptyUpstreamMetres": 0, "emptyDownstreamMetres": 0, "chargedUpstreamMetres": 0.2, "chargedDownstreamMetres": 0 },
     "seed": 20260829,
-    "operatingPoint": { "Requested pump flow": 0.1, "Main pump flow": 0.1, "Main upstream level": 0, "Main downstream level": 0, "Empty-case downstream level": 0, "Charged-case upstream level": 0.2, "Charged-case downstream level": 0 },
+    "operatingPoint": { "Requested pump flow": 0, "Main pump flow": 0, "Main upstream level": 0, "Main downstream level": 0, "Empty-case downstream level": 0, "Charged-case upstream level": 0.2, "Charged-case downstream level": 0 },
     "validityRange": [
       { "signal": "Main pump flow", "minimum": 0, "maximum": 0.2, "unit": "m3/s" },
       { "signal": "Main upstream level", "minimum": 0, "maximum": 1, "unit": "m" },
@@ -41,9 +42,33 @@
     ],
     "simplifications": ["Equal constant tank areas and linear inter-tank and outlet flow laws", "No pump, sensor, overflow, valve, transport-delay, or disturbance dynamics", "Both states are measured for teaching, but hidden-state prediction initially reveals only downstream level"]
   },
-  "baseline": { "executableId": "TwoTank.DownstreamTransferOnly", "settings": { "visibleSignals": ["pumpFlow", "downstreamLevel"] }, "limitation": "Identical current downstream readings and inputs do not reveal different upstream stored-water states." },
-  "change": { "executableId": "TwoTank.StateReveal", "settings": { "mainPumpFlowM3PerSecond": 0.1, "emptyInitialStateM": [0, 0], "chargedInitialStateM": [0.2, 0] }, "decision": "Use a state-space representation when internal stored quantities affect future behavior and must remain explicit." },
-  "experiment": { "kind": "mv_step", "signal": "Requested pump flow", "baseline": 0, "amplitude": 0.1, "durationSeconds": 300, "settlingSeconds": 0, "disturbances": [], "seed": 20260829, "restorationValue": 0 },
+  "baseline": {
+    "executableId": "TwoTank.DownstreamTransferOnly",
+    "settings": {
+      "visibleSignals": ["pumpFlow", "downstreamLevel"]
+    },
+    "limitation": "Identical current downstream readings and inputs do not reveal different upstream stored-water states."
+  },
+  "change": {
+    "executableId": "TwoTank.StateReveal",
+    "settings": {
+      "mainPumpFlowM3PerSecond": 0.1,
+      "emptyInitialStateM": [0, 0],
+      "chargedInitialStateM": [0.2, 0]
+    },
+    "decision": "Use a state-space representation when internal stored quantities affect future behavior and must remain explicit."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 300.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
   "acceptance": [
     { "metric": "main_upstream_equilibrium", "signal": "Main upstream level", "window": "at 300 s after late-slope qualification", "comparator": ">=", "limit": 0.1998, "unit": "m", "tolerance": 0.0002, "evidenceClass": "simulation" },
     { "metric": "main_downstream_equilibrium", "signal": "Main downstream level", "window": "at 300 s after late-slope qualification", "comparator": ">=", "limit": 0.4997, "unit": "m", "tolerance": 0.0003, "evidenceClass": "simulation" },
@@ -51,14 +76,18 @@
     { "metric": "charged_peak_time", "signal": "Charged-case downstream level", "window": "time of maximum from 0 to 10 s", "comparator": ">=", "limit": 2.9, "unit": "s", "tolerance": 0.2, "evidenceClass": "simulation" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Main upstream level", "minimum": 0, "maximum": 1, "unit": "m" }, { "signal": "Main downstream level", "minimum": 0, "maximum": 1, "unit": "m" }, { "signal": "Charged-case downstream level", "minimum": 0, "maximum": 1, "unit": "m" }],
+    "hardLimits": [
+      { "signal": "Main upstream level", "minimum": 0, "maximum": 1, "unit": "m" },
+      { "signal": "Main downstream level", "minimum": 0, "maximum": 1, "unit": "m" },
+      { "signal": "Charged-case downstream level", "minimum": 0, "maximum": 1, "unit": "m" }
+    ],
     "abortPredicates": ["Any flow or level is nonfinite", "Any tank level leaves 0 through 1 m", "The matrix revision, state order, or sample interval differs from the prediction", "Unexpected feedback authority is active"],
     "safeMv": 0,
     "restorationMode": "Set all pump flows to zero and restore all six declared state values",
     "physicalApprovalRole": "authorised process controls engineer",
     "simulationOnlyRestrictions": ["Physical interconnected tanks require reviewed pump, overflow, low-level, valve, drain, containment, and emergency procedures plus immediate approval."]
   },
-  "workflowStages": ["Monitor", "Test", "Validate"],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-36--state-space-introduction-interconnected-tanks",
     "nativeTest": "control_curriculum_two_tank_state_space_exposes_hidden_stored_water",
@@ -67,7 +96,15 @@
     "runArtifactFields": ["time", "pumpFlows", "upstreamLevels", "downstreamLevels", "stateOrder", "matrices", "matrixRevision", "equilibriumErrors", "hiddenStateSeparation", "peak", "evidenceClass"],
     "renderedJourneyId": "control-two-tank-state-space"
   },
-  "video": { "viewerOutcome": "Build a physical state-space model and explain why identical output readings can hide different internal futures.", "requiredVisibleEvidence": ["two physical balances", "labeled vectors and matrices", "main equilibrium traces", "hidden downstream readings", "upstream reveal", "charged peak", "simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Build a physical state-space model and explain why identical output readings can hide different internal futures.",
+    "requiredVisibleEvidence": ["two physical balances", "labeled vectors and matrices", "main equilibrium traces", "hidden downstream readings", "upstream reveal", "charged peak", "simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "An inlet pump feeds two interconnected water tanks with internal upstream and downstream stored-water states.",
     "reason": "The input-output view from Lesson 35 does not contain the current internal state and can therefore hide different futures behind the same reading.",

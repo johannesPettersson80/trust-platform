@@ -6,6 +6,12 @@ VAR
     FeedbackTrain : ReactorTrain;
     IntegratedTrain : ReactorTrain;
     Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentScan : DINT := DINT#0;
+    ExperimentElapsed : LREAL := 0.0;
     OperatingMode : DINT := DINT#1;
     ReactorSetpoint : LREAL := 80.0;
     JacketCommissioningSetpoint : LREAL := 80.0;
@@ -64,6 +70,62 @@ IF NOT Initialized THEN
         InitialJacketTemperature := IntegratedJacketTemperature
     );
     Initialized := TRUE;
+END_IF;
+
+(* One reviewed Boolean starts the whole authority sequence. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    IF NOT ExperimentWasEnabled THEN
+        ExperimentScan := DINT#0;
+        ExperimentElapsed := LREAL#0.0;
+    END_IF;
+    ExperimentScan := ExperimentScan + DINT#1;
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    OperatingMode := DINT#1;
+    ReactorSetpoint := LREAL#80.0;
+    JacketCommissioningSetpoint := LREAL#80.0;
+    FeedThermalLoad := LREAL#0.0;
+    FeedLoadQualityGood := TRUE;
+    ReactorQualityGood := TRUE;
+    JacketQualityGood := TRUE;
+    HeatingAvailable := TRUE;
+    CoolingAvailable := TRUE;
+    IF (ExperimentScan >= DINT#11) AND (ExperimentScan <= DINT#90) THEN
+        JacketCommissioningSetpoint := LREAL#82.0;
+    END_IF;
+    IF ExperimentScan >= DINT#101 THEN
+        OperatingMode := DINT#2;
+        ReactorSetpoint := LREAL#82.0;
+    END_IF;
+    IF (ExperimentScan >= DINT#301) AND (ExperimentScan <= DINT#450) THEN
+        FeedThermalLoad := LREAL#4.0;
+    END_IF;
+    IF (ExperimentScan >= DINT#601) AND (ExperimentScan <= DINT#650) THEN
+        FeedThermalLoad := LREAL#4.0;
+        FeedLoadQualityGood := FALSE;
+    END_IF;
+    IF (ExperimentScan >= DINT#701) AND (ExperimentScan <= DINT#780) THEN
+        FeedThermalLoad := LREAL#-12.0;
+        FeedLoadQualityGood := FALSE;
+    END_IF;
+    IF (ExperimentScan >= DINT#1001) AND (ExperimentScan <= DINT#1050) THEN
+        OperatingMode := DINT#3;
+        ManualUtilityDemand := IntegratedSelectedDemand;
+    END_IF;
+    IF ExperimentScan >= DINT#1201 THEN
+        OperatingMode := DINT#4;
+    END_IF;
+ELSIF ExperimentWasEnabled THEN
+    ExperimentScan := DINT#0;
+    ExperimentElapsed := LREAL#0.0;
+    OperatingMode := DINT#0;
+    ReactorSetpoint := LREAL#80.0;
+    JacketCommissioningSetpoint := LREAL#80.0;
+    FeedThermalLoad := LREAL#0.0;
+    FeedLoadQualityGood := TRUE;
+    ReactorQualityGood := TRUE;
+    JacketQualityGood := TRUE;
+    HeatingAvailable := TRUE;
+    CoolingAvailable := TRUE;
 END_IF;
 
 FeedbackTrain.Update(
@@ -137,6 +199,7 @@ IntegratedLoadApplied := FeedThermalLoad;
 ArchitectureRevision := DINT#79;
 (* Control Studio consumes an explicit Boolean mode signal, not this lesson's numeric mode encoding. *)
 ControllerAuto := OperatingMode = DINT#2;
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -150,11 +213,15 @@ VAR_CONFIG
     P1.JacketCommissioningSetpoint AT %ML208 : LREAL;
     P1.FeedThermalLoad AT %ML216 : LREAL;
     P1.ManualUtilityDemand AT %ML224 : LREAL;
+    P1.ExperimentElapsed AT %ML232 : LREAL;
     P1.FeedLoadQualityGood AT %MX240.0 : BOOL;
     P1.ReactorQualityGood AT %MX240.1 : BOOL;
     P1.JacketQualityGood AT %MX240.2 : BOOL;
     P1.HeatingAvailable AT %MX240.3 : BOOL;
     P1.CoolingAvailable AT %MX240.4 : BOOL;
+    P1.ExperimentEnabled AT %MX240.5 : BOOL;
+    P1.SafetyAbort AT %MX240.6 : BOOL;
+    P1.InputsValid AT %MX240.7 : BOOL;
     P1.FeedbackReactorTemperature AT %IL0 : LREAL;
     P1.FeedbackJacketTemperature AT %IL8 : LREAL;
     P1.IntegratedReactorTemperature AT %IL16 : LREAL;

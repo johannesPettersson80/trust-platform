@@ -65,6 +65,14 @@ occupancy heat. Exact sampling of those continuous heat balances produces a
 rule that predicts the next temperature from the present temperatures and
 inputs.
 
+Write the continuous balances as $\dot{x}=A_cx+B_cu$. Holding the inputs
+constant for one minute gives the exact zero-order-hold conversion
+$A_d=e^{A_c\Delta t}$ and
+$B_d=\int_0^{\Delta t}e^{A_c\tau}B_c\,d\tau$, with
+$\Delta t=60$ seconds. The exponential accounts for heat loss and zone
+exchange throughout the minute; the integral accumulates heater, outdoor, and
+occupancy effects over that same interval.
+
 The sampled state-transition matrix ($\mathbf{A}_{\mathrm{d}}$) describes how the two present air
 temperatures influence the two temperatures one minute later:
 
@@ -102,6 +110,12 @@ the value 0.4. After those quantities are defined, the update is:
 $d_{\mathrm{hat\,next}} = \operatorname{clamp}\left(\hat{d} + Ke \cdot \nu,-1,1\right) {}^\circ\mathrm{C}/step$
 
 In this lesson, the estimator gain Ke remains 0.4.
+
+That value accepts 40 percent of the newest prediction error and retains 60
+percent of the previous estimate. With a constant bias and no noise, the
+uncorrected part shrinks as $0.6^n$ after $n$ updates, so its half-life is
+$\ln(0.5)/\ln(0.6)=1.36$ one-minute intervals. This explains the correction
+speed; the innovation and bias limits still decide whether it is trustworthy.
 
 Every future prediction receives the retained bias. The estimate is bounded
 because an estimator is not permission to hide a serious model or sensor
@@ -211,7 +225,10 @@ It contains no prerecorded plan, precomputed policy or embedded winner.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Run the three-step finite-grid optimizer against the identical plant and schedule, applying only each solve's first move. The declared event lasts 1200 seconds. It restores Current outdoor temperature to 5 degC afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the project-owned twenty-minute comparison. Control
+Studio grants only Boolean permission; the project owns weather, occupancy,
+tariff, infeasibility, invalid-data, fallback, stop, and restoration. The
+deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -220,35 +237,14 @@ This procedure tests one declared lesson change under controlled conditions. Run
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Apply only the first move after all 729 sequences complete and at least one satisfies every hard constraint; compare qualified weight candidates with PI and retain the simplest controller meeting all declared comfort, energy, movement, robustness, and lifecycle requirements.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test. Stop recording before leaving Monitor.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Load disturbance step**, **Amplitude** = **-1 degC**, and **Maximum duration (s)** = **1200**. The affected signal is **Current outdoor temperature**; it starts at 5 degC and must restore to 5 degC.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **1200.1**. The only writable lesson signal is Boolean `P1.ExperimentEnabled`. Amplitude zero is intentional because the project owns the one-minute schedule and every abnormal case.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Applied zone-one heating 0 % to 100 %; Applied zone-two heating 0 % to 100 %; Zone-one temperature 15 degC to 27 degC; Zone-two temperature 15 degC to 27 degC.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Current outdoor temperature to 5 degC, wait for current data, and review a new test. Exercise invalid data, stale data, unbounded innovation, and an unavailable heater; verify Manual fallback and ControlledStop.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, confirm `P1.ExperimentEnabled = FALSE`, and wait for the project to close both heaters and restore outdoor temperature, occupancy, quality, and availability before reviewing a new test.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Evidence-based selection between qualified incremental PI and three-step finite-grid model-predictive control with additive-load estimation** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Evidence-based selection between qualified incremental PI and three-step finite-grid model-predictive control with additive-load estimation** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Evidence-based selection between qualified incremental PI and three-step finite-grid model-predictive control with additive-load estimation** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Evidence-based selection between qualified incremental PI and three-step finite-grid model-predictive control with additive-load estimation**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: normal_mpc_candidate_count == 729 (dimensionless) (tolerance 0 (dimensionless)); maximum_individual_heating <= 100 % (tolerance 0.001 %); normal_mpc_comfort_violation == 0 degC*s (tolerance 0.01 degC*s); infeasible_feasible_sequence_count == 0 (dimensionless) (tolerance 0 (dimensionless)).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
 
 ## Evidence and decision
 

@@ -11,7 +11,7 @@
   "prerequisites": ["control-excitation-methods"],
   "nextLesson": "control-poor-excitation",
   "signals": [
-    { "role": "state", "name": "Experiment authority", "unit": "bool", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.0" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.0" },
     { "role": "state", "name": "Requested heater demand", "unit": "%", "minimum": 20, "maximum": 50, "resolution": 0.1, "binding": "%ML0" },
     { "role": "MV", "name": "Applied heater demand", "unit": "%", "minimum": 20, "maximum": 50, "resolution": 0.1, "binding": "%QL0" },
     { "role": "PV", "name": "Product-zone temperature", "unit": "degC", "minimum": 75, "maximum": 90, "resolution": 0.01, "binding": "%IL0" }
@@ -29,12 +29,35 @@
     "initialState": { "productZoneTemperatureDegC": 80, "delayedHeaterDemandPercent": 30 },
     "seed": 20260829,
     "operatingPoint": { "Requested heater demand": 30, "Applied heater demand": 30, "Product-zone temperature": 80 },
-    "validityRange": [{ "signal": "Applied heater demand", "minimum": 20, "maximum": 50, "unit": "%" }, { "signal": "Product-zone temperature", "minimum": 75, "maximum": 90, "unit": "degC" }],
+    "validityRange": [
+      { "signal": "Applied heater demand", "minimum": 20, "maximum": 50, "unit": "%" },
+      { "signal": "Product-zone temperature", "minimum": 75, "maximum": 90, "unit": "degC" }
+    ],
     "simplifications": ["One local transport delay and one dominant thermal lag", "Fixed belt speed, air flow, moisture load, sensor location, and measurement-noise amplitude", "No spatial profile, humidity state, combustion dynamics, product-dependent gain, or actuator dynamics", "Simulation-only I/O"]
   },
-  "baseline": { "executableId": "Dryer.TrainingFitOnly", "settings": { "candidateStructures": ["first_order", "fopdt", "second_order", "integrating"] }, "limitation": "Training error alone can reward missing physics or unnecessary parameter freedom." },
-  "change": { "executableId": "Dryer.IndependentSimplestAdequateSelection", "settings": { "materialValidationImprovementPercent": 10, "estimationStepPercentagePoints": 10, "validationPulsePercentagePoints": 5 }, "decision": "Select the least complex physically plausible candidate that passes residual and independent-prediction gates." },
-  "experiment": { "kind": "observation", "signal": "Experiment authority", "baseline": 0, "amplitude": 0, "durationSeconds": 90.1, "settlingSeconds": 10, "disturbances": ["Deterministic product-temperature measurement noise"], "seed": 20260829, "restorationValue": 0 },
+  "baseline": {
+    "executableId": "Dryer.TrainingFitOnly",
+    "settings": {
+      "candidateStructures": ["first_order", "fopdt", "second_order", "integrating"]
+    },
+    "limitation": "Training error alone can reward missing physics or unnecessary parameter freedom."
+  },
+  "change": {
+    "executableId": "Dryer.IndependentSimplestAdequateSelection",
+    "settings": { "materialValidationImprovementPercent": 10, "estimationStepPercentagePoints": 10, "validationPulsePercentagePoints": 5 },
+    "decision": "Select the least complex physically plausible candidate that passes residual and independent-prediction gates."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 90.1,
+    "settlingSeconds": 10,
+    "disturbances": ["Deterministic product-temperature measurement noise"],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
   "acceptance": [
     { "metric": "qualified_response_onset", "signal": "Product-zone temperature", "window": "rolling mean after estimation step", "comparator": ">=", "limit": 3.5, "unit": "s", "tolerance": 0.5, "evidenceClass": "simulation" },
     { "metric": "fopdt_validation_rmse", "signal": "Product-zone temperature", "window": "independent 5-point pulse excluding baseline", "comparator": "<=", "limit": 0.1, "unit": "degC", "tolerance": 0.005, "evidenceClass": "simulation" },
@@ -43,7 +66,10 @@
     { "metric": "integrating_restoration_error", "signal": "Product-zone temperature", "window": "end of independent pulse restoration", "comparator": ">=", "limit": 1, "unit": "degC", "tolerance": 0.05, "evidenceClass": "model" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Applied heater demand", "minimum": 20, "maximum": 50, "unit": "%" }, { "signal": "Product-zone temperature", "minimum": 75, "maximum": 90, "unit": "degC" }],
+    "hardLimits": [
+      { "signal": "Applied heater demand", "minimum": 20, "maximum": 50, "unit": "%" },
+      { "signal": "Product-zone temperature", "minimum": 75, "maximum": 90, "unit": "degC" }
+    ],
     "abortPredicates": ["Any required sample is nonfinite or has invalid quality", "Heater or temperature leaves the declared operating region", "Belt speed, air flow, moisture load, or another confounding input changes", "Sample interval or included sample set differs between candidates"],
     "safeMv": 30,
     "restorationMode": "Restore 30 percent heater demand and wait for the qualified 80 degC baseline",
@@ -59,7 +85,15 @@
     "runArtifactFields": ["estimationRun", "validationRun", "samples", "candidateStructure", "parameters", "parameterUncertainty", "prediction", "residual", "rmse", "bias", "autocorrelation", "rejectionReason", "selection", "seed", "evidenceClass"],
     "renderedJourneyId": "control-dryer-model-selection"
   },
-  "video": { "viewerOutcome": "Reject underfit, integrating, and unjustified higher-order candidates using independent dryer evidence.", "requiredVisibleEvidence": ["candidate definitions", "estimation step", "independent pulse", "common sample selection", "candidate predictions", "residuals", "training and validation metrics", "rejection reasons", "FOPDT selection", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Reject underfit, integrating, and unjustified higher-order candidates using independent dryer evidence.",
+    "requiredVisibleEvidence": ["candidate definitions", "estimation step", "independent pulse", "common sample selection", "candidate predictions", "residuals", "training and validation metrics", "rejection reasons", "FOPDT selection", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "A conveyor dryer has a repeatable transport delay, dominant thermal lag, steady gain, and bounded noisy temperature measurement.",
     "reason": "Qualified excitation still permits several candidate structures, and fitting error alone can reward underfit or overfit.",

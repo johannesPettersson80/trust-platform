@@ -134,21 +134,35 @@ manual request and applies the compressor's physical range:
 
 ```st
 ManualDemand : LREAL := 0.0;
+IF ExperimentEnabled THEN
+    ExperimentScan := ExperimentScan + ULINT#1;
+    IF ExperimentScan <= ULINT#200 THEN
+        ManualDemand := LREAL#150.0;
+    ELSE
+        ManualDemand := LREAL#0.0;
+    END_IF;
+ELSE
+    ExperimentScan := ULINT#0;
+    ManualDemand := LREAL#0.0;
+END_IF;
 ManipulatedValue := MIN(MAX(ManualDemand, LREAL#0.0), LREAL#100.0);
 ```
 
-Control Studio writes the operator request at `%ML8`. The applied command at
+Control Studio writes only the Boolean experiment authority at `%MX24.0`. The
+project writes the scheduled operator request at `%ML8`. The applied command at
 `%QL0` drives the simulator, and the measured temperature returns at `%IL0`.
 The door-open indication returns at `%IL8`, and the effective surrounding
 temperature returns at `%IL16`.
 
 ## Experiment in Control Studio
 
-Use two recordings from the same declared initial state. The first executes the
-reviewed 150 percent manual request for 20 seconds and proves restoration to 0
-percent. The second observes the scheduled door load from 60.0 through 90.0
-seconds without compressor demand. The deterministic Simulation seed is
-20260828 in both runs.
+Use one 120.1-second recording from the declared initial state. Control Studio
+writes only `P1.ExperimentEnabled`. The project requests 150 percent for the
+first 20.0 seconds, restores the request to zero, and leaves it there while the
+simulator opens the door from 60.0 through 90.0 seconds. Thus one synchronized
+run shows both process direction and disturbance response. Completion restores
+the authority false and both requested and applied demand to zero. The
+deterministic Simulation seed is 20260828.
 
 ### Control Studio actions
 
@@ -157,14 +171,14 @@ seconds without compressor demand. The deterministic Simulation seed is
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Apply one bounded cooling interval, return the compressor demand to its safe zero state, then observe the scheduled door disturbance without automatic correction.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down SP = 2.0 °C, PV = 4.0 °C, requested and applied demand = 0 percent, Manual authority, and the predictions above. Select **Start recording** for the cooling run.
+   - **Record:** Write down SP = 2.0 °C, PV = 4.0 °C, requested and applied demand = 0 percent, experiment authority false, and the predictions above. Select **Start recording** for the complete run.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Manual output step**, **Amplitude** = **150**, and **Maximum duration (s)** = **20**. Confirm that the affected signal is **Operator manual demand**, its present value is 0 percent, and restoration is 0 percent. In **Monitor → Signals**, keep **Applied compressor demand** visible beside it.
-   - **Decision before action:** Before selecting **Review test**, state the calculated result: requested demand will become 150 percent, applied demand must stop at 100 percent, and PV must fall gradually. Confirm the reviewed request is inside the declared 0–150 percent test-input range and the applied path has its separate 0–100 percent limit.
-   - **Successful evidence:** Select **Review test**, verify the signal, request, 20-second duration, stop conditions, and 0-percent restoration, then select **Confirm and start**. During **Running**, confirm requested demand = 150 percent and applied demand = 100 percent. At completion, confirm both return to 0 percent while the recorded temperature begins to recover.
-   - **Recovery:** If the test is rejected, stale, unsafe, unavailable, failed, or aborted, read the displayed reason. Confirm or request abort, verify both demand signals return to 0 percent, stop the recording, restart the Simulator, and repeat the baseline check before reviewing a new test.
-   - **Record:** Stop the cooling recording after PV has recovered through 40.0 seconds. Then restart the Simulator, return to Monitor, select **Start recording**, leave manual demand at 0 percent, and observe through 120.0 seconds. Confirm the door indication is 1 and effective surroundings are 6.0 °C from 60.0 through 90.0 seconds, then stop recording. Retain both recordings, the cooling terminal state, restoration result, and seed **20260828**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The sole reviewed write is Boolean **P1.ExperimentEnabled**. Its false-to-true transition starts the project-owned 150-percent request for 20.0 seconds; the project then restores demand to zero before the simulator-owned door event.
+   - **Decision before action:** Before selecting **Review test**, state the calculated result: requested demand will become 150 percent, applied demand must stop at 100 percent, and PV must fall gradually. After restoration, predict PV recovery and then a rise during the 60.0–90.0-second door event.
+   - **Successful evidence:** Select **Review test**, verify **P1.ExperimentEnabled**, the 120.1-second timeout, stop conditions, and false restoration, then select **Confirm and start**. During **Running**, confirm requested demand = 150 percent and applied demand = 100 percent for the first 20.0 seconds, then both zero. Confirm the door indication and effective surroundings change only during their scheduled interval. Completion restores authority false and both demand signals to zero.
+   - **Recovery:** If the test is rejected, stale, unsafe, unavailable, failed, or aborted, read the displayed reason. Confirm or request abort, verify experiment authority false and both demand signals zero, restart the Simulator, and repeat the baseline check before reviewing a new test.
+   - **Record:** Retain the one complete recording, the cooling endpoint, recovery change, door-load rise, terminal state, restoration result, and seed **20260828**.
 
 ## Evidence and decision
 

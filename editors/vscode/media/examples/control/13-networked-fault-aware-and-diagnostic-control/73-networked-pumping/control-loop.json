@@ -12,7 +12,9 @@
     "design": "project",
     "revision": "sha256:curriculum-controller-73",
     "action": "direct",
-    "taskPeriodMs": 100
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX17.1",
+    "modeWhenTrue": "Auto"
   },
   "signals": {
     "processVariable": {
@@ -30,7 +32,7 @@
       "symbol": "P1.NaiveRequested",
       "address": "%ML80",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -38,6 +40,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX17.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "protected-header-pressure",
         "channel": "protected-header-pressure",
@@ -59,7 +75,7 @@
         "symbol": "P1.NaiveApplied",
         "address": "%QL0",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -73,7 +89,7 @@
         "symbol": "P1.ProtectedRequested",
         "address": "%ML88",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -87,7 +103,7 @@
         "symbol": "P1.ProtectedApplied",
         "address": "%QL8",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -101,7 +117,7 @@
         "symbol": "P1.RemoteDemand",
         "address": "%ML40",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -113,7 +129,7 @@
         "channel": "locally-generated-station-time",
         "role": "state",
         "symbol": "P1.LocalTimeSeconds",
-        "address": "%ML16",
+        "address": "%ML104",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "s",
@@ -273,10 +289,16 @@
   },
   "plantId": "paired_remote_pumping_headers",
   "experiment": {
-    "execution": "control-studio",
+    "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 25,
-    "seed": 20260829
+    "durationSeconds": 25.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX17.1",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

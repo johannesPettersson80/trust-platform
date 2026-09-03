@@ -1,8 +1,8 @@
 # Reveal hidden stored water with state space
 
 Course position: Lesson 36 of 84. Previous lesson: [Poles and plant
-responses](../35-pole-zero-plant-classes/README.md). Next lesson: safe experiment
-design.
+responses](../35-pole-zero-plant-classes/README.md). Next lesson:
+[safe experiment design](../../05-experiments-identification-and-validation/37-safe-heat-exchanger-experiment/README.md).
 
 **Lesson objective:** Build an executable state-space model of two
 interconnected water tanks, predict both internal levels, and demonstrate why
@@ -11,8 +11,6 @@ one downstream input-output reading cannot reveal all stored water.
 This lesson produces simulation evidence, not physical-plant evidence.
 
 ## The problem
-
-The equipment in this lesson is Two interconnected water tanks with inlet pump and two level transmitters.
 
 **Equipment:** Two interconnected water tanks with inlet pump and two level
 transmitters.
@@ -32,7 +30,8 @@ water and therefore a different future downstream response.
 
 ## What we need
 
-We need both stored water levels to remain explicit because the same current downstream measurement can hide different upstream inventories and future responses. The model must advance those internal states and map them to the measured outputs.
+We need one coupled model that retains both tank levels as states and shows how
+each pump and inter-tank flow affects their future values.
 
 ## The new idea
 
@@ -54,19 +53,33 @@ words:
 - upstream accumulation equals pump inflow minus inter-tank outflow;
 - downstream accumulation equals inter-tank inflow minus drain outflow.
 
-The equations are then:
+The equations are then
 
-$A_{1} \cdot dh_{1}/dt = u - k_{12} \cdot h_{1}$
+\[
+A_1\frac{dh_1}{dt}=u-k_{12}h_1,
+\qquad
+A_2\frac{dh_2}{dt}=k_{12}h_1-k_2h_2.
+\]
 
-$A_{2} \cdot dh_{2}/dt = k_{12} \cdot h_{1} - k_{2} \cdot h_{2}$
+Each term is a volume flow. For example,
+$k_{12}\,[\mathrm{m^2/s}]$ times $h_1\,[\mathrm m]$ gives
+$\mathrm{m^3/s}$. Divide each balance by its tank area to obtain the two state
+rates. With $A_1=A_2=1\ \mathrm{m^2}$,
+
+\[
+\frac{dh_1}{dt}=-0.5h_1+1u,
+\qquad
+\frac{dh_2}{dt}=0.5h_1-0.2h_2.
+\]
 
 The **state equation** advances internal state. The **output equation** maps
 state and any direct input effect into measurements. With the state order
 already declared, write:
 
-$dx/dt = A \cdot x + B \cdot u$
-
-$y = C \cdot x + D \cdot u$
+\[
+\dot x=\mathbf A x+\mathbf B u,
+\qquad y=\mathbf Cx+\mathbf Du.
+\]
 
 The state matrix ($A$), input matrix ($B$), and output matrix ($C$) are:
 
@@ -78,11 +91,15 @@ advances downstream level. The two output rows publish upstream and downstream
 level respectively.
 
 An **equilibrium** is a constant state under constant input and therefore means
-zero accumulation. For 0.1 cubic metres per second, solving the balances predicts **20
-centimetres upstream** and **50 centimetres downstream**.
+zero accumulation. For $u_0=0.1\ \mathrm{m^3/s}$, the first row gives
+$0=0.1-0.5h_1$, so $h_1=0.2$ m. The second then gives
+$0=0.5(0.2)-0.2h_2$, so $h_2=0.5$ m. The prediction is therefore **20 cm
+upstream** and **50 cm downstream**.
 
-An **eigenvalue** is a natural state-space mode. This triangular state matrix
-has eigenvalues `-0.5` and `-0.2 1/s`; these are also poles of the
+An **eigenvalue** is a natural state-space mode. Eigenvalues solve
+$\det(\lambda\mathbf I-\mathbf A)=0$. Because this matrix is triangular, its
+determinant is $(\lambda+0.5)(\lambda+0.2)$, so the eigenvalues are
+$-0.5$ and $-0.2\ \mathrm{s^{-1}}$; these are also poles of the
 zero-initial-deviation transfer functions. Those transfer functions do not
 contain the plant's current internal state.
 
@@ -93,9 +110,17 @@ For the inlet-step run, predict both levels rising toward 20 cm and 50 cm.
 For the hidden-state comparison, the **Empty** plant begins with state
 $x = [0.0, 0.0] m$. The **Upstream charged** plant begins with
 $x = [0.2, 0.0] m$. Both have the same initial downstream reading and zero
-input. Empty should remain at zero. Upstream charged should transfer stored
-water downstream, producing about **10.9 centimetres** peak downstream level
-near **3.05 seconds**, then drain.
+input. Empty should remain at zero. In the charged case, the upstream state is
+$h_1(t)=0.2e^{-0.5t}$. Substitution into the downstream balance gives
+
+\[
+h_2(t)=\frac{1}{3}\left(e^{-0.2t}-e^{-0.5t}\right)\ \mathrm m.
+\]
+
+The peak occurs when its derivative is zero:
+$-0.2e^{-0.2t}+0.5e^{-0.5t}=0$. Rearranging gives
+$e^{0.3t}=2.5$, hence $t=\ln(2.5)/0.3=3.05$ s. Substitution predicts
+$h_2=0.1086$ m, or about **10.9 cm**, before the stored water drains away.
 
 Commit this prediction before revealing either upstream level.
 
@@ -122,38 +147,42 @@ no observer, estimator, state feedback, optimal controller, or MPC.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Run the full-state inlet step, restore, compare empty and upstream-charged zero-input cases, then reveal internal states. The declared event lasts 300 seconds. It restores Requested pump flow to 0 m3/s afterward. The deterministic Simulation seed is 20260829.
+Control Studio exposes the full-state inlet step. Test writes one reviewed
+Boolean, `P1.ExperimentEnabled`, for 300.1 seconds. Authority true makes the
+project request $0.1\ \mathrm{m^3/s}$; authority false restores zero pump flow.
+The hidden-state comparison belongs to a fresh native run because its meaning
+depends on revealing two exact initial states at time zero. The deterministic
+Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Main upstream level (PV, m) and Main downstream level (PV, m); Main pump flow (MV, m3/s), including units, limits, mode, and quality. The initial operating point is Requested pump flow = 0.1 m3/s, Main pump flow = 0.1 m3/s, Main upstream level = 0 m, Main downstream level = 0 m, Empty-case downstream level = 0 m, Charged-case upstream level = 0.2 m, Charged-case downstream level = 0 m. The unresolved baseline problem is: Identical current downstream readings and inputs do not reveal different upstream stored-water states.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Main upstream level (PV, m) and Main downstream level (PV, m); Main pump flow (MV, m3/s), including units, limits, mode, and quality. The initial operating point is Requested pump flow = 0 m3/s, Main pump flow = 0 m3/s, Main upstream level = 0 m, and Main downstream level = 0 m. Confirm experiment authority false. The unresolved baseline problem is: an external downstream reading does not reveal all internal stored-water state.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Use a state-space representation when internal stored quantities affect future behavior and must remain explicit.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Manual output step**, **Amplitude** = **0.1 m3/s**, and **Maximum duration (s)** = **300**. The affected signal is **Requested pump flow**; it starts at 0 m3/s and must restore to 0 m3/s.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Main upstream level 0 m to 1 m; Main downstream level 0 m to 1 m; Charged-case downstream level 0 m to 1 m. Use the run to expose hidden state only; do not Identify, Tune, or Apply.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Requested pump flow to 0 m3/s, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **300.1**. The only writable signal is `P1.ExperimentEnabled`; it starts false and must restore false.
+   - **Decision before action:** Before selecting **Review test**, predict both equilibrium levels and confirm they remain within 0–1 m. Use this run only to test the derived state model; do not Identify, Tune, or Apply.
+   - **Successful evidence:** Select **Review test**, verify Boolean authority, timeout, false restoration, and stop conditions, then **Confirm and start**. Keep **Abort test** available. Response must show pump flow 0.1 m³/s, upstream level moving first, downstream level following, and pump flow returning to zero.
+   - **Recovery:** Abort for stale, invalid, nonfinite, or out-of-range data. Confirm authority false and pump flow zero before reviewing another test.
+   - **Record:** Retain terminal state, restoration, both main states, pump flow, matrices, equilibrium errors, and seed **20260829**.
 
-3. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: main_upstream_equilibrium >= 0.1998 m (tolerance 0.0002 m); main_downstream_equilibrium >= 0.4997 m (tolerance 0.0003 m); charged_downstream_peak >= 0.1065 m (tolerance 0.002 m); charged_peak_time >= 2.9 s (tolerance 0.2 s).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+There is no separate disabled Validate stage. Native executable evidence owns
+the fresh Empty-versus-Upstream-charged comparison and its peak calculation;
+Monitor and Test expose the main inlet-step model.
 
 ## Evidence and decision
 
 ### Measures and comparison
 
-**Upstream equilibrium error** and **downstream equilibrium error** are absolute
-measured-minus-predicted differences in centimetres after both late slopes meet
-the declared settling limit.
+**Upstream equilibrium error** is
+$100|h_{1,\mathrm{measured}}-0.2|$ cm and **downstream equilibrium error** is
+$100|h_{2,\mathrm{measured}}-0.5|$ cm, after both late slopes meet the declared
+settling limit. The factor 100 converts the model's metres to reportable
+centimetres.
 
 **Hidden-state downstream separation** is the absolute difference between the
 two downstream levels at the same timestamp. **Charged-case peak level** is the

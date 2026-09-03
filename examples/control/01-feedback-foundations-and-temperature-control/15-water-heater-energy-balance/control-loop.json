@@ -12,7 +12,7 @@
     "revision": "sha256:801c121ee253d82621db7dbf5eb49fced3f4601509668ea424da59b8d7871bac",
     "action": "direct",
     "taskPeriodMs": 100,
-    "modeSignal": "%MX20.3",
+    "modeSignal": "%MX40.3",
     "modeWhenTrue": "Manual"
   },
   "signals": {
@@ -94,44 +94,56 @@
         "channel": "model-validity",
         "role": "state",
         "symbol": "P1.ModelValid",
-        "address": "%MX20.0",
+        "address": "%MX40.0",
         "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
-        "range": { "minimum": 0, "maximum": 1 }
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       },
       {
         "id": "input-validity",
         "channel": "input-validity",
         "role": "state",
         "symbol": "P1.InputsValid",
-        "address": "%MX20.1",
+        "address": "%MX40.1",
         "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
-        "range": { "minimum": 0, "maximum": 1 }
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       },
       {
-        "id": "test-authority",
-        "channel": "test-authority",
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
-        "address": "%MX20.2",
+        "address": "%MX40.2",
         "iecType": "BOOL",
         "direction": "read",
-        "unit": "1",
-        "range": { "minimum": 0, "maximum": 1 }
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       },
       {
         "id": "manual-mode",
         "channel": "manual-mode",
         "role": "state",
         "symbol": "P1.ManualMode",
-        "address": "%MX20.3",
+        "address": "%MX40.3",
         "iecType": "BOOL",
         "direction": "read",
         "unit": "1",
-        "range": { "minimum": 0, "maximum": 1 }
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     ]
   },
@@ -152,7 +164,7 @@
     "seed": 20260824,
     "activation": {
       "symbol": "P1.ExperimentEnabled",
-      "address": "%MX20.2",
+      "address": "%MX40.2",
       "iecType": "BOOL",
       "direction": "write"
     }

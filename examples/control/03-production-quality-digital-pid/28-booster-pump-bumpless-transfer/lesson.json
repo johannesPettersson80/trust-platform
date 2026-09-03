@@ -17,8 +17,8 @@
     { "role": "state", "name": "External applied valve output", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML16" },
     { "role": "state", "name": "Tracking input", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML32" },
     { "role": "state", "name": "Manual station output", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%ML24" },
-    { "role": "state", "name": "Requested authority", "unit": "1", "minimum": -1, "maximum": 5, "resolution": 1, "binding": "%MW50" }
-    ,{ "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX48.2" }
+    { "role": "state", "name": "Requested authority", "unit": "1", "minimum": -1, "maximum": 5, "resolution": 1, "binding": "%MW50" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX48.2" }
   ],
   "plant": {
     "modelId": "first_order",
@@ -39,11 +39,7 @@
       { "signal": "External applied valve output", "minimum": 0, "maximum": 100, "unit": "%" },
       { "signal": "Tracking input", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "SP and PV are held unchanged for the exact transition update so authority-state alignment is isolated from feedback response.",
-      "The inactive-without-tracking state is a simulation-only failure diagnostic that applies external output without invoking the controller.",
-      "The lesson does not qualify physical actuator feedback freshness, communications delay, or selector topology."
-    ]
+    "simplifications": ["SP and PV are held unchanged for the exact transition update so authority-state alignment is isolated from feedback response.", "The inactive-without-tracking state is a simulation-only failure diagnostic that applies external output without invoking the controller.", "The lesson does not qualify physical actuator feedback freshness, communications delay, or selector topology."]
   },
   "baseline": {
     "executableId": "BoosterPump.InactiveWithoutTracking",
@@ -67,10 +63,10 @@
     "restorationValue": 0
   },
   "acceptance": [
-    { "metric": "tracked_external_to_auto_output_step", "signal": "Requested valve command", "window": "first Auto update after 60 percent Track", "comparator": "<=", "limit": 0.001, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "untracked_external_to_auto_output_step", "signal": "Requested valve command", "window": "first Auto update after inactive 60 percent external output", "comparator": ">=", "limit": 20, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "unaligned_auto_to_manual_output_step", "signal": "Manual station output", "window": "first Manual update from 40 to 10 percent", "comparator": ">=", "limit": 30, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" },
-    { "metric": "aligned_auto_to_manual_output_step", "signal": "Manual station output", "window": "first Manual update after adopting 40 percent", "comparator": "<=", "limit": 0.001, "unit": "%", "tolerance": 0.000000001, "evidenceClass": "simulation" }
+    { "metric": "tracked_external_to_auto_output_step", "signal": "Requested valve command", "window": "first Auto update after 60 percent Track", "comparator": "<=", "limit": 0.001, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "untracked_external_to_auto_output_step", "signal": "Requested valve command", "window": "first Auto update after inactive 60 percent external output", "comparator": ">=", "limit": 20, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "unaligned_auto_to_manual_output_step", "signal": "Manual station output", "window": "first Manual update from 40 to 10 percent", "comparator": ">=", "limit": 30, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" },
+    { "metric": "aligned_auto_to_manual_output_step", "signal": "Manual station output", "window": "first Manual update after adopting 40 percent", "comparator": "<=", "limit": 0.001, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" }
   ],
   "safety": {
     "hardLimits": [
@@ -105,12 +101,7 @@
   "learning": {
     "context": "An external station may own the booster-pump valve while the pressure controller remains available to take authority later.",
     "reason": "Lesson 27 made startup state truthful, but that state becomes stale if another authority moves the valve while the controller receives no updates.",
-    "theory": [
-      "Bumpless transfer means the first requested output from the new authority matches the last physically applied output within tolerance. It does not promise zero future feedback action.",
-      "With integral action, Track copies external applied output into retained nominal controller state before the incremental update. An inactive untracked controller retains stale output.",
-      "The external manual station must adopt current applied output before taking Manual authority. The PID cannot repair an unrelated manual command after ownership changes.",
-      "Exact alignment is not guaranteed for P or PD positional control, stale tracking, infeasible outputs, binding limits, or unaccounted signal changes."
-    ],
+    "theory": ["Bumpless transfer means the first requested output from the new authority matches the last physically applied output within tolerance. It does not promise zero future feedback action.", "With integral action, Track copies external applied output into retained nominal controller state before the incremental update. An inactive untracked controller retains stale output.", "The external manual station must adopt current applied output before taking Manual authority. The PID cannot repair an unrelated manual command after ownership changes.", "Exact alignment is not guaranteed for P or PD positional control, stale tracking, infeasible outputs, binding limits, or unaccounted signal changes."],
     "workedPrediction": "From 40 percent and 6 bar, tracking an external move to 60 percent predicts a 60 percent first Auto request and zero step. Without tracking, retained output stays 40 percent and the transition step is 20 percentage points. An unrelated 10 percent manual value produces a 30-point step from 40 percent Auto; adopting 40 predicts zero.",
     "practicalPreparation": ["Verify authority owner, SP, PV, external applied output, tracking input and quality, requested/applied output, limits, transition timestamp, safe state, and simulation label.", "Restore the Lesson 27 state at 6 bar and 40 percent; keep SP, PV, gains, timing, limits, plant, and seed equal across tracked and untracked runs."],
     "baseline": "Move external applied output from 40 to 60 percent while deliberately leaving the controller inactive and untracked, then transfer to Auto and retain the first request.",

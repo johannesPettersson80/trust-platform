@@ -1,7 +1,8 @@
 # Reshape a positioning-servo root locus
 
-Course position: Lesson 46 of 84. Prerequisite: `control-crane-routh-stability`.
-Next lesson: `control-flexible-drive-bode`.
+Course position: Lesson 46 of 84. Prerequisite:
+[`control-crane-routh-stability`](../45-crane-routh-stability/).
+Next lesson: [`control-flexible-drive-bode`](../47-flexible-drive-bode/).
 
 **Equipment:** Belt-driven industrial positioning carriage.
 
@@ -60,41 +61,89 @@ primarily improves low-frequency accuracy and is not the design used here.
 
 ## Prediction
 
-The motor inertia integrates acceleration into velocity and position, while
-viscous friction damps motion. After those physical quantities are reduced to
-the declared local units, the plant is
+Start with the local carriage equation
+
+$\ddot{x}(t)+2\dot{x}(t)=u(t)$
+
+Here $x$ is carriage position in millimetres, $\dot{x}$ is speed, and $u$ is
+the motor-current command after the model's unit scaling. The acceleration term
+represents inertia. The $2\dot{x}$ term represents viscous friction: it opposes
+motion in proportion to speed. With zero initial conditions, the Laplace
+transform gives
+
+$s^2X(s)+2sX(s)=U(s)$
+
+so position divided by current is
 
 $G(s) = \frac{1}{s(s+2)}$
 
-Its open-loop poles are 0 and -2, with no finite zero. The real-axis locus lies
-between those poles and breaks away at -1. Its centroid is -1, and two
-asymptotes leave at plus and minus 90 degrees.
+The factors in the denominator give open-loop poles at 0 and -2. The pole at
+zero is the integration from speed to position; the pole at -2 is the damped
+speed mode. There is no numerator factor, so there is no finite open-loop zero.
 
-With proportional gain ($K$), the characteristic equation is
+For proportional feedback, $1+KG(s)=0$. Multiplying by $s(s+2)$ gives
 
-$s^{2}+2s+K=0$
+$s^{2}+2s+K=0.$
 
-For $K > 1$, the poles are $-1 \pm j \cdot \sqrt{K-1}$. Their real part remains -1,
-so increasing gain cannot reduce the approximate 2-percent settling time below
-about 4 seconds; it increases frequency while reducing damping. At $K = 4$,
-predict poles `-1 +/- j*1.732`, natural frequency `2 rad/s`, damping ratio
-`0.5`, and about 16.3-percent overshoot.
+This equation is useful because its roots are the closed-loop poles. On the
+real axis the gain required at a candidate pole $s$ is
+
+$K=-s(s+2).$
+
+The gain is positive only between -2 and 0, so that interval is the real-axis
+locus. A breakaway occurs where changing $s$ no longer changes $K$ to first
+order. Differentiating gives $dK/ds=-2s-2$; setting it to zero gives $s=-1$.
+Because two branches must go to infinity and there are no finite zeros, their
+asymptote centroid is the mean of the two poles, $(0-2)/2=-1$, and their angles
+are $+90^\circ$ and $-90^\circ$. The branches therefore leave -1 vertically.
+
+The quadratic formula gives $s=-1\pm\sqrt{1-K}$. For $K>1$ this becomes
+$s=-1\pm j\sqrt{K-1}$. Increasing gain raises the imaginary part, which means
+faster oscillation, but the decay rate remains fixed at real part -1. At
+$K=4$, the poles are $-1\pm j1.732$. Their natural frequency is their distance
+from the origin, $\omega_n=\sqrt{1^2+1.732^2}=2$ rad/s, and their damping ratio
+is $\zeta=1/2=0.5$. The standard second-order estimates then give
+
+$M_p=100e^{-\pi\zeta/\sqrt{1-\zeta^2}}=16.3\%$
+
+and $T_s\approx4/(\zeta\omega_n)=4$ s. Both miss the servo requirements. More
+proportional gain cannot fix that settling time because it cannot move the real
+part left of -1.
+
+### Derive the lead design
 
 The required region needs a more negative real part. Place a lead zero at
 -2.5, a farther-left pole at -15, and use gain 50:
 
 $C(s)=50\frac{s+2.5}{s+15}$
 
-The angle and magnitude conditions lead to
+The compensated loop is $C(s)G(s)$. Closed-loop poles satisfy
+$1+C(s)G(s)=0$. Multiplying by all three denominator factors gives
+
+$s(s+2)(s+15)+50(s+2.5)=0.$
+
+Expanding the first product gives $s^3+17s^2+30s$; expanding the controller
+term gives $50s+125$. Adding like powers produces
 
 $s^{3}+17s^{2}+80s+125=0$
 
-Independent roots are approximately `-3.235 +/- j*1.186` and `-10.530`. The
-dominant-pair damping ratio is about 0.939. The complete closed-loop transfer
-function also contains a zero, so damping ratio alone does not predict the
-step overshoot. Evaluating that complete transfer function predicts about
-3.2 percent overshoot, 1.36-second settling, zero final error, and an initial
-50-percent requested current.
+Numerically factoring this polynomial gives poles
+$-3.235\pm j1.186$ and $-10.530$. The real pole is more than three times faster
+than the complex pair, so the pair is dominant. Its natural frequency is
+$\sqrt{3.235^2+1.186^2}=3.446$ rad/s and its damping ratio is
+$3.235/3.446=0.939$.
+
+That damping ratio does not by itself determine overshoot because the complete
+closed-loop transfer function still contains the controller zero:
+
+$T(s)=\frac{50(s+2.5)}{s^3+17s^2+80s+125}.$
+
+Evaluating this complete response predicts about 3.2-percent overshoot and
+1.36-second settling. Its DC gain is $T(0)=125/125=1$, so a constant
+one-millimetre command has zero steady-state error. At the instant of the step,
+the filter state is still zero and the error is 1 mm, so the implemented law
+requests $50\times1=50$ percent current. Those are concrete predictions to
+check in the run, not values to copy from the retained results.
 
 ## Implementation
 
@@ -118,37 +167,28 @@ not contain pole locations, overshoot, settling time, or an accepted winner.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Implement lead compensation with gain 50, zero 2.5 per second, and pole 15 per second. The declared event lasts 8 seconds. It restores Lead carriage setpoint to 0 mm afterward. The deterministic Simulation seed is 20260829.
+The project owns the one-millimetre move, both control laws, the eight-second
+observation window, and restoration to zero. Control Studio is allowed to
+write only the Boolean authority `P1.ExperimentEnabled`; it must not inject a
+second setpoint step. The extra 0.1 seconds in the Test timeout lets the
+project finish its declared eight-second window before Control Studio judges
+the terminal state. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Proportional carriage setpoint (SP, mm) and Lead carriage setpoint (SP, mm); Proportional carriage position (PV, mm) and Lead carriage position (PV, mm); Proportional applied motor current (MV, %) and Lead applied motor current (MV, %), including units, limits, mode, and quality. The initial operating point is Proportional carriage setpoint = 0 mm, Lead carriage setpoint = 0 mm, Proportional applied motor current = 0 %, Lead applied motor current = 0 %, Proportional carriage position = 0 mm, Lead carriage position = 0 mm. The unresolved baseline problem is: After root-locus breakaway, proportional gain changes frequency and damping but cannot move the pole-pair real part left of minus one.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept only when complete-transfer-function poles and executable response meet overshoot, settling, final-error, and current constraints.
-   - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
+   - **Successful evidence:** The Response plot advances and the displayed values are finite and current. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **8**. The observed lesson signal is **Lead carriage setpoint**. Control Studio uses the existing Boolean project authority **P1.ExperimentEnabled** at **%MX96.0**; it does not inject a second process event.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **8.1**. The observed lesson signal is **Lead carriage setpoint**. Control Studio uses the existing Boolean project authority **P1.ExperimentEnabled** at **%MX96.0**; it does not inject a second process event.
    - **Decision before action:** Before selecting **Review test**, predict the response to Lead carriage setpoint. Confirm the live values are current and the reviewed plan stays inside Proportional applied motor current -100 % to 100 %; Lead applied motor current -100 % to 100 %; Proportional carriage position -5 mm to 5 mm; Lead carriage position -5 mm to 5 mm.
    - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
-   - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **LeadCompensatorComparison** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Root-locus lead-compensator design**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-4. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: lead_percent_overshoot < 5 % (tolerance 0.1 %); lead_two_percent_settling_time <= 2 s (tolerance 0.01 s); lead_final_window_absolute_error <= 0.01 mm (tolerance 0.001 mm).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test, not a disabled Tune or Validate screen, owns the two complete-response calculations and their requirement verdicts.
 
 ## Evidence and decision
 

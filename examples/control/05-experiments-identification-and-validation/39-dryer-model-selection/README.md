@@ -31,7 +31,12 @@ do not name the model structure. Several structures can reduce error on the
 same noisy record. Extra freedom can follow accidental noise or imitate a
 delay without predicting another experiment.
 
-## Separate fitting from prediction
+## What we need
+
+We need to compare candidate dryer models on independent prediction evidence,
+not reward a model merely for fitting the data that selected its parameters.
+
+## The new idea
 
 A **model structure** is the chosen form and number of dynamic relationships
 before numerical parameters are estimated. A **parameter estimate** is a

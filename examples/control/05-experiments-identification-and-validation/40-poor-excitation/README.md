@@ -21,7 +21,12 @@ Lesson 39 assumed its record distinguished candidate parameters. A fitting
 program can still return plausible numbers from nearly constant or feedback-
 dependent input; numbers alone do not prove sufficient information.
 
-## Decide what the data can support before fitting
+## What we need
+
+We need to decide whether the recorded input changed enough, for long enough,
+to support a model before fitting or interpreting parameters.
+
+## The new idea
 
 ### Information in a record
 

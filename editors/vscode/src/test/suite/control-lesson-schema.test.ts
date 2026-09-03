@@ -1292,10 +1292,10 @@ suite("Control lesson schema", () => {
     assert.deepStrictEqual(availability.lesson.prerequisites, ["control-cold-storage-loop-anatomy"]);
     assert.strictEqual(availability.lesson.plant.modelId, "first_order");
     assert.strictEqual(availability.lesson.experiment.kind, "observation");
-    assert.strictEqual(availability.lesson.experiment.signal, "Experiment authority enabled");
+    assert.strictEqual(availability.lesson.experiment.signal, "Experiment authority");
     assert.strictEqual(availability.lesson.experiment.amplitude, 0);
     assert.strictEqual(availability.lesson.experiment.durationSeconds, 120.1);
-    assert.deepStrictEqual(availability.lesson.workflowStages, ["Monitor", "Test", "Validate"]);
+    assert.deepStrictEqual(availability.lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(availability.lesson.proof.nativeTest,
       "control_curriculum_cold_storage_on_off_exports_regulation_and_chatter_evidence");
   });
@@ -1357,7 +1357,7 @@ suite("Control lesson schema", () => {
       ["control-independent-heater-model-validation"]);
     assert.strictEqual(availability.lesson.plant.modelId, "validated_local_first_order_dead_time");
     assert.strictEqual(availability.lesson.experiment.kind, "observation");
-    assert.strictEqual(availability.lesson.experiment.signal, "Experiment authority enabled");
+    assert.strictEqual(availability.lesson.experiment.signal, "Experiment authority");
     assert.strictEqual(availability.lesson.experiment.amplitude, 0);
     assert.strictEqual(availability.lesson.experiment.durationSeconds, 120.1);
     assert.strictEqual(availability.lesson.change.settings.method, "Lambda/IMC");
@@ -1392,8 +1392,8 @@ suite("Control lesson schema", () => {
       assert.strictEqual(availability.lesson.baseline.settings[field],
         availability.lesson.change.settings[field]);
     }
-    assert.strictEqual(availability.lesson.experiment.kind, "load_step");
-    assert.deepStrictEqual(availability.lesson.workflowStages, ["Monitor", "Test", "Validate"]);
+    assert.strictEqual(availability.lesson.experiment.kind, "observation");
+    assert.deepStrictEqual(availability.lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(availability.lesson.proof.nativeTest,
       "control_curriculum_reactor_retains_separate_servo_and_regulatory_evidence");
     assert.ok(availability.lesson.signals.some(
@@ -1433,10 +1433,10 @@ suite("Control lesson schema", () => {
     );
     assert.deepStrictEqual(availability.lesson.change.settings.intervalsMilliseconds, [50, 100, 200]);
     assert.strictEqual(availability.lesson.experiment.kind, "observation");
-    assert.strictEqual(availability.lesson.experiment.signal, "Timing experiment authority");
+    assert.strictEqual(availability.lesson.experiment.signal, "Experiment authority");
     assert.strictEqual(availability.lesson.experiment.durationSeconds, 30.6);
     assert.strictEqual(
-      availability.lesson.signals.find((signal: any) => signal.name === "Timing experiment authority")?.binding,
+      availability.lesson.signals.find((signal: any) => signal.name === "Experiment authority")?.binding,
       "%MX80.0"
     );
     assert.deepStrictEqual(availability.lesson.workflowStages, ["Monitor", "Test"]);
@@ -1469,8 +1469,8 @@ suite("Control lesson schema", () => {
       "2 BackCalculation Tt=3.25 s",
       "3 Combined Tt=3.25 s",
     ]);
-    assert.strictEqual(availability.lesson.experiment.kind, "setpoint_step");
-    assert.deepStrictEqual(availability.lesson.workflowStages, ["Monitor", "Test", "Validate"]);
+    assert.strictEqual(availability.lesson.experiment.kind, "observation");
+    assert.deepStrictEqual(availability.lesson.workflowStages, ["Monitor", "Test"]);
     assert.strictEqual(availability.lesson.proof.nativeTest,
       "control_curriculum_batch_vessel_retains_equivalent_pi_anti_windup_runs");
   });
@@ -1542,7 +1542,7 @@ suite("Control lesson schema", () => {
     assert.strictEqual(lesson.sequence, 16);
     assert.deepStrictEqual(lesson.prerequisites, ["control-water-heater-energy-balance"]);
     assert.strictEqual(lesson.nextLesson, "control-independent-heater-model-validation");
-    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test", "Identify", "Validate"]);
+    assert.deepStrictEqual(lesson.workflowStages, ["Monitor", "Test"]);
   });
 
   test("keeps the numbered heater identification lesson navigable from adjacent lessons", () => {

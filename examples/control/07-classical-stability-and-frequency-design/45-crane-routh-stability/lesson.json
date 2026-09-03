@@ -11,7 +11,7 @@
   "prerequisites": ["control-model-based-tuning"],
   "nextLesson": "control-servo-root-locus",
   "signals": [
-    { "role": "state", "name": "Experiment enable", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.0" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.0" },
     { "role": "SP", "name": "Stable trolley setpoint", "unit": "m", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%ML24" },
     { "role": "SP", "name": "Marginal trolley setpoint", "unit": "m", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%ML32" },
     { "role": "SP", "name": "Unstable trolley setpoint", "unit": "m", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%ML40" },
@@ -54,10 +54,24 @@
   },
   "change": {
     "executableId": "Crane.RouthHurwitzInterval",
-    "settings": { "polynomialCoefficients": [1, 2, 3, "K"], "predictedStableInterval": "0 < K < 6", "confirmationGains": [4, 6, 8] },
+    "settings": {
+      "polynomialCoefficients": [1, 2, 3, "K"],
+      "predictedStableInterval": "0 < K < 6",
+      "confirmationGains": [4, 6, 8]
+    },
     "decision": "Use the Routh first-column signs and independent numerical roots as authority; use equivalent time traces only as confirmation."
   },
-  "experiment": { "kind": "observation", "signal": "Experiment enable", "baseline": 0, "amplitude": 0, "durationSeconds": 40.1, "settlingSeconds": 0, "disturbances": ["Identical 0.1-metre initial displacement on each crane copy"], "seed": 20260829, "restorationValue": 0 },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 40.1,
+    "settlingSeconds": 0,
+    "disturbances": ["Identical 0.1-metre initial displacement on each crane copy"],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
   "acceptance": [
     { "metric": "stable_right_half_plane_poles", "signal": "Stable trolley position", "window": "Routh array and independent roots before run", "comparator": "==", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "model" },
     { "metric": "marginal_imaginary_axis_poles", "signal": "Marginal trolley position", "window": "independent roots before run", "comparator": "==", "limit": 2, "unit": "1", "tolerance": 0, "evidenceClass": "model" },
@@ -88,7 +102,15 @@
     "runArtifactFields": ["plantIdentity", "polynomial", "gain", "routhRows", "firstColumn", "signChanges", "numericalRoots", "samples", "requestedForce", "appliedForce", "earlyEnvelope", "lateEnvelope", "envelopeRatio", "forceTravel", "limitContact", "stopReason", "restoration", "seed", "evidenceClass"],
     "renderedJourneyId": "control-crane-routh-stability"
   },
-  "video": { "viewerOutcome": "Derive a crane gain interval, classify the boundary, and use executable traces as confirmation rather than proof.", "requiredVisibleEvidence": ["crane model", "characteristic polynomial", "Routh array", "special-case treatment", "stable marginal unstable predictions", "three equivalent traces", "numerical roots", "abort state", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Derive a crane gain interval, classify the boundary, and use executable traces as confirmation rather than proof.",
+    "requiredVisibleEvidence": ["crane model", "characteristic polynomial", "Routh array", "special-case treatment", "stable marginal unstable predictions", "three equivalent traces", "numerical roots", "abort state", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "Three equivalent simulated overhead-crane copies expose natural responses at proportional gains 4, 6, and 8.",
     "reason": "Selected finite tuning runs cannot establish a complete stability interval or safely search for instability.",

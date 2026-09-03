@@ -30,7 +30,7 @@ $J \cdot \ddot q+b \cdot \dot q+G \cdot \sin\left(q\right)=\tau_{\mathrm{applied
 
 Inertia ($J$) uses kilogram square metres. Viscous coefficient ($b$) uses newton metre seconds per radian. Gravity-torque coefficient ($G$) and applied torque use newton metres. Joint acceleration ($\ddot q$) uses radians per second squared.
 
-A local model is a linear approximation around one operating angle (q0). The local gravity stiffness is $G \cdot \cos\left(q_{0}\right)$. It changes from its largest value near zero angle to a smaller value as the arm moves toward 1.2 radians. A fixed proportional gain therefore does not produce identical local closed-loop stiffness everywhere.
+A local model is a linear approximation around one operating angle ($q_0$). Writing $q=q_0+\delta q$ and using $\sin(q_0+\delta q)\approx\sin(q_0)+\cos(q_0)\delta q$ shows that the constant term is the holding torque and the coefficient of small angle change is the local gravity stiffness $G\cos(q_0)$. It changes from its largest value near zero angle to a smaller value as the arm moves toward 1.2 radians. A fixed proportional gain therefore does not produce identical local closed-loop stiffness everywhere.
 
 Choose desired natural frequency ($\omega_{n}$) 5 rad/s and damping ratio ($\zeta$) 0.8. Natural frequency describes the intended response speed. Damping ratio describes how strongly oscillation is suppressed. The local proportional and derivative gains are:
 
@@ -38,7 +38,10 @@ $K_p(q_{0})=J \cdot \omega_{n}^{2}-G \cdot \cos\left(q_{0}\right)$
 
 $K_d=2 \cdot \zeta \cdot \omega_{n} \cdot J-b$
 
-At absolute operating angles 0, 0.6, and 1.2 rad, the proportional gains are 15.190, 16.904, and 21.445 N m/rad. The derivative gain is 7.800 N m s/rad.
+These formulas come from the local error equation
+$J\delta\ddot q+(b+K_d)\delta\dot q+(G\cos(q_0)+K_p)\delta q=0$. Dividing by $J$ and matching it to the desired second-order polynomial $s^2+2\zeta\omega_n s+\omega_n^2$ gives the two coefficient equations above.
+
+At absolute operating angles 0, 0.6, and 1.2 rad, substitution gives $25-9.81\cos(0)=15.190$, $25-9.81\cos(0.6)=16.904$, and $25-9.81\cos(1.2)=21.445$ newton metres per radian. The derivative calculation is $2(0.8)(5)(1)-0.2=7.800$ newton metre seconds per radian.
 
 Gain scheduling means selecting or interpolating parameters from validated local controller designs using a measurable scheduling variable. Here the scheduling variable is absolute setpoint angle, clamped to 1.2 radians. Linear interpolation connects the three proportional-gain points. Integral gain remains 12 N m/(rad s), and derivative gain remains 7.8 N m s/rad.
 
@@ -60,7 +63,7 @@ N m below the motor's 30 N m limit for model compensation and numerical
 margin. Designing exactly on an actuator boundary would make the nominal
 architecture saturate before its claimed linear dynamics could be evaluated.
 
-Exact nominal coefficients cancel gravity and viscous friction, leaving the desired linear error response. Feedback is still necessary because initial error, disturbances, sensor error, and model error remain.
+With exact nominal coefficients, substituting the request into the plant balance cancels gravity and viscous friction and leaves $\ddot q=24(q_{sp}-q)-8\dot q$. For a constant setpoint and error $e=q_{sp}-q$, this becomes $\ddot e+8\dot e+24e=0$. Its roots are $-4\pm j\sqrt{8}$, so the nominal error decays. Feedback is still necessary because initial error, disturbances, sensor error, and model error remain.
 
 Input effectiveness is the coefficient that maps actuator command into state acceleration. It is `1/J_hat` here. Feedback linearisation is eligible because this value stays finite, positive, and bounded throughout the declared range. On a different plant, dividing by input effectiveness that approaches zero would create a singular command. That architecture must be rejected rather than numerically clipped and called successful.
 
@@ -116,7 +119,7 @@ ControllerMode requests fixed PID, scheduled PID, or feedback linearisation. Act
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Run scheduled PID and eligible feedback linearisation separately under the same nominal and mismatch conditions. The declared event lasts 31 seconds. It restores Joint angle setpoint to 0 rad afterward. The deterministic Simulation seed is 20260829.
+This procedure observes scheduled PID on the nominal plant over the complete wide-angle trajectory. The project owns architecture selection, all four setpoint plateaus, and zero-torque restoration when authority is removed. Fixed PID, feedback linearisation, heavy-payload, and invalid-model fallback comparisons are separate native test records. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -128,32 +131,11 @@ This procedure tests one declared lesson change under controlled conditions. Run
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Setpoint step**, **Amplitude** = **1.2 rad**, and **Maximum duration (s)** = **31**. The affected signal is **Joint angle setpoint**; it starts at 0 rad and must restore to 0 rad.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **31.1**. The affected signal is **Experiment authority**. Amplitude zero is intentional: Test writes only `P1.ExperimentEnabled`; the project owns the 0, +1.2, 0, -1.2, 0-radian schedule.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Applied motor torque -30 N m to 30 N m; Joint angle -1.5 rad to 1.5 rad; Joint angular rate -4 rad/s to 4 rad/s.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Joint angle setpoint to 0 rad, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Comparison of fixed PID, gain-scheduled PID, and eligible feedback linearisation** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Comparison of fixed PID, gain-scheduled PID, and eligible feedback linearisation** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Comparison of fixed PID, gain-scheduled PID, and eligible feedback linearisation** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Comparison of fixed PID, gain-scheduled PID, and eligible feedback linearisation**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: maximum_applied_torque <= 30 N m (tolerance 0.000001 N m); scheduled_heavy_payload_final_error <= 0.02 rad (tolerance 0.0001 rad); nominal_linearised_segment_settling <= 4 s (tolerance 0.02 s); invalid_model_fallback == 1 (dimensionless) (tolerance 0 (dimensionless)).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero setpoint and applied torque, wait for current data, and review a new test.
+   - **Record:** Stop recording only after restoration. Retain active gain, requested/active architecture, model eligibility, joint response, requested/applied torque, terminal state, restoration result, and seed **20260829**. Use native evidence for the other architectures and payload cases; do not claim this visible run executed them.
 
 ## Evidence and decision
 

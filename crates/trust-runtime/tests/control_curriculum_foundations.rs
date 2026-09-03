@@ -214,13 +214,17 @@ fn control_curriculum_water_heater_p_shipped_defaults_run_selected_candidate_saf
 
     write_bool(&mut runtime, &auto, true);
     runtime.execute_cycle().expect("run selected P candidate");
-    assert!((read_lreal(&runtime, &mv) - 100.0).abs() <= 1.0e-12,
-        "the shipped 35 degC, Kp 8 candidate must clamp its initial 120% request to 100%");
+    assert!(
+        (read_lreal(&runtime, &mv) - 100.0).abs() <= 1.0e-12,
+        "the shipped 35 degC, Kp 8 candidate must clamp its initial 120% request to 100%"
+    );
 
     write_bool(&mut runtime, &auto, false);
     runtime.execute_cycle().expect("restore manual safe state");
-    assert!(read_lreal(&runtime, &mv).abs() <= 1.0e-12,
-        "disabling lesson authority must restore zero applied heater power");
+    assert!(
+        read_lreal(&runtime, &mv).abs() <= 1.0e-12,
+        "disabling lesson authority must restore zero applied heater power"
+    );
 }
 
 fn run_water_heater_with_bias() -> Vec<(f64, f64)> {

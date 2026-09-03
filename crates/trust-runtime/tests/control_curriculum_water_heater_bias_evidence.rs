@@ -28,7 +28,10 @@ fn addressed_source() -> String {
         .split("CONFIGURATION Config")
         .next()
         .expect("example program before configuration")
-        .replace("AutoMode : BOOL :=", "AutoMode AT %IX24.0 : BOOL :=")
+        .replace(
+            "ExperimentEnabled : BOOL :=",
+            "ExperimentEnabled AT %IX24.0 : BOOL :=",
+        )
         .replace("Setpoint : LREAL :=", "Setpoint AT %IL32 : LREAL :=")
         .replace("ProcessValue : LREAL :=", "ProcessValue AT %IL0 : LREAL :=")
         .replace(

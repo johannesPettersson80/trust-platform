@@ -34,7 +34,10 @@ fn addressed_source() -> String {
             "    ExperimentInput : LREAL :=",
             "    ExperimentInput AT %ML32 : LREAL :=",
         )
-        .replace("    Setpoint : LREAL :=", "    Setpoint AT %ML40 : LREAL :=")
+        .replace(
+            "    Setpoint : LREAL :=",
+            "    Setpoint AT %ML40 : LREAL :=",
+        )
         .replace(
             "    ProcessValue : LREAL :=",
             "    ProcessValue AT %IL0 : LREAL :=",
@@ -55,7 +58,10 @@ fn addressed_source() -> String {
             "    InputsValid : BOOL :=",
             "    InputsValid AT %MX81.2 : BOOL :=",
         )
-        .replace("    AutoMode : BOOL :=", "    AutoMode AT %MX81.3 : BOOL :=")
+        .replace(
+            "    AutoMode : BOOL :=",
+            "    AutoMode AT %MX81.3 : BOOL :=",
+        )
 }
 
 #[test]
@@ -159,7 +165,9 @@ fn lesson_16_boolean_test_authority_runs_the_project_owned_step_sequence() {
     write_lreal(&mut runtime, "%ML32", 77.0);
     write_bool(&mut runtime, "%MX81.0", true);
     for index in 1..=101 {
-        runtime.execute_cycle().expect("execute Lesson 16 Test scan");
+        runtime
+            .execute_cycle()
+            .expect("execute Lesson 16 Test scan");
         if index == 1 || index == 100 {
             assert!((read_lreal(&runtime, "%ML32") - 20.0).abs() <= 1e-12);
         }

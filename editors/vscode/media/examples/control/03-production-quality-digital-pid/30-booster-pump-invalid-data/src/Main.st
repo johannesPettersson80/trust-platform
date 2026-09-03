@@ -7,6 +7,9 @@ VAR
     ActiveParameters : Control.PIDParameters;
     InitialState : Control.PIDInitialState;
     Input : Control.PIDInput;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    ExperimentCycle : ULINT := ULINT#0;
     InitializeRequest : BOOL := FALSE;
     ApplyConfiguration : BOOL := FALSE;
     SensorQualityGood : BOOL := TRUE;
@@ -49,6 +52,57 @@ END_VAR
 
 ControllerCalledThisScan := FALSE;
 ConfiguredThisScan := FALSE;
+
+(* Control Studio writes one reviewed Boolean. The project owns the invalid
+   candidate, correction, acknowledgement, three qualification scans, reset,
+   renewed Auto, and safe restoration as separate observable scans. *)
+IF ExperimentEnabled THEN
+    IF NOT ExperimentWasEnabled THEN
+        ExperimentCycle := ULINT#0;
+    END_IF;
+    ExperimentCycle := ExperimentCycle + ULINT#1;
+    InitializeRequest := FALSE;
+    ApplyConfiguration := FALSE;
+    AcknowledgeRequest := FALSE;
+    ResetRequest := FALSE;
+    EnableAutoRequest := FALSE;
+    SensorQualityGood := TRUE;
+    SensorAgeSeconds := LREAL#0.0;
+    MeasuredCycleTime := LREAL#0.1;
+    DeadlineMissed := FALSE;
+    IF ExperimentCycle = ULINT#1 THEN
+        Setpoint := LREAL#6.0;
+        ActualValvePosition := LREAL#40.0;
+        CandidateOutputMinimum := LREAL#0.0;
+        CandidateOutputMaximum := LREAL#100.0;
+        InitializeRequest := TRUE;
+    ELSIF ExperimentCycle = ULINT#2 THEN
+        CandidateOutputMinimum := LREAL#80.0;
+        CandidateOutputMaximum := LREAL#20.0;
+        ApplyConfiguration := TRUE;
+    ELSIF ExperimentCycle = ULINT#3 THEN
+        CandidateOutputMinimum := LREAL#0.0;
+        CandidateOutputMaximum := LREAL#100.0;
+    ELSIF ExperimentCycle = ULINT#4 THEN
+        AcknowledgeRequest := TRUE;
+    ELSIF ExperimentCycle = ULINT#8 THEN
+        Setpoint := ProcessValue;
+        ActualValvePosition := LREAL#30.0;
+        ResetRequest := TRUE;
+    ELSIF ExperimentCycle >= ULINT#9 THEN
+        Setpoint := ProcessValue;
+        ActualValvePosition := LREAL#30.0;
+        EnableAutoRequest := TRUE;
+    END_IF;
+ELSIF ExperimentWasEnabled THEN
+    ExperimentCycle := ULINT#0;
+    InitializeRequest := FALSE;
+    ApplyConfiguration := FALSE;
+    AcknowledgeRequest := FALSE;
+    ResetRequest := FALSE;
+    EnableAutoRequest := FALSE;
+    ValveCommand := LREAL#30.0;
+END_IF;
 
 IF InitializeRequest THEN
     ActiveParameters.ProportionalGain := LREAL#5.0;
@@ -229,6 +283,7 @@ ELSE
         AutoAuthorized := FALSE;
     END_IF;
 END_IF;
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -244,6 +299,7 @@ VAR_CONFIG
     P1.AcknowledgeRequest AT %MX64.4 : BOOL;
     P1.ResetRequest AT %MX64.5 : BOOL;
     P1.EnableAutoRequest AT %MX64.6 : BOOL;
+    P1.ExperimentEnabled AT %MX64.7 : BOOL;
     P1.FaultLatched AT %MX65.0 : BOOL;
     P1.FaultAcknowledged AT %MX65.1 : BOOL;
     P1.RecoveryReady AT %MX65.2 : BOOL;
@@ -262,7 +318,7 @@ VAR_CONFIG
     P1.CandidateOutputMinimum AT %ML40 : LREAL;
     P1.CandidateOutputMaximum AT %ML48 : LREAL;
     P1.CandidateProportionalGain AT %ML56 : LREAL;
-    P1.CandidateIntegralGain AT %ML64 : LREAL;
+    P1.CandidateIntegralGain AT %ML80 : LREAL;
     P1.CandidateTrackingTime AT %ML72 : LREAL;
     P1.ValveCommand AT %QL0 : LREAL;
     P1.ProcessValue AT %IL0 : LREAL;

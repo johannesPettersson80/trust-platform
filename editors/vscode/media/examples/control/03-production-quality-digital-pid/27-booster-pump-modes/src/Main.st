@@ -8,6 +8,10 @@ VAR
     Input : Control.PIDInput;
     PressureFilter : Control.LowPass;
     FilterParameters : Control.LowPassParameters;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     InitializeRequest : BOOL := FALSE;
     UseMeasuredInitialization : BOOL := TRUE;
     RequireSettledFilter : BOOL := TRUE;
@@ -25,6 +29,23 @@ VAR
     ActiveAuthority : INT := 0;
     FilterSettledCount : INT := 0;
 END_VAR
+
+(* Control Studio writes one reviewed authority. Its rising edge produces one
+   measured-state initialization request; project supervision owns the Manual
+   settle interlock, Auto request, and Disabled safe restoration. *)
+IF ExperimentEnabled THEN
+    UseMeasuredInitialization := TRUE;
+    RequireSettledFilter := TRUE;
+    Setpoint := LREAL#6.0;
+    ActualValvePosition := LREAL#40.0;
+    ManualOutput := LREAL#40.0;
+    TrackingOutput := LREAL#40.0;
+    RequestedMode := 2;
+    InitializeRequest := NOT ExperimentWasEnabled;
+ELSIF ExperimentWasEnabled THEN
+    InitializeRequest := FALSE;
+    RequestedMode := 0;
+END_IF;
 
 IF InitializeRequest THEN
     Parameters.ProportionalGain := LREAL#15.0;
@@ -93,6 +114,12 @@ IF ControllerReady THEN
 END_IF;
 
 StartupBlocked := FALSE;
+InputsValid := RawPressure >= LREAL#0.0 AND RawPressure <= LREAL#12.0
+    AND ActualValvePosition >= LREAL#0.0
+    AND ActualValvePosition <= LREAL#100.0;
+IF SafetyAbort OR NOT InputsValid THEN
+    RequestedMode := 0;
+END_IF;
 CASE RequestedMode OF
     1:
         IF ControllerReady THEN
@@ -138,6 +165,7 @@ ELSE
     ValveCommand := LREAL#30.0;
     ActiveAuthority := 0;
 END_CASE;
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -149,6 +177,9 @@ VAR_CONFIG
     P1.InitializeRequest AT %MX40.0 : BOOL;
     P1.UseMeasuredInitialization AT %MX40.1 : BOOL;
     P1.RequireSettledFilter AT %MX40.2 : BOOL;
+    P1.ExperimentEnabled AT %MX40.3 : BOOL;
+    P1.SafetyAbort AT %MX40.4 : BOOL;
+    P1.InputsValid AT %MX40.5 : BOOL;
     P1.ControllerReady AT %MX41.0 : BOOL;
     P1.FilterSettled AT %MX41.1 : BOOL;
     P1.StartupBlocked AT %MX41.2 : BOOL;

@@ -16,7 +16,11 @@ VAR
     DwellElapsed : LREAL;
     DwellInhibit : BOOL := FALSE;
     SwitchCount : DINT := DINT#0;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
 END_VAR
+AutoMode := ExperimentEnabled AND InputsValid AND NOT SafetyAbort;
 
 (* Qualifying the initial dwell allows the first safe demand immediately;
    later scans retain elapsed time so minimum on/off durations are enforceable. *)
@@ -88,5 +92,8 @@ VAR_CONFIG
     P1.ProcessValue AT %IL0 : LREAL;
     P1.DoorOpenIndication AT %IL8 : LREAL;
     P1.EffectiveSurroundings AT %IL16 : LREAL;
+    P1.ExperimentEnabled AT %MX44.4 : BOOL;
+    P1.SafetyAbort AT %MX44.5 : BOOL;
+    P1.InputsValid AT %MX44.6 : BOOL;
 END_VAR
 END_CONFIGURATION

@@ -98,7 +98,18 @@ $G_{u}(s) = 2 / (10 \cdot s + 1)$
 
 $G_{\mathrm{d}}(s) = -20 / (4 \cdot s + 1)$
 
-Matching both path gain and timing gives this executable lead-lag form:
+Perfect model-based cancellation requires the two disturbance contributions to
+sum to zero: $G_uMV_{ff}+G_d\Delta d=0$. Therefore
+
+$\frac{MV_{ff}}{\Delta d}=-\frac{G_d}{G_u}
+=10\frac{10s+1}{4s+1}.$
+
+To implement that ratio, divide it into a direct term and a filtered term:
+
+$10\frac{10s+1}{4s+1}=25-\frac{15}{4s+1}.$
+
+If $z$ is the output of the filter $1/(4s+1)$, then
+$4\,dz/dt+z=\Delta d$. Substitution gives the executable form:
 
 $MV_{\mathrm{feedforward\,dynamic}} = 25 \cdot \Delta d - 15 \cdot z$
 
@@ -160,44 +171,28 @@ zero. It does not embed an event metric, preferred design, or acceptance flag.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Compare static gain compensation and dynamic gain-and-timing compensation, then change only the dynamic scale to 0.8 and separately invalidate measured speed. The declared event lasts 90 seconds. It restores Actual conveyor speed to 1 1 afterward. The deterministic Simulation seed is 20260829.
+The project owns the speed change at 30 seconds, all three oven paths, the
+90-second observation, and restoration to nominal speed. Control Studio may
+write only `P1.ExperimentEnabled`; it must not inject a second disturbance. The
+90.1-second timeout lets project restoration finish first. Separate native
+cases own the 0.8 scale and invalid-speed checks. The deterministic Simulation
+seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Product-temperature setpoint (SP, degC); Feedback-only product temperature (PV, degC); Feedback-only heater request (MV, %), including units, limits, mode, and quality. The initial operating point is Conveyor-speed validity = 1 (dimensionless), Actual conveyor speed = 1 (dimensionless), Measured conveyor speed = 1 (dimensionless), Dynamic feedforward scale = 1 (dimensionless), Static feedforward = 0 %, Dynamic feedforward = 0 %, Product-temperature setpoint = 120 degC, Feedback-only product temperature = 120 degC. The unresolved baseline problem is: Feedback-only PI cannot act at the speed event because product temperature has not changed yet. In Control Studio Monitor retain the pre-event state through 30.0 s and the restored terminal state at 90.0 s.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept feedforward only when equivalent runs reduce qualified temperature error without saturation and invalid speed data visibly removes feedforward authority.
-   - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
+   - **Successful evidence:** The Response plot advances and the displayed values are finite and current. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Load disturbance step**, **Amplitude** = **1 (dimensionless)**, and **Maximum duration (s)** = **90**. The affected signal is **Actual conveyor speed**; it starts at 1 (dimensionless) and must restore to 1 (dimensionless).
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **90.1**. The observed signal is **Actual conveyor speed**. Control Studio uses the Boolean project authority **P1.ExperimentEnabled** at **%MX136.2**; it does not inject another speed step.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Feedback-only heater request 0 % to 100 %; Static-feedforward heater request 0 % to 100 %; Dynamic-feedforward heater request 0 % to 100 %; Feedback-only product temperature 90 degC to 145 degC; Static-feedforward product temperature 90 degC to 145 degC; Dynamic-feedforward product temperature 90 degC to 145 degC.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Actual conveyor speed to 1 (dimensionless), wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Static and dynamic measured-disturbance feedforward with PI trim** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Static and dynamic measured-disturbance feedforward with PI trim** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Static and dynamic measured-disturbance feedforward with PI trim** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Static and dynamic measured-disturbance feedforward with PI trim**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: static_event_iae_improvement < 0 degC*s (tolerance 0.01 degC*s); dynamic_event_iae_improvement < 0 degC*s (tolerance 0.01 degC*s); nominal_dynamic_feedforward_peak == 25 % (tolerance 0.2 %); nominal_dynamic_feedforward_final == 10 % (tolerance 0.05 %).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test owns all three comparisons, mismatch and invalid-data cases, metrics, and verdicts; disabled Identify, Tune, or Validate controls are not evidence.
 
 ## Evidence and decision
 

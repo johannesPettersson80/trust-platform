@@ -59,7 +59,7 @@ A lead compensator adds a zero and a farther-left pole. It adds positive phase
 and reshapes the locus toward faster, better-damped poles. A lag compensator
 primarily improves low-frequency accuracy and is not the design used here.
 
-## Derive the uncompensated response
+## Prediction
 
 Start with the local carriage equation
 
@@ -110,7 +110,7 @@ and $T_s\approx4/(\zeta\omega_n)=4$ s. Both miss the servo requirements. More
 proportional gain cannot fix that settling time because it cannot move the real
 part left of -1.
 
-## Derive the lead design
+### Derive the lead design
 
 The required region needs a more negative real part. Place a lead zero at
 -2.5, a farther-left pole at -15, and use gain 50:

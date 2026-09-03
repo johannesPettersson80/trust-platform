@@ -53,12 +53,12 @@
       {
         "id": "experiment-authority",
         "channel": "experiment-authority",
-        "role": "authority",
+        "role": "state",
         "symbol": "P1.ExperimentEnabled",
         "address": "%MX6.4",
         "iecType": "BOOL",
-        "direction": "write",
-        "unit": "1",
+        "direction": "read",
+        "unit": "",
         "range": {
           "minimum": 0,
           "maximum": 1
@@ -397,10 +397,16 @@
   },
   "plantId": "polymer_extruder_continuous_gain_drift",
   "experiment": {
-    "execution": "control-studio",
+    "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
     "durationSeconds": 120.1,
-    "seed": 20260829
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX6.4",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

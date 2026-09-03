@@ -122,10 +122,24 @@ struct Trace {
 }
 
 fn compile_project() -> CompileSession {
-    let source = project_file("src/Main.st")
+    let mut source = project_file("src/Main.st")
         .split("CONFIGURATION Config")
         .next()
         .expect("distillation capstone program before configuration")
+        .to_owned();
+    let workflow_start = source
+        .find("IF NOT StartupInitialized THEN")
+        .expect("Lesson 82 project-owned workflow start");
+    let workflow_end = source[workflow_start..]
+        .find("Controller(")
+        .map(|offset| workflow_start + offset)
+        .expect("Lesson 82 project-owned workflow end");
+    source.replace_range(workflow_start..workflow_end, "");
+
+    // This suite identifies and qualifies the controller with explicit native
+    // fixtures. The separate curriculum contract verifies the student-facing
+    // project sequencer and its single Boolean authority.
+    let source = source
         .replace(
             "OperatingMode : DINT :=",
             "OperatingMode AT %ID16 : DINT :=",
@@ -414,10 +428,9 @@ fn run_manual_record(session: &CompileSession, command: [f64; 2]) -> Vec<[f64; 2
     let mut runtime = session
         .build_runtime()
         .expect("compile a fresh identification runtime from the shipped capstone");
-    let config = SimulationConfig::load(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../examples/control/14-integrated-capstones/82-distillation-column/simulation.toml"),
-    )
+    let config = SimulationConfig::load(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../../examples/control/14-integrated-capstones/82-distillation-column/simulation.toml",
+    ))
     .expect("load nominal column for four-path identification");
     let mut simulation = SimulationController::new(config);
     simulation
@@ -529,10 +542,9 @@ fn assert_abnormal_authority(session: &CompileSession) {
     let mut runtime = session
         .build_runtime()
         .expect("compile abnormal-authority runtime from the shipped capstone");
-    let config = SimulationConfig::load(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../examples/control/14-integrated-capstones/82-distillation-column/simulation.toml"),
-    )
+    let config = SimulationConfig::load(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../../examples/control/14-integrated-capstones/82-distillation-column/simulation.toml",
+    ))
     .expect("load nominal column for abnormal-authority validation");
     let mut simulation = SimulationController::new(config);
     simulation

@@ -12,7 +12,7 @@ This lesson uses simulation. Its results are not physical-plant evidence.
 
 **Equipment:** Industrial positioning table and recirculating water heater.
 
-## Where this lesson begins
+## The problem
 
 Lesson 25 turned continuous equations into recurrences with retained state.
 Now we must decide which kind of recurrence preserves the intended controller
@@ -27,7 +27,12 @@ updates and retains values between them. We cannot safely reuse one update
 equation for P, PI, PD, and PID without checking what happens when error or a
 gain remains constant.
 
-## Deriving positional and incremental forms
+## What we need
+
+We need to distinguish positional and incremental PID equations so gain edits,
+stored state, and the resulting actuator request have one unambiguous meaning.
+
+## The new idea
 
 The **setpoint ($SP$)** is the desired table position in radians or desired water
 temperature in degrees Celsius. The **process value ($PV$)** is the corresponding

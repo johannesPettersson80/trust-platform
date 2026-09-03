@@ -59,17 +59,29 @@ complete turn of the mapped contour around that point. Counter-clockwise turns
 are positive and clockwise turns are negative in this lesson. The winding
 number is the signed number of complete turns.
 
-The open-loop right-half-plane pole count is the number of open-loop poles with
-positive real component. The closed-loop right-half-plane pole count is the
-number of unstable closed-loop poles. A stable closed loop has zero such poles.
+The open-loop right-half-plane pole count ($P$) is the number of open-loop poles
+with positive real component. The closed-loop right-half-plane pole count
+($Z$) is the number of unstable closed-loop poles. A stable closed loop has zero
+such poles.
 
-The counter-clockwise encirclement count ($N_{\mathrm{ccw}}$) is the contour's signed turn
-count around minus one. The open-loop right-half-plane pole count (P) is known
-from the open-loop model. The closed-loop right-half-plane pole count ($Z$) is
-inferred from those two quantities. With Control Studio's negative-feedback
+The open-loop response ($L_{\mathrm{loop}}(s)$) is the combined controller and
+plant response before the feedback path is closed. The counter-clockwise
+encirclement count ($N_{\mathrm{ccw}}$) is that response contour's signed turn
+count around minus one. The open-loop count $P$ is known from the plant and
+controller poles. The closed-loop count $Z$ is inferred from those two
+quantities. With Control Studio's negative-feedback
 and traversal convention, the relationship is
 
 $Z=P-N_{\mathrm{ccw}}$
+
+This count comes from the closed-loop characteristic factor
+$1+L_{\mathrm{loop}}(s)$. Its zeros are closed-loop poles, while its poles are
+the open-loop poles. Following the complete contour, each net turn of
+$1+L_{\mathrm{loop}}$ around zero counts the difference between those zeros and
+poles. Subtracting one merely shifts the same curve, so turns around zero become
+turns of $L_{\mathrm{loop}}$ around minus one. With the traversal sign chosen
+above, rearranging that zero-minus-pole count gives $Z=P-N_{\mathrm{ccw}}$.
+This is why a picture of only part of the curve cannot supply the pole count.
 
 A negative value for the counter-clockwise count means clockwise
 encirclements. The relationship is invalid if a pole lies on the contour, the
@@ -87,28 +99,70 @@ dynamic response. The thermal time constant ($T$) is the 20-second time required
 to complete about 63 percent of a delay-free response. The transport delay ($L$)
 is the time before a heater change first reaches the downstream sensor.
 
-The local plant model is
+The equation comes from an energy balance followed by transport. The effective
+product thermal capacitance ($C$), measured in kilojoules per degree Celsius,
+stores heat. The effective heat-loss coefficient ($H$), measured in kilowatts
+per degree Celsius, removes heat in proportion to temperature deviation. The
+heater conversion ($k_u$), measured in kilowatts per percentage point, converts
+applied command into heat. Because material must travel from heater to sensor,
+the balance receives the earlier input $u(t-L)$:
 
-$G(s)=\frac{e^{-Ls}}{Ts+1}$
+$C\frac{dy}{dt}=k_u u(t-L)-Hy.$
+
+Divide by $H$. The resulting steady plant gain ($K_g=k_u/H$) is measured in
+degrees Celsius per percentage point, and the time constant is $T=C/H$. The
+local differential equation is therefore
+
+$T\frac{dy}{dt}+y=K_g u(t-L).$
+
+The Laplace-domain product-temperature deviation is $Y(s)$ and the
+Laplace-domain heater-command deviation is $U(s)$. The plant transfer function
+($G(s)$) is their zero-initial-deviation ratio $Y(s)/U(s)$. Transforming the
+differential equation gives
+
+$G(s)=\frac{K_g e^{-Ls}}{Ts+1}.$
+
+This lesson configures $K_g=1\ ^\circ\mathrm C/\%$ and $T=20$ s. The three
+delay values are configured teaching cases chosen to cross the stability
+boundary. On physical equipment, $C$, $H$, and $k_u$ begin with material,
+heater, and loss data and are refined by a bounded heater step; $L$ begins with
+sensor distance divided by conveyor speed and is checked from response onset.
+The fitted model must then predict unused runs at the same product, loading,
+speed, and temperature range. None of those physical measurements was
+performed by this Simulation lesson.
+
+The model assumes one effective product temperature, constant belt speed,
+constant coefficients, a pure delay, ideal heater action, and no unmodelled
+sensor or actuator dynamics. Those assumptions explain why changing product,
+loading, speed, or sensor position requires new identification and validation.
 
 The proportional gain ($K$) requests two heater percentage points for each degree
-Celsius of temperature error, so $K = 2 \%/{}^\circ\mathrm{C}$. The open-loop response is
+Celsius of temperature error, so $K = 2 \%/{}^\circ\mathrm{C}$. The open-loop
+response ($L_{\mathrm{loop}}(s)$) is the dimensionless product of controller and
+plant:
 
-$L_{\mathrm{loop}}(s)=K G(s)$
+$L_{\mathrm{loop}}(s)=K G(s).$
 
-The magnitude of $e^{-j\omega L}$ is 1, so delay rotates the response without
-changing its length. The open-loop magnitude is therefore
+The imaginary unit ($j$) satisfies $j^2=-1$. Angular frequency ($\omega$) is
+measured in radians per second. The magnitude of $e^{-j\omega L}$ is 1, so delay
+rotates the response without changing its length. The open-loop magnitude is
+therefore
 
-$|L_{\mathrm{loop}}(j\omega)|=\frac{K}{\sqrt{1+(T\omega)^2}}.$
+$|L_{\mathrm{loop}}(j\omega)|=\frac{K K_g}{\sqrt{1+(T\omega)^2}}.$
 
 Gain crossover means this magnitude equals 1. Squaring, rearranging, and taking
-the positive frequency gives
+the positive frequency gives the gain-crossover angular frequency
+($\omega_{gc}$). Because this lesson's numerical $K_g$ is one,
 
 $\omega_{gc}=\frac{\sqrt{K^{2}-1}}{T}=0.08660\,\mathrm{rad/s}$
 
 because $\sqrt{2^2-1}/20=\sqrt{3}/20=0.08660$. Unwrapped phase retains every
 complete rotation. The first-order lag contributes
-$-\arctan(T\omega)$ and the delay contributes $-L\omega$ radians, so
+$-\arctan(T\omega)$ and the delay contributes $-L\omega$ radians.
+
+The crossover phase ($\phi_{gc}$) is the total unwrapped open-loop angle at
+$\omega_{gc}$. The inverse tangent converts the lag's imaginary-to-real ratio
+into its angle. Adding that lag angle and the delay angle gives
 
 $\phi_{gc}=-\arctan\left(T\omega_{gc}\right)-L\omega_{gc}$
 

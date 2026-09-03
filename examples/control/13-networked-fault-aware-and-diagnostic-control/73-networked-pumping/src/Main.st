@@ -108,7 +108,7 @@ VAR_CONFIG
     P1.ExperimentEnabled AT %MX17.1 : BOOL;
     P1.SafetyAbort AT %MX17.2 : BOOL;
     P1.InputsValid AT %MX17.3 : BOOL;
-    P1.LocalTimeSeconds AT %ML16 : LREAL;
+    P1.LocalTimeSeconds AT %ML104 : LREAL;
     P1.RemoteSourceTimeSeconds AT %ML24 : LREAL;
     P1.ClockUncertaintySeconds AT %ML32 : LREAL;
     P1.RemoteDemand AT %ML40 : LREAL;

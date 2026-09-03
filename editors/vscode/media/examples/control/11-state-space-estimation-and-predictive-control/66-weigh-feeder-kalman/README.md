@@ -9,8 +9,6 @@ Course position: Lesson 66 of 84. Prerequisite:
 
 ## The problem
 
-The equipment in this lesson is Dry-material weigh-belt feeder with noisy load cell.
-
 The equipment is a dry-material weigh-belt feeder. Belt-speed command is measured in percent, and mass flow is measured in kilograms per second. The local feeder gain is one kilogram per second for each percent of belt command, and its time constant is one second. Command and mass-flow truth are limited to 0 through 20 in their respective units.
 
 Two equivalent simulated feeders receive the same applied belt command. One publishes noise-free mass flow as **Simulation-only truth**. The second represents the load-cell measurement and adds deterministic approximate-white noise with zero mean and standard deviation 1.73205 kilograms per second. A separate fault case adds a 1.0-kilogram-per-second sensor bias. Both estimators read the same noisy measurement; neither reads truth.
@@ -32,11 +30,17 @@ A random variable is a quantity whose next value is not known exactly before obs
 
 The previous corrected mass-flow estimate ($x_{\mathrm{post\,previous}}$) is the last estimate after measurement correction. Its corrected covariance ($P_{\mathrm{post\,previous}}$) is the declared squared uncertainty. The previous applied belt command ($u_{\mathrm{previous}}$) is the input that produced the newly measured state.
 
-The discrete feeder coefficient ($a$) is $\exp\left(-0.1/1\right) = 0.9048374180$. The command coefficient ($b$) is $1-a = 0.0951625820$. Process-noise variance ($Q$) represents unmodelled process uncertainty added per sample. Prediction means moving the prior state and its uncertainty through the feeder model:
+The continuous feeder model is $\dot x=-(x-u)/\tau$ with $\tau=1$ second and steady gain one. During one sample the command is held constant, so solving that differential equation over $\Delta t=0.1$ seconds gives
+
+$x_{k}=e^{-\Delta t/\tau}x_{k-1}+\left(1-e^{-\Delta t/\tau}\right)u_{k-1}$.
+
+Therefore the exact discrete state coefficient is $a=\exp(-0.1/1)=0.9048374180$, and the command coefficient is $b=1-a=0.0951625820$. The coefficients sum to one because the state moves partway from its previous value toward the constant-input equilibrium. Process-noise variance ($Q$) represents unmodelled process uncertainty added per sample. Prediction means moving the prior state and its uncertainty through the feeder model:
 
 $\hat{x}_{k\mid k-1}=a\hat{x}_{k-1\mid k-1}+b u_{k-1}$
 
 $P_{k\mid k-1}=a^{2}P_{k-1\mid k-1}+Q$
+
+The covariance uses $a^2$, not $a$, because multiplying an error by $a$ multiplies its squared error by $a^2$.
 
 The load-cell measurement ($z$) is noisy observed mass flow. Measurement-noise variance ($R$) is the assumed variance of measurement error. Innovation ($\nu$) is measurement minus predicted estimate. Innovation variance ($S$) describes the expected uncertainty of that difference. Kalman gain ($K$) is the fraction of innovation accepted during correction:
 
@@ -50,13 +54,23 @@ $\hat{x}_{k\mid k}=\hat{x}_{k\mid k-1}+K_k\nu_k$
 
 $P_{k\mid k}=(1-K_k)P_{k\mid k-1}$
 
-Normalized innovation squared ($NIS$) is $\nu^{2}/S$. For an exact scalar model with independent zero-mean Gaussian uncertainty, its long-record mean is expected near one. Persistent innovation mean, excessive normalized innovation, or correlated successive innovations warns that the model or noise assumptions are inconsistent. This short deterministic lesson uses engineering bands; it is not a universal statistical proof.
+Normalized innovation squared ($NIS$) is $\nu^{2}/S$. Both numerator and denominator have units of squared kilograms per squared second, so their ratio is dimensionless. For an exact scalar model with independent zero-mean Gaussian uncertainty, its long-record mean is expected near one. Persistent innovation mean, excessive normalized innovation, or correlated successive innovations warns that the model or noise assumptions are inconsistent. This short deterministic lesson uses engineering bands; it is not a universal statistical proof.
 
 The fixed-filter coefficient ($\alpha$) is 0.2. Its update has no model input or covariance:
 
 $\hat{x}_{\mathrm{simple},k}=\hat{x}_{\mathrm{simple},k-1} +\alpha\left(z_k-\hat{x}_{\mathrm{simple},k-1}\right)$
 
-With previous covariance 1.9, process-noise variance 0.1, and measurement-noise variance 3, the first calculation is $P_{\mathrm{prior}}=1.65559$, $K=0.35561$, and $P_{\mathrm{post}}=1.06684$. For a 5-kilogram-per-second innovation, the Kalman correction is 1.77807 kilograms per second. The fixed-filter correction is 1.00000 kilogram per second.
+With previous covariance 1.9, process-noise variance 0.1, and measurement-noise variance 3, the first calculation is:
+
+$P_{\mathrm{prior}}=0.9048374180^2(1.9)+0.1=1.65559$
+
+$S=1.65559+3=4.65559$
+
+$K=1.65559/4.65559=0.35561$
+
+$P_{\mathrm{post}}=(1-0.35561)(1.65559)=1.06684$.
+
+For a 5-kilogram-per-second innovation, the Kalman correction is $K\nu=0.35561(5)=1.77807$ kilograms per second. The fixed-filter correction is $0.2(5)=1.00000$ kilogram per second. These calculations show exactly where the two different measurement weights come from.
 
 ## Prediction
 
@@ -85,44 +99,23 @@ Requested and applied belt command are separate. The applied command is limited 
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Apply the exact discrete feeder prediction and nominal Q=0.1, R=3 Kalman correction to the same samples. The declared event lasts 30 seconds. It restores Requested belt-speed command to 0 % afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the nominal $Q=0.1$, $R=3$ estimator record. The project owns the command: 5 percent for 5 seconds, 10 percent until 30 seconds, then zero. Removing authority or detecting invalid inputs or a safety abort disables the drive and restores the requested and applied commands to zero. The fixed-filter, overtrust, distrust, bias, and invalid-covariance comparisons are separate native test records. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Load-cell mass-flow measurement (PV, kg/s); Requested belt-speed command (MV, %) and Applied belt-speed command (MV, %), including units, limits, mode, and quality. The initial operating point is Requested belt-speed command = 5 %, Applied belt-speed command = 5 %, Simulation truth mass flow = 5 kg/s, Selected mass-flow estimate = 5 kg/s. The unresolved baseline problem is: A fixed smoothing coefficient cannot express separate model and sensor uncertainty or produce model-consistency diagnostics. Use Control Studio Monitor to establish the innovation record, then use Identify before Test so uncertainty choices precede the comparison.
+   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm noisy load-cell measurement, separately labelled Simulation truth, requested and applied command, fixed and Kalman estimates, selected estimate, $Q$, $R$, predicted and corrected covariance, gain, innovation, innovation variance, NIS, validity, units, limits, mode, and quality. Before authority is granted, the drive is disabled and both requested and applied commands are zero.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept covariance settings only when truth-error, response, movement, innovation and fault evidence agree with the declared model and noise assumptions.
    - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Manual output step**, **Amplitude** = **5 %**, and **Maximum duration (s)** = **30**. The affected signal is **Requested belt-speed command**; it starts at 5 % and must restore to 0 %.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Applied belt-speed command 0 % to 20 %; Simulation truth mass flow 0 kg/s to 20 kg/s; Load-cell mass-flow measurement -10 kg/s to 30 kg/s.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **30.1**. The affected signal is **Experiment authority**. Amplitude zero is intentional: Test writes only `P1.ExperimentEnabled`, while the project owns the 5-to-10-percent command event.
+   - **Decision before action:** Before selecting **Review test**, predict the rise after 5 seconds and the relative motion of the measurement, prediction, and correction. Confirm the scheduled command and expected mass-flow values remain inside their declared limits.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Requested belt-speed command to 0 %, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Scalar discrete Kalman filtering and innovation diagnosis** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Scalar discrete Kalman filtering and innovation diagnosis** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Scalar discrete Kalman filtering and innovation diagnosis** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Scalar discrete Kalman filtering and innovation diagnosis**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: nominal_kalman_rms_truth_error < 1 kg/s (tolerance 0.001 kg/s); nominal_innovation_mean_magnitude <= 0.25 kg/s (tolerance 0.001 kg/s); nominal_mean_normalized_innovation_squared >= 0.4 (dimensionless) (tolerance 0.001 (dimensionless)); bias_fault_final_estimation_error >= 0.5 kg/s (tolerance 0.001 kg/s).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero requested and applied command, wait for current data, and review a new test.
+   - **Record:** Stop recording only after restoration. Compare the observed nominal trace with the calculation above and retain the terminal state, restoration result, and deterministic seed **20260829**. Use the native evidence below for the alternative covariance and fault cases; do not claim this visible run executed them.
 
 ## Evidence and decision
 

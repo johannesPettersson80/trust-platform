@@ -48,11 +48,11 @@ A jitter or resequencing buffer waits for packets so it can smooth arrival timin
 
 Delay margin ($L_{\mathrm{margin}}$) is the additional pure delay that brings the declared linear remote loop to its stability boundary. It is not a general network timeout.
 
-The pressure plant has plant gain ($K_{\mathrm{plant}}$) of 0.04 bar per percent and plant time constant ($\tau$) of 4 seconds. The reviewed remote proportional controller has remote proportional gain ($K_{\mathrm{remote}}$) of 200 percent per bar. Gain-crossover angular frequency ($\omega_{\mathrm{c}}$) is the frequency where the loop magnitude becomes one:
+The pressure plant has transfer $P(s)=K_{plant}/(\tau s+1)$, with gain 0.04 bar per percent and time constant 4 seconds. The reviewed remote proportional controller has gain 200 percent per bar, so the loop magnitude is $K_{remote}K_{plant}/\sqrt{1+(\omega\tau)^2}$. Setting that magnitude to one and solving for frequency gives:
 
 $\omega_{\mathrm{c}} = \sqrt{(K_{\mathrm{remote}} \cdot K_{\mathrm{plant}})^{2} - 1} / \tau$
 
-At that frequency the first-order plant contributes phase lag. The remaining angle can be converted into the model-based delay margin:
+At crossover the first-order plant phase is $-\arctan(\omega_c\tau)$. A pure delay adds phase $-\omega_cL$. The stability boundary is reached when their sum is $-\pi$; solving that equality for $L$ gives the model-based delay margin:
 
 $L_{\mathrm{margin}} = (pi - \arctan\left(\omega_{\mathrm{c}} \cdot \tau\right)) / \omega_{\mathrm{c}}$
 
@@ -145,7 +145,7 @@ Read the full program before the run. The complete code also checks clock uncert
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Run the timestamped bounded receiver against the same packet record with the tracked local PI fallback enabled. The declared event lasts 25 seconds. It restores Delivered remote pump demand to 50 % afterward. The deterministic Simulation seed is 20260829.
+This procedure observes protected remote ownership under a healthy project-owned packet stream. The project generates local time and a new 50-percent packet every 0.4 seconds with 0.05-second age. Removing authority or detecting invalid inputs or a safety abort removes remote ownership and leaves the local pressure controller responsible. Invalid packet and recovery cases remain native test records. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -157,32 +157,11 @@ This procedure tests one declared lesson change under controlled conditions. Run
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0 %**, and **Maximum duration (s)** = **25**. The affected signal is **Delivered remote pump demand**; it starts at 50 % and must restore to 50 %.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **25.1**. The affected signal is **Experiment authority**. Amplitude zero is intentional: Test writes only `P1.ExperimentEnabled`; the project owns timestamps, sequences, receipt timing, and demand.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Naive applied pump speed 0 % to 100 %; Protected applied pump speed 0 % to 100 %; Naive header pressure 0 bar to 12 bar; Protected header pressure 0 bar to 12 bar.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Delivered remote pump demand to 50 %, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Timestamped bounded command ownership with local fallback** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Timestamped bounded command ownership with local fallback** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Timestamped bounded command ownership with local fallback** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Timestamped bounded command ownership with local fallback**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: protected_invalid_packet_acceptances == 0 (dimensionless) (tolerance 0 (dimensionless)); safe_transfer_latency <= 0.1 s (tolerance 1e-9 s); approved_recovery_discontinuity <= 2 pp (tolerance 1e-9 pp); protected_pressure_absolute_error_area < 999 bar*s (tolerance 0.0001 bar*s).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify local ownership and bounded pump command, wait for current data, and review a new test.
+   - **Record:** Stop recording after local ownership is restored. Retain time, age, sequence, rejection, ownership, requested/applied commands, pressure, terminal state, restoration result, and seed **20260829**. Use native evidence for invalid packets and approved recovery; do not claim this visible run executed them.
 
 ## Evidence and decision
 

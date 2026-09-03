@@ -2,7 +2,7 @@
 
 Course position: Lesson 29 of 84. Previous lesson: [Bumpless authority
 transfer](../28-booster-pump-bumpless-transfer/README.md). Next lesson: Invalid
-data and safe behavior.
+data and [safe behavior](../30-booster-pump-invalid-data/README.md).
 
 **Lesson objective:** Apply a complete PID configuration as one revision and
 distinguish the valid internal feedforward path from an invalid post-limit sum.
@@ -13,9 +13,9 @@ This lesson uses simulation. Its results are not physical-plant evidence.
 
 ## The problem
 
-The equipment in this lesson is Variable-speed booster pump with recirculation valve.
-
-An online booster pump maintains discharge pressure by moving a recirculation
+Lesson 28 aligned state when valve authority changed. Alignment can still be
+destroyed inside one scan if that scan sees half of one tuning record and half
+of another. An online booster pump maintains discharge pressure by moving a recirculation
 valve. An engineer may prepare new tuning while the old tuning is running. A
 measured disturbance may also supply an additional valve contribution.
 
@@ -23,14 +23,14 @@ The valve accepts 0–100 percent and can move at only a declared rate. Pressure
 is measured in bar. The controller must never expose a partly updated tuning or
 let any contribution bypass the valve constraints.
 
-Lesson 28 aligned controller state when authority changed. That good state can
-still be lost in one scan if the controller sees some old parameters and some
-new parameters. It can also be bypassed if feedforward is added after the
-controller has already applied anti-windup and limits.
+Every scan must use one complete parameter revision and one constraint-aware
+path for every contribution. A half-applied configuration or a feedforward sum
+added after limits must be impossible.
 
 ## What we need
 
-We need each scan to use one complete, coherent parameter revision and one constraint-aware path for every output contribution. A half-applied configuration or a feedforward sum added after limits must be impossible.
+We need each scan to use one coherent parameter revision and one defined
+calculation order so the valve never receives a mixture of old and new tuning.
 
 ## The new idea
 
@@ -73,20 +73,41 @@ The previous applied valve output is 40 percent. The old proportional gain is
 5 percent per bar and the old integral gain is 1 percent per bar-second. The
 candidate values are 15 and 3. The sample interval is 0.1 seconds.
 
-For a 1 bar setpoint increase with unchanged pressure, the proportional output
-increment is 15 percentage points. The integral output increment is the
-integral gain multiplied by sample interval and error:
+For a 1 bar setpoint increase with unchanged pressure,
+\(\Delta e=1-0=1\) bar. The incremental proportional contribution is
 
-$\Delta MV_{\mathrm{integral}} = 3 \%/(bar \cdot s) \cdot 0.1 s \cdot 1 bar = 0.3 percentage points$
+\[
+\Delta MV_P=K_p\Delta e=(15\ \%/\mathrm{bar})(1\ \mathrm{bar})=15\%.
+\]
 
-The coherent new revision therefore predicts **15.3 percentage points** and a
-55.3 percent output. A mixed revision with new proportional gain and old
-integral gain predicts **15.1 percentage points** and 55.1 percent.
+The new error is also 1 bar, so the integral contribution is
 
-At zero error, a 20 percent feedforward contribution is requested. A 20
-percent-per-second rate limit over 0.1 seconds permits a 2-point move from 40,
-so $MV_{\mathrm{applied}}$ predicts **42.000 percent**. Adding feedforward after the
-returned 40 percent would instead produce an invalid **60.000 percent** sum.
+\[
+\Delta MV_I=K_i\Delta t\,e
+=(3\ \%/(\mathrm{bar\,s}))(0.1\ \mathrm{s})(1\ \mathrm{bar})=0.3\%.
+\]
+
+The coherent increment is \(15+0.3=15.3\) points, so the output moves from
+40% to 55.3%. A mixed scan using new \(K_p=15\) but old \(K_i=1\) would instead
+calculate \(15+1(0.1)(1)=15.1\) and 55.1%. That number belongs to neither
+complete revision.
+
+For the ordering case, start at zero error and 40% applied output. The
+controller's unconstrained feedforward target is \(40+20=60\%\). The permitted
+rate movement is
+
+\[
+\Delta MV_{\max}=r_{\max}\Delta t=(20\%/\mathrm{s})(0.1\ \mathrm{s})=2\%.
+\]
+
+Therefore the current allowed interval is
+
+\[
+[MV_{\mathrm{previous}}-2,\ MV_{\mathrm{previous}}+2]=[38,42]\%.
+\]
+
+The controller must return 42%. Adding feedforward after a returned 40% would
+produce 60%, outside that interval and invisible to anti-windup state.
 
 ## Implementation
 
@@ -106,30 +127,36 @@ simulation diagnostics. Neither can drive the plant.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Restore, assign the complete candidate record and call Configure once before the controller update. Restore again and pass the prescribed feedforward through PIDInput rather than summing it after the returned output. The declared event lasts 10 seconds. It restores Discharge-pressure setpoint to 6 bar afterward. The deterministic Simulation seed is 20260829.
+Control Studio executes the two valid operations in a project-owned sequence.
+Test writes one reviewed Boolean authority,
+\(\mathtt{P1.ExperimentEnabled}\), for 10.1 seconds. The project initializes at
+6 bar and 40%, atomically applies the complete new record with the 1 bar
+setpoint step, then reinitializes the aligned 40% state and sends 20%
+feedforward through the PID under the 20%/s rate limit. Returning authority
+false selects the station's safe 30% output.
+
+Fresh native states own the mixed-revision and rejected external-sum
+diagnostics. They never drive the UI plant. The deterministic Simulation seed
+is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Discharge-pressure setpoint (SP, bar); Discharge pressure (PV, bar); Applied valve command (MV, %), including units, limits, mode, and quality. The initial operating point is Discharge-pressure setpoint = 6 bar, Discharge pressure = 6 bar, Applied valve command = 40 %, Feedforward contribution = 0 %. The unresolved baseline problem is: A sequential update exposes new proportional gain with old integral gain and produces a 15.1 percentage-point first increment that belongs to neither complete configuration.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Assign the complete candidate record, call Configure once, and pass feedforward through PIDInput so the controller's anti-windup and output constraints remain authoritative.
-   - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
-   - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm SP/PV = 6 bar, station safe output = 30%, feedforward = 0, controller not ready, active revision 0, and experiment authority false. Add candidate and active parameters, revision, configured-this-scan, mixed diagnostic, feedforward, unconstrained target, rate bounds, applied output, limit flags, and authority to **Signals**.
+   - **Decision before action:** Write the coherent 55.3%, mixed 55.1%, constrained 42%, and rejected 60% predictions. Confirm only the coherent and constraint-aware paths may drive the valve.
+   - **Successful evidence:** The plot advances, values are finite/current, quality is good, and **Start recording** is enabled. Select **Start recording**.
+   - **Recovery:** For stale, unavailable, nonfinite, or poor-quality data, stop the Simulator, correct the displayed fault, restart, and repeat the baseline check.
+   - **Record:** Note the initial record, revision, applied output, rate interval, and four predictions.
 
-2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **10**. The observed lesson signal is **Discharge-pressure setpoint**. Control Studio observes the project's existing timed sequence and does not write a second process event.
-   - **Decision before action:** Before selecting **Review test**, predict the response to 20 percent prescribed feedforward contribution in the ordering comparison. Confirm the live values are current and the reviewed plan stays inside Discharge pressure 0 bar to 12 bar; Applied valve command 0 % to 100 %.
-   - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
-   - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
+2. **Test** — Open **truST sidebar → Control Studio → Test**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **10.1**. The reviewed authority is \(\mathtt{P1.ExperimentEnabled}\); the project owns initialization, apply pulse, SP, feedforward, and restoration.
+   - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Require pressure within 0–12 bar and applied output within 0–100%. No mixed configuration or post-limit sum may enter the plant path.
+   - **Successful evidence:** Select **Review test**, verify authority, timeout, stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe one complete revision change and 55.3% result, then the reinitialized feedforward case with a 60% target and 42% constrained output, followed by safe restoration.
+   - **Recovery:** Abort for nonfinite/out-of-range data, a mixed active record, or output outside the displayed rate interval. Confirm authority false and safe 30% output before retrying.
+   - **Record:** Retain terminal state, restoration, scan/revision/parameter snapshot, applied output before/after, feedforward, unconstrained target, rate bounds, limit flags, and seed.
 
-3. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: atomic_first_update_increment <= 15.300000001 % (tolerance 1e-9 %); mixed_first_update_increment >= 15.099999999 % (tolerance 1e-9 %); constraint_aware_feedforward_output <= 42.000000001 % (tolerance 1e-9 %); rejected_external_sum >= 59.999999999 % (tolerance 1e-9 %).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+There is no separate disabled Validate stage. The native test owns rejected
+diagnostics; Monitor and Test expose only the production paths.
 
 ## Evidence and decision
 
@@ -138,17 +165,21 @@ This procedure tests one declared lesson change under controlled conditions. Res
 **Configuration coherence** is true only when all active fields match either
 the complete old revision or the complete new revision at every update.
 
-The **first-update increment** compares the applied output immediately before
-the update with the applied output immediately after it. Its calculation is
-after minus before, in percentage points.
+The **first-update increment** is
+\(\Delta MV_1=MV_{\mathrm{after}}-MV_{\mathrm{before}}\), in percentage
+points. It preserves direction; use its absolute value only when the
+requirement concerns size rather than opening versus closing.
 
-The **external-sum limit violation** is the rejected post-controller sum minus
-the maximum currently allowed output, in percentage points. Smaller is better;
-zero means no violation.
+The **external-sum limit violation** is
+\(v_{\mathrm{external}}=\max(MV_{\mathrm{rejected}}-MV_{\mathrm{allowed,max}},0)\).
+The maximum with zero means a value inside the limit has no violation; here it
+is \(60-42=18\) percentage points.
 
-The **applied-output rate** is the difference between successive applied
-outputs divided by measured cycle time, in percent per second. Its absolute
-value must not exceed the configured directional rate.
+The **applied-output rate** is
+\(r_k=(MV_k-MV_{k-1})/\Delta t_k\). Division by measured elapsed time converts
+each output change to percent per second. Opening rate must not exceed the
+positive limit and closing rate must not be more negative than the negative
+limit.
 
 | Case | Active gains | First/applied output | Engineering state |
 | --- | --- | ---: | --- |

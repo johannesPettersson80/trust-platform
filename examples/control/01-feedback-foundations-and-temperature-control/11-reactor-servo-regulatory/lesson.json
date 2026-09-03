@@ -49,10 +49,10 @@
     "decision": "Restore the same initial condition, hold SP fixed, and apply the independent load without changing controller, plant, limits, timing, or seed."
   },
   "experiment": {
-    "kind": "load_step",
-    "signal": "Cold-feed heat-load equivalent",
+    "kind": "observation",
+    "signal": "Experiment authority",
     "baseline": 0,
-    "amplitude": -5,
+    "amplitude": 0,
     "durationSeconds": 56.5,
     "settlingSeconds": 5,
     "disturbances": ["A separate fresh servo run steps SP from 80 to 85 degC and ends before the load event", "The regulatory run holds SP at 80 degC and applies the load at 60 s"],
@@ -66,7 +66,10 @@
     { "metric": "regulatory_final_window_mean_absolute_error", "signal": "Reactor product temperature", "window": "110.1 through 120.0 s after recovery qualification", "comparator": "<=", "limit": 0.5, "unit": "degC", "tolerance": 0.001, "evidenceClass": "simulation" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Reactor product temperature", "minimum": 60, "maximum": 100, "unit": "degC" }, { "signal": "Jacket heating-valve demand", "minimum": 0, "maximum": 100, "unit": "%" }],
+    "hardLimits": [
+      { "signal": "Reactor product temperature", "minimum": 60, "maximum": 100, "unit": "degC" },
+      { "signal": "Jacket heating-valve demand", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
     "abortPredicates": ["SP, PV or MV is nonfinite", "PV or MV leaves its hard limit", "Controller mode leaves Auto during a run", "Controller parameters, plant, initial state, limits, timing or seed differ between objective runs"],
     "safeMv": 0,
     "restorationMode": "Request Manual zero after the automatic observation and retain each rate-constrained update until the applied valve reaches zero",

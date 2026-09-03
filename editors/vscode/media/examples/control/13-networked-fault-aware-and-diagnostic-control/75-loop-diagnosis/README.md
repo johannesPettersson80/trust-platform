@@ -86,7 +86,9 @@ calculated over a declared eligible window:
 
 $IAE = \sum\left(|SP_{k} - PV_{k}| \cdot T\right)$
 
-IAE ranks flow performance. It cannot tell whether poor performance came from
+Each sample represents a rectangle whose height is absolute error and whose
+width is $T$ seconds. Adding those rectangle areas approximates the continuous
+area under $|e(t)|$; that is why the result has units `t/h*s`. IAE ranks flow performance. It cannot tell whether poor performance came from
 tuning, a valve, a transmitter, unavailable capacity, or an external event.
 
 ### Distinguish the causal signatures
@@ -120,12 +122,23 @@ in `t/h/s`. A slope above `0.01 t/h/s`, with a qualified reference and
 consistent valve behavior, supports instrument verification rather than
 retuning.
 
+For a window from sample $a$ to sample $b$, the simplest endpoint estimate is
+$m=(d_{\mathrm{flow},b}-d_{\mathrm{flow},a})/(t_b-t_a)$. The numerator removes
+any constant offset; the denominator converts the remaining change to a rate.
+Real commissioning would normally fit all eligible points and report uncertainty,
+but this bounded casebook uses the declared deterministic calculation.
+
 **Limit occupancy** is the percentage of eligible samples at the lower or
 upper applied-valve limit. The declared saturation window runs from `20.0 s`
 through `59.9 s`, after constraint entry. If positive flow error persists while
 the applied stem remains at `100 percent` for more than `90 percent` of that window,
 the plant lacks authority. Increasing gain cannot create valve or steam
 capacity.
+
+If $N_{\mathrm{limit}}$ eligible samples are at the relevant limit and
+$N_{\mathrm{eligible}}$ samples exist in the window, occupancy is
+$100N_{\mathrm{limit}}/N_{\mathrm{eligible}}$. Counting only eligible samples
+prevents missing or invalid data from being mistaken for time at a limit.
 
 A measured upstream disturbance must precede the controlled-flow change and
 controller response. The required order is $header -> flow -> valve response$;
@@ -189,7 +202,7 @@ branches do not manufacture the verdict.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Open each degraded record under the same displayed identity and classify its causal signature without reading the sealed scenario label. The declared event lasts 60 seconds. It restores Primary steam flow to 50 t/h afterward. The deterministic Simulation seed is 20260829.
+The learner-facing workflow is exactly **Monitor → Test**. The visible project runs the qualified healthy reference record: 10 seconds at 50 t/h, a bounded 60 t/h setpoint interval through 40 seconds, then recovery to 50 t/h. The seven degraded records and the sealed answer comparison are owned by the native casebook test, where they can be run without leaking their labels. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -201,32 +214,16 @@ This procedure tests one declared lesson change under controlled conditions. Ope
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0 t/h**, and **Maximum duration (s)** = **60**. The affected signal is **Primary steam flow**; it starts at 50 t/h and must restore to 50 t/h.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **60.1**. Amplitude zero is intentional: Control Studio writes only `P1.ExperimentEnabled`; the project writes its own setpoint schedule.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Primary steam flow 0 t/h to 120 t/h; Reference steam flow 0 t/h to 120 t/h; Requested valve demand 0 % to 100 %; Applied valve-stem position 0 % to 100 %; Upstream header pressure 0 bar to 16 bar.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Primary steam flow to 50 t/h, wait for current data, and review a new test.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason and remove experiment authority. The project disables the controller and restores the 50 t/h setpoint before another run.
    - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
 
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Blinded evidence-based loop diagnosis** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Blinded evidence-based loop diagnosis** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Blinded evidence-based loop diagnosis** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Blinded evidence-based loop diagnosis**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: correct_diagnosis_count == 8 (dimensionless) (tolerance 0 (dimensionless)); incorrect_diagnosis_count == 0 (dimensionless) (tolerance 0 (dimensionless)); correct_remedy_count == 8 (dimensionless) (tolerance 0 (dimensionless)); stiction_held_demand_travel > 2 pp (tolerance 0.1 pp).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+Identify, Tune, and Validate are not learner steps in this lesson. A disabled
+generic panel cannot classify a causal record. The native executable casebook
+owns the blinded scenarios, metric calculations, answer reveal, and pass/fail
+decision.
 
 ## Evidence and decision
 

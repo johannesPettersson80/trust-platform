@@ -11,7 +11,7 @@
   "prerequisites": ["control-gravity-tank-linearization"],
   "nextLesson": "control-two-tank-state-space",
   "signals": [
-    { "role": "state", "name": "Experiment authority", "unit": "bool", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.1" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX8.1" },
     { "role": "state", "name": "Normalized experiment", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 0.01, "binding": "%ML0" },
     { "role": "MV", "name": "Heater command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.1, "binding": "%QL0" },
     { "role": "PV", "name": "Heater temperature", "unit": "degC", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%IL0" },
@@ -21,8 +21,8 @@
     { "role": "PV", "name": "Drive position", "unit": "rad", "minimum": -5, "maximum": 5, "resolution": 0.001, "binding": "%IL16" },
     { "role": "MV", "name": "Crane force", "unit": "N", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%QL24" },
     { "role": "PV", "name": "Crane payload position", "unit": "m", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%IL24" },
-    { "role": "MV", "name": "Bearing force", "unit": "N", "minimum": -0.001, "maximum": 0.001, "resolution": 0.000001, "binding": "%QL32" },
-    { "role": "PV", "name": "Bearing displacement", "unit": "m", "minimum": -0.01, "maximum": 0.01, "resolution": 0.000001, "binding": "%IL32" },
+    { "role": "MV", "name": "Bearing force", "unit": "N", "minimum": -0.001, "maximum": 0.001, "resolution": 1e-06, "binding": "%QL32" },
+    { "role": "PV", "name": "Bearing displacement", "unit": "m", "minimum": -0.01, "maximum": 0.01, "resolution": 1e-06, "binding": "%IL32" },
     { "role": "MV", "name": "Boiler feedwater change", "unit": "%", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%QL40" },
     { "role": "PV", "name": "Boiler drum-level change", "unit": "cm", "minimum": -2, "maximum": 2, "resolution": 0.001, "binding": "%IL40" }
   ],
@@ -52,18 +52,40 @@
     ],
     "simplifications": ["Each module isolates one declared pole-zero signature around a local operating point.", "The common normalized request is converted to different physical inputs and never replaces their units.", "No feedback controller, compensator, artificial cancellation, or hidden stabilizing loop is active."]
   },
-  "baseline": { "executableId": "PoleZero.CoefficientsWithoutInterpretation", "settings": { "labelsHidden": true }, "limitation": "Transfer-function coefficients do not by themselves teach which observable response signature follows from each mode." },
-  "change": { "executableId": "PoleZero.PredictMatchReveal", "settings": { "stableRunSeconds": 30, "bearingAbortMetres": 0.01 }, "decision": "Accept each map-to-response match only when the learner predicts and cites an observable causal signature." },
-  "experiment": { "kind": "observation", "signal": "Experiment authority", "baseline": 0, "amplitude": 0, "durationSeconds": 30.1, "settlingSeconds": 0, "disturbances": [], "seed": 20260829, "restorationValue": 0 },
+  "baseline": {
+    "executableId": "PoleZero.CoefficientsWithoutInterpretation",
+    "settings": { "labelsHidden": true },
+    "limitation": "Transfer-function coefficients do not by themselves teach which observable response signature follows from each mode."
+  },
+  "change": {
+    "executableId": "PoleZero.PredictMatchReveal",
+    "settings": { "stableRunSeconds": 30, "bearingAbortMetres": 0.01 },
+    "decision": "Accept each map-to-response match only when the learner predicts and cites an observable causal signature."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 30.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
   "acceptance": [
-    { "metric": "heater_five_second_fraction", "signal": "Heater temperature", "window": "at 5.0 s", "comparator": ">=", "limit": 0.60, "unit": "1", "tolerance": 0.03, "evidenceClass": "simulation" },
+    { "metric": "heater_five_second_fraction", "signal": "Heater temperature", "window": "at 5.0 s", "comparator": ">=", "limit": 0.6, "unit": "1", "tolerance": 0.03, "evidenceClass": "simulation" },
     { "metric": "tank_late_slope", "signal": "Tank level", "window": "20 to 30 s", "comparator": ">=", "limit": 0.19, "unit": "cm/s", "tolerance": 0.01, "evidenceClass": "simulation" },
     { "metric": "drive_peak", "signal": "Drive position", "window": "0 to 30 s", "comparator": ">=", "limit": 1.45, "unit": "rad", "tolerance": 0.01, "evidenceClass": "simulation" },
     { "metric": "bearing_abort_time", "signal": "Bearing displacement", "window": "0 to 10 s", "comparator": "<=", "limit": 10, "unit": "s", "tolerance": 0.1, "evidenceClass": "simulation" },
     { "metric": "boiler_inverse_minimum", "signal": "Boiler drum-level change", "window": "0 to 30 s", "comparator": "<=", "limit": -0.2, "unit": "cm", "tolerance": 0.01, "evidenceClass": "simulation" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Bearing displacement", "minimum": -0.01, "maximum": 0.01, "unit": "m" }, { "signal": "Tank level", "minimum": 0, "maximum": 100, "unit": "cm" }, { "signal": "Heater temperature", "minimum": 0, "maximum": 100, "unit": "degC" }],
+    "hardLimits": [
+      { "signal": "Bearing displacement", "minimum": -0.01, "maximum": 0.01, "unit": "m" },
+      { "signal": "Tank level", "minimum": 0, "maximum": 100, "unit": "cm" },
+      { "signal": "Heater temperature", "minimum": 0, "maximum": 100, "unit": "degC" }
+    ],
     "abortPredicates": ["Bearing displacement reaches 0.010 m magnitude", "Any input or output is nonfinite", "Any process output leaves its declared hard limit", "Unexpected feedback authority is active"],
     "safeMv": 0,
     "restorationMode": "Stop the experiment, set all six input deviations to zero, and restore all declared initial states",
@@ -79,7 +101,15 @@
     "runArtifactFields": ["time", "physicalInputs", "physicalOutputs", "poleZeroMap", "mapParameters", "predictedSignature", "measuredMetrics", "learnerMatch", "abortState", "evidenceClass"],
     "renderedJourneyId": "control-pole-zero-plant-classes"
   },
-  "video": { "viewerOutcome": "Predict and justify six real plant responses from pole-zero structure.", "requiredVisibleEvidence": ["six physical inputs and outputs", "unlabeled pole-zero maps", "prediction worksheet", "five-plant response comparison", "separate bearing abort", "match reveal", "simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Predict and justify six real plant responses from pole-zero structure.",
+    "requiredVisibleEvidence": ["six physical inputs and outputs", "unlabeled pole-zero maps", "prediction worksheet", "five-plant response comparison", "separate bearing abort", "match reveal", "simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "Six physical equipment classes isolate stable, integrating, oscillatory, dominant, unstable, and inverse-response signatures.",
     "reason": "Lesson 34 showed one transfer function; pole-zero interpretation makes its qualitative implications transferable to unfamiliar plants.",

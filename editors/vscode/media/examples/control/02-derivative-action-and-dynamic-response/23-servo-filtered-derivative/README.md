@@ -2,211 +2,353 @@
 
 Course position: Lesson 23 of 84. Previous lesson:
 [Derivative kick and setpoint weighting](../22-servo-derivative-kick/README.md).
-Next lesson: Mechanical actuator nonidealities (Lesson 24).
+Next lesson: [Mechanical actuator nonidealities](../24-servo-mechanical-nonidealities/README.md).
 
-**Lesson objective:** Select a derivative-filter cutoff from measured noise
-attenuation and lag, then decide whether a second filter stage is justified.
+**Lesson objective:** Select a derivative-measurement filter from measured
+noise attenuation and added lag, and explain why a second filter stage is not
+automatically better.
 
-This lesson uses seeded simulation noise. Its results are not physical-encoder
-or physical-axis evidence.
+This lesson uses deterministic simulated encoder noise. It does not qualify a
+physical encoder, drive, or positioning axis.
 
 **Equipment:** Encoder-based industrial positioning table.
 
 ## The problem
 
-The equipment in this lesson is Encoder-based industrial positioning table.
+Lesson 22 moved derivative action from the complete control error to the
+measured position. A setpoint step therefore no longer produces a derivative
+kick, while real table motion still produces damping torque. That solves a
+command-path problem. It does not solve a measurement-path problem: derivative
+action cannot tell real encoder motion from encoder noise.
 
-The loaded positioning table retains the PID settings and derivative on
-measurement established in Lessons 21 and 22. Its encoder now contains
-repeatable measurement noise with a standard deviation of 0.002 radians. The
-raw encoder remains visible while a separate controller-facing position can be
-unfiltered, first-order filtered, or second-order filtered.
+The plant is still the same rotary table. Its simulated dynamics are
 
-All three runs use the same 0.5-rad setpoint, 20 ms cycle, 4 N m payload torque,
-plus-or-minus 10 N m drive limit, plant, initial state, and random seed.
+\[
+J\ddot\theta=T_{applied}-B\dot\theta-G\sin(\theta),
+\]
 
-Derivative on measurement removed command kick, but it still reacts to every
-measured change. Encoder noise is not physical table motion, yet a finite
-difference treats it as motion and creates rapidly changing torque. A filter
-may reduce that activity, but it also delays the controller's view of real
-position. We must measure both effects.
+where \(\theta\) is table angle, \(J=1\ \mathrm{kg\,m^2}\) is inertia,
+\(B=1\ \mathrm{N\,m\,s/rad}\) is viscous friction, and \(G=4\ \mathrm{N\,m}\)
+is the peak gravity-torque coefficient. Gravity is therefore
+\(4\sin(\theta)\), not a constant 4 N·m load. At the initial angle
+\(\theta=0\), gravity torque is zero.
+
+The simulated encoder adds zero-mean noise \(n_k\) to the true angle:
+
+\[
+PV_{raw,k}=\theta_k+n_k.
+\]
+
+The noise standard deviation is \(\sigma=0.002\ \mathrm{rad}\). Standard
+deviation describes the typical distance of the samples from their mean; it
+does not mean that every sample is exactly 0.002 rad wrong. The seed 20260828
+makes the noise sequence repeatable so every filter sees the same experiment.
 
 ## What we need
 
-We need to attenuate encoder noise before it becomes alternating motor torque while retaining enough real motion information for damping. Filter strength and number of stages must be selected from both torque-noise and lag evidence.
+We need to reduce the encoder-noise torque without delaying the real table
+motion so much that the controller reacts to stale position.
 
 ## The new idea
 
-The **raw encoder position ($PV_{\mathrm{raw}}$)** is the noisy sensor measurement in radians
-(rad). **Measurement noise ($n$)** is unwanted variation added to the true
-position. Its **standard deviation (σ)** describes its typical size; σ is
-0.002 rad here.
+With derivative setpoint weight \(c=0\), the PID differentiates
+\(-PV_{control}\). Over one controller cycle, its derivative contribution is
 
-The **controller-facing position ($PV_{\mathrm{control}}$)** is the value passed to PID. It
-equals $PV_{\mathrm{raw}}$ when filtering is bypassed.
+\[
+T_{D,k}=-K_d\frac{PV_{control,k}-PV_{control,k-1}}{\Delta t}.
+\]
 
-The **cycle time ($\Delta t$)** is 0.02 seconds. A finite-difference derivative divides
-the change between samples by $\Delta t$:
+This formula comes directly from the definition of a derivative: rate of
+change is change in value divided by elapsed time. Here
+\(K_d=3\ \mathrm{N\,m\,s/rad}\) converts the estimated angular velocity into
+torque, and \(\Delta t=0.02\ \mathrm{s}\) is the scan time. The minus sign is
+important: increasing measured position produces opposing torque, which is
+the damping learned in Lesson 20.
 
-$estimated velocity = (PV_{\mathrm{control}},new - PV_{\mathrm{control}},old) / dt$
+Now suppose the table is motionless and only noise changes. Substituting
+\(PV_{raw}=\theta+n\) and cancelling the unchanged true angle gives
 
-Dividing by a small $\Delta t$ makes fast measurement changes appear as large velocity.
-Derivative gain then converts that false velocity into torque activity.
+\[
+T_{D,k}=-K_d\frac{n_k-n_{k-1}}{\Delta t}.
+\]
 
-A **low-pass filter** lets slow position changes pass while attenuating fast
-changes. The **filter time constant (τ)** controls its cutoff. A larger time
-constant removes more fast motion but makes the filtered position respond more
-slowly. **Filter order** is the number of identical stages applied in sequence:
-one stage is first order; two cascaded stages are second order.
+The division by \(\Delta t\) explains the amplification. The same encoder
+change produces twice the derivative torque if the scan time is halved. If
+independent noise samples have standard deviation \(\sigma\), the difference
+\(n_k-n_{k-1}\) has standard deviation \(\sqrt{2}\sigma\). The approximate RMS
+derivative torque caused by noise alone is therefore
 
-The **filter coefficient ($a$)** is dimensionless and is calculated by the shipped
-filter from $\Delta t$ and τ:
+\[
+T_{D,noise,rms}\approx
+  K_d\frac{\sqrt{2}\sigma}{\Delta t}
+  =3\frac{\sqrt{2}(0.002)}{0.02}
+  \approx0.424\ \mathrm{N\,m}.
+\]
 
-$a = dt / (τ + 0.5 \times dt)$
+The experiment reports changes in applied torque rather than derivative torque
+itself. Consecutive derivative-torque changes contain
+\(n_k-2n_{k-1}+n_{k-2}\). The squared coefficients add to
+\(1^2+(-2)^2+1^2=6\), so a noise-only estimate is
 
-For each stage, the **filtered output ($y_{\mathrm{f}}$)** moves a fraction a of the gap from
-its previous value toward the current input:
+\[
+RMS(\Delta T_D)\approx K_d\frac{\sqrt{6}\sigma}{\Delta t}
+\approx0.735\ \mathrm{N\,m}.
+\]
 
-$y_{\mathrm{f}},new = y_{\mathrm{f}},old + a \times (input - y_{\mathrm{f}},old)$
+The retained bypass result is 0.875 N·m because the complete closed loop also
+contains proportional and integral action, table motion, gravity, and the
+output limit. The estimate predicts the scale and inverse dependence on scan
+time; it is not a replacement for the run.
 
-The second-order candidate applies that update twice. It attenuates more noise
-but also adds more **phase lag**, meaning $PV_{\mathrm{control}}$ follows real motion later.
-A real flexible mechanism can convert noisy torque into resonance excitation;
-this rigid lesson measures torque activity, while Lesson 47 studies resonance.
+### Deriving the low-pass filter
 
-The **torque-increment root-mean-square value ($RMS_{\Delta T}$)** measures scan-to-scan
-applied-torque activity from 15 to 20 seconds. It is the square root of the mean
-squared torque increments, measured in N m.
+A low-pass filter creates a separate controller-facing measurement
+\(PV_{control}\). Slow changes are allowed through, while rapid changes are
+reduced. The raw encoder remains visible so filtering cannot hide the sensor
+evidence.
 
-$\operatorname{RMS}\left(\Delta T\right) = \sqrt{\operatorname{mean}\left((T_{\mathrm{applied},k} - T_{\mathrm{applied},k-1})^{2}\right)}$
+For one continuous first-order filter, the defining equation is
 
-The **positive position-lag area ($A_{\mathrm{lag}}$)** sums positive $PV_{\mathrm{raw}}$ minus $PV_{\mathrm{control}}$
-from 0 to 5 seconds and multiplies each sample by $\Delta t$. Its unit is radian-seconds
-(rad s). More area means more delay in the controller-facing measurement.
+\[
+\tau\frac{dy}{dt}=x-y.
+\]
 
-$A_{\mathrm{lag}} = \sum \max\left(PV_{\mathrm{raw},k} - PV_{\mathrm{control},k}, 0\right) \times dt$
+Here \(x\) is the raw input, \(y\) is the filtered output, and the time constant
+\(\tau\) is measured in seconds. The equation says that the output changes
+faster when the input-output gap is large. A larger \(\tau\) spreads that
+response over more time, so it smooths more strongly but follows real motion
+more slowly.
+
+The shipped `Control.LowPass` evaluates this equation once per scan. Let
+\(y_{k-1}\) be the old output and \(y_k=y_{k-1}+\Delta y\) the new output.
+Approximating the rate by \(\Delta y/\Delta t\) and the output during the scan
+by its midpoint gives
+
+\[
+\tau\frac{\Delta y}{\Delta t}
+=x_k-\left(y_{k-1}+\frac{\Delta y}{2}\right).
+\]
+
+Move the half-increment to the left and solve for \(\Delta y\):
+
+\[
+\left(\frac{\tau}{\Delta t}+\frac12\right)\Delta y=x_k-y_{k-1},
+\]
+
+\[
+\Delta y=
+\frac{\Delta t}{\tau+\tfrac12\Delta t}(x_k-y_{k-1}).
+\]
+
+Defining the dimensionless filter coefficient
+
+\[
+a=\frac{\Delta t}{\tau+\tfrac12\Delta t}
+\]
+
+gives the implemented update
+
+\[
+y_k=y_{k-1}+a(x_k-y_{k-1}).
+\]
+
+This form makes the behavior readable: each scan moves the output by the
+fraction \(a\) of the remaining input-output gap. With
+\(\Delta t=0.02\ \mathrm{s}\) and \(\tau=0.05\ \mathrm{s}\),
+
+\[
+a=\frac{0.02}{0.05+0.5(0.02)}=0.3333.
+\]
+
+If the raw input is 0.003 rad above the old filtered value, the first update is
+
+\[
+\Delta y=0.3333(0.003)=0.001\ \mathrm{rad}.
+\]
+
+The filter passes only one third of that sudden gap on the first scan. It does
+not discard the remaining two thirds: later scans continue closing the gap if
+the input stays there.
+
+### First order, second order, and phase lag
+
+**Filter order** is the number of identical stages in series. A first-order
+filter applies the update once. The second-order choice sends the first
+stage's output through the same update again:
+
+\[
+y_{1,k}=y_{1,k-1}+a(x_k-y_{1,k-1}),
+\]
+
+\[
+y_{2,k}=y_{2,k-1}+a(y_{1,k}-y_{2,k-1}).
+\]
+
+The second stage sees an already smoothed signal, so it removes more rapid
+variation. It also waits for the first stage to move before it can follow.
+That extra delay is **phase lag**: the controller-facing position occurs later
+than the physical motion it represents. The PID then reacts to old information.
+Filtering therefore trades noise attenuation for feedback delay.
+
+The characteristic cutoff of one continuous first-order stage is
+
+\[
+f_c=\frac{1}{2\pi\tau}.
+\]
+
+This follows by setting the stage's frequency ratio \(2\pi f\tau\) to one, the
+point where the magnitude has fallen to \(1/\sqrt2\) of its low-frequency
+value. For \(\tau=0.05\ \mathrm{s}\), \(f_c\approx3.18\ \mathrm{Hz}\). This
+gives physical meaning to the time constant, but the actual selection must use
+the sampled implementation and measured closed-loop response.
+
+### What the two measures mean
+
+Noise activity is measured from 15 to 20 seconds, after the large setpoint
+transient. For \(N\) samples in that window, define each applied-torque change
+as \(\Delta T_k=T_{applied,k}-T_{applied,k-1}\). Then
+
+\[
+RMS_{\Delta T}=\sqrt{\frac{1}{N}\sum_{k=1}^{N}(\Delta T_k)^2}.
+\]
+
+Squaring prevents positive and negative changes from cancelling, averaging
+makes runs comparable, and the square root returns the unit to N·m. A smaller
+value means less scan-to-scan drive activity.
+
+Added delay is measured from 0 to 5 seconds with the positive lag area
+
+\[
+A_{lag}=\sum_k
+\max(PV_{raw,k}-PV_{control,k},0)\Delta t.
+\]
+
+The difference has unit rad and multiplication by seconds gives rad·s. The
+`max` keeps only periods when the controller-facing position trails the raw
+position; otherwise positive and negative differences could cancel and hide
+delay. Because the raw signal includes noise, this is an experiment-specific
+comparison measure, not a universal pure-delay estimate.
+
+Tracking is checked separately using the mean controller-facing position from
+18 to 20 seconds:
+
+\[
+e_{final}=\left|0.5-\operatorname{mean}(PV_{control})\right|.
+\]
+
+A small final error does not prove that transient lag was acceptable. That is
+why the lesson keeps tracking, torque activity, and lag as separate measures.
 
 ## Prediction
 
-With $\Delta t$ equal to 0.02 s and τ equal to 0.05 s, the coefficient is:
+Before running the project, predict this ordering:
 
-$a = 0.02 / (0.05 + 0.5 \times 0.02) = 0.333$
+1. Bypass filtering will have the greatest torque activity and least added lag.
+2. Increasing \(\tau\) from 0.02 to 0.05 to 0.10 seconds will reduce activity
+   but increase lag.
+3. Two 0.05-second stages will reduce activity more than one stage and add more
+   lag.
 
-If the raw measurement is 0.003 rad above the previous filtered output, one
-first-order update moves by:
-
-$change = 0.333 \times 0.003 rad = 0.001 rad$
-
-The remaining fast change is attenuated. A second stage smooths the first-stage
-output again. Predict progressively lower torque-increment RMS, but progressively
-higher positive lag area.
+Freeze the decision rule before looking at the results: require
+\(RMS_{\Delta T}\le0.250\ \mathrm{N\,m}\) and
+\(A_{lag}\le0.020\ \mathrm{rad\,s}\). If several choices qualify, choose the
+simplest order and then the smallest time constant. This prevents choosing a
+visually smooth trace after seeing it.
 
 ## Implementation
 
-The executable keeps the raw signal visible and changes only the selected path:
+The raw encoder is never overwritten. The selected filter changes only the
+copy passed to PID:
 
 ```st
-ControllerPosition := FirstFilter.Update(Input := RawPosition, CycleTime := LREAL#0.02);
-ControllerPosition := SecondFilter.Update(Input := RawPosition, CycleTime := LREAL#0.02);
+IF FilterSelection = 1 THEN
+    ControllerPosition := FirstFilter.Update(
+        Input := RawPosition, CycleTime := LREAL#0.02);
+ELSIF FilterSelection = 2 THEN
+    ControllerPosition := SecondFilter.Update(
+        Input := RawPosition, CycleTime := LREAL#0.02);
+ELSE
+    ControllerPosition := RawPosition;
+END_IF;
+
 Input.ProcessValue := ControllerPosition;
 MotorTorque := Controller.Update(Input := Input);
 ```
 
-Only one filter update is selected in a run; the two lines show the real
-first- and second-order alternatives.
+The Control Studio run owns one selected case: first order with
+\(\tau=0.05\ \mathrm{s}\). Fresh native runtimes own the bypass, all three
+first-order time constants, and the second-order comparison. A single UI run
+must not be presented as if it executed that full matrix.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Run the first-order filter at 0.02, 0.05 and 0.10 s while changing only its time constant. Then compare first- and second-order filtering at the selected 0.05 s time constant. The declared event lasts 20 seconds. It restores Table-position setpoint to 0 rad afterward. The deterministic Simulation seed is 20260828.
+Test writes one reviewed Boolean authority, `P1.ExperimentEnabled`, for 20.02
+seconds. The project owns the setpoint, mode, filter selection, and safe
+restoration. The false state is Filter bypass, SP 0 rad, Manual mode, and zero
+torque. The rising edge initializes the filters at the measured zero-angle
+state, selects first order with \(\tau=0.05\ \mathrm{s}\), enters Auto, and
+applies SP 0.5 rad. The falling edge restores the complete false state. The
+deterministic Simulation seed is 20260828.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Table-position setpoint (SP, rad); Raw encoder position (PV, rad); Applied motor torque (MV, N m), including units, limits, mode, and quality. The initial operating point is PV = 0 rad, MV = 4 N m. The unresolved baseline problem is: Derivative on the noisy raw encoder produces excessive scan-to-scan motor-torque changes.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Require torque-increment RMS at or below 0.250 N m and positive lag area at or below 0.020 rad s; among qualifying candidates choose the simplest filter and then the smallest time constant.
-   - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
-   - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm SP = 0 rad, raw PV near 0 rad with visible seeded noise, controller-facing PV equal to raw PV, requested/applied torque = 0 N·m, Manual mode, Filter bypass, and experiment authority false. Add raw PV, controller-facing PV, applied torque, filter selection, time constant, mode, and authority to **Signals**.
+   - **Decision before action:** Write the predicted activity/lag ordering and the two numerical limits above. Confirm that filtering only the controller-facing copy preserves the raw evidence.
+   - **Successful evidence:** The Response plot advances, all values are finite and current, and **Start recording** is enabled. Select **Start recording**.
+   - **Recovery:** If samples are stale, unavailable, nonfinite, or poor quality, stop the Simulator, correct the displayed binding or runtime fault, restart, and repeat the baseline check.
+   - **Record:** Note the initial SP, both PV signals, requested/applied torque, mode, filter selection, time constant, authority, and your written prediction.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Setpoint step**, **Amplitude** = **0.5 rad**, and **Maximum duration (s)** = **20**. The affected signal is **Table-position setpoint**; it starts at 0 rad and must restore to 0 rad.
-   - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Raw encoder position -4 rad to 4 rad; Applied motor torque -10 N m to 10 N m.
-   - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Table-position setpoint to 0 rad, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260828**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **20.02**. The reviewed authority is `P1.ExperimentEnabled`; the project, not the generic Test form, owns the 0.5-rad setpoint step and filter selection.
+   - **Decision before action:** Confirm that the plan writes only the Boolean authority, restores it false, and keeps raw/controller PV inside -4 to 4 rad and applied torque inside -10 to 10 N·m. Expect less late torque activity than bypass, but a positive separation between raw and controller-facing PV during motion.
+   - **Successful evidence:** Select **Review test**, verify the authority, timeout, stop conditions, and false restoration, then select **Confirm and start**. Keep **Abort test** available. Response must show authority true, first-order/0.05 s selected, SP rising to 0.5 rad, Auto response, distinct raw and filtered PV, and the complete safe restoration.
+   - **Recovery:** Abort if a value becomes nonfinite, either PV leaves -4 to 4 rad, torque leaves -10 to 10 N·m, or data becomes stale. Confirm authority false, SP 0 rad, Filter bypass, Manual mode, and zero requested/applied torque before retrying.
+   - **Record:** Retain terminal state, false restoration, selected-case SP/raw PV/controller PV/torque traces, late torque-increment RMS, early lag area, final mean error, and seed.
 
-3. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: selected_filter_torque_increment_rms <= 0.25 N m (tolerance 0.001 N m); selected_filter_positive_position_lag_area <= 0.02 rad*s (tolerance 0.000001 rad*s); first_to_bypass_torque_increment_rms_ratio <= 0.8 (dimensionless) (tolerance 0.01 (dimensionless)); second_to_first_torque_increment_rms_ratio <= 0.8 (dimensionless) (tolerance 0.01 (dimensionless)).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+There is no separate disabled Validate stage. The runnable project and its
+native test own the declared comparison; Monitor and Test expose the selected
+case honestly.
 
 ## Evidence and decision
-
-### Measures and comparison
-
-Plot $PV_{\mathrm{raw}}$ and $PV_{\mathrm{control}}$ together, then align the applied-torque traces. Use
-the same scale for all filter choices. Report $RMS_{\Delta T}$ to 0.001 N m and $A_{\mathrm{lag}}$ to
-0.000001 rad s. Also calculate mean $PV_{\mathrm{control}}$ from 18 to 20 seconds.
-
-Do not select the visually smoothest curve. Compare noise attenuation, added
-lag, final tracking, and actuator limits together.
-
-Before viewing the results, declare the selection rule: torque-increment RMS
-must be at most 0.250 N m and positive lag area must be at most 0.020 rad s.
-Among candidates that pass both limits, select the simplest filter with the
-smallest time constant.
 
 ![Derivative filtering trades encoder-noise activity for lag](figures/filtered-derivative.svg)
 
 [Retained samples](figures/filtered-derivative-trace.csv) ·
 [Decision summary](figures/filtered-derivative-summary.csv)
 
-The retained simulation produced:
+The retained deterministic simulation produced:
 
-| Filter | τ | Torque-increment RMS | Positive lag area |
-| --- | ---: | ---: | ---: |
-| Bypass | — | 0.875 N m | 0.009053 rad s |
-| First order | 0.020 s | 0.466 N m | 0.010424 rad s |
-| First order | 0.050 s | 0.192 N m | 0.017473 rad s |
-| First order | 0.100 s | 0.097 N m | 0.031202 rad s |
-| Second order | 0.050 s | 0.046 N m | 0.028451 rad s |
+| Filter | \(\tau\) | \(RMS_{\Delta T}\) | \(A_{lag}\) | Decision |
+| --- | ---: | ---: | ---: | --- |
+| Bypass | — | 0.875 N·m | 0.009053 rad·s | Reject: activity |
+| First order | 0.020 s | 0.466 N·m | 0.010424 rad·s | Reject: activity |
+| First order | 0.050 s | 0.192 N·m | 0.017473 rad·s | Select |
+| First order | 0.100 s | 0.097 N·m | 0.031202 rad·s | Reject: lag |
+| Second order | 0.050 s | 0.046 N·m | 0.028451 rad·s | Reject: lag |
 
-The 0.050 s first-order case is selected because it is the only tested candidate
-that satisfies both predeclared limits. It removes 78% of the bypass torque
-activity while keeping positive lag area below 0.020 rad s. The second stage
-removes more activity, but fails the lag limit. That is an engineering tradeoff,
-not an automatic upgrade.
+For the selected case, the activity reduction relative to bypass is
 
-### Validation
+\[
+1-\frac{0.192292}{0.874919}=0.780,
+\]
 
-The selected filter must meet the predeclared 0.250 N m activity limit and
-0.020 rad s lag limit. If several candidates qualify, select first order before
-second order and then the smallest qualifying time constant. The 0.050 s
-first-order candidate is the only tested candidate satisfying both limits.
-
-For every case, mean $PV_{\mathrm{control}}$ from 18 to 20 seconds must remain within
-0.020 rad of the 0.5-rad SP. Every value must be finite and applied torque must
-remain within plus or minus 10 N m.
+or 78.0%. The 0.10-second and second-order choices look smoother, but both
+violate the predeclared lag limit. The 0.05-second first-order filter is the
+only tested candidate that meets both limits, so it is selected.
 
 ## Conclusion
 
-Filtering reduces rapid measurement changes before PID differentiates them, so
-the drive receives smaller scan-to-scan torque changes. Each filter stage also
-requires time to follow real position, so the controller temporarily acts on an
-older value. More filtering is therefore not automatically better.
-
-The correct choice depends on sensor noise, sample time, required bandwidth,
-plant resonance, and acceptable lag. A smooth plot alone is not a control-system
-requirement.
+A derivative term is an engineered dynamic element, not an unfiltered
+subtraction of two samples. Filtering the measurement reduces the rapid
+changes that derivative action turns into torque, but it also delays real
+feedback. Filter order and time constant must therefore be selected from both
+attenuation and lag evidence.
 
 ## Reason for the next lesson
 
-Use a derivative filter only after preserving the raw measurement and measuring
-both attenuation and delay. Physical qualification also needs encoder spectrum,
-drive current, structural resonance, and timing evidence.
-
-The next lesson adds Coulomb friction, deadband, backlash, stiction, and motion
-limits one at a time. Those mechanical effects cannot be repaired simply by
-adding more filtering or retuning PID.
+Lesson 24 keeps this filtered servo and adds Coulomb friction, deadband,
+backlash, stiction, and motion limits. Those effects leave different patterns
+in SP, PV, and torque. More filtering or more PID gain cannot repair a
+mechanical transmission defect, so the next task is diagnosis rather than
+automatic retuning.

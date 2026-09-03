@@ -8,7 +8,7 @@ VAR
     Input : Control.PIDInput;
     Initialized : BOOL := FALSE;
     ExperimentInput : LREAL := 20.0;
-    TestAuthorityEnabled : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
     TestCycle : UDINT := 0;
     SafetyAbort : BOOL := FALSE;
     InputsValid : BOOL := TRUE;
@@ -46,7 +46,7 @@ END_IF;
 
 (* Test writes only Boolean authority. The project owns the exact baseline and
    validation step used by both the interactive journey and native evidence. *)
-IF TestAuthorityEnabled THEN
+IF ExperimentEnabled THEN
     TestCycle := TestCycle + UDINT#1;
     IF TestCycle <= UDINT#100 THEN
         ExperimentInput := LREAL#20.0;
@@ -87,7 +87,7 @@ END_RESOURCE
 VAR_CONFIG
     P1.ExperimentInput AT %ML0 : LREAL;
     P1.Setpoint AT %ML8 : LREAL;
-    P1.TestAuthorityEnabled AT %MX16.0 : BOOL;
+    P1.ExperimentEnabled AT %MX16.0 : BOOL;
     P1.SafetyAbort AT %MX16.1 : BOOL;
     P1.InputsValid AT %MX16.2 : BOOL;
     P1.ManualMode AT %MX16.3 : BOOL;

@@ -38,14 +38,42 @@ VAR
     InformativeUpdateCount : DINT := 0;
     FrozenReason : INT := 0;
     Controller : AdaptiveExtruderController;
-    StartupInitialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
 END_VAR
 
-// Start at the declared production operating point before testing adaptation.
-IF NOT StartupInitialized THEN
+(* Control Studio grants only authority. The project owns the supervised-
+   adaptive nominal schedule; fixed, scheduled, and fault cases stay native. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
     Enabled := TRUE;
-    PressureSetpoint := LREAL#40.0;
-    StartupInitialized := TRUE;
+    RequestedArchitecture := INT#2;
+    AdaptationRequested := TRUE;
+    DataHealthy := TRUE;
+    ProbeEnabled := TRUE;
+    IF ExperimentElapsed < LREAL#60.0 THEN
+        ResinGrade := INT#0;
+    ELSE
+        ResinGrade := INT#1;
+    END_IF;
+    IF ExperimentElapsed < LREAL#30.0 THEN
+        PressureSetpoint := LREAL#40.0;
+    ELSIF ExperimentElapsed < LREAL#90.0 THEN
+        PressureSetpoint := LREAL#50.0;
+    ELSE
+        PressureSetpoint := LREAL#60.0;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    Enabled := FALSE;
+    RequestedArchitecture := INT#1;
+    AdaptationRequested := FALSE;
+    DataHealthy := TRUE;
+    ProbeEnabled := FALSE;
+    ResinGrade := INT#0;
+    PressureSetpoint := LREAL#0.0;
 END_IF;
 
 Controller(
@@ -102,6 +130,9 @@ VAR_CONFIG
     P1.AdaptationRequested AT %MX6.1 : BOOL;
     P1.DataHealthy AT %MX6.2 : BOOL;
     P1.ProbeEnabled AT %MX6.3 : BOOL;
+    P1.ExperimentEnabled AT %MX6.4 : BOOL;
+    P1.SafetyAbort AT %MX6.5 : BOOL;
+    P1.InputsValid AT %MX6.6 : BOOL;
     P1.AdaptationActive AT %MX7.0 : BOOL;
     P1.EstimateFrozen AT %MX7.1 : BOOL;
     P1.PersistentExcitation AT %MX7.2 : BOOL;

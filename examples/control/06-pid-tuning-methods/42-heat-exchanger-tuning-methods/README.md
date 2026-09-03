@@ -29,7 +29,12 @@ overshoot is acceptable, or how much valve movement is justified. This lesson
 first makes those choices visible through manual tuning. It then compares them
 with an intentionally aggressive historical rule.
 
-## Derive what each controller term changes
+## What we need
+
+We need to compare P, PI, PD, and PID under equivalent heat-exchanger
+conditions and explain what each added term changes physically and numerically.
+
+## The new idea
 
 The setpoint ($SP$) is the desired outlet temperature, in degrees Celsius. The
 measured outlet temperature ($PV$) is the sensor value, also in degrees Celsius.

@@ -11,94 +11,85 @@
   "prerequisites": ["control-compressor-override"],
   "nextLesson": "control-heated-air-duct-smith",
   "signals": [
-    { "role": "authority", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX89.2" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX89.2" },
     { "role": "quality", "name": "Scheduling availability", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX89.1" },
-    { "role": "SP", "name": "Requested liquid level", "unit": "m", "minimum": 0.30, "maximum": 0.80, "resolution": 0.001, "binding": "%ML216" },
-    { "role": "state", "name": "Filtered scheduling level", "unit": "m", "minimum": 0.30, "maximum": 0.80, "resolution": 0.001, "binding": "%ML224" },
+    { "role": "SP", "name": "Requested liquid level", "unit": "m", "minimum": 0.3, "maximum": 0.8, "resolution": 0.001, "binding": "%ML216" },
+    { "role": "state", "name": "Filtered scheduling level", "unit": "m", "minimum": 0.3, "maximum": 0.8, "resolution": 0.001, "binding": "%ML224" },
     { "role": "state", "name": "Interpolation fraction", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 0.001, "binding": "%ML232" },
     { "role": "state", "name": "Active proportional gain", "unit": "(m3/s)/m", "minimum": 0.099, "maximum": 0.101, "resolution": 0.001, "binding": "%ML240" },
-    { "role": "state", "name": "Active integral gain", "unit": "(m3/s)/(m*s)", "minimum": 0.00280, "maximum": 0.00456, "resolution": 0.00001, "binding": "%ML248" },
+    { "role": "state", "name": "Active integral gain", "unit": "(m3/s)/(m*s)", "minimum": 0.0028, "maximum": 0.00456, "resolution": 1e-05, "binding": "%ML248" },
     { "role": "state", "name": "Parallel active region", "unit": "1", "minimum": 0, "maximum": 2, "resolution": 1, "binding": "%ML256" },
     { "role": "state", "name": "Parallel region-transition count", "unit": "1", "minimum": 0, "maximum": 4, "resolution": 1, "binding": "%ML264" },
-    { "role": "PV", "name": "Fixed-PI liquid level", "unit": "m", "minimum": 0.20, "maximum": 0.90, "resolution": 0.001, "binding": "%IL136" },
-    { "role": "state", "name": "Interpolated-PI liquid level", "unit": "m", "minimum": 0.20, "maximum": 0.90, "resolution": 0.001, "binding": "%IL144" },
-    { "role": "state", "name": "Parallel-PI liquid level", "unit": "m", "minimum": 0.20, "maximum": 0.90, "resolution": 0.001, "binding": "%IL152" },
-    { "role": "MV", "name": "Fixed-PI pump-flow request", "unit": "m3/s", "minimum": 0, "maximum": 0.060, "resolution": 0.00001, "binding": "%QL152" },
-    { "role": "state", "name": "Interpolated-PI pump-flow request", "unit": "m3/s", "minimum": 0, "maximum": 0.060, "resolution": 0.00001, "binding": "%QL160" },
-    { "role": "state", "name": "Parallel-PI pump-flow request", "unit": "m3/s", "minimum": 0, "maximum": 0.060, "resolution": 0.00001, "binding": "%QL168" }
+    { "role": "PV", "name": "Fixed-PI liquid level", "unit": "m", "minimum": 0.2, "maximum": 0.9, "resolution": 0.001, "binding": "%IL136" },
+    { "role": "state", "name": "Interpolated-PI liquid level", "unit": "m", "minimum": 0.2, "maximum": 0.9, "resolution": 0.001, "binding": "%IL144" },
+    { "role": "state", "name": "Parallel-PI liquid level", "unit": "m", "minimum": 0.2, "maximum": 0.9, "resolution": 0.001, "binding": "%IL152" },
+    { "role": "MV", "name": "Fixed-PI pump-flow request", "unit": "m3/s", "minimum": 0, "maximum": 0.06, "resolution": 1e-05, "binding": "%QL152" },
+    { "role": "state", "name": "Interpolated-PI pump-flow request", "unit": "m3/s", "minimum": 0, "maximum": 0.06, "resolution": 1e-05, "binding": "%QL160" },
+    { "role": "state", "name": "Parallel-PI pump-flow request", "unit": "m3/s", "minimum": 0, "maximum": 0.06, "resolution": 1e-05, "binding": "%QL168" }
   ],
   "plant": {
     "modelId": "three_equivalent_nonlinear_gravity_tanks",
     "executable": "simulation.toml",
     "parameters": [
       { "name": "tank_area", "value": 1.0, "unit": "m2" },
-      { "name": "outlet_coefficient", "value": 0.050, "unit": "m2*sqrt(m)/s" },
+      { "name": "outlet_coefficient", "value": 0.05, "unit": "m2*sqrt(m)/s" },
       { "name": "pump_minimum", "value": 0, "unit": "m3/s" },
-      { "name": "pump_maximum", "value": 0.060, "unit": "m3/s" },
+      { "name": "pump_maximum", "value": 0.06, "unit": "m3/s" },
       { "name": "level_noise_standard_deviation", "value": 0.0005, "unit": "m" }
     ],
     "sampleTimeSeconds": 0.1,
-    "initialState": { "levelMetres": 0.30, "pumpFlowCubicMetresPerSecond": 0.027386127875 },
+    "initialState": { "levelMetres": 0.3, "pumpFlowCubicMetresPerSecond": 0.027386127875 },
     "seed": 20260829,
-    "operatingPoint": {
-      "Requested liquid level": 0.30,
-      "Fixed-PI liquid level": 0.30,
-      "Interpolated-PI liquid level": 0.30,
-      "Parallel-PI liquid level": 0.30,
-      "Fixed-PI pump-flow request": 0.027386127875,
-      "Interpolated-PI pump-flow request": 0.027386127875,
-      "Parallel-PI pump-flow request": 0.027386127875
-    },
+    "operatingPoint": { "Requested liquid level": 0.3, "Fixed-PI liquid level": 0.3, "Interpolated-PI liquid level": 0.3, "Parallel-PI liquid level": 0.3, "Fixed-PI pump-flow request": 0.027386127875, "Interpolated-PI pump-flow request": 0.027386127875, "Parallel-PI pump-flow request": 0.027386127875 },
     "validityRange": [
-      { "signal": "Requested liquid level", "minimum": 0.30, "maximum": 0.80, "unit": "m" },
-      { "signal": "Fixed-PI liquid level", "minimum": 0.20, "maximum": 0.90, "unit": "m" },
-      { "signal": "Interpolated-PI liquid level", "minimum": 0.20, "maximum": 0.90, "unit": "m" },
-      { "signal": "Parallel-PI liquid level", "minimum": 0.20, "maximum": 0.90, "unit": "m" }
+      { "signal": "Requested liquid level", "minimum": 0.3, "maximum": 0.8, "unit": "m" },
+      { "signal": "Fixed-PI liquid level", "minimum": 0.2, "maximum": 0.9, "unit": "m" },
+      { "signal": "Interpolated-PI liquid level", "minimum": 0.2, "maximum": 0.9, "unit": "m" },
+      { "signal": "Parallel-PI liquid level", "minimum": 0.2, "maximum": 0.9, "unit": "m" }
     ],
-    "simplifications": [
-      "One well-mixed vertical tank with constant area and a fixed gravity outlet",
-      "Ideal pump flow equals the bounded controller request; pump dynamics are deferred",
-      "Local first-order models are valid only near their identified equilibrium levels",
-      "Three equivalent simulated tanks isolate controller architecture",
-      "Simulation-only I/O and evidence; no physical tank is operated"
-    ]
+    "simplifications": ["One well-mixed vertical tank with constant area and a fixed gravity outlet", "Ideal pump flow equals the bounded controller request; pump dynamics are deferred", "Local first-order models are valid only near their identified equilibrium levels", "Three equivalent simulated tanks isolate controller architecture", "Simulation-only I/O and evidence; no physical tank is operated"]
   },
   "baseline": {
     "executableId": "GravityTank.FixedHighLevelPI",
-    "settings": { "proportionalGain": 0.100, "integralGain": 0.00280 },
+    "settings": { "proportionalGain": 0.1, "integralGain": 0.0028 },
     "limitation": "The conservative high-level integral gain is unnecessarily slow in the low-level region."
   },
   "change": {
     "executableId": "GravityTank.InterpolatedAndParallelSchedules",
-    "settings": { "levelsMetres": [0.30, 0.55, 0.80], "proportionalGains": [0.100, 0.100, 0.100], "integralGains": [0.00456, 0.00337, 0.00280], "filterSeconds": 2.0, "hysteresisHalfBandMetres": 0.010 },
+    "settings": {
+      "levelsMetres": [0.3, 0.55, 0.8],
+      "proportionalGains": [0.1, 0.1, 0.1],
+      "integralGains": [0.00456, 0.00337, 0.0028],
+      "filterSeconds": 2.0,
+      "hysteresisHalfBandMetres": 0.01
+    },
     "decision": "Accept scheduling only when every local model is qualified, constraints remain common, regional performance improves, and both transition architectures are bumpless."
   },
   "experiment": {
     "kind": "observation",
     "signal": "Experiment authority",
-    "baseline": 0.30,
+    "baseline": 0.3,
     "amplitude": 0,
     "durationSeconds": 420.1,
     "settlingSeconds": 30,
     "disturbances": ["Request 0.55 m at 30 s", "Request 0.80 m at 120 s", "Request 0.55 m at 240 s", "Request 0.30 m at 330 s", "Use separate restored boundary holds to test sensor-noise chatter"],
     "seed": 20260829,
-    "restorationValue": 0,
-    "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX89.2", "activeValue": true, "inactiveValue": false }
+    "restorationValue": 0
   },
   "acceptance": [
-    { "metric": "interpolated_worst_regional_iae", "signal": "Interpolated-PI liquid level", "window": "worst of four commanded regions from 30 through 420 s", "comparator": "<", "limit": 3.10, "unit": "m*s", "tolerance": 0.0001, "evidenceClass": "simulation" },
-    { "metric": "parallel_worst_regional_iae", "signal": "Parallel-PI liquid level", "window": "worst of four commanded regions from 30 through 420 s", "comparator": "<", "limit": 3.10, "unit": "m*s", "tolerance": 0.0001, "evidenceClass": "simulation" },
+    { "metric": "interpolated_worst_regional_iae", "signal": "Interpolated-PI liquid level", "window": "worst of four commanded regions from 30 through 420 s", "comparator": "<", "limit": 3.1, "unit": "m*s", "tolerance": 0.0001, "evidenceClass": "simulation" },
+    { "metric": "parallel_worst_regional_iae", "signal": "Parallel-PI liquid level", "window": "worst of four commanded regions from 30 through 420 s", "comparator": "<", "limit": 3.1, "unit": "m*s", "tolerance": 0.0001, "evidenceClass": "simulation" },
     { "metric": "parallel_transition_count", "signal": "Parallel region-transition count", "window": "complete 420-s sequence", "comparator": "==", "limit": 4, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
-    { "metric": "parallel_transition_pump_step", "signal": "Parallel-PI pump-flow request", "window": "adjacent samples at each region transition", "comparator": "<=", "limit": 0.0005, "unit": "m3/s", "tolerance": 0.000001, "evidenceClass": "simulation" }
+    { "metric": "parallel_transition_pump_step", "signal": "Parallel-PI pump-flow request", "window": "adjacent samples at each region transition", "comparator": "<=", "limit": 0.0005, "unit": "m3/s", "tolerance": 1e-06, "evidenceClass": "simulation" }
   ],
   "safety": {
     "hardLimits": [
-      { "signal": "Fixed-PI liquid level", "minimum": 0.20, "maximum": 0.90, "unit": "m" },
-      { "signal": "Interpolated-PI liquid level", "minimum": 0.20, "maximum": 0.90, "unit": "m" },
-      { "signal": "Parallel-PI liquid level", "minimum": 0.20, "maximum": 0.90, "unit": "m" },
-      { "signal": "Fixed-PI pump-flow request", "minimum": 0, "maximum": 0.060, "unit": "m3/s" },
-      { "signal": "Interpolated-PI pump-flow request", "minimum": 0, "maximum": 0.060, "unit": "m3/s" },
-      { "signal": "Parallel-PI pump-flow request", "minimum": 0, "maximum": 0.060, "unit": "m3/s" }
+      { "signal": "Fixed-PI liquid level", "minimum": 0.2, "maximum": 0.9, "unit": "m" },
+      { "signal": "Interpolated-PI liquid level", "minimum": 0.2, "maximum": 0.9, "unit": "m" },
+      { "signal": "Parallel-PI liquid level", "minimum": 0.2, "maximum": 0.9, "unit": "m" },
+      { "signal": "Fixed-PI pump-flow request", "minimum": 0, "maximum": 0.06, "unit": "m3/s" },
+      { "signal": "Interpolated-PI pump-flow request", "minimum": 0, "maximum": 0.06, "unit": "m3/s" },
+      { "signal": "Parallel-PI pump-flow request", "minimum": 0, "maximum": 0.06, "unit": "m3/s" }
     ],
     "abortPredicates": ["Any required signal is nonfinite, stale, forced, or invalid", "A tank level leaves 0.20 through 0.90 m", "A pump request leaves 0 through 0.060 m3/s", "The schedule is invalid or clamped during an accepted run", "Parallel selection chatters or exceeds the transition count", "An inactive controller does not track selected pump flow", "Restoration fails"],
     "safeMv": 0,

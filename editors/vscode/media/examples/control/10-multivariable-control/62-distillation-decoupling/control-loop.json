@@ -42,7 +42,7 @@
       "symbol": "P1.RefluxRequested",
       "address": "%ML72",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "pp",
       "range": {
         "minimum": -12,
@@ -50,6 +50,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX24.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "overhead-automatic-mode",
         "channel": "overhead-automatic-mode",
@@ -155,7 +169,7 @@
         "symbol": "P1.ReboilerRequested",
         "address": "%ML80",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "pp",
         "range": {
           "minimum": -12,
@@ -169,7 +183,7 @@
         "symbol": "P1.RefluxApplied",
         "address": "%QL0",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "pp",
         "range": {
           "minimum": -10,
@@ -183,7 +197,7 @@
         "symbol": "P1.ReboilerApplied",
         "address": "%QL8",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "pp",
         "range": {
           "minimum": -10,
@@ -243,10 +257,16 @@
   },
   "plantId": "local_binary_distillation_four_dynamic_paths_with_feed_disturbance",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "setpoint_step",
-    "amplitude": 2,
-    "durationSeconds": 220,
-    "seed": 20260829
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 220.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX24.3",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

@@ -243,7 +243,10 @@ fn build_runtime() -> Runtime {
             "control/14-integrated-capstones/79-reactor/src/ReactorTrain.st",
             project_file("src/ReactorTrain.st"),
         ),
-        SourceFile::with_path("control/14-integrated-capstones/79-reactor/src/Main.st", mapped_source()),
+        SourceFile::with_path(
+            "control/14-integrated-capstones/79-reactor/src/Main.st",
+            mapped_source(),
+        ),
     ])
     .label_errors(true)
     .build_runtime()

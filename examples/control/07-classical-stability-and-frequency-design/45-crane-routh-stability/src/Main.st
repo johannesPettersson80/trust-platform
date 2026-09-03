@@ -23,9 +23,15 @@ VAR
     UnstableAborted : BOOL := FALSE;
 END_VAR
 
-InputsValid := ABS(StablePosition) < LREAL#2.0
-    AND ABS(MarginalPosition) < LREAL#2.0
-    AND ABS(UnstablePosition) < LREAL#2.0;
+(* Global validity rejects corrupt measurements. Each comparison path owns its
+   own two-metre motion abort below, so the deliberately unstable copy cannot
+   erase the stable and marginal evidence. *)
+InputsValid := (StablePosition = StablePosition)
+    AND (MarginalPosition = MarginalPosition)
+    AND (UnstablePosition = UnstablePosition)
+    AND ABS(StablePosition) < LREAL#1000000.0
+    AND ABS(MarginalPosition) < LREAL#1000000.0
+    AND ABS(UnstablePosition) < LREAL#1000000.0;
 
 IF NOT ExperimentEnabled OR SafetyAbort OR NOT InputsValid THEN
     StableRequested := LREAL#0.0;

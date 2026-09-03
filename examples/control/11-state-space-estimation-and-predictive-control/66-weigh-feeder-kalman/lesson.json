@@ -8,296 +8,60 @@
   "physicalPurpose": "Estimate material mass flow from noisy weighing while detecting covariance mismatch and sensor bias from innovation evidence.",
   "principalTechnique": "Scalar discrete Kalman filtering and innovation diagnosis",
   "objective": "Compare fixed, nominal Kalman, sensor-overtrust, sensor-distrust, biased-sensor, and invalid-covariance cases against synchronized Simulation truth.",
-  "prerequisites": [
-    "control-magnetic-bearing-state-feedback"
-  ],
+  "prerequisites": ["control-magnetic-bearing-state-feedback"],
   "nextLesson": "control-suspension-lqr",
   "signals": [
-    {
-      "role": "authority",
-      "name": "Experiment authority",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.3"
-    },
-    {
-      "role": "state",
-      "name": "Safety abort",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.4"
-    },
-    {
-      "role": "state",
-      "name": "Inputs valid",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.5"
-    },
-    {
-      "role": "state",
-      "name": "Estimator execution enabled",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.0"
-    },
-    {
-      "role": "state",
-      "name": "Kalman estimate selected",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.1"
-    },
-    {
-      "role": "quality",
-      "name": "Estimator covariance valid",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 1,
-      "binding": "%MX120.2"
-    },
-    {
-      "role": "state",
-      "name": "Process-noise variance",
-      "unit": "(kg/s)^2",
-      "minimum": 0,
-      "maximum": 20,
-      "resolution": 0.001,
-      "binding": "%ML0"
-    },
-    {
-      "role": "state",
-      "name": "Measurement-noise variance",
-      "unit": "(kg/s)^2",
-      "minimum": 0.001,
-      "maximum": 20,
-      "resolution": 0.001,
-      "binding": "%ML8"
-    },
-    {
-      "role": "MV",
-      "name": "Requested belt-speed command",
-      "unit": "%",
-      "minimum": -20,
-      "maximum": 40,
-      "resolution": 0.01,
-      "binding": "%ML16"
-    },
-    {
-      "role": "state",
-      "name": "Predicted mass-flow estimate",
-      "unit": "kg/s",
-      "minimum": -20,
-      "maximum": 40,
-      "resolution": 0.001,
-      "binding": "%ML24"
-    },
-    {
-      "role": "state",
-      "name": "Predicted estimate covariance",
-      "unit": "(kg/s)^2",
-      "minimum": 0,
-      "maximum": 100,
-      "resolution": 0.001,
-      "binding": "%ML32"
-    },
-    {
-      "role": "state",
-      "name": "Kalman gain",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 1,
-      "resolution": 0.001,
-      "binding": "%ML40"
-    },
-    {
-      "role": "state",
-      "name": "Corrected Kalman mass-flow estimate",
-      "unit": "kg/s",
-      "minimum": -20,
-      "maximum": 40,
-      "resolution": 0.001,
-      "binding": "%ML48"
-    },
-    {
-      "role": "state",
-      "name": "Corrected estimate covariance",
-      "unit": "(kg/s)^2",
-      "minimum": 0,
-      "maximum": 100,
-      "resolution": 0.001,
-      "binding": "%ML56"
-    },
-    {
-      "role": "state",
-      "name": "Fixed-filter mass-flow estimate",
-      "unit": "kg/s",
-      "minimum": -20,
-      "maximum": 40,
-      "resolution": 0.001,
-      "binding": "%ML64"
-    },
-    {
-      "role": "state",
-      "name": "Selected mass-flow estimate",
-      "unit": "kg/s",
-      "minimum": -20,
-      "maximum": 40,
-      "resolution": 0.001,
-      "binding": "%ML72"
-    },
-    {
-      "role": "state",
-      "name": "Mass-flow innovation",
-      "unit": "kg/s",
-      "minimum": -20,
-      "maximum": 20,
-      "resolution": 0.001,
-      "binding": "%ML80"
-    },
-    {
-      "role": "state",
-      "name": "Innovation variance",
-      "unit": "(kg/s)^2",
-      "minimum": 0,
-      "maximum": 100,
-      "resolution": 0.001,
-      "binding": "%ML88"
-    },
-    {
-      "role": "state",
-      "name": "Normalized innovation squared",
-      "unit": "1",
-      "minimum": 0,
-      "maximum": 100,
-      "resolution": 0.001,
-      "binding": "%ML96"
-    },
-    {
-      "role": "MV",
-      "name": "Applied belt-speed command",
-      "unit": "%",
-      "minimum": 0,
-      "maximum": 20,
-      "resolution": 0.01,
-      "binding": "%QL0"
-    },
-    {
-      "role": "state",
-      "name": "Simulation truth mass flow",
-      "unit": "kg/s",
-      "minimum": 0,
-      "maximum": 20,
-      "resolution": 0.001,
-      "binding": "%IL0"
-    },
-    {
-      "role": "PV",
-      "name": "Load-cell mass-flow measurement",
-      "unit": "kg/s",
-      "minimum": -10,
-      "maximum": 30,
-      "resolution": 0.001,
-      "binding": "%IL8"
-    }
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX120.3" },
+    { "role": "state", "name": "Safety abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX120.4" },
+    { "role": "state", "name": "Inputs valid", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX120.5" },
+    { "role": "state", "name": "Estimator execution enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX120.0" },
+    { "role": "state", "name": "Kalman estimate selected", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX120.1" },
+    { "role": "quality", "name": "Estimator covariance valid", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX120.2" },
+    { "role": "state", "name": "Process-noise variance", "unit": "(kg/s)^2", "minimum": 0, "maximum": 20, "resolution": 0.001, "binding": "%ML0" },
+    { "role": "state", "name": "Measurement-noise variance", "unit": "(kg/s)^2", "minimum": 0.001, "maximum": 20, "resolution": 0.001, "binding": "%ML8" },
+    { "role": "MV", "name": "Requested belt-speed command", "unit": "%", "minimum": -20, "maximum": 40, "resolution": 0.01, "binding": "%ML16" },
+    { "role": "state", "name": "Predicted mass-flow estimate", "unit": "kg/s", "minimum": -20, "maximum": 40, "resolution": 0.001, "binding": "%ML24" },
+    { "role": "state", "name": "Predicted estimate covariance", "unit": "(kg/s)^2", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%ML32" },
+    { "role": "state", "name": "Kalman gain", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 0.001, "binding": "%ML40" },
+    { "role": "state", "name": "Corrected Kalman mass-flow estimate", "unit": "kg/s", "minimum": -20, "maximum": 40, "resolution": 0.001, "binding": "%ML48" },
+    { "role": "state", "name": "Corrected estimate covariance", "unit": "(kg/s)^2", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%ML56" },
+    { "role": "state", "name": "Fixed-filter mass-flow estimate", "unit": "kg/s", "minimum": -20, "maximum": 40, "resolution": 0.001, "binding": "%ML64" },
+    { "role": "state", "name": "Selected mass-flow estimate", "unit": "kg/s", "minimum": -20, "maximum": 40, "resolution": 0.001, "binding": "%ML72" },
+    { "role": "state", "name": "Mass-flow innovation", "unit": "kg/s", "minimum": -20, "maximum": 20, "resolution": 0.001, "binding": "%ML80" },
+    { "role": "state", "name": "Innovation variance", "unit": "(kg/s)^2", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%ML88" },
+    { "role": "state", "name": "Normalized innovation squared", "unit": "1", "minimum": 0, "maximum": 100, "resolution": 0.001, "binding": "%ML96" },
+    { "role": "MV", "name": "Applied belt-speed command", "unit": "%", "minimum": 0, "maximum": 20, "resolution": 0.01, "binding": "%QL0" },
+    { "role": "state", "name": "Simulation truth mass flow", "unit": "kg/s", "minimum": 0, "maximum": 20, "resolution": 0.001, "binding": "%IL0" },
+    { "role": "PV", "name": "Load-cell mass-flow measurement", "unit": "kg/s", "minimum": -10, "maximum": 30, "resolution": 0.001, "binding": "%IL8" }
   ],
   "plant": {
     "modelId": "equivalent_truth_and_noisy_weigh_feeder_copies",
     "executable": "simulation.toml",
     "parameters": [
-      {
-        "name": "feeder_gain",
-        "value": 1,
-        "unit": "kg/s/%"
-      },
-      {
-        "name": "feeder_time_constant",
-        "value": 1,
-        "unit": "s"
-      },
-      {
-        "name": "load_cell_noise_standard_deviation",
-        "value": 1.73205,
-        "unit": "kg/s"
-      },
-      {
-        "name": "bias_fault",
-        "value": 1,
-        "unit": "kg/s"
-      }
+      { "name": "feeder_gain", "value": 1, "unit": "kg/s/%" },
+      { "name": "feeder_time_constant", "value": 1, "unit": "s" },
+      { "name": "load_cell_noise_standard_deviation", "value": 1.73205, "unit": "kg/s" },
+      { "name": "bias_fault", "value": 1, "unit": "kg/s" }
     ],
     "sampleTimeSeconds": 0.1,
-    "initialState": {
-      "truthMassFlow": 5,
-      "measuredPlantMassFlow": 5,
-      "kalmanEstimate": 5,
-      "fixedEstimate": 5,
-      "correctedCovariance": 1.9,
-      "previousAppliedCommand": 5
-    },
+    "initialState": { "truthMassFlow": 5, "measuredPlantMassFlow": 5, "kalmanEstimate": 5, "fixedEstimate": 5, "correctedCovariance": 1.9, "previousAppliedCommand": 5 },
     "seed": 20260829,
-    "operatingPoint": {
-      "Requested belt-speed command": 0,
-      "Applied belt-speed command": 0,
-      "Simulation truth mass flow": 5,
-      "Selected mass-flow estimate": 5
-    },
+    "operatingPoint": { "Requested belt-speed command": 0, "Applied belt-speed command": 0, "Simulation truth mass flow": 5, "Selected mass-flow estimate": 5 },
     "validityRange": [
-      {
-        "signal": "Applied belt-speed command",
-        "minimum": 0,
-        "maximum": 20,
-        "unit": "%"
-      },
-      {
-        "signal": "Simulation truth mass flow",
-        "minimum": 0,
-        "maximum": 20,
-        "unit": "kg/s"
-      },
-      {
-        "signal": "Load-cell mass-flow measurement",
-        "minimum": -10,
-        "maximum": 30,
-        "unit": "kg/s"
-      }
+      { "signal": "Applied belt-speed command", "minimum": 0, "maximum": 20, "unit": "%" },
+      { "signal": "Simulation truth mass flow", "minimum": 0, "maximum": 20, "unit": "kg/s" },
+      { "signal": "Load-cell mass-flow measurement", "minimum": -10, "maximum": 30, "unit": "kg/s" }
     ],
-    "simplifications": [
-      "Two equivalent feeder copies separate Simulation truth from the noisy measurement used by both estimators.",
-      "The local first-order model omits transport delay, load-cell dynamics, impacts, slip, density change, colored noise and outliers.",
-      "The deterministic approximate-white generator is pedagogical and does not prove a physical Gaussian distribution.",
-      "Configured truth, noise variance and bias are unavailable as controller inputs.",
-      "Simulation evidence does not qualify a physical belt, feeder, material or load cell."
-    ]
+    "simplifications": ["Two equivalent feeder copies separate Simulation truth from the noisy measurement used by both estimators.", "The local first-order model omits transport delay, load-cell dynamics, impacts, slip, density change, colored noise and outliers.", "The deterministic approximate-white generator is pedagogical and does not prove a physical Gaussian distribution.", "Configured truth, noise variance and bias are unavailable as controller inputs.", "Simulation evidence does not qualify a physical belt, feeder, material or load cell."]
   },
   "baseline": {
     "executableId": "WeighFeeder.FixedAlphaEstimate",
-    "settings": {
-      "fixedFilterCoefficient": 0.2,
-      "kalmanSelected": false
-    },
+    "settings": { "fixedFilterCoefficient": 0.2, "kalmanSelected": false },
     "limitation": "A fixed smoothing coefficient cannot express separate model and sensor uncertainty or produce model-consistency diagnostics."
   },
   "change": {
     "executableId": "WeighFeeder.QualifiedScalarKalman",
-    "settings": {
-      "processNoiseVariance": 0.1,
-      "measurementNoiseVariance": 3,
-      "kalmanSelected": true,
-      "discreteModelA": 0.904837418,
-      "discreteModelB": 0.095162582
-    },
+    "settings": { "processNoiseVariance": 0.1, "measurementNoiseVariance": 3, "kalmanSelected": true, "discreteModelA": 0.904837418, "discreteModelB": 0.095162582 },
     "decision": "Accept covariance settings only when truth-error, response, movement, innovation and fault evidence agree with the declared model and noise assumptions."
   },
   "experiment": {
@@ -307,167 +71,41 @@
     "amplitude": 0,
     "durationSeconds": 30.1,
     "settlingSeconds": 5,
-    "disturbances": [
-      "Repeat nominal Q=0.1 and R=3 from the same state and seed.",
-      "Repeat sensor-overtrust R=0.25 and sensor-distrust R=12 with no other change.",
-      "Repeat the nominal covariance case with a +1 kg/s load-cell bias.",
-      "Request negative process covariance and verify fixed-estimate fallback."
-    ],
+    "disturbances": ["Repeat nominal Q=0.1 and R=3 from the same state and seed.", "Repeat sensor-overtrust R=0.25 and sensor-distrust R=12 with no other change.", "Repeat the nominal covariance case with a +1 kg/s load-cell bias.", "Request negative process covariance and verify fixed-estimate fallback."],
     "seed": 20260829,
-    "restorationValue": 0,
-    "activation": {
-      "symbol": "P1.ExperimentEnabled",
-      "address": "%MX120.3",
-      "activeValue": true,
-      "inactiveValue": false
-    }
+    "restorationValue": 0
   },
   "acceptance": [
-    {
-      "metric": "nominal_kalman_rms_truth_error",
-      "signal": "Corrected Kalman mass-flow estimate",
-      "window": "5 through 30 seconds against Simulation truth",
-      "comparator": "<",
-      "limit": 1,
-      "unit": "kg/s",
-      "tolerance": 0.001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "nominal_innovation_mean_magnitude",
-      "signal": "Mass-flow innovation",
-      "window": "5 through 30 seconds",
-      "comparator": "<=",
-      "limit": 0.25,
-      "unit": "kg/s",
-      "tolerance": 0.001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "nominal_mean_normalized_innovation_squared",
-      "signal": "Normalized innovation squared",
-      "window": "5 through 30 seconds",
-      "comparator": ">=",
-      "limit": 0.4,
-      "unit": "1",
-      "tolerance": 0.001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "bias_fault_final_estimation_error",
-      "signal": "Corrected Kalman mass-flow estimate",
-      "window": "final 5 seconds against Simulation truth",
-      "comparator": ">=",
-      "limit": 0.5,
-      "unit": "kg/s",
-      "tolerance": 0.001,
-      "evidenceClass": "simulation"
-    },
-    {
-      "metric": "invalid_covariance_fallback",
-      "signal": "Estimator covariance valid",
-      "window": "first scan with Q below zero",
-      "comparator": "==",
-      "limit": 0,
-      "unit": "1",
-      "tolerance": 0,
-      "evidenceClass": "simulation"
-    }
+    { "metric": "nominal_kalman_rms_truth_error", "signal": "Corrected Kalman mass-flow estimate", "window": "5 through 30 seconds against Simulation truth", "comparator": "<", "limit": 1, "unit": "kg/s", "tolerance": 0.001, "evidenceClass": "simulation" },
+    { "metric": "nominal_innovation_mean_magnitude", "signal": "Mass-flow innovation", "window": "5 through 30 seconds", "comparator": "<=", "limit": 0.25, "unit": "kg/s", "tolerance": 0.001, "evidenceClass": "simulation" },
+    { "metric": "nominal_mean_normalized_innovation_squared", "signal": "Normalized innovation squared", "window": "5 through 30 seconds", "comparator": ">=", "limit": 0.4, "unit": "1", "tolerance": 0.001, "evidenceClass": "simulation" },
+    { "metric": "bias_fault_final_estimation_error", "signal": "Corrected Kalman mass-flow estimate", "window": "final 5 seconds against Simulation truth", "comparator": ">=", "limit": 0.5, "unit": "kg/s", "tolerance": 0.001, "evidenceClass": "simulation" },
+    { "metric": "invalid_covariance_fallback", "signal": "Estimator covariance valid", "window": "first scan with Q below zero", "comparator": "==", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" }
   ],
   "safety": {
     "hardLimits": [
-      {
-        "signal": "Applied belt-speed command",
-        "minimum": 0,
-        "maximum": 20,
-        "unit": "%"
-      },
-      {
-        "signal": "Simulation truth mass flow",
-        "minimum": 0,
-        "maximum": 20,
-        "unit": "kg/s"
-      },
-      {
-        "signal": "Load-cell mass-flow measurement",
-        "minimum": -10,
-        "maximum": 30,
-        "unit": "kg/s"
-      }
+      { "signal": "Applied belt-speed command", "minimum": 0, "maximum": 20, "unit": "%" },
+      { "signal": "Simulation truth mass flow", "minimum": 0, "maximum": 20, "unit": "kg/s" },
+      { "signal": "Load-cell mass-flow measurement", "minimum": -10, "maximum": 30, "unit": "kg/s" }
     ],
-    "abortPredicates": [
-      "Any required signal is nonfinite, stale, forced, invalid, missing, or bound to the wrong feeder copy.",
-      "Applied command or truth mass flow leaves 0 through 20 in its declared unit.",
-      "A valid corrected covariance becomes negative or a valid innovation variance is nonpositive.",
-      "A comparison changes model, seed, event, initial state, sample time, estimator state, or undeclared covariance.",
-      "Simulation truth or configured noise is read by the Structured Text estimator."
-    ],
+    "abortPredicates": ["Any required signal is nonfinite, stale, forced, invalid, missing, or bound to the wrong feeder copy.", "Applied command or truth mass flow leaves 0 through 20 in its declared unit.", "A valid corrected covariance becomes negative or a valid innovation variance is nonpositive.", "A comparison changes model, seed, event, initial state, sample time, estimator state, or undeclared covariance.", "Simulation truth or configured noise is read by the Structured Text estimator."],
     "safeMv": 0,
     "restorationMode": "Disable the lesson, verify applied belt command is exactly zero, then reset both equivalent Simulation copies and estimator state before the next record.",
     "physicalApprovalRole": "authorised process-controls engineer with the responsible feeder, mechanical-safety, and production owners",
-    "simulationOnlyRestrictions": [
-      "Noise-free mass-flow truth, configured variance, and bias are Simulation validation data, not installed measurements.",
-      "No physical feeder, belt drive, load cell, or material stream is operated.",
-      "Physical use requires calibrated signals, guarded mechanics, independent Q/R evidence, reviewed fallback, and explicit immediate approval."
-    ]
+    "simulationOnlyRestrictions": ["Noise-free mass-flow truth, configured variance, and bias are Simulation validation data, not installed measurements.", "No physical feeder, belt drive, load cell, or material stream is operated.", "Physical use requires calibrated signals, guarded mechanics, independent Q/R evidence, reviewed fallback, and explicit immediate approval."]
   },
-  "workflowStages": [
-    "Monitor",
-    "Test"
-  ],
+  "workflowStages": ["Monitor", "Test"],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-66--kalman-filtering-weigh-belt-estimator",
     "nativeTest": "control_curriculum_weigh_feeder_kalman_qualifies_covariance_and_innovation",
     "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_weigh_feeder_kalman control_curriculum_weigh_feeder_kalman_qualifies_covariance_and_innovation -- --exact --nocapture",
     "projectPath": "examples/control/11-state-space-estimation-and-predictive-control/66-weigh-feeder-kalman",
-    "runArtifactFields": [
-      "projectIdentity",
-      "plantIdentity",
-      "evidenceClass",
-      "sampleTime",
-      "seed",
-      "discreteModel",
-      "processNoiseVariance",
-      "measurementNoiseVariance",
-      "requestedCommand",
-      "appliedCommand",
-      "truthMassFlow",
-      "measuredMassFlow",
-      "fixedEstimate",
-      "predictedEstimate",
-      "correctedEstimate",
-      "selectedEstimate",
-      "predictedCovariance",
-      "correctedCovariance",
-      "innovation",
-      "innovationVariance",
-      "kalmanGain",
-      "normalizedInnovationSquared",
-      "validity",
-      "limits",
-      "abortState",
-      "disabledState",
-      "metrics",
-      "covarianceDecision"
-    ],
+    "runArtifactFields": ["projectIdentity", "plantIdentity", "evidenceClass", "sampleTime", "seed", "discreteModel", "processNoiseVariance", "measurementNoiseVariance", "requestedCommand", "appliedCommand", "truthMassFlow", "measuredMassFlow", "fixedEstimate", "predictedEstimate", "correctedEstimate", "selectedEstimate", "predictedCovariance", "correctedCovariance", "innovation", "innovationVariance", "kalmanGain", "normalizedInnovationSquared", "validity", "limits", "abortState", "disabledState", "metrics", "covarianceDecision"],
     "renderedJourneyId": "control-weigh-feeder-kalman"
   },
   "video": {
     "viewerOutcome": "Choose and challenge Kalman covariance assumptions from truth-error and innovation evidence on a noisy weigh feeder.",
-    "requiredVisibleEvidence": [
-      "weigh-feeder identity",
-      "requested and applied belt command",
-      "Simulation truth and noisy measurement",
-      "fixed and Kalman estimates",
-      "prediction and correction",
-      "Q and R",
-      "gain and covariance",
-      "innovation and normalized innovation squared",
-      "overtrust and distrust comparisons",
-      "bias diagnosis",
-      "invalid fallback",
-      "physical boundary"
-    ],
+    "requiredVisibleEvidence": ["weigh-feeder identity", "requested and applied belt command", "Simulation truth and noisy measurement", "fixed and Kalman estimates", "prediction and correction", "Q and R", "gain and covariance", "innovation and normalized innovation squared", "overtrust and distrust comparisons", "bias diagnosis", "invalid fallback", "physical boundary"],
     "durationClass": "extended",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
@@ -477,17 +115,9 @@
   "learning": {
     "context": "A weigh-belt feeder has a known local response and a load-cell signal corrupted by measurement noise and possible bias.",
     "reason": "The deterministic observer from Lesson 65 cannot express separate confidence in model prediction and sensor measurement.",
-    "theory": [
-      "Mean, variance and covariance describe declared uncertainty before an observation.",
-      "The Kalman prediction propagates state and covariance through the feeder model.",
-      "Innovation variance determines how much measurement surprise the gain accepts.",
-      "Innovation statistics challenge covariance and bias assumptions rather than proving truth automatically."
-    ],
+    "theory": ["Mean, variance and covariance describe declared uncertainty before an observation.", "The Kalman prediction propagates state and covariance through the feeder model.", "Innovation variance determines how much measurement surprise the gain accepts.", "Innovation statistics challenge covariance and bias assumptions rather than proving truth automatically."],
     "workedPrediction": "With P=1.9, Q=0.1 and R=3, the first predicted covariance is 1.65559, gain 0.35561, corrected covariance 1.06684, and a 5 kg/s innovation produces a 1.77807 kg/s correction.",
-    "practicalPreparation": [
-      "Verify equivalent feeder copies, Simulation-truth labels, same noisy samples, timing, seed, command, ranges, estimator state and disabled output.",
-      "Declare Q and R before each run and change only one covariance assumption at a time."
-    ],
+    "practicalPreparation": ["Verify equivalent feeder copies, Simulation-truth labels, same noisy samples, timing, seed, command, ranges, estimator state and disabled output.", "Declare Q and R before each run and change only one covariance assumption at a time."],
     "baseline": "Apply a fixed alpha=0.2 filter that has no model input, covariance, or innovation-consistency explanation.",
     "change": "Apply the exact discrete feeder prediction and nominal Q=0.1, R=3 Kalman correction to the same samples.",
     "comparison": "Compare nominal, sensor-overtrust, sensor-distrust, biased-sensor, and invalid-covariance records using truth error, two-second mean 90-percent response, movement and innovation diagnostics.",

@@ -3,6 +3,11 @@ USING Control;
 PROGRAM Main
 VAR
     ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentScan : DINT := DINT#0;
+    ExperimentElapsed : LREAL := 0.0;
     ManualMode : BOOL := FALSE;
     TemperatureQualityGood : BOOL := TRUE;
     TemperatureSetpoint : LREAL := 35.0;
@@ -92,6 +97,36 @@ END_IF;
 (* The comparison exports candidates but never mutates the confirmed revision. *)
 ControllerRevision := DINT#77;
 
+(* One reviewed authority starts the complete nominal event record. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    IF NOT ExperimentWasEnabled THEN
+        ExperimentScan := DINT#0;
+        ExperimentElapsed := LREAL#0.0;
+    END_IF;
+    ExperimentScan := ExperimentScan + DINT#1;
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    TemperatureSetpoint := LREAL#35.0;
+    ManualMode := FALSE;
+    TemperatureQualityGood := TRUE;
+    IF (ExperimentScan >= DINT#1401) AND (ExperimentScan <= DINT#1700) THEN
+        TemperatureSetpoint := LREAL#45.0;
+    END_IF;
+    IF (ExperimentScan >= DINT#1801) AND (ExperimentScan <= DINT#1850) THEN
+        ManualMode := TRUE;
+        ManualOutput := LREAL#60.0;
+    END_IF;
+    IF (ExperimentScan >= DINT#1901) AND (ExperimentScan <= DINT#1920) THEN
+        TemperatureQualityGood := FALSE;
+    END_IF;
+ELSIF ExperimentWasEnabled THEN
+    ExperimentScan := DINT#0;
+    ExperimentElapsed := LREAL#0.0;
+    TemperatureSetpoint := LREAL#35.0;
+    ManualMode := TRUE;
+    ManualOutput := LREAL#60.0;
+    TemperatureQualityGood := TRUE;
+END_IF;
+
 PInput.Setpoint := TemperatureSetpoint;
 PInput.ProcessValue := PTemperature;
 PInput.CycleTime := CycleTime;
@@ -134,6 +169,7 @@ PApplied := LIMIT(LREAL#0.0, PRequested, LREAL#100.0);
 HistoricalApplied := LIMIT(LREAL#0.0, HistoricalRequested, LREAL#100.0);
 CurrentApplied := LIMIT(LREAL#0.0, CurrentRequested, LREAL#100.0);
 CandidateApplied := LIMIT(LREAL#0.0, CandidateRequested, LREAL#100.0);
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -145,6 +181,8 @@ VAR_CONFIG
     P1.ExperimentEnabled AT %MX96.0 : BOOL;
     P1.ManualMode AT %MX96.1 : BOOL;
     P1.TemperatureQualityGood AT %MX96.2 : BOOL;
+    P1.SafetyAbort AT %MX96.3 : BOOL;
+    P1.InputsValid AT %MX96.4 : BOOL;
     P1.TemperatureSetpoint AT %ML0 : LREAL;
     P1.ManualOutput AT %ML8 : LREAL;
     P1.CycleTime AT %ML16 : LREAL;
@@ -153,6 +191,7 @@ VAR_CONFIG
     P1.HistoricalRequested AT %ML40 : LREAL;
     P1.CurrentRequested AT %ML48 : LREAL;
     P1.CandidateRequested AT %ML56 : LREAL;
+    P1.ExperimentElapsed AT %ML64 : LREAL;
     P1.PApplied AT %QL0 : LREAL;
     P1.HistoricalApplied AT %QL8 : LREAL;
     P1.CurrentApplied AT %QL16 : LREAL;

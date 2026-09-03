@@ -30,7 +30,13 @@ or stop before the dynamics become visible.
 
 The experiment must therefore be designed before data are collected.
 
-## Turn the engineering question into a bounded plan
+## What we need
+
+We need a bounded experiment plan that states the engineering question,
+authority, limits, stop conditions, excitation, evidence, and restoration
+before heat-exchanger operation changes.
+
+## The new idea
 
 The **engineering question** is the single relationship the experiment must
 reveal: how much and how quickly outlet temperature changes after a small

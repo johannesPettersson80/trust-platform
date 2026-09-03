@@ -52,13 +52,15 @@ The resulting local closed-loop matrix is:
 
 $\mathbf{A}_{cl}=\begin{bmatrix}0&1\\-3&-2\end{bmatrix}$
 
-A Lyapunov function is a positive energy-like number that is zero at equilibrium and positive elsewhere. If it continually decreases away from equilibrium, the state cannot climb out through a fixed level boundary. The symmetric matrix used here is:
+A Lyapunov function is a positive energy-like number that is zero at equilibrium and positive elsewhere. If it continually decreases away from equilibrium, the state cannot climb out through a fixed level boundary. The symmetric matrix is obtained from the continuous Lyapunov equation $A_{cl}^{T}P+PA_{cl}=-I$. Choosing $-I$ asks the linearized energy derivative to equal minus the squared state length. Solving its three independent scalar equations gives:
 
 $\mathbf{P}=\begin{bmatrix}\frac{4}{3}&\frac{1}{6}\\\frac{1}{6}&\frac{1}{3}\end{bmatrix}$
 
 Its first diagonal value is positive and its determinant is `5/12`, which is also positive. Those two facts make the matrix positive definite. The Lyapunov value ($V$) is:
 
 $V=0.5 \cdot ((4/3) \cdot \alpha^{2}+(1/3) \cdot \alpha \cdot \omega+(1/3) \cdot \omega^{2})$
+
+The mixed coefficient is $2P_{12}=1/3$ because expanding $x^TPx$ includes both symmetric off-diagonal terms. Differentiating $V=0.5x^TPx$ along the linearized closed loop gives $\dot V=0.5x^T(A_{cl}^TP+PA_{cl})x=-0.5(\alpha^2+\omega^2)$.
 
 The actual pendulum still contains the sine function. The nonlinear remainder
 ($r(\alpha)$) is the difference between that sine and its local linear
@@ -71,7 +73,7 @@ The certified sublevel set contains every state for which $V\le \rho=0.025$. Its
 
 Those limits can be checked rather than assumed. For a fixed angle error, the smallest possible Lyapunov value occurs at angular rate $\omega=-\alpha/2$. This gives $V\ge (5/8) \cdot \alpha^{2}$; setting $V=0.025$ gives $|\alpha|\le 0.2 rad$. For a fixed angular rate, the smallest value occurs at $\alpha=-\omega/8$. This gives $V\ge (5/32) \cdot \omega^{2}$ and therefore $|\omega|\le 0.4 rad/s$.
 
-The greatest magnitude of the feedback request anywhere on this ellipsoidal boundary is $\sqrt{0.96}=0.980 N m$, safely below the 2-newton-metre limit. Finally, inside the angle bound, $|\sin\left(\alpha\right)-\alpha|\le |\alpha|^{3}/6$. Applying that bound to the nonlinear remainder gives $\dot V\le -(0.5-1/450) \cdot \alpha^{2}-(0.5-1/900) \cdot \omega^{2}$, which is strictly negative for every nonzero state in the sublevel set. These calculations are the reason the boundary is certified; the trajectory plot is a separate executable check.
+The greatest linear feedback magnitude on an ellipsoid $0.5x^TPx\le\rho$ is $\sqrt{2\rho\,c^TP^{-1}c}$ for feedback row $c=[4,2]$. Here $P^{-1}=[[0.8,-0.4],[-0.4,3.2]]$, so $c^TP^{-1}c=19.2$ and the bound is $\sqrt{2(0.025)(19.2)}=\sqrt{0.96}=0.980$ newton metres, safely below the 2-newton-metre limit. Finally, inside the angle bound, $|\sin(\alpha)-\alpha|\le |\alpha|^{3}/6$. Applying that bound and the certified $|\alpha|\le0.2$, $|\omega|\le0.4$ limits gives $\dot V\le -(0.5-1/450)\alpha^{2}-(0.5-1/900)\omega^{2}$, which is strictly negative for every nonzero state in the sublevel set. These calculations certify the boundary; the trajectory plot is a separate executable check.
 
 That statement does not prove global stability. It also does not cover a different model, gains, torque limit, sample interval, stale measurement, physical rig, or state outside the sublevel set.
 
@@ -114,7 +116,7 @@ InsideCertifiedSet := LyapunovValue <= CertificateLevel;
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Evaluate the declared Lyapunov certificate over the complete inside and outside initial-state map without changing feedback. The declared event lasts 8 seconds. It restores Angle error to 0 rad afterward. The deterministic Simulation seed is 20260829.
+This procedure observes the certified +0.1-radian release under the declared feedback and certificate. The simulator owns the initial state; the project owns feedback, torque limiting, certificate evaluation, and zero-torque restoration when authority is removed. The remaining certified map, outside releases, and saturation case are separate native test records. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
@@ -126,32 +128,11 @@ This procedure tests one declared lesson change under controlled conditions. Eva
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0 rad**, and **Maximum duration (s)** = **8**. The affected signal is **Angle error**; it starts at 0.1 rad and must restore to 0 rad.
+   - **Baseline check:** Set **Experiment** = **Observe without excitation**, **Amplitude** = **0**, and **Maximum duration (s)** = **8.1**. The affected signal is **Experiment authority**. Amplitude zero is intentional: Test writes only `P1.ExperimentEnabled`; it does not write angle, rate, or torque.
    - **Decision before action:** Before selecting **Review test**, predict the response direction and confirm the requested change remains inside Applied motor torque -2 N m to 2 N m; Absolute pendulum angle 0 rad to 6.2832 rad; Pendulum angular rate -10 rad/s to 10 rad/s.
    - **Successful evidence:** Select **Review test**, verify the signal, requested bound, duration, restoration, and stop conditions, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state confirms completion and restoration while Response shows the measured SP/PV/MV sequence.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, restore Angle error to 0 rad, wait for current data, and review a new test.
-   - **Record:** Compare the response with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **Quadratic Lyapunov certificate for a declared nonlinear sublevel set** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Quadratic Lyapunov certificate for a declared nonlinear sublevel set** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **Quadratic Lyapunov certificate for a declared nonlinear sublevel set** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Quadratic Lyapunov certificate for a declared nonlinear sublevel set**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: certified_sublevel_exit_count == 0 (dimensionless) (tolerance 0 (dimensionless)); certified_positive_lyapunov_change <= 0 (dimensionless) (tolerance 1e-12 (dimensionless)); certified_final_angle_error <= 0.01 rad (tolerance 0.000001 rad); certified_final_angular_rate <= 0.02 rad/s (tolerance 0.000001 rad/s).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, remove experiment authority, verify zero applied torque, wait for current data, and review a new test.
+   - **Record:** Stop recording only after zero-torque restoration. Retain initial and maximum $V$, continuous derivative, sampled change, torque request/application, certificate state, terminal state, restoration result, and seed **20260829**. Use native evidence for the phase map and outside cases; do not claim this visible run executed them.
 
 ## Evidence and decision
 

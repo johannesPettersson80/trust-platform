@@ -1,20 +1,20 @@
 # Select the minimum sufficient controller
 
 Course position: Lesson 31 of 84. Previous lesson: [Invalid data and safe
-recovery](../booster-pump-invalid-data/README.md). Next lesson: Plant response
-classes.
+recovery](../../03-production-quality-digital-pid/30-booster-pump-invalid-data/README.md).
+Next lesson: [Plant response classes](../32-plant-response-classes/README.md).
 
 **Lesson objective:** Select and defend ON/OFF, P, PI, or PID for four different
 real loops and prove each choice on executable plants.
 
-## The problem
-
-The equipment in this lesson is Cold room, recirculating water heater, buffer tank, and loaded positioning table.
-
 **Equipment:** Cold room, recirculating water heater, buffer tank, and loaded
 positioning table.
 
-This workshop runs a cold-storage room, recirculating water heater, buffer
+## The problem
+
+Lessons 1–30 built controller mechanisms and made their implementation safe.
+Now the student must choose which mechanisms a loop actually needs. This
+workshop runs a cold-storage room, recirculating water heater, buffer
 tank, and loaded positioning table together. They do not interact. Their
 different physics and actuators let us ask the same engineering question four
 times: what mechanism is actually needed?
@@ -26,9 +26,14 @@ PID everywhere would ignore the binary compressor and add tuning parameters,
 dynamic state, and noise sensitivity where simpler control already meets the
 requirement.
 
+The correct choice is the simplest structure whose actuator and dynamic
+mechanisms satisfy every declared requirement. Eligibility comes from
+executable evidence, not from a habit of selecting PID.
+
 ## What we need
 
-We need to choose the simplest controller whose physical actuation and dynamic mechanisms can satisfy each loop's requirements. Eligibility must come from executable evidence rather than a habit of applying the most complex controller everywhere.
+We need to select controller structure from each plant's actuator, dynamics,
+disturbances, and performance requirement instead of applying PID by habit.
 
 ## The new idea
 
@@ -63,26 +68,65 @@ failed requirement. Added mechanisms must answer measured needs:
 ## Prediction
 
 The cold-storage room has a binary compressor and permits 1.5–2.5 °C. ON/OFF
-with hysteresis and five-second dwell directly matches that actuator.
+with hysteresis directly matches that actuator. With SP 2 °C and half-width
+0.5 °C, the switch thresholds are \(2-0.5=1.5^\circ\mathrm{C}\) and
+\(2+0.5=2.5^\circ\mathrm{C}\). The 100 ms task requires
+\(5/0.1=50\) scans between transitions, which protects the compressor from
+rapid cycling.
 
 The water heater is self-regulating and must return to 30 °C after a constant
-heat-loss change. Its gain is 0.2 °C per percent from a 20 °C baseline, so it
-needs **50 percent** output to hold **30 degrees** initially. PI can retain that
-output at zero error; P cannot, and derivative has no demonstrated purpose.
+heat-loss change. Before that event its equilibrium is
 
-The buffer tank integrates net flow. Its known equilibrium pump bias is 20
-percent. Plant gain is 0.2 centimetres per percent-second and proportional gain
-is 2 percent per centimetre, so the predicted closed-loop time constant is:
+\[
+T_{\mathrm{eq}}=20^\circ\mathrm{C}
++(0.2^\circ\mathrm{C}/\%)MV.
+\]
 
-$tank response time = 1 / (0.2 \cdot 2) = 2.5 seconds$
+Solving \(30=20+0.2MV\) gives \(MV=50\%\). At 60 seconds the modeled ambient
+bias falls from 20 to 17 °C, so the new balance is
+\(30=17+0.2MV\), or 65%. PI can retain either nonzero equilibrium output at
+zero error; proportional action alone cannot change output at zero error, and
+derivative has no demonstrated purpose in this slow nonoscillatory plant.
+
+The buffer tank integrates net flow. Its known equilibrium pump bias is 20%:
+
+\[
+\frac{dL}{dt}=K_t(MV-20),\qquad K_t=0.2\ \mathrm{cm/(\%\,s)}.
+\]
+
+Biased P control is \(MV=20+K_p(SP-L)\), with
+\(K_p=2\ \%/\mathrm{cm}\). Substitution cancels the known 20% outflow balance:
+
+\[
+\frac{dL}{dt}=K_tK_p(SP-L)=0.4(SP-L).
+\]
+
+For error \(e=SP-L\), \(de/dt=-0.4e\), the standard first-order form
+\(de/dt=-e/\tau\). Therefore
+
+\[
+\tau=\frac{1}{K_tK_p}=\frac{1}{0.2(2)}=2.5\ \mathrm{s}.
+\]
 
 P control is sufficient for this setpoint case. An unknown changed outflow or
 an exact regulatory requirement can justify PI; that boundary is not hidden.
 
-The positioning table must oppose a **four newton-metre** constant load. PID is
-selected because derivative provides damping while integral action gives zero
-final position error. With proportional gain 20 newton-metres per radian, PD
-would require **0.2 radian** error to create that torque.
+The positioning table does not have a constant 4 N·m load. Its gravity torque
+is \(4\sin(\theta)\) N·m, where 4 N·m is the peak coefficient. PID is selected
+because derivative supplies damping and integral action can supply the
+position-dependent equilibrium torque at zero final error.
+
+With the implemented \(K_p=8\ \mathrm{N\,m/rad}\), PD equilibrium at
+\(SP=1\) rad must satisfy
+
+\[
+8(1-\theta)=4\sin(\theta).
+\]
+
+This nonlinear equation has \(\theta\approx0.6840\) rad, so the predicted
+offset is \(1-0.6840\approx0.3160\) rad. PID can instead hold
+\(\theta=1\) rad with integral torque \(4\sin(1)\approx3.366\) N·m while
+derivative continues to damp motion.
 
 ## Implementation
 
@@ -106,30 +150,36 @@ The shipped code also enforces the five-second dwell condition.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Run ON/OFF, PI, biased P, and PID on the four executable plants under their declared events, then change one worksheet requirement at a time without silently changing the plant. The declared event lasts 120 seconds. It restores Cold-room temperature to 4 degC afterward. The deterministic Simulation seed is 20260829.
+Test writes one reviewed Boolean authority,
+\(\mathtt{P1.ExperimentEnabled}\), for 120.1 seconds. The project owns all four
+selected controllers and their setpoints: cold room ON/OFF at 2 °C, heater PI
+at 30 °C, tank biased P at 60 cm, and table PID at 1 rad. The simulator owns
+the declared heater-bias change at 60 seconds. Returning authority false puts
+the continuous loops in Manual safe outputs, turns the compressor off, and
+restores the initial setpoints.
+
+Fresh native runs own the candidate rejection matrix and retained four-plant
+comparison. The UI run demonstrates the selected structures; it is not an
+automatic selector. The deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
-   - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Cold-room temperature setpoint (SP, degC) and Heater temperature setpoint (SP, degC); Cold-room temperature (PV, degC) and Heater temperature (PV, degC); Compressor command (MV, %) and Heater power (MV, %), including units, limits, mode, and quality. The initial operating point is Cold-room temperature = 4 degC, Compressor command = 0 %, Heater temperature = 20 degC, Heater power = 0 %, Tank level = 50 cm, Tank inlet-pump command = 20 %, Table position = 0 rad, Table motor torque = 4 N m. The unresolved baseline problem is: PID cannot be realized by the binary compressor and adds unjustified dynamic state or noise sensitivity to loops whose requirements are met by simpler structures.
-   - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Require every candidate to pass all declared requirements, then choose the eligible structure with the fewest justified dynamic mechanisms.
-   - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
-   - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
-   - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
+   - **Baseline check:** Wait for **Simulation**, **Running**, current samples, and good quality. Confirm cold room 4 °C/compressor off, heater 20 °C/power 0%, tank 50 cm/pump 20%, table 0 rad/torque 0 N·m, continuous loops Manual, and experiment authority false. Add every SP/PV/MV triple, structure code, mode, limits, and authority to **Signals**.
+   - **Decision before action:** Write one requirement that rejects PID or justifies the selected structure for each loop. Record the numerical predictions: cold thresholds and dwell, heater 50→65%, tank 2.5 s, and table PD offset 0.316 rad.
+   - **Successful evidence:** The plot advances, values are finite/current, quality is good, and **Start recording** is enabled. Select **Start recording**.
+   - **Recovery:** For stale, unavailable, nonfinite, or poor-quality data, stop the Simulator, correct the displayed fault, restart, and repeat the baseline check.
+   - **Record:** Note all four initial states, selected codes, safety limits, and predictions.
 
-2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120**. The observed lesson signal is **Cold-room temperature**. Control Studio observes the project's existing timed sequence and does not write a second process event.
-   - **Decision before action:** Before selecting **Review test**, predict the response to Heater ambient-equivalent bias changes from 20 to 17 degC at 60 s. Confirm the live values are current and the reviewed plan stays inside Cold-room temperature -10 degC to 20 degC; Compressor command 0 % to 100 %; Heater temperature 0 degC to 60 degC; Heater power 0 % to 100 %; Tank level 0 cm to 100 cm; Tank inlet-pump command 0 % to 100 %.
-   - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
-   - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
-   - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
+2. **Test** — Open **truST sidebar → Control Studio → Test**.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **120.1**. The reviewed authority is \(\mathtt{P1.ExperimentEnabled}\); the project owns the four setpoint and mode changes.
+   - **Decision before action:** Confirm the plan writes only that Boolean and restores it false. Check every physical range and require compressor output exactly 0 or 100% with at least five seconds between changes.
+   - **Successful evidence:** Select **Review test**, verify authority, timeout, all stop conditions, and false restoration, then **Confirm and start**. Keep **Abort test** available. Observe protected cold-room cycling, heater rejection of the 60-second loss event, tank convergence, table damping/tracking, and safe restoration.
+   - **Recovery:** Abort for any nonfinite/out-of-limit signal, compressor dwell violation, unexpected mode, or structure code change. Confirm authority false and all four safe outputs before retrying.
+   - **Record:** Retain terminal state, restoration, all SP/PV/MV traces, structure codes, compressor transitions, heater event, limits, final-window measures, and seed.
 
-3. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: cold_room_lower_band_tolerance >= 1.35 degC (tolerance 0.01 degC); cold_room_upper_band_tolerance <= 2.65 degC (tolerance 0.01 degC); heater_final_window_error <= 0.1 degC (tolerance 0.01 degC); tank_final_window_error <= 0.05 cm (tolerance 0.01 cm).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+There is no separate disabled Validate stage. The native evidence owns the
+candidate matrix; Monitor and Test expose the four selected structures.
 
 ## Evidence and decision
 

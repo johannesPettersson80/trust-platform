@@ -51,7 +51,18 @@
     "settings": { "gain": 50, "zeroPerSecond": 2.5, "polePerSecond": 15, "setpointMillimetres": 1 },
     "decision": "Accept only when complete-transfer-function poles and executable response meet overshoot, settling, final-error, and current constraints."
   },
-  "experiment": { "kind": "observation", "signal": "Lead carriage setpoint", "baseline": 0, "amplitude": 0, "durationSeconds": 8.1, "settlingSeconds": 0, "disturbances": [], "seed": 20260829, "restorationValue": 0, "activationSignal": "P1.ExperimentEnabled" },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 8.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
   "acceptance": [
     { "metric": "lead_percent_overshoot", "signal": "Lead carriage position", "window": "0 through 8 s after the one-millimetre step", "comparator": "<", "limit": 5, "unit": "%", "tolerance": 0.1, "evidenceClass": "simulation" },
     { "metric": "lead_two_percent_settling_time", "signal": "Lead carriage position", "window": "first permanent entry into 0.98 through 1.02 mm", "comparator": "<=", "limit": 2, "unit": "s", "tolerance": 0.01, "evidenceClass": "simulation" },
@@ -79,7 +90,15 @@
     "runArtifactFields": ["plantIdentity", "openLoopPoles", "openLoopZeros", "rootLocus", "controller", "closedLoopPolynomial", "closedLoopPoles", "samples", "requestedCurrent", "appliedCurrent", "overshoot", "settlingState", "settlingTime", "finalWindowError", "currentTravel", "limitContact", "stopReason", "seed", "evidenceClass"],
     "renderedJourneyId": "control-servo-root-locus"
   },
-  "video": { "viewerOutcome": "Explain why gain alone fails and design and validate a lead compensator from the complete root-locus response.", "requiredVisibleEvidence": ["servo model", "requirements", "uncompensated locus", "damping region", "lead pole and zero", "calculated roots", "equivalent responses", "requested and applied current", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Explain why gain alone fails and design and validate a lead compensator from the complete root-locus response.",
+    "requiredVisibleEvidence": ["servo model", "requirements", "uncompensated locus", "damping region", "lead pole and zero", "calculated roots", "equivalent responses", "requested and applied current", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "Equivalent simulated positioning servos compare proportional gain with one calculated lead compensator.",
     "reason": "Routh proves stability but does not reveal pole motion or whether a stable gain meets damping and speed requirements.",

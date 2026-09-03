@@ -32,16 +32,7 @@
     "sampleTimeSeconds": 0.1,
     "initialState": { "waterTemperatureDegC": 20, "heaterPowerPercent": 20 },
     "seed": 20260829,
-    "operatingPoint": {
-      "Experiment enable": 0,
-      "Water-temperature setpoint": 20,
-      "Current requested heater power": 20,
-      "Candidate requested heater power": 20,
-      "Current applied heater power": 20,
-      "Candidate applied heater power": 20,
-      "Current water temperature": 20,
-      "Candidate water temperature": 20
-    },
+    "operatingPoint": { "Experiment authority": 0, "Water-temperature setpoint": 20, "Current requested heater power": 20, "Candidate requested heater power": 20, "Current applied heater power": 20, "Candidate applied heater power": 20, "Current water temperature": 20, "Candidate water temperature": 20 },
     "validityRange": [
       { "signal": "Water-temperature setpoint", "minimum": 15, "maximum": 35, "unit": "degC" },
       { "signal": "Current water temperature", "minimum": 0, "maximum": 60, "unit": "degC" },
@@ -49,13 +40,7 @@
       { "signal": "Current applied heater power", "minimum": 0, "maximum": 100, "unit": "%" },
       { "signal": "Candidate applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }
     ],
-    "simplifications": [
-      "The saved simulated FOPDT configuration is exact model evidence",
-      "The candidate drives an independent copy and does not replace the running controller",
-      "Equivalent deterministic sensor interference and load events",
-      "Local linear operating region and one-sided ideal heater inside declared limits",
-      "Simulation-only I/O"
-    ]
+    "simplifications": ["The saved simulated FOPDT configuration is exact model evidence", "The candidate drives an independent copy and does not replace the running controller", "Equivalent deterministic sensor interference and load events", "Local linear operating region and one-sided ideal heater inside declared limits", "Simulation-only I/O"]
   },
   "baseline": {
     "executableId": "WaterHeater.ConfirmedRobustPI",
@@ -64,7 +49,13 @@
   },
   "change": {
     "executableId": "ControlStudio.AutomaticTuneBalancedSimulation",
-    "settings": { "stages": ["Test", "Identify", "Tune", "Validate"], "objective": "Balanced", "exactModelReuse": true, "excitationCount": 0, "resultAuthority": "export-only" },
+    "settings": {
+      "stages": ["Test", "Identify", "Tune", "Validate"],
+      "objective": "Balanced",
+      "exactModelReuse": true,
+      "excitationCount": 0,
+      "resultAuthority": "export-only"
+    },
     "decision": "Accept the workflow only when every stage and failure remains inspectable, the recommendation is validated, and the running controller revision remains unchanged.",
     "applied": false
   },
@@ -84,18 +75,58 @@
     "result": "unapplied candidate"
   },
   "failureScenarios": [
-    { "name": "missing selected plant", "failedStage": "Test", "completedStages": [], "recovery": "save the selected simulated plant configuration" },
-    { "name": "invalid or unsupported saved model", "failedStage": "Identify", "completedStages": ["Test"], "recovery": "correct parameters or collect and identify supported data" },
-    { "name": "unsafe requested excitation", "failedStage": "Test", "completedStages": [], "recovery": "review signal, bound, duration, topology, stops, and restoration" },
-    { "name": "poor or insufficient observed data", "failedStage": "Identify", "completedStages": ["Test"], "recovery": "design a more informative bounded experiment" },
-    { "name": "no applicable tuning method", "failedStage": "Tune", "completedStages": ["Test", "Identify"], "recovery": "review model domain and controller design route" },
-    { "name": "no acceptable controller", "failedStage": "Validate", "completedStages": ["Test", "Identify", "Tune"], "recovery": "review failed requirements without weakening them" },
-    { "name": "user or automatic abort", "failedStage": "Test", "completedStages": [], "recovery": "prove restoration before another plan" },
-    { "name": "restoration failure", "failedStage": "Test", "completedStages": [], "recovery": "remain stopped and require explicit operator recovery" }
+    {
+      "name": "missing selected plant",
+      "failedStage": "Test",
+      "completedStages": [],
+      "recovery": "save the selected simulated plant configuration"
+    },
+    {
+      "name": "invalid or unsupported saved model",
+      "failedStage": "Identify",
+      "completedStages": ["Test"],
+      "recovery": "correct parameters or collect and identify supported data"
+    },
+    {
+      "name": "unsafe requested excitation",
+      "failedStage": "Test",
+      "completedStages": [],
+      "recovery": "review signal, bound, duration, topology, stops, and restoration"
+    },
+    {
+      "name": "poor or insufficient observed data",
+      "failedStage": "Identify",
+      "completedStages": ["Test"],
+      "recovery": "design a more informative bounded experiment"
+    },
+    {
+      "name": "no applicable tuning method",
+      "failedStage": "Tune",
+      "completedStages": ["Test", "Identify"],
+      "recovery": "review model domain and controller design route"
+    },
+    {
+      "name": "no acceptable controller",
+      "failedStage": "Validate",
+      "completedStages": ["Test", "Identify", "Tune"],
+      "recovery": "review failed requirements without weakening them"
+    },
+    {
+      "name": "user or automatic abort",
+      "failedStage": "Test",
+      "completedStages": [],
+      "recovery": "prove restoration before another plan"
+    },
+    {
+      "name": "restoration failure",
+      "failedStage": "Test",
+      "completedStages": [],
+      "recovery": "remain stopped and require explicit operator recovery"
+    }
   ],
   "experiment": {
     "kind": "observation",
-    "signal": "Water-temperature setpoint",
+    "signal": "Experiment authority",
     "baseline": 20,
     "amplitude": 0,
     "durationSeconds": 220.1,
@@ -110,7 +141,7 @@
     { "metric": "candidate_final_mean_absolute_error", "signal": "Candidate water temperature", "window": "210 through 220 s after settling qualification", "comparator": "<=", "limit": 0.25, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
     { "metric": "candidate_iae_improvement", "signal": "Candidate water temperature", "window": "10 through 220 s candidate IAE minus current IAE", "comparator": "<", "limit": 0, "unit": "degC*s", "tolerance": 0.01, "evidenceClass": "simulation" },
     { "metric": "candidate_movement_cost", "signal": "Candidate applied heater power", "window": "10 through 220 s candidate total variation minus current total variation", "comparator": ">", "limit": 0, "unit": "pp", "tolerance": 0.01, "evidenceClass": "simulation" },
-    { "metric": "active_controller_revision_changes", "signal": "Experiment enable", "window": "complete success and failure journeys", "comparator": "==", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" }
+    { "metric": "active_controller_revision_changes", "signal": "Experiment authority", "window": "complete success and failure journeys", "comparator": "==", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" }
   ],
   "safety": {
     "hardLimits": [
@@ -119,20 +150,11 @@
       { "signal": "Current water temperature", "minimum": 0, "maximum": 60, "unit": "degC" },
       { "signal": "Candidate water temperature", "minimum": 0, "maximum": 60, "unit": "degC" }
     ],
-    "abortPredicates": [
-      "Any required identity, revision, unit, quality, freshness, model parameter, sample, limit, event, seed, requirement, or restoration state is missing or inconsistent",
-      "Any process value or applied output leaves its hard limit",
-      "Any unplanned, enlarged, repeated, stale, or physical action is requested",
-      "The active controller revision changes before a separate authorised Apply review"
-    ],
+    "abortPredicates": ["Any required identity, revision, unit, quality, freshness, model parameter, sample, limit, event, seed, requirement, or restoration state is missing or inconsistent", "Any process value or applied output leaves its hard limit", "Any unplanned, enlarged, repeated, stale, or physical action is requested", "The active controller revision changes before a separate authorised Apply review"],
     "safeMv": 20,
     "restorationMode": "Stop the bounded experiment, restore the reviewed 20-degC setpoint and 20-percent heater command, and verify observed mode, output, temperature, and restoration state before another plan.",
     "physicalApprovalRole": "authorised process controls engineer and responsible water-heater operator",
-    "simulationOnlyRestrictions": [
-      "No physical excitation, application, or rollback is performed",
-      "Exact Simulation configuration evidence cannot be promoted to recorded or physical evidence",
-      "Physical actions require independent topology and hazard review plus explicit immediate approval for each exact action"
-    ]
+    "simulationOnlyRestrictions": ["No physical excitation, application, or rollback is performed", "Exact Simulation configuration evidence cannot be promoted to recorded or physical evidence", "Physical actions require independent topology and hazard review plus explicit immediate approval for each exact action"]
   },
   "workflowStages": ["Monitor", "Test"],
   "proof": {

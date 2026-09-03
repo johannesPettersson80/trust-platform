@@ -46,14 +46,19 @@
   },
   "change": {
     "executableId": "Control.PID.ProportionalSetpointWeightComparison",
-    "settings": { "candidateWeights": [1, 0.5, 0], "proportionalGain": 8, "integralGain": 2, "trueErrorIntegral": true },
+    "settings": {
+      "candidateWeights": [1, 0.5, 0],
+      "proportionalGain": 8,
+      "integralGain": 2,
+      "trueErrorIntegral": true
+    },
     "decision": "Change only proportional setpoint weight, restart after each initialization-only setting change, retain true-error integral action, and repeat both objective tests from fresh identical initial states."
   },
   "experiment": {
-    "kind": "setpoint_step",
-    "signal": "Reactor-temperature setpoint",
-    "baseline": 80,
-    "amplitude": 5,
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
     "durationSeconds": 56.5,
     "servoDurationSeconds": 55,
     "regulatoryDurationSeconds": 120,
@@ -63,7 +68,7 @@
     "freshRunPerWeightAndObjective": true,
     "disturbances": ["Each fixed-80 degC regulatory run applies the same cold-feed-equivalent event at 60.0 s"],
     "seed": 20260827,
-    "restorationValue": 80,
+    "restorationValue": 0,
     "restoration": { "servoManualRequestTimeSeconds": 55.1, "regulatoryManualRequestTimeSeconds": 120.1, "manualOutputPercent": 0, "retainUntilAppliedOutputPercent": 0 }
   },
   "acceptance": [
@@ -71,11 +76,15 @@
     { "metric": "regulatory_excitation", "signal": "Reactor product temperature", "window": "60.1 through 120.0 s", "comparator": ">=", "limit": 1, "unit": "degC", "tolerance": 0.01, "useUnroundedValue": true, "evidenceClass": "simulation" },
     { "metric": "regulatory_recovery", "signal": "Reactor product temperature", "window": "after 60.0 s through 120.0 s", "comparator": "<=", "limit": 40, "unit": "s", "tolerance": 0.1, "settlingBandDegC": 0.5, "settlingBandToleranceDegC": 0.01, "evidenceClass": "simulation" },
     { "metric": "regulatory_final_window_absolute_error", "signal": "Reactor product temperature", "window": "mean from 110.1 through 120.0 s after qualified recovery", "comparator": "<=", "limit": 0.5, "unit": "degC", "tolerance": 0.001, "useUnroundedValue": true, "evidenceClass": "simulation" },
-    { "metric": "maximum_aligned_regulatory_pv_delta", "signal": "Reactor product temperature", "window": "60.0 through 120.0 s", "comparator": "<=", "limit": 0, "unit": "degC", "tolerance": 0.0000000001, "evidenceClass": "simulation" },
-    { "metric": "maximum_aligned_regulatory_mv_delta", "signal": "Jacket heating-valve demand", "window": "60.0 through 120.0 s", "comparator": "<=", "limit": 0, "unit": "pp", "tolerance": 0.0000000001, "evidenceClass": "simulation" }
+    { "metric": "maximum_aligned_regulatory_pv_delta", "signal": "Reactor product temperature", "window": "60.0 through 120.0 s", "comparator": "<=", "limit": 0, "unit": "degC", "tolerance": 1e-10, "evidenceClass": "simulation" },
+    { "metric": "maximum_aligned_regulatory_mv_delta", "signal": "Jacket heating-valve demand", "window": "60.0 through 120.0 s", "comparator": "<=", "limit": 0, "unit": "pp", "tolerance": 1e-10, "evidenceClass": "simulation" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Reactor product temperature", "minimum": 60, "maximum": 100, "unit": "degC" }, { "signal": "Jacket heating-valve demand", "minimum": 0, "maximum": 100, "unit": "%" }, { "signal": "Proportional setpoint weight", "minimum": 0, "maximum": 1, "unit": "1" }],
+    "hardLimits": [
+      { "signal": "Reactor product temperature", "minimum": 60, "maximum": 100, "unit": "degC" },
+      { "signal": "Jacket heating-valve demand", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Proportional setpoint weight", "minimum": 0, "maximum": 1, "unit": "1" }
+    ],
     "abortPredicates": ["SP, PV, MV or b is nonfinite", "PV or MV leaves its hard limit", "b leaves 0 through 1", "Gains, true-error integral behavior, plant, initial state, limits, timing or seed differ between runs"],
     "safeMv": 0,
     "restorationMode": "At 55.1 s for servo or 120.1 s for regulatory, select Manual with a distinct zero-percent request and retain every rate-constrained update until the applied valve reaches zero",

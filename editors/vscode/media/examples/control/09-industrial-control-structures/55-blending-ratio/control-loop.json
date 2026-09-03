@@ -42,7 +42,7 @@
       "symbol": "P1.FeedbackAdditiveRequest",
       "address": "%QL48",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "L/min",
       "range": {
         "minimum": 0,
@@ -85,7 +85,7 @@
         "symbol": "P1.ActualWildFlow",
         "address": "%ML128",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "L/min",
         "range": {
           "minimum": 0,
@@ -161,6 +161,20 @@
           "minimum": 0,
           "maximum": 60
         }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX160.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     ]
   },
@@ -173,10 +187,16 @@
   },
   "plantId": "two_equivalent_local_blending_skids",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "load_step",
-    "amplitude": 20,
-    "durationSeconds": 90,
-    "seed": 20260829
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 90.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX160.1",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

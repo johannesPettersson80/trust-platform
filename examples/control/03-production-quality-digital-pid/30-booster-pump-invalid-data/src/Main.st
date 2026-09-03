@@ -318,7 +318,7 @@ VAR_CONFIG
     P1.CandidateOutputMinimum AT %ML40 : LREAL;
     P1.CandidateOutputMaximum AT %ML48 : LREAL;
     P1.CandidateProportionalGain AT %ML56 : LREAL;
-    P1.CandidateIntegralGain AT %ML64 : LREAL;
+    P1.CandidateIntegralGain AT %ML80 : LREAL;
     P1.CandidateTrackingTime AT %ML72 : LREAL;
     P1.ValveCommand AT %QL0 : LREAL;
     P1.ProcessValue AT %IL0 : LREAL;

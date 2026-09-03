@@ -40,7 +40,7 @@
       "symbol": "P1.NaiveRequested",
       "address": "%ML152",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "%",
       "range": {
         "minimum": 0,
@@ -195,7 +195,7 @@
         "symbol": "P1.NaiveApplied",
         "address": "%QL0",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -209,7 +209,7 @@
         "symbol": "P1.ProtectedRequested",
         "address": "%ML160",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
@@ -223,11 +223,25 @@
         "symbol": "P1.ProtectedApplied",
         "address": "%QL8",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "%",
         "range": {
           "minimum": 0,
           "maximum": 100
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX82.5",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
         }
       },
       {
@@ -269,10 +283,16 @@
   },
   "plantId": "multirate_redundant_pumping_station",
   "experiment": {
-    "execution": "control-studio",
+    "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
-    "durationSeconds": 28,
-    "seed": 20260829
+    "durationSeconds": 28.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX82.5",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

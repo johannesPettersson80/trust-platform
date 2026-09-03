@@ -13,7 +13,7 @@ evidence and shall not be reproduced on a running pump for training.
 
 **Equipment:** Variable-speed booster pump with recirculation valve.
 
-## Where this lesson begins
+## The problem
 
 Lesson 29 guaranteed coherent ordering when all inputs were valid. Coherence
 does not make a value trustworthy. The booster pump depends on pressure, valve feedback, sensor quality, timing,
@@ -28,7 +28,12 @@ One bad scan must be rejected before it changes retained PID state. Recovery
 then needs a known safe output, operator acknowledgement, qualified current
 data, state reinitialization, and separately renewed authority.
 
-## Building the validity guard
+## What we need
+
+We need invalid measurements or parameters to block controller execution, hold
+a defined safe output, and require an explicit qualified recovery sequence.
+
+## The new idea
 
 The **valid numeric domain** contains finite numbers that arithmetic can use.
 The **physical plausibility range** contains values the equipment can actually
@@ -81,7 +86,7 @@ consecutive valid scans after the acknowledgement scan, explicit reset, state
 initialization, and a separate renewed Auto request on a later scan. The
 acknowledgement scan clears no fault and leaves the recovery count at zero.
 
-## Deriving the recovery sequence
+## Prediction
 
 Begin at 6 bar and 40 percent with active revision 0. Apply a candidate with an
 80 percent output minimum and a 20 percent output maximum.

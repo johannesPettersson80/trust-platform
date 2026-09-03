@@ -1,6 +1,8 @@
 PROGRAM Main
 VAR
     ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     StableGain : LREAL := 4.0;
     MarginalGain : LREAL := 6.0;
     UnstableGain : LREAL := 8.0;
@@ -21,7 +23,17 @@ VAR
     UnstableAborted : BOOL := FALSE;
 END_VAR
 
-IF NOT ExperimentEnabled THEN
+(* Global validity rejects corrupt measurements. Each comparison path owns its
+   own two-metre motion abort below, so the deliberately unstable copy cannot
+   erase the stable and marginal evidence. *)
+InputsValid := (StablePosition = StablePosition)
+    AND (MarginalPosition = MarginalPosition)
+    AND (UnstablePosition = UnstablePosition)
+    AND ABS(StablePosition) < LREAL#1000000.0
+    AND ABS(MarginalPosition) < LREAL#1000000.0
+    AND ABS(UnstablePosition) < LREAL#1000000.0;
+
+IF NOT ExperimentEnabled OR SafetyAbort OR NOT InputsValid THEN
     StableRequested := LREAL#0.0;
     MarginalRequested := LREAL#0.0;
     UnstableRequested := LREAL#0.0;
@@ -64,6 +76,8 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.ExperimentEnabled AT %MX96.0 : BOOL;
+    P1.SafetyAbort AT %MX96.1 : BOOL;
+    P1.InputsValid AT %MX96.2 : BOOL;
     P1.StableRequested AT %ML0 : LREAL;
     P1.MarginalRequested AT %ML8 : LREAL;
     P1.UnstableRequested AT %ML16 : LREAL;

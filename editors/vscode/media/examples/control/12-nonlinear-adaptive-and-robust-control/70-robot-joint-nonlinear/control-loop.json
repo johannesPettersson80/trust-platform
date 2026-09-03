@@ -12,7 +12,7 @@
     "revision": "sha256:curriculum-controller-70",
     "action": "direct",
     "taskPeriodMs": 20,
-    "modeSignal": "%MX4.0",
+    "modeSignal": "%MX4.4",
     "modeWhenTrue": "Auto"
   },
   "signals": {
@@ -42,7 +42,7 @@
       "symbol": "P1.TorqueRequested",
       "address": "%ML72",
       "iecType": "LREAL",
-      "direction": "write",
+      "direction": "read",
       "unit": "N m",
       "range": {
         "minimum": -100,
@@ -50,6 +50,20 @@
       }
     },
     "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX4.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "requested-architecture",
         "channel": "requested-architecture",
@@ -267,7 +281,7 @@
         "symbol": "P1.TorqueApplied",
         "address": "%QL0",
         "iecType": "LREAL",
-        "direction": "write",
+        "direction": "read",
         "unit": "N m",
         "range": {
           "minimum": -30,
@@ -299,10 +313,16 @@
   },
   "plantId": "gravity_loaded_industrial_robot_joint",
   "experiment": {
-    "execution": "control-studio",
-    "kind": "setpoint_step",
-    "amplitude": 1.2,
-    "durationSeconds": 31,
-    "seed": 20260829
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 31.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX4.4",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

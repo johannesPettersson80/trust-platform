@@ -12,6 +12,8 @@ VAR
     CandidateInput : Control.PIDInput;
     Initialized : BOOL := FALSE;
     ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
     TemperatureSetpoint : LREAL := 20.0;
     CurrentRequested : LREAL := 20.0;
     CandidateRequested : LREAL := 20.0;
@@ -58,7 +60,7 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
-IF ExperimentEnabled THEN
+IF ExperimentEnabled AND (NOT SafetyAbort) AND InputsValid THEN
     TemperatureSetpoint := LREAL#25.0;
 ELSE
     TemperatureSetpoint := LREAL#20.0;
@@ -86,6 +88,8 @@ RESOURCE Res ON PLC
 END_RESOURCE
 VAR_CONFIG
     P1.ExperimentEnabled AT %MX96.0 : BOOL;
+    P1.SafetyAbort AT %MX96.1 : BOOL;
+    P1.InputsValid AT %MX96.2 : BOOL;
     P1.TemperatureSetpoint AT %ML0 : LREAL;
     P1.CurrentRequested AT %ML128 : LREAL;
     P1.CandidateRequested AT %ML136 : LREAL;

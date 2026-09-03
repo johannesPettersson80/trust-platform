@@ -11,7 +11,7 @@
   "prerequisites": ["control-safe-heat-exchanger-experiment"],
   "nextLesson": "control-dryer-model-selection",
   "signals": [
-    { "role": "state", "name": "Experiment authority", "unit": "bool", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX4.5" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX4.5" },
     { "role": "state", "name": "Plant selection", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MW0" },
     { "role": "state", "name": "Method selection", "unit": "1", "minimum": 1, "maximum": 6, "resolution": 1, "binding": "%MW2" },
     { "role": "PV", "name": "Heater temperature", "unit": "degC", "minimum": 20, "maximum": 30, "resolution": 0.01, "binding": "%IL0" },
@@ -47,9 +47,32 @@
     ],
     "simplifications": ["Independent local linear heater and flexible-drive models", "Fixed deterministic measurement-noise levels", "No heater cooling actuator, thermal load change, servo friction, backlash, saturation dynamics, or structural nonlinearity", "Simulation-only I/O"]
   },
-  "baseline": { "executableId": "Excitation.OneStepForEveryPlant", "settings": { "heaterBaselinePercent": 20, "servoBaselineNewtonMetres": 0 }, "limitation": "One sustained low-frequency input does not expose every time scale or resonant mode efficiently." },
-  "change": { "executableId": "Excitation.PlantMatchedWaveform", "settings": { "methods": ["step", "pulse", "doublet", "relay-rejected", "prbs", "chirp"], "heaterPrbsDwellSeconds": 2.5, "servoPrbsDwellSeconds": 0.3, "chirpBandHz": [0.2, 2] }, "decision": "Choose waveform, amplitude, duration, dwell, and frequency band from the plant dynamics and intended model parameters." },
-  "experiment": { "kind": "observation", "signal": "Experiment authority", "baseline": 0, "amplitude": 0, "durationSeconds": 30.1, "settlingSeconds": 5, "disturbances": ["Deterministic measurement noise"], "seed": 20260829, "restorationValue": 0 },
+  "baseline": {
+    "executableId": "Excitation.OneStepForEveryPlant",
+    "settings": { "heaterBaselinePercent": 20, "servoBaselineNewtonMetres": 0 },
+    "limitation": "One sustained low-frequency input does not expose every time scale or resonant mode efficiently."
+  },
+  "change": {
+    "executableId": "Excitation.PlantMatchedWaveform",
+    "settings": {
+      "methods": ["step", "pulse", "doublet", "relay-rejected", "prbs", "chirp"],
+      "heaterPrbsDwellSeconds": 2.5,
+      "servoPrbsDwellSeconds": 0.3,
+      "chirpBandHz": [0.2, 2]
+    },
+    "decision": "Choose waveform, amplitude, duration, dwell, and frequency band from the plant dynamics and intended model parameters."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 30.1,
+    "settlingSeconds": 5,
+    "disturbances": ["Deterministic measurement noise"],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
   "acceptance": [
     { "metric": "heater_step_output_span", "signal": "Heater temperature", "window": "complete 30 s step run", "comparator": ">=", "limit": 0.9, "unit": "degC", "tolerance": 0.02, "evidenceClass": "simulation" },
     { "metric": "heater_chirp_output_span", "signal": "Heater temperature", "window": "complete 30 s chirp run", "comparator": "<=", "limit": 0.6, "unit": "degC", "tolerance": 0.02, "evidenceClass": "simulation" },
@@ -58,7 +81,11 @@
     { "metric": "servo_position_limit", "signal": "Servo shaft position", "window": "all qualified excitation samples", "comparator": "<=", "limit": 0.35, "unit": "rad", "tolerance": 0.001, "evidenceClass": "simulation" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Heater applied command", "minimum": 0, "maximum": 100, "unit": "%" }, { "signal": "Servo applied torque", "minimum": -0.2, "maximum": 0.2, "unit": "N m" }, { "signal": "Servo shaft position", "minimum": -0.35, "maximum": 0.35, "unit": "rad" }],
+    "hardLimits": [
+      { "signal": "Heater applied command", "minimum": 0, "maximum": 100, "unit": "%" },
+      { "signal": "Servo applied torque", "minimum": -0.2, "maximum": 0.2, "unit": "N m" },
+      { "signal": "Servo shaft position", "minimum": -0.35, "maximum": 0.35, "unit": "rad" }
+    ],
     "abortPredicates": ["Any required value is nonfinite", "Measurement quality is invalid", "Applied input or plant output leaves its declared bound", "The selected waveform differs from the reviewed timing", "An undeclared disturbance becomes active"],
     "safeMv": 0,
     "restorationMode": "Restore heater command to 20 percent and servo torque to zero",
@@ -74,7 +101,15 @@
     "runArtifactFields": ["time", "plant", "method", "requestedInput", "appliedInput", "output", "frequency", "noise", "limits", "qualification", "reasonCode", "seed", "evidenceClass"],
     "renderedJourneyId": "control-excitation-methods"
   },
-  "video": { "viewerOutcome": "Choose and validate step, pulse, doublet, PRBS, or chirp excitation from plant dynamics rather than waveform popularity.", "requiredVisibleEvidence": ["method-shape table", "heater step and chirp traces", "heater and servo PRBS dwell", "servo doublet area", "servo chirp peak", "relay rejection", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "video": {
+    "viewerOutcome": "Choose and validate step, pulse, doublet, PRBS, or chirp excitation from plant dynamics rather than waveform popularity.",
+    "requiredVisibleEvidence": ["method-shape table", "heater step and chirp traces", "heater and servo PRBS dwell", "servo doublet area", "servo chirp peak", "relay rejection", "Simulation label"],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
   "learning": {
     "context": "A one-sided slow water heater and a bidirectional resonant servo need different bounded test inputs.",
     "reason": "The safe step from Lesson 37 is strong at low frequency but does not efficiently expose every relevant dynamic.",

@@ -14,7 +14,7 @@ This simulation does not qualify physical timing, drive latency, or an encoder.
 
 **Equipment:** Encoder-controlled industrial positioning table.
 
-## Where this lesson begins
+## The problem
 
 Lesson 24 separated intentional command shaping from drive and mechanical
 effects. This lesson looks inside the controller itself. A continuous PID law
@@ -30,7 +30,13 @@ derivative filter. Only realization, interval, resolution, and delay change.
 The task is to derive the actual recurrences, then qualify the method and
 interval from timing, tracking, held output, quantization, aliasing, and delay.
 
-## From continuous time to samples
+## What we need
+
+We need a sampled controller whose update interval, held output, coefficient
+calculation, and aliasing limit are explicit rather than hidden by continuous-
+time notation.
+
+## The new idea
 
 A **continuous signal** exists at every modelled instant. A **sampled signal**
 contains values only at controller updates.

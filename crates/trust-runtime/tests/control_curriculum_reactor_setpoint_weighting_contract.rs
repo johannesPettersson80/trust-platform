@@ -621,7 +621,9 @@ fn lesson_12_project_executes_the_selected_weight_servo_sequence() {
 
     write_bool(&mut runtime, "%IX96.0", false);
     for _ in 0..14 {
-        runtime.execute_cycle().expect("complete project restoration");
+        runtime
+            .execute_cycle()
+            .expect("complete project restoration");
     }
     assert_eq!(read_lreal(&runtime, "%QL0"), 0.0);
 }

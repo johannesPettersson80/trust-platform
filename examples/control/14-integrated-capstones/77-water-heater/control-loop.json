@@ -11,8 +11,7 @@
     "design": "project",
     "revision": "sha256:curriculum-controller-77",
     "action": "direct",
-    "taskPeriodMs": 100,
-    "modeSignal": {"symbol":"P1.ExperimentEnabled","address":"%MX96.0","iecType":"BOOL","direction":"write"}
+    "taskPeriodMs": 100
   },
   "signals": {
     "setpoint": {
@@ -49,7 +48,20 @@
       }
     },
     "additional": [
-      {"id":"experiment-authority","channel":"experiment-authority","role":"authority","symbol":"P1.ExperimentEnabled","address":"%MX96.0","iecType":"BOOL","direction":"write","unit":"1","range":{"minimum":0,"maximum":1}},
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX96.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "historical-pi-temperature",
         "channel": "historical-pi-temperature",
@@ -173,10 +185,16 @@
   },
   "plantId": "four_equivalent_recirculating_water_heaters",
   "experiment": {
-    "execution": "control-studio",
+    "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
     "durationSeconds": 220.1,
-    "seed": 20260829
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX96.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

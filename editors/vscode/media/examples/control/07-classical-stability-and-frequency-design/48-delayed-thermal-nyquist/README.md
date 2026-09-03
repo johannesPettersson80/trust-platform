@@ -1,7 +1,9 @@
 # Count delayed-loop stability with Nyquist
 
-Course position: Lesson 48 of 84. Prerequisite: `control-flexible-drive-bode`.
-Next lesson: `control-motor-sensitivity-loop-shaping`.
+Course position: Lesson 48 of 84. Prerequisite:
+[`control-flexible-drive-bode`](../47-flexible-drive-bode/).
+Next lesson:
+[`control-motor-sensitivity-loop-shaping`](../49-motor-sensitivity-loop-shaping/).
 
 **Equipment:** Continuous conveyor curing oven.
 
@@ -9,8 +11,6 @@ Next lesson: `control-motor-sensitivity-loop-shaping`.
 stable and unstable delayed conveyor-oven loops.
 
 ## The problem
-
-The equipment in this lesson is Continuous conveyor curing oven.
 
 This lesson controls product temperature in a continuous conveyor oven. The
 heater changes the temperature of material travelling toward a downstream
@@ -59,17 +59,29 @@ complete turn of the mapped contour around that point. Counter-clockwise turns
 are positive and clockwise turns are negative in this lesson. The winding
 number is the signed number of complete turns.
 
-The open-loop right-half-plane pole count is the number of open-loop poles with
-positive real component. The closed-loop right-half-plane pole count is the
-number of unstable closed-loop poles. A stable closed loop has zero such poles.
+The open-loop right-half-plane pole count ($P$) is the number of open-loop poles
+with positive real component. The closed-loop right-half-plane pole count
+($Z$) is the number of unstable closed-loop poles. A stable closed loop has zero
+such poles.
 
-The counter-clockwise encirclement count ($N_{\mathrm{ccw}}$) is the contour's signed turn
-count around minus one. The open-loop right-half-plane pole count (P) is known
-from the open-loop model. The closed-loop right-half-plane pole count ($Z$) is
-inferred from those two quantities. With Control Studio's negative-feedback
+The open-loop response ($L_{\mathrm{loop}}(s)$) is the combined controller and
+plant response before the feedback path is closed. The counter-clockwise
+encirclement count ($N_{\mathrm{ccw}}$) is that response contour's signed turn
+count around minus one. The open-loop count $P$ is known from the plant and
+controller poles. The closed-loop count $Z$ is inferred from those two
+quantities. With Control Studio's negative-feedback
 and traversal convention, the relationship is
 
 $Z=P-N_{\mathrm{ccw}}$
+
+This count comes from the closed-loop characteristic factor
+$1+L_{\mathrm{loop}}(s)$. Its zeros are closed-loop poles, while its poles are
+the open-loop poles. Following the complete contour, each net turn of
+$1+L_{\mathrm{loop}}$ around zero counts the difference between those zeros and
+poles. Subtracting one merely shifts the same curve, so turns around zero become
+turns of $L_{\mathrm{loop}}$ around minus one. With the traversal sign chosen
+above, rearranging that zero-minus-pole count gives $Z=P-N_{\mathrm{ccw}}$.
+This is why a picture of only part of the curve cannot supply the pole count.
 
 A negative value for the counter-clockwise count means clockwise
 encirclements. The relationship is invalid if a pole lies on the contour, the
@@ -87,21 +99,70 @@ dynamic response. The thermal time constant ($T$) is the 20-second time required
 to complete about 63 percent of a delay-free response. The transport delay ($L$)
 is the time before a heater change first reaches the downstream sensor.
 
-The local plant model is
+The equation comes from an energy balance followed by transport. The effective
+product thermal capacitance ($C$), measured in kilojoules per degree Celsius,
+stores heat. The effective heat-loss coefficient ($H$), measured in kilowatts
+per degree Celsius, removes heat in proportion to temperature deviation. The
+heater conversion ($k_u$), measured in kilowatts per percentage point, converts
+applied command into heat. Because material must travel from heater to sensor,
+the balance receives the earlier input $u(t-L)$:
 
-$G(s)=\frac{e^{-Ls}}{Ts+1}$
+$C\frac{dy}{dt}=k_u u(t-L)-Hy.$
+
+Divide by $H$. The resulting steady plant gain ($K_g=k_u/H$) is measured in
+degrees Celsius per percentage point, and the time constant is $T=C/H$. The
+local differential equation is therefore
+
+$T\frac{dy}{dt}+y=K_g u(t-L).$
+
+The Laplace-domain product-temperature deviation is $Y(s)$ and the
+Laplace-domain heater-command deviation is $U(s)$. The plant transfer function
+($G(s)$) is their zero-initial-deviation ratio $Y(s)/U(s)$. Transforming the
+differential equation gives
+
+$G(s)=\frac{K_g e^{-Ls}}{Ts+1}.$
+
+This lesson configures $K_g=1\ ^\circ\mathrm C/\%$ and $T=20$ s. The three
+delay values are configured teaching cases chosen to cross the stability
+boundary. On physical equipment, $C$, $H$, and $k_u$ begin with material,
+heater, and loss data and are refined by a bounded heater step; $L$ begins with
+sensor distance divided by conveyor speed and is checked from response onset.
+The fitted model must then predict unused runs at the same product, loading,
+speed, and temperature range. None of those physical measurements was
+performed by this Simulation lesson.
+
+The model assumes one effective product temperature, constant belt speed,
+constant coefficients, a pure delay, ideal heater action, and no unmodelled
+sensor or actuator dynamics. Those assumptions explain why changing product,
+loading, speed, or sensor position requires new identification and validation.
 
 The proportional gain ($K$) requests two heater percentage points for each degree
-Celsius of temperature error, so $K = 2 \%/{}^\circ\mathrm{C}$. The open-loop response is
+Celsius of temperature error, so $K = 2 \%/{}^\circ\mathrm{C}$. The open-loop
+response ($L_{\mathrm{loop}}(s)$) is the dimensionless product of controller and
+plant:
 
-$L_{\mathrm{loop}}(s)=K G(s)$
+$L_{\mathrm{loop}}(s)=K G(s).$
 
-The gain-crossover angular frequency ($\omega_{\mathrm{gc}}$) is where open-loop magnitude
-equals one. Delay does not change magnitude, so all three cases share
+The imaginary unit ($j$) satisfies $j^2=-1$. Angular frequency ($\omega$) is
+measured in radians per second. The magnitude of $e^{-j\omega L}$ is 1, so delay
+rotates the response without changing its length. The open-loop magnitude is
+therefore
+
+$|L_{\mathrm{loop}}(j\omega)|=\frac{K K_g}{\sqrt{1+(T\omega)^2}}.$
+
+Gain crossover means this magnitude equals 1. Squaring, rearranging, and taking
+the positive frequency gives the gain-crossover angular frequency
+($\omega_{gc}$). Because this lesson's numerical $K_g$ is one,
 
 $\omega_{gc}=\frac{\sqrt{K^{2}-1}}{T}=0.08660\,\mathrm{rad/s}$
 
-Unwrapped phase retains every complete rotation. At crossover it is
+because $\sqrt{2^2-1}/20=\sqrt{3}/20=0.08660$. Unwrapped phase retains every
+complete rotation. The first-order lag contributes
+$-\arctan(T\omega)$ and the delay contributes $-L\omega$ radians.
+
+The crossover phase ($\phi_{gc}$) is the total unwrapped open-loop angle at
+$\omega_{gc}$. The inverse tangent converts the lag's imaginary-to-real ratio
+into its angle. Adding that lag angle and the delay angle gives
 
 $\phi_{gc}=-\arctan\left(T\omega_{gc}\right)-L\omega_{gc}$
 
@@ -109,18 +170,32 @@ The product-temperature setpoint ($SP$) is 101 degrees Celsius. The process valu
 ($PV$) is measured product temperature. The predicted equilibrium temperature
 ($PV_{\mathrm{eq}}$) is the value at which heater request and plant response balance. Stable
 proportional control on this self-regulating oven does not imply zero error.
-With unit plant gain, equilibrium satisfies
+With unit plant gain, a heater deviation of one percentage point produces a
+temperature deviation of one degree Celsius at steady state. Equilibrium
+therefore satisfies
 
 $PV_{\mathrm{eq}}=100\,{}^\circ\mathrm{C}+K\left(SP-PV_{\mathrm{eq}}\right)$
 
-For $SP = 101 {}^\circ\mathrm{C}$ and $K = 2 \%/{}^\circ\mathrm{C}$, predict
-$PV_{\mathrm{eq}} = 100.667 {}^\circ\mathrm{C}$. The remaining setpoint error is `0.333 degC`.
+Substituting $SP=101$ and $K=2$ gives
+$PV_{\mathrm{eq}}=100+2(101-PV_{\mathrm{eq}})$. Collecting the process-value
+terms gives $3PV_{\mathrm{eq}}=302$, hence
+$PV_{\mathrm{eq}}=100.667{}^\circ\mathrm{C}$. The remaining setpoint error is
+$101-100.667=0.333{}^\circ\mathrm{C}$.
 Stability is measured by decay toward that equilibrium, not by incorrectly
 requiring the proportional loop to reach the setpoint.
 
 ## Prediction
 
-Calculate the result before opening a contour:
+At crossover, $T\omega=\sqrt{3}$, so the first-order phase is
+$-\arctan(\sqrt{3})=-60^\circ$. Convert each delay phase from radians to
+degrees with $180/\pi$:
+
+- 5 s adds $-(5)(0.08660)=-0.433$ rad, or $-24.81^\circ$;
+- 25 s adds $-2.165$ rad, or $-124.05^\circ$;
+- 60 s adds $-5.196$ rad, or $-297.72^\circ$.
+
+Adding the -60-degree thermal lag gives the predictions below. Phase margin is
+$180^\circ$ plus the unwrapped crossover phase.
 
 | Delay | Unwrapped phase | Correct phase margin | $N_{\mathrm{ccw}}$ | P | Z | Prediction |
 |---:|---:|---:|---:|---:|---:|---|
@@ -151,44 +226,28 @@ right-half-plane pole count, stability label, or phase margin.
 
 ## Experiment in Control Studio
 
-This procedure tests one declared lesson change under controlled conditions. Retain and interpret the complete Nyquist contour with one declared counter-clockwise convention. The declared event lasts 600 seconds. It restores Product-temperature setpoint to 100 degC afterward. The deterministic Simulation seed is 20260829.
+The project owns the one-degree setpoint change in all three ovens, the
+600-second observation, each local abort, and restoration to the 100-degree
+operating point with 50-percent holding command. Control Studio may write only
+`P1.ExperimentEnabled`; it must not inject another setpoint step. The Test
+timeout is 600.1 seconds so project restoration can finish first. The
+deterministic Simulation seed is 20260829.
 
 ### Control Studio actions
 
 1. **Monitor** — Start the **Simulator**, then open **truST sidebar → Control Studio → Monitor → Response**.
    - **Baseline check:** Wait until the header shows **Simulation**, **Running**, and current data. Confirm Product-temperature setpoint (SP, degC); Short-delay product temperature (PV, degC) and Medium-delay product temperature (PV, degC); Short-delay applied heater command (MV, %) and Medium-delay applied heater command (MV, %), including units, limits, mode, and quality. The initial operating point is Product-temperature setpoint = 100 degC, Short-delay applied heater command = 50 %, Medium-delay applied heater command = 50 %, Long-delay applied heater command = 50 %, Short-delay product temperature = 100 degC, Medium-delay product temperature = 100 degC, Long-delay product temperature = 100 degC. The unresolved baseline problem is: Wrapped crossover phase appears to provide 182.28 degrees margin although the 60-second-delay closed loop is unstable.
    - **Decision before action:** Read **Prediction** above, then state what should move first and in which direction. Use this decision rule: Accept a stability verdict only when the complete contour is closed, clear of minus one, and its pole and encirclement counts agree with executable evidence.
-   - **Successful evidence:** The Response plot advances, the displayed values are finite and current, and **Start recording** is enabled. Select **Start recording** only after those conditions are visible.
+   - **Successful evidence:** The Response plot advances and the displayed values are finite and current. Select **Start recording** only after those conditions are visible.
    - **Recovery:** If recording is disabled or the plot reports unavailable or stale samples, stop the Simulator, correct the displayed runtime or binding problem, restart it, and repeat the baseline check.
    - **Record:** Write down the initial SP, PV, requested/applied MV where available, controller mode, and your predicted response before opening Test.
 
 2. **Test** — Restart the **Simulator** from the declared initial state, then open **truST sidebar → Control Studio → Test**.
-   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **600**. The observed lesson signal is **Product-temperature setpoint**. Control Studio uses the existing Boolean project authority **P1.ExperimentEnabled** at **%MX96.0**; it does not inject a second process event.
+   - **Baseline check:** Confirm **Experiment** = **Observe without excitation**, **Amplitude** = **0** (disabled), and **Maximum duration (s)** = **600.1**. The observed lesson signal is **Product-temperature setpoint**. Control Studio uses the existing Boolean project authority **P1.ExperimentEnabled** at **%MX96.0**; it does not inject a second process event.
    - **Decision before action:** Before selecting **Review test**, predict the response to Product-temperature setpoint. Confirm the live values are current and the reviewed plan stays inside Short-delay applied heater command 0 % to 100 %; Medium-delay applied heater command 0 % to 100 %; Long-delay applied heater command 0 % to 100 %; Short-delay product temperature 90 degC to 110 degC; Medium-delay product temperature 90 degC to 110 degC; Long-delay product temperature 90 degC to 110 degC.
    - **Successful evidence:** Select **Review test**, verify the affected signal, bounds, stop conditions, and restoration, then select **Confirm and start**. The state changes to **Running**, **Abort test** remains available, and the terminal state reports completion and restoration.
    - **Recovery:** For a rejected, stale, unsafe, unavailable, failed, or aborted state, read the displayed reason, stop and restart the Simulator, correct that cause, restore the initial state, and review a new test.
-   - **Record:** Compare the observed event with your prediction and retain the terminal state, restoration result, and deterministic seed **20260829**.
-
-3. **Identify** — After **Stop recording**, open **truST sidebar → Control Studio → Identify**.
-   - **Baseline check:** Use **Qualify recording** to inspect sample count, duration, timing, excitation, and clipping. **Model selection**, **Fit estimation run**, and **Accept model for design** are the shared low-order model workflow; they do not replace the project-owned **DelayedThermalComparison** model and must not be accepted as this lesson's design authority.
-   - **Decision before action:** Decide whether the recording contains the input/output change needed for **Nyquist encirclement and closed-loop pole counting** before fitting anything.
-   - **Successful evidence:** A qualified recording has current, finite, sufficiently excited data. Use the project-owned model described under **Implementation** and **Evidence and decision**, and record its assumptions, units, validity range, and rejection rule.
-   - **Recovery:** If qualification reports stale, clipped, poorly excited, or insufficient data, return to Test and repeat the bounded experiment; never force or relabel a rejected fit.
-   - **Record:** State which model is retained or rejected and why, explicitly identifying the runnable project as the model authority.
-
-4. **Tune / Design** — Open **truST sidebar → Control Studio → Tune**.
-   - **Baseline check:** **Design method** and **Generate candidate** are disabled because **DelayedThermalComparison** is designed by the runnable project; shared Control.PID tuning is unavailable. Do not select an unrelated PID method.
-   - **Decision before action:** Apply the equations and choices under **Implementation**, then compare the declared alternatives under **Evidence and decision** before accepting **Nyquist encirclement and closed-loop pole counting**.
-   - **Successful evidence:** Use **Monitor → Signals** to correlate the implemented project-owned design with its named live states and outputs. A disabled shared designer is only a visible ownership boundary, not successful design evidence.
-   - **Recovery:** If the project-owned prerequisites or qualification flags are false, return to Test or Identify as directed by the lesson and do not bypass them with a generic PID candidate.
-   - **Record:** State why the project-owned design is eligible, conditional, or rejected, including the decisive trade-off.
-
-5. **Validate** — Open **truST sidebar → Control Studio → Validate**.
-   - **Baseline check:** **Run required validation** is disabled because no shared Control.PID candidate exists. **Requirement details** and **Save result** cannot be used to claim a shared result; project-owned validation is executed by the runnable project's declared oracle.
-   - **Decision before action:** Use the predeclared comparisons: short_delay_late_equilibrium_deviation_envelope <= 0.001 degC (tolerance 0.0001 degC); medium_delay_late_to_early_equilibrium_envelope_ratio > 1.2 (dimensionless) (tolerance 0.01 (dimensionless)); long_delay_late_to_early_equilibrium_envelope_ratio > 1.2 (dimensionless) (tolerance 0.01 (dimensionless)); medium_delay_closed_loop_right_half_plane_poles == 2 (dimensionless) (tolerance 0 (dimensionless)).
-   - **Successful evidence:** Correlate the unrounded project-owned results with the named live signals and events in Monitor. Each applicable requirement must have a value, unit, limit, tolerance, evidence class, and Pass, Conditional pass, Fail, or Inconclusive disposition.
-   - **Recovery:** If the project run aborts, becomes stale, fails, or violates restoration, discard that run and repeat the declared Test. Never present a disabled button or retained README table as newly executed evidence.
-   - **Record:** State the validation disposition and name every failed or inconclusive requirement before continuing.
+   - **Record:** Compare decay or growth with your contour prediction and retain the terminal state, restoration result, and deterministic seed **20260829**. The native lesson test owns complete contours, winding counts, pole-count inference, equilibrium envelopes, and verdicts; disabled Identify, Tune, or Validate controls are not evidence.
 
 ## Evidence and decision
 

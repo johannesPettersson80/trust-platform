@@ -45,10 +45,7 @@ fn addressed_source() -> String {
             "    ExperimentEnabled : BOOL :=",
             "    ExperimentEnabled AT %MX72.0 : BOOL :=",
         )
-        .replace(
-            "    Setpoint : LREAL :=",
-            "    Setpoint AT %ML0 : LREAL :=",
-        )
+        .replace("    Setpoint : LREAL :=", "    Setpoint AT %ML0 : LREAL :=")
         .replace(
             "    ProcessValue : LREAL :=",
             "    ProcessValue AT %IL0 : LREAL :=",
@@ -312,41 +309,93 @@ fn control_curriculum_water_heater_saturation_executes_the_shipped_project_seque
     write_lreal(&mut runtime, "%IL0", 35.0);
     write_bool(&mut runtime, "%MX72.0", true);
 
-    runtime.execute_cycle().expect("execute project safe-start scan");
-    assert_close(read_lreal(&runtime, "%QL0"), 0.0, "cycle 1 must retain safe Manual zero");
-    assert!(!read_bool(&runtime, "%MX64.0"), "cycle 1 must remain in Manual");
+    runtime
+        .execute_cycle()
+        .expect("execute project safe-start scan");
+    assert_close(
+        read_lreal(&runtime, "%QL0"),
+        0.0,
+        "cycle 1 must retain safe Manual zero",
+    );
+    assert!(
+        !read_bool(&runtime, "%MX64.0"),
+        "cycle 1 must remain in Manual"
+    );
 
     for _ in 2..=500 {
-        runtime.execute_cycle().expect("execute project Manual preparation");
+        runtime
+            .execute_cycle()
+            .expect("execute project Manual preparation");
     }
-    assert_close(read_lreal(&runtime, "%QL0"), 75.0, "Manual preparation must apply 75 percent");
-    assert!(!read_bool(&runtime, "%MX64.0"), "preparation must remain in Manual");
+    assert_close(
+        read_lreal(&runtime, "%QL0"),
+        75.0,
+        "Manual preparation must apply 75 percent",
+    );
+    assert!(
+        !read_bool(&runtime, "%MX64.0"),
+        "preparation must remain in Manual"
+    );
 
     for _ in 501..=550 {
-        runtime.execute_cycle().expect("execute reachable Auto baseline");
+        runtime
+            .execute_cycle()
+            .expect("execute reachable Auto baseline");
     }
-    assert!(read_bool(&runtime, "%MX64.0"), "reachable baseline must use Auto");
+    assert!(
+        read_bool(&runtime, "%MX64.0"),
+        "reachable baseline must use Auto"
+    );
     assert_close(read_lreal(&runtime, "%ML0"), 35.0, "baseline setpoint");
 
-    runtime.execute_cycle().expect("execute first unreachable exposure scan");
+    runtime
+        .execute_cycle()
+        .expect("execute first unreachable exposure scan");
     assert_close(read_lreal(&runtime, "%ML0"), 45.0, "exposure setpoint");
-    assert_close(read_lreal(&runtime, "%ML24"), 159.0, "first unrestricted request");
-    assert_close(read_lreal(&runtime, "%QL0"), 100.0, "first applied request is clamped");
+    assert_close(
+        read_lreal(&runtime, "%ML24"),
+        159.0,
+        "first unrestricted request",
+    );
+    assert_close(
+        read_lreal(&runtime, "%QL0"),
+        100.0,
+        "first applied request is clamped",
+    );
 
     for _ in 552..=650 {
-        runtime.execute_cycle().expect("complete unreachable exposure");
+        runtime
+            .execute_cycle()
+            .expect("complete unreachable exposure");
     }
-    runtime.execute_cycle().expect("begin reachable restoration");
+    runtime
+        .execute_cycle()
+        .expect("begin reachable restoration");
     assert_close(read_lreal(&runtime, "%ML0"), 35.0, "restored setpoint");
     assert!(read_bool(&runtime, "%MX64.0"), "recovery must retain Auto");
 
     for _ in 652..=950 {
-        runtime.execute_cycle().expect("complete reachable recovery window");
+        runtime
+            .execute_cycle()
+            .expect("complete reachable recovery window");
     }
-    runtime.execute_cycle().expect("execute project safe-restoration scan");
-    assert!(!read_bool(&runtime, "%MX64.0"), "project must restore Manual");
-    assert_close(read_lreal(&runtime, "%ML24"), 0.0, "project safe requested output");
-    assert_close(read_lreal(&runtime, "%QL0"), 0.0, "project safe applied output");
+    runtime
+        .execute_cycle()
+        .expect("execute project safe-restoration scan");
+    assert!(
+        !read_bool(&runtime, "%MX64.0"),
+        "project must restore Manual"
+    );
+    assert_close(
+        read_lreal(&runtime, "%ML24"),
+        0.0,
+        "project safe requested output",
+    );
+    assert_close(
+        read_lreal(&runtime, "%QL0"),
+        0.0,
+        "project safe applied output",
+    );
 }
 
 #[test]
@@ -354,7 +403,9 @@ fn control_curriculum_water_heater_saturation_executes_the_predicted_first_limit
     let mut runtime = lesson_runtime();
 
     write_lreal(&mut runtime, "%IL0", 35.0);
-    runtime.execute_cycle().expect("execute safe initialization scan");
+    runtime
+        .execute_cycle()
+        .expect("execute safe initialization scan");
     write_lreal(&mut runtime, "%ML0", 35.0);
     write_lreal(&mut runtime, "%ML16", 75.0);
     write_bool(&mut runtime, "%MX64.0", false);

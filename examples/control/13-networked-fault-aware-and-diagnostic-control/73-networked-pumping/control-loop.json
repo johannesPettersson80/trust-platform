@@ -40,7 +40,20 @@
       }
     },
     "additional": [
-      {"id":"experiment-authority","channel":"experiment-authority","role":"authority","symbol":"P1.ExperimentEnabled","address":"%MX17.1","iecType":"BOOL","direction":"write","unit":"1","range":{"minimum":0,"maximum":1}},
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX17.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
       {
         "id": "protected-header-pressure",
         "channel": "protected-header-pressure",
@@ -116,7 +129,7 @@
         "channel": "locally-generated-station-time",
         "role": "state",
         "symbol": "P1.LocalTimeSeconds",
-        "address": "%ML16",
+        "address": "%ML104",
         "iecType": "LREAL",
         "direction": "read",
         "unit": "s",
@@ -276,10 +289,16 @@
   },
   "plantId": "paired_remote_pumping_headers",
   "experiment": {
-    "execution": "control-studio",
+    "execution": "project-scripted",
     "kind": "observation",
     "amplitude": 0,
     "durationSeconds": 25.1,
-    "seed": 20260829
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX17.1",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
   }
 }

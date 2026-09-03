@@ -185,7 +185,10 @@ fn build_runtime() -> Runtime {
             "control/14-integrated-capstones/78-servo/src/ServoCandidate.st",
             project_file("src/ServoCandidate.st"),
         ),
-        SourceFile::with_path("control/14-integrated-capstones/78-servo/src/Main.st", mapped_source()),
+        SourceFile::with_path(
+            "control/14-integrated-capstones/78-servo/src/Main.st",
+            mapped_source(),
+        ),
     ])
     .label_errors(true)
     .build_runtime()

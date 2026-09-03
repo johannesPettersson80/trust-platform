@@ -11,6 +11,10 @@ VAR
     DeadbandInput : Control.PIDInput;
     StictionInput : Control.PIDInput;
     Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
     AutoMode : BOOL := FALSE;
     ManualDemand : LREAL := 80.0;
     FlowSetpoint : LREAL := 64.0;
@@ -54,6 +58,54 @@ IF NOT Initialized THEN
     Initialized := TRUE;
 END_IF;
 
+(* Control Studio grants only authority. The project owns characterization,
+   one reversal probe, the closed-loop observation, and safe closure. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+    AutoMode := FALSE;
+    FlowSetpoint := LREAL#64.0;
+    IF ExperimentElapsed < LREAL#10.0 THEN ManualDemand := LREAL#0.0;
+    ELSIF ExperimentElapsed < LREAL#20.0 THEN ManualDemand := LREAL#20.0;
+    ELSIF ExperimentElapsed < LREAL#30.0 THEN ManualDemand := LREAL#40.0;
+    ELSIF ExperimentElapsed < LREAL#40.0 THEN ManualDemand := LREAL#60.0;
+    ELSIF ExperimentElapsed < LREAL#50.0 THEN ManualDemand := LREAL#80.0;
+    ELSIF ExperimentElapsed < LREAL#60.0 THEN ManualDemand := LREAL#100.0;
+    ELSIF ExperimentElapsed < LREAL#70.0 THEN ManualDemand := LREAL#70.0;
+    ELSIF ExperimentElapsed < LREAL#71.0 THEN ManualDemand := LREAL#70.5;
+    ELSIF ExperimentElapsed < LREAL#72.0 THEN ManualDemand := LREAL#71.0;
+    ELSIF ExperimentElapsed < LREAL#73.0 THEN ManualDemand := LREAL#71.5;
+    ELSIF ExperimentElapsed < LREAL#74.0 THEN ManualDemand := LREAL#72.0;
+    ELSIF ExperimentElapsed < LREAL#75.0 THEN ManualDemand := LREAL#72.5;
+    ELSIF ExperimentElapsed < LREAL#76.0 THEN ManualDemand := LREAL#73.0;
+    ELSIF ExperimentElapsed < LREAL#77.0 THEN ManualDemand := LREAL#73.5;
+    ELSIF ExperimentElapsed < LREAL#78.0 THEN ManualDemand := LREAL#74.0;
+    ELSIF ExperimentElapsed < LREAL#79.0 THEN ManualDemand := LREAL#74.5;
+    ELSIF ExperimentElapsed < LREAL#80.0 THEN ManualDemand := LREAL#75.0;
+    ELSIF ExperimentElapsed < LREAL#82.0 THEN ManualDemand := LREAL#75.5;
+    ELSIF ExperimentElapsed < LREAL#83.0 THEN ManualDemand := LREAL#75.0;
+    ELSIF ExperimentElapsed < LREAL#84.0 THEN ManualDemand := LREAL#74.5;
+    ELSIF ExperimentElapsed < LREAL#85.0 THEN ManualDemand := LREAL#74.0;
+    ELSIF ExperimentElapsed < LREAL#86.0 THEN ManualDemand := LREAL#73.5;
+    ELSIF ExperimentElapsed < LREAL#87.0 THEN ManualDemand := LREAL#73.0;
+    ELSIF ExperimentElapsed < LREAL#88.0 THEN ManualDemand := LREAL#72.5;
+    ELSIF ExperimentElapsed < LREAL#89.0 THEN ManualDemand := LREAL#72.0;
+    ELSIF ExperimentElapsed < LREAL#90.0 THEN ManualDemand := LREAL#71.5;
+    ELSIF ExperimentElapsed < LREAL#91.0 THEN ManualDemand := LREAL#71.0;
+    ELSIF ExperimentElapsed < LREAL#92.0 THEN ManualDemand := LREAL#70.5;
+    ELSIF ExperimentElapsed < LREAL#94.0 THEN ManualDemand := LREAL#70.0;
+    ELSIF ExperimentElapsed < LREAL#110.0 THEN ManualDemand := LREAL#80.0;
+    ELSE
+        ManualDemand := LREAL#80.0;
+        FlowSetpoint := LREAL#70.0;
+        AutoMode := TRUE;
+    END_IF;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+    AutoMode := FALSE;
+    FlowSetpoint := LREAL#64.0;
+    ManualDemand := LREAL#0.0;
+END_IF;
+
 HealthyInput.Setpoint := FlowSetpoint;
 HealthyInput.ProcessValue := HealthyFlow;
 HealthyInput.CycleTime := LREAL#0.1;
@@ -90,6 +142,9 @@ PROGRAM P1 WITH MainTask : Main;
 END_RESOURCE
 VAR_CONFIG
     P1.AutoMode AT %MX91.0 : BOOL;
+    P1.ExperimentEnabled AT %MX91.1 : BOOL;
+    P1.SafetyAbort AT %MX91.2 : BOOL;
+    P1.InputsValid AT %MX91.3 : BOOL;
     P1.ManualDemand AT %ML328 : LREAL;
     P1.FlowSetpoint AT %ML336 : LREAL;
     P1.HealthyFlow AT %IL168 : LREAL;

@@ -9,6 +9,12 @@ VAR
     CoarseController : ServoCandidate;
     Initialized : BOOL := FALSE;
     AutomaticEnabled : BOOL := TRUE;
+    ExperimentEnabled : BOOL := FALSE;
+    ExperimentWasEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentScan : DINT := DINT#0;
+    ExperimentElapsed : LREAL := 0.0;
     MeasurementQualityGood : BOOL := TRUE;
     PositionSetpoint : LREAL := 0.0;
     LoadTorque : LREAL := 0.0;
@@ -84,6 +90,37 @@ END_IF;
 (* Candidate comparison never changes the confirmed controller revision. *)
 ControllerRevision := DINT#78;
 
+(* Control Studio grants one authority. This project owns the reference step,
+   load step, and zero-torque restoration on the actual 10 ms timeline. *)
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    IF NOT ExperimentWasEnabled THEN
+        ExperimentScan := DINT#0;
+        ExperimentElapsed := LREAL#0.0;
+    END_IF;
+    ExperimentScan := ExperimentScan + DINT#1;
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.01;
+    AutomaticEnabled := TRUE;
+    MeasurementQualityGood := TRUE;
+    IF ExperimentScan <= DINT#100 THEN
+        PositionSetpoint := LREAL#0.0;
+    ELSE
+        PositionSetpoint := LREAL#0.5;
+    END_IF;
+    IF ExperimentScan <= DINT#1000 THEN
+        LoadTorque := LREAL#0.0;
+    ELSE
+        LoadTorque := LREAL#1.5;
+    END_IF;
+ELSIF ExperimentWasEnabled THEN
+    ExperimentScan := DINT#0;
+    ExperimentElapsed := LREAL#0.0;
+    AutomaticEnabled := FALSE;
+    MeasurementQualityGood := TRUE;
+    PositionSetpoint := LREAL#0.0;
+    LoadTorque := LREAL#0.0;
+    ManualTorque := LREAL#0.0;
+END_IF;
+
 FineUpdatePulse := TRUE;
 PAppliedTorque := PController.Update(
     Setpoint := PositionSetpoint,
@@ -147,6 +184,7 @@ PLoadTorque := LoadTorque;
 PDLoadTorque := LoadTorque;
 PIDLoadTorque := LoadTorque;
 CoarseLoadTorque := LoadTorque;
+ExperimentWasEnabled := ExperimentEnabled;
 END_PROGRAM
 
 CONFIGURATION Config
@@ -157,9 +195,13 @@ END_RESOURCE
 VAR_CONFIG
     P1.AutomaticEnabled AT %MX192.0 : BOOL;
     P1.MeasurementQualityGood AT %MX192.1 : BOOL;
+    P1.ExperimentEnabled AT %MX192.2 : BOOL;
+    P1.SafetyAbort AT %MX192.3 : BOOL;
+    P1.InputsValid AT %MX192.4 : BOOL;
     P1.PositionSetpoint AT %ML200 : LREAL;
     P1.LoadTorque AT %ML208 : LREAL;
     P1.ManualTorque AT %ML216 : LREAL;
+    P1.ExperimentElapsed AT %ML224 : LREAL;
     P1.PRawPosition AT %IL0 : LREAL;
     P1.PTruePosition AT %IL8 : LREAL;
     P1.PVelocity AT %IL16 : LREAL;

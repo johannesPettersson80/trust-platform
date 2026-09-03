@@ -16,7 +16,7 @@
     { "role": "PV", "name": "Measured outlet-water temperature", "unit": "degC", "minimum": 0, "maximum": 40, "resolution": 0.01, "binding": "%IL0" },
     { "role": "MV", "name": "Requested heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%ML0" },
     { "role": "MV", "name": "Applied heater power", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
-    { "role": "state", "name": "Test authority enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.0" },
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.0" },
     { "role": "state", "name": "Safety abort active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.1" },
     { "role": "quality", "name": "Input validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.2" },
     { "role": "state", "name": "Manual mode active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.3" },
@@ -36,7 +36,10 @@
     "initialState": { "outletTemperature": 30, "heaterPower": 20 },
     "seed": 20260827,
     "operatingPoint": { "PV": 30, "MV": 20 },
-    "validityRange": [{ "signal": "Measured outlet-water temperature", "minimum": 30, "maximum": 31, "unit": "degC" }, { "signal": "Applied heater power", "minimum": 20, "maximum": 25, "unit": "%" }],
+    "validityRange": [
+      { "signal": "Measured outlet-water temperature", "minimum": 30, "maximum": 31, "unit": "degC" },
+      { "signal": "Applied heater power", "minimum": 20, "maximum": 25, "unit": "%" }
+    ],
     "simplifications": ["The frozen FOPDT candidate models only heater-command to temperature behavior at fixed flow.", "The cold-flow event is intentionally absent from the candidate model.", "Deterministic data isolate model-purpose mismatch from measurement noise.", "Other nonlinearities, changing efficiency, sensor dynamics, and faults are omitted."]
   },
   "baseline": {
@@ -51,7 +54,7 @@
   },
   "experiment": {
     "kind": "observation",
-    "signal": "Test authority enabled",
+    "signal": "Experiment authority",
     "baseline": 0,
     "amplitude": 0,
     "durationSeconds": 60.1,
@@ -64,10 +67,13 @@
     { "metric": "fixed_flow_validation_RMSE", "signal": "Prediction residual", "window": "11 to 29 s", "comparator": "<=", "limit": 0.03, "unit": "degC", "tolerance": 0.001, "evidenceClass": "model" },
     { "metric": "post_load_residual_bias_magnitude", "signal": "Prediction residual", "window": "50 to 60 s", "comparator": ">=", "limit": 0.9, "unit": "degC", "tolerance": 0.01, "evidenceClass": "model" },
     { "metric": "post_load_residual_bias_magnitude", "signal": "Prediction residual", "window": "50 to 60 s", "comparator": "<=", "limit": 1.1, "unit": "degC", "tolerance": 0.01, "evidenceClass": "model" },
-    { "metric": "validation_step_amplitude", "signal": "Applied heater power", "window": "complete run", "comparator": "==", "limit": 5, "unit": "pp", "tolerance": 0.000000001, "evidenceClass": "simulation" }
+    { "metric": "validation_step_amplitude", "signal": "Applied heater power", "window": "complete run", "comparator": "==", "limit": 5, "unit": "pp", "tolerance": 1e-09, "evidenceClass": "simulation" }
   ],
   "safety": {
-    "hardLimits": [{ "signal": "Measured outlet-water temperature", "minimum": 0, "maximum": 40, "unit": "degC" }, { "signal": "Applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }],
+    "hardLimits": [
+      { "signal": "Measured outlet-water temperature", "minimum": 0, "maximum": 40, "unit": "degC" },
+      { "signal": "Applied heater power", "minimum": 0, "maximum": 100, "unit": "%" }
+    ],
     "abortPredicates": ["PV, MV, prediction, residual, or timestamp is nonfinite", "quality is bad or timing has a gap", "frozen parameters are changed", "validation samples equal estimation samples", "PV exceeds 40 degC or MV leaves its limit"],
     "safeMv": 0,
     "restorationMode": "Manual at 20 percent after the run, then 0 percent on safety abort",
@@ -99,7 +105,7 @@
     "workedPrediction": "The exact frozen model predicts 30.9993 degC for a new 20 to 25 percent step and about 30.639 degC at 6 s; an omitted -1 degC load later produces about -1 degC residual bias.",
     "practicalPreparation": ["Verify different immutable run identity, frozen parameters, provenance, signals, units, quality, timing, limits, safe state, and predeclared tolerances.", "Predict both the fixed-flow response and the sign and magnitude of residual after the omitted load before recording."],
     "baseline": "Show the same-recording estimation fit and explain why its low residual is insufficient evidence.",
-    "change": "Write one reviewed Boolean Test authority; let the project own the 20-percent baseline, 25-percent step, and 20-percent restoration; then evaluate the frozen model unchanged across the separate cold-flow event.",
+    "change": "Write only P1.ExperimentEnabled; let the project own the 20-percent baseline, 25-percent step, and 20-percent restoration; then evaluate the frozen model unchanged across the separate cold-flow event.",
     "comparison": "Compare estimation and validation errors, measured/predicted/envelope traces, fixed-flow residuals, and post-load bias without refitting.",
     "validation": "Accept fixed-flow command response at RMSE at most 0.03 degC and restrict load prediction when residual bias magnitude is 0.9 to 1.1 degC.",
     "explanation": "The smaller step confirms local command prediction; structured load residual proves the disturbance path is missing rather than random noise.",
