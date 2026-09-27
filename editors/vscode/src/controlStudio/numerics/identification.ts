@@ -39,30 +39,17 @@ export function identifyLowOrderModels(
     .filter((kind, index, kinds) => kinds.indexOf(kind) === index)
     .map((kind) => fitKind(kind, estimation, validation))
     .filter((model): model is LowOrderModelFit => model !== undefined);
-  const finiteErrors = models.map((model) => model.normalizedValidationError).filter(Number.isFinite);
-  const bestValidationError = Math.min(...finiteErrors);
-  const adequacyLimit = Math.min(
-    options.maximumNormalizedValidationError,
-    Math.max(0.03, bestValidationError * 1.25)
-  );
+  // Adequacy is a declared task tolerance, independent of a more complex model's score.
+  const adequacyLimit = options.maximumNormalizedValidationError;
+  const finalWindowSamples = Math.max(3, Math.ceil(validation.samples.length * 0.1));
   const qualified = models.filter((model) =>
     Number.isFinite(model.normalizedValidationError)
-    && model.normalizedValidationError <= adequacyLimit);
+    && model.normalizedValidationError <= adequacyLimit
+    && normalizedError(model.validationResiduals.slice(-finalWindowSamples), validation.outputScale) <= adequacyLimit);
   if (qualified.length === 0) return { status: "rejected", reason: "no-qualified-model" };
   qualified.sort((left, right) => complexity(left.kind) - complexity(right.kind)
     || left.normalizedValidationError - right.normalizedValidationError);
-  let recommended = qualified[0];
-  for (const delayedKind of ["first_order_dead_time", "second_order_dead_time"] as const) {
-    const delayed = qualified.find((model) => model.kind === delayedKind);
-    const undelayedKind = delayedKind === "first_order_dead_time" ? "first_order" : "second_order";
-    const undelayed = qualified.find((model) => model.kind === undelayedKind);
-    if (delayed && undelayed && (delayed.deadTimeSeconds ?? 0) > 2 * estimation.sampleTime
-        && delayed.normalizedValidationError < undelayed.normalizedValidationError * 0.98
-        && complexity(delayed.kind) <= complexity(recommended.kind) + 1) {
-      recommended = delayed;
-      break;
-    }
-  }
+  const recommended = qualified[0];
   return { status: "qualified", recommended, models };
 }
 
@@ -175,6 +162,9 @@ function response(kind: LowOrderModelKind, elapsed: number, parameters: Omit<Par
   }
   return 1 - (first * Math.exp(-time / first) - second * Math.exp(-time / second)) / (first - second);
 }
+
+/** Shared held-step response, including the equal-time-constant limit. */
+export { response as lowOrderStepResponse };
 
 function prepareStep(
   samples: readonly TimeDomainSample[],

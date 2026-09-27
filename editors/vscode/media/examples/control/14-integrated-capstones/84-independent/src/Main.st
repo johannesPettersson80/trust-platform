@@ -1,5 +1,66 @@
 USING Control;
 
+FUNCTION Lesson84ReceiverPressureRate : LREAL
+VAR_INPUT
+    ReceiverRateGain : LREAL;
+    CompressorDelivery : LREAL;
+    PlantDemand : LREAL;
+END_VAR
+Lesson84ReceiverPressureRate := ReceiverRateGain
+    * (CompressorDelivery - PlantDemand);
+END_FUNCTION
+
+FUNCTION Lesson84CompressorDeliveryRate : LREAL
+VAR_INPUT
+    DeliveryRequest : LREAL;
+    ActualDelivery : LREAL;
+    DeliveryTimeConstant : LREAL;
+END_VAR
+Lesson84CompressorDeliveryRate :=
+    (DeliveryRequest - ActualDelivery) / DeliveryTimeConstant;
+END_FUNCTION
+
+FUNCTION Lesson84DemandFeedforward : LREAL
+VAR_INPUT
+    MeasuredDemand : LREAL;
+    OperatingDemand : LREAL;
+END_VAR
+Lesson84DemandFeedforward := MeasuredDemand - OperatingDemand;
+END_FUNCTION
+
+FUNCTION Lesson84PiProportionalGain : LREAL
+VAR_INPUT
+    CharacteristicLinearCoefficient : LREAL;
+    CompressorTimeConstant : LREAL;
+    ReceiverRateGain : LREAL;
+END_VAR
+Lesson84PiProportionalGain := CharacteristicLinearCoefficient
+    * CompressorTimeConstant / ReceiverRateGain;
+END_FUNCTION
+
+FUNCTION Lesson84PiIntegralGain : LREAL
+VAR_INPUT
+    CharacteristicConstantCoefficient : LREAL;
+    CompressorTimeConstant : LREAL;
+    ReceiverRateGain : LREAL;
+END_VAR
+Lesson84PiIntegralGain := CharacteristicConstantCoefficient
+    * CompressorTimeConstant / ReceiverRateGain;
+END_FUNCTION
+
+FUNCTION Lesson84ReviewedDemand : LREAL
+VAR_INPUT
+    ExperimentScan : DINT;
+END_VAR
+IF ExperimentScan <= DINT#60 THEN
+    Lesson84ReviewedDemand := LREAL#50.0;
+ELSIF ExperimentScan <= DINT#180 THEN
+    Lesson84ReviewedDemand := LREAL#65.0;
+ELSE
+    Lesson84ReviewedDemand := LREAL#55.0;
+END_IF;
+END_FUNCTION
+
 PROGRAM Main
 VAR
     Enabled : BOOL := FALSE;
@@ -49,7 +110,20 @@ IF NOT StartupInitialized THEN
     PressureSetpoint := LREAL#7.0;
     StartupInitialized := TRUE;
 END_IF;
-IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+IF SafetyAbort OR (NOT InputsValid) THEN
+    Enabled := FALSE;
+    OperatingMode := DINT#0;
+    PressureQualityGood := TRUE;
+    DemandQualityGood := TRUE;
+    DeliveryQualityGood := TRUE;
+    CompressorAvailable := TRUE;
+    PressureSetpoint := LREAL#7.0;
+    MeasuredDemand := LREAL#50.0;
+    ManualFeedbackRequest := LREAL#0.0;
+    ManualIntegratedRequest := LREAL#0.0;
+    ExperimentScan := DINT#0;
+    ExperimentElapsedSeconds := LREAL#0.0;
+ELSIF ExperimentEnabled THEN
     ExperimentScan := ExperimentScan + DINT#1;
     ExperimentElapsedSeconds := ExperimentElapsedSeconds + LREAL#1.0;
     Enabled := TRUE;
@@ -61,13 +135,7 @@ IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
     PressureSetpoint := LREAL#7.0;
     ManualFeedbackRequest := LREAL#0.0;
     ManualIntegratedRequest := LREAL#0.0;
-    IF ExperimentScan <= DINT#60 THEN
-        MeasuredDemand := LREAL#50.0;
-    ELSIF ExperimentScan <= DINT#180 THEN
-        MeasuredDemand := LREAL#65.0;
-    ELSE
-        MeasuredDemand := LREAL#55.0;
-    END_IF;
+    MeasuredDemand := Lesson84ReviewedDemand(ExperimentScan := ExperimentScan);
     IF ExperimentScan > DINT#240 AND ExperimentScan <= DINT#250 THEN
         DemandQualityGood := FALSE;
     ELSIF ExperimentScan > DINT#250 AND ExperimentScan <= DINT#260 THEN
@@ -84,8 +152,10 @@ IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
         OperatingMode := DINT#3;
     END_IF;
 ELSE
-    Enabled := FALSE;
-    OperatingMode := DINT#0;
+    (* Monitor holds the reviewed 7 bar, 50/50 percent operating equilibrium.
+       Test authority starts the demand and abnormal-event sequence. *)
+    Enabled := TRUE;
+    OperatingMode := DINT#1;
     PressureQualityGood := TRUE;
     DemandQualityGood := TRUE;
     DeliveryQualityGood := TRUE;

@@ -53,6 +53,10 @@ impl IoSubsystem {
         self.interface.try_resize(inputs, outputs, memory)
     }
 
+    pub(super) fn all_drivers_simulated(&self) -> bool {
+        self.drivers.iter().all(|entry| entry.driver.is_simulated())
+    }
+
     pub(super) fn add_driver(&mut self, name: impl Into<SmolStr>, driver: Box<dyn IoDriver>) {
         self.drivers.push(IoDriverEntry {
             name: name.into(),

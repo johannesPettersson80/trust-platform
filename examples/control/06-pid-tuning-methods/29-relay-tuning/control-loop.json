@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 2,
+  "topology": "open-loop",
+  "id": "control-relay-tuning",
+  "name": "Heater relay tuning",
+  "revision": "sha256:083343ab8ad1bab010f9d60116197bf95c0cc6a0c64908d527168ff23e55a8f7",
+  "projectId": "project:control-relay-tuning",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Main",
+    "design": "project",
+    "revision": "sha256:95d0d29a1b7dd65a26957708043ea086b60291c02c696b9e951425226c4fdbd0",
+    "action": "direct",
+    "taskPeriodMs": 100
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.QualifiedTemperature",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 33,
+        "maximum": 37
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.QualifiedRelayApplied",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX8.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "relay-high",
+        "channel": "relay-high",
+        "role": "state",
+        "symbol": "P1.QualifiedRelayHigh",
+        "address": "%MX8.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "safety-abort",
+        "channel": "safety-abort",
+        "role": "state",
+        "symbol": "P1.SafetyAbort",
+        "address": "%MX8.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "candidate-valid",
+        "channel": "candidate-valid",
+        "role": "state",
+        "symbol": "P1.CandidateValid",
+        "address": "%MX8.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "retained-cycles",
+        "channel": "retained-cycles",
+        "role": "state",
+        "symbol": "P1.RetainedCycles",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "cycles",
+        "range": {
+          "minimum": 0,
+          "maximum": 30
+        }
+      },
+      {
+        "id": "cycle-amplitude",
+        "channel": "cycle-amplitude",
+        "role": "state",
+        "symbol": "P1.LastAmplitudeC",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "cycle-period",
+        "channel": "cycle-period",
+        "role": "state",
+        "symbol": "P1.LastPeriodS",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "candidate-kp",
+        "channel": "candidate-kp",
+        "role": "state",
+        "symbol": "P1.CandidateKp",
+        "address": "%ML80",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%/degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "candidate-ki",
+        "channel": "candidate-ki",
+        "role": "state",
+        "symbol": "P1.CandidateKi",
+        "address": "%ML88",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%/(degC*s)",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "heater-feedback-relay",
+  "operatingPoint": "35\u00b0C at75% heater power",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 60.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX8.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "abort": {
+      "symbol": "P1.SafetyAbort",
+      "address": "%MX8.1",
+      "iecType": "BOOL",
+      "direction": "write",
+      "assertedValue": true
+    }
+  },
+  "parameterPurpose": "experiment",
+  "parameterBinding": {
+    "parameters": [
+      {
+        "symbol": "P1.RelayAmplitude",
+        "iec_type": "LREAL",
+        "unit": "percentage-point",
+        "convention": "relay half-amplitude around75%",
+        "minimum": 5,
+        "maximum": 10
+      }
+    ],
+    "mode": {
+      "symbol": "P1.ExperimentEnabled",
+      "manual_value": false
+    },
+    "loop_id": "control-relay-tuning",
+    "task_name": "MainTask"
+  }
+}

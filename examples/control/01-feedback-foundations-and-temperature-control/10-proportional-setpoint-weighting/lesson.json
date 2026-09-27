@@ -1,0 +1,291 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-10",
+  "title": "Setpoint weighting",
+  "level": "Foundation",
+  "sequence": 22,
+  "equipment": "Motor-operated heating valve and recirculating water loop",
+  "physicalPurpose": "Soften commanded target response without weakening response to measured temperature.",
+  "principalTechnique": "Proportional setpoint weighting",
+  "objective": "Weight only target change in proportional action while integral action continues using true error.",
+  "prerequisites": [
+    "control-lesson-09",
+    "control-tuning-method-comparison"
+  ],
+  "nextLesson": "control-lesson-11",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Desired water temperature",
+      "unit": "degC",
+      "minimum": 15,
+      "maximum": 60,
+      "resolution": 0.1,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Measured water temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.01,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Requested valve position",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Setpoint weight",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 0.1,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "Setpoint change",
+      "unit": "degC",
+      "minimum": -80,
+      "maximum": 80,
+      "resolution": 0.01,
+      "binding": "%ML40"
+    },
+    {
+      "role": "state",
+      "name": "Measurement change",
+      "unit": "degC",
+      "minimum": -80,
+      "maximum": 80,
+      "resolution": 0.01,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "Proportional change",
+      "unit": "%",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML56"
+    },
+    {
+      "role": "state",
+      "name": "Integral change",
+      "unit": "%",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML64"
+    },
+    {
+      "role": "MV",
+      "name": "Applied valve position",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX128.0"
+    }
+  ],
+  "plant": {
+    "modelId": "first_order_dead_time",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      {
+        "name": "gain",
+        "value": 0.2,
+        "unit": "degC/%"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "dead_time",
+        "value": 1,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "waterTemperature": 35
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "PV": 35,
+      "MV": 75
+    },
+    "validityRange": [
+      {
+        "signal": "Measured water temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied valve position",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "The same one-state heater, 35 degC hot reset, 75% hold and one-second delivery delay are used for both trials.",
+      "Setpoint weight is a stopped parameter; normal PLC I/O and Control.PID own the trial."
+    ]
+  },
+  "baseline": {
+    "executableId": "Control.PID.BaselineWeightOne",
+    "settings": {
+      "setpointWeight": 1,
+      "proportionalGain": 2,
+      "integralGain": 0.5
+    },
+    "limitation": "The complete target step enters proportional action."
+  },
+  "change": {
+    "executableId": "Control.PID.WeightedSetpointResponse",
+    "settings": {
+      "setpointWeight": 0.5,
+      "proportionalGain": 2,
+      "integralGain": 0.5
+    },
+    "decision": "Halve only the target-change contribution to proportional action."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 60.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Separate 35 to 38 degC target and 30 kW extraction trials start from the same hot reset."
+    ],
+    "seed": 20260824,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "weighted_proportional_change",
+      "signal": "Proportional change",
+      "window": "first target-change scan",
+      "comparator": "==",
+      "limit": 3,
+      "unit": "%",
+      "tolerance": 0.05,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "integral_uses_true_error",
+      "signal": "Integral change",
+      "window": "first target-change scan",
+      "comparator": "==",
+      "limit": 0.15,
+      "unit": "%",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured water temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied valve position",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Temperature or valve position is not finite",
+      "Temperature or valve position leaves its limit"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Automatic control off and valve moving toward 0%",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The weight and target sequence are simulation teaching values."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#71-feedback-and-practical-temperature-control",
+    "nativeTest": "control_curriculum_lessons_22_24::lesson22_selects_beta_and_a_separate_load_trial_on_the_hot_heater",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_22_24 lesson22_selects_beta_and_a_separate_load_trial_on_the_hot_heater -- --exact",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/10-proportional-setpoint-weighting",
+    "runArtifactFields": [
+      "setpoint",
+      "processValue",
+      "setpointChange",
+      "measurementChange",
+      "proportionalChange",
+      "integralChange",
+      "requestedPosition",
+      "appliedPosition"
+    ],
+    "renderedJourneyId": "control-lesson-10"
+  },
+  "learning": {
+    "context": "Lesson 9 showed that a target step reaches feedback immediately.",
+    "reason": "Full proportional target response may be more abrupt than required.",
+    "change": "Weight only target change in proportional action.",
+    "transfer": "Lesson 11 filters measurement variation the process does not need.",
+    "theory": [
+      "Full proportional target response may be more abrupt than required."
+    ],
+    "workedPrediction": "Halve only the target-change contribution to proportional action.",
+    "practicalPreparation": [
+      "Lesson 9 showed that a target step reaches feedback immediately."
+    ],
+    "baseline": "The complete target step enters proportional action.",
+    "comparison": "Weight only target change in proportional action while integral action continues using true error.",
+    "validation": "Check the declared acceptance metrics against the retained run.",
+    "explanation": "Weight only target change in proportional action while integral action continues using true error."
+  },
+  "video": {
+    "viewerOutcome": "Weight only target change in proportional action while integral action continues using true error.",
+    "requiredVisibleEvidence": [
+      "setpoint",
+      "processValue",
+      "setpointChange",
+      "measurementChange",
+      "proportionalChange",
+      "integralChange",
+      "requestedPosition",
+      "appliedPosition"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

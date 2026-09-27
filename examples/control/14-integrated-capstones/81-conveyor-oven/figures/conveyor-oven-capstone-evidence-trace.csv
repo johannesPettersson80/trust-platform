@@ -1,7 +1,0 @@
-panel,series,point,x,y,x_unit,y_unit
-Setpoint integrated absolute error,Setpoint IAE,1,0.000000000000,525.808110997747,design index,degC*s
-Setpoint integrated absolute error,Setpoint IAE,2,1.000000000000,425.245314475078,design index,degC*s
-Regulatory integrated absolute error,Regulatory IAE,1,0.000000000000,52.254387149897,design index,degC*s
-Regulatory integrated absolute error,Regulatory IAE,2,1.000000000000,17.799914042086,design index,degC*s
-Phase-margin comparison,Phase margin,1,0.000000000000,61.351452023968,design index,deg
-Phase-margin comparison,Phase margin,2,1.000000000000,32.700264786315,design index,deg

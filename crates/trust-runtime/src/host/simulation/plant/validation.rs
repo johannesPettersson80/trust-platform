@@ -123,16 +123,19 @@ fn parameter_value(model: &PlantModelConfig, name: &str) -> Option<f64> {
         | (PlantModelConfig::FirstOrder { gain, .. }, "gain")
         | (PlantModelConfig::FirstOrderDeadTime { gain, .. }, "gain")
         | (PlantModelConfig::Integrator { gain, .. }, "gain")
+        | (PlantModelConfig::IntegratorDeadTime { gain, .. }, "gain")
         | (PlantModelConfig::SecondOrder { gain, .. }, "gain") => Some(*gain),
         (PlantModelConfig::StaticGain { input_bias, .. }, "input_bias")
         | (PlantModelConfig::FirstOrder { input_bias, .. }, "input_bias")
         | (PlantModelConfig::FirstOrderDeadTime { input_bias, .. }, "input_bias")
         | (PlantModelConfig::Integrator { input_bias, .. }, "input_bias")
+        | (PlantModelConfig::IntegratorDeadTime { input_bias, .. }, "input_bias")
         | (PlantModelConfig::SecondOrder { input_bias, .. }, "input_bias") => Some(*input_bias),
         (PlantModelConfig::StaticGain { output_bias, .. }, "output_bias")
         | (PlantModelConfig::FirstOrder { output_bias, .. }, "output_bias")
         | (PlantModelConfig::FirstOrderDeadTime { output_bias, .. }, "output_bias")
         | (PlantModelConfig::Integrator { output_bias, .. }, "output_bias")
+        | (PlantModelConfig::IntegratorDeadTime { output_bias, .. }, "output_bias")
         | (PlantModelConfig::SecondOrder { output_bias, .. }, "output_bias") => Some(*output_bias),
         (
             PlantModelConfig::FirstOrder {
@@ -149,8 +152,18 @@ fn parameter_value(model: &PlantModelConfig, name: &str) -> Option<f64> {
         (PlantModelConfig::FirstOrderDeadTime { dead_time_s, .. }, "dead_time_s") => {
             Some(*dead_time_s)
         }
+        (PlantModelConfig::IntegratorDeadTime { dead_time_s, .. }, "dead_time_s") => {
+            Some(*dead_time_s)
+        }
         (
             PlantModelConfig::FirstOrderDeadTime {
+                initial_delayed_input,
+                ..
+            },
+            "initial_delayed_input",
+        ) => Some(*initial_delayed_input),
+        (
+            PlantModelConfig::IntegratorDeadTime {
                 initial_delayed_input,
                 ..
             },
@@ -165,9 +178,17 @@ fn parameter_value(model: &PlantModelConfig, name: &str) -> Option<f64> {
         (PlantModelConfig::SecondOrder { damping_ratio, .. }, "damping_ratio") => {
             Some(*damping_ratio)
         }
-        (PlantModelConfig::GravityTank { area_m2, .. }, "area_m2") => Some(*area_m2),
+        (
+            PlantModelConfig::GravityTank { area_m2, .. }
+            | PlantModelConfig::GravityTankCascade { area_m2, .. },
+            "area_m2",
+        ) => Some(*area_m2),
         (
             PlantModelConfig::GravityTank {
+                outflow_coefficient,
+                ..
+            }
+            | PlantModelConfig::GravityTankCascade {
                 outflow_coefficient,
                 ..
             },
@@ -216,16 +237,19 @@ fn set_parameter(model: &mut PlantModelConfig, name: &str, value: f64) -> bool {
         | (PlantModelConfig::FirstOrder { gain, .. }, "gain")
         | (PlantModelConfig::FirstOrderDeadTime { gain, .. }, "gain")
         | (PlantModelConfig::Integrator { gain, .. }, "gain")
+        | (PlantModelConfig::IntegratorDeadTime { gain, .. }, "gain")
         | (PlantModelConfig::SecondOrder { gain, .. }, "gain") => *gain = value,
         (PlantModelConfig::StaticGain { input_bias, .. }, "input_bias")
         | (PlantModelConfig::FirstOrder { input_bias, .. }, "input_bias")
         | (PlantModelConfig::FirstOrderDeadTime { input_bias, .. }, "input_bias")
         | (PlantModelConfig::Integrator { input_bias, .. }, "input_bias")
+        | (PlantModelConfig::IntegratorDeadTime { input_bias, .. }, "input_bias")
         | (PlantModelConfig::SecondOrder { input_bias, .. }, "input_bias") => *input_bias = value,
         (PlantModelConfig::StaticGain { output_bias, .. }, "output_bias")
         | (PlantModelConfig::FirstOrder { output_bias, .. }, "output_bias")
         | (PlantModelConfig::FirstOrderDeadTime { output_bias, .. }, "output_bias")
         | (PlantModelConfig::Integrator { output_bias, .. }, "output_bias")
+        | (PlantModelConfig::IntegratorDeadTime { output_bias, .. }, "output_bias")
         | (PlantModelConfig::SecondOrder { output_bias, .. }, "output_bias") => {
             *output_bias = value;
         }
@@ -244,8 +268,18 @@ fn set_parameter(model: &mut PlantModelConfig, name: &str, value: f64) -> bool {
         (PlantModelConfig::FirstOrderDeadTime { dead_time_s, .. }, "dead_time_s") => {
             *dead_time_s = value;
         }
+        (PlantModelConfig::IntegratorDeadTime { dead_time_s, .. }, "dead_time_s") => {
+            *dead_time_s = value;
+        }
         (
             PlantModelConfig::FirstOrderDeadTime {
+                initial_delayed_input,
+                ..
+            },
+            "initial_delayed_input",
+        ) => *initial_delayed_input = value,
+        (
+            PlantModelConfig::IntegratorDeadTime {
                 initial_delayed_input,
                 ..
             },
@@ -260,9 +294,17 @@ fn set_parameter(model: &mut PlantModelConfig, name: &str, value: f64) -> bool {
         (PlantModelConfig::SecondOrder { damping_ratio, .. }, "damping_ratio") => {
             *damping_ratio = value;
         }
-        (PlantModelConfig::GravityTank { area_m2, .. }, "area_m2") => *area_m2 = value,
+        (
+            PlantModelConfig::GravityTank { area_m2, .. }
+            | PlantModelConfig::GravityTankCascade { area_m2, .. },
+            "area_m2",
+        ) => *area_m2 = value,
         (
             PlantModelConfig::GravityTank {
+                outflow_coefficient,
+                ..
+            }
+            | PlantModelConfig::GravityTankCascade {
                 outflow_coefficient,
                 ..
             },
@@ -344,6 +386,24 @@ fn validate_effective_model(model: &PlantModelConfig) -> Result<(), RuntimeError
         } => [gain, input_bias, output_bias]
             .into_iter()
             .all(|value| value.is_finite()),
+        PlantModelConfig::IntegratorDeadTime {
+            gain,
+            input_bias,
+            output_bias,
+            dead_time_s,
+            initial_delayed_input,
+        } => {
+            [
+                gain,
+                input_bias,
+                output_bias,
+                dead_time_s,
+                initial_delayed_input,
+            ]
+            .into_iter()
+            .all(|value| value.is_finite())
+                && *dead_time_s >= 0.0
+        }
         PlantModelConfig::FirstOrder {
             gain,
             time_constant_s,
@@ -397,6 +457,10 @@ fn validate_effective_model(model: &PlantModelConfig) -> Result<(), RuntimeError
         }
         PlantModelConfig::PiecewiseLinear { .. } => true,
         PlantModelConfig::GravityTank {
+            area_m2,
+            outflow_coefficient,
+        }
+        | PlantModelConfig::GravityTankCascade {
             area_m2,
             outflow_coefficient,
         } => {

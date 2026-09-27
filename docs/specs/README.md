@@ -176,8 +176,12 @@ Use:
 - [32-control-pid.md](32-control-pid.md) for practical P, PI, PD, and PID behavior
 - [33-simulation-plant-models.md](33-simulation-plant-models.md) for simulated
   plant dynamics and nonidealities
-- [35-vscode-control-studio.md](35-vscode-control-studio.md) for the common
-  Monitor, Test, Identify, Tune, and Validate workflow
+- [Identify](control-studio-identify-page.md), [Tune](control-studio-tune-page.md)
+  and [Validate](control-studio-validate-page.md) for Control Studio page layouts
+- [Control Studio shared flow](control-studio-complete-workflow-specification.md#three-page-automatic-flow)
+  for automatic progression, compact editors and save/restart behavior
+- [35-vscode-control-studio.md](35-vscode-control-studio.md) for Control Studio
+  runtime and numerical contracts, UI clarity and acceptance
 - [38-control-engineering-curriculum.md](38-control-engineering-curriculum.md)
   for the progressive real-world control learning path and lesson contract
 

@@ -1,7 +1,0 @@
-case,plant,method,status,iae,ise,itae,overshoot_percent,final_mean_absolute_error,applied_movement_pp,applied
-heater_simc,water_heater,SIMC,qualified,27.439550,67.496928,726.151701,0.393329,0.012560,93.338377,false
-heater_amigo,water_heater,AMIGO,qualified,23.874682,61.282210,615.901967,3.879261,0.012536,102.483285,false
-tank_simc,buffer_tank,SIMC,qualified,8.756780,5.608732,342.632377,34.482219,0.013516,179.039419,false
-tank_amigo,buffer_tank,AMIGO,unavailable,,,,,,,false
-dryer_simc,belt_dryer,SIMC,qualified,167.110930,452.743558,7850.181969,0.108674,0.025083,33.944062,false
-dryer_amigo,belt_dryer,AMIGO,qualified,240.634661,623.160143,13216.853733,0.000000,0.082862,23.036717,false

@@ -1114,9 +1114,12 @@ function Canvas() {
             setDraft(undefined); // selection and the add-flow share the right drawer
             const data = node.data as Record<string, unknown>;
             const configuration = data.configuration as {
+              preservedConfiguration?: Record<string, unknown>;
               description?: string;
               parameters?: Record<string, number | number[] | number[][]>;
               initialState?: number[];
+              enabledDefaulted?: boolean;
+              initialStateDefaulted?: boolean;
               stepMs?: number;
               initialInput?: number[];
               inputScale?: number[];
@@ -1140,6 +1143,9 @@ function Canvas() {
               const runtime = built.nodes.find((candidate) => candidate.id === node.parentId);
               plantDraftOriginRef.current = { selectedId: node.id };
               setPlantDraft(createPlantEditDraft({
+                ...configuration,
+                parameters: configuration.parameters,
+                initialState: configuration.initialState,
                 id: node.id,
                 projectId: String(data.projectId ?? ""),
                 runtimeId: node.parentId,
@@ -1149,14 +1155,6 @@ function Canvas() {
                 description: configuration.description ?? "",
                 enabled: data.enabled !== false,
                 model: data.modelKind as import("../plant/editorModel").PlantModelKind,
-                parameters: configuration.parameters,
-                initialState: configuration.initialState,
-                stepMs: configuration.stepMs,
-                initialInput: configuration.initialInput,
-                inputScale: configuration.inputScale,
-                inputOffset: configuration.inputOffset,
-                outputScale: configuration.outputScale,
-                outputOffset: configuration.outputOffset,
                 commandSources: Array.isArray(data.commandSources) ? data.commandSources as string[] : [],
                 feedbackTargets: Array.isArray(data.feedbackTargets) ? data.feedbackTargets as string[] : [],
                 savedConfigurationRevision: String(data.savedConfigurationRevision ?? ""),

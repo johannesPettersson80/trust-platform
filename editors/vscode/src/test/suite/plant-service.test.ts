@@ -138,6 +138,7 @@ suite("Plant service projection", () => {
       parameters: { gain: 2, time_constant_s: 5 },
       initialState: [1],
       stepMs: 5,
+      projectStepMs: 10,
       initialInput: [2],
       inputScale: [0.1],
       inputOffset: [-1],

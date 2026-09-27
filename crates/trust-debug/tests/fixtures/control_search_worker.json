@@ -1,0 +1,70 @@
+{
+  "snapshot": {
+    "project_revision": "sha256:2a9a3db650f36971a7b64a43571f7a08b891b9015139b54aeeae417fc4551ffe",
+    "project_identity": "control-search-cli-smoke",
+    "sources": [
+      {
+        "path": "Main.st",
+        "text": "PROGRAM Main VAR Kp : LREAL := 1.0; SP : LREAL := 1.0; PV AT %IL0 : LREAL; MV AT %QL0 : LREAL; END_VAR MV := Kp * (SP - PV); END_PROGRAM"
+      }
+    ],
+    "simulation": "[simulation]\nenabled = true\nplant_step_ms = 20\n[[plants]]\nid = \"engineer-plant\"\nmodel = \"first_order\"\ncommand_sources = [\"%QL0\"]\nfeedback_targets = [\"%IL0\"]\ninitial_state = [0.0]\n[plants.parameters]\ngain = 1.0\ntime_constant_s = 0.1\n"
+  },
+  "request": {
+    "expected_project_revision": "sha256:2a9a3db650f36971a7b64a43571f7a08b891b9015139b54aeeae417fc4551ffe",
+    "execution": "isolated-simulation",
+    "grid": [
+      {
+        "symbol": "Main.Kp",
+        "unit": "ratio",
+        "minimum": 0,
+        "maximum": 10,
+        "values": [
+          2
+        ]
+      }
+    ],
+    "trial_count": 1,
+    "step_ms": 20,
+    "duration_ms": 200,
+    "seed": 7,
+    "max_total_cycles": 11,
+    "wall_budget_ms": 10000,
+    "per_trial_wall_ms": 5000,
+    "initial_values": {},
+    "events": [],
+    "observations": [
+      {
+        "symbol": "Main.SP",
+        "unit": "C"
+      },
+      {
+        "symbol": "Main.PV",
+        "unit": "C"
+      },
+      {
+        "symbol": "Main.MV",
+        "unit": "points"
+      }
+    ],
+    "requirements": [
+      {
+        "id": "actuator-bound",
+        "symbol": "Main.MV",
+        "minimum": -10,
+        "maximum": 10,
+        "start_ms": 0,
+        "end_ms": 200
+      }
+    ],
+    "objective": {
+      "reference_symbol": "Main.SP",
+      "feedback_symbol": "Main.PV",
+      "error_unit": "C"
+    }
+  },
+  "index": 0,
+  "parameters": {
+    "Main.Kp": 2
+  }
+}

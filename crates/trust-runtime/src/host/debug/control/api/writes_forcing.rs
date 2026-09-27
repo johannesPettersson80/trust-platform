@@ -74,6 +74,10 @@ impl DebugControl {
     pub(crate) fn clear_runtime_mutations(&self) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
+        state.recordings.interrupt();
+        state.parameters.interrupt();
+        state.transfers.interrupt();
+        state.signals.clear();
         state.io_writes.clear();
         state.pending_var_writes.clear();
         state.pending_lvalue_writes.clear();

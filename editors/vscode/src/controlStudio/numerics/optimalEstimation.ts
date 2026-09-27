@@ -1,6 +1,8 @@
 import { eigenvalues, invertMatrix } from "./adapter";
 import type { DenseMatrix, NumericalTolerance } from "./contracts";
 
+export interface FiniteLqrHorizon { steps: number; terminalWeights: DenseMatrix }
+
 export function discreteKalmanStep(problem: any, tolerance: NumericalTolerance): any {
   const predictedState = addVector(multiplyVector(problem.a, problem.state), multiplyVector(problem.b, problem.input));
   const predictedCovariance = add(
@@ -26,8 +28,10 @@ export function solveDiscreteLqr(
   b: DenseMatrix,
   q: DenseMatrix,
   r: DenseMatrix,
-  tolerance: NumericalTolerance
+  tolerance: NumericalTolerance,
+  horizon?: FiniteLqrHorizon,
 ): any {
+  if (horizon) return finiteHorizonLqr(a, b, q, r, tolerance, horizon);
   let riccati = copy(q);
   let converged = false;
   for (let iteration = 0; iteration < 10_000; iteration += 1) {
@@ -54,8 +58,45 @@ export function solveDiscreteLqr(
   return { status: "qualified", gain, riccati, riccatiResidual: maxAbs(residual), closedLoopPoles: poles.values };
 }
 
+/** Backward finite-horizon recursion; coefficient adapters repeat K0, not the full sequence. */
+function finiteHorizonLqr(a: DenseMatrix, b: DenseMatrix, q: DenseMatrix, r: DenseMatrix,
+  tolerance: NumericalTolerance, horizon: FiniteLqrHorizon) {
+  const n = a.length, m = b[0]?.length ?? 0;
+  const shape = (matrix: DenseMatrix, rows: number, columns: number) => matrix?.length === rows
+    && matrix.every(row => row.length === columns && row.every(Number.isFinite));
+  const weight = (matrix: DenseMatrix, size: number, strict: boolean) => {
+    if (!shape(matrix, size, size) || matrix.some((row, i) => row.some((value, j) => Math.abs(value - matrix[j][i]) > tolerance.absolute))) return false;
+    const spectrum = eigenvalues(matrix, tolerance);
+    return spectrum.status === "qualified" && spectrum.values.every(value => Math.abs(value.imaginary) <= tolerance.absolute
+      && (strict ? value.real > 0 : value.real >= -tolerance.absolute));
+  };
+  if (!Number.isInteger(horizon.steps) || horizon.steps < 1 || horizon.steps > 512 || n < 1 || n > 32 || m < 1 || m > 16
+    || !shape(a, n, n) || !shape(b, n, m) || !weight(q, n, false) || !weight(r, m, true) || !weight(horizon.terminalWeights, n, false)) {
+    return { status: "rejected", reason: "invalid-finite-horizon-design" };
+  }
+  const riccatiSequence: number[][][] = Array(horizon.steps + 1);
+  const gainSequence: number[][][] = Array(horizon.steps);
+  let p = copy(horizon.terminalWeights);
+  riccatiSequence[horizon.steps] = p;
+  for (let k = horizon.steps - 1; k >= 0; k--) {
+    const inverse = invertMatrix(add(r, multiply(multiply(transpose(b), p), b)), tolerance);
+    if (inverse.status !== "qualified") return { status: "rejected", reason: "singular-control-weight" };
+    const gain = multiply(multiply(multiply(inverse.inverse, transpose(b)), p), a);
+    const next = dareUpdate(a, b, q, r, p, tolerance);
+    if (!next || ![...gain.flat(), ...next.flat()].every(Number.isFinite)) return { status: "rejected", reason: "nonfinite-riccati-stage" };
+    gainSequence[k] = gain;
+    p = next;
+    riccatiSequence[k] = p;
+  }
+  const poles = eigenvalues(subtract(a, multiply(b, gainSequence[0])), tolerance);
+  if (poles.status !== "qualified") return { status: "rejected", reason: "solver-failed" };
+  return { status: "qualified", gain: gainSequence[0], riccati: riccatiSequence[0],
+    gainSequence, riccatiSequence, horizonSteps: horizon.steps, runtimePolicy: "repeat-first-finite-gain",
+    closedLoopPoles: poles.values, repeatedFirstGainStable: poles.values.every(pole => Math.hypot(pole.real, pole.imaginary) < 1) };
+}
+
 export function designDiscreteLqg(problem: any, tolerance: NumericalTolerance): any {
-  const lqr = solveDiscreteLqr(problem.a, problem.b, problem.q, problem.r, tolerance);
+  const lqr = solveDiscreteLqr(problem.a, problem.b, problem.q, problem.r, tolerance, problem.finiteHorizon);
   if (lqr.status !== "qualified") return lqr;
   const kalman = steadyStateKalman(problem.a, problem.c, problem.processNoise, problem.measurementNoise, tolerance);
   if (kalman.status !== "qualified") return kalman;

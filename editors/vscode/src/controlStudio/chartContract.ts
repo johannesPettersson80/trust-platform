@@ -18,6 +18,22 @@ export interface ControlChartSample {
   mv: ControlChartValue;
   quality?: SampleQuality;
   events?: readonly ControlChartEvent[];
+  additional?: readonly ControlChartAuxiliarySignal[];
+}
+
+export interface ControlChartAuxiliarySignal {
+  id: string;
+  channel: string;
+  role: string;
+  unit: string;
+  value: ControlChartValue;
+  quality: SampleQuality | "forced";
+  displayName?: string;
+}
+
+export function controlChartSampleValue(sample: ControlChartSample, id: string): ControlChartValue {
+  if (id === "sp" || id === "pv" || id === "mv") return sample[id];
+  return sample.additional?.find(signal => signal.id === id)?.value ?? null;
 }
 
 export interface ControlChartEventRow {
@@ -36,6 +52,10 @@ export interface ControlPlotTab {
 }
 
 export interface ControlPlotEvidence {
+  structureComparison?: boolean;
+  manualParameters?: boolean;
+  recordedResponses?: boolean;
+  rootLocus?: boolean;
   samples?: boolean;
   recording?: boolean;
   model?: boolean;
@@ -94,7 +114,15 @@ const MODEL_REQUIRED = "Identify and accept a dynamic model first";
 const CANDIDATE_REQUIRED = "Generate or select a controller candidate first";
 
 /** Keeps every relevant plot discoverable while explaining missing evidence. */
-export function controlStagePlots(
+export function controlStagePlots(stage: string, evidence: ControlPlotEvidence): ControlPlotTab[] {
+  const plots = baseStagePlots(stage, evidence);
+  if (evidence.recordedResponses && ["Monitor", "Tune", "Validate"].includes(stage)) {
+    plots.push({ id: "recorded-responses", available: true });
+  }
+  return plots;
+}
+
+function baseStagePlots(
   stage: string,
   evidence: ControlPlotEvidence
 ): ControlPlotTab[] {
@@ -118,11 +146,16 @@ export function controlStagePlots(
         requires("limits", Boolean(evidence.samples), "Start the runtime to evaluate configured limits"),
       ];
     case "Identify": {
+      const recording = requires("recorded-response", Boolean(evidence.recording), "Record a test or import a saved recording first");
+      const fitRequired = "Check a recording, then fit a model";
+      if (!evidence.model) return [recording, requires("fit", false, fitRequired)];
+      if (evidence.structureComparison) return [available("fit"), available("residuals"), ...(evidence.recording ? [recording] : [])];
       const plots = [
-        requires("fit", Boolean(evidence.model), MODEL_REQUIRED),
-        requires("residuals", Boolean(evidence.model), MODEL_REQUIRED),
-        requires("validation-data", Boolean(evidence.model), MODEL_REQUIRED),
-        requires("poles-zeros", Boolean(evidence.model), MODEL_REQUIRED),
+        requires("fit", Boolean(evidence.model), fitRequired),
+        requires("residuals", Boolean(evidence.model), fitRequired),
+        requires("validation-data", Boolean(evidence.model), fitRequired),
+        requires("poles-zeros", Boolean(evidence.model), fitRequired),
+        ...(evidence.recording ? [recording] : []),
       ];
       if (evidence.mimo) {
         plots.push(available("channel-responses"), available("rga"));
@@ -130,10 +163,13 @@ export function controlStagePlots(
       return plots;
     }
     case "Tune": {
+      if (evidence.manualParameters && !evidence.model && !evidence.candidate) {
+        return [available(evidence.recording ? "recorded-response" : "live-response")];
+      }
       const plots = [
         requires("response", Boolean(evidence.candidate), CANDIDATE_REQUIRED),
         requires("bode", Boolean(evidence.model), MODEL_REQUIRED),
-        requires("root-locus", Boolean(evidence.model), MODEL_REQUIRED),
+        requires("root-locus", Boolean(evidence.model || evidence.rootLocus), MODEL_REQUIRED),
         requires("nyquist", Boolean(evidence.model), MODEL_REQUIRED),
         requires("nichols", Boolean(evidence.candidate), CANDIDATE_REQUIRED),
         requires("sensitivity", Boolean(evidence.candidate), CANDIDATE_REQUIRED),
@@ -145,12 +181,15 @@ export function controlStagePlots(
       return plots;
     }
     case "Validate":
+      if (!evidence.candidate && evidence.recording) return [available("recorded-response"), available("signals")];
+      if (!evidence.candidate && evidence.samples) return [available("live-response")];
       return [
         requires("requirements", Boolean(evidence.candidate), CANDIDATE_REQUIRED),
         requires("response", Boolean(evidence.candidate), CANDIDATE_REQUIRED),
         requires("robustness", Boolean(evidence.candidate), CANDIDATE_REQUIRED),
         requires("constraints", Boolean(evidence.candidate && evidence.constraints),
           evidence.candidate ? "Declare validation constraints first" : CANDIDATE_REQUIRED),
+        ...(evidence.recording ? [available("recorded-response")] : []),
       ];
     default:
       throw new Error(`Unknown Control Studio workflow stage: ${stage}`);
@@ -167,6 +206,7 @@ export function selectControlPlot(
 
 /** Routes direct tabs onto the smallest shared plot surface that preserves their evidence. */
 export function controlPlotView(stage: string, plot: string): string {
+  if (["Identify", "Validate", "Tune"].includes(stage) && ["recorded-response", "live-response"].includes(plot)) return "response";
   if (stage === "Test" && (plot === "experiment" || plot === "limits")) return "response";
   if ((stage === "Tune" || stage === "Validate") && plot === "response") return "engineering-response";
   if (stage === "Validate" && (plot === "robustness" || plot === "constraints")) return "requirements";
@@ -366,13 +406,17 @@ export function pidEngineeringUnits(processUnit: string, outputUnit: string): {
   };
 }
 
-export function controlChartAxisLabels(processUnit: string, outputUnit: string): {
+export function controlChartAxisLabels(processUnit: string, outputUnit: string, topology: "closed-loop" | "open-loop" = "closed-loop"): {
   process: string;
   output: string;
   description: string;
 } {
   const process = displayEngineeringUnit(processUnit) || "engineering unit";
   const output = displayEngineeringUnit(outputUnit) || "engineering unit";
+  if (topology === "open-loop") return {
+    process: `Measured output (${process})`, output: `Applied input (${output})`,
+    description: `Measured output in ${process}; applied input in ${output}`,
+  };
   return {
     process: `SP / PV (${process})`,
     output: `MV (${output})`,
@@ -384,12 +428,16 @@ export function controlChartAccessibleSummary(
   source: string,
   sample: ControlChartSample | undefined,
   processUnit: string,
-  outputUnit: string
+  outputUnit: string,
+  topology: "closed-loop" | "open-loop" = "closed-loop"
 ): string {
   const origin = source.trim() || "Control loop";
-  if (!sample) return `${origin} control-loop time plot. No current samples.`;
+  const plot = topology === "open-loop" ? "open-loop" : "control-loop";
+  if (!sample) return `${origin} ${plot} time plot. No current samples.`;
   const process = displayEngineeringUnit(processUnit);
   const output = displayEngineeringUnit(outputUnit);
+  if (topology === "open-loop") return `${origin} open-loop time plot. Current at ${formatEngineeringNumber(sample.elapsedSeconds)} s: ` +
+    `Measured output ${formatEngineeringNumber(sample.pv)} ${process}, Applied input ${formatEngineeringNumber(sample.mv)} ${output}.`;
   return `${origin} control-loop time plot. Current at ${formatEngineeringNumber(sample.elapsedSeconds)} s: ` +
     `SP ${formatEngineeringNumber(sample.sp)} ${process}, ` +
     `PV ${formatEngineeringNumber(sample.pv)} ${process}, ` +
@@ -487,7 +535,11 @@ export function liveResponseAxisRange(values: readonly (number | null | undefine
   const minimum = Math.min(...finite);
   const maximum = Math.max(...finite);
   const span = maximum - minimum;
-  const padding = span > 0 ? span * 0.08 : Math.max(Math.abs(maximum) * 0.05, 1e-6);
+  const magnitude = Math.max(Math.abs(minimum), Math.abs(maximum));
+  // Subtracting two sensor values can leave a few ulps around a constant
+  // difference. Frame that as a constant; keep every recorded value unchanged.
+  const varying = span > 128 * Number.EPSILON * magnitude;
+  const padding = varying ? span * 0.08 : magnitude === 0 ? 1 : magnitude * 0.05;
   return { minimum: minimum - padding, maximum: maximum + padding };
 }
 
@@ -523,7 +575,10 @@ export function normalizeChartWindow(start: number, end: number): [number, numbe
 }
 
 export function controlChartCsv(samples: readonly ControlChartSample[]): string {
-  const rows = ["elapsed_seconds,sp,pv,mv,quality,events"];
+  const additional = [...new Map(samples.flatMap(sample =>
+    (sample.additional ?? []).map(signal => [signal.id, signal] as const))).values()];
+  const rows = [["elapsed_seconds,sp,pv,mv,quality,events", ...additional.flatMap(signal =>
+    [csvText(`${signal.id} (${signal.unit})`), csvText(`${signal.id}.quality`)])].join(",")];
   for (const sample of samples) {
     rows.push([
       sample.elapsedSeconds,
@@ -532,6 +587,10 @@ export function controlChartCsv(samples: readonly ControlChartSample[]): string 
       csvValue(sample.mv),
       sample.quality ?? "good",
       csvText(sample.events?.map((event) => event.label).join(" | ") ?? ""),
+      ...additional.flatMap(signal => {
+        const measured = sample.additional?.find(item => item.id === signal.id);
+        return [csvValue(measured?.value ?? null), measured?.quality ?? "bad"];
+      }),
     ].join(","));
   }
   return rows.join("\n");
@@ -546,6 +605,7 @@ export function restoredControlChartSamples(samples: readonly {
   appliedMv?: number | null;
   quality: "good" | "forced" | "bad";
   events: readonly string[];
+  additional?: readonly ControlChartAuxiliarySignal[];
 }[]): ControlChartSample[] {
   return samples.map((sample) => ({
     elapsedSeconds: sample.elapsedSeconds,
@@ -556,6 +616,7 @@ export function restoredControlChartSamples(samples: readonly {
     mv: sample.appliedMv ?? sample.mv ?? null,
     quality: sample.quality === "good" ? "good" : "bad",
     events: sample.events.map((label) => ({ kind: "event" as const, label })),
+    ...(sample.additional ? { additional: sample.additional.map(signal => ({ ...signal })) } : {}),
   }));
 }
 
@@ -567,17 +628,22 @@ export function displayedControlSamples(
   if (samples.length <= targetPoints || targetPoints < 3) return samples;
 
   const mandatory = new Set<number>([0, samples.length - 1]);
+  const signalIds = ["sp", "pv", "mv", ...new Set(samples.flatMap(sample =>
+    sample.additional?.map(signal => signal.id) ?? []))];
   for (let index = 1; index < samples.length; index += 1) {
     const sample = samples[index];
     const previous = samples[index - 1];
     if (sample.events?.length || sample.quality !== previous.quality) mandatory.add(index);
-    if ([sample.sp, sample.pv, sample.mv].some((value) => value === null)) mandatory.add(index);
+    if (signalIds.some(id => controlChartSampleValue(sample, id) === null ||
+        controlChartSampleValue(previous, id) === null)) mandatory.add(index);
+    if ((sample.additional ?? []).some(signal => signal.quality !==
+        previous.additional?.find(before => before.id === signal.id)?.quality)) mandatory.add(index);
   }
-  for (const signal of ["sp", "pv", "mv"] as const) {
+  for (const signal of signalIds) {
     for (let index = 1; index < samples.length - 1; index += 1) {
-      const before = samples[index - 1][signal];
-      const value = samples[index][signal];
-      const after = samples[index + 1][signal];
+      const before = controlChartSampleValue(samples[index - 1], signal);
+      const value = controlChartSampleValue(samples[index], signal);
+      const after = controlChartSampleValue(samples[index + 1], signal);
       if (before !== null && value !== null && after !== null &&
           ((value > before && value > after) || (value < before && value < after))) {
         mandatory.add(index);
@@ -677,6 +743,9 @@ function sanitizeSample(sample: ControlChartSample): ControlChartSample {
     pv: finiteOrGap(sample.pv),
     mv: finiteOrGap(sample.mv),
     quality: sample.quality ?? "good",
+    ...(sample.additional ? { additional: sample.additional.map(signal => ({ ...signal,
+      value: ["bad", "forced", "stale"].includes(signal.quality) ? null : finiteOrGap(signal.value),
+    })) } : {}),
   };
 }
 

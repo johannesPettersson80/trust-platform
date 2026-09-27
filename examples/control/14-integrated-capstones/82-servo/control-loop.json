@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "id": "control-capstone-servo",
+  "name": "Servo capstone",
+  "revision": "sha256:3487a3b732bc177c53330b301883496d3cf0f6e0ef25074fdaf65c836b6406e0",
+  "projectId": "project:control-capstone-servo",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Time-, frequency-, and digitally qualified filtered PID",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-78",
+    "action": "direct",
+    "taskPeriodMs": 10
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.PositionSetpoint",
+      "address": "%ML200",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rad",
+      "range": {
+        "minimum": -1.5,
+        "maximum": 1.5
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.PRawPosition",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rad",
+      "range": {
+        "minimum": -1.5,
+        "maximum": 1.5
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.PAppliedTorque",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "N m",
+      "range": {
+        "minimum": -10,
+        "maximum": 10
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX192.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "pd-raw-encoder-position",
+        "channel": "pd-raw-encoder-position",
+        "role": "PV",
+        "symbol": "P1.PDRawPosition",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad",
+        "range": {
+          "minimum": -1.5,
+          "maximum": 1.5
+        }
+      },
+      {
+        "id": "pid-raw-encoder-position",
+        "channel": "pid-raw-encoder-position",
+        "role": "PV",
+        "symbol": "P1.PIDRawPosition",
+        "address": "%IL48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad",
+        "range": {
+          "minimum": -1.5,
+          "maximum": 1.5
+        }
+      },
+      {
+        "id": "coarse-pid-raw-encoder-position",
+        "channel": "coarse-pid-raw-encoder-position",
+        "role": "PV",
+        "symbol": "P1.CoarseRawPosition",
+        "address": "%IL72",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad",
+        "range": {
+          "minimum": -1.5,
+          "maximum": 1.5
+        }
+      },
+      {
+        "id": "pd-applied-motor-torque",
+        "channel": "pd-applied-motor-torque",
+        "role": "MV",
+        "symbol": "P1.PDAppliedTorque",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "pid-applied-motor-torque",
+        "channel": "pid-applied-motor-torque",
+        "role": "MV",
+        "symbol": "P1.PIDAppliedTorque",
+        "address": "%QL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "coarse-pid-applied-motor-torque",
+        "channel": "coarse-pid-applied-motor-torque",
+        "role": "MV",
+        "symbol": "P1.CoarseAppliedTorque",
+        "address": "%QL48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "pid-filtered-encoder-position",
+        "channel": "pid-filtered-encoder-position",
+        "role": "state",
+        "symbol": "P1.PIDFilteredPosition",
+        "address": "%ML112",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad",
+        "range": {
+          "minimum": -1.5,
+          "maximum": 1.5
+        }
+      },
+      {
+        "id": "pid-requested-motor-torque",
+        "channel": "pid-requested-motor-torque",
+        "role": "state",
+        "symbol": "P1.PIDRequestedTorque",
+        "address": "%ML144",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "encoder-quality-good",
+        "channel": "encoder-quality-good",
+        "role": "quality",
+        "symbol": "P1.MeasurementQualityGood",
+        "address": "%MX192.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "controller-revision",
+        "channel": "controller-revision",
+        "role": "state",
+        "symbol": "P1.ControllerRevision",
+        "address": "%MD176",
+        "iecType": "DINT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": -10,
+    "outputMaximum": 10
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 10
+  },
+  "plantId": "four_equivalent_flexible_rotary_indexing_tables",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 30.01,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX192.2",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  },
+  "parameterBinding": {
+    "loop_id": "control-capstone-servo",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.TrialKind",
+        "iec_type": "INT",
+        "unit": "1",
+        "convention": "0 unloaded move, 1 loaded hold, 2 invalid-quality recovery",
+        "minimum": 0,
+        "maximum": 2
+      }
+    ],
+    "mode": {
+      "symbol": "P1.ExperimentEnabled",
+      "manual_value": false
+    }
+  },
+  "parameterPurpose": "experiment"
+}

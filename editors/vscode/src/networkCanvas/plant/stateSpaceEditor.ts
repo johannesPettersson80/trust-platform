@@ -13,6 +13,48 @@ export interface PlantStateSpaceCellIssue {
   message: string;
 }
 
+export interface PlantInputDelayIssue {
+  column?: number;
+  message: string;
+}
+
+/** Mirrors Specification 33's transport-history contract without allocating history. */
+export function validateStateSpaceInputDelays(input: {
+  parameters: PlantParameters;
+  inputs: number;
+  stepMs?: number;
+  projectStepMs?: number;
+}): PlantInputDelayIssue[] {
+  const delays = input.parameters.input_delays_s;
+  if (delays === undefined) return [];
+  if (!Array.isArray(delays) || delays.length !== input.inputs) {
+    return [{ message: `Input delays need exactly ${input.inputs} values, one per input.` }];
+  }
+  const issues: PlantInputDelayIssue[] = [];
+  const nanos: bigint[] = [];
+  delays.forEach((value, column) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      issues.push({ column, message: `Input ${column + 1} delay must be a finite number of seconds.` });
+    } else if (value < 0) {
+      issues.push({ column, message: `Input ${column + 1} delay must be 0 s or greater.` });
+    } else {
+      const rounded = Math.round(value * 1e9);
+      if (!Number.isFinite(rounded) || rounded >= 2 ** 63) {
+        issues.push({ column, message: `Input ${column + 1} delay exceeds the supported time range.` });
+      } else nanos.push(BigInt(rounded));
+    }
+  });
+  if (issues.length > 0) return issues;
+  const effectiveStepMs = input.stepMs ?? input.projectStepMs;
+  if (effectiveStepMs === undefined || !Number.isSafeInteger(effectiveStepMs) || effectiveStepMs <= 0 ||
+      nanos.every((value) => value === 0n)) return [];
+  const step = BigInt(effectiveStepMs) * 1_000_000n;
+  const entries = nanos.reduce((sum, value) => sum + value / step + (value % step === 0n ? 0n : 1n) + 3n, 0n);
+  return entries > 100_000n ? [{
+    message: `Input delays exceed the 100,000-entry history limit at a ${effectiveStepMs} ms plant step. Reduce a delay or increase the plant step.`,
+  }] : [];
+}
+
 export function stateSpaceDimensions(parameters: PlantParameters): PlantStateSpaceDimensions {
   const a = matrix(parameters.a);
   const b = matrix(parameters.b);
@@ -76,6 +118,9 @@ export function resizeStateSpace(input: {
   requested: PlantStateSpaceDimensions;
 }): { parameters: PlantParameters; initialState: number[] } {
   const { states, inputs, outputs } = input.requested;
+  const delays = input.parameters.input_delays_s;
+  const resizeDelays = inputs !== stateSpaceDimensions(input.parameters).inputs &&
+    Array.isArray(delays) && delays.every((value) => typeof value === "number");
   return {
     parameters: {
       ...input.parameters,
@@ -83,6 +128,9 @@ export function resizeStateSpace(input: {
       b: resizeMatrix(matrix(input.parameters.b), states, inputs),
       c: resizeMatrix(matrix(input.parameters.c), outputs, states),
       d: resizeMatrix(matrix(input.parameters.d), outputs, inputs),
+      ...(resizeDelays ? {
+        input_delays_s: Array.from({ length: inputs }, (_, index) => (delays as number[])[index] ?? 0),
+      } : {}),
     },
     initialState: Array.from({ length: states }, (_, index) => input.initialState[index] ?? 0),
   };
@@ -101,8 +149,13 @@ export function planStateSpaceResize(input: {
   const removesValues = input.requested.states < input.dimensions.states ||
     input.requested.inputs < input.dimensions.inputs ||
     input.requested.outputs < input.dimensions.outputs;
+  const delays = input.parameters.input_delays_s;
+  const removedDelays = input.requested.inputs < input.dimensions.inputs && Array.isArray(delays)
+    ? delays.slice(input.requested.inputs).filter((value) => typeof value === "number" && value !== 0).length : 0;
   return removesValues
-    ? { kind: "confirm", message: "Reducing dimensions removes matrix or initial-state values.", ...resized }
+    ? { kind: "confirm", message: removedDelays > 0
+      ? `Reducing inputs removes matrix columns and ${removedDelays} nonzero input delay${removedDelays === 1 ? "" : "s"}.`
+      : "Reducing dimensions removes matrix or initial-state values.", ...resized }
     : { kind: "apply", ...resized };
 }
 

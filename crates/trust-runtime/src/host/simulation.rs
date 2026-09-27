@@ -241,6 +241,8 @@ pub enum PlantTraceClearError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SimulationRuntimeSnapshot {
+    /// Native host qualification; absent on model-only snapshots.
+    pub simulation_only_io: Option<bool>,
     pub active_configuration_revision: Option<String>,
     pub status: SimulationStatus,
     pub trace: SimulationTraceSnapshot,
@@ -292,8 +294,16 @@ impl SimulationController {
     }
 
     #[must_use]
+    pub fn runtime_snapshot_for(&self, runtime: &Runtime) -> SimulationRuntimeSnapshot {
+        let mut snapshot = self.runtime_snapshot();
+        snapshot.simulation_only_io = Some(runtime.simulation_only_io());
+        snapshot
+    }
+
+    #[must_use]
     pub fn runtime_snapshot(&self) -> SimulationRuntimeSnapshot {
         SimulationRuntimeSnapshot {
+            simulation_only_io: None,
             active_configuration_revision: self.active_configuration_revision.clone(),
             status: self.status(),
             trace: self.trace_snapshot(),

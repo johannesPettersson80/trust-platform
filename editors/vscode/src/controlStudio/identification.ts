@@ -3,6 +3,11 @@ import {
   type LowOrderModelFit,
   type ParameterInterval,
 } from "./numerics";
+import { measureStepResponse, type StepResponseAnalysis, type StepResponseSettings } from "./stepResponseIdentification";
+import { prepareBoundedStepReview } from "./boundedStepReview";
+import { prepareSensorLagComparison, type SensorLagComparison } from "./sensorLagComparison";
+import type { IdentificationExperiment } from "./identificationExperiment";
+import type { IdentificationRecording } from "./identificationState";
 
 export type ModelKind = "static_gain" | "integrating" | "first_order" | "first_order_dead_time" | "second_order" | "second_order_dead_time";
 
@@ -20,6 +25,7 @@ export interface IdentificationSample {
 export interface ExcludedInterval { startSeconds: number; endSeconds: number }
 
 export interface QualifiedIdentificationData {
+  stepResponse?: ReturnType<typeof measureStepResponse>;
   rawSamples: readonly IdentificationSample[];
   samples: readonly IdentificationSample[];
   suitable: boolean;
@@ -62,7 +68,7 @@ export interface IdentifiedModel {
   estimationResiduals?: readonly number[];
   validationResiduals?: readonly number[];
   uncertainty?: {
-    method: "grid-resolution-and-validation-residual" | "sample-resolution-envelope";
+    method: "grid-resolution-and-validation-residual" | "sample-resolution-envelope" | "measurement-consistent-grid";
     gain: ParameterInterval;
     timeConstantSeconds?: ParameterInterval;
     secondTimeConstantSeconds?: ParameterInterval;
@@ -86,6 +92,9 @@ export interface ModelFitPoint {
 }
 
 export interface ModelFitEvidence {
+  modelStructure?: SensorLagComparison;
+  stepResponse?: StepResponseAnalysis;
+  stepResponseMeasurement?: ReturnType<typeof measureStepResponse>;
   points: readonly ModelFitPoint[];
   rootMeanSquareError: number;
   outputUnit: string;
@@ -96,6 +105,22 @@ export interface ModelFitEvidence {
 }
 
 export interface IdentifiedModelPresentation {
+  experiment?: IdentificationExperiment;
+  modelStructure?: SensorLagComparison;
+  stepResponse?: ReturnType<typeof measureStepResponse>;
+  outputId?: string;
+  inputChannels?: readonly { id: string; unit: string }[];
+  outputFits?: readonly {
+    id: string; unit: string; points: ModelFitEvidence["points"];
+    normalizedError?: number; residualLagOneCorrelation?: number;
+    validityRange: ModelFitEvidence["operatingRange"];
+  }[];
+  poleZeroPlane?: {
+    domain: "s" | "z";
+    poles?: readonly { real: number; imaginary: number }[];
+    zeros?: readonly { real: number; imaginary: number }[];
+    scope: string;
+  };
   equation: string;
   units: { input: string; output: string; gain: string; time: "s" };
   parameters: readonly { name: string; value: number; unit: string }[];
@@ -114,8 +139,16 @@ export type IdentificationModelSelection = "automatic" | "integrating" | "first_
   "fopdt" | "second_order" | "sopdt";
 
 export interface IdentificationReviewInput {
+  recording?: IdentificationRecording;
+  stepResponseSettings?: StepResponseSettings;
+  /** Original first-order search on this same immutable estimation record. */
+  firstOrderStepResponseSettings?: StepResponseSettings;
+  maximumNormalizedError?: number;
   estimation: readonly IdentificationSample[];
   validation?: readonly IdentificationSample[];
+  /** Immutable recording provenance distinguishes deterministic independent trials. */
+  estimationRecordingId?: string;
+  validationRecordingId?: string;
   excluded: readonly ExcludedInterval[];
   source: "Simulation" | "Physical";
   requestedKind: IdentificationModelSelection;
@@ -124,6 +157,7 @@ export interface IdentificationReviewInput {
 export type IdentificationReview =
   | {
       stage: "validation_required";
+      stepResponse?: StepResponseAnalysis;
       estimationQualification: QualifiedIdentificationData;
       preview: IdentificationResult;
       selected: IdentifiedModel;
@@ -133,6 +167,7 @@ export type IdentificationReview =
     }
   | {
       stage: "acceptance_required";
+      stepResponse?: StepResponseAnalysis;
       estimationQualification: QualifiedIdentificationData;
       validationQualification: QualifiedIdentificationData;
       result: IdentificationResult;
@@ -150,71 +185,12 @@ export interface AcceptedIdentificationModel {
   review: Extract<IdentificationReview, { stage: "acceptance_required" }>;
 }
 
-/** Keeps the estimation and validation recordings separate until the user accepts the model. */
-export class IdentificationWorkflow {
-  private qualified?: IdentificationReviewInput;
-  private estimation?: IdentificationReviewInput;
-  private pending?: Extract<IdentificationReview, { stage: "acceptance_required" }>;
-  private accepted?: AcceptedIdentificationModel;
-
-  get acceptedModel(): IdentifiedModel | undefined { return this.accepted?.model; }
-  get nextFitRole(): "estimation" | "validation" { return this.estimation ? "validation" : "estimation"; }
-
-  qualify(
-    samples: readonly IdentificationSample[],
-    excluded: readonly ExcludedInterval[],
-    source: "Simulation" | "Physical",
-    requestedKind: IdentificationModelSelection
-  ): QualifiedIdentificationData {
-    if (this.accepted) this.estimation = undefined;
-    const immutableSamples = samples.map((sample) => ({ ...sample }));
-    const immutableExcluded = excluded.map((interval) => ({ ...interval }));
-    const qualification = qualifyIdentificationData(immutableSamples, immutableExcluded);
-    this.qualified = qualification.suitable
-      ? { estimation: immutableSamples, excluded: immutableExcluded, source, requestedKind }
-      : undefined;
-    this.pending = undefined;
-    this.accepted = undefined;
-    return qualification;
-  }
-
-  fit(): IdentificationReview {
-    if (!this.qualified) throw new Error("Qualify a suitable recording before fitting a model.");
-    if (!this.estimation) {
-      const preview = prepareIdentificationReview(this.qualified);
-      this.estimation = {
-        ...this.qualified,
-        estimation: preview.estimation.map((sample) => ({ ...sample })),
-        excluded: this.qualified.excluded.map((interval) => ({ ...interval })),
-      };
-      return preview;
-    }
-    const review = prepareIdentificationReview({
-      estimation: this.estimation.estimation,
-      validation: this.qualified.estimation,
-      excluded: this.estimation.excluded,
-      source: this.estimation.source,
-      requestedKind: this.qualified.requestedKind,
-    });
-    if (review.stage !== "acceptance_required") throw new Error("Independent validation is required before acceptance.");
-    this.pending = review;
-    return review;
-  }
-
-  accept(): AcceptedIdentificationModel {
-    if (!this.pending) throw new Error("Independent validation and model review are required before acceptance.");
-    this.accepted = {
-      model: this.pending.selected,
-      fit: this.pending.fit,
-      evidence: this.pending.result.source,
-      review: this.pending,
-    };
-    return this.accepted;
-  }
-}
+export { IdentificationWorkflow } from "./identificationWorkflow";
 
 /** Builds the same-run preview or the independently validated model review. */
 export function prepareIdentificationReview(input: IdentificationReviewInput): IdentificationReview {
+  if (input.stepResponseSettings && input.requestedKind === "sopdt") return prepareSensorLagComparison(input);
+  if (input.stepResponseSettings) return prepareBoundedStepReview(input);
   const estimation = input.estimation.map((sample) => ({ ...sample }));
   const estimationQualification = qualifyIdentificationData(estimation, input.excluded);
   if (!estimationQualification.suitable) throw new Error(estimationQualification.reason);
@@ -232,14 +208,14 @@ export function prepareIdentificationReview(input: IdentificationReviewInput): I
     };
   }
   const validation = input.validation.map((sample) => ({ ...sample }));
-  if (sameRecording(estimation, validation)) {
+  if (sameRecording(estimation, validation) && !distinctRecordingIds(input)) {
     throw new Error("A distinct immutable validation run is required before controller design.");
   }
   const validationQualification = qualifyIdentificationData(validation, [], true);
   if (!validationQualification.suitable) {
     throw new Error(`Independent validation: ${validationQualification.reason}`);
   }
-  const result = identifyPlant(estimation, input.excluded, input.source, validation);
+  const result = identifyPlant(estimation, input.excluded, input.source, validation, input.maximumNormalizedError);
   const selected = selectRequestedModel(result, input.requestedKind);
   return {
     stage: "acceptance_required",
@@ -252,6 +228,11 @@ export function prepareIdentificationReview(input: IdentificationReviewInput): I
     validation,
     accepted: false,
   };
+}
+
+function distinctRecordingIds(input: IdentificationReviewInput): boolean {
+  return Boolean(input.estimationRecordingId && input.validationRecordingId &&
+    input.estimationRecordingId !== input.validationRecordingId);
 }
 
 function selectRequestedModel(
@@ -280,6 +261,17 @@ function selectRequestedModel(
   return selected;
 }
 
+function heldStepSamples(samples: readonly IdentificationSample[]): IdentificationSample[] {
+  const stepIndex = largestInputChange(samples);
+  if (stepIndex < 1) return [...samples];
+  const magnitude = Math.abs(samples[stepIndex].input - samples[stepIndex - 1].input);
+  const direction = Math.sign(samples[stepIndex].input - samples[stepIndex - 1].input);
+  const restorationIndex = samples.findIndex((sample, index) => index > stepIndex &&
+    (sample.input - samples[index - 1].input) * direction < 0 &&
+    Math.abs(sample.input - samples[index - 1].input) >= magnitude * 0.5);
+  return restorationIndex > stepIndex ? samples.slice(0, restorationIndex).map(sample => ({ ...sample })) : [...samples];
+}
+
 function sameRecording(
   left: readonly IdentificationSample[],
   right: readonly IdentificationSample[]
@@ -291,24 +283,37 @@ function sameRecording(
   });
 }
 
-export function modelFitEvidence(
-  model: IdentifiedModel,
-  samples: readonly IdentificationSample[]
-): ModelFitEvidence {
+/** Measured pre-excitation coordinates, shared by fit evidence and selected models. */
+export function identificationOperatingPoint(samples: readonly IdentificationSample[]): {
+  stepIndex: number; input0: number; output0: number;
+} {
   if (samples.length < 2 || !samples.every(finiteSample)) {
     throw new Error("Model evidence requires finite measured samples.");
   }
   const stepIndex = largestInputChange(samples);
   if (stepIndex < 1) throw new Error("Model evidence requires a measured input change.");
-  const input0 = mean(samples.slice(0, stepIndex).map((sample) => sample.input));
-  const output0 = mean(samples.slice(0, stepIndex).map((sample) => sample.output));
+  return { stepIndex,
+    input0: mean(samples.slice(0, stepIndex).map(sample => sample.input)),
+    output0: mean(samples.slice(0, stepIndex).map(sample => sample.output)) };
+}
+
+export function modelFitEvidence(
+  model: IdentifiedModel,
+  samples: readonly IdentificationSample[]
+): ModelFitEvidence {
+  const { stepIndex, input0, output0 } = identificationOperatingPoint(samples);
   const stepTime = samples[stepIndex].timeSeconds;
+  const inputChanges = samples.slice(stepIndex).map((sample, offset) => ({
+    timeSeconds: sample.timeSeconds,
+    delta: sample.input - (samples[stepIndex + offset - 1]?.input ?? input0),
+  })).filter(change => change.delta !== 0);
   const points = samples.map((sample) => {
-    const time = Math.max(0, sample.timeSeconds - stepTime - (model.deadTimeSeconds ?? 0));
-    const inputChange = sample.input - input0;
     const predicted = sample.timeSeconds < stepTime
       ? output0
-      : output0 + model.gain * inputChange * responseFraction(model, time);
+      : output0 + model.gain * inputChanges.reduce((response, change) => {
+        const time = sample.timeSeconds - change.timeSeconds - (model.deadTimeSeconds ?? 0);
+        return time < 0 ? response : response + change.delta * responseFraction(model, time);
+      }, 0);
     return { timeSeconds: sample.timeSeconds, measured: sample.output, predicted,
       residual: sample.output - predicted };
   });
@@ -347,13 +352,7 @@ export function identifiedModelPresentation(
     .filter((value): value is number => typeof value === "number");
   const poles = model.kind === "integrating" ? [0] : timeConstants.map((value) => -1 / value);
   const delay = model.deadTimeSeconds ?? 0;
-  const denominator = timeConstants.length === 0 ? ""
-    : timeConstants.map((value) => `(${engineeringCoefficient(value)}s + 1)`).join("");
-  const delayTerm = delay > 0 ? ` e^(-${engineeringCoefficient(delay)}s)` : "";
-  const equation = model.kind === "integrating"
-    ? `G(s) = ${engineeringCoefficient(model.gain)}${delayTerm} / s`
-    : denominator ? `G(s) = ${engineeringCoefficient(model.gain)}${delayTerm} / ${denominator}`
-      : `G(s) = ${engineeringCoefficient(model.gain)}`;
+  const equation = identifiedModelEquation(model);
   return {
     equation,
     units: { input: inputUnit, output: outputUnit, gain: gainUnit, time: "s" },
@@ -366,7 +365,9 @@ export function identifiedModelPresentation(
     zeros: [],
     delaySeconds: delay,
     uncertainty: {
-      label: model.uncertainty?.method === "sample-resolution-envelope"
+      label: model.uncertainty?.method === "measurement-consistent-grid"
+        ? "Measurement-consistent parameter grid; marginal ranges, not statistical confidence"
+        : model.uncertainty?.method === "sample-resolution-envelope"
         ? "Sample-resolution envelope from the estimation record; not statistical confidence"
         : "Conservative search-resolution and held-out-residual interval",
       ...(model.uncertainty ? { intervals: model.uncertainty } : {}),
@@ -380,16 +381,26 @@ export function identifiedModelPresentation(
       ...(model.validationResiduals ? { residualLagOneCorrelation: lagOneCorrelation(model.validationResiduals) } : {}),
     },
     predictedResponse: fit.points.map((point) => ({ ...point })),
+    ...(fit.modelStructure ? { modelStructure: structuredClone(fit.modelStructure) } : {}),
+    ...(fit.stepResponse ? { stepResponse: fit.stepResponseMeasurement ?? fit.stepResponse } : {}),
     validityRange: { ...fit.operatingRange },
     warnings: [...fit.warnings],
   };
+}
+
+export function identifiedModelEquation(model: IdentifiedModel): string {
+  const timeConstants = [model.timeConstantSeconds, model.secondTimeConstantSeconds].filter((value): value is number => typeof value === "number");
+  const denominator = timeConstants.map(value => `(${engineeringCoefficient(value)}s + 1)`).join("");
+  const delay = model.deadTimeSeconds ?? 0, delayTerm = delay > 0 ? ` e^(-${engineeringCoefficient(delay)}s)` : "";
+  return model.kind === "integrating" ? `G(s) = ${engineeringCoefficient(model.gain)}${delayTerm} / s`
+    : denominator ? `G(s) = ${engineeringCoefficient(model.gain)}${delayTerm} / ${denominator}` : `G(s) = ${engineeringCoefficient(model.gain)}`;
 }
 
 function engineeringCoefficient(value: number): string {
   return Number(value.toPrecision(6)).toString();
 }
 
-function lagOneCorrelation(values: readonly number[]): number {
+export function lagOneCorrelation(values: readonly number[]): number {
   if (values.length < 3 || !values.every(Number.isFinite)) return 0;
   const left = values.slice(0, -1);
   const right = values.slice(1);
@@ -480,20 +491,21 @@ export function identifyPlant(
   samples: readonly IdentificationSample[],
   excluded: readonly ExcludedInterval[] = [],
   source: "Simulation" | "Physical" = "Simulation",
-  validationSamples?: readonly IdentificationSample[]
+  validationSamples?: readonly IdentificationSample[],
+  maximumNormalizedError = 0.35
 ): IdentificationResult {
   const qualified = qualifyIdentificationData(samples, excluded);
   if (!qualified.suitable) throw new Error(qualified.reason);
   if (validationSamples !== undefined) {
     const validation = qualifyIdentificationData(validationSamples, []);
     if (!validation.suitable) throw new Error(`Independent validation: ${validation.reason}`);
-    const fitted = identifyLowOrderModels(qualified.samples, validation.samples, {
+    const fitted = identifyLowOrderModels(heldStepSamples(qualified.samples), heldStepSamples(validation.samples), {
       allowedKinds: ["static_gain", "integrating", "first_order", "first_order_dead_time",
         "second_order", "second_order_dead_time"],
       absoluteTolerance: 1e-9,
       minimumSamples: 20,
       minimumInputSpan: 1e-9,
-      maximumNormalizedValidationError: 0.35,
+      maximumNormalizedValidationError: maximumNormalizedError,
     });
     if (fitted.status === "rejected") {
       throw new Error(`No qualified low-order model: ${fitted.reason}.`);
@@ -505,7 +517,7 @@ export function identifyPlant(
       partition: "independent-runs",
     };
   }
-  const values = qualified.samples;
+  const values = heldStepSamples(qualified.samples);
   const stepIndex = largestInputChange(values);
   if (stepIndex < 2 || stepIndex >= values.length - 10) throw new Error("A bounded input step with pre- and post-step data is required.");
   const before = values.slice(0, stepIndex);

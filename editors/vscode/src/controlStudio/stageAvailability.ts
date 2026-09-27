@@ -1,7 +1,4 @@
-// Decides which workflow stages and Automatic Tune are available for a loop's
-// experiment execution mode, so a project-scripted lesson cannot be steered off
-// its prescribed Identify/Tune/Validate-free path, and computes the workflow-tab
-// status vocabulary Specification 35 section 4.2 requires.
+// Stage navigation follows available evidence, independently of excitation ownership.
 
 export type ControlStudioExecutionMode = "control-studio" | "project-scripted";
 
@@ -35,18 +32,15 @@ export function controlStudioStageStatusLabel(status: ControlStudioStageStatus):
   return STATUS_LABEL[status];
 }
 
-/** Stages a project-scripted lesson excludes because its runnable project, not
- * Control Studio, owns the controller for the lesson's duration. */
-const LESSON_EXCLUDED_STAGES: ReadonlySet<ControlStudioStageId> = new Set(["Identify", "Tune", "Validate"]);
-
-export const PROJECT_SCRIPTED_STAGE_REASON =
-  "This lesson's runnable project owns the controller, so this stage is not part of the lesson.";
-
 export interface ControlStudioStageEvidence {
   /** False when no loop is bound yet, so Monitor and Test cannot be used. */
   readonly loopBound?: boolean;
   readonly hasModel?: boolean;
+  readonly hasDeclaredAnalysis?: boolean;
+  readonly hasManualParameters?: boolean;
   readonly hasCandidate?: boolean;
+  readonly hasRecording?: boolean;
+  readonly identificationFailed?: boolean;
   readonly validationHasResult?: boolean;
   readonly validationPassed?: boolean;
 }
@@ -58,28 +52,13 @@ export interface StageAvailability {
   readonly reason?: string;
 }
 
-/**
- * Computes, for every workflow tab, the visible status word and whether the
- * stage is reachable. Identify, Tune, and Validate are disabled for a
- * project-scripted loop because the runnable project owns the controller;
- * Monitor and Test remain the lesson's primary stages. Every stage is
- * available for a control-studio loop.
- */
+/** Every stage opens its own prerequisites; individual operations enforce capabilities. */
 export function controlStudioStageAvailability(
-  execution: ControlStudioExecutionMode,
+  _execution: ControlStudioExecutionMode,
   evidence: ControlStudioStageEvidence = {}
 ): Record<ControlStudioStageId, StageAvailability> {
   const result = {} as Record<ControlStudioStageId, StageAvailability>;
   for (const stage of CONTROL_STUDIO_STAGE_ORDER) {
-    if (execution === "project-scripted" && LESSON_EXCLUDED_STAGES.has(stage)) {
-      result[stage] = {
-        status: "not-in-lesson",
-        label: STATUS_LABEL["not-in-lesson"],
-        disabled: true,
-        reason: PROJECT_SCRIPTED_STAGE_REASON,
-      };
-      continue;
-    }
     const status = stageStatus(stage, evidence);
     result[stage] = { status, label: STATUS_LABEL[status], disabled: false };
   }
@@ -93,12 +72,13 @@ function stageStatus(stage: ControlStudioStageId, evidence: ControlStudioStageEv
     case "Test":
       return evidence.loopBound === false ? "needs-data" : "ready";
     case "Identify":
-      return evidence.hasModel ? "complete" : "needs-data";
+      if (evidence.identificationFailed) return "failed";
+      return evidence.hasModel ? "complete" : evidence.hasRecording ? "ready" : "needs-data";
     case "Tune":
-      if (!evidence.hasModel) return "needs-data";
+      if (!evidence.hasModel && !evidence.hasDeclaredAnalysis && !evidence.hasManualParameters) return "needs-data";
       return evidence.hasCandidate ? "complete" : "ready";
     case "Validate":
-      if (!evidence.hasCandidate) return "needs-data";
+      if (!evidence.hasCandidate) return evidence.hasRecording ? "ready" : "needs-data";
       if (!evidence.validationHasResult) return "ready";
       return evidence.validationPassed ? "complete" : "failed";
     default: {
@@ -116,14 +96,9 @@ export interface AutomaticTuneAvailability {
 
 const AUTOMATIC_TUNE_PRIMARY_REASON = "Build a complete tuning plan.";
 const AUTOMATIC_TUNE_LESSON_REASON =
-  "This lesson's runnable project owns the controller; Automatic Tune is a secondary action here, not the prescribed path.";
+  "The project owns excitation. Review the experiment and controller adapter before automatic tuning.";
 
-/**
- * Automatic Tune sequences Test, Identify, Tune, and Validate. A
- * project-scripted lesson forbids the student from using those stages
- * directly, so the button offering to run them all automatically must not be
- * the primary action either.
- */
+/** Project-owned excitation requires review before composing an automatic plan. */
 export function controlStudioAutomaticTuneAvailability(
   execution: ControlStudioExecutionMode
 ): AutomaticTuneAvailability {

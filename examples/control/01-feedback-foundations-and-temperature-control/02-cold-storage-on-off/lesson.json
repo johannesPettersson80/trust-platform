@@ -1,53 +1,173 @@
 {
   "schemaVersion": 4,
-  "id": "control-cold-storage-on-off",
-  "title": "Cold-storage ON/OFF control",
+  "id": "control-lesson-02",
+  "title": "ON/OFF control",
   "level": "Foundation",
   "sequence": 2,
   "equipment": "Cold-storage room refrigeration",
   "physicalPurpose": "Regulate cold-room temperature automatically with a compressor that can only be off or on.",
   "principalTechnique": "Single-threshold ON/OFF feedback control",
-  "objective": "Derive a Boolean ON/OFF law, run it on the cold-storage room, measure temperature range and switch count, and explain why one noisy threshold causes chatter.",
-  "prerequisites": ["control-cold-storage-loop-anatomy"],
-  "nextLesson": "control-cold-storage-hysteresis-dwell",
+  "objective": "Use measured temperature to switch refrigeration ON or OFF automatically, then observe frequent command reversals around one threshold.",
+  "prerequisites": [
+    "control-lesson-01"
+  ],
+  "nextLesson": "control-lesson-03",
   "signals": [
-    { "role": "SP", "name": "Cold-room temperature setpoint", "unit": "degC", "minimum": -10, "maximum": 10, "resolution": 0.1, "binding": "%ML0" },
-    { "role": "PV", "name": "Cold-room air temperature", "unit": "degC", "minimum": -30, "maximum": 20, "resolution": 0.01, "binding": "%IL0" },
-    { "role": "MV", "name": "Compressor demand", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 100, "binding": "%QL0" },
-    { "role": "disturbance", "name": "Door-load no-cooling equilibrium", "unit": "degC", "minimum": -10, "maximum": 20, "resolution": 0.1, "binding": "simulation.toml#plant_events[0]" },
-    { "role": "state", "name": "Door-open indication", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%IL8" },
-    { "role": "disturbance", "name": "Effective surrounding temperature", "unit": "degC", "minimum": -10, "maximum": 20, "resolution": 0.1, "binding": "%IL16" },
-    { "role": "state", "name": "Automatic mode enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.0" },
-    { "role": "state", "name": "Cooling enabled", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.1" },
-    { "role": "state", "name": "Switch count", "unit": "1", "minimum": 0, "maximum": 10000, "resolution": 1, "binding": "%MD24" },
-    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX16.2" }
+    {
+      "role": "SP",
+      "name": "Cold-room temperature setpoint",
+      "unit": "degC",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.1,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Cold-room air temperature",
+      "unit": "degC",
+      "minimum": -30,
+      "maximum": 20,
+      "resolution": 0.01,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Compressor demand",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 100,
+      "binding": "%QL0"
+    },
+    {
+      "role": "disturbance",
+      "name": "Door-load no-cooling equilibrium",
+      "unit": "degC",
+      "minimum": -10,
+      "maximum": 20,
+      "resolution": 0.1,
+      "binding": "simulation.toml#plant_events[0]"
+    },
+    {
+      "role": "state",
+      "name": "Door-open indication",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%IL8"
+    },
+    {
+      "role": "disturbance",
+      "name": "Effective surrounding temperature",
+      "unit": "degC",
+      "minimum": -10,
+      "maximum": 20,
+      "resolution": 0.1,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Automatic mode enabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.0"
+    },
+    {
+      "role": "state",
+      "name": "Cooling enabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.1"
+    },
+    {
+      "role": "state",
+      "name": "Switch count",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 10000,
+      "resolution": 1,
+      "binding": "%MD24"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.2"
+    }
   ],
   "plant": {
     "modelId": "first_order",
     "executable": "simulation.toml#plants[0]",
     "parameters": [
-      { "name": "gain", "value": -0.05, "unit": "degC/%" },
-      { "name": "time_constant", "value": 20, "unit": "s" },
-      { "name": "output_bias", "value": 4, "unit": "degC" }
+      {
+        "name": "gain",
+        "value": -0.05,
+        "unit": "degC/%"
+      },
+      {
+        "name": "time_constant",
+        "value": 20,
+        "unit": "s"
+      },
+      {
+        "name": "output_bias",
+        "value": 4,
+        "unit": "degC"
+      }
     ],
     "sampleTimeSeconds": 0.1,
-    "initialState": { "coldRoomTemperature": 4 },
+    "initialState": {
+      "coldRoomTemperature": 4
+    },
     "seed": 20260828,
-    "operatingPoint": { "PV": 4, "MV": 0 },
+    "operatingPoint": {
+      "PV": 4,
+      "MV": 0
+    },
     "validityRange": [
-      { "signal": "Cold-room air temperature", "minimum": -30, "maximum": 20, "unit": "degC" },
-      { "signal": "Compressor demand", "minimum": 0, "maximum": 100, "unit": "%" }
+      {
+        "signal": "Cold-room air temperature",
+        "minimum": -30,
+        "maximum": 20,
+        "unit": "degC"
+      },
+      {
+        "signal": "Compressor demand",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
     ],
-    "simplifications": ["The room and product are represented by one well-mixed thermal state.", "The door load changes the no-cooling equilibrium rather than modelling airflow.", "The deliberately unprotected switching law is simulation-only and shall not operate physical refrigeration equipment."]
+    "simplifications": [
+      "The room and product are represented by one well-mixed thermal state.",
+      "The door load changes the no-cooling equilibrium rather than modelling airflow.",
+      "The deliberately unprotected switching law is simulation-only and shall not operate physical refrigeration equipment.",
+      "Door timing is owned by the ST experiment clock, not absolute simulator startup time."
+    ]
   },
   "baseline": {
     "executableId": "ColdStorageManualObservation",
-    "settings": { "automaticControl": false },
+    "settings": {
+      "automaticControl": false
+    },
     "limitation": "Manual observation from Lesson 1 cannot regulate temperature after an unplanned load change."
   },
   "change": {
     "executableId": "ColdStorageSingleThreshold",
-    "settings": { "switchOnAtOrAboveSetpoint": true, "onDemandPercent": 100, "offDemandPercent": 0 },
+    "settings": {
+      "switchOnAtOrAboveSetpoint": true,
+      "onDemandPercent": 100,
+      "offDemandPercent": 0
+    },
     "decision": "Command 100% cooling when PV is at or above SP and 0% otherwise."
   },
   "experiment": {
@@ -57,42 +177,140 @@
     "amplitude": 0,
     "durationSeconds": 120.1,
     "settlingSeconds": 60,
-    "disturbances": ["The door opens at 60 s and closes at 90 s", "A focused native test alternates small measurement crossings around SP"],
+    "disturbances": [
+      "The door opens at simulator time 60 s and closes at 90 s; preparation time counts toward these events."
+    ],
     "seed": 20260828,
     "restorationValue": 0
   },
   "acceptance": [
-    { "metric": "temperature_range", "signal": "Cold-room air temperature", "window": "60.0 to 89.9 s door event", "comparator": "<=", "limit": 0.05, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
-    { "metric": "temperature_maximum", "signal": "Cold-room air temperature", "window": "60.0 to 89.9 s door event", "comparator": "<=", "limit": 3, "unit": "degC", "tolerance": 0.05, "evidenceClass": "simulation" },
-    { "metric": "switch_count", "signal": "Switch count", "window": "complete 120 s run", "comparator": "==", "limit": 760, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
-    { "metric": "switching_frequency", "signal": "Switch count", "window": "20.0 to 60.0 s", "comparator": "==", "limit": 8, "unit": "1/s", "tolerance": 0.01, "evidenceClass": "simulation" },
-    { "metric": "invalid_compressor_command_count", "signal": "Compressor demand", "window": "complete run", "comparator": "==", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
-    { "metric": "noise_crossing_transitions", "signal": "Switch count", "window": "eight controlled measurement-noise crossings with constant underlying temperature", "comparator": "==", "limit": 7, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
-    { "metric": "restored_auto_mode", "signal": "Automatic mode enabled", "window": "explicit post-experiment safe-restoration sample", "comparator": "==", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" }
+    {
+      "metric": "temperature_range",
+      "signal": "Cold-room air temperature",
+      "window": "60.0 to 89.9 s door event",
+      "comparator": "<=",
+      "limit": 0.05,
+      "unit": "degC",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "temperature_maximum",
+      "signal": "Cold-room air temperature",
+      "window": "60.0 to 89.9 s door event",
+      "comparator": "<=",
+      "limit": 3,
+      "unit": "degC",
+      "tolerance": 0.05,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "switch_count",
+      "signal": "Switch count",
+      "window": "retained 120 s reference run with immediate enablement; preparation can change the count",
+      "comparator": "==",
+      "limit": 760,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "switching_frequency",
+      "signal": "Switch count",
+      "window": "20.0 to 60.0 s",
+      "comparator": "==",
+      "limit": 8,
+      "unit": "1/s",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "invalid_compressor_command_count",
+      "signal": "Compressor demand",
+      "window": "complete run",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "restored_auto_mode",
+      "signal": "Automatic mode enabled",
+      "window": "explicit post-experiment safe-restoration sample",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
   ],
   "safety": {
     "hardLimits": [
-      { "signal": "Cold-room air temperature", "minimum": -10, "maximum": 10, "unit": "degC" },
-      { "signal": "Compressor demand", "minimum": 0, "maximum": 100, "unit": "%" }
+      {
+        "signal": "Cold-room air temperature",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "degC"
+      },
+      {
+        "signal": "Compressor demand",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
     ],
-    "abortPredicates": ["PV or MV is nonfinite", "PV leaves the declared -10 to 10 degC lesson abort range", "MV is neither 0 nor 100 percent"],
+    "abortPredicates": [
+      "PV or MV is nonfinite",
+      "PV leaves the declared -10 to 10 degC lesson abort range",
+      "MV is neither 0 nor 100 percent"
+    ],
     "safeMv": 0,
     "restorationMode": "Auto disabled with compressor demand at 0%",
     "physicalApprovalRole": "authorised refrigeration controls engineer",
-    "simulationOnlyRestrictions": ["Single-threshold chatter is intentionally unsafe for physical compressor operation."]
+    "simulationOnlyRestrictions": [
+      "Single-threshold chatter is intentionally unsafe for physical compressor operation."
+    ]
   },
-  "workflowStages": ["Monitor", "Test"],
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-2--onoff-control-cold-storage-room",
-    "nativeTest": "control_curriculum_cold_storage_on_off_exports_regulation_and_chatter_evidence",
-    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_cold_storage_on_off_evidence control_curriculum_cold_storage_on_off_exports_regulation_and_chatter_evidence -- --exact --nocapture",
+    "nativeTest": "TEST_PROGRAM::Lesson2SingleThresholdTruthTable",
+    "nativeCommand": "trust-dev test --project examples/control/01-feedback-foundations-and-temperature-control/02-cold-storage-on-off --filter TEST_PROGRAM::Lesson2SingleThresholdTruthTable --timeout 15",
     "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/02-cold-storage-on-off",
-    "runArtifactFields": ["SP", "PV", "MV", "switchCount", "autoMode", "phase", "underlyingTemperature", "measurementNoise", "doorOpen", "effectiveSurroundings", "sampleTime", "seed", "limits", "restoration", "evidenceClass"],
-    "renderedJourneyId": "control-cold-storage-on-off"
+    "runArtifactFields": [
+      "SP",
+      "PV",
+      "MV",
+      "switchCount",
+      "autoMode",
+      "phase",
+      "underlyingTemperature",
+      "measurementNoise",
+      "doorOpen",
+      "effectiveSurroundings",
+      "sampleTime",
+      "seed",
+      "limits",
+      "restoration",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-02"
   },
   "video": {
-    "viewerOutcome": "Explain the Boolean control direction, intended temperature cycling, and why noisy threshold crossings damage equipment.",
-    "requiredVisibleEvidence": ["Boolean law", "SP/PV/MV", "door event", "temperature band", "switch count", "alternating noisy crossings", "simulation evidence label"],
+    "viewerOutcome": "Explain automatic ON/OFF feedback and why small temperature crossings can cause excessive switching.",
+    "requiredVisibleEvidence": [
+      "Boolean law",
+      "SP/PV/MV",
+      "door event",
+      "temperature band",
+      "switch count",
+      "repeated threshold crossings",
+      "simulation evidence label"
+    ],
     "durationClass": "standard",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
@@ -102,13 +320,21 @@
   "learning": {
     "context": "Lesson 1 identified the loop but manual observation could not regulate a door disturbance.",
     "reason": "A binary compressor needs the simplest automatic feedback law before its limitations can be observed honestly.",
-    "theory": ["ON/OFF control selects one of two actuator states from a Boolean comparison.", "Because refrigeration has negative process gain, cooling must turn on when PV is at or above the temperature SP.", "A binary actuator produces a temperature cycle rather than convergence to one exact value.", "Switching frequency measures how often the actuator changes state; noise near one threshold can make it chatter."],
-    "workedPrediction": "At a constant 2.00 degC underlying temperature, eight declared measurement-noise values create alternating measured PV samples that command 100, 0, 100, 0, 100, 0, 100, and 0%, creating seven transitions.",
-    "practicalPreparation": ["Predict the control direction and truth table before enabling Auto.", "Keep the same plant, 4.00 degC initial state, 60 to 90 s door event, -10 to 10 degC abort range, and seed 20260828 as Lesson 1."],
+    "theory": [
+      "ON/OFF control selects one of two actuator states from a Boolean comparison.",
+      "Because refrigeration has negative process gain, cooling must turn on when PV is at or above the temperature SP.",
+      "A binary actuator produces a temperature cycle rather than convergence to one exact value.",
+      "Switching frequency measures how often the actuator changes state; noise near one threshold can make it chatter."
+    ],
+    "workedPrediction": "Readings of 2.01, 1.99 and 2.01 degC produce commands ON, OFF and ON: two reversals despite very small temperature changes.",
+    "practicalPreparation": [
+      "Predict the initial command at 4 degC and what changes when temperature crosses 2 degC.",
+      "Start from 4 degC with control disabled. The door event occurs at simulator time 60–90 s; the learner checks the -10 to 10 degC abort range."
+    ],
     "baseline": "Recall that a fixed manual command cannot reject the door load.",
-    "change": "Enable the single-threshold law and run both the door event and the alternating-crossing experiment.",
-    "comparison": "Compare Lesson 1 manual drift with automatic temperature cycling, then calculate range, switch count, switching frequency, and the seven transitions from eight small threshold crossings.",
-    "validation": "Qualify the run before using its metrics; verify binary MV, the -10 to 10 degC abort range, the separate 3 degC door-event performance criterion, isolated measurement-noise chatter, and explicit disabled safe restoration.",
+    "change": "Enable the single-threshold law and observe the cooldown, repeated switching and door event.",
+    "comparison": "Compare gradual temperature movement with abrupt command reversals; use the displayed switch count.",
+    "validation": "Check binary commands, automatic response to measured temperature, manual abort limits, and OFF restoration after disabling. Exact switch counts depend on the timing of enablement.",
     "explanation": "Explain why regulation of a band and equipment-friendly switching are different requirements.",
     "transfer": "Name another binary actuator where one threshold would regulate the process but excessive switching would be unacceptable."
   }

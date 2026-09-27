@@ -1,0 +1,336 @@
+{
+  "schemaVersion": 4,
+  "id": "control-tuning-method-comparison",
+  "title": "Tuning comparison",
+  "level": "Advanced",
+  "sequence": 21,
+  "equipment": "Water heater",
+  "physicalPurpose": "Compare manual, model-based and relay-derived candidates. Assess every requirement before choosing between qualifying settings. Allow none to qualify.",
+  "principalTechnique": "Tuning comparison",
+  "objective": "Compare manual, model-based and relay-derived candidates. Assess every requirement before choosing between qualifying settings. Allow none to qualify.",
+  "prerequisites": [
+    "control-model-based-tuning",
+    "control-relay-tuning"
+  ],
+  "nextLesson": "control-lesson-10",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML40"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX104.0"
+    },
+    {
+      "role": "disturbance",
+      "name": "DisturbanceKw",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 30,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "WaterTemperatureC",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "IntegralPct",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "CommandActivityPoints",
+      "unit": "percentage-point",
+      "minimum": 0,
+      "maximum": 100000,
+      "resolution": 0.001,
+      "binding": "%ML64"
+    },
+    {
+      "role": "SP",
+      "name": "Heater setpoint",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-lesson-21",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "probe_time_constant",
+        "value": 2,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 35
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Measured temperature": 35,
+      "Applied heating command": 75,
+      "Experiment authority": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "Local heater model with initial temperature35 °C and command75%.",
+      "Nominal coefficients are supplied simulation values, not accepted learner estimates.",
+      "Simulation-only process I/O;100ms samples.",
+      "Physical paths and probe are explicitly composed by simulation-only ST; the PI then acts on measured probe temperature. Nominal gains are examples, not qualified learner candidates."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "temperatureC": 35,
+      "setpointC": 35,
+      "integralPct": 75,
+      "appliedPowerPct": 75,
+      "disturbanceKw": 0
+    },
+    "limitation": "An unexcited record does not reveal the complete heater dynamics."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "TrialKind": "0:35→38°C target;1:30kW extraction at SP35",
+      "KpPctPerC": 5,
+      "KiPctPerCs": 1,
+      "durationSeconds": 60
+    },
+    "decision": "Use the qualified Control Studio record to answer the lesson question; do not accept supplied nominal parameters as measured results."
+  },
+  "methods": {
+    "heater": {
+      "SIMC": {
+        "status": "Feasible",
+        "kp": 5.769230769,
+        "tiSeconds": 5,
+        "ki": 1.153846154
+      },
+      "AMIGO": {
+        "status": "Feasible",
+        "kp": 6.027777778,
+        "tiSeconds": 3.882608696,
+        "ki": 1.552507154
+      }
+    },
+    "tank": {
+      "SIMC": {
+        "status": "Feasible",
+        "kp": 13.333333333,
+        "tiSeconds": 6,
+        "ki": 2.222222222
+      },
+      "AMIGO": {
+        "status": "Unavailable",
+        "reason": "AMIGO PI is unavailable for an integrating model because it requires finite steady plant gain and time constant."
+      }
+    },
+    "dryer": {
+      "SIMC": {
+        "status": "Feasible",
+        "kp": 2.083333333,
+        "tiSeconds": 20,
+        "ki": 0.104166667
+      },
+      "AMIGO": {
+        "status": "Feasible",
+        "kp": 1.286989796,
+        "tiSeconds": 17.828901734,
+        "ki": 0.07218559
+      }
+    }
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 60.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "peak_temperature",
+      "signal": "Measured temperature",
+      "window": "setpoint trial0–60s",
+      "comparator": "<=",
+      "limit": 39,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "minimum_temperature",
+      "signal": "Measured temperature",
+      "window": "load trial0–60s",
+      "comparator": ">=",
+      "limit": 33,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_error",
+      "signal": "Measured temperature",
+      "window": "each trial30–60s",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves0–80 °C or applied command leaves0–100%"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Normal completion disables the experiment and restores75% heating with zero extraction. Abort sets SafetyAbort and commands zero heating/extraction. Keep stopped until valid measurements and the full35°C/75% hot reset are restored.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical excitation or gain application",
+      "Physical use requires independent topology, model, hazard, operating-window, interlock, personnel, abort, rollback, and immediate approval review"
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Tune",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/12-21-models-and-tuning.md",
+    "nativeTest": "lesson21",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_design lesson21",
+    "projectPath": "examples/control/06-pid-tuning-methods/31-tuning-method-comparison",
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "sampleTime",
+      "initialState",
+      "experimentConditions",
+      "modelProvenance",
+      "stopReason",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-tuning-method-comparison"
+  },
+  "video": {
+    "viewerOutcome": "Compare manual, model-based and relay-derived candidates. Assess every requirement before choosing between qualifying settings. Allow none to qualify.",
+    "requiredVisibleEvidence": [
+      "Heater model and initial state",
+      "Applied command and temperature record",
+      "Required Control Studio analysis",
+      "Declared uncertainty and decision",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Compare manual, model-based and relay-derived candidates. Assess every requirement before choosing between qualifying settings. Allow none to qualify.",
+    "reason": "A controller can pass a setpoint step and fail a thermal load, or look quiet in one run because it started with a different integral state. A fair comparison therefore requires both required conditions for every candidate. A candidate qualifies only when it passes every requirement in both trials. If none qualifies, that is the engineering result and the unresolved requirement must remain visible.",
+    "theory": [
+      "**Tuning comparison** selects between controller settings using matched\nexperiments and requirements fixed before viewing the results. The method\nthat produced a candidate does not establish that it is suitable.\n\nFirst check every requirement. Only among candidates that pass do we compare\npreferences such as settling time and command movement. Freeze this table\nbefore predictions and before opening results:\n\n| Trial | Requirement |\n| --- | --- |\n| Setpoint | SP 35→38 °C at time zero, D=0, duration 60 s; peak PV≤39 °C; absolute error≤.2 °C at every sample from 30 through 60 s |\n| Load | SP=35 °C, D=30 kW applied at time zero, duration 60 s; minimum PV≥33 °C; absolute error≤.2 °C at every sample from 30 through 60 s |\n| Both | applied command remains 0–100%; PV remains 0–80 °C; data remain valid |\n\nThe trials are separate. The load trial begins at the hot reset with D=0, then applies D=30 at time zero; it does not begin with the load already present. The setpoint trial begins at the same reset and changes SP at time zero. Normal transient command saturation at 100% is allowed if the applied command stays within 0–100%, the anti-windup policy operates, and every requirement still passes. Do not average away a failed peak, minimum, or error window.\n\nLesson 8's anti-windup sequence remains part of every candidate: use tracking time Tt=1 s, dt=.1 s, and the existing routine that reconciles integral state with the applied limited output. This comparison tests controller settings, not a new integral implementation.\n\nDeclare the secondary choice before running. Among candidates that qualify in both trials, compare the worst of their two settling times. Among candidates within 2 s of the shortest worst-case settling time, prefer lower total applied-command activity across both trials. This is a stated design choice for this exercise, not a universal controller rule.\n\nDefine activity in percentage points:\n\n$$\nA=\\sum_k |u_k-u_{k-1}|.\n$$\n\nHere k labels consecutive controller samples; the command preceding the first sample is the initial 75%.\n\nUse the .1 s samples in the enabled 60 s window, including the first movement from the initial 75% output and excluding shutdown. For 75%→80%→78%, A=5+2=7 percentage points. Activity is command movement; it is not energy consumption or valve wear."
+    ],
+    "workedPrediction": "Before running, write the actual Kp, Ki, anti-windup source, and candidate provenance for each candidate. Predict:\n\n1. which candidate is likely to reach the setpoint error window first;\n2. which may saturate during the setpoint trial;\n3. whether each candidate can recover from D=30 without a permanent error;\n4. whether any candidate is likely to fail the peak or minimum requirement; and\n5. which candidate would win the declared worst-of-two settling/activity tie-break if all requirements pass.\n\nA prediction is not a result. Keep the requirements and the possibility that none qualifies.",
+    "practicalPreparation": [
+      "Open src/Main.st and use the existing scalar controller parameters and tracking routine. Write the selected candidate's Kp and Ki into the named scalar parameters while the experiment is stopped. Keep its name and source with the run description.",
+      "The prepared project uses one selected candidate at a time. While stopped, set symbolic `KpPctPerC` and `KiPctPerCs` and record the candidate name/source; defaults5/1 are a nominal illustration, not a measured relay result. `TrialKind` at `%MW80` selects0 for the target trial or1 for the load trial. Restart the simulator for each60s run. `CommandActivityPoints` includes the first movement from75% and retains the final total without counting shutdown."
+    ],
+    "baseline": "Use the declared35 °C and75% initial state; retain the actual baseline record.",
+    "change": "**Workflow verification remains open.** This project now records the\nspecified heater case, and Control Studio stages are accessible. The complete\nlesson-specific fitting, uncertainty, candidate and validation interactions\nhave not yet been verified against these recordings. Keep the recorded data;\nST-generated numbers do not substitute for the required Control Studio work.",
+    "comparison": "A candidate qualifies only if it passes the peak-PV and error-window requirements in the setpoint trial, the minimum-PV and error-window requirements in the load trial, and the common validity/output limits. Normal 100% transients are permitted; a passing candidate is not rejected solely for reaching that limit.\n\nAmong all qualifiers, use the predeclared worst-of-two settling comparison. Among candidates within 2 s of the best worst-case settling time, compare total applied-command activity from both 60 s windows. If no candidate qualifies, state which requirement remains unresolved and retain the records for later redesign. Do not select a candidate by averaging a failed trial with a passed one.",
+    "validation": "A candidate qualifies only if it passes the peak-PV and error-window requirements in the setpoint trial, the minimum-PV and error-window requirements in the load trial, and the common validity/output limits. Normal 100% transients are permitted; a passing candidate is not rejected solely for reaching that limit.\n\nAmong all qualifiers, use the predeclared worst-of-two settling comparison. Among candidates within 2 s of the best worst-case settling time, compare total applied-command activity from both 60 s windows. If no candidate qualifies, state which requirement remains unresolved and retain the records for later redesign. Do not select a candidate by averaging a failed trial with a passed one.",
+    "explanation": "A fair controller comparison uses identical hot resets, separate setpoint and load trials, explicit anti-windup, fixed requirements, and applied-command evidence. Manual, model-based, and relay-derived candidates remain tied to their learner records. The result may be a qualified candidate, a baseline, or none.",
+    "transfer": "A qualifying controller may still make a larger proportional command change than desired when the setpoint steps. Reducing Kp would also weaken its correction of a measured-temperature change caused by a disturbance. We need to separate those two proportional effects while keeping the selected gains.\n\n[Setpoint weighting](../../01-feedback-foundations-and-temperature-control/10-proportional-setpoint-weighting/README.md) changes the setpoint contribution to P and tests whether the smaller command step is worth its response cost."
+  }
+}

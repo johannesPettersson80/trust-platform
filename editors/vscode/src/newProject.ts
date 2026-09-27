@@ -1,4 +1,8 @@
 import * as vscode from "vscode";
+import { prepareStarterProjectHandoff } from "./projectLanding";
+import { openPendingProjectLanding } from "./projectLandingActivation";
+import { openCreatedProjectFolder } from "./projectOpening";
+export { FOCUS_MAIN_KEY, prepareStarterProjectHandoff } from "./projectLanding";
 
 type SimulatedCancelAt = "folder" | "name" | "overwrite";
 
@@ -12,10 +16,6 @@ type NewProjectArgs = {
 };
 
 export const NEW_PROJECT_COMMAND = "trust-lsp.newProject";
-
-// After scaffolding + opening the folder (which reloads the window), this globalState key tells the next
-// activation which Main.st to focus (§0.5.15 "open + focus src/Main.st").
-export const FOCUS_MAIN_KEY = "trust.newProject.focusMain";
 
 const MAIN_ST_SOURCE = `PROGRAM Main
 END_PROGRAM
@@ -253,24 +253,7 @@ async function writeScaffold(targetUri: vscode.Uri): Promise<void> {
 export async function focusPendingMain(
   context: vscode.ExtensionContext
 ): Promise<void> {
-  const pending = context.globalState.get<string>(FOCUS_MAIN_KEY);
-  if (!pending) {
-    return;
-  }
-  const uri = vscode.Uri.file(pending);
-  try {
-    await vscode.workspace.fs.stat(uri);
-  } catch {
-    await context.globalState.update(FOCUS_MAIN_KEY, undefined);
-    return;
-  }
-  // Only focus if the file belongs to the open workspace (the project that just opened).
-  if (!vscode.workspace.getWorkspaceFolder(uri)) {
-    return;
-  }
-  await context.globalState.update(FOCUS_MAIN_KEY, undefined);
-  const doc = await vscode.workspace.openTextDocument(uri);
-  await vscode.window.showTextDocument(doc, { preview: false });
+  await openPendingProjectLanding(context);
 }
 
 async function resolveTargetUri(
@@ -337,16 +320,12 @@ export function registerNewProjectCommand(
         await writeScaffold(targetUri);
 
         const mainUri = vscode.Uri.joinPath(targetUri, "src", "Main.st");
-        await context.globalState.update(FOCUS_MAIN_KEY, mainUri.fsPath);
+        await prepareStarterProjectHandoff(context, mainUri.fsPath);
 
         const openWorkspace = args?.openWorkspace ?? true;
         if (openWorkspace) {
           // Opening the folder reloads the window; focusPendingMain (next activation) focuses Main.st.
-          await vscode.commands.executeCommand(
-            "vscode.openFolder",
-            targetUri,
-            false
-          );
+          if (!(await openCreatedProjectFolder(targetUri))) return false;
         } else {
           // No reload — focus Main.st right now.
           await focusPendingMain(context);

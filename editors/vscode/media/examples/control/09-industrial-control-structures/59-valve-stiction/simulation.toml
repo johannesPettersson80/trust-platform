@@ -1,0 +1,85 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 12000
+plant_step_ms = 100
+
+[[plants]]
+id = "healthy-valve-bench"
+name = "Healthy cooling-water valve"
+description = "Fixed-head installed valve curve with ordinary positioner and hydraulic response."
+model = "first_order"
+command_sources = ["%QL184"]
+feedback_targets = ["%IL168"]
+initial_state = [64.0]
+initial_input = [64.0]
+
+[plants.parameters]
+gain = 1.0
+time_constant_s = 3.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+rate_up_per_s = 25.0
+rate_down_per_s = 25.0
+deadband = 0.0
+stiction_band = 0.0
+slip_jump = 0.0
+lag_s = 0.4
+characteristic_exponent = 2.0
+initial_applied = 80.0
+
+[[plants]]
+id = "deadband-valve-bench"
+name = "Cooling-water valve with command deadband"
+description = "The same installed curve and hydraulic response with a two-point command deadband."
+model = "first_order"
+command_sources = ["%QL192"]
+feedback_targets = ["%IL176"]
+initial_state = [64.0]
+initial_input = [64.0]
+
+[plants.parameters]
+gain = 1.0
+time_constant_s = 3.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+rate_up_per_s = 25.0
+rate_down_per_s = 25.0
+deadband = 2.0
+stiction_band = 0.0
+slip_jump = 0.0
+lag_s = 0.4
+characteristic_exponent = 2.0
+initial_applied = 80.0
+
+[[plants]]
+id = "stiction-valve-bench"
+name = "Cooling-water valve with mechanical stiction"
+description = "The same installed curve and response with a five-point breakaway band and two-point slip jump."
+model = "first_order"
+command_sources = ["%QL200"]
+feedback_targets = ["%IL184"]
+initial_state = [64.0]
+initial_input = [64.0]
+
+[plants.parameters]
+gain = 1.0
+time_constant_s = 3.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+rate_up_per_s = 25.0
+rate_down_per_s = 25.0
+deadband = 0.0
+stiction_band = 5.0
+slip_jump = 2.0
+lag_s = 0.4
+characteristic_exponent = 2.0
+initial_applied = 80.0

@@ -1,0 +1,297 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-17",
+  "title": "Linearization",
+  "level": "Foundation",
+  "sequence": 42,
+  "equipment": "Two copies of the Lesson 16 gravity-drained tank",
+  "physicalPurpose": "Create and qualify a local straight-line model of nonlinear tank behavior.",
+  "principalTechnique": "First-order Taylor linearization",
+  "objective": "Derive a tangent model at 0.25 m and compare its small- and large-change errors.",
+  "prerequisites": [
+    "control-lesson-16"
+  ],
+  "nextLesson": "control-gain-scheduling",
+  "signals": [
+    {
+      "role": "MV",
+      "name": "Small-case inlet flow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 0.02,
+      "resolution": 1e-06,
+      "binding": "%QL0"
+    },
+    {
+      "role": "PV",
+      "name": "Small-case physical level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Small-case local-model level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "MV",
+      "name": "Large-case inlet flow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 0.02,
+      "resolution": 1e-06,
+      "binding": "%QL8"
+    },
+    {
+      "role": "PV",
+      "name": "Large-case physical level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Large-case local-model level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Local gain",
+      "unit": "m/(m3/s)",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "Time constant",
+      "unit": "s",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    }
+  ],
+  "plant": {
+    "modelId": "gravity-tank-with-local-tangent",
+    "executable": "simulation.toml and src/Main.st",
+    "parameters": [
+      {
+        "name": "operating_level",
+        "value": 0.25,
+        "unit": "m"
+      },
+      {
+        "name": "operating_inlet_flow",
+        "value": 0.01,
+        "unit": "m3/s"
+      },
+      {
+        "name": "local_gain",
+        "value": 50,
+        "unit": "m/(m3/s)"
+      },
+      {
+        "name": "local_time_constant",
+        "value": 25,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 1,
+    "initialState": {
+      "tankLevel": 0.25,
+      "inletFlow": 0.01
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Small-case physical level": 0.25,
+      "Small-case inlet flow": 0.01
+    },
+    "validityRange": [
+      {
+        "signal": "Small-case inlet flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Small-case physical level",
+        "minimum": 0,
+        "maximum": 1,
+        "unit": "m"
+      }
+    ],
+    "simplifications": [
+      "The tangent slope is calculated at one operating point.",
+      "The small case defines the lesson's accepted local region.",
+      "The large case deliberately leaves that region."
+    ]
+  },
+  "baseline": {
+    "executableId": "Lesson17.NonlinearBalance",
+    "settings": {
+      "operatingLevel": 0.25,
+      "operatingFlow": 0.01
+    },
+    "limitation": "The nonlinear square-root equation is not directly usable by basic linear tools."
+  },
+  "change": {
+    "executableId": "Lesson17.LocalTangent",
+    "settings": {
+      "smallFlowDeviation": 0.001,
+      "largeFlowDeviation": 0.005
+    },
+    "decision": "Accept the tangent for the small case and reject it where large-change error is excessive."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 200.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Separate 0.001 and 0.005 m3/s inlet-flow increases."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "small_case_equilibrium_error",
+      "signal": "Small-case physical level",
+      "window": "settled",
+      "comparator": "<=",
+      "limit": 0.003,
+      "unit": "m",
+      "tolerance": 0.0001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "large_case_equilibrium_error",
+      "signal": "Large-case physical level",
+      "window": "settled",
+      "comparator": ">",
+      "limit": 0.05,
+      "unit": "m",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#72-plant-physics-and-models",
+    "nativeTest": "TEST_PROGRAM::Lesson17TangentModelHasLocalValidity",
+    "nativeCommand": "trust-dev test --project examples/control/01-feedback-foundations-and-temperature-control/17-gravity-tank-linearization --filter TEST_PROGRAM::Lesson17TangentModelHasLocalValidity",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/17-gravity-tank-linearization",
+    "runArtifactFields": [
+      "smallInletFlow",
+      "smallPhysicalLevel",
+      "smallLocalLevel",
+      "largeInletFlow",
+      "largePhysicalLevel",
+      "largeLocalLevel",
+      "localGain",
+      "timeConstant"
+    ],
+    "renderedJourneyId": "control-lesson-17"
+  },
+  "learning": {
+    "context": "Lesson 16 derived the nonlinear gravity-tank balance.",
+    "reason": "Basic linear methods need a local straight-line model.",
+    "change": "Replace square-root outflow with its tangent and test the approximation near and far from the operating point.",
+    "transfer": "Lesson 18 transforms the local differential equation into an input-output transfer function.",
+    "theory": [
+      "Basic linear methods need a local straight-line model."
+    ],
+    "workedPrediction": "Accept the tangent for the small case and reject it where large-change error is excessive.",
+    "practicalPreparation": [
+      "Lesson 16 derived the nonlinear gravity-tank balance."
+    ],
+    "baseline": "The nonlinear square-root equation is not directly usable by basic linear tools.",
+    "comparison": "Derive a tangent model at 0.25 m and compare its small- and large-change errors.",
+    "validation": "Check the declared acceptance metrics against the retained run.",
+    "explanation": "Derive a tangent model at 0.25 m and compare its small- and large-change errors."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Small-case inlet flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Small-case physical level",
+        "minimum": 0,
+        "maximum": 1,
+        "unit": "m"
+      },
+      {
+        "signal": "Large-case inlet flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Large-case physical level",
+        "minimum": 0,
+        "maximum": 1,
+        "unit": "m"
+      }
+    ],
+    "abortPredicates": [
+      "Signals must remain finite and inside the declared lesson ranges."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Restore Lesson experiment to 0.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Derive a tangent model at 0.25 m and compare its small- and large-change errors.",
+    "requiredVisibleEvidence": [
+      "smallInletFlow",
+      "smallPhysicalLevel",
+      "smallLocalLevel",
+      "largeInletFlow",
+      "largePhysicalLevel",
+      "largeLocalLevel",
+      "localGain",
+      "timeConstant"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

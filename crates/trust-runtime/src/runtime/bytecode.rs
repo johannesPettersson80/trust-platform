@@ -48,6 +48,9 @@ impl Runtime {
         if let Some(resource_name) = legacy_identity {
             self.resource_name = resource_name;
         }
+        if let Some(debug) = &self.debug {
+            debug.invalidate_control_program();
+        }
         self.vm_module = None;
         self.vm_local_init_plan_cache.invalidate_all();
         self.vm_register_lowering_cache.invalidate_all();

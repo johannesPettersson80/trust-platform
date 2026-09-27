@@ -1,0 +1,6 @@
+title = "Trends"
+kind = "trend"
+icon = "line-chart"
+order = 50
+duration_s = 600
+signals = ["P1.AppliedValvePosition", "P1.CycleTime", "P1.ExperimentCycle", "P1.FilteredTemperature", "P1.PreviousFilteredTemperature", "P1.RawTemperature", "P1.Setpoint", "P1.TrueTemperature"]

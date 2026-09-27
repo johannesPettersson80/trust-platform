@@ -1,0 +1,257 @@
+{
+  "schemaVersion": 4,
+  "id": "control-observability",
+  "title": "Observability",
+  "level": "Modern",
+  "sequence": 69,
+  "equipment": "Gravity tank cascade with a downstream sensor and diagnostic simulation truth",
+  "physicalPurpose": "Recover upstream deviation from downstream level history and expose differentiation noise.",
+  "principalTechnique": "Observability matrix and downstream-history reconstruction",
+  "objective": "Separate noiseless observability from useful noisy state estimation.",
+  "prerequisites": [
+    "control-controllability"
+  ],
+  "nextLesson": "control-state-feedback",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured downstream level",
+      "unit": "m",
+      "minimum": 0.05,
+      "maximum": 0.45,
+      "resolution": 1e-06,
+      "binding": "%ML56"
+    },
+    {
+      "role": "MV",
+      "name": "Pump flow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 0.02,
+      "resolution": 1e-06,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Upstream truth",
+      "unit": "m",
+      "minimum": 0.05,
+      "maximum": 0.45,
+      "resolution": 1e-06,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    },
+    {
+      "role": "state",
+      "name": "Downstream truth",
+      "unit": "m",
+      "minimum": 0.05,
+      "maximum": 0.45,
+      "resolution": 1e-06,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Estimate error",
+      "unit": "m",
+      "minimum": -1,
+      "maximum": 1,
+      "resolution": 1e-06,
+      "binding": "%ML24"
+    }
+  ],
+  "plant": {
+    "modelId": "observability-cascade",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "area_m2",
+        "value": 0.5,
+        "unit": "m2"
+      },
+      {
+        "name": "outflow_coefficient_m2_sqrt_m_per_s",
+        "value": 0.02,
+        "unit": "m^(5/2)/s"
+      }
+    ],
+    "sampleTimeSeconds": 1,
+    "initialState": {
+      "tank1Level": 0.27,
+      "tank2Level": 0.25
+    },
+    "seed": 20260829,
+    "simplifications": [
+      "Equal fixed cross sections and discharge coefficients; free upstream discharge without downstream backpressure.",
+      "Physical levels use coupled RK4 gravity balances; the ST predictor is a separate local one-second Euler approximation."
+    ],
+    "operatingPoint": {
+      "Pump flow": 0.01,
+      "Upstream truth": 0.25,
+      "Downstream truth": 0.25
+    },
+    "validityRange": [
+      {
+        "signal": "Pump flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Upstream truth",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      },
+      {
+        "signal": "Downstream truth",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      }
+    ]
+  },
+  "baseline": {
+    "executableId": "Lesson69.CleanMeasurement",
+    "settings": {
+      "P1.NoiseAmplitudeM": 0
+    },
+    "limitation": "Noiseless observability does not establish useful reconstruction under noise."
+  },
+  "change": {
+    "executableId": "Lesson69.AlternatingNoise",
+    "settings": {
+      "P1.NoiseAmplitudeM": 0.005
+    },
+    "decision": "Compare RMSE and peak error; a one-step noise difference adds about.25m reconstruction error."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 20,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Start h1=.27m,h2=.25m,q=.010m3/s; compare fresh clean and \u00b1.005m alternating downstream measurement cases."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "clean_reconstruction_rmse",
+      "signal": "Estimate error",
+      "window": "clean case: valid estimates after first sample through20s",
+      "comparator": "<=",
+      "limit": 0.001,
+      "unit": "m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "noisy_reconstruction_rmse",
+      "signal": "Estimate error",
+      "window": "noisy case: valid estimates after first sample through20s",
+      "comparator": ">=",
+      "limit": 0.2,
+      "unit": "m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Pump flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Upstream truth",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      },
+      {
+        "signal": "Downstream truth",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      }
+    ],
+    "abortPredicates": [
+      "Level outside .05\u2013.45 m, requested flow outside0\u2013.020 m3/s, invalid data or a non-one-second clock interval."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Normal completion restores .010 m3/s; early abort commands zero and requires simulator stop/reset.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Tune"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/67-75-state-estimation-and-optimal-control.md#69-observability",
+    "nativeTest": "lesson69_downstream_history_reconstructs_upstream_and_exposes_noise_amplification",
+    "nativeCommand": "cargo test -p trust-runtime --lib lesson69_downstream_history_reconstructs_upstream_and_exposes_noise_amplification -- --nocapture",
+    "projectPath": "examples/control/11-state-space-estimation-and-predictive-control/67-observability",
+    "runArtifactFields": [
+      "MeasuredTank2LevelM",
+      "SlopeMPerS",
+      "UpstreamEstimateM",
+      "TruthDeviationM",
+      "EstimateErrorM",
+      "SampleCount",
+      "EstimateReady"
+    ],
+    "renderedJourneyId": "control-observability"
+  },
+  "video": {
+    "viewerOutcome": "Separate noiseless observability from useful noisy state estimation.",
+    "requiredVisibleEvidence": [
+      "MeasuredTank2LevelM",
+      "SlopeMPerS",
+      "UpstreamEstimateM",
+      "TruthDeviationM",
+      "EstimateErrorM",
+      "SampleCount",
+      "EstimateReady"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "The local two-tank model is controllable, but only downstream level is measured.",
+    "reason": "Upstream storage affects the downstream measurement slope.",
+    "theory": [
+      "C=[0,1] and CA=[.04,\u2212.04] provide independent rows. Differentiation amplifies alternating sensor noise."
+    ],
+    "workedPrediction": "At y=0 and dy/dt=.0008m/s, y+25dy/dt=.02m. A.01m noise difference adds.25m through the derivative.",
+    "practicalPreparation": [
+      "Use a fresh synchronized run at h1=.27m,h2=.25m; wait for two measured samples before estimating."
+    ],
+    "baseline": "Record clean downstream-history estimates without seeding upstream truth.",
+    "change": "Inspect C and CA in Control Studio, then implement and observe downstream-history reconstruction.",
+    "comparison": "Repeat with alternating\u2212.005,+.005m downstream noise.",
+    "validation": "Report RMSE and peak error over EstimateReady samples only; keep simulation truth out of estimator inputs.",
+    "explanation": "Observability is information availability in measurement history, not guaranteed estimator performance in noise.",
+    "transfer": "State feedback chooses a pump law; a later observer supplies the hidden upstream state."
+  }
+}

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="430" viewBox="0 0 900 430" role="img" aria-labelledby="title desc">
+  <title id="title">Tank conservation boundary</title>
+  <desc id="desc">Inlet flow enters a tank, outlet flow leaves it, and the difference changes the stored liquid volume and level.</desc>
+  <rect width="900" height="430" fill="#ffffff"/>
+  <text x="65" y="48" font-family="sans-serif" font-size="27" fill="#20252b">Stored volume changes by what enters minus what leaves</text>
+  <rect x="300" y="110" width="300" height="245" fill="#eef6fb" stroke="#28343f" stroke-width="4"/>
+  <rect x="304" y="220" width="292" height="131" fill="#8dc9e8"/>
+  <line x1="305" y1="220" x2="595" y2="220" stroke="#2374ab" stroke-width="4"/>
+  <text x="408" y="292" font-family="sans-serif" font-size="24" fill="#17354a">stored volume</text>
+  <text x="615" y="226" font-family="sans-serif" font-size="21" fill="#20252b">level, h</text>
+
+  <line x1="75" y1="160" x2="300" y2="160" stroke="#2374ab" stroke-width="12"/>
+  <line x1="270" y1="140" x2="300" y2="160" stroke="#2374ab" stroke-width="12"/>
+  <line x1="270" y1="180" x2="300" y2="160" stroke="#2374ab" stroke-width="12"/>
+  <text x="82" y="130" font-family="sans-serif" font-size="23" fill="#20252b">inlet flow</text>
+
+  <line x1="600" y1="310" x2="825" y2="310" stroke="#d76720" stroke-width="12"/>
+  <line x1="795" y1="290" x2="825" y2="310" stroke="#d76720" stroke-width="12"/>
+  <line x1="795" y1="330" x2="825" y2="310" stroke="#d76720" stroke-width="12"/>
+  <text x="690" y="280" font-family="sans-serif" font-size="23" fill="#20252b">outlet flow</text>
+
+  <text x="255" y="400" font-family="sans-serif" font-size="23" fill="#20252b">inlet &gt; outlet → stored volume and level rise</text>
+</svg>

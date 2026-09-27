@@ -1,3 +1,15 @@
+import { validPhysicalIdentification, type PhysicalIdentification } from "./physicalIdentification";
+import { validPidControllerGroup, type PidControllerGroup } from "./pidControllerGroup";
+import { decodeLibraryPidInitialization, libraryPidInitialization, type LibraryPidInitialization } from "./libraryPidInitialization";
+import { decodeProjectController, type ProjectControllerBinding } from "./projectController";
+import { decodeOnOffController, type OnOffControllerBinding } from "./onOffController";
+import { decodeStateControllerBinding, type StateControllerBinding } from "./stateControllerDesign";
+import { validIdentificationPolicy, type IdentificationPolicy } from "./identificationPolicy";
+import { validEngineerScenarios, type EngineerScenario } from "./engineerVerificationCampaign";
+import { validLoopChannels, validateLoopChannelBindings, type LoopChannels } from "./loopChannels";
+import { decodeControllerLaw, decodePidLaw, type ControllerLaw } from "./controllerLaw";
+import { decodeParameterBinding, validAnalysisParameterSymbols, type ParameterBinding } from "./parameterBinding";
+import { decodeDeclaredAnalysis, type DeclaredControlAnalysis } from "./declaredAnalysis";
 import { expectedPrimarySignalDirection, isAuxiliarySignalDirectionAccepted } from "./loopSignalDirections";
 
 export type ControlSignalDirection = "read" | "write";
@@ -21,8 +33,46 @@ export interface ControlAuxiliarySignalBinding extends ControlSignalBinding {
   role: ControlAuxiliarySignalRole;
 }
 
+/** Explicit runtime-state bindings needed to assess requested-versus-applied saturation. */
+export interface ControlSaturationEvidence {
+  requestedOutputId: string;
+  integralStateId: string;
+}
+
+/** Explicit frozen inputs for one automatic isolated anti-windup comparison. */
+export interface ControlAntiWindupVerificationScenario {
+  stepMs: number;
+  durationMs: number;
+  seed: number;
+  wallBudgetMs: number;
+  initialValues: ReadonlyArray<{ symbol: string; value: number }>;
+  events: ReadonlyArray<{ atMs: number; symbol: string; value: number }>;
+}
+
+/**
+ * The actual retained states that a declared parallel-form PID implementation
+ * needs at the Manual-to-Auto task boundary. These are state variables, not
+ * parameters and therefore never travel through the parameter-record adapter.
+ */
+export interface ControlPidInitializationAdapter {
+  kind: "parallel-pid-v1";
+  integralState: { symbol: string; iecType: "REAL" | "LREAL"; unit: string; minimum: number; maximum: number };
+  derivativeState: { symbol: string; iecType: "REAL" | "LREAL"; unit: string; minimum: number; maximum: number };
+  proportionalSetpointWeight: number;
+  derivativeSetpointWeight: number;
+  maximumSnapshotAgeMs: number;
+}
+
 export interface ControlLoopDefinition {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
+  channels?: LoopChannels;
+  physicalIdentification?: PhysicalIdentification;
+  identificationPolicy?: IdentificationPolicy;
+  verificationScenarios?: readonly EngineerScenario[];
+  analysis?: DeclaredControlAnalysis;
+  parameterBinding?: ParameterBinding;
+  parameterPurpose?: "controller" | "experiment";
+  analysisParameterSymbols?: Readonly<Record<string, string>>;
   topology?: "closed-loop" | "open-loop";
   id: string;
   name: string;
@@ -30,6 +80,11 @@ export interface ControlLoopDefinition {
   projectId: string;
   runtimeId: string;
   controller: {
+    law?: ControllerLaw;
+    stateFeedback?: StateControllerBinding;
+    onOff?: OnOffControllerBinding;
+    project?: ProjectControllerBinding;
+    group?: PidControllerGroup;
     instance: string;
     type: string;
     design?: "pid" | "project";
@@ -39,6 +94,12 @@ export interface ControlLoopDefinition {
     modeSignal?: string;
     modeWhenTrue?: "Auto" | "Manual";
     trackingSignal?: string;
+    manualOutputSignal?: string;
+    manualOutputAddress?: string;
+    manualOutputType?: "REAL" | "LREAL" | "BOOL";
+    pidInitialization?: ControlPidInitializationAdapter | LibraryPidInitialization;
+    saturationEvidence?: ControlSaturationEvidence;
+    antiWindupVerification?: ControlAntiWindupVerificationScenario;
   };
   signals: {
     setpoint?: ControlSignalBinding;
@@ -62,13 +123,22 @@ export interface ControlLoopDefinition {
     kind: "observation" | "setpoint_step" | "load_step" | "mv_step" | "mv_pulse" |
       "relay" | "prbs" | "multisine";
     amplitude: number;
+    relayDirection?: "positive" | "negative";
     durationSeconds: number;
+    baselineSeconds?: number;
     seed: number;
     activation?: {
       symbol: string;
       address: string;
       iecType: "BOOL";
       direction: "write";
+    };
+    abort?: {
+      symbol: string;
+      address: string;
+      iecType: "BOOL";
+      direction: "write";
+      assertedValue: boolean;
     };
   };
   plantId?: string;
@@ -106,7 +176,11 @@ export type ControlLoopValidationResult =
   | { kind: "rejected"; reason: "malformed_loop" | "unsupported_version" }
   | { kind: "rejected"; reason: "cross_runtime_loop" }
   | { kind: "rejected"; reason: "incompatible_controller_design" }
+  | { kind: "rejected"; reason: "incompatible_anti_windup_verification" }
+  | { kind: "rejected"; reason: "incompatible_pid_initialization" }
   | { kind: "rejected"; reason: "incompatible_topology" }
+  | { kind: "rejected"; reason: "incompatible_model_units" }
+  | { kind: "rejected"; reason: "incompatible_saturation_evidence" }
   | {
       kind: "rejected";
       reason: "invalid_signal_direction" | "incompatible_signal_type";
@@ -124,7 +198,34 @@ export type ControlLoopValidationResult =
 /** Owns the serialized loop boundary before any runtime or UI state is joined. */
 export function decodeControlLoopDefinition(value: unknown): ControlLoopDefinitionResult {
   if (!record(value)) return rejected("malformed_loop");
-  if (value.schemaVersion !== 1) return rejected("unsupported_version");
+  if (value.schemaVersion !== 1 && value.schemaVersion !== 2) return rejected("unsupported_version");
+  if (record(value.experiment) && (value.experiment.abort !== undefined || value.experiment.baselineSeconds !== undefined) && value.schemaVersion !== 2) return rejected("malformed_loop");
+  if (value.parameterBinding !== undefined && (value.schemaVersion !== 2 || !decodeParameterBinding(value.parameterBinding, value.id))) return rejected("malformed_loop");
+  if (value.parameterPurpose !== undefined) {
+    const binding = decodeParameterBinding(value.parameterBinding, value.id);
+    if (value.schemaVersion !== 2 || !binding || !["controller", "experiment"].includes(String(value.parameterPurpose))) return rejected("malformed_loop");
+    if (value.parameterPurpose === "experiment" && (!record(value.experiment) || value.experiment.execution !== "project-scripted" ||
+        !record(value.experiment.activation) || binding.mode.symbol !== value.experiment.activation.symbol || binding.mode.manual_value !== false)) return rejected("malformed_loop");
+  }
+  if (record(value.controller) && value.controller.law !== undefined &&
+      (value.schemaVersion !== 2 || !decodeControllerLaw(value.controller.law, decodeParameterBinding(value.parameterBinding, value.id)))) return rejected("malformed_loop");
+  if (value.verificationScenarios !== undefined && (value.schemaVersion !== 2 || !validEngineerScenarios(value.verificationScenarios))) return rejected("malformed_loop");
+  if (value.physicalIdentification !== undefined && !validPhysicalIdentification(value.physicalIdentification)) return rejected("malformed_loop");
+  if (value.identificationPolicy !== undefined && !validIdentificationPolicy(value.identificationPolicy)) return rejected("malformed_loop");
+  if (value.channels !== undefined && (value.schemaVersion !== 2 || !validLoopChannels(value.channels))) return rejected("malformed_loop");
+  if (record(value.controller) && value.controller.stateFeedback !== undefined &&
+    (value.schemaVersion !== 2 || value.controller.design !== "project" || value.controller.law !== undefined
+      || !decodeStateControllerBinding(value.controller.stateFeedback, decodeParameterBinding(value.parameterBinding, value.id)))) return rejected("malformed_loop");
+  if (record(value.controller) && value.controller.onOff !== undefined &&
+    (value.schemaVersion !== 2 || value.controller.design !== "project" || value.controller.law !== undefined || value.controller.stateFeedback !== undefined
+      || !decodeOnOffController(value.controller.onOff, decodeParameterBinding(value.parameterBinding, value.id)))) return rejected("malformed_loop");
+  if (record(value.controller) && value.controller.project !== undefined &&
+    (value.schemaVersion !== 2 || value.controller.design !== "project" || value.controller.law !== undefined
+      || value.controller.stateFeedback !== undefined || value.controller.onOff !== undefined
+      || !decodeProjectController(value.controller.project, decodeParameterBinding(value.parameterBinding, value.id)))) return rejected("malformed_loop");
+  if (value.analysis !== undefined && (value.schemaVersion !== 2 || !decodeDeclaredAnalysis(value.analysis))) return rejected("malformed_loop");
+  if (value.analysisParameterSymbols !== undefined && (value.schemaVersion !== 2 || !validAnalysisParameterSymbols(
+    value.analysisParameterSymbols, decodeParameterBinding(value.parameterBinding, value.id), decodeDeclaredAnalysis(value.analysis)))) return rejected("malformed_loop");
   if (
     !nonempty(value.id) || !nonempty(value.name) || !revision(value.revision) ||
     !nonempty(value.projectId) || !nonempty(value.runtimeId) ||
@@ -132,6 +233,8 @@ export function decodeControlLoopDefinition(value: unknown): ControlLoopDefiniti
     !limits(value.limits) || !timing(value.observedSampleTiming) || !experiment(value.experiment) ||
     !optionalString(value.plantId) || !optionalString(value.operatingPoint)
   ) return rejected("malformed_loop");
+  if (record(value.controller) && value.controller.group !== undefined && (value.schemaVersion !== 2
+    || !validPidControllerGroup(value.controller.group, value.channels as LoopChannels | undefined))) return rejected("malformed_loop");
   return { kind: "accepted", loop: value as unknown as ControlLoopDefinition };
 }
 
@@ -147,11 +250,20 @@ export function validateControlLoopDefinition(
   const decoded = decodeControlLoopDefinition(value);
   if (decoded.kind === "rejected") return decoded;
   const loop = decoded.loop;
+  try { validateLoopChannelBindings(loop); } catch { return rejected("malformed_loop"); }
+  if (loop.analysis && (loop.analysis.plant.inputUnit !== loop.signals.manipulatedVariable.unit ||
+      loop.analysis.plant.outputUnit !== loop.signals.processVariable.unit)) {
+    return { kind: "rejected", reason: "incompatible_model_units" };
+  }
   if (loop.projectId !== scope.projectId || loop.runtimeId !== scope.runtimeId) {
     return { kind: "rejected", reason: "cross_runtime_loop" };
   }
   if ((loop.controller.design ?? "pid") === "pid" && loop.controller.type !== "Control.PID") {
     return { kind: "rejected", reason: "incompatible_controller_design" };
+  }
+  if (loop.controller.manualOutputType === "BOOL" &&
+      (!loop.controller.onOff || loop.signals.manipulatedVariable.iecType.toUpperCase() !== "BOOL")) {
+    return { kind: "rejected", reason: "incompatible_signal_type", signal: "manipulatedVariable" };
   }
   if (loop.topology === "open-loop" && (loop.controller.design ?? "pid") !== "project") {
     return { kind: "rejected", reason: "incompatible_topology" };
@@ -214,6 +326,16 @@ export function validateControlLoopDefinition(
       return { kind: "rejected", reason: "incompatible_auxiliary_units", channel };
     }
   }
+  const saturation = saturationWindupEvidence(loop);
+  if (saturation) {
+    const requested = additional.find((binding) => binding.id === saturation.requestedOutputId);
+    const integral = additional.find((binding) => binding.id === saturation.integralStateId);
+    if (!requested || !integral || requested === integral || requested.role !== "state" || integral.role !== "state" ||
+        requested.direction !== "read" || integral.direction !== "read" || requested.unit !== loop.signals.manipulatedVariable.unit ||
+        integral.unit !== loop.signals.manipulatedVariable.unit) {
+      return { kind: "rejected", reason: "incompatible_saturation_evidence" };
+    }
+  }
   const boundSignals: Array<[string, ControlSignalBinding]> = [
     ...(loop.signals.setpoint ? [["setpoint", loop.signals.setpoint] as [string, ControlSignalBinding]] : []),
     ["processVariable", loop.signals.processVariable],
@@ -232,7 +354,58 @@ export function validateControlLoopDefinition(
       }
     }
   }
+  if (loop.controller.antiWindupVerification && !validAntiWindupVerificationScenario(loop, saturation)) {
+    return { kind: "rejected", reason: "incompatible_anti_windup_verification" };
+  }
+  if (loop.controller.pidInitialization && !validPidInitialization(loop)) {
+    return { kind: "rejected", reason: "incompatible_pid_initialization" };
+  }
   return { kind: "accepted", loop };
+}
+
+/** Returns only the declared stable IDs; live values remain runtime-record evidence. */
+export function saturationWindupEvidence(loop: ControlLoopDefinition): ControlSaturationEvidence | undefined {
+  const evidence = loop.controller.saturationEvidence;
+  return evidence ? { requestedOutputId: evidence.requestedOutputId, integralStateId: evidence.integralStateId } : undefined;
+}
+
+function validAntiWindupVerificationScenario(loop: ControlLoopDefinition, saturation: ControlSaturationEvidence | undefined): boolean {
+  const scenario = loop.controller.antiWindupVerification;
+  const binding = loop.parameterBinding;
+  const law = decodeControllerLaw(loop.controller.law, binding);
+  if (!scenario || !binding || !law || law.kind !== "pid" || !law.antiWindup || !saturation || !loop.signals.setpoint) return false;
+  const integral = loop.signals.additional?.find(signal => signal.id === saturation.integralStateId);
+  if (!integral) return false;
+  const initial = new Map(scenario.initialValues.map(value => [value.symbol, value.value]));
+  const parameters = new Set(binding.parameters.map(parameter => parameter.symbol));
+  return initial.get(binding.mode.symbol) === Number(!binding.mode.manual_value) && initial.has(loop.signals.setpoint.symbol) &&
+    initial.has(integral.symbol) && !scenario.initialValues.some(value => parameters.has(value.symbol)) &&
+    !scenario.events.some(value => parameters.has(value.symbol));
+}
+
+function validPidInitialization(loop: ControlLoopDefinition): boolean {
+  const adapter = loop.controller.pidInitialization;
+  const law = decodePidLaw(loop.controller.law, loop.parameterBinding);
+  const reference = loop.signals.setpoint;
+  const binding = loop.parameterBinding;
+  if (!adapter || !law || !reference || !binding) return false;
+  if (adapter.kind === "control-pid-v1") {
+    try { libraryPidInitialization(loop); return true; } catch { return false; }
+  }
+  const state = (value: { symbol: string; iecType: "REAL" | "LREAL"; unit: string; minimum: number; maximum: number }) =>
+    nonempty(value.symbol) && (value.iecType === "REAL" || value.iecType === "LREAL") && typeof value.unit === "string" && value.unit.trim() !== "" &&
+      finite(value.minimum) && finite(value.maximum) && value.minimum < value.maximum;
+  const declaredParameters = new Set(binding.parameters.map(parameter => parameter.symbol));
+  return state(adapter.integralState) && state(adapter.derivativeState) &&
+    adapter.integralState.symbol !== adapter.derivativeState.symbol &&
+    !declaredParameters.has(adapter.integralState.symbol) && !declaredParameters.has(adapter.derivativeState.symbol) &&
+    adapter.integralState.symbol !== reference.symbol && adapter.derivativeState.symbol !== reference.symbol &&
+    adapter.integralState.symbol !== loop.signals.processVariable.symbol && adapter.derivativeState.symbol !== loop.signals.processVariable.symbol &&
+    adapter.integralState.symbol !== loop.signals.manipulatedVariable.symbol && adapter.derivativeState.symbol !== loop.signals.manipulatedVariable.symbol &&
+    adapter.integralState.unit === loop.signals.manipulatedVariable.unit && adapter.derivativeState.unit === reference.unit &&
+    adapter.proportionalSetpointWeight >= 0 && adapter.proportionalSetpointWeight <= 1 &&
+    adapter.derivativeSetpointWeight >= 0 && adapter.derivativeSetpointWeight <= 1 &&
+    Number.isInteger(adapter.maximumSnapshotAgeMs) && adapter.maximumSnapshotAgeMs >= loop.controller.taskPeriodMs && adapter.maximumSnapshotAgeMs <= 10_000;
 }
 
 const NUMERIC_IEC_TYPES = new Set([
@@ -247,7 +420,47 @@ function controller(value: unknown): boolean {
     revision(value.revision) && (value.action === "direct" || value.action === "reverse") &&
     positive(value.taskPeriodMs) && optionalString(value.modeSignal) &&
     (value.modeWhenTrue === undefined || value.modeWhenTrue === "Auto" || value.modeWhenTrue === "Manual") &&
-    optionalString(value.trackingSignal);
+    optionalString(value.trackingSignal) && optionalString(value.manualOutputSignal) && optionalString(value.manualOutputAddress) &&
+    (value.manualOutputType === undefined || nonempty(value.manualOutputSignal) &&
+      (value.manualOutputType === "REAL" || value.manualOutputType === "LREAL" || value.manualOutputType === "BOOL")) &&
+    saturationEvidence(value.saturationEvidence) && antiWindupVerification(value.antiWindupVerification) && pidInitialization(value.pidInitialization);
+}
+
+function saturationEvidence(value: unknown): boolean {
+  return value === undefined || record(value) && Object.keys(value).sort().join(",") === "integralStateId,requestedOutputId" &&
+    nonempty(value.requestedOutputId) && nonempty(value.integralStateId) && value.requestedOutputId !== value.integralStateId;
+}
+
+function antiWindupVerification(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (!record(value) || Object.keys(value).sort().join(",") !== "durationMs,events,initialValues,seed,stepMs,wallBudgetMs") return false;
+  const { stepMs, durationMs, seed, wallBudgetMs, initialValues, events: configuredEvents } = value;
+  if (!positiveInteger(stepMs) || !positiveInteger(durationMs) || durationMs % stepMs !== 0 || !safeInteger(seed) || seed < 0 ||
+      !positiveInteger(wallBudgetMs) || wallBudgetMs > 10_000 || !Array.isArray(initialValues) || initialValues.length === 0 ||
+      initialValues.length > 64 || !Array.isArray(configuredEvents) || configuredEvents.length > 1024) return false;
+  const initialSymbols = new Set<string>();
+  if (!initialValues.every(item => record(item) && Object.keys(item).sort().join(",") === "symbol,value" &&
+      nonempty(item.symbol) && finite(item.value) && !initialSymbols.has(item.symbol) && (initialSymbols.add(item.symbol), true))) return false;
+  let previous = 0;
+  const events = new Set<string>();
+  return configuredEvents.every(item => record(item) && Object.keys(item).sort().join(",") === "atMs,symbol,value" &&
+    safeInteger(item.atMs) && item.atMs >= previous && item.atMs <= durationMs && item.atMs % stepMs === 0 &&
+    nonempty(item.symbol) && finite(item.value) && !events.has(`${item.atMs}\0${item.symbol}`) &&
+    (events.add(`${item.atMs}\0${item.symbol}`), previous = item.atMs, true));
+}
+
+function pidInitialization(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (record(value) && value.kind === "control-pid-v1") return !!decodeLibraryPidInitialization(value);
+  if (!record(value) || Object.keys(value).sort().join(",") !== "derivativeSetpointWeight,derivativeState,integralState,kind,maximumSnapshotAgeMs,proportionalSetpointWeight" ||
+      value.kind !== "parallel-pid-v1" || !pidInitializationState(value.integralState) || !pidInitializationState(value.derivativeState)) return false;
+  return finite(value.proportionalSetpointWeight) && finite(value.derivativeSetpointWeight) && safeInteger(value.maximumSnapshotAgeMs);
+}
+
+function pidInitializationState(value: unknown): boolean {
+  return record(value) && Object.keys(value).sort().join(",") === "iecType,maximum,minimum,symbol,unit" && nonempty(value.symbol) &&
+    (value.iecType === "REAL" || value.iecType === "LREAL") && typeof value.unit === "string" && value.unit.trim() !== "" &&
+    finite(value.minimum) && finite(value.maximum) && value.minimum < value.maximum;
 }
 
 function topology(value: unknown): boolean {
@@ -315,10 +528,15 @@ function experiment(value: unknown): boolean {
       !finite(value.amplitude) || !finite(value.durationSeconds) || value.durationSeconds < 1 ||
       value.durationSeconds > 3_600 || typeof value.seed !== "number" || !Number.isSafeInteger(value.seed) ||
       value.seed < 1 || value.seed > 0xffff_ffff) return false;
+  if (value.baselineSeconds !== undefined && (value.execution !== "project-scripted" || !activation(value.activation) ||
+      !finite(value.baselineSeconds) || value.baselineSeconds < 0 || value.baselineSeconds >= value.durationSeconds)) return false;
   if (value.execution === "project-scripted") {
-    return value.kind === "observation" && value.amplitude === 0 && activation(value.activation);
+    return value.kind === "observation" && value.amplitude === 0 && (value.activation === undefined || activation(value.activation)) &&
+      (value.abort === undefined || (activation(value.activation) && activation(value.abort) && record(value.abort) &&
+        typeof value.abort.assertedValue === "boolean" && record(value.activation) &&
+        value.abort.address !== value.activation.address && value.abort.symbol !== value.activation.symbol));
   }
-  return value.activation === undefined &&
+  return value.activation === undefined && value.abort === undefined &&
     (value.kind === "observation" ? value.amplitude === 0 : value.amplitude !== 0);
 }
 
@@ -350,6 +568,14 @@ function revision(value: unknown): value is string {
 
 function finite(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function safeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value);
+}
+
+function positiveInteger(value: unknown): value is number {
+  return safeInteger(value) && value > 0;
 }
 
 function positive(value: unknown): value is number {

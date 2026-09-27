@@ -17,6 +17,7 @@ pub(super) fn read_numeric(io: &IoInterface, address: &IoAddress) -> Result<f64,
     let raw = io.read(address)?;
     let value =
         match (binding_type(io, address), raw) {
+            (Some(TypeId::BOOL), Value::Bool(value)) => f64::from(u8::from(value)),
             (Some(TypeId::SINT), Value::Byte(value)) => f64::from(value as i8),
             (Some(TypeId::INT), Value::Word(value)) => f64::from(value as i16),
             (Some(TypeId::DINT), Value::DWord(value)) => f64::from(value as i32),
@@ -50,6 +51,7 @@ pub(super) fn encode_numeric(
         return Err(RuntimeError::Overflow);
     }
     match binding_type(io, address) {
+        Some(TypeId::BOOL) if value == 0.0 || value == 1.0 => Ok(Value::Bool(value == 1.0)),
         Some(TypeId::SINT) => signed(value, i8::MIN as f64, i8::MAX as f64)
             .map(|value| Value::Byte((value as i8) as u8)),
         Some(TypeId::INT) => signed(value, i16::MIN as f64, i16::MAX as f64)
@@ -120,5 +122,30 @@ fn exact_u64(value: u64) -> Result<f64, RuntimeError> {
         Ok(converted)
     } else {
         Err(RuntimeError::Overflow)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::io::{IoAddress, IoInterface};
+
+    #[test]
+    fn bool_numeric_io_roundtrips_only_zero_and_one() {
+        let mut io = IoInterface::new();
+        io.resize(1, 1, 0);
+        let address = IoAddress::parse("%IX0.0").unwrap();
+        io.bind_typed("bool-input", address.clone(), TypeId::BOOL);
+        let output = IoAddress::parse("%QX0.0").unwrap();
+        io.bind_typed("bool-output", output.clone(), TypeId::BOOL);
+        assert_eq!(read_numeric(&io, &address).unwrap(), 0.0);
+        assert_eq!(
+            encode_numeric(&io, &output, 1.0).unwrap(),
+            Value::Bool(true)
+        );
+        assert!(matches!(
+            encode_numeric(&io, &output, 0.5),
+            Err(RuntimeError::TypeMismatch)
+        ));
     }
 }

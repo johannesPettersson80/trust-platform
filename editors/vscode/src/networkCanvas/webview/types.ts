@@ -118,10 +118,14 @@ export interface NCPlant {
   savedConfigurationRevision?: string;
   activeConfigurationRevision?: string;
   configuration?: {
+    preservedConfiguration?: Record<string, unknown>;
     description: string;
     parameters: Record<string, number | number[] | number[][]>;
     initialState: number[];
+    enabledDefaulted?: boolean;
+    initialStateDefaulted?: boolean;
     stepMs?: number;
+    projectStepMs?: number;
     initialInput?: number[];
     inputScale?: number[];
     inputOffset?: number[];

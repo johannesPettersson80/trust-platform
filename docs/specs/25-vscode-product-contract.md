@@ -103,24 +103,79 @@ package, or end-to-end evidence.
 
 - The packaged manifest MUST parse and contain: Empty simulator, Conveyor,
   TwinCAT ADS, Raspberry Pi, HMI starter, and PLCopen Motion single axis.
+- A valid top-level manifest MUST retain every valid entry when an individual
+  control lesson's `lesson.json` is missing, unreadable, invalid JSON, or fails
+  lesson-schema validation. Such an entry remains visible as unavailable with
+  a concrete reason and cannot be offered as runnable. A malformed top-level
+  manifest remains a gallery load failure; entry-level isolation MUST NOT hide
+  catalog corruption.
 - The gallery MUST always expose search plus independent hardware and category
   filters. Filters may be combined. When no result matches, a visible action
   MUST clear the search and both filters.
-- Gallery cards MUST display their hardware requirement. Canonical labels are
-  `No hardware`, `Requires TwinCAT`, and `Requires Raspberry Pi`.
-- Hardware-required badges use the shared warning role. Category identity uses
+- Hardware and category filters shall be labelled native select controls, not
+  a full wall of tag buttons. They shall retain stable values, combine with
+  search, expose a visible result count and remain usable at narrow widths.
+  Typing shall preserve search focus; changing a filter shall retain focus on
+  that filter. The empty-result reset shall clear all criteria and return focus
+  to search so keyboard users can immediately try another query.
+- Gallery cards MUST distinguish default execution mode from optional physical
+  integration. The six bundled non-control starters ship simulated I/O defaults
+  and MUST display `Runs in simulator`. ADS and Raspberry Pi additionally show
+  `Hardware optional: TwinCAT` and `Hardware optional: Raspberry Pi` respectively;
+  the other four show `No hardware needed`. These labels describe the packaged
+  default and MUST NOT imply physical commissioning or a connected device.
+  Existing hardware filter IDs remain stable; optional integration MUST NOT be
+  labelled as a prerequisite for starting the simulated example.
+- Actual hardware-required badges use the shared warning role. Category identity uses
   stable internal IDs while displaying human-readable names such as `ADS` and
   `Raspberry Pi`.
 - Card descriptions MUST contain no more than 80 characters.
+- Lesson details MUST retain the full catalog description and the lesson's
+  declared objective and expected observation. Their preview MUST contain
+  lesson-specific explanatory paragraphs from canonical lesson metadata, not
+  only a generic list of section headings. Compact card descriptions shall
+  not replace full detail text. Legacy metadata without a specific expected
+  observation must be labelled accordingly, not presented as measured evidence.
 - Normal copy flows MUST use native VS Code folder and name prompts. Only
   acceptance automation may override destination, name, and open-folder
   answers through `TRUST_UX_EXAMPLE_*`.
 
 ### 3.2 Runnable scaffold
 
+- Project creation MUST establish one exclusive activation landing destination
+  before opening the destination folder: creating a starter schedules its
+  `src/Main.st` and clears any earlier example README landing. Copying a control
+  lesson schedules that lesson's README and clears earlier Main focus. An
+  unrelated workspace activation MUST NOT consume this pending destination.
+- Pending project landing MUST have one activation dispatcher and one current
+  structured intent carrying a unique identity, destination project, landing
+  kind and destination file, plus example identity for copied examples. A newer
+  intent supersedes an older one. Concurrent activation requests for the same
+  intent MUST NOT open it twice. A missing destination shall clear only the
+  matching intent and report recovery guidance; an open failure shall retain
+  the matching intent for retry. Completing an older request MUST NOT clear a
+  newer intent. Existing legacy Main/README keys may be read for migration, but
+  newly produced intents shall have one authoritative stored representation.
+- The unified dispatcher shall migrate legacy handoffs only when their
+  destination belongs to the active workspace. A lesson README's parent is
+  its project; a starter `src/Main.st` belongs to the parent of `src`. If both
+  legacy destinations match, their relative age cannot be recovered: clear
+  those ambiguous pending actions, leave all project files untouched, and
+  explain how to reopen the desired source or lesson instead of guessing.
+- If opening a newly created project folder fails, retain its files and pending
+  landing intent. Report that the project was created, name its exact location,
+  and offer an explicit Retry opening action. Dismissing recovery MUST NOT retry,
+  recopy, overwrite, delete the project, or report that it opened successfully.
+  Retrying opens that same folder without repeating project creation.
+
 - Every bundled entry MUST contain `trust-lsp.toml`, `runtime.toml`,
   `io.toml`, `.vscode/launch.json`, `.vscode/settings.json`, and
   `src/Main.st`.
+- Each non-control starter MUST also include a source-owned README that is copied
+  by the existing example packager. It shall state the first VS Code action,
+  expected observable result, simulation mode, physical-hardware boundary and
+  relevant existing truST surface. Hardware support claims require separate
+  hardware proof; a simulated starter must not imply hardware commissioning.
 - The launch file MUST contain a `structured-text` launch configuration named
   `truST Simulator`, use request `launch`, and target an existing source below
   `${workspaceFolder}/src/`.
@@ -877,6 +932,17 @@ generated Structured Text execution and rendered extension evidence.
 - Create Project is cancellation-safe at every prompt, requires confirmation
   before using a nonempty target, produces parseable/buildable ST and TOML, and
   resolves single-root and multi-root workspace targets deterministically.
+- Created control-lesson projects MUST persist their lesson identity and exact
+  project location through the existing VS Code extension persistence. The
+  record is additive, so two copies of one lesson remain independently
+  reopenable and creating a project MUST NOT imply that its lesson is complete.
+  Continue may select only a retained location whose project still exists. A
+  deleted or moved location remains a visible project record with explicit
+  recovery guidance; it MUST NOT be silently replaced by another copy or by a
+  newly created project. A retained-copy action uses a QuickPick of the exact
+  saved locations; a missing location offers Locate moved folder or Cancel.
+  The generic Open existing folder picker remains separate from Create another
+  copy.
 - Visual right-pane width persistence uses stable per-editor keys, clamps
   configured bounds, prefers VS Code webview state, falls back to local
   storage, and falls back again to the default for invalid values. It governs

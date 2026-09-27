@@ -2,16 +2,34 @@ import { updateControlPid, type ControlPidCandidate, type ControlPidState } from
 import type { IdentifiedModel } from "./identification";
 import type { FrequencyPoint } from "./tuning";
 import { rootLocus } from "./numerics";
+import type { DesignComparisonContext } from "./chartContract";
+
+const MAX_PREDICTION_PERIODS = 10_000;
+
+export type RootLocusParameter = "proportionalGain" | "integralGain" | "derivativeGain";
+export interface RootLocusSweep {
+  parameter: RootLocusParameter;
+  values: readonly number[];
+  selectedValue: number;
+}
+
+export interface EngineeringPredictionOptions {
+  cycleTimeSeconds?: number;
+  durationSeconds?: number;
+  referenceChange?: number;
+  operatingPoint?: { input: number; output: number };
+}
 
 export interface EngineeringTimePoint {
   timeSeconds: number;
-  currentPv: number;
+  currentPv?: number;
   candidatePv: number;
-  currentMv: number;
+  currentMv?: number;
   candidateMv: number;
 }
 
 export interface EngineeringPlotEvidence {
+  comparison?: { context: DesignComparisonContext; candidate: ControlPidCandidate };
   evidence: "Model-predicted";
   timeResponse: readonly EngineeringTimePoint[];
   plantBode: readonly FrequencyPoint[];
@@ -26,7 +44,12 @@ export interface EngineeringPlotEvidence {
     complementarySensitivityMagnitudeDb: number;
     controlSensitivityMagnitudeDb: number;
   }[];
-  rootLocus: { status: "qualified"; branches: readonly {
+  rootLocus: { status: "qualified";
+    parameter: RootLocusParameter;
+    selectedValue: number;
+    fixedParameters: Partial<Record<RootLocusParameter, number>>;
+    approximation: string;
+    branches: readonly {
     gain: number; poles: readonly { real: number; imaginary: number }[];
   }[] } | { status: "unavailable"; reason: string; branches: readonly [] };
   // The exact open-loop point where the candidate crosses 0 dB (used to read phase
@@ -64,17 +87,26 @@ export function engineeringPlotMessageEvidence(evidence: EngineeringPlotEvidence
 export function buildEngineeringPlotEvidence(
   model: IdentifiedModel,
   current: ControlPidCandidate,
-  candidate: ControlPidCandidate
+  candidate: ControlPidCandidate,
+  sweep?: RootLocusSweep,
+  options: EngineeringPredictionOptions = {}
 ): EngineeringPlotEvidence {
   validateModel(model);
-  const horizon = Math.max(10, 10 * ((model.timeConstantSeconds ?? 1)
+  const horizon = options.durationSeconds ?? Math.max(10, 10 * ((model.timeConstantSeconds ?? 1)
     + (model.secondTimeConstantSeconds ?? 0) + (model.deadTimeSeconds ?? 0)));
-  const steps = Math.min(1_000, Math.max(200, Math.ceil(horizon / 0.05)));
-  const cycleTime = horizon / steps;
-  const currentSimulation = simulationState(model, current, cycleTime);
-  const candidateSimulation = simulationState(model, candidate, cycleTime);
-  const timeResponse: EngineeringTimePoint[] = [];
-  for (let step = 0; step <= steps; step += 1) {
+  const steps = options.cycleTimeSeconds === undefined ? Math.min(1_000, Math.max(200, Math.ceil(horizon / 0.05)))
+    : Math.ceil(horizon / options.cycleTimeSeconds);
+  const cycleTime = options.cycleTimeSeconds ?? horizon / steps;
+  const operating = options.operatingPoint ?? { input: 0, output: 0 };
+  const target = operating.output + (options.referenceChange ?? 1);
+  if (![horizon, cycleTime, operating.input, operating.output, target].every(Number.isFinite) || horizon <= 0 || cycleTime <= 0 || steps > MAX_PREDICTION_PERIODS) {
+    throw new Error("Prediction needs finite coordinates and at most 10000 controller periods.");
+  }
+  const currentSimulation = simulationState(model, current, cycleTime, operating, target);
+  const candidateSimulation = simulationState(model, candidate, cycleTime, operating, target);
+  const timeResponse: EngineeringTimePoint[] = [{ timeSeconds: 0, currentPv: operating.output,
+    candidatePv: operating.output, currentMv: operating.input, candidateMv: operating.input }];
+  for (let step = 1; step <= steps; step += 1) {
     const currentPoint = advance(currentSimulation, model, current, cycleTime);
     const candidatePoint = advance(candidateSimulation, model, candidate, cycleTime);
     timeResponse.push({
@@ -93,8 +125,14 @@ export function buildEngineeringPlotEvidence(
   // Show the frequencies that explain the controller decision. Extending a
   // dead-time model through many rotations hides crossover and margins in an
   // otherwise technically valid but unusable plot.
-  const minimumFrequency = 1e-2 / baseTime;
-  const maximumFrequency = Math.max(10 / baseTime, delay > 0 ? 2 * Math.PI / delay : 0);
+  let minimumFrequency = 1e-2 / baseTime;
+  let maximumFrequency = Math.max(10 / baseTime, delay > 0 ? 2 * Math.PI / delay : 0);
+  const loopMagnitude = (frequency: number) => {
+    const value = multiply(plantFrequency(model, frequency), controllerFrequency(candidate, frequency));
+    return Math.hypot(value.re, value.im);
+  };
+  for (let expansion = 0; expansion < 16 && loopMagnitude(maximumFrequency) > 1; expansion++) maximumFrequency *= 2;
+  for (let expansion = 0; expansion < 16 && loopMagnitude(minimumFrequency) < 1; expansion++) minimumFrequency /= 2;
   const decades = Math.log10(maximumFrequency / minimumFrequency);
   const frequencyPoints = Math.min(2_000, Math.max(100, Math.ceil(decades * 40) + 1));
   for (let index = 0; index < frequencyPoints; index += 1) {
@@ -115,46 +153,51 @@ export function buildEngineeringPlotEvidence(
     ...positiveNyquist.slice(1),
   ];
   const sensitivity = unwrappedOpenLoop.map((item) => sensitivityPoint(item, candidate));
-  const locus = buildRootLocus(model, candidate);
+  const locus = buildRootLocus(model, candidate, sweep);
   const uncertainty = buildUncertaintyEnvelope(model, candidate, timeResponse, cycleTime);
   const requirements = graphicalRequirements(timeResponse, margins, sensitivity);
-  return { evidence: "Model-predicted", timeResponse, plantBode: unwrappedPlant,
+  return { evidence: "Model-predicted", comparison: { candidate,
+    context: { modelRevision: JSON.stringify(model),
+      evidenceRevision: JSON.stringify({ baseline: current.parameters, horizon, steps, options }),
+      method: "unit-step-model-prediction-v1" } }, timeResponse, plantBode: unwrappedPlant,
     candidateOpenLoopBode: unwrappedOpenLoop, nichols, nyquist, sensitivity,
     rootLocus: locus, requirements, uncertainty, ...margins };
 }
 
 interface Complex { re: number; im: number }
-interface SimulationState { pid: ControlPidState; pv: number; delay: number[]; lag2: number }
+interface SimulationState { pid: ControlPidState; pv: number; delay: number[]; lag2: number;
+  operating: { input: number; output: number }; target: number }
 
-function simulationState(model: IdentifiedModel, candidate: ControlPidCandidate, cycleTime: number): SimulationState {
-  const delaySamples = Math.max(0, Math.round((model.deadTimeSeconds ?? 0) / cycleTime));
+function simulationState(model: IdentifiedModel, candidate: ControlPidCandidate, cycleTime: number,
+  operating = { input: 0, output: 0 }, target = 1): SimulationState {
+  const delaySamples = Math.min(MAX_PREDICTION_PERIODS + 1, Math.max(0, Math.round((model.deadTimeSeconds ?? 0) / cycleTime)));
   return {
-    pid: { setpoint: 0, setpointRate: 0, processValue: 0, processValueRate: 0,
-      feedForward: 0, nominalOutput: 0, saturatedOutput: Math.max(0, candidate.parameters.outputMinimum) },
-    pv: 0,
-    delay: Array(delaySamples + 1).fill(0) as number[],
-    lag2: 0,
+    pid: { setpoint: operating.output, setpointRate: 0, processValue: operating.output, processValueRate: 0,
+      feedForward: 0, nominalOutput: operating.input, saturatedOutput: operating.input },
+    pv: operating.output,
+    delay: Array(delaySamples).fill(operating.input) as number[],
+    lag2: operating.output, operating, target,
   };
 }
 
 function advance(state: SimulationState, model: IdentifiedModel, candidate: ControlPidCandidate, cycleTime: number) {
   const updated = updateControlPid(candidate.parameters, state.pid, {
-    setpoint: 1, processValue: state.pv, feedForward: 0, manualOutput: 0,
+    setpoint: state.target, processValue: state.pv, feedForward: 0, manualOutput: 0,
     trackingOutput: 0, mode: "Auto", cycleTime,
   });
   state.pid = updated.state;
   state.delay.push(updated.output);
   const delayed = state.delay.shift() ?? 0;
   if (model.kind === "integrating") {
-    state.pv += cycleTime * model.gain * delayed;
+    state.pv += cycleTime * model.gain * (delayed - state.operating.input);
   } else {
     const firstTime = model.timeConstantSeconds ?? 1;
-    const firstTarget = model.gain * delayed;
+    const firstTarget = state.operating.output + model.gain * (delayed - state.operating.input);
     if (model.secondTimeConstantSeconds !== undefined) {
       state.lag2 += cycleTime * (firstTarget - state.lag2) / firstTime;
       state.pv += cycleTime * (state.lag2 - state.pv) / model.secondTimeConstantSeconds;
     } else {
-      state.pv += cycleTime * (firstTarget - state.pv) / firstTime;
+      state.pv = firstTarget + (state.pv - firstTarget) * Math.exp(-cycleTime / firstTime);
     }
   }
   if (![state.pv, updated.output].every(Number.isFinite)) throw new Error("Controller prediction became non-finite.");
@@ -286,20 +329,50 @@ function magnitudeDb(value: Complex): number {
   return 20 * Math.log10(Math.max(Number.MIN_VALUE, Math.hypot(value.re, value.im)));
 }
 
-function buildRootLocus(model: IdentifiedModel, candidate: ControlPidCandidate): EngineeringPlotEvidence["rootLocus"] {
+function buildRootLocus(
+  model: IdentifiedModel,
+  candidate: ControlPidCandidate,
+  requested?: RootLocusSweep
+): EngineeringPlotEvidence["rootLocus"] {
   try {
-    const plant = plantPolynomial(model);
-    const controller = controllerPolynomial(candidate);
-    const numerator = convolve(plant.numerator, controller.numerator);
-    const denominator = convolve(plant.denominator, controller.denominator);
-    const gains = [0, ...Array.from({ length: 61 }, (_, index) => 10 ** (-3 + index * 0.1))];
-    const result = rootLocus({ numerator, denominator, delaySeconds: 0 }, gains) as {
-      status: string; reason?: string;
-      branches?: readonly { gain: number; poles: readonly { real: number; imaginary: number }[] }[];
+    const sweep: RootLocusSweep = requested ?? {
+      parameter: "proportionalGain",
+      values: [...new Set([0, candidate.parameters.proportionalGain,
+        ...Array.from({ length: 61 }, (_, index) => 10 ** (-3 + index * 0.1))])].sort((a, b) => a - b),
+      selectedValue: candidate.parameters.proportionalGain,
     };
-    return result.status === "qualified" && result.branches
-      ? { status: "qualified", branches: result.branches }
-      : { status: "unavailable", reason: result.reason ?? "The root locus could not be qualified.", branches: [] };
+    if (!["proportionalGain", "integralGain", "derivativeGain"].includes(sweep.parameter)
+        || !Array.isArray(sweep.values) || sweep.values.length === 0 || sweep.values.length > 1001
+        || !sweep.values.every(value => Number.isFinite(value) && value >= 0)
+        || !sweep.values.includes(sweep.selectedValue)) {
+      throw new Error("Choose one gain, 1–1001 finite nonnegative values, and a selected value in that sweep.");
+    }
+    const plant = plantPolynomial(model);
+    const branches = sweep.values.map(gain => {
+      // Substitute only the selected coefficient. Multiplying the complete
+      // controller would also change fixed derivative and integral feedback.
+      const controller = controllerPolynomial({ ...candidate,
+        parameters: { ...candidate.parameters, [sweep.parameter]: gain } });
+      const numerator = convolve(plant.numerator, controller.numerator);
+      const denominator = convolve(plant.denominator, controller.denominator);
+      const result = rootLocus({ numerator, denominator, delaySeconds: 0 }, [1]) as {
+        status: string; reason?: string;
+        branches?: readonly { poles: readonly { real: number; imaginary: number }[] }[];
+      };
+      if (result.status !== "qualified" || !result.branches?.[0]) {
+        throw new Error(result.reason ?? "The root locus could not be qualified.");
+      }
+      return { gain, poles: result.branches[0].poles };
+    });
+    const fixedParameters: Partial<Record<RootLocusParameter, number>> = {
+      proportionalGain: candidate.parameters.proportionalGain,
+      integralGain: candidate.parameters.integralGain,
+      derivativeGain: candidate.parameters.derivativeGain,
+    };
+    delete fixedParameters[sweep.parameter];
+    return { status: "qualified", branches, parameter: sweep.parameter,
+      selectedValue: sweep.selectedValue, fixedParameters,
+      approximation: `Continuous ideal controller; sample/hold, derivative filtering and output constraints are not represented.${(model.deadTimeSeconds ?? 0) > 0 ? " Delay uses first-order Padé approximation." : " No model delay."}` };
   } catch (error) {
     return { status: "unavailable", reason: error instanceof Error ? error.message : String(error), branches: [] };
   }
@@ -332,7 +405,7 @@ function controllerPolynomial(candidate: ControlPidCandidate): { numerator: numb
 
 function trimLeadingZeros(values: number[]): number[] {
   const first = values.findIndex((value) => Math.abs(value) > 1e-15);
-  if (first < 0) throw new Error("The controller has no finite non-zero gain for root-locus analysis.");
+  if (first < 0) return [0];
   return values.slice(first);
 }
 
@@ -354,7 +427,7 @@ function buildUncertaintyEnvelope(
   if (models.length === 0) return { status: "not-evaluated", method: "Not evaluated", points: [] };
   const traces = models.map((variant) => {
     const state = simulationState(variant, candidate, cycleTime);
-    return nominal.map(() => advance(state, variant, candidate, cycleTime).pv);
+    return nominal.map((_, index) => index === 0 ? state.pv : advance(state, variant, candidate, cycleTime).pv);
   });
   return {
     status: "evaluated",
@@ -370,6 +443,7 @@ function buildUncertaintyEnvelope(
 const UNCERTAINTY_METHOD_LABELS: Record<string, string> = {
   "sample-resolution-envelope": "sample-resolution envelope from the estimation record",
   "grid-resolution-and-validation-residual": "grid-resolution and held-out-residual interval",
+  "measurement-consistent-grid": "box enclosing the measurement-consistent grid; parameter correlations omitted",
 };
 
 /** Maps the uncertainty method's internal identifier to words a student reads; no raw
@@ -402,7 +476,7 @@ function graphicalRequirements(
   margins: { gainMarginDb: number; phaseMarginDegrees: number },
   sensitivity: EngineeringPlotEvidence["sensitivity"]
 ): EngineeringPlotEvidence["requirements"] {
-  const current = responseMetrics(time.map((point) => ({ time: point.timeSeconds, pv: point.currentPv })));
+  const current = responseMetrics(time.flatMap((point) => point.currentPv === undefined ? [] : [{ time: point.timeSeconds, pv: point.currentPv }]));
   const candidate = responseMetrics(time.map((point) => ({ time: point.timeSeconds, pv: point.candidatePv })));
   const maximumOutput = Math.max(...time.map((point) => Math.abs(point.candidateMv)));
   const maximumSensitivity = Math.max(...sensitivity.map((point) => 10 ** (point.sensitivityMagnitudeDb / 20)));

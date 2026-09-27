@@ -1,0 +1,477 @@
+{
+  "schemaVersion": 4,
+  "id": "control-cascade",
+  "title": "Cascade control",
+  "level": "Advanced",
+  "sequence": 56,
+  "equipment": "jacketed production reactor",
+  "physicalPurpose": "Reject utility disturbances in the fast jacket loop before they propagate into product temperature.",
+  "principalTechnique": "Cascade",
+  "objective": "Use a fast inner loop to reject an intermediate disturbance.",
+  "prerequisites": [
+    "control-feedforward"
+  ],
+  "nextLesson": "control-ratio-control",
+  "signals": [
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX136.3"
+    },
+    {
+      "role": "quality",
+      "name": "Inner-loop availability",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX136.1"
+    },
+    {
+      "role": "state",
+      "name": "Inner commissioning mode",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX136.0"
+    },
+    {
+      "role": "SP",
+      "name": "Reactor-temperature setpoint",
+      "unit": "degC",
+      "minimum": 60,
+      "maximum": 95,
+      "resolution": 0.01,
+      "binding": "%ML88"
+    },
+    {
+      "role": "disturbance",
+      "name": "Heating-utility disturbance",
+      "unit": "degC",
+      "minimum": -15,
+      "maximum": 15,
+      "resolution": 0.01,
+      "binding": "%ML104"
+    },
+    {
+      "role": "state",
+      "name": "Jacket test setpoint",
+      "unit": "degC",
+      "minimum": 60,
+      "maximum": 85,
+      "resolution": 0.01,
+      "binding": "%ML96"
+    },
+    {
+      "role": "state",
+      "name": "Fast jacket setpoint",
+      "unit": "degC",
+      "minimum": 60,
+      "maximum": 85,
+      "resolution": 0.01,
+      "binding": "%ML112"
+    },
+    {
+      "role": "state",
+      "name": "Slow jacket setpoint",
+      "unit": "degC",
+      "minimum": 60,
+      "maximum": 85,
+      "resolution": 0.01,
+      "binding": "%ML120"
+    },
+    {
+      "role": "PV",
+      "name": "Direct reactor temperature",
+      "unit": "degC",
+      "minimum": 60,
+      "maximum": 95,
+      "resolution": 0.01,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Direct jacket temperature",
+      "unit": "degC",
+      "minimum": 45,
+      "maximum": 90,
+      "resolution": 0.01,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Fast-cascade reactor temperature",
+      "unit": "degC",
+      "minimum": 60,
+      "maximum": 95,
+      "resolution": 0.01,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Fast-cascade jacket temperature",
+      "unit": "degC",
+      "minimum": 45,
+      "maximum": 90,
+      "resolution": 0.01,
+      "binding": "%IL24"
+    },
+    {
+      "role": "state",
+      "name": "Slow-cascade reactor temperature",
+      "unit": "degC",
+      "minimum": 60,
+      "maximum": 95,
+      "resolution": 0.01,
+      "binding": "%IL32"
+    },
+    {
+      "role": "state",
+      "name": "Slow-cascade jacket temperature",
+      "unit": "degC",
+      "minimum": 45,
+      "maximum": 90,
+      "resolution": 0.01,
+      "binding": "%IL40"
+    },
+    {
+      "role": "MV",
+      "name": "Direct valve request",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Fast-cascade valve request",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL16"
+    },
+    {
+      "role": "state",
+      "name": "Slow-cascade valve request",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL32"
+    }
+  ],
+  "plant": {
+    "modelId": "three_equivalent_jacketed_reactors",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "jacket_time_constant",
+        "value": 2,
+        "unit": "s"
+      },
+      {
+        "name": "reactor_time_constant",
+        "value": 12,
+        "unit": "s"
+      },
+      {
+        "name": "valve_to_jacket_gain",
+        "value": 1.4,
+        "unit": "degC/%"
+      },
+      {
+        "name": "jacket_to_reactor_gain",
+        "value": 1.142857142857,
+        "unit": "1"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "jacketTemperatureDegC": 70,
+      "reactorTemperatureDegC": 80
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Reactor-temperature setpoint": 80,
+      "Heating-utility disturbance": 0,
+      "Jacket test setpoint": 70,
+      "Direct reactor temperature": 80,
+      "Direct jacket temperature": 70,
+      "Fast-cascade reactor temperature": 80,
+      "Fast-cascade jacket temperature": 70,
+      "Slow-cascade reactor temperature": 80,
+      "Slow-cascade jacket temperature": 70,
+      "Direct valve request": 50,
+      "Fast-cascade valve request": 50,
+      "Slow-cascade valve request": 50
+    },
+    "validityRange": [
+      {
+        "signal": "Direct reactor temperature",
+        "minimum": 60,
+        "maximum": 95,
+        "unit": "degC"
+      },
+      {
+        "signal": "Fast-cascade reactor temperature",
+        "minimum": 60,
+        "maximum": 95,
+        "unit": "degC"
+      },
+      {
+        "signal": "Slow-cascade reactor temperature",
+        "minimum": 60,
+        "maximum": 95,
+        "unit": "degC"
+      },
+      {
+        "signal": "Direct jacket temperature",
+        "minimum": 45,
+        "maximum": 90,
+        "unit": "degC"
+      },
+      {
+        "signal": "Fast-cascade jacket temperature",
+        "minimum": 45,
+        "maximum": 90,
+        "unit": "degC"
+      },
+      {
+        "signal": "Slow-cascade jacket temperature",
+        "minimum": 45,
+        "maximum": 90,
+        "unit": "degC"
+      }
+    ],
+    "simplifications": [
+      "Local linear energy balances around one production operating point",
+      "One ideal temperature measurement for each jacket and reactor state",
+      "Three deterministic equivalent plants isolate controller structure and inner-loop tuning",
+      "Controller requests are used as applied valve positions because no actuator nonideality is configured",
+      "Simulation-only I/O and evidence"
+    ]
+  },
+  "baseline": {
+    "executableId": "Reactor.DirectPI",
+    "settings": {
+      "kp": 2,
+      "ki": 0.2,
+      "biasPercent": 50
+    },
+    "limitation": "Direct reactor-temperature PI cannot act until the slow product temperature has already changed."
+  },
+  "change": {
+    "executableId": "Reactor.CommissionedCascade",
+    "settings": {
+      "outerKp": 1,
+      "outerKi": 0.08,
+      "fastInnerKp": 2,
+      "fastInnerKi": 1,
+      "slowInnerKp": 0.2,
+      "slowInnerKi": 0.02,
+      "jacketSetpointLimitsDegC": [
+        60,
+        85
+      ]
+    },
+    "decision": "Accept cascade only when the inner loop is commissioned first, detects the disturbance earlier, is at least three times faster, and improves equivalent reactor-temperature evidence."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 120.1,
+    "settlingSeconds": 40,
+    "disturbances": [
+      "Commissioning run steps both jacket setpoints from 70 to 75 degC at 10.0 s",
+      "Regulatory run changes utility contribution from 0 to -10 degC at 40.0 s"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "inner_time_scale_separation",
+      "signal": "Fast-cascade jacket temperature",
+      "window": "10 through 40 s jacket-setpoint commissioning step",
+      "comparator": ">=",
+      "limit": 3,
+      "unit": "1",
+      "tolerance": 0.05,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "jacket_detection_lead",
+      "signal": "Fast-cascade jacket temperature",
+      "window": "first absolute 0.10-degC departure after 40 s compared with reactor departure",
+      "comparator": ">",
+      "limit": 0,
+      "unit": "s",
+      "tolerance": 0.1,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "cascade_reactor_event_iae_ratio",
+      "signal": "Fast-cascade reactor temperature",
+      "window": "40 through 90 s cascade IAE divided by direct IAE",
+      "comparator": "<",
+      "limit": 0.7,
+      "unit": "1",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "cascade_peak_improvement",
+      "signal": "Fast-cascade reactor temperature",
+      "window": "40 through 90 s peak absolute deviation below direct PI",
+      "comparator": "<",
+      "limit": 0,
+      "unit": "degC",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "valve_range",
+      "signal": "Fast-cascade valve request",
+      "window": "complete 120-s run",
+      "comparator": "<=",
+      "limit": 100,
+      "unit": "%",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Direct valve request",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Fast-cascade valve request",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Slow-cascade valve request",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Fast-cascade jacket temperature",
+        "minimum": 45,
+        "maximum": 90,
+        "unit": "degC"
+      },
+      {
+        "signal": "Fast-cascade reactor temperature",
+        "minimum": 60,
+        "maximum": 95,
+        "unit": "degC"
+      }
+    ],
+    "abortPredicates": [
+      "Any required signal is nonfinite, stale, forced, or has invalid quality",
+      "Any valve request leaves 0 through 100 percent",
+      "Any jacket temperature leaves 45 through 90 degC",
+      "Any reactor temperature leaves 60 through 95 degC",
+      "Inner-loop availability, authority, or restoration is lost"
+    ],
+    "safeMv": 50,
+    "restorationMode": "Return utility disturbance to zero and jacket test setpoint to 70 degC; keep the outer controllers tracking until jacket temperatures and valve requests are restored.",
+    "physicalApprovalRole": "authorised reactor controls engineer and responsible process operator",
+    "simulationOnlyRestrictions": [
+      "No physical reactor is excited or commissioned",
+      "Equivalent simulated plants do not prove physical sensor placement or time-scale separation",
+      "Physical cascade commissioning requires reviewed topology, interlocks, limits, operating permission and explicit action approval"
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#77-industrial-control-structures",
+    "nativeTest": "TEST_PROGRAM::Lesson52PhysicalPredictionsAndCommissioningOrderAreExplicit",
+    "nativeCommand": "target/debug/trust-dev test --project examples/control/09-industrial-control-structures/52-cascade --filter TEST_PROGRAM::Lesson52PhysicalPredictionsAndCommissioningOrderAreExplicit --timeout 20",
+    "projectPath": "examples/control/09-industrial-control-structures/52-cascade",
+    "runArtifactFields": [
+      "projectIdentity",
+      "plantIdentities",
+      "controllerIdentities",
+      "evidenceClass",
+      "sampleTime",
+      "seed",
+      "commissioningMode",
+      "innerAvailability",
+      "reactorSetpoint",
+      "jacketSetpoints",
+      "reactorTemperatures",
+      "jacketTemperatures",
+      "valveRequests",
+      "appliedValveValues",
+      "utilityDisturbance",
+      "authority",
+      "limits",
+      "abortState",
+      "restorationState",
+      "metricDefinitions",
+      "metrics",
+      "settlingQualification"
+    ],
+    "renderedJourneyId": "control-cascade"
+  },
+  "video": {
+    "viewerOutcome": "Commission an inner jacket loop before closing a reactor outer loop and explain when measured cascade evidence justifies the added structure.",
+    "requiredVisibleEvidence": [
+      "three equivalent reactors",
+      "inner commissioning mode",
+      "primary and secondary SP/PV",
+      "direct, fast-cascade and slow-cascade traces",
+      "valve requests and applied values",
+      "time-scale calculation",
+      "disturbance-detection lead",
+      "event IAE and peak deviation",
+      "authority and restoration",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Three equivalent jacketed reactors expose the fast jacket state, slow product state, one heating valve and the same bounded utility disturbance.",
+    "reason": "The preceding feedforward lesson required a measured external disturbance and path model; here the useful early signal is a faster controlled variable through which the disturbance propagates.",
+    "theory": [
+      "The outer reactor loop requests a jacket temperature and never writes the valve directly; the inner jacket loop alone owns valve authority.",
+      "The jacket energy balance responds in 2 s while the reactor product balance responds in 12 s, but measured closed-loop settling proves whether the commissioned separation is adequate.",
+      "Tracking and constraint propagation prevent inactive or saturated loops from accumulating an unachievable demand."
+    ],
+    "workedPrediction": "A 5-degC jacket-setpoint step exposes the fast and intentionally slow inner tunings; a -10-degC utility event moves jacket temperature before reactor temperature, allowing the fast inner loop to act first.",
+    "practicalPreparation": [
+      "Verify Simulation evidence, the three plant and five controller identities, units, quality, 0.1-s timing, operating point, limits, modes and authority.",
+      "Define settling, disturbance-detection lead, reactor event IAE, peak deviation and applied-valve movement before viewing results."
+    ],
+    "baseline": "Run direct reactor-temperature PI through the utility event and retain the response it cannot begin correcting until primary error appears.",
+    "change": "Commission the two jacket loops first, reject the deliberately slow one, then close the qualified fast inner loop beneath the same outer tuning.",
+    "comparison": "Hold plant physics, state, disturbance, timing, limits, outer tuning, duration and measure windows equal while changing only structure or inner tuning.",
+    "validation": "Require a finite bounded fast inner response, at least three-times separation, earlier jacket detection, less than 70 percent of direct reactor IAE and lower peak deviation.",
+    "explanation": "Cascade improves this plant because the inner jacket sensor observes and corrects utility loss before the slow product temperature moves; merely nesting a slow controller does not create that advantage.",
+    "transfer": "Lesson 53 continues with Ratio control."
+  }
+}

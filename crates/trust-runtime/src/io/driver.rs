@@ -6,6 +6,9 @@ pub trait IoDriver: Send {
     /// Write the output image to hardware or a simulator.
     fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError>;
 
+    /// True only for an in-process simulator with no physical I/O side effects.
+    fn is_simulated(&self) -> bool { false }
+
     /// Report the current driver health.
     fn health(&self) -> IoDriverHealth {
         IoDriverHealth::Ok
@@ -51,6 +54,7 @@ pub struct IoDriverStatus {
 pub struct SimulatedIoDriver;
 
 impl IoDriver for SimulatedIoDriver {
+    fn is_simulated(&self) -> bool { true }
     fn read_inputs(&mut self, _inputs: &mut [u8]) -> Result<(), RuntimeError> {
         Ok(())
     }

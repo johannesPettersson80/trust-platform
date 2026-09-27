@@ -1,0 +1,100 @@
+title = "Overview"
+icon = "thermometer"
+order = 0
+
+[[section]]
+title = "Key Metrics"
+span = 12
+tier = "hero"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.QualifiedTemperature"
+inferred_interface = true
+label = "Qualified Temperature"
+span = 4
+unit = "C"
+min = 0
+max = 120
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.RejectedTemperature"
+inferred_interface = true
+label = "Rejected Temperature"
+span = 4
+unit = "C"
+min = 0
+max = 120
+
+[[section]]
+title = "Status"
+span = 12
+tier = "status"
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.SafetyAbort"
+inferred_interface = true
+label = "Safety Abort"
+span = 2
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.ExperimentEnabled"
+inferred_interface = true
+label = "Experiment Enabled"
+span = 2
+
+[[section]]
+title = "Details"
+span = 12
+tier = "detail"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.ExperimentElapsed"
+inferred_interface = true
+label = "Experiment Elapsed"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.InputsValid"
+inferred_interface = true
+label = "Inputs Valid"
+span = 3
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.QualifiedRelayApplied"
+inferred_interface = true
+label = "Qualified Relay Applied"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.QualifiedRelayHigh"
+inferred_interface = true
+label = "Qualified Relay High"
+span = 3
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.RejectedRelayApplied"
+inferred_interface = true
+label = "Rejected Relay Applied"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.RejectedRelayHigh"
+inferred_interface = true
+label = "Rejected Relay High"
+span = 3

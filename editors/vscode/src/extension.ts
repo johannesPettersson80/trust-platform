@@ -17,7 +17,8 @@ import { registerRuntimeControls } from "./runtimeControls";
 import { registerTrustHome } from "./trustHomeView";
 import { registerLanguageModelTools } from "./lm-tools";
 import { augmentDiagnostic } from "./diagnostics";
-import { focusPendingMain, registerNewProjectCommand } from "./newProject";
+import { registerNewProjectCommand } from "./newProject";
+import { openPendingProjectLanding } from "./projectLandingActivation";
 import { registerExamples } from "./examples";
 import { registerCheckProgram } from "./checkProgram";
 import { registerLibraryCodeActions } from "./libraryCodeActions";
@@ -186,7 +187,12 @@ export async function activate(context: vscode.ExtensionContext) {
   registerIoPanel(context);
   registerHmiPanel(context);
   registerNetworkCanvasPanel(context, { getClient: () => client });
-  registerControlStudioPanel(context);
+  registerControlStudioPanel(context, async (rootUri) => {
+    if (!client) return { ok: false, error: "The language server is not ready. Retry after the project has compiled." };
+    return client.sendRequest("workspace/executeCommand", {
+      command: "trust-lsp.hmiBindings", arguments: [{ root_uri: rootUri }],
+    });
+  });
   try {
     registerLanguageModelTools(context, { getClient: () => client });
   } catch (error) {
@@ -239,8 +245,8 @@ export async function activate(context: vscode.ExtensionContext) {
   registerExamples(context);
   registerCheckProgram(context);
   registerLibraries(context, { getClient: () => client });
-  // If a project was just scaffolded (which reloaded the window), focus its Main.st now.
-  void focusPendingMain(context);
+  // One destination owner handles starter source or lesson instructions after folder reload.
+  void openPendingProjectLanding(context).catch((error) => console.error("Project landing failed", error));
   registerNewStatechartCommand(context);
   registerImportStatechartCommand(context);
   registerNewBlocklyCommand(context);

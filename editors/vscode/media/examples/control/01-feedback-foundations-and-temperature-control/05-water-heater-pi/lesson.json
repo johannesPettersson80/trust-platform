@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-05",
+  "title": "PI control",
+  "level": "Foundation",
+  "sequence": 6,
+  "equipment": "Electric water heater",
+  "physicalPurpose": "Accumulate error over time and add the stored integral contribution to P. Demonstrate removal of the same steady-state error observed previously.",
+  "principalTechnique": "PI control",
+  "objective": "Accumulate error over time and add the stored integral contribution to P. Demonstrate removal of the same steady-state error observed previously.",
+  "prerequisites": [
+    "control-lesson-04"
+  ],
+  "nextLesson": "control-lesson-06",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Temperature setpoint",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Water temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heater power",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL0"
+    },
+    {
+      "role": "disturbance",
+      "name": "Heat extraction",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 30,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    }
+  ],
+  "plant": {
+    "modelId": "pi-water-heater",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      {
+        "name": "thermal_capacity",
+        "value": 50,
+        "unit": "kJ/degC"
+      },
+      {
+        "name": "heat_loss",
+        "value": 10,
+        "unit": "kW/degC"
+      },
+      {
+        "name": "heater_power",
+        "value": 200,
+        "unit": "kW"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 20,
+      "integralPct": 0,
+      "delayedPowerPct": 0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Temperature setpoint": 35,
+      "Water temperature": 20,
+      "Applied heater power": 0,
+      "Heat extraction": 0,
+      "Experiment authority": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Water temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heater power",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "One50kJ/°C thermal store with10kW/°C loss toward20°C.",
+      "The30kW extraction starts at experiment60s and bypasses the1s heater delivery delay.",
+      "The native simulator combines the independently delayed heating and immediate load; the controller reads one measured temperature at %IL0."
+    ]
+  },
+  "baseline": {
+    "executableId": "control-lesson-04:P1.Controller.Auto",
+    "settings": {
+      "setpointC": 35,
+      "initialTemperatureC": 20,
+      "Kp": 2,
+      "Ki": 0,
+      "initialOutput": 0
+    },
+    "limitation": "Zero-bias P must retain positive temperature error to supply ongoing heat loss."
+  },
+  "change": {
+    "executableId": "P1.Controller.Auto",
+    "settings": {
+      "Kp": 2,
+      "Ki": 0.5,
+      "heatExtractionKw": 30,
+      "loadStartsS": 60
+    },
+    "decision": "Check the actual steady temperature error before and after the same load event."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 120.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "30kW extraction at experiment60s"
+    ],
+    "seed": 20260828,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "absolute_error",
+      "signal": "Water temperature",
+      "window": "50–60s and110–120s after experiment start",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Water temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heater power",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Temperature or heater power is not finite",
+      "Temperature or heater power leaves its limit"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Disable heating, cancel extraction and restart at20°C with zero delayed power and zero integral before repeating.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The controller gains and load response are simulation teaching values, not physical heater settings."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/01-11-foundations-and-pi.md",
+    "nativeTest": "integral_action_uses_actual_control_pid_and_retains_its_output_state",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_foundation_heater integral_action_uses_actual_control_pid_and_retains_its_output_state -- --exact",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/05-water-heater-pi",
+    "runArtifactFields": [
+      "setpoint",
+      "temperature",
+      "nominalPower",
+      "appliedPower",
+      "heatExtraction",
+      "experimentTime",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-05"
+  },
+  "learning": {
+    "context": "Accumulate error over time and add the stored integral contribution to P. Demonstrate removal of the same steady-state error observed previously.",
+    "reason": "The proportional controller reduces its command as the water warms. At 35 °C its error is zero, so P commands 0%, even though heat continues to leave the vessel. The water therefore settles below the setpoint, where the remaining error creates the holding power.",
+    "change": "30kW extraction begins at experiment60s.\n\nThe program latches `SafetyAbort` when measured temperature leaves 0–80 °C and commands zero heating. A later valid reading or disabling and re-enabling the experiment does not clear that latch. Stop and restart Simulator to restore the declared 20 °C/0% initial state before repeating; distinguish the zero command from the native actuator response and the delayed change in water temperature.",
+    "transfer": "This experiment kept the demand within the heater's available range. If a\ncontroller does not account for an actuator limit, integral demand can keep\naccumulating while the heater is already at 100%. [Integral windup](../06-water-heater-saturation-windup/README.md)\ndeliberately creates that mismatch, separates requested and applied output,\nand shows why the retained demand delays recovery.",
+    "theory": [
+      "**Proportional-integral control**, or **PI**, adds a stored contribution based\non accumulated error to the immediate proportional correction. The stored\ncontribution can keep supplying heat when the current error becomes zero.\n\nKeep the proportional gain of 2 percentage points/°C. The setpoint is 35 °C and the initial measured temperature is 20 °C, so the error is 15 °C and the proportional command is 30%.\n\nNow add a contribution that accumulates while the error remains. Choose an **integral gain** of 0.5 percentage points/(°C·s). With a constant 1 °C error, this adds 0.5 percentage points to the integral contribution each second. With a 15 °C error, it adds 7.5 points per second, or 0.75 point during a 0.1 s controller scan.\n\nStart this contribution at zero. After the first update it is 0.75%, making the complete request 30.75%. If the error is still 15 °C on the next update, another 0.75 point gives an integral contribution of 1.50% and a request of 31.50%. Each increment is added to the previous value; the contribution does not start from zero on each scan.\n\nThe repeated calculation approximates the **integral of the error**. During one interval, assume the error is constant at its latest measured value. Multiplying error by elapsed time gives the area of that rectangle under the error-versus-time curve. Adding the areas accounts for both the size of an error and how long it persists.\n\nLet $e=SP-PV$ be error in °C, $\\Delta t$ the scan interval in seconds, and $K_i$ the integral gain in percentage points/(°C·s). The integral contribution $u_I$ is expressed in percent of the heater-command scale. Its change in one scan is\n\n$$\n\\Delta u_I=K_i e\\Delta t,\n$$\n\nand the updated contribution is\n\n$$\nu_{I,\\mathrm{new}}=u_{I,\\mathrm{old}}+\\Delta u_I.\n$$\n\nThis state is a number retained in the program, not thermal energy stored in the water. Multiplying $K_i$ by $e\\Delta t$, whose units are °C·s, gives a change in percentage points.\n\nAdd the updated integral contribution to the proportional contribution $u_P=K_p e$ to obtain the complete requested output $u_r$:\n\n$$\nu_r=u_P+u_I=K_p e+u_I.\n$$\n\nAs the positive error decreases, P decreases while I continues increasing in smaller increments. The total request need not increase throughout warming, because the two contributions change in opposite directions.\n\nAt zero error, P becomes zero and the next integral increment is zero. The accumulated contribution remains. For example, if I has reached 75% when the measured temperature reaches 35 °C, the next calculation gives P = 0%, no change in I, and a 75% heater request. Maintaining the temperature also requires this delivered heating to balance the actual heat loss.\n\nA persistent positive error would keep increasing I. While additional heater power is available, the below-setpoint steady temperature observed with P alone therefore cannot persist. If the water rises above the setpoint, the error becomes negative and I decreases. A brief crossing of the setpoint is not the same as settling there."
+    ],
+    "workedPrediction": "Calculate the first two updates for SP 35 °C, PV 20 °C and $u_I=0$. Then predict what happens to P, each new integral increment, and total request as the water warms. At PV=35 °C, does the integral state disappear? At PV=36 °C, what is the next increment? After a heat-load increase, must the eventual holding command be larger or smaller?",
+    "practicalPreparation": [
+      "**Arithmetic practice.** Use `LREAL` values to work through the accumulation\ncalculation below. This explains PI; the runnable project delegates its\ncontroller state and output to `Control.PID`.\n\n```st\nError := Setpoint - ProcessValue;\nProportionalContribution := ProportionalGain * Error;\nIntegralIncrement := IntegralGain * Error * CycleTime;\nIntegralContribution := IntegralContribution + IntegralIncrement;\nRequestedHeaterPower := ProportionalContribution + IntegralContribution;\n```\n\nKeep `ProportionalGain := 2.0`, `IntegralGain := 0.5` and `CycleTime := 0.1` for this fixed 0.1 s interval. The integral assignment reads the previous value on its right-hand side and stores the updated value for the next calculation. Initialize I once before the sequence. Check fixed readings: after two 15 °C updates the state is 1.50%; at zero error it is still 1.50%; at −1 °C the next increment is −0.05 point, leaving 1.45%, while P is −2% and the request is −0.55%, applied as 0%. These are uncorrected arithmetic values. The negative request introduces an output limit; the real library also corrects its retained state when a limit acts, a behavior examined in the following lessons.\n\nThe runnable `Main.st` instantiates `Controller : Control.PID` with the same\nKp and Ki, zero derivative gain, setpoint weight one and 0–100% output limits.\nIt calls `Configure`, initializes the actual block at the start of each warming\nexperiment, and obtains applied power only from `Controller.Update` every\n0.1 s. Manual commands zero before enabling and after completion or abort.\n\nThe block stores nominal output and previous measurements. At the cold start,\nthe initialization records the measured SP/PV of 35/20 °C, a nominal demand of\n30% corresponding to P with zero I, and the previous applied output of 0%.\nThe first update adds 0.75 point and applies 30.75%. This is the intended\nstartup step for this exercise; it does not initialize the block again on\nevery enabled scan.\n\nThe plotted `NominalHeaterPower` comes from the actual block's `GetState`\nsnapshot after its internal limit correction. Its `NominalOutput` field is\nnot a pre-limit request. With this fixed gain, weight one and no derivative or\nfeedforward, the displayed integral contribution is that retained nominal\noutput minus P. This diagnostic calculation does not maintain a second\nintegrator or drive the heater. The warming and load experiment keeps limits\ninactive, so nominal and applied output agree throughout the comparison.\n\nFrom this lesson's directory, check the runnable project with\n`trust-runtime check --project .`. Run the separate arithmetic exercises with\n`trust-dev test --project tests`. They retain the worked calculations above;\nthe actual controller and plant are exercised by the Control Studio experiment.\n\nThe measured water temperature arrives directly at `%IL0`; the controller\nwrites heater power to `%QL0`. The native simulator applies the heater's\none-second delivery delay independently of the extraction command on `%QL8`.\nThere is no simulated temperature calculation in the controller program."
+    ],
+    "baseline": "Same heater starts20°C with35°C target and zero applied heat.",
+    "comparison": "The arithmetic check should show I values 0.75%, 1.50%, 1.50%, then 1.45% for the stated fixed readings. In the warming trace, P should fall as error falls, while I should continue increasing as long as error is positive. Near 35 °C, P should be near zero while I supplies the continuing heating.\n\nCompare the same 60 s relative heat-load event with Lesson 5. A crossing of 35 °C does not establish settling. Accept the PI result only if the stated final temperature band is met in the specified windows and the output remains applied within 0–100%. After the load event, the required holding contribution should increase because more heat must be replaced.",
+    "validation": "The arithmetic check should show I values 0.75%, 1.50%, 1.50%, then 1.45% for the stated fixed readings. In the warming trace, P should fall as error falls, while I should continue increasing as long as error is positive. Near 35 °C, P should be near zero while I supplies the continuing heating.\n\nCompare the same 60 s relative heat-load event with Lesson 5. A crossing of 35 °C does not establish settling. Accept the PI result only if the stated final temperature band is met in the specified windows and the output remains applied within 0–100%. After the load event, the required holding contribution should increase because more heat must be replaced.",
+    "explanation": "Integral action accumulates error over time. Its contribution can remain nonzero at zero error, so PI can supply the power needed to balance continuing heat loss and remove the proportional controller's steady-state temperature error."
+  },
+  "video": {
+    "viewerOutcome": "Accumulate error over time and add the stored integral contribution to P. Demonstrate removal of the same steady-state error observed previously.",
+    "requiredVisibleEvidence": [
+      "Same heater and cold reset",
+      "Temperature and requested/applied power",
+      "Experiment-relative60s heat load",
+      "Steady temperature error",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 2,
+  "id": "control-studio-anti-windup",
+  "name": "Isolated anti-windup verification fixture",
+  "revision": "sha256:control-studio-anti-windup-v1",
+  "projectId": "project:control-studio-anti-windup",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "Main",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:anti-windup-controller-v1",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "Main.Manual",
+    "modeWhenTrue": "Manual",
+    "saturationEvidence": {
+      "requestedOutputId": "requested-output",
+      "integralStateId": "retained-integral"
+    },
+    "antiWindupVerification": {
+      "stepMs": 100,
+      "durationMs": 6000,
+      "seed": 7,
+      "wallBudgetMs": 10000,
+      "initialValues": [
+        {
+          "symbol": "Main.Manual",
+          "value": 0
+        },
+        {
+          "symbol": "Main.SP",
+          "value": 35
+        },
+        {
+          "symbol": "Main.Integral",
+          "value": 75
+        }
+      ],
+      "events": [
+        {
+          "atMs": 100,
+          "symbol": "Main.SP",
+          "value": 50
+        },
+        {
+          "atMs": 2000,
+          "symbol": "Main.SP",
+          "value": 35
+        }
+      ]
+    },
+    "law": {
+      "kind": "pid",
+      "parameterRecordSymbol": "Main.Parameters",
+      "parameterRevisionSymbol": "Main.ParameterRevision",
+      "proportionalGainSymbol": "Main.Kp",
+      "integralGainSymbol": "Main.Ki",
+      "derivativeGainSymbol": "Main.Kd",
+      "antiWindup": {
+        "method": "back-calculation",
+        "trackingGainSymbol": "Main.BackCalculationGain"
+      }
+    }
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "Main.SP",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 60
+      }
+    },
+    "processVariable": {
+      "symbol": "Main.PV",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "Main.MV",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "requested-output",
+        "channel": "requested-output",
+        "role": "state",
+        "symbol": "Main.RequestedOutput",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -1000,
+          "maximum": 1000
+        }
+      },
+      {
+        "id": "retained-integral",
+        "channel": "retained-integral",
+        "role": "state",
+        "symbol": "Main.Integral",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -1000,
+          "maximum": 1000
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 6,
+    "seed": 7,
+    "activation": {
+      "symbol": "Main.ExperimentEnabled",
+      "address": "%MX64.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  },
+  "parameterBinding": {
+    "loop_id": "control-studio-anti-windup",
+    "task_name": "MainTask",
+    "mode": {
+      "symbol": "Main.Manual",
+      "manual_value": true
+    },
+    "parameters": [
+      {
+        "symbol": "Main.Kp",
+        "iec_type": "LREAL",
+        "unit": "%/degC",
+        "convention": "parallel proportional gain",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "Main.Ki",
+        "iec_type": "LREAL",
+        "unit": "%/(degC*s)",
+        "convention": "parallel integral gain",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "Main.Kd",
+        "iec_type": "LREAL",
+        "unit": "%*s/degC",
+        "convention": "parallel derivative gain",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "Main.BackCalculationGain",
+        "iec_type": "LREAL",
+        "unit": "1/s",
+        "convention": "back-calculation gain",
+        "minimum": 0,
+        "maximum": 100
+      }
+    ]
+  }
+}

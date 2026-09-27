@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-13",
+  "title": "Process dynamics",
+  "level": "Foundation",
+  "sequence": 12,
+  "equipment": "Water heater",
+  "physicalPurpose": "Compare a real held-input heater response with the prior PI record.",
+  "principalTechnique": "Process dynamics",
+  "objective": "Record the actual 75% to 85% held-input response and distinguish it from a PI-controlled trace.",
+  "prerequisites": [
+    "control-lesson-28"
+  ],
+  "nextLesson": "control-water-heater-energy-balance",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
+      "minimum": 33,
+      "maximum": 39,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    },
+    {
+      "role": "state",
+      "name": "Safety abort",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.1"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-equilibrium-review",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 35,
+      "delayedInputPct": 75
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Measured temperature": 35,
+      "Applied heating command": 75,
+      "Experiment authority": 0,
+      "Safety abort": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 33,
+        "maximum": 39,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "First-order heater with gain 0.2, time constant 5 s and one-second input delay",
+      "The simulator starts at 35 degC with 75 percent delayed-input history",
+      "PI is inactive during this prepared open-loop record",
+      "Simulation-only process I/O at 100 ms"
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "delayedInputPct": 75,
+      "temperatureC": 35
+    },
+    "limitation": "The prior PI record contains controller movement and is not the heater response alone."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 85,
+      "durationSeconds": 30
+    },
+    "decision": "Use the recorded applied command and PV trace to compare the held-input response with the prior PI result."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 30.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "applied_command",
+      "signal": "Applied heating command",
+      "window": "0-30 s while enabled",
+      "comparator": "==",
+      "limit": 85,
+      "unit": "%",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "temperature_at_6s",
+      "signal": "Measured temperature",
+      "window": "6 s",
+      "comparator": "==",
+      "limit": 36.264,
+      "unit": "degC",
+      "tolerance": 0.04,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "temperature_at_26s",
+      "signal": "Measured temperature",
+      "window": "26 s",
+      "comparator": "==",
+      "limit": 36.986,
+      "unit": "degC",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 33,
+        "maximum": 39,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Temperature is nonfinite or leaves 33-39 degC",
+      "Applied heating command leaves 0-100 percent"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Normal completion, abort or disabled authority command zero heat; restart the simulator to restore 35 degC and 75 percent delayed-input history.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The held-input record is simulation evidence for this lesson model."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/12-21-models-and-tuning.md#12-process-dynamics",
+    "nativeTest": "process_dynamics_records_the_held_input_after_hot_preparation",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_intro_engineering process_dynamics_records_the_held_input_after_hot_preparation",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/13-process-response-classes",
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "sampleTime",
+      "initialState",
+      "stopReason",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-13"
+  },
+  "video": {
+    "viewerOutcome": "Compare the held 85 percent record with the prior PI response.",
+    "requiredVisibleEvidence": [
+      "75 percent delayed-input history",
+      "85 percent applied command",
+      "Measured temperature trace",
+      "33-39 degC and 0-100 percent supervision",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "A real held 85 percent command is applied to the supplied heater after its 35 degC, 75 percent history.",
+    "reason": "A PI record changes its command while temperature moves, so it does not isolate the heater response.",
+    "theory": [
+      "Process gain is the settled temperature change divided by the applied command change.",
+      "The supplied heater has gain 0.2 degC per percentage point, time constant 5 s and one-second delay.",
+      "The trace is observed evidence; ST must not replace it with a calculated equilibrium."
+    ],
+    "workedPrediction": "Predict no PV motion before the one-second delay, about 36.264 degC at 6 s and 36.986 degC at 26 s.",
+    "practicalPreparation": [
+      "Confirm the 35 degC initial state and 75 percent delayed-input history.",
+      "Start the declared observation and record applied command and measured temperature for 30 s."
+    ],
+    "baseline": "Use the prior PI result as the controller-plus-process comparison record.",
+    "change": "The prepared project holds 85 percent with PI inactive.",
+    "comparison": "Compare the applied-command history and PV trace, rather than treating PI settling time as a heater time constant.",
+    "validation": "Check the delay, gradual approach and bounded command/PV values in the saved held-input record.",
+    "explanation": "The observed response supports the next physical model discussion without claiming that a computed equilibrium is measured evidence.",
+    "transfer": "Energy balance next derives the heater relationship from stored energy and heat loss."
+  }
+}

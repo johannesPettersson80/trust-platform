@@ -1,0 +1,239 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-26",
+  "title": "Model validation",
+  "level": "Identification",
+  "sequence": 18,
+  "equipment": "Water heater",
+  "physicalPurpose": "Assess timing, response shape and final value on independent command and disturbance records. Decide whether the model supports the intended design decision.",
+  "principalTechnique": "Model validation",
+  "objective": "Assess timing, response shape and final value on independent command and disturbance records. Decide whether the model supports the intended design decision.",
+  "prerequisites": [
+    "control-lesson-25"
+  ],
+  "nextLesson": "control-model-based-tuning",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
+      "minimum": 31,
+      "maximum": 39,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX64.0"
+    },
+    {
+      "role": "disturbance",
+      "name": "DisturbanceKw",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 30,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "WaterTemperatureC",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-lesson-18",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "probe_time_constant",
+        "value": 2,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 35
+    },
+    "seed": 20260829,
+    "simplifications": [
+      "Local heater model with initial temperature35 °C and command75%.",
+      "Nominal coefficients are supplied simulation values, not accepted learner estimates.",
+      "Simulation-only process I/O;100ms samples.",
+      "The native simulator supplies water at %IL0 and measured probe temperature at %IL8; ST commands the heater/load paths and does not calculate validation predictions."
+    ],
+    "operatingPoint": {
+      "Measured temperature": 35,
+      "Applied heating command": 75,
+      "Experiment authority": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 31,
+        "maximum": 39,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 75,
+      "temperatureC": 35
+    },
+    "limitation": "An unexcited record does not reveal the complete heater dynamics."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 90,
+      "durationSeconds": 40,
+      "trialKinds": "0:90% heating;1:65% heating;2:30kW extraction at75% heating"
+    },
+    "decision": "Use the qualified Control Studio record to answer the lesson question; do not accept supplied nominal parameters as measured results."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 40.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "temperature_operating_range",
+      "signal": "Measured temperature",
+      "window": "complete recorded experiment",
+      "comparator": "<=",
+      "limit": 80,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/12-21-models-and-tuning.md",
+    "nativeTest": "lesson18",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_design lesson18",
+    "projectPath": "examples/control/05-experiments-identification-and-validation/26-independent-model-validation",
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "sampleTime",
+      "initialState",
+      "experimentConditions",
+      "modelProvenance",
+      "stopReason",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-26"
+  },
+  "learning": {
+    "context": "Assess timing, response shape and final value on independent command and disturbance records. Decide whether the model supports the intended design decision.",
+    "reason": "A model can fit its identification record and still fail on a different command or disturbance. Final-temperature agreement alone can hide an incorrect delay or rise. Looking at validation data and then changing the model turns validation into fitting.",
+    "change": "1. In **Identify → Import recording**, open the Lesson 15 estimation export. Restore its original settings, fit that estimation record, and retain its coefficients and uncertainty before viewing holdouts.\n2. Set `TrialKind` in the project to **0** (90% heating), **1** (65% heating) or **2** (30 kW extraction). Restart from the 35 °C / 75% hot state for each trial.\n3. Choose **Identify → Record validation**, then **Test → Review test → Confirm and start**. Each run records a **5 s baseline and 40 s response**.\n4. For command steps, save the result in **Validate**, then use **Identify → Check recording → Fit validation run** to check the unused record against the frozen estimation. Inspect **Fit**, **Residuals**, parameter uncertainty and validation RMSE.\n5. Retain the load record and compare its histories with the frozen disturbance model. The held-step fitter requires a command change; unsupported metrics remain **Indeterminate**. Record Pass, Fail or Indeterminate against every declared criterion without refitting.",
+    "transfer": "The model can now be judged against unused temperature, timing and disturbance observations. When it meets the declared accuracy requirements, we can use it to calculate a controller for a chosen response time; validation itself has not chosen that response or those gains.\n\n[Model-based PI tuning](../../06-pid-tuning-methods/30-model-based-pi-tuning/README.md) derives the starting settings from your retained model.",
+    "theory": [
+      "**Model validation** checks whether an unchanged model predicts new observations\nwell enough for its intended purpose. We keep the fitting record separate:\notherwise we would only check how well the model reproduces data used to\nchoose it. Here the intended purpose is a later controller-tuning decision.\n\nFreeze the learner’s equation and K, τ, and L, including uncertainty, before viewing validation traces. Retain any additional states justified in the model-structure and identifiability lessons. If there is a probe-temperature state, predict that state for comparison with the probe measurement; use an independent water reference for claims about actual water temperature. The single-state physical model from Lesson 13 is:\n\n$$\nx=T-35,\\qquad \\tau\\dot x+x=K v(t-L)-\\frac{K}{2}D(t),\n$$\n\nwhere v=u−75 is applied-command deviation in points, D is extra heat extraction in kW, K is °C/point, and the known 2 kW/point conversion gives $H=2/K$. D acts on water immediately in this model; it does not pass through the heater command delay. For nominal K=.2 and τ=5, a held 30 kW extraction gives initial rate $-KD/(2\\tau)=-0.6$ °C/s when x=0 and v=0.\n\nUse three unused 40 s records from the same hot reset: 75→90% with D=0 (nominal final 38 °C), 75→65% with D=0 (nominal final 33 °C), and D=30 kW introduced while command remains 75% (nominal final 32 °C). These values are illustrative; predictions use your unchanged model parameters and each actual applied-command history.\n\nFor each record, calculate predicted temperature using its applied-command history and disturbance history. A **residual** is measured minus predicted temperature: $r_i=T_{measured,i}-T_{predicted,i}$, where i labels a sample. For N samples, the mean residual is their sum divided by N. The root mean square error (RMSE) squares the residuals before averaging, then takes the square root:\n\n$$\n\\overline r=\\frac{1}{N}\\sum_{i=1}^{N}r_i,\\qquad\n\\mathrm{RMSE}=\\sqrt{\\frac{1}{N}\\sum_{i=1}^{N}r_i^2}.\n$$\n\nBoth results have units °C. For residuals +0.1 and −0.1 °C, the mean is zero but RMSE is sqrt((0.01+0.01)/2)=0.1 °C. Positive and negative model errors cannot cancel in RMSE.\n\nDeclare requirements before looking: every measured/predicted difference within ±0.2 °C through 40 s, final-10-s RMSE ≤0.1 °C, 10% response-crossing error ≤0.3 s, and 63.2% crossing error ≤1 s when the crossing exists. For each trace, normalize progress as (T−T0)/(Tfinal−T0), using a supported late temperature. This handles rising and falling tests with the same sign convention. Mark the first of three consecutive samples at or beyond 10% and 63.2%; apply the identical rule to the model trace. If the final change or a crossing is unsupported, report that metric as indeterminate. Validation temperature bounds are 31–39 °C, deliberately broad enough for the 32 °C disturbance case; command must remain 0–100%.\n\nThe early 10% crossing includes delay and initial-rise effects; do not call it a pure L measurement. Check final value, residual pattern, onset, 63.2% crossing, and shape separately. A coherent residual sign may suggest gain bias; a delayed residual may suggest L; curvature may suggest τ or extra lag. These are diagnostic patterns, not automatic refits."
+    ],
+    "workedPrediction": "Before opening the records, calculate nominal final temperatures and predict which record is most likely to expose a missing disturbance input. State which model defect would produce each residual pattern; do not claim a residual sign without a mismatch hypothesis. Predict whether the learner’s uncertainty overlaps each requirement.",
+    "practicalPreparation": [
+      "Open [src/Main.st](src/Main.st) in the created Lesson 18 project. The trial commands drive the native water/probe simulator."
+    ],
+    "baseline": "Use the declared35 °C and75% initial state; retain the actual baseline record.",
+    "comparison": "Pass requires every declared criterion for every usable record. Fail identifies an inadequate prediction for the tuning decision; it does not prove the physical plant is wrong. Indeterminate means invalid data, missing crossing, insufficient coverage, or uncertainty prevents a decision. Do not refit using the same validation record. A revised structure or parameter requires a new frozen model and new unused data.",
+    "validation": "Pass requires every declared criterion for every usable record. Fail identifies an inadequate prediction for the tuning decision; it does not prove the physical plant is wrong. Indeterminate means invalid data, missing crossing, insufficient coverage, or uncertainty prevents a decision. Do not refit using the same validation record. A revised structure or parameter requires a new frozen model and new unused data.",
+    "explanation": "Independent validation tests a frozen model against changed commands and an immediate physical load. Residual magnitude, timing, shape, and final behavior each matter; final agreement alone cannot validate dynamics."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 31,
+        "maximum": 39,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves0–80 °C or applied command leaves0–100%"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Normal completion disables the experiment and restores 75% heating with zero extraction. Abort sets SafetyAbort and commands zero heating/extraction. Keep stopped until valid measurements and the full35°C/75% hot reset are restored.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Assess timing, response shape and final value on independent command and disturbance records. Decide whether the model supports the intended design decision.",
+    "requiredVisibleEvidence": [
+      "Heater model and initial state",
+      "Applied command and temperature record",
+      "Required Control Studio analysis",
+      "Declared uncertainty and decision",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

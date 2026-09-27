@@ -105,6 +105,7 @@ impl DebugAdapter {
                     );
                 }
             }
+            drop(simulation);
             drop(runtime);
 
             let elapsed = cycle_start.elapsed();

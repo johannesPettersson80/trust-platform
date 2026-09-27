@@ -1,5 +1,21 @@
 # VS Code Plant Simulation UI Implementation Checklist
 
+## Required purpose checkpoint
+
+Release-level gates and the final user walkthrough are tracked in the
+[Control platform release-readiness checklist](control-platform-release-readiness.md).
+
+Read the [Control Platform Purpose and Acceptance Contract](../../../specs/control-platform-purpose.md)
+for every new or resumed task on this checklist. Record a fresh Start/Finish
+entry using its Section 6; existing checkmarks retain only their stated evidence.
+
+- [ ] **Start (current/next task):** identify the platform part, owning spec,
+  existing worktree and implementation, and actual acceptance target.
+- [ ] **Finish (current/next task):** name the controller/project/plant and what
+  actually ran or was reviewed; link evidence and state gaps without substituting
+  a simpler fixture for the intended goal.
+
+
 Status: complete
 
 Owner: VS Code Devices & Connections and runtime simulation configuration
@@ -114,6 +130,19 @@ evidence when the behavior is visible.
 - [x] `PSUI-P6-009` Identify the exact row, column, point, or dimension for
   matrix and ordered-list errors.
   Evidence: registered piecewise and state-space editor tests and [dynamics editor evidence](../evidence/vscode-plant-simulation-ui/phase-6-dynamics-editors.md).
+
+- [x] `PSUI-P6-010` Continuous state-space input delays use shared fields,
+  preserve omitted/explicit zero and saved values, align with input resizing,
+  confirm nonzero removal, and enforce the native history bound when the step
+  is known. Registered helper/preservation and CPFIX-004 rendered evidence,
+  theme captures and independent review are required before UI acceptance.
+  Implementation and focused red/green are complete: six delay helper cases,
+  real Save/reopen and aligned error fields pass in dark, light and high
+  contrast (`rendered-8slvzl`, `rendered-Xhi3ls`, `rendered-JEMZNH`). The
+  implementer and root independently reviewed all six saved/invalid captures;
+  final shared TypeScript compilation and the integrated50-test focused batch
+  pass. [Independent review](/home/johannes/projects/.artifacts/control-platform-release-20260911/plant-input-delay-independent-review.md).
+  Whole-platform UI and broad release gates remain separate.
 
 ### Actuator, imperfections, and events
 

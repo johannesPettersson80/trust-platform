@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 2,
+  "id": "control-capstone-reactor",
+  "name": "Vessel commissioning",
+  "revision": "sha256:0924e3224ae398745c22a412fcee2940121dba40c620bb70cbe99b64c0cb8a9c",
+  "projectId": "project:control-capstone-reactor",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "ReactorTrain",
+    "design": "project",
+    "revision": "sha256:ceccc58b7abc7cb314832d8a82826a65dfbf75e0fdf70344ef5a32fe7e878736",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "P1.ControllerAuto",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.SetpointC",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 30,
+        "maximum": 40
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.VesselC",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 30,
+        "maximum": 40
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.AppliedPowerPct",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "jacket",
+        "channel": "jacket",
+        "role": "state",
+        "symbol": "P1.JacketC",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 20,
+          "maximum": 55
+        }
+      },
+      {
+        "id": "jacket-target",
+        "channel": "jacket-target",
+        "role": "SP",
+        "symbol": "P1.JacketSetpointC",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 20,
+          "maximum": 50
+        }
+      },
+      {
+        "id": "extraction",
+        "channel": "extraction",
+        "role": "disturbance",
+        "symbol": "P1.JacketExtractionKw",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": 0,
+          "maximum": 30
+        }
+      },
+      {
+        "id": "heater-i",
+        "channel": "heater-i",
+        "role": "state",
+        "symbol": "P1.HeaterIntegralPct",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "heater-p",
+        "channel": "heater-p",
+        "role": "state",
+        "symbol": "P1.HeaterProportionalPct",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "outer-i",
+        "channel": "outer-i",
+        "role": "state",
+        "symbol": "P1.OuterIntegralC",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "nominal-power",
+        "channel": "nominal-power",
+        "role": "MV",
+        "symbol": "P1.NominalPowerPct",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "mode",
+        "channel": "mode",
+        "role": "state",
+        "symbol": "P1.ControllerAuto",
+        "address": "%MX240.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "experiment",
+        "channel": "experiment",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX240.5",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "abort",
+        "channel": "abort",
+        "role": "state",
+        "symbol": "P1.SafetyAbort",
+        "address": "%MX240.6",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "jacketed-vessel",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 60.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX240.5",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
+}

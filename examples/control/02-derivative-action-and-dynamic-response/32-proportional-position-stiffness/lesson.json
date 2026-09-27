@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 4,
+  "id": "control-proportional-position-stiffness",
+  "title": "Position control",
+  "level": "Modelling",
+  "sequence": 33,
+  "equipment": "Payload-loaded industrial positioning table",
+  "physicalPurpose": "Hold a commanded table angle against angle-dependent payload gravity while retaining the damping achieved with PD control.",
+  "principalTechnique": "Integral action added to a damped position loop",
+  "objective": "Add integral action to the gravity-loaded position controller, then explain why stored error can supply the holding torque that PD cannot produce at zero current error.",
+  "prerequisites": [
+    "control-tuning-method-comparison",
+    "control-valve-stiction"
+  ],
+  "nextLesson": "control-derivative-motion-damping",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Table-position setpoint",
+      "unit": "rad",
+      "minimum": -2,
+      "maximum": 2,
+      "resolution": 0.001,
+      "binding": "%ML24"
+    },
+    {
+      "role": "PV",
+      "name": "Measured table position",
+      "unit": "rad",
+      "minimum": -4,
+      "maximum": 4,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Applied motor torque",
+      "unit": "N m",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Measured table velocity",
+      "unit": "rad/s",
+      "minimum": -20,
+      "maximum": 20,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX32.1"
+    }
+  ],
+  "plant": {
+    "modelId": "robot_joint",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      {
+        "name": "inertia_kg_m2",
+        "value": 1,
+        "unit": "kg m2"
+      },
+      {
+        "name": "viscous_friction_nm_s_per_rad",
+        "value": 1,
+        "unit": "N m s/rad"
+      },
+      {
+        "name": "gravity_torque_nm",
+        "value": 4,
+        "unit": "N m"
+      }
+    ],
+    "sampleTimeSeconds": 0.02,
+    "initialState": {
+      "positionRad": 0,
+      "velocityRadPerSecond": 0
+    },
+    "seed": 20260828,
+    "operatingPoint": {
+      "PV": 0,
+      "MV": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Measured table position",
+        "minimum": -4,
+        "maximum": 4,
+        "unit": "rad"
+      },
+      {
+        "signal": "Applied motor torque",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "N m"
+      }
+    ],
+    "simplifications": [
+      "The four-newton-metre gravity coefficient produces angle-dependent opposing torque G*sin(position), not a constant four-newton-metre disturbance.",
+      "Backlash, Coulomb friction and encoder noise remain absent so the load-dependent offset is isolated."
+    ]
+  },
+  "baseline": {
+    "executableId": "Control.PID.PD",
+    "settings": {
+      "proportionalGain": 8,
+      "integralGain": 0,
+      "derivativeGain": 3,
+      "derivativeSetpointWeight": 0,
+      "setpointRad": 0.5
+    },
+    "limitation": "PD needs position error to request the angle-dependent gravity torque, so the loaded table remains below its setpoint."
+  },
+  "change": {
+    "executableId": "Control.PID.PID",
+    "settings": {
+      "proportionalGain": 8,
+      "integralGain": 2,
+      "derivativeGain": 3,
+      "derivativeSetpointWeight": 0,
+      "setpointRad": 0.5
+    },
+    "decision": "Keep P and D fixed; accept integral action only if final-window error falls below 0.01 rad, overshoot remains bounded and applied torque respects its limit."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 30.02,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Angle-dependent payload gravity G*sin(position) with G equal to 4 N m throughout each run"
+    ],
+    "seed": 20260828,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "final_window_position_range",
+      "signal": "Measured table position",
+      "window": "28 to 30 s",
+      "comparator": "<=",
+      "limit": 0.01,
+      "unit": "rad",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "final_window_applied_torque_range",
+      "signal": "Applied motor torque",
+      "window": "28 to 30 s",
+      "comparator": "<=",
+      "limit": 0.05,
+      "unit": "N m",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "pd_final_window_mean_absolute_error",
+      "signal": "Measured table position",
+      "window": "28 to 30 s",
+      "comparator": ">=",
+      "limit": 0.1,
+      "unit": "rad",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "pid_final_window_mean_absolute_error",
+      "signal": "Measured table position",
+      "window": "28 to 30 s",
+      "comparator": "<=",
+      "limit": 0.01,
+      "unit": "rad",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "pid_to_pd_error_ratio",
+      "signal": "Measured table position",
+      "window": "28 to 30 s",
+      "comparator": "<=",
+      "limit": 0.1,
+      "unit": "1",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "pid_position_overshoot",
+      "signal": "Measured table position",
+      "window": "complete 30 s run",
+      "comparator": "<=",
+      "limit": 0.15,
+      "unit": "rad",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "motor_torque_absolute_maximum",
+      "signal": "Applied motor torque",
+      "window": "complete 30 s run",
+      "comparator": "<=",
+      "limit": 10,
+      "unit": "N m",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured table position",
+        "minimum": -4,
+        "maximum": 4,
+        "unit": "rad"
+      },
+      {
+        "signal": "Applied motor torque",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "N m"
+      }
+    ],
+    "abortPredicates": [
+      "Position, velocity or torque is nonfinite",
+      "Applied torque leaves -10 to 10 N m"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Manual with zero motor torque after mechanically supporting the payload",
+    "physicalApprovalRole": "authorised motion-control engineer",
+    "simulationOnlyRestrictions": [
+      "Zero torque is safe only in this simulation; a physical gravity-loaded axis requires a reviewed brake or support before torque removal."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-32--proportional-position-stiffness",
+    "nativeTest": "TEST_PROGRAM::Lesson32ProportionalGainCreatesPositionStiffness",
+    "nativeCommand": "target/debug/trust-dev test --project examples/control/02-derivative-action-and-dynamic-response/32-proportional-position-stiffness --filter TEST_PROGRAM::Lesson32ProportionalGainCreatesPositionStiffness --timeout 15",
+    "projectPath": "examples/control/02-derivative-action-and-dynamic-response/32-proportional-position-stiffness",
+    "runArtifactFields": [
+      "SP",
+      "PV",
+      "velocity",
+      "T_requested",
+      "T_applied",
+      "Kp",
+      "Ki",
+      "Kd",
+      "sampleTime",
+      "loadTorque",
+      "limits",
+      "settled",
+      "meanAbsoluteError",
+      "overshoot",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-proportional-position-stiffness"
+  },
+  "video": {
+    "viewerOutcome": "Explain why PD retains constant-load position error and prove that bounded PID removes it while preserving damping.",
+    "requiredVisibleEvidence": [
+      "constant payload torque",
+      "PD baseline",
+      "PID change",
+      "position and velocity",
+      "requested and applied torque",
+      "final-window error",
+      "overshoot",
+      "simulation evidence label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "The positioning table now carries an off-centre payload whose gravity torque is four newton metres times the sine of table angle.",
+    "reason": "PD adds damping but requests zero torque at zero error and zero velocity, so it cannot hold a nonzero target against payload gravity without bias or integral action.",
+    "theory": [
+      "Payload weight m*g acts through perpendicular lever arm l*sin(theta), so gravity torque is m*g*l*sin(theta). Defining G=m*g*l gives T_g=G*sin(theta); G is a peak coefficient, not a constant disturbance.",
+      "The integral state I accumulates position error over time in radian-seconds. Integral gain Ki converts that accumulated error into motor torque and uses newton metres per radian-second.",
+      "Integral torque T_I equals Ki times I. Requested motor torque T_requested is proportional torque plus integral torque plus derivative torque before the drive clamp; T_applied is the bounded plant input.",
+      "At zero error and zero velocity, P and D request zero torque while the integral state can retain G times sine of the target divided by Ki. This removes gravity-load offset.",
+      "The declared four-second integral time makes integral action slower than the immediate P-and-D response and gives Ki=Kp/Ti=2; it is a teaching choice rather than a universal optimum."
+    ],
+    "workedPrediction": "With Kp 8, G 4 and target 0.5 rad, the small-angle PD prediction is 0.1667 rad error and the exact sine-model result is about 0.1646 rad. With Ki 2, an integral state of 0.9589 rad s supplies 1.9177 N m at the target.",
+    "practicalPreparation": [
+      "Confirm the 4 N m peak gravity coefficient, sine-of-angle load law, 0.5 rad project-owned move, 20 ms cycle, zero initial motion, plus or minus 10 N m limit, anti-windup configuration and supported-payload restoration state."
+    ],
+    "baseline": "Run Kp 8, Kd 3 and Ki 0 for 30 seconds; report mean absolute error over 28 to 30 seconds only when PV range is at most 0.010 rad and applied-torque range is at most 0.050 N m in that window.",
+    "change": "Restore the identical loaded state and change only Ki from 0 to 2; retain P, D, derivative weighting, limits, timing and seed.",
+    "comparison": "Compare final-window error, overshoot, motion damping and applied torque under the identical sine-gravity model.",
+    "validation": "Require PD error at least 0.1 rad, PID error at most 0.01 rad and at most one tenth of PD error, PID overshoot at most 0.15 rad, finite signals and applied torque within plus or minus 10 N m.",
+    "explanation": "Explain how the integral state stores the angle-dependent gravity-balancing torque that P and D cannot produce at zero error, while unchanged derivative action preserves damping.",
+    "transfer": "Use integral action for persistent unknown load error only with limits and anti-windup; the next lesson addresses the derivative torque kick produced by a setpoint step."
+  }
+}

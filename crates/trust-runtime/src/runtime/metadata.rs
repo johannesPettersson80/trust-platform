@@ -7,11 +7,19 @@ use smol_str::SmolStr;
 
 use crate::debug::SourceLocation;
 use crate::memory::{AccessMap, FrameId, LocalFrame, VariableStorage};
-use crate::program_model::{ClassDef, FunctionBlockDef, FunctionDef, InterfaceDef};
+use crate::program_model::{ClassDef, FunctionBlockDef, FunctionDef, InterfaceDef, Param};
 use crate::stdlib::StandardLibrary;
 use crate::task::{ProgramDef, TaskConfig};
 use crate::value::DateTimeProfile;
 use trust_hir::types::TypeRegistry;
+
+#[derive(Debug, Clone)]
+pub(crate) struct ControlBindingLeaf {
+    pub(crate) constant: bool,
+    pub(crate) external: bool,
+    pub(crate) in_out: bool,
+    pub(crate) address: Option<crate::io::IoAddress>,
+}
 
 /// Snapshot of runtime metadata needed by external tooling.
 #[derive(Debug, Clone)]
@@ -32,6 +40,130 @@ pub struct RuntimeMetadata {
 }
 
 impl RuntimeMetadata {
+    pub(crate) fn control_program_revision(&self) -> String {
+        use sha2::{Digest, Sha256};
+        format!(
+            "sha256:{:x}",
+            Sha256::digest(
+                format!(
+                    "{:?}",
+                    (
+                        &self.programs,
+                        &self.function_blocks,
+                        &self.functions,
+                        &self.classes,
+                        &self.interfaces,
+                        &self.registry,
+                        &self.tasks
+                    )
+                )
+                .as_bytes()
+            )
+        )
+    }
+
+    pub(crate) fn control_parameter_writable(&self, symbol: &str) -> bool {
+        self.control_binding_leaf(symbol).is_some_and(|leaf| {
+            !leaf.constant && !leaf.external && !leaf.in_out && leaf.address.is_none()
+        })
+    }
+
+    pub(crate) fn control_binding_leaf(&self, symbol: &str) -> Option<ControlBindingLeaf> {
+        let mut path = symbol.split('.');
+        let root = path.next()?;
+        let program = self
+            .programs
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case(root))
+            .map(|(_, program)| program)?;
+        let mut vars = program.vars.as_slice();
+        let mut params: &[Param] = &[];
+        let mut type_id = None;
+        let mut constant = false;
+        let mut external = false;
+        let mut in_out = false;
+        let mut address = None;
+        let mut rest = path.peekable();
+        while let Some(name) = rest.next() {
+            let declaration = if let Some(var) =
+                vars.iter().find(|var| var.name.eq_ignore_ascii_case(name))
+            {
+                (
+                    var.type_id,
+                    var.constant,
+                    var.external,
+                    var.in_out,
+                    var.address.clone(),
+                )
+            } else if let Some(param) = params
+                .iter()
+                .find(|param| param.name.eq_ignore_ascii_case(name))
+            {
+                (
+                    param.type_id,
+                    false,
+                    false,
+                    param.direction == trust_hir::symbols::ParamDirection::InOut,
+                    param.address.clone(),
+                )
+            } else if let Some(current) =
+                type_id
+                    .and_then(|id| self.registry.get(id))
+                    .and_then(|ty| match ty {
+                        trust_hir::types::Type::Alias { target, .. } => self.registry.get(*target),
+                        _ => Some(ty),
+                    })
+            {
+                match current {
+                    trust_hir::types::Type::Struct { fields, .. } => {
+                        let field = fields
+                            .iter()
+                            .find(|field| field.name.eq_ignore_ascii_case(name))?;
+                        (field.type_id, false, false, false, None)
+                    }
+                    _ => return None,
+                }
+            } else {
+                return None;
+            };
+            type_id = Some(declaration.0);
+            constant |= declaration.1;
+            external |= declaration.2;
+            in_out |= declaration.3;
+            if address.is_none() {
+                address = declaration.4;
+            }
+            if rest.peek().is_none() {
+                return Some(ControlBindingLeaf {
+                    constant,
+                    external,
+                    in_out,
+                    address,
+                });
+            }
+            let next = match self.registry.get(type_id?) {
+                Some(trust_hir::types::Type::Alias { target, .. }) => *target,
+                Some(_) => type_id?,
+                None => return None,
+            };
+            type_id = Some(next);
+            let type_name = self.registry.type_name(next)?;
+            let fb = self
+                .function_blocks
+                .iter()
+                .find(|(name, _)| name.eq_ignore_ascii_case(&type_name))
+                .map(|(_, fb)| fb);
+            if let Some(fb) = fb {
+                vars = &fb.vars;
+                params = &fb.params;
+            } else {
+                vars = &[];
+                params = &[];
+            }
+        }
+        None
+    }
+
     /// Access the type registry snapshot.
     #[must_use]
     pub fn registry(&self) -> &TypeRegistry {
@@ -231,6 +363,7 @@ pub(super) fn resolve_using_for_frame<'a>(
 mod tests {
     use super::*;
 
+    use crate::program_model::{FunctionBlockDef, VarDef};
     use crate::runtime::Runtime;
     use trust_hir::TypeId;
 
@@ -293,5 +426,69 @@ mod tests {
 
         let snapshot = runtime.metadata_snapshot();
         assert!(!snapshot.has_background_programs());
+    }
+
+    #[test]
+    fn nested_binding_rejects_constant_function_block_owner() {
+        let mut runtime = Runtime::new();
+        let parameters = runtime.registry_mut().register_struct(
+            "PID_PARAMETERS",
+            vec![trust_hir::types::StructField {
+                name: "ProportionalGain".into(),
+                type_id: TypeId::LREAL,
+                address: None,
+                default_initializer: None,
+            }],
+        );
+        let controller_type = runtime.registry_mut().register(
+            "Controller",
+            trust_hir::types::Type::FunctionBlock {
+                name: "Controller".into(),
+            },
+        );
+        runtime.register_function_block(FunctionBlockDef {
+            name: "Controller".into(),
+            base: None,
+            interfaces: Vec::new(),
+            params: Vec::new(),
+            vars: vec![VarDef {
+                name: "ParametersValue".into(),
+                type_id: parameters,
+                initializer: None,
+                retain: crate::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            }],
+            temps: Vec::new(),
+            using: Vec::new(),
+            methods: Vec::new(),
+            body: Vec::new(),
+        });
+        runtime
+            .register_program(ProgramDef {
+                name: "Main".into(),
+                vars: vec![VarDef {
+                    name: "Controller".into(),
+                    type_id: controller_type,
+                    initializer: None,
+                    retain: crate::RetainPolicy::Unspecified,
+                    static_storage: false,
+                    external: false,
+                    in_out: false,
+                    constant: true,
+                    address: None,
+                }],
+                temps: Vec::new(),
+                using: Vec::new(),
+                body: Vec::new(),
+            })
+            .unwrap();
+
+        assert!(!runtime
+            .metadata_snapshot()
+            .control_parameter_writable("Main.Controller.ParametersValue.ProportionalGain"));
     }
 }

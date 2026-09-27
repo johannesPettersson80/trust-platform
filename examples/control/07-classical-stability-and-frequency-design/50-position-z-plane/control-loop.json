@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "id": "control-position-z-plane-sampling",
-  "name": "Sampled positioning z-plane comparison",
-  "revision": "sha256:curriculum-loop-50",
+  "name": "z-plane sampling",
+  "revision": "sha256:0170ae15fb8f252d1d34895d6ddc4b01b3e6e5934e0222cb58f3c3a56edffffb",
   "projectId": "project:control-position-z-plane-sampling",
   "runtimeId": "simulator",
   "controller": {

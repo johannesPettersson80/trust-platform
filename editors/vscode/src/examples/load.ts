@@ -16,18 +16,25 @@ export async function loadExamples(
       if (!entry.tags?.includes("control")) {
         return entry;
       }
-      const lessonData = await vscode.workspace.fs.readFile(
-        vscode.Uri.joinPath(root, entry.path, "lesson.json")
-      );
-      const availability = evaluateControlLessonAvailability(
-        JSON.parse(Buffer.from(lessonData).toString("utf8")),
-        entry.id
-      );
-      return {
-        ...entry,
-        lesson: availability.lesson,
-        lessonAvailability: availability,
-      };
+      try {
+        const lessonData = await vscode.workspace.fs.readFile(
+          vscode.Uri.joinPath(root, entry.path, "lesson.json")
+        );
+        const availability = evaluateControlLessonAvailability(
+          JSON.parse(Buffer.from(lessonData).toString("utf8")),
+          entry.id
+        );
+        return { ...entry, lesson: availability.lesson, lessonAvailability: availability };
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        return {
+          ...entry,
+          lessonAvailability: {
+            kind: "unavailable" as const,
+            reason: `Lesson metadata is unavailable: ${detail}`,
+          },
+        };
+      }
     })
   );
 }

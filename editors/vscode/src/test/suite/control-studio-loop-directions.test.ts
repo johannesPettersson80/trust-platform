@@ -43,7 +43,7 @@ suite("Control Studio loop signal directions", () => {
     });
   });
 
-  test("rejects a project-scripted experiment that omits its single Boolean activation authority", () => {
+  test("accepts an observation-only project-scripted experiment without an activation authority", () => {
     const api = loopApi();
     const loop = projectScriptedLoop();
     const withoutActivation = {
@@ -53,9 +53,7 @@ suite("Control Studio loop signal directions", () => {
         durationSeconds: 40, seed: 20260829,
       },
     };
-    assert.deepStrictEqual(api.decodeControlLoopDefinition(withoutActivation), {
-      kind: "rejected", reason: "malformed_loop",
-    });
+    assert.deepStrictEqual(api.decodeControlLoopDefinition(withoutActivation), { kind: "accepted", loop: withoutActivation });
   });
 
   test("keeps requiring a Control Studio-driven manipulated variable to stay writable", () => {

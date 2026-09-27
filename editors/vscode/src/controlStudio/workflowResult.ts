@@ -1,12 +1,27 @@
+import { validCommissioningObservation } from "./commissioningObservation";
+import { decodeIdentificationState, type SavedIdentificationState } from "./identificationState";
+import { decodeGainRecoveryContext } from "./gainRecoveryContext";
+import { isSavedFiniteSearch, type SavedFiniteSearch } from "./finiteSearchPersistence";
+import { isSavedRunValidation, type SavedRunValidation } from "./runValidationPersistence";
+import { isSavedGeneralModelAnalysis, isSavedPeriodicFrequencyAnalysis, type SavedGeneralModelAnalysis, type SavedPeriodicFrequencyAnalysis } from "./generalModelPersistence";
+import { isSavedLeadLagAnalysis, type SavedLeadLagAnalysis } from "./leadLagSession";
+import { recordedChannelIdentity, validRecordedChannels, type RecordedChannel } from "./recordingChannels";
+import { isSavedDeclaredAnalysis, type SavedDeclaredAnalysis } from "./declaredAnalysisPersistence";
+import { decodeEngineerStudy, type EngineerStudy } from "./engineerStudyPersistence";
 import type { ControlPidCandidate } from "./controllerCandidate";
 import type { IdentifiedModel, ModelFitEvidence } from "./identification";
 import type { ValidationResult } from "./validation";
 import { decodeControlChartSession, type ControlChartSession } from "./chartContract";
+import type { CommissioningResult } from "./proportionalCommissioning";
+import { assessCommissioningRecording } from "./commissioningAssessment";
+import { isSavedRouthAnalysis, type SavedRouthAnalysis } from "./routhPersistence";
 
 export interface WorkflowResultSample {
+  additional?: readonly RecordedChannel[];
   elapsedSeconds: number;
   observedAtMs: number;
-  actualCycleSeconds: number;
+  actualCycleSeconds: number | null;
+  editorObservationIntervalSeconds?: number | null;
   scan: number;
   source: "Simulation" | "Physical";
   loopRevision: string;
@@ -16,7 +31,7 @@ export interface WorkflowResultSample {
   appliedMv: number | null;
   units: { sp: string; pv: string; mv: string };
   quality: "good" | "forced" | "bad";
-  freshnessMs: number;
+  freshnessMs: number | null;
   controllerMode: "Auto" | "Manual" | "Track" | "Unavailable";
   outputLimits: { minimum: number; maximum: number };
   rateLimits: { upPerSecond?: number; downPerSecond?: number };
@@ -24,21 +39,50 @@ export interface WorkflowResultSample {
   events: readonly string[];
 }
 
+export interface WorkflowRecordingAcquisition {
+  readonly recordingId?: string;
+  programRevision?: string;
+  method: "ui_observed_snapshots" | "runtime_scan_buffer";
+  completeness: "incomplete" | "complete";
+  observedSampleCount: number;
+  scanRange?: { first: number; last: number };
+  missingScanRanges: readonly { first: number; last: number }[];
+  droppedObservedSamples: number;
+  actualCycleTimingAvailable: boolean;
+  freshnessAvailable: boolean;
+  reason: string;
+}
+
+/** Original acquisition identity; importing a record never imports design state. */
+export interface WorkflowRecordingProvenance extends Pick<ControlStudioWorkflowResult,
+  "resultId" | "resultRevision" | "createdAt" | "projectId" | "source" | "loop" | "controller" | "software" | "units" | "plant" | "experiment"> {
+  schemaVersion: 1;
+}
+
 export interface ControlStudioWorkflowResult {
-  schemaVersion: 3;
+  schemaVersion: 3 | 4;
   resultId: string;
   resultRevision: number;
   createdAt: string;
   projectId: string;
   source: "Simulation" | "Physical";
-  loop: { id: string; revision: string };
+  loop: { id: string; revision: string; topology?: "open-loop" | "closed-loop" };
   controller: { instance: string; revision: string };
   software: { extensionVersion: string; runtimeVersion?: string;
     numericalAdapters: Readonly<Record<string, string>> };
   units: { sp: string; pv: string; mv: string };
-  recording: { rawSamples: readonly WorkflowResultSample[]; selectedIntervals: readonly { startSeconds: number; endSeconds: number }[] };
+  recording: { rawSamples: readonly WorkflowResultSample[]; selectedIntervals: readonly { startSeconds: number; endSeconds: number }[];
+    acquisition?: WorkflowRecordingAcquisition; provenance?: WorkflowRecordingProvenance };
   model?: IdentifiedModel;
+  declaredAnalysis?: SavedDeclaredAnalysis;
+  routhAnalysis?: SavedRouthAnalysis;
+  generalModelAnalysis?: SavedGeneralModelAnalysis;
+  periodicFrequencyAnalysis?: SavedPeriodicFrequencyAnalysis;
+  leadLagAnalysis?: SavedLeadLagAnalysis;
+  runValidation?: SavedRunValidation;
+  finiteSearch?: SavedFiniteSearch;
   modelFit?: ModelFitEvidence;
+  identificationStudy?: SavedIdentificationState;
   currentController?: ControlPidCandidate;
   candidate?: ControlPidCandidate;
   validation?: ValidationResult;
@@ -47,7 +91,9 @@ export interface ControlStudioWorkflowResult {
   experiment?: WorkflowExperimentContext;
   plant?: WorkflowPlantContext;
   chartSession?: ControlChartSession;
-  evidence: { observation: "Observed"; model: "Not evaluated" | "Exact simulation model" |
+  engineerStudy?: EngineerStudy;
+  commissioning?: CommissioningResult;
+  evidence: { observation: "Observed" | "Not observed"; model: "Not evaluated" | "Exact simulation model" |
     "Identified from simulation data" | "Identified from physical data" | "Model-predicted" };
   conclusion: string;
 }
@@ -107,26 +153,36 @@ export function createWorkflowResult(
   input: Omit<ControlStudioWorkflowResult, "schemaVersion" | "createdAt">,
   createdAt: string
 ): ControlStudioWorkflowResult {
-  const decoded = decodeWorkflowResult({ schemaVersion: 3, createdAt, ...input });
+  const decoded = decodeWorkflowResult({ schemaVersion: 4, createdAt, ...input });
   if (!decoded) throw new Error("Control Studio workflow result is incomplete or invalid.");
   return decoded;
 }
 
 export function decodeWorkflowResult(value: unknown): ControlStudioWorkflowResult | undefined {
-  if (!record(value) || containsSecretKey(value) || value.schemaVersion !== 3 ||
+  if (!record(value) || containsSecretKey(value) || (value.schemaVersion !== 3 && value.schemaVersion !== 4) ||
       !nonempty(value.resultId) || !positiveInteger(value.resultRevision) || !nonempty(value.projectId) ||
       typeof value.createdAt !== "string" || !Number.isFinite(Date.parse(value.createdAt)) ||
       (value.source !== "Simulation" && value.source !== "Physical") || !record(value.loop) ||
       !nonempty(value.loop.id) || !revision(value.loop.revision) || !record(value.controller) ||
       !nonempty(value.controller.instance) || !revision(value.controller.revision) ||
       !software(value.software) || !record(value.units) ||
-      ![value.units.sp, value.units.pv, value.units.mv].every(nonempty) ||
+      ![value.units.pv, value.units.mv].every(nonempty) ||
+      !(value.schemaVersion === 4 && value.loop.topology === "open-loop" ? value.units.sp === "" : nonempty(value.units.sp)) ||
+      (value.loop.topology !== undefined && value.loop.topology !== "open-loop" && value.loop.topology !== "closed-loop") ||
       !record(value.recording) || !Array.isArray(value.recording.rawSamples) ||
       !value.recording.rawSamples.every(workflowSample) || !Array.isArray(value.recording.selectedIntervals) ||
       !value.recording.selectedIntervals.every(interval) ||
       (value.method !== undefined && typeof value.method !== "string") ||
       (value.model !== undefined && !record(value.model)) ||
+      (value.finiteSearch !== undefined && (value.schemaVersion !== 4 || !isSavedFiniteSearch(value.finiteSearch))) ||
+      (value.runValidation !== undefined && (value.schemaVersion !== 4 || !isSavedRunValidation(value.runValidation))) ||
+      (value.generalModelAnalysis !== undefined && (value.schemaVersion !== 4 || !isSavedGeneralModelAnalysis(value.generalModelAnalysis))) ||
+      (value.periodicFrequencyAnalysis !== undefined && (value.schemaVersion !== 4 || !isSavedPeriodicFrequencyAnalysis(value.periodicFrequencyAnalysis))) ||
+      (value.leadLagAnalysis !== undefined && (value.schemaVersion !== 4 || !isSavedLeadLagAnalysis(value.leadLagAnalysis))) ||
+      (value.declaredAnalysis !== undefined && (value.schemaVersion !== 4 || !isSavedDeclaredAnalysis(value.declaredAnalysis))) ||
+      (value.routhAnalysis !== undefined && (value.schemaVersion !== 4 || !isSavedRouthAnalysis(value.routhAnalysis))) ||
       (value.modelFit !== undefined && !record(value.modelFit)) ||
+      (value.identificationStudy !== undefined && (value.schemaVersion !== 4 || !decodeIdentificationState(value.identificationStudy))) ||
       (value.currentController !== undefined && !candidate(value.currentController)) ||
       (value.candidate !== undefined && !candidate(value.candidate)) ||
       (value.validation !== undefined && !record(value.validation)) || !evidence(value.evidence) ||
@@ -136,9 +192,81 @@ export function decodeWorkflowResult(value: unknown): ControlStudioWorkflowResul
       (value.chartSession !== undefined && !decodeControlChartSession(
         value.chartSession, `${value.loop.id}:${value.loop.revision}`
       )) ||
+      (value.engineerStudy !== undefined && (value.schemaVersion !== 4 || !decodeEngineerStudy(value.engineerStudy))) ||
       !nonempty(value.conclusion)) return undefined;
   if (!recordingMatchesResult(value)) return undefined;
+  if (!identificationRecordingsMatchResult(value)) return undefined;
+  if (value.commissioning !== undefined && (value.schemaVersion !== 4 || !validCommissioning(value.commissioning, value))) return undefined;
   return cloneJson(value) as unknown as ControlStudioWorkflowResult;
+}
+
+function identificationRecordingsMatchResult(outer: Record<string, unknown>): boolean {
+  if (!record(outer.identificationStudy)) return true;
+  for (const input of [outer.identificationStudy.current, outer.identificationStudy.estimation]) {
+    if (input === undefined) continue;
+    if (!record(input) || !record(input.recording) || !record(input.recording.data)) return false;
+    const data = input.recording.data;
+    if (!Array.isArray(data.rawSamples) || !data.rawSamples.every(workflowSample) ||
+      !Array.isArray(data.selectedIntervals) || !data.selectedIntervals.every(interval)) return false;
+    const origin = record(data.provenance) ? data.provenance : undefined;
+    if (!recordingMatchesResult({ ...outer, source: input.source, units: origin?.units ?? outer.units, recording: data })) return false;
+  }
+  return true;
+}
+
+function validCommissioning(value: unknown, outer: Record<string, unknown>): value is CommissioningResult {
+  if (!record(value) || !["passed", "failed", "cancelled"].includes(String(value.status)) || !nonempty(value.reason)
+    || !nonempty(value.modelRevision) || !finite(value.target) || typeof value.recoveryConfirmed !== "boolean"
+    || !Array.isArray(value.channels) || value.channels.length < 3 || value.channels.length > 32
+    || !value.channels.every(channel => record(channel) && nonempty(channel.id) && typeof channel.unit === "string")
+    || new Set(value.channels.map(channel => (channel as Record<string, unknown>).id)).size !== 3
+    || !Array.isArray(value.transfers) || value.transfers.length > 16
+    || JSON.stringify(value).length > 16 * 1024 * 1024 || !record(value.criteria)) return false;
+  const gainRecovery = value.gainRecovery === undefined ? undefined : decodeGainRecoveryContext(value.gainRecovery);
+  if (value.gainRecovery !== undefined && !gainRecovery) return false;
+  const criteria = value.criteria;
+  if (criteria.target !== value.target || !finite(criteria.durationSeconds) || criteria.durationSeconds <= 0 || criteria.durationSeconds > 600
+    || !finite(criteria.settlingTimeSeconds) || criteria.settlingTimeSeconds < 0 || criteria.settlingTimeSeconds >= criteria.durationSeconds
+    || !finite(criteria.maximumError) || criteria.maximumError <= 0 || !finite(criteria.taskPeriodMs) || criteria.taskPeriodMs <= 0
+    || !limits(criteria.processRange) || !limits(criteria.outputLimits)) return false;
+  if (criteria.observed !== undefined && !validCommissioningObservation(criteria.observed, criteria.durationSeconds, criteria.taskPeriodMs)) return false;
+  if (criteria.switching !== undefined && (!record(criteria.switching) || !finite(criteria.switching.low)
+    || !finite(criteria.switching.high) || criteria.switching.low >= criteria.switching.high
+    || !finite(criteria.switching.minimumOnSeconds) || criteria.switching.minimumOnSeconds < 0
+    || !finite(criteria.switching.minimumOffSeconds) || criteria.switching.minimumOffSeconds < 0)) return false;
+  const values = (item: unknown) => record(item) && Object.keys(item).length <= 34 && Object.values(item).every(finiteOrBoolean);
+  if (!value.transfers.every(item => record(item) && revision(item.program_revision) && revision(item.binding_revision)
+    && values(item.values) && ["applied", "rejected", "failed", "cancelled"].includes(String(item.status))
+    && record(item.transaction) && nonempty(item.transaction.id) && revision(item.transaction.program_revision)
+    && revision(item.transaction.binding_revision) && item.transaction.status === item.status
+    && (item.transaction.observed_values === null || values(item.transaction.observed_values))
+    && (item.transaction.initial_values === undefined || item.transaction.initial_values === null || values(item.transaction.initial_values))
+    && (item.transaction.applied_values === undefined || item.transaction.applied_values === null || values(item.transaction.applied_values))
+    && [null, "post-st", "output-image"].includes(item.transaction.confirmation as null))) return false;
+  if (value.recording !== undefined) {
+    if (!record(value.recording) || !Array.isArray(value.recording.rawSamples) || value.recording.rawSamples.length > 12000
+      || !value.recording.rawSamples.every(workflowSample) || !record(value.recording.evidence)
+      || value.recording.evidence.method !== "runtime_scan_buffer" || !revision(value.recording.evidence.programRevision)
+      || !recordingMatchesResult({ ...outer, recording: { rawSamples: value.recording.rawSamples,
+        selectedIntervals: [], acquisition: value.recording.evidence } })) return false;
+  }
+  if (gainRecovery && record(value.recording) && record(value.recording.evidence)
+    && gainRecovery.origin.program_revision !== value.recording.evidence.programRevision) return false;
+  if (value.maximumError !== undefined && !finite(value.maximumError)) return false;
+  if (value.status === "passed") {
+    if (!record(value.recording) || !record(value.recording.evidence) || !Array.isArray(value.recording.rawSamples)
+      || !value.recoveryConfirmed || value.transfers.length < 2 || !record(value.parameters)
+      || value.parameters.program_revision !== value.recording.evidence.programRevision
+      || !value.transfers.every(item => (item as any).status === "applied"
+        && (item as any).transaction.confirmation === "output-image"
+        && (item as any).transaction.program_revision === (value.recording as any).evidence.programRevision)) return false;
+    const raw = value.recording.rawSamples as WorkflowResultSample[];
+    if (!raw.length || raw.some((sample, index) => index > 0 && sample.scan !== raw[index - 1].scan + 1)) return false;
+    try {
+      if (assessCommissioningRecording(value.recording as any, criteria as any) !== value.maximumError) return false;
+    } catch { return false; }
+  }
+  return true;
 }
 
 function tuningComparison(value: unknown): boolean {
@@ -158,18 +286,26 @@ function tuningComparison(value: unknown): boolean {
 }
 
 export function exportSamplesCsv(samples: readonly WorkflowResultSample[]): string {
+  const extraIds = [...new Set(samples.flatMap(sample => sample.additional?.map(channel => channel.id) ?? []))].sort();
+  const extraFields = ["value", "unit", "quality", "channel", "role"] as const;
   const header = ["elapsed_seconds", "observed_at_ms", "actual_cycle_seconds", "sp", "pv",
     "requested_mv", "applied_mv",
-    "sp_unit", "pv_unit", "mv_unit", "quality", "freshness_ms", "controller_mode",
+    "sp_unit", "pv_unit", "mv_unit", "quality", "freshness_ms", "editor_observation_interval_seconds", "controller_mode",
     "safety_state", "output_minimum", "output_maximum", "rate_down_per_second",
-    "rate_up_per_second", "source", "events"];
-  return [header.join(","), ...samples.map((sample) => [
-    sample.elapsedSeconds, sample.observedAtMs, sample.actualCycleSeconds,
+    "rate_up_per_second", "source", "events",
+    ...extraIds.flatMap(id => extraFields.map(field => `additional.${id}.${field}`))];
+  return [header.map(csvCell).join(","), ...samples.map((sample) => [
+    sample.elapsedSeconds, sample.observedAtMs, sample.actualCycleSeconds ?? "",
     sample.sp ?? "", sample.pv ?? "", sample.requestedMv ?? "", sample.appliedMv ?? "",
-    sample.units.sp, sample.units.pv, sample.units.mv, sample.quality, sample.freshnessMs,
+    sample.units.sp, sample.units.pv, sample.units.mv, sample.quality, sample.freshnessMs ?? "",
+    sample.editorObservationIntervalSeconds ?? "",
     sample.controllerMode, sample.safetyState, sample.outputLimits.minimum, sample.outputLimits.maximum,
     sample.rateLimits.downPerSecond ?? "", sample.rateLimits.upPerSecond ?? "", sample.source,
     sample.events.join("|"),
+    ...extraIds.flatMap(id => {
+      const channel = sample.additional?.find(channel => channel.id === id);
+      return extraFields.map(field => channel?.[field] ?? "");
+    }),
   ].map(csvCell).join(","))].join("\n");
 }
 export function exportWorkflowJson(result: unknown): string {
@@ -222,7 +358,7 @@ export function workflowExperimentContext(
   terminalValue: unknown
 ): WorkflowExperimentContext | undefined {
   if (!record(planValue) || !record(terminalValue) ||
-      !["observation", "setpoint_step", "load_step", "mv_step", "mv_pulse", "relay", "prbs", "multisine", "output_step"]
+      !["observation", "setpoint_step", "load_step", "mv_step", "mv_pulse", "relay", "prbs", "multisine", "output_step", "project_sequence"]
         .includes(String(planValue.kind)) ||
       ![planValue.minimum, planValue.maximum].every(finite) ||
       ![planValue.to, planValue.restorationValue].every(finiteOrBoolean) ||
@@ -249,7 +385,7 @@ export function workflowExperimentContext(
       stopConditions: [...planValue.stopConditions as string[]],
     } : {}),
     requestedValue: numericExperimentValue(planValue.to),
-    appliedValue: finite(terminalValue.applied_value) ? terminalValue.applied_value : numericExperimentValue(planValue.to),
+    appliedValue: finiteOrBoolean(terminalValue.applied_value) ? numericExperimentValue(terminalValue.applied_value) : numericExperimentValue(planValue.to),
     minimum: planValue.minimum as number,
     maximum: planValue.maximum as number,
     approval: source === "physical" ? "Explicit physical approval after topology review" : "Simulation confirmation",
@@ -352,9 +488,10 @@ export function compareWorkflowResultRevisions(
 
 export async function workflowResultForExport<T>(
   opened: T | undefined,
-  createDraft: () => T | Promise<T>
+  createDraft: () => T | Promise<T>,
+  viewingHistory = true
 ): Promise<T> {
-  return opened ?? await createDraft();
+  return viewingHistory && opened !== undefined ? opened : await createDraft();
 }
 
 interface WorkflowResultComparisonSide {
@@ -415,14 +552,17 @@ function candidate(value: unknown): boolean {
 }
 
 function workflowSample(value: unknown): boolean {
-  return record(value) && finite(value.elapsedSeconds) && finite(value.observedAtMs) && value.observedAtMs >= 0 &&
-    finite(value.actualCycleSeconds) && value.actualCycleSeconds > 0 &&
+  return record(value) && (value.additional === undefined || validRecordedChannels(value.additional)) && finite(value.elapsedSeconds) && finite(value.observedAtMs) && value.observedAtMs >= 0 &&
+    (value.actualCycleSeconds === null || (finite(value.actualCycleSeconds) && value.actualCycleSeconds > 0)) &&
+    (value.editorObservationIntervalSeconds === undefined || value.editorObservationIntervalSeconds === null ||
+      (finite(value.editorObservationIntervalSeconds) && value.editorObservationIntervalSeconds > 0)) &&
     Number.isInteger(value.scan) && (value.scan as number) >= 0 &&
     (value.source === "Simulation" || value.source === "Physical") && revision(value.loopRevision) &&
     nullableFinite(value.sp) && nullableFinite(value.pv) && nullableFinite(value.requestedMv) &&
     nullableFinite(value.appliedMv) && record(value.units) &&
-    [value.units.sp, value.units.pv, value.units.mv].every(nonempty) &&
-    ["good", "forced", "bad"].includes(String(value.quality)) && finite(value.freshnessMs) && value.freshnessMs >= 0 &&
+    typeof value.units.sp === "string" && [value.units.pv, value.units.mv].every(nonempty) &&
+    ["good", "forced", "bad"].includes(String(value.quality)) &&
+    (value.freshnessMs === null || (finite(value.freshnessMs) && value.freshnessMs >= 0)) &&
     ["Auto", "Manual", "Track", "Unavailable"].includes(String(value.controllerMode)) &&
     limits(value.outputLimits) && rateLimits(value.rateLimits) && nonempty(value.safetyState) &&
     Array.isArray(value.events) && value.events.length <= 128 && value.events.every(nonempty);
@@ -436,7 +576,7 @@ function software(value: unknown): boolean {
 }
 
 function evidence(value: unknown): boolean {
-  return record(value) && value.observation === "Observed" && ["Not evaluated", "Exact simulation model",
+  return record(value) && (value.observation === "Observed" || value.observation === "Not observed") && ["Not evaluated", "Exact simulation model",
     "Identified from simulation data", "Identified from physical data", "Model-predicted"].includes(String(value.model));
 }
 
@@ -511,19 +651,28 @@ function rateLimits(value: unknown): boolean {
 }
 
 function recordingMatchesResult(value: Record<string, unknown>): boolean {
-  const loop = value.loop as Record<string, unknown>;
-  const units = value.units as Record<string, unknown>;
   const recording = value.recording as Record<string, unknown>;
+  if (recording.provenance !== undefined && (value.schemaVersion !== 4 || !recordingProvenance(recording.provenance))) return false;
+  const origin = recording.provenance as Record<string, unknown> | undefined;
+  const loop = (origin?.loop ?? value.loop) as Record<string, unknown>;
+  const units = (origin?.units ?? value.units) as Record<string, unknown>;
+  if (origin && (origin.source !== value.source || units.pv !== (value.units as Record<string, unknown>).pv ||
+      units.mv !== (value.units as Record<string, unknown>).mv)) return false;
   const samples = recording.rawSamples as Record<string, unknown>[];
+  if (recording.acquisition !== undefined && !recordingAcquisition(recording.acquisition, samples)) return false;
+  const runtimeOrdering = value.schemaVersion === 4 && record(recording.acquisition) && recording.acquisition.method === "runtime_scan_buffer";
+  const channelIdentity = recordedChannelIdentity(samples[0]?.additional as readonly RecordedChannel[] | undefined);
   let previousElapsed = -1;
   let previousObservedAt = -1;
   let previousScan = -1;
   for (const sample of samples) {
     const sampleUnits = sample.units as Record<string, unknown>;
-    if (sample.source !== value.source || sample.loopRevision !== loop.revision ||
+    if (recordedChannelIdentity(sample.additional as readonly RecordedChannel[] | undefined) !== channelIdentity ||
+        sample.source !== value.source || sample.loopRevision !== loop.revision ||
+        (value.schemaVersion === 4 && loop.topology === "open-loop" && sample.sp !== null) ||
         sampleUnits.sp !== units.sp || sampleUnits.pv !== units.pv || sampleUnits.mv !== units.mv ||
         (sample.elapsedSeconds as number) < 0 || (sample.elapsedSeconds as number) <= previousElapsed ||
-        (sample.observedAtMs as number) <= previousObservedAt || (sample.scan as number) <= previousScan) {
+        (!runtimeOrdering && (sample.observedAtMs as number) <= previousObservedAt) || (sample.scan as number) <= previousScan) {
       return false;
     }
     previousElapsed = sample.elapsedSeconds as number;
@@ -535,6 +684,42 @@ function recordingMatchesResult(value: Record<string, unknown>): boolean {
     : undefined;
   return (recording.selectedIntervals as Record<string, unknown>[]).every((selected) =>
     end !== undefined && (selected.endSeconds as number) <= end);
+}
+
+function recordingProvenance(value: unknown): value is WorkflowRecordingProvenance {
+  return record(value) && value.schemaVersion === 1 &&
+    Object.keys(value).every(key => ["schemaVersion", "resultId", "resultRevision", "createdAt", "projectId", "source",
+      "loop", "controller", "software", "units", "plant", "experiment"].includes(key)) &&
+    nonempty(value.resultId) && positiveInteger(value.resultRevision) && nonempty(value.projectId) &&
+    typeof value.createdAt === "string" && Number.isFinite(Date.parse(value.createdAt)) &&
+    (value.source === "Simulation" || value.source === "Physical") &&
+    record(value.loop) && nonempty(value.loop.id) && revision(value.loop.revision) &&
+    (value.loop.topology === undefined || value.loop.topology === "open-loop" || value.loop.topology === "closed-loop") &&
+    record(value.controller) && nonempty(value.controller.instance) && revision(value.controller.revision) &&
+    software(value.software) && record(value.units) && [value.units.pv, value.units.mv].every(nonempty) &&
+    (value.loop.topology === "open-loop" ? value.units.sp === "" : nonempty(value.units.sp)) &&
+    (value.plant === undefined || plantContext(value.plant) && value.plant.source === value.source) &&
+    (value.experiment === undefined || experimentContext(value.experiment));
+}
+
+function recordingAcquisition(value: unknown, samples: readonly Record<string, unknown>[]): boolean {
+  if (!record(value) || !["ui_observed_snapshots", "runtime_scan_buffer"].includes(String(value.method)) ||
+      !["incomplete", "complete"].includes(String(value.completeness)) ||
+      !Number.isSafeInteger(value.observedSampleCount) || (value.observedSampleCount as number) < samples.length ||
+      !Number.isSafeInteger(value.droppedObservedSamples) || (value.droppedObservedSamples as number) < 0 ||
+      typeof value.actualCycleTimingAvailable !== "boolean" || typeof value.freshnessAvailable !== "boolean" ||
+      !nonempty(value.reason) || !Array.isArray(value.missingScanRanges) ||
+      !value.missingScanRanges.every(scanRange)) return false;
+  if (value.programRevision !== undefined && !nonempty(value.programRevision)) return false;
+  if (value.recordingId !== undefined && !nonempty(value.recordingId)) return false;
+  if (value.scanRange !== undefined && !scanRange(value.scanRange)) return false;
+  return !(value.method === "ui_observed_snapshots" &&
+    (value.completeness !== "incomplete" || value.actualCycleTimingAvailable || value.freshnessAvailable));
+}
+
+function scanRange(value: unknown): boolean {
+  return record(value) && Number.isSafeInteger(value.first) && Number.isSafeInteger(value.last) &&
+    (value.first as number) >= 0 && (value.last as number) >= (value.first as number);
 }
 
 function interval(value: unknown): boolean {

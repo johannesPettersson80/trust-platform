@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420" role="img" aria-labelledby="title desc">
+  <title id="title">Two different continuous signals with equal samples</title>
+  <desc id="desc">A slow blue path and a fast orange path differ between three sample lines but meet at the same black sample dots.</desc>
+  <rect width="960" height="420" fill="#ffffff"/>
+  <text x="55" y="42" font-family="sans-serif" font-size="25" fill="#20252b">The controller stores the dots, not the paths between them</text>
+  <line x1="100" y1="75" x2="100" y2="345" stroke="#aab3bd" stroke-width="2"/>
+  <line x1="430" y1="75" x2="430" y2="345" stroke="#aab3bd" stroke-width="2"/>
+  <line x1="760" y1="75" x2="760" y2="345" stroke="#aab3bd" stroke-width="2"/>
+  <text x="72" y="372" font-family="sans-serif" font-size="17" fill="#424b55">sample 1</text>
+  <text x="402" y="372" font-family="sans-serif" font-size="17" fill="#424b55">sample 2</text>
+  <text x="732" y="372" font-family="sans-serif" font-size="17" fill="#424b55">sample 3</text>
+
+  <line x1="100" y1="240" x2="182" y2="190" stroke="#2374ab" stroke-width="6"/>
+  <line x1="182" y1="190" x2="265" y2="145" stroke="#2374ab" stroke-width="6"/>
+  <line x1="265" y1="145" x2="347" y2="112" stroke="#2374ab" stroke-width="6"/>
+  <line x1="347" y1="112" x2="430" y2="100" stroke="#2374ab" stroke-width="6"/>
+  <line x1="430" y1="100" x2="512" y2="112" stroke="#2374ab" stroke-width="6"/>
+  <line x1="512" y1="112" x2="595" y2="145" stroke="#2374ab" stroke-width="6"/>
+  <line x1="595" y1="145" x2="677" y2="170" stroke="#2374ab" stroke-width="6"/>
+  <line x1="677" y1="170" x2="760" y2="190" stroke="#2374ab" stroke-width="6"/>
+
+  <line x1="100" y1="240" x2="141" y2="325" stroke="#d76720" stroke-width="4"/>
+  <line x1="141" y1="325" x2="182" y2="150" stroke="#d76720" stroke-width="4"/>
+  <line x1="182" y1="150" x2="224" y2="85" stroke="#d76720" stroke-width="4"/>
+  <line x1="224" y1="85" x2="265" y2="270" stroke="#d76720" stroke-width="4"/>
+  <line x1="265" y1="270" x2="306" y2="315" stroke="#d76720" stroke-width="4"/>
+  <line x1="306" y1="315" x2="347" y2="125" stroke="#d76720" stroke-width="4"/>
+  <line x1="347" y1="125" x2="389" y2="80" stroke="#d76720" stroke-width="4"/>
+  <line x1="389" y1="80" x2="430" y2="100" stroke="#d76720" stroke-width="4"/>
+  <line x1="430" y1="100" x2="471" y2="300" stroke="#d76720" stroke-width="4"/>
+  <line x1="471" y1="300" x2="512" y2="330" stroke="#d76720" stroke-width="4"/>
+  <line x1="512" y1="330" x2="554" y2="120" stroke="#d76720" stroke-width="4"/>
+  <line x1="554" y1="120" x2="595" y2="90" stroke="#d76720" stroke-width="4"/>
+  <line x1="595" y1="90" x2="636" y2="300" stroke="#d76720" stroke-width="4"/>
+  <line x1="636" y1="300" x2="677" y2="315" stroke="#d76720" stroke-width="4"/>
+  <line x1="677" y1="315" x2="719" y2="115" stroke="#d76720" stroke-width="4"/>
+  <line x1="719" y1="115" x2="760" y2="190" stroke="#d76720" stroke-width="4"/>
+
+  <circle cx="100" cy="240" r="8" fill="#111820"/>
+  <circle cx="430" cy="100" r="8" fill="#111820"/>
+  <circle cx="760" cy="190" r="8" fill="#111820"/>
+  <line x1="90" y1="402" x2="140" y2="402" stroke="#2374ab" stroke-width="6"/>
+  <text x="150" y="409" font-family="sans-serif" font-size="18" fill="#20252b">slow physical signal</text>
+  <line x1="525" y1="402" x2="575" y2="402" stroke="#d76720" stroke-width="4"/>
+  <text x="585" y="409" font-family="sans-serif" font-size="18" fill="#20252b">fast physical signal</text>
+</svg>

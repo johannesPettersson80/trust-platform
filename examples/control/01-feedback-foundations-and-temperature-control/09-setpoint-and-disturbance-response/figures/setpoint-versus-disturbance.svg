@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="420" viewBox="0 0 940 420" role="img" aria-labelledby="title desc">
+  <title id="title">Setpoint response and disturbance rejection paths</title>
+  <desc id="desc">A setpoint change enters the error calculation directly. A heat-loss disturbance first changes the water process, then its measured temperature returns to the error calculation.</desc>
+  <rect width="940" height="420" rx="24" fill="#f8fafc"/>
+  <rect x="40" y="55" width="180" height="80" rx="14" fill="#dbeafe"/>
+  <text x="130" y="89" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="700" fill="#172033">Desired temperature</text>
+  <text x="130" y="115" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#172033">target change</text>
+  <circle cx="300" cy="95" r="35" fill="#fef3c7"/>
+  <text x="300" y="102" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#172033">error</text>
+  <rect x="390" y="55" width="170" height="80" rx="14" fill="#dbeafe"/>
+  <text x="475" y="89" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="700" fill="#172033">PI controller</text>
+  <text x="475" y="115" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#172033">valve request</text>
+  <rect x="650" y="55" width="210" height="80" rx="14" fill="#dcfce7"/>
+  <text x="755" y="89" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="700" fill="#172033">Water process</text>
+  <text x="755" y="115" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#172033">measured temperature</text>
+  <rect x="650" y="255" width="210" height="80" rx="14" fill="#fee2e2"/>
+  <text x="755" y="289" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="700" fill="#172033">Extra heat loss</text>
+  <text x="755" y="315" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#172033">load change</text>
+  <line x1="220" y1="95" x2="255" y2="95" stroke="#475569" stroke-width="3"/>
+  <polygon points="265,95 251,88 251,102" fill="#475569"/>
+  <line x1="335" y1="95" x2="380" y2="95" stroke="#475569" stroke-width="3"/>
+  <polygon points="390,95 376,88 376,102" fill="#475569"/>
+  <line x1="560" y1="95" x2="640" y2="95" stroke="#475569" stroke-width="3"/>
+  <polygon points="650,95 636,88 636,102" fill="#475569"/>
+  <line x1="755" y1="255" x2="755" y2="145" stroke="#475569" stroke-width="3"/>
+  <polygon points="755,135 748,149 762,149" fill="#475569"/>
+  <line x1="800" y1="135" x2="800" y2="190" stroke="#475569" stroke-width="3"/>
+  <line x1="800" y1="190" x2="300" y2="190" stroke="#475569" stroke-width="3"/>
+  <line x1="300" y1="190" x2="300" y2="140" stroke="#475569" stroke-width="3"/>
+  <polygon points="300,130 293,144 307,144" fill="#475569"/>
+  <text x="500" y="220" text-anchor="middle" font-family="sans-serif" font-size="17" font-weight="700" fill="#172033">feedback reacts after measured temperature moves</text>
+</svg>

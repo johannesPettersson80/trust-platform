@@ -1,5 +1,8 @@
 # VS Code plant-simulation UI
 
+Shared purpose and completion claims: [Control Platform Purpose and Acceptance Contract](control-platform-purpose.md).
+This document retains its detailed technical or teaching authority.
+
 Status: normative truST product specification for configuring and observing
 simulated plants in the shipped VS Code extension.
 
@@ -223,55 +226,123 @@ only from real retained samples. When samples are absent, the UI shall say
 `No live samples` or `Waiting for samples`; it shall not draw invented values
 or decorative activity.
 
-## 6. Plant drawer
+## 6. Plant setup editor
 
-### 6.1 Shared drawer behavior
+### 6.1 Shared editor behavior
 
-Adding or selecting a plant shall open the existing right-side inspector area.
-The canvas shall reframe beside the drawer so the selected plant remains
-visible. The drawer shall use the shared inspector, section, field, input,
-button, message, and focus roles.
+Adding a plant or choosing Configure plant shall open a focused setup surface
+in the main canvas content area, not a narrow settings drawer. The graph shall
+not reserve a second inspector-width region for that full-area editor. Reuse
+the shared section, field, input, button, message, and focus roles and VS Code
+theme tokens. Wide layouts may place model controls beside connection and
+starting-condition controls; narrow layouts shall stack them without page-level
+horizontal scrolling. This is direct model setup, not a mandatory wizard.
 
 The add breadcrumb shall be
 `Devices & Connections / Add simulated plant`. The edit breadcrumb shall be
 `Devices & Connections / Edit <plant ID>`.
 
-The drawer shall preserve unsaved field values across identical status,
+The editor shall preserve unsaved field values across identical status,
 topology, and schema refreshes. Selecting another node, choosing another add
-item, or closing the drawer shall require confirmation before discarding a
+item, or closing the editor shall require confirmation before discarding a
 changed draft.
 
 ### 6.2 Sections
 
-The drawer shall present these sections in order:
+The initial setup shall expose these named tasks in reading order:
 
-1. **Plant**;
-2. **PLC signals**;
-3. **Dynamics**;
-4. **Actuator**;
-5. **Imperfections**;
-6. **Scenario events**.
+1. **Model & behavior**: model dropdown, one explanation, model diagram and
+   only the selected model's response parameters;
+2. **Connections**: named PLC output/input selectors with direction explained;
+3. **Starting conditions**: initial model state and effective step summary;
+4. **Optional realism and advanced settings**: actuator, conversion,
+   imperfections and scenario controls behind progressive disclosure.
 
-Plant, PLC signals, and Dynamics are the initial setup path. Actuator,
-Imperfections, and Scenario events shall use progressive disclosure and shall
-not make the simple scalar-model flow appear as one long expert form.
+Optional settings shall not expand as one combined engineering form. They shall
+provide separate, plainly named task destinations for **Actuator & command**,
+**Signal conversions**, **Realism** (process and sensor imperfections), and
+**Scenarios**. Each destination shall keep a concise configured-state summary
+visible while its editor is closed, including inactive/default states rather
+than implying that hidden values do not exist. Opening one destination shall
+not open the others. Switching or closing destinations shall preserve the same
+canonical draft, invalid raw text, validation state, and persisted ordering.
+When validation navigation targets one of these settings, it shall open the
+owning destination before focusing the exact field or row.
 
-The drawer is a configuration surface. It shall not contain live values,
+Scenario scheduling shall show **Time (s)** with explicit 0.001 s precision.
+The persisted contract remains integer `at_ms`: 1.001 seconds shall save and
+reopen as exactly 1001 milliseconds. Empty, non-finite, negative, unsafe or
+sub-millisecond values shall remain visibly invalid and block Save, without
+silently rounding, substituting zero or restoring the previous valid value.
+The raw edit and validation shall survive closing and reopening Scenarios.
+Changing time units shall not change event order, action, channel, Include
+state, or equal-time ordering semantics.
+
+State and sensor event targets shall be named quantity selectors, not bare
+channel numbers. Names come from the selected model's existing state and output
+descriptors (without the starting-condition prefix for a scheduled change).
+For example, the robot joint exposes Angle (rad) and Angular speed (rad/s).
+Unnamed dimensions use State 1 / Output 1 and subsequent one-based labels.
+Labels are UI context only; selection retains the same zero-based numeric
+`channel`, action, Include state and declaration order on the runtime wire.
+
+Realism shall show configured effect cards in canonical execution order, with
+Command, Process or Sensor boundary labels and explicit excluded states.
+An Add effect chooser shall use the existing preset types before creation.
+Only the selected effect's applicable controls shall be exposed; exact runtime
+mapping remains an advanced disclosure. Category labels shall not reorder the
+underlying effects or imply a different execution order. Validation navigation
+shall open the owning effect before focusing its erroneous field. Collapsing
+cards or Realism shall retain invalid edits and must not unblock Save.
+
+Technical identity and description shall be initially collapsed under Plant
+details rather than interrupting model selection and connection setup. Required
+errors shall open their owning section before moving focus. Effective configured
+effects shall remain summarized while collapsed. Basic explanations and units
+shall be inline, not available only through question-mark tooltips. In FOPDT,
+the scalar starting value belongs to Starting conditions, not an unrelated
+engineering-effects disclosure.
+
+For the robot-joint model, Starting conditions shall expose separate finite
+numeric fields `Starting angle (rad)` and `Starting angular speed (rad/s)`.
+They edit the existing initial-state vector at indices 0 and 1 respectively;
+editing either shall preserve the other value. Radians are explicit, with no
+implicit degree conversion. The Dynamics section shall not duplicate these
+values as a raw array. Invalid raw text shall remain visible and block Save
+across optional-section toggles until corrected. Saving and reopening shall
+preserve both states exactly, including negative angles and nonzero speeds.
+
+The same labelled Starting conditions pattern shall replace raw state arrays
+for these models, preserving canonical state indices without introducing a
+physical identity for a generic model:
+
+| Model | Fields in canonical state order | Meaning |
+| --- | --- | --- |
+| First order | Starting output | Absolute ideal output, in the configured model's output units |
+| Integrator | Starting accumulated value | Stored state before output bias; explain that output equals this value plus output bias |
+| Gravity-drained tank | Starting level (m) | Tank liquid level in metres |
+| Second order | Starting displacement; Starting rate of change | Output displacement before output bias, then its time derivative in output units per second |
+
+Each field shall preserve its siblings, retain invalid raw text, and block Save
+until corrected. Dynamics shall not duplicate the state vector as a raw array.
+These display labels shall not change runtime dynamics or add unit conversion.
+
+The editor is a configuration surface. It shall not contain live values,
 history charts, runtime state vectors, or trace rows. When the selected runtime
-can be monitored, the drawer may provide one quiet `Open in Control Studio`
+can be monitored, the editor may provide one quiet `Open in Control Studio`
 action. That action shall open Control Studio with the current runtime and
-plant selected; it shall not expand monitoring content inside the drawer.
+plant selected; it shall not expand monitoring content inside the editor.
 
-## 7. Plant identity and starting point
+## 7. Plant identity and model selection
 
-The Plant section shall contain:
+Plant details and the corresponding task sections shall retain:
 
 - the plant ID;
 - display name;
 - optional description;
 - owning runtime placement;
 - enabled state;
-- model starting point; and
+- the selected model; and
 - plant step override when used.
 
 The plant ID shall be validated against the identity rules in Specification
@@ -283,7 +354,27 @@ optional `name` and `description` fields from Specification 33. Runtime
 placement identifies the owning runtime selected by the add flow; it is shown
 for orientation and is not an editable free-form identity field.
 
-The starting-point choices shall include:
+The first decision in Add and Model & behavior shall be one labelled **Plant
+model** dropdown with exactly these ordered names and stable runtime kinds:
+
+| Name | Runtime kind |
+| --- | --- |
+| Static gain | `static_gain` |
+| First order | `first_order` |
+| First order with dead time | `first_order_dead_time` |
+| Integrator | `integrator` |
+| Second order | `second_order` |
+| Piecewise linear | `piecewise_linear` |
+| State space | `state_space` |
+| Gravity-drained tank | `gravity_tank` |
+| Gravity-loaded robot joint | `robot_joint` |
+
+All nine shall be selectable without equipment/category cards, an expert-mode
+gate, a compiled PLC or a manual. Selection alone shall write nothing. Saved
+models shall reopen with their actual model kind selected. State space may have
+advanced parameter editing without hiding the model itself from this list.
+
+Optional teaching proposals may include:
 
 - Tank or accumulated level — `integrator`;
 - Temperature or slow process — `first_order_dead_time`;
@@ -310,31 +401,59 @@ values are unit-neutral simulation seeds, not identified engineering values.
 | Static scaling | `static_gain` | gain `1` |
 | Nonlinear characteristic | `piecewise_linear` | input points `[-1, 0, 1]`; output points `[-1, 0, 1]` |
 
-The common selector shall present exactly these six familiar choices in this
-order. Custom state space belongs to the advanced route in Section 9 and shall
-not appear as a seventh common-path choice. Choosing a familiar starting point
-shall update the visible model name and its explicit proposal together.
-
-Immediately after the common selector, one quiet secondary action shall expose
-`Custom state space` and identify it as advanced. Activating it shall propose a
-one-state, one-input, one-output model with `A=[[0]]`, `B=[[1]]`, `C=[[1]]`,
-`D=[[0]]`, and `initial_state=[0]`. The common selector shall then be replaced
-by an explicit `Custom state space` advanced state with an action to return to
-the familiar starting points. State-space matrix fields remain in the Dynamics
-editor; the Plant section shall not duplicate them.
-
-The user shall also be able to choose any built-in model directly without
-selecting a physical starting point.
+These optional proposals are not the primary selector or separate model kinds.
+Choosing State space directly proposes a one-state, one-input, one-output model
+with `A=[[0]]`, `B=[[1]]`, `C=[[1]]`, `D=[[0]]`, and `initial_state=[0]`.
+Its matrix fields remain in the model editor; identity controls shall not
+duplicate them.
 
 Changing starting point may replace model-owned parameters and initial state
 immediately only while those values still equal the untouched proposal. Once
-the user has edited any model-owned value, selecting another starting point
+the user has edited any model-owned value, or the draft was loaded from a saved
+plant configuration, selecting another model/starting point
 shall open a confirmation that names the current and requested starting points
 and states that current dynamics values will be replaced. Cancel shall preserve
 the complete draft and return focus to the starting-point control. Confirm
 shall replace only model identity, model-owned parameters, and initial state;
 plant identity, placement, enabled state, signal mappings, and all unrelated
 sections shall remain unchanged.
+
+### 7.1 Optional temperature teaching example
+
+After choosing First order with dead time, `Use temperature example` shall be
+available without an equipment chooser. The generic model remains unit-neutral.
+This explicit example uses a percent heater command and a Celsius output:
+resting temperature 20 °C, full-power rise 100 °C, time constant 30 s, delay 2 s,
+and starting temperature 20 °C. The exact runtime mapping is `gain=rise/100`,
+`input_bias=0`, `output_bias=resting temperature`, `initial_state=[starting
+temperature]`, `initial_delayed_input=0`, and actuator minimum/maximum 0/100
+with `initial_applied=0`. The state is absolute temperature, not a deviation.
+A negative rise is permitted and describes cooling; response time must be
+positive and delay nonnegative. Starting away from the resting temperature is
+permitted and shall be explained as a non-equilibrium start.
+
+Applying this example shall use the existing replacement confirmation, explicitly
+listing replacement of model values, starting state, actuator settings and signal
+conversions. Confirm sets initial input to zero and identity scale/offset for
+each existing port. Keep current values and Escape shall change nothing.
+Identity, runtime, bindings, validity, scenario events and uncertainties are
+preserved; retained effects may change the nominal behavior. Selecting a physical
+example does not infer units from symbol names. Show `PLC 0–100 = heater 0–100%`
+and `PLC feedback = temperature in °C` as explicit assumptions, with confirmation
+required before saving. Raw-count signals need setup in Signal conversions.
+
+This view edits the canonical draft directly, not a second parameter store.
+Changing a display field uses the exact inverse mapping above. A Model details
+view exposes the stored values without resetting them. Imported configurations
+remain generic unless the user explicitly applies the example; no equipment
+identity is inferred from matching coefficients. Presentation identity is not
+serialized into the runtime model schema. Show `Example settings — not calibrated
+to your equipment`. Saving never starts the simulator or commands real equipment.
+
+The nominal 0-to-50% step has equilibrium 70 °C and reaches
+`20 + 50*(1-exp(-1))`, about 51.6 °C, at 32 s. This is a native runtime oracle,
+not permission to add an independent browser simulator or label a formula as a
+measured response. Prediction rendering remains governed by its separate contract.
 
 ## 8. PLC signal mapping
 
@@ -384,7 +503,12 @@ and offset values shall be shown explicitly or clearly described.
 
 Rows shall be addable, removable, and reorderable for models that support
 multiple channels. Reordering shall change the persisted channel order. A
-scalar model shall require exactly one command and one feedback row. A
+single-input/single-output model shall require exactly one command and one
+feedback row. The robot-joint model shall expose one torque command (N·m),
+joint-angle feedback (rad), and angular-speed feedback (rad/s), in that order.
+Clearing or changing a binding shall preserve every other port's index and
+engineering conversion; an unbound port shall remain visible and block Save.
+A
 state-space model shall keep command, feedback, matrix, and initial-state
 dimensions visibly consistent.
 
@@ -403,17 +527,38 @@ The model-specific fields are:
 | Model | Visible dynamics fields |
 | --- | --- |
 | Static gain | gain, input bias, output bias |
-| First order | gain, time constant, input bias, output bias, initial state |
+| First order | gain, time constant, input bias, output bias |
 | First order with dead time | first-order fields, dead time, initial delayed input |
-| Integrator | gain, input bias, output bias, initial state, optional state minimum and maximum |
-| Second order | gain, natural frequency, damping ratio, input bias, output bias, two initial states |
-| State space | A, B, C, and D matrices plus initial-state vector |
+| Integrator | gain, input bias, output bias, optional state minimum and maximum |
+| Second order | gain, natural frequency, damping ratio, input bias, output bias |
+| State space | A, B, C, and D matrices, initial-state vector, and per-input transport delays in seconds |
 | Piecewise linear | ordered input points and output points |
+| Gravity-drained tank | tank area and outlet coefficient |
+| Gravity-loaded robot joint | joint inertia, gravity torque, viscous friction, Coulomb friction and friction smoothing |
+
+Initial states for first order, first order with dead time, integrator, second
+order, gravity-drained tank and gravity-loaded robot joint belong in the
+separate Starting conditions section defined in section 6.2. State space keeps
+its initial-state vector beside the matrices because its dimensions are part of
+the same advanced model editor.
 
 Labels shall use engineering language and units, such as `Time constant (s)`,
 while preserving the exact configuration identity in field help. Required
 values, defaults, finite-number requirements, positive/nonnegative domains,
 matrix dimensions, point ordering, and bounds shall match Specification 33.
+
+Saved models with omitted `initial_state` shall remain editable. Display the
+model-sized zero vector defined by Specification 33 section 5.2, preserving
+the omission during no-op or identity-only edits. Starting-state changes may
+materialize the edited vector; never replace existing parameters or dimensions
+with a teaching template when resolving an omitted state.
+
+Visible fields shall not make runtime-defaultable scalars mandatory. Omitted
+gain resolves to 1 for static gain, first order, first order with dead time,
+integrator and second order; omitted FOPDT dead time resolves to 0. The editor
+shall explain these effective defaults without materializing them in the saved
+candidate. Explicit zero remains distinct from omission. Required parameters
+remain required under Specification 33 §7.
 
 The state-space editor shall present matrices as editable grids with visible
 row and column indexes. Changing state, input, or output dimensions shall
@@ -421,6 +566,24 @@ resize dependent matrices only after confirmation when existing values would
 be removed. Newly created cells shall receive explicit defaults. The editor
 shall identify the exact invalid cell when a matrix value or dimension is
 invalid.
+
+Continuous state space shall show a compact input-delay row aligned with the
+B/D input columns. Each delay is in seconds and follows Specification 33
+sections 7.6.1 and 5.1.1. Omission displays effective zeros without writing a
+vector during unrelated edits; explicit zero remains explicit. A reset action
+may restore the omitted zero default. Other model editors shall not show this
+continuous state-space field.
+
+State/output dimension changes shall preserve input delays. Growing the input
+dimension shall preserve existing explicit delays and append zeros; shrinking
+shall align the vector and explicitly identify removal of nonzero delays in
+the existing destructive-resize confirmation. Cancel shall preserve the draft.
+Delay edits shall survive Save and reopen through the existing plant contract.
+Negative, nonfinite, wrong-shaped and wrong-length vectors shall block Save,
+with the affected input identified. When the plant override or project default
+step is known, the editor shall apply the native aggregate history limit using
+that effective step. It shall not persist editor-only default-step metadata or
+invent an effective step when the project setting is unavailable.
 
 The piecewise-linear editor shall present paired input/output rows. Rows shall
 be reorderable only when the resulting input points remain strictly
@@ -438,10 +601,10 @@ deadband, lag, and initial applied value. Omitted unbounded values shall not be
 displayed as zero. The section shall explain that a zero rate prevents movement
 in that direction, while an omitted rate is unbounded.
 
-For an active plant, detailed plant monitoring in Control Studio shall show the
-applied actuator value and the saturation, slew-limit, deadband, and stuck
-indicators defined by Specification 33. They shall not appear as live content
-inside the Actuator configuration section.
+For an active plant, retain the applied actuator value and saturation,
+slew-limit, deadband and stuck indicators in the runtime plant evidence defined
+by Specification 33. They are not live fields in the Actuator configuration
+section. Control Studio uses that evidence under its three page specifications.
 
 ## 11. Imperfections
 
@@ -470,10 +633,10 @@ Changing the model shall identify effects that are no longer valid. The UI
 shall not silently delete or retarget them. Save shall remain blocked until the
 user fixes or removes every invalid effect.
 
-For an active plant, Control Studio shall identify active effects and active
-dropouts from runtime evidence. The Imperfections configuration section shall
-not contain live effect state or expose generated random values as
-configuration defaults.
+Runtime plant evidence retains active effects and dropouts. The Imperfections
+configuration section does not expose live effect state or generated random
+values as configuration defaults. This contract does not add live diagnostics
+to Control Studio's pages.
 
 ## 12. Scenario events
 
@@ -490,9 +653,10 @@ Controls for state channel, parameter, sensor channel, and value shall appear
 only when owned by the selected event kind. Model changes shall not silently
 rewrite invalid events. Save shall remain blocked until every event is valid.
 
-Control Studio shall show the number of pending events. Fired events may appear in
-trace presentation when trace data contains them. The Scenario events
-configuration section shall contain neither live pending state nor trace rows.
+Runtime plant evidence retains pending and fired events. The Scenario events
+configuration section contains neither live pending state nor trace rows.
+Control Studio's current page contracts own the presentation of experiment
+results; no pending-event counter is added to them.
 
 ## 13. Validation and saving
 
@@ -519,6 +683,16 @@ Saving shall apply the complete plant change atomically while preserving all
 other plants, couplings, disturbances, physics configuration, and unrelated
 project content.
 
+Within the selected plant, fields not managed by the current editor (including
+model validity) shall survive projection, draft
+creation and serialization unchanged. Editable fields remain authoritative:
+clearing an optional editable effect must not resurrect its saved value.
+Unsupported fields must remain isolated from the editable draft values; the
+runtime validates the complete resulting candidate before any write.
+This does not add support for new runtime configuration fields. In particular,
+the current runtime accepts one scalar actuator configuration, not a serialized
+per-channel `actuators` array.
+
 When the runtime is stopped, a successful result shall read `Saved` and the
 configured node shall replace the draft. When a runtime is active, a
 successful configuration change shall read `Saved · restart required`.
@@ -528,58 +702,21 @@ If the project changed after the drawer loaded, Save shall reject the stale
 draft, retain all entered values, and offer reload-and-review. It shall not
 overwrite the newer project state automatically.
 
-## 14. Plant monitoring in Control Studio
+## 14. Control Studio plant context
 
-Control Studio owns loop-specific plant monitoring and trace. Devices & Connections shall
-not duplicate this content in the plant drawer. Opening a plant from Devices &
-Connections shall reuse the active editor group, select the same runtime, and
-focus the matching loop or plant context within Control Studio. Generic raw
-process-image inspection remains owned by Live Values.
+Opening a plant from Devices & Connections reuses the active editor group and
+preserves the selected runtime, plant and loop. Generic raw process-image
+inspection remains owned by Live Values. Plant configuration remains owned by
+Devices & Connections; it is not copied into another Control Studio form.
 
-The initial plant-monitoring view shall remain compact. It shall show the plant
-identity, current state, transformed command, measured feedback, published
-feedback, quality/freshness, simulated timestamp, and active fault. Detailed
-runtime evidence and trace shall remain collapsed until requested.
-
-When detailed runtime evidence is requested and current evidence is available,
-Control Studio shall expose:
-
-- active state and time scale;
-- effective seed and random-algorithm version;
-- model and simulated timestamp;
-- state vector;
-- transformed command;
-- applied process input;
-- ideal output;
-- measured feedback;
-- published feedback;
-- actuator limit indicators;
-- active uncertainty and dropout IDs;
-- pending event count;
-- delay-buffer depth;
-- last substep count; and
-- last plant fault.
-
-Vectors shall retain configured channel order and shall label each element by
-its signal or index. Values shall identify engineering-side values separately
-from process-image-side values.
-
-When the runtime is stopped, unreachable, unsupported, or has no current plant
-status, Control Studio shall show the exact unavailable reason and clear stale
-live values. Saved plant configuration remains owned by Devices & Connections
-and shall not be copied into the monitoring view as another editable form.
-
-When bounded trace collection is enabled, the section shall show retained row
-count, configured capacity, dropped-row count, effective seed, configuration
-digest, and runtime version. `Export trace` shall export the runtime-provided
-snapshot without changing simulation state. `Clear trace` shall require
-confirmation and shall not reset the plant or random streams.
-
-When trace collection is disabled, Control Studio shall say
-`Trace collection is off` and provide `Configure trace`, which returns to the
-plant's Scenario/configuration context in Devices & Connections. Enabling trace
-changes saved configuration and therefore requires the same restart behavior
-as another plant-configuration change.
+The [Identify](control-studio-identify-page.md),
+[Tune](control-studio-tune-page.md) and
+[Validate](control-studio-validate-page.md) specifications are the only
+Control Studio page layouts. Runtime plant status, faults, timing, random/effect
+identities, actuator evidence and bounded trace data remain available to the
+acquisition/validation services under Specification 33. Keep channel ordering,
+units and process-image/engineering-value distinctions intact. No plant-summary
+panel, state/counter strip or trace-management toolbar is prescribed here.
 
 ### 14.1 Typed Control Studio handoff
 
@@ -593,8 +730,7 @@ handoff. The handoff shall contain:
 - active plant-configuration digest when current runtime evidence supplies it;
 - matching loop identity when one has been selected or discovered;
 - explicit `Simulation` source class; and
-- the requested Control Studio context, initially `Monitor` with the plant
-  summary selected.
+- the requested Control Studio context, initially `Identify`.
 
 The handoff shall contain identities and revisions, not copied live values,
 trace rows, editable plant fields, filesystem paths, authorization decisions,
@@ -707,7 +843,7 @@ Activating `?` shall open a small tooltip or popover that states:
 - what physical behavior it represents;
 - how increasing or decreasing it normally changes the simulated response;
 - its unit or that it is dimensionless; and
-- the exact stored configuration name when engineering details are shown.
+- the exact stored configuration name when the destination details are shown.
 
 Hover and keyboard focus may show a short summary. Click, Enter, or Space shall
 open the complete explanation. Escape shall close it and return focus to the
@@ -741,7 +877,7 @@ Starting-point help shall convey these model-specific facts in plain language:
 | Mechanical position or resonant process | Two states represent inertia and damping, including oscillatory response. | It cannot reproduce backlash, friction, hard stops, or other nonlinear mechanics. |
 | Static scaling | An immediate gain represents a sensor, conversion, or process with negligible dynamics. | It cannot reproduce stored energy, lag, delay, or oscillation. |
 | Nonlinear characteristic | Ordered points represent a known static nonlinear input/output curve. | It cannot reproduce dynamics, hysteresis, or rate dependence. |
-| Custom state space | Coupled linear states represent multi-state or multi-channel linear dynamics. | It cannot reproduce nonlinear or time-varying behavior, and delay requires an explicit state approximation. |
+| Custom state space | Coupled linear states represent multi-state or multi-channel linear dynamics, with explicit per-input transport delays. | It cannot reproduce nonlinear or time-varying behavior. |
 
 Validation messages shall explain both the problem and the next corrective
 action. They shall retain the exact field name and value needed by a
@@ -1039,3 +1175,21 @@ the plant brick shall disappear after the normal canvas refresh, and focus and
 selection shall return to its owning runtime brick. On failure, the plant brick
 and open drawer shall remain and the error shall be shown. This interaction
 shall not add enable, disable, start, stop, or other lifecycle controls.
+### 21.1 Robot-joint runtime defaults
+
+For `robot_joint`, `gravity_torque_nm`, `viscous_friction_nm_s_per_rad`, and
+`coulomb_friction_nm` are optional runtime parameters and default to `0` when
+omitted, as defined by Spec33 §7.9. The editor shall label each blank field
+with its `0` default, keep the draft valid when the field is blank, and preserve
+the omission when saving unless the user enters a value. `inertia_kg_m2` and
+`friction_smoothing_rad_s` remain required.
+
+### Cascaded gravity-tank model
+
+The model selector includes `gravity_tank_cascade` as **Cascaded gravity tanks**.
+It exposes one inlet flow command in m3/s, upstream/downstream level feedback
+ports in metres, two separate initial-level fields, and the shared area/outlet
+parameters from Simulation Specification33 section7.10. The starting point is
+area .5m2, discharge coefficient .020 and levels [.25,.25]. Its diagram shows
+two freely discharging tanks in cascade. Editor support does not bypass runtime
+configuration validation or imply physical commissioning.

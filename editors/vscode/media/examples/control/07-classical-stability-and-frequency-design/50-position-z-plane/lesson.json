@@ -1,71 +1,321 @@
 {
   "schemaVersion": 4,
   "id": "control-position-z-plane-sampling",
-  "title": "Prove sampled positioning stability in the z-plane",
+  "title": "Sampled-data stability",
   "level": "Advanced",
-  "sequence": 50,
+  "sequence": 54,
   "equipment": "Industrial positioning table",
   "physicalPurpose": "Prove stability for the sample, hold, computation delay, and controller realization that actually execute.",
-  "principalTechnique": "Exact hold discretization and z-plane stability",
-  "objective": "Explain and verify why unchanged continuous gains fail at 100 ms and validate a corrected digital position controller.",
-  "prerequisites": ["control-motor-sensitivity-loop-shaping"],
-  "nextLesson": "control-tuning-method-comparison",
+  "principalTechnique": "z-plane sampling",
+  "objective": "Check sampled poles after holding and computation delay.",
+  "prerequisites": [
+    "control-loop-shaping",
+    "control-nyquist-stability"
+  ],
+  "nextLesson": "control-feedforward",
   "signals": [
-    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.0" },
-    { "role": "quality", "name": "Fine abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX97.0" },
-    { "role": "quality", "name": "Coarse abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX97.1" },
-    { "role": "quality", "name": "Corrected abort", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX97.2" },
-    { "role": "state", "name": "Fine requested force", "unit": "%", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%ML0" },
-    { "role": "state", "name": "Fine pending force", "unit": "%", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%ML8" },
-    { "role": "state", "name": "Coarse requested force", "unit": "%", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%ML16" },
-    { "role": "state", "name": "Coarse pending force", "unit": "%", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%ML24" },
-    { "role": "state", "name": "Corrected requested force", "unit": "%", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%ML32" },
-    { "role": "state", "name": "Corrected pending force", "unit": "%", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%ML40" },
-    { "role": "SP", "name": "Carriage-position setpoint", "unit": "mm", "minimum": -5, "maximum": 5, "resolution": 0.001, "binding": "%ML48" },
-    { "role": "MV", "name": "Fine applied force", "unit": "%", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%QL0" },
-    { "role": "MV", "name": "Coarse applied force", "unit": "%", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%QL8" },
-    { "role": "MV", "name": "Corrected applied force", "unit": "%", "minimum": -10, "maximum": 10, "resolution": 0.001, "binding": "%QL16" },
-    { "role": "PV", "name": "Fine carriage position", "unit": "mm", "minimum": -5, "maximum": 5, "resolution": 0.001, "binding": "%IL0" },
-    { "role": "state", "name": "Fine carriage velocity", "unit": "mm/s", "minimum": -50, "maximum": 50, "resolution": 0.001, "binding": "%IL8" },
-    { "role": "PV", "name": "Coarse carriage position", "unit": "mm", "minimum": -5, "maximum": 5, "resolution": 0.001, "binding": "%IL16" },
-    { "role": "state", "name": "Coarse carriage velocity", "unit": "mm/s", "minimum": -50, "maximum": 50, "resolution": 0.001, "binding": "%IL24" },
-    { "role": "PV", "name": "Corrected carriage position", "unit": "mm", "minimum": -5, "maximum": 5, "resolution": 0.001, "binding": "%IL32" },
-    { "role": "state", "name": "Corrected carriage velocity", "unit": "mm/s", "minimum": -50, "maximum": 50, "resolution": 0.001, "binding": "%IL40" }
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX96.0"
+    },
+    {
+      "role": "quality",
+      "name": "Fine abort",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX97.0"
+    },
+    {
+      "role": "quality",
+      "name": "Coarse abort",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX97.1"
+    },
+    {
+      "role": "quality",
+      "name": "Corrected abort",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX97.2"
+    },
+    {
+      "role": "state",
+      "name": "Fine requested force",
+      "unit": "%",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Fine pending force",
+      "unit": "%",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Coarse requested force",
+      "unit": "%",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "Coarse pending force",
+      "unit": "%",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "Corrected requested force",
+      "unit": "%",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "Corrected pending force",
+      "unit": "%",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%ML40"
+    },
+    {
+      "role": "SP",
+      "name": "Carriage-position setpoint",
+      "unit": "mm",
+      "minimum": -5,
+      "maximum": 5,
+      "resolution": 0.001,
+      "binding": "%ML48"
+    },
+    {
+      "role": "MV",
+      "name": "Fine applied force",
+      "unit": "%",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%QL0"
+    },
+    {
+      "role": "MV",
+      "name": "Coarse applied force",
+      "unit": "%",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "MV",
+      "name": "Corrected applied force",
+      "unit": "%",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%QL16"
+    },
+    {
+      "role": "PV",
+      "name": "Fine carriage position",
+      "unit": "mm",
+      "minimum": -5,
+      "maximum": 5,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Fine carriage velocity",
+      "unit": "mm/s",
+      "minimum": -50,
+      "maximum": 50,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "PV",
+      "name": "Coarse carriage position",
+      "unit": "mm",
+      "minimum": -5,
+      "maximum": 5,
+      "resolution": 0.001,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Coarse carriage velocity",
+      "unit": "mm/s",
+      "minimum": -50,
+      "maximum": 50,
+      "resolution": 0.001,
+      "binding": "%IL24"
+    },
+    {
+      "role": "PV",
+      "name": "Corrected carriage position",
+      "unit": "mm",
+      "minimum": -5,
+      "maximum": 5,
+      "resolution": 0.001,
+      "binding": "%IL32"
+    },
+    {
+      "role": "state",
+      "name": "Corrected carriage velocity",
+      "unit": "mm/s",
+      "minimum": -50,
+      "maximum": 50,
+      "resolution": 0.001,
+      "binding": "%IL40"
+    }
   ],
   "plant": {
     "modelId": "three_equivalent_continuous_positioning_tables_with_sampled_controllers",
     "executable": "simulation.toml",
     "parameters": [
-      { "name": "velocity_damping", "value": 2, "unit": "1/s" },
-      { "name": "force_to_acceleration_gain", "value": 10, "unit": "mm/(%*s^2)" },
-      { "name": "plant_integration_interval", "value": 10, "unit": "ms" },
-      { "name": "fine_controller_interval", "value": 10, "unit": "ms" },
-      { "name": "coarse_controller_interval", "value": 100, "unit": "ms" },
-      { "name": "computation_delay_samples", "value": 1, "unit": "1" }
+      {
+        "name": "velocity_damping",
+        "value": 2,
+        "unit": "1/s"
+      },
+      {
+        "name": "force_to_acceleration_gain",
+        "value": 10,
+        "unit": "mm/(%*s^2)"
+      },
+      {
+        "name": "plant_integration_interval",
+        "value": 10,
+        "unit": "ms"
+      },
+      {
+        "name": "fine_controller_interval",
+        "value": 10,
+        "unit": "ms"
+      },
+      {
+        "name": "coarse_controller_interval",
+        "value": 100,
+        "unit": "ms"
+      },
+      {
+        "name": "computation_delay_samples",
+        "value": 1,
+        "unit": "1"
+      }
     ],
     "sampleTimeSeconds": 0.01,
-    "initialState": { "carriagePositionMillimetres": 0, "carriageVelocityMillimetresPerSecond": 0 },
+    "initialState": {
+      "carriagePositionMillimetres": 0,
+      "carriageVelocityMillimetresPerSecond": 0
+    },
     "seed": 20260829,
-    "operatingPoint": { "Carriage-position setpoint": 0, "Fine applied force": 0, "Coarse applied force": 0, "Corrected applied force": 0, "Fine carriage position": 0, "Coarse carriage position": 0, "Corrected carriage position": 0 },
+    "operatingPoint": {
+      "Carriage-position setpoint": 0,
+      "Fine applied force": 0,
+      "Coarse applied force": 0,
+      "Corrected applied force": 0,
+      "Fine carriage position": 0,
+      "Coarse carriage position": 0,
+      "Corrected carriage position": 0
+    },
     "validityRange": [
-      { "signal": "Carriage-position setpoint", "minimum": -5, "maximum": 5, "unit": "mm" },
-      { "signal": "Fine applied force", "minimum": -10, "maximum": 10, "unit": "%" },
-      { "signal": "Coarse applied force", "minimum": -10, "maximum": 10, "unit": "%" },
-      { "signal": "Corrected applied force", "minimum": -10, "maximum": 10, "unit": "%" },
-      { "signal": "Fine carriage position", "minimum": -5, "maximum": 5, "unit": "mm" },
-      { "signal": "Coarse carriage position", "minimum": -5, "maximum": 5, "unit": "mm" },
-      { "signal": "Corrected carriage position", "minimum": -5, "maximum": 5, "unit": "mm" }
+      {
+        "signal": "Carriage-position setpoint",
+        "minimum": -5,
+        "maximum": 5,
+        "unit": "mm"
+      },
+      {
+        "signal": "Fine applied force",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "%"
+      },
+      {
+        "signal": "Coarse applied force",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "%"
+      },
+      {
+        "signal": "Corrected applied force",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "%"
+      },
+      {
+        "signal": "Fine carriage position",
+        "minimum": -5,
+        "maximum": 5,
+        "unit": "mm"
+      },
+      {
+        "signal": "Coarse carriage position",
+        "minimum": -5,
+        "maximum": 5,
+        "unit": "mm"
+      },
+      {
+        "signal": "Corrected carriage position",
+        "minimum": -5,
+        "maximum": 5,
+        "unit": "mm"
+      }
     ],
-    "simplifications": ["One local carriage velocity-damping mode", "Measured position and velocity without sensor noise in the motion run", "Exact zero-order-hold analysis with explicit one-sample delay", "Ideal force response inside declared limits", "No friction, backlash, structural flex, end-stop contact, current loop, or thermal protection", "Simulation-only I/O"]
+    "simplifications": [
+      "One local carriage velocity-damping mode",
+      "Measured position and velocity without sensor noise in the motion run",
+      "Exact zero-order-hold analysis with explicit one-sample delay",
+      "Ideal force response inside declared limits",
+      "No friction, backlash, structural flex, end-stop contact, current loop, or thermal protection",
+      "Simulation-only I/O"
+    ]
   },
   "baseline": {
     "executableId": "PositionTable.UnchangedContinuousGainsAtCoarseSample",
-    "settings": { "sampleIntervalSeconds": 0.1, "computationDelaySamples": 1, "proportionalGainPercentPerMillimetre": 4, "derivativeGainPercentPerMillimetrePerSecond": 0.4 },
+    "settings": {
+      "sampleIntervalSeconds": 0.1,
+      "computationDelaySamples": 1,
+      "proportionalGainPercentPerMillimetre": 4,
+      "derivativeGainPercentPerMillimetrePerSecond": 0.4
+    },
     "limitation": "The unchanged gains create a sampled pole pair of magnitude 1.04126 and therefore an unstable 100 ms implementation."
   },
   "change": {
     "executableId": "PositionTable.CorrectedCoarseDigitalGains",
-    "settings": { "sampleIntervalSeconds": 0.1, "computationDelaySamples": 1, "proportionalGainPercentPerMillimetre": 1, "derivativeGainPercentPerMillimetrePerSecond": 0.4 },
+    "settings": {
+      "sampleIntervalSeconds": 0.1,
+      "computationDelaySamples": 1,
+      "proportionalGainPercentPerMillimetre": 1,
+      "derivativeGainPercentPerMillimetrePerSecond": 0.4
+    },
     "decision": "Accept the corrected controller only when exact augmented poles and bounded executable motion agree under the actual sample, hold, delay, and limits."
   },
   "experiment": {
@@ -75,46 +325,192 @@
     "amplitude": 0,
     "durationSeconds": 10.1,
     "settlingSeconds": 0,
-    "disturbances": ["Analysis-only 40 rad/s alias calculation; no injected motion-run disturbance"],
+    "disturbances": [
+      "Analysis-only 40 rad/s alias calculation; no injected motion-run disturbance"
+    ],
     "seed": 20260829,
     "restorationValue": 0,
     "activationSignal": "P1.ExperimentEnabled"
   },
   "acceptance": [
-    { "metric": "fine_largest_pole_magnitude", "signal": "Fine carriage position", "window": "exact augmented 10 ms model with one-sample delay", "comparator": "<", "limit": 1, "unit": "1", "tolerance": 1e-06, "evidenceClass": "model" },
-    { "metric": "coarse_baseline_largest_pole_magnitude", "signal": "Coarse carriage position", "window": "exact augmented 100 ms model with unchanged gains and one-sample delay", "comparator": ">", "limit": 1, "unit": "1", "tolerance": 1e-06, "evidenceClass": "model" },
-    { "metric": "corrected_largest_pole_magnitude", "signal": "Corrected carriage position", "window": "exact augmented 100 ms model with corrected gains and one-sample delay", "comparator": "<", "limit": 1, "unit": "1", "tolerance": 1e-06, "evidenceClass": "model" },
-    { "metric": "fine_final_position_error", "signal": "Fine carriage position", "window": "mean absolute error over 9 through 10 seconds after settling qualification", "comparator": "<", "limit": 0.02, "unit": "mm", "tolerance": 0.001, "evidenceClass": "simulation" },
-    { "metric": "corrected_final_position_error", "signal": "Corrected carriage position", "window": "mean absolute error over 9 through 10 seconds after settling qualification", "comparator": "<", "limit": 0.02, "unit": "mm", "tolerance": 0.001, "evidenceClass": "simulation" },
-    { "metric": "coarse_baseline_controlled_stop", "signal": "Coarse abort", "window": "complete ten-second bounded motion record", "comparator": "==", "limit": 1, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" }
+    {
+      "metric": "fine_largest_pole_magnitude",
+      "signal": "Fine carriage position",
+      "window": "exact augmented 10 ms model with one-sample delay",
+      "comparator": "<",
+      "limit": 1,
+      "unit": "1",
+      "tolerance": 1e-06,
+      "evidenceClass": "model"
+    },
+    {
+      "metric": "coarse_baseline_largest_pole_magnitude",
+      "signal": "Coarse carriage position",
+      "window": "exact augmented 100 ms model with unchanged gains and one-sample delay",
+      "comparator": ">",
+      "limit": 1,
+      "unit": "1",
+      "tolerance": 1e-06,
+      "evidenceClass": "model"
+    },
+    {
+      "metric": "corrected_largest_pole_magnitude",
+      "signal": "Corrected carriage position",
+      "window": "exact augmented 100 ms model with corrected gains and one-sample delay",
+      "comparator": "<",
+      "limit": 1,
+      "unit": "1",
+      "tolerance": 1e-06,
+      "evidenceClass": "model"
+    },
+    {
+      "metric": "fine_final_position_error",
+      "signal": "Fine carriage position",
+      "window": "mean absolute error over 9 through 10 seconds after settling qualification",
+      "comparator": "<",
+      "limit": 0.02,
+      "unit": "mm",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "corrected_final_position_error",
+      "signal": "Corrected carriage position",
+      "window": "mean absolute error over 9 through 10 seconds after settling qualification",
+      "comparator": "<",
+      "limit": 0.02,
+      "unit": "mm",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "coarse_baseline_controlled_stop",
+      "signal": "Coarse abort",
+      "window": "complete ten-second bounded motion record",
+      "comparator": "==",
+      "limit": 1,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
   ],
   "safety": {
     "hardLimits": [
-      { "signal": "Fine applied force", "minimum": -10, "maximum": 10, "unit": "%" },
-      { "signal": "Coarse applied force", "minimum": -10, "maximum": 10, "unit": "%" },
-      { "signal": "Corrected applied force", "minimum": -10, "maximum": 10, "unit": "%" },
-      { "signal": "Fine carriage position", "minimum": -5, "maximum": 5, "unit": "mm" },
-      { "signal": "Coarse carriage position", "minimum": -5, "maximum": 5, "unit": "mm" },
-      { "signal": "Corrected carriage position", "minimum": -5, "maximum": 5, "unit": "mm" }
+      {
+        "signal": "Fine applied force",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "%"
+      },
+      {
+        "signal": "Coarse applied force",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "%"
+      },
+      {
+        "signal": "Corrected applied force",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "%"
+      },
+      {
+        "signal": "Fine carriage position",
+        "minimum": -5,
+        "maximum": 5,
+        "unit": "mm"
+      },
+      {
+        "signal": "Coarse carriage position",
+        "minimum": -5,
+        "maximum": 5,
+        "unit": "mm"
+      },
+      {
+        "signal": "Corrected carriage position",
+        "minimum": -5,
+        "maximum": 5,
+        "unit": "mm"
+      }
     ],
-    "abortPredicates": ["Any required signal is missing, stale, forced, nonfinite, or has bad quality", "Any requested force leaves minus 10 through plus 10 percent", "Any carriage position leaves minus 5 through plus 5 millimetres", "Actual sample, hold, delay, gain, plant, limit, timing, or evidence class differs from the reviewed case"],
+    "abortPredicates": [
+      "Any required signal is missing, stale, forced, nonfinite, or has bad quality",
+      "Any requested force leaves minus 10 through plus 10 percent",
+      "Any carriage position leaves minus 5 through plus 5 millimetres",
+      "Actual sample, hold, delay, gain, plant, limit, timing, or evidence class differs from the reviewed case"
+    ],
     "safeMv": 0,
     "restorationMode": "Latch the affected normal controller out, apply the reviewed velocity-damping controlled stop until motion ceases, disable the experiment, restore zero force and position request, and restart the simulated table at its reviewed initial state",
     "physicalApprovalRole": "authorised motion-control engineer and responsible machine operator",
-    "simulationOnlyRestrictions": ["The lesson does not move a physical table", "Simulation pole and stop evidence cannot authorise physical motion", "Physical execution requires independent drive topology, force, current, speed, travel, end-stop, guard, emergency-stop, motion-zone, stopping-distance, abort, rollback, and immediate approval review"]
+    "simulationOnlyRestrictions": [
+      "The lesson does not move a physical table",
+      "Simulation pole and stop evidence cannot authorise physical motion",
+      "Physical execution requires independent drive topology, force, current, speed, travel, end-stop, guard, emergency-stop, motion-zone, stopping-distance, abort, rollback, and immediate approval review"
+    ]
   },
-  "workflowStages": ["Monitor", "Test"],
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
   "proof": {
-    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-50--discrete-time-stability-and-the-z-plane-positioning-system",
-    "nativeTest": "control_curriculum_z_plane_predicts_sampled_axis_failure_and_recovery",
-    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_classical control_curriculum_z_plane_predicts_sampled_axis_failure_and_recovery -- --exact --nocapture",
+    "specification": "docs/specs/38-control-engineering-curriculum.md#76-classical-stability-and-frequency-design",
+    "nativeTest": "TEST_PROGRAM::Lesson50AuthorityAndExactHoldMatchTheSampledModel",
+    "nativeCommand": "target/debug/trust-dev test --project examples/control/07-classical-stability-and-frequency-design/50-position-z-plane --filter TEST_PROGRAM::Lesson50AuthorityAndExactHoldMatchTheSampledModel --timeout 20",
     "projectPath": "examples/control/07-classical-stability-and-frequency-design/50-position-z-plane",
-    "runArtifactFields": ["plantIdentity", "continuousModelRevision", "discreteModelRevision", "controllerRevision", "plantIntegrationInterval", "controllerUpdateInterval", "holdConvention", "computationDelaySamples", "positionSetpoint", "position", "velocity", "requestedForce", "pendingForce", "appliedForce", "exactAd", "exactBd", "sampledTransferNumerator", "sampledTransferDenominator", "samplingZero", "augmentedPoles", "poleMagnitudes", "unitCircleClearance", "nyquistFrequency", "aliasFrequency", "rootLocusGains", "overshoot", "settlingTime", "finalWindowError", "requestedForceTotalVariation", "appliedForceTotalVariation", "saturationDuration", "aborted", "abortTrigger", "controlledStopComplete", "seed", "evidenceClass"],
+    "runArtifactFields": [
+      "plantIdentity",
+      "continuousModelRevision",
+      "discreteModelRevision",
+      "controllerRevision",
+      "plantIntegrationInterval",
+      "controllerUpdateInterval",
+      "holdConvention",
+      "computationDelaySamples",
+      "positionSetpoint",
+      "position",
+      "velocity",
+      "requestedForce",
+      "pendingForce",
+      "appliedForce",
+      "exactAd",
+      "exactBd",
+      "sampledTransferNumerator",
+      "sampledTransferDenominator",
+      "samplingZero",
+      "augmentedPoles",
+      "poleMagnitudes",
+      "unitCircleClearance",
+      "nyquistFrequency",
+      "aliasFrequency",
+      "rootLocusGains",
+      "overshoot",
+      "settlingTime",
+      "finalWindowError",
+      "requestedForceTotalVariation",
+      "appliedForceTotalVariation",
+      "saturationDuration",
+      "aborted",
+      "abortTrigger",
+      "controlledStopComplete",
+      "seed",
+      "evidenceClass"
+    ],
     "renderedJourneyId": "control-position-z-plane-sampling"
   },
   "video": {
     "viewerOutcome": "Prove a sampled position loop in the z-plane and recover an unstable coarse implementation with a qualified discrete redesign.",
-    "requiredVisibleEvidence": ["industrial positioning table", "10 ms and 100 ms update events", "requested, pending, and applied force", "exact hold model", "sampling zeros", "three augmented pole sets", "unit circle and discrete root locus", "bounded unstable trace and controlled stop", "corrected position trace", "Simulation label"],
+    "requiredVisibleEvidence": [
+      "industrial positioning table",
+      "10 ms and 100 ms update events",
+      "requested, pending, and applied force",
+      "exact hold model",
+      "sampling zeros",
+      "three augmented pole sets",
+      "unit circle and discrete root locus",
+      "bounded unstable trace and controlled stop",
+      "corrected position trace",
+      "Simulation label"
+    ],
     "durationClass": "standard",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
@@ -124,14 +520,23 @@
   "learning": {
     "context": "Three equivalent positioning tables isolate fine sampling, unchanged coarse sampling, and corrected coarse digital gains.",
     "reason": "A continuous design does not include the sample, hold, computation delay, or realization that the PLC executes.",
-    "theory": ["The z-transform represents sampled sequences and one-sample delay.", "The unit circle is the discrete stability boundary.", "Exact zero-order hold maps plant dynamics and creates sampling zeros.", "Nyquist frequency bounds unique sampled content and higher content aliases.", "A discrete root locus traces z-plane poles as digital gain changes."],
+    "theory": [
+      "The z-transform represents sampled sequences and one-sample delay.",
+      "The unit circle is the discrete stability boundary.",
+      "Exact zero-order hold maps plant dynamics and creates sampling zeros.",
+      "Nyquist frequency bounds unique sampled content and higher content aliases.",
+      "A discrete root locus traces z-plane poles as digital gain changes."
+    ],
     "workedPrediction": "Calculate exact hold matrices, zeros, augmented poles, unit-circle magnitudes, Nyquist limits, and alias frequency before motion.",
-    "practicalPreparation": ["Verify equivalent mechanics, signals, units, sample and hold timing, delay, force and position limits, abort, controlled stop, seed, and Simulation status.", "Record the stable, unstable, and corrected predictions before enabling the common move."],
+    "practicalPreparation": [
+      "Verify equivalent mechanics, signals, units, sample and hold timing, delay, force and position limits, abort, controlled stop, seed, and Simulation status.",
+      "Record the stable, unstable, and corrected predictions before enabling the common move."
+    ],
     "baseline": "Apply the continuous-design gains at 100 ms with one-sample delay and stop the predicted unstable motion safely.",
     "change": "At the same 100 ms interval and delay, reduce only proportional gain to the qualified discrete value.",
     "comparison": "Compare exact pole evidence with equivalent motion and force records without allowing early appearance to override z-plane stability.",
     "validation": "Require analytical and Control Studio agreement plus bounded fine, failed coarse, and recovered corrected execution.",
     "explanation": "Longer hold and explicit delay move the unchanged-gain pole pair outside the unit circle; corrected gain restores stability at a speed cost.",
-    "transfer": "Digital stability belongs to the executed sample, hold, delay, realization, limits, and timing; Lesson 51 can now compare tuning methods fairly."
+    "transfer": "Lesson 51 continues with Feedforward."
   }
 }

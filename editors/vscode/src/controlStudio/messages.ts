@@ -1,11 +1,15 @@
 import type { PlantControlStudioHandoff } from "./handoff";
 import type { PlantMonitorSnapshot } from "./plantMonitor";
 import type { AutomaticTuneObjective, AutomaticTuneResult } from "./automaticTune";
-import type { LoopMonitorSample } from "./loopMonitor";
+import type { LoopMonitorSample, LoopRecording } from "./loopMonitor";
+import type { RecordingUpdate } from "./recordingCoordinator";
 import type { ControlPidParameters } from "./controllerCandidate";
+import { validateControlPidSettings } from "./pidSettingsValidation";
 import type { ExcludedInterval } from "./identification";
-import type { ControlExperimentKind } from "./experiment";
+import type { ControlExperimentRequestKind } from "./experiment";
 import { decodeControlChartSession, type ControlChartSession } from "./chartContract";
+import { decodeIdentificationFormDraft, type IdentificationFormDraft } from "./identificationFormDraft";
+import type { MimoSettledTrial } from "./threePageMimoAnalysis";
 
 export interface ControlStudioEnvelope<T> {
   schemaVersion: 1;
@@ -50,6 +54,32 @@ export interface LoopMessageScope {
   editorSessionId: string;
   loopId: string;
   loopRevision: string;
+}
+
+export function decodeLoopLiveViewCommand(value: unknown, expected: LoopMessageScope): boolean {
+  return record(value) && value.kind === "control-studio.monitor.live" &&
+    Object.keys(value).sort().join(",") === "editorSessionId,expectedLoopRevision,kind,loopId,messageId,payload,projectId,schemaVersion" &&
+    value.schemaVersion === 1 && nonempty(value.messageId) && value.projectId === expected.projectId &&
+    value.editorSessionId === expected.editorSessionId && value.loopId === expected.loopId &&
+    value.expectedLoopRevision === expected.loopRevision && record(value.payload) && Object.keys(value.payload).length === 0;
+}
+
+export function loopRecordingEvidenceEnvelope(
+  scope: LoopMessageScope,
+  messageId: string,
+  evidence: RecordingUpdate,
+  recording?: LoopRecording
+) {
+  return {
+    schemaVersion: 1 as const,
+    kind: "control-studio.recording.evidence" as const,
+    messageId,
+    projectId: scope.projectId,
+    editorSessionId: scope.editorSessionId,
+    loopId: scope.loopId,
+    expectedLoopRevision: scope.loopRevision,
+    payload: recording ? { ...evidence, recording } : evidence,
+  };
 }
 
 export function decodeControllerApplicationCommand(value: unknown, expected: LoopMessageScope):
@@ -119,9 +149,13 @@ export function decodeLoopAutomaticTuneApprove(value: unknown, expected: LoopMes
   return { messageId: value.messageId, objective: value.payload.objective as AutomaticTuneObjective };
 }
 
+import { validStepResponseSettings, type StepResponseSettings } from "./stepResponseIdentification";
 export type EngineeringCommand =
-  | { action: "identify-qualify"; messageId: string; model: string; excludedIntervals?: readonly ExcludedInterval[] }
-  | { action: "identify-fit" | "identify-accept"; messageId: string }
+  | { action: "identify-choose-structure"; messageId: string; choice: import("./sensorLagComparison").StructureChoice }
+  | { action: "declared-root"; messageId: string; selectedValue?: number }
+  | { action: "identify-edit"; messageId: string; form: IdentificationFormDraft }
+  | { action: "identify-qualify"; messageId: string; model: string; excludedIntervals?: readonly ExcludedInterval[]; stepResponseSettings?: StepResponseSettings }
+  | { action: "identify-fit" | "identify-accept" | "identify-cancel"; messageId: string }
   | { action: "tune"; messageId: string; method: "SIMC" | "AMIGO"; objective: AutomaticTuneObjective }
   | { action: "tune-settings"; messageId: string; method: "Manual" | "Imported"; settings: ControlPidParameters }
   | { action: "validate"; messageId: string };
@@ -131,6 +165,23 @@ export function decodeEngineeringCommand(value: unknown, expected: LoopMessageSc
       value.schemaVersion !== 1 || !nonempty(value.messageId) || value.projectId !== expected.projectId ||
       value.editorSessionId !== expected.editorSessionId || value.loopId !== expected.loopId ||
       value.expectedLoopRevision !== expected.loopRevision) return undefined;
+  if (value.kind === "control-studio.declared-root.run" && (Object.keys(value.payload).length === 0 ||
+      (Object.keys(value.payload).join(",") === "selectedValue" && typeof value.payload.selectedValue === "number" && Number.isFinite(value.payload.selectedValue)))) {
+    return { action: "declared-root", messageId: value.messageId,
+      ...(typeof value.payload.selectedValue === "number" ? { selectedValue: value.payload.selectedValue } : {}) };
+  }
+  if (value.kind === "control-studio.identify.edit" && Object.keys(value.payload).length === 1) {
+    const form = decodeIdentificationFormDraft(value.payload.form);
+    if (form) return { action: "identify-edit", messageId: value.messageId, form };
+  }
+  if (value.kind === "control-studio.identify.choose-structure" && Object.keys(value.payload).join(",") === "choice"
+    && ["first_order", "additional_lag"].includes(String(value.payload.choice))) {
+    return { action: "identify-choose-structure", messageId: value.messageId, choice: value.payload.choice as import("./sensorLagComparison").StructureChoice };
+  }
+  if (value.kind === "control-studio.identify.run" && Object.keys(value.payload).sort().join(",") === "model,stepResponseSettings"
+    && ["fopdt", "sopdt"].includes(String(value.payload.model)) && validStepResponseSettings(value.payload.stepResponseSettings)) {
+    return { action: "identify-qualify", messageId: value.messageId, model: String(value.payload.model), stepResponseSettings: value.payload.stepResponseSettings };
+  }
   if (value.kind === "control-studio.identify.run" && Object.keys(value.payload).join(",") === "model" && identificationModel(value.payload.model)) {
     return { action: "identify-qualify", messageId: value.messageId, model: value.payload.model };
   }
@@ -144,6 +195,9 @@ export function decodeEngineeringCommand(value: unknown, expected: LoopMessageSc
   if (value.kind === "control-studio.identify.fit" && Object.keys(value.payload).length === 0) {
     return { action: "identify-fit", messageId: value.messageId };
   }
+  if (value.kind === "control-studio.identify.cancel" && Object.keys(value.payload).length === 0) {
+    return { action: "identify-cancel", messageId: value.messageId };
+  }
   if (value.kind === "control-studio.identify.accept" && Object.keys(value.payload).length === 0) {
     return { action: "identify-accept", messageId: value.messageId };
   }
@@ -154,9 +208,11 @@ export function decodeEngineeringCommand(value: unknown, expected: LoopMessageSc
       objective: value.payload.objective as AutomaticTuneObjective };
   }
   if (value.kind === "control-studio.tune.run" && Object.keys(value.payload).sort().join(",") === "method,settings" &&
-      (value.payload.method === "Manual" || value.payload.method === "Imported") && controlPidSettings(value.payload.settings)) {
+      (value.payload.method === "Manual" || value.payload.method === "Imported")) {
+    const settings = validateControlPidSettings(value.payload.settings);
+    if (!settings.ok) return undefined;
     return { action: "tune-settings", messageId: value.messageId, method: value.payload.method,
-      settings: value.payload.settings };
+      settings: settings.value };
   }
   if (value.kind === "control-studio.validate.run" && Object.keys(value.payload).length === 0) {
     return { action: "validate", messageId: value.messageId };
@@ -171,18 +227,6 @@ function identificationModel(value: unknown): value is string {
 function excludedInterval(value: unknown): boolean {
   return record(value) && Object.keys(value).sort().join(",") === "endSeconds,startSeconds" &&
     finite(value.startSeconds) && finite(value.endSeconds) && value.startSeconds >= 0 && value.endSeconds >= value.startSeconds;
-}
-
-function controlPidSettings(value: unknown): value is ControlPidParameters {
-  if (!record(value) || Object.keys(value).sort().join(",") !== [
-    "antiWindup", "bias", "derivativeGain", "derivativeSetpointWeight", "integralGain",
-    "outputMaximum", "outputMinimum", "proportionalGain", "proportionalSetpointWeight",
-    "rateMaximum", "rateMinimum", "trackingTime",
-  ].sort().join(",")) return false;
-  return ["proportionalGain", "integralGain", "derivativeGain", "proportionalSetpointWeight",
-    "derivativeSetpointWeight", "bias", "outputMinimum", "outputMaximum", "rateMinimum",
-    "rateMaximum", "trackingTime"].every((key) => typeof value[key] === "number" && Number.isFinite(value[key])) &&
-    (value.antiWindup === "BackCalculation" || value.antiWindup === "Combined");
 }
 
 function positiveInteger(value: unknown): value is number {
@@ -267,13 +311,34 @@ export type ControlExperimentCommand =
   | {
       action: "review";
       messageId: string;
-      kind: ControlExperimentKind;
+      kind: ControlExperimentRequestKind;
       amplitude: number;
       durationSeconds: number;
       physicalTopologyReviewed: boolean;
-    }
+  }
   | { action: "approve"; messageId: string; planId: string; physicalApproved: boolean }
-  | { action: "abort"; messageId: string; experimentId: string };
+  | { action: "abort"; messageId: string; experimentId: string }
+  | { action: "calculate-relay"; messageId: string };
+
+export type AntiWindupCommand =
+  | { action: "review"; messageId: string; trackingTimeSeconds: number }
+  | { action: "stage" | "verify" | "rollback"; messageId: string };
+
+export function decodeAntiWindupCommand(value: unknown, expected: LoopMessageScope): AntiWindupCommand | undefined {
+  if (!record(value) || JSON.stringify(value).length > 16_000 || !record(value.payload) ||
+      Object.keys(value).sort().join(",") !== "editorSessionId,expectedLoopRevision,kind,loopId,messageId,payload,projectId,schemaVersion" ||
+      value.schemaVersion !== 1 || !nonempty(value.messageId) || value.projectId !== expected.projectId ||
+      value.editorSessionId !== expected.editorSessionId || value.loopId !== expected.loopId || value.expectedLoopRevision !== expected.loopRevision) return undefined;
+  if (value.kind === "control-studio.anti-windup.review" && Object.keys(value.payload).join(",") === "trackingTimeSeconds" &&
+      finite(value.payload.trackingTimeSeconds) && value.payload.trackingTimeSeconds > 0) {
+    return { action: "review", messageId: value.messageId, trackingTimeSeconds: value.payload.trackingTimeSeconds };
+  }
+  if ((value.kind === "control-studio.anti-windup.stage" || value.kind === "control-studio.anti-windup.verify" || value.kind === "control-studio.anti-windup.rollback") &&
+      Object.keys(value.payload).length === 0) {
+    return { action: value.kind.endsWith("stage") ? "stage" : value.kind.endsWith("verify") ? "verify" : "rollback", messageId: value.messageId };
+  }
+  return undefined;
+}
 
 export function decodeControlExperimentCommand(
   value: unknown,
@@ -316,12 +381,15 @@ export function decodeControlExperimentCommand(
       Object.keys(payload).join(",") === "experimentId" && nonempty(payload.experimentId)) {
     return { action: "abort", messageId: value.messageId, experimentId: payload.experimentId };
   }
+  if (value.kind === "control-studio.relay.calculate" && Object.keys(payload).length === 0) {
+    return { action: "calculate-relay", messageId: value.messageId };
+  }
   return undefined;
 }
 
-function experimentKind(value: unknown): value is ControlExperimentKind {
+function experimentKind(value: unknown): value is ControlExperimentRequestKind {
   return typeof value === "string" && [
-    "observation", "setpoint_step", "load_step", "mv_step", "mv_pulse",
+    "automatic", "observation", "setpoint_step", "load_step", "mv_step", "mv_pulse",
     "relay", "prbs", "multisine", "output_step",
   ].includes(value);
 }
@@ -494,7 +562,8 @@ function loopMonitorSample(value: unknown): value is LoopMonitorSample {
       "availability,loopId,reason,source";
   }
   if (value.availability !== "available") return false;
-  return revision(value.loopRevision) && record(value.controller) &&
+  return (value.runtimeSessionId === undefined || nonempty(value.runtimeSessionId) && value.runtimeSessionId.length <= 256) &&
+    revision(value.loopRevision) && record(value.controller) &&
     nonempty(value.controller.instance) && revision(value.controller.revision) &&
     ["Auto", "Manual", "Unavailable"].includes(String(value.controller.mode)) &&
     nonnegativeInteger(value.scan) && finite(value.observedAtMs) &&
@@ -552,4 +621,35 @@ function nonnegativeInteger(value: unknown): value is number {
 
 function unsignedDecimal(value: unknown): value is string {
   return typeof value === "string" && /^(0|[1-9][0-9]*)$/.test(value);
+}
+
+export function decodeLoopReady(value: unknown, expected: LoopMessageScope): boolean {
+  if (!record(value) || !record(value.payload)) return false;
+  return Object.keys(value).sort().join(",") ===
+      "editorSessionId,expectedLoopRevision,kind,loopId,messageId,payload,projectId,schemaVersion" &&
+    value.schemaVersion === 1 && value.kind === "control-studio.ready" &&
+    typeof value.messageId === "string" && value.messageId.length > 0 &&
+    value.projectId === expected.projectId && value.editorSessionId === expected.editorSessionId &&
+    value.loopId === expected.loopId && value.expectedLoopRevision === expected.loopRevision &&
+    Object.keys(value.payload).length === 0;
+}
+
+export function decodeMimoAnalysisCommand(value: unknown, expected: LoopMessageScope):
+  { messageId: string; recordingId: string; trials: readonly MimoSettledTrial[]; maximumUnexcitedInputDrift?: number } | undefined {
+  if (!record(value) || !record(value.payload) || Object.keys(value).sort().join(",") !== "editorSessionId,expectedLoopRevision,kind,loopId,messageId,payload,projectId,schemaVersion" || value.schemaVersion !== 1 || value.kind !== "control-studio.mimo.analyze" ||
+      !nonempty(value.messageId) || value.projectId !== expected.projectId || value.editorSessionId !== expected.editorSessionId ||
+      value.loopId !== expected.loopId || value.expectedLoopRevision !== expected.loopRevision ||
+      !nonempty(value.payload.recordingId) || !Array.isArray(value.payload.trials) || value.payload.trials.length === 0 ||
+      !value.payload.trials.every(mimoTrial)) return undefined;
+  if (Object.keys(value.payload).some(key => !["recordingId", "trials", "maximumUnexcitedInputDrift"].includes(key)) ||
+      value.payload.maximumUnexcitedInputDrift !== undefined && (!finite(value.payload.maximumUnexcitedInputDrift) || value.payload.maximumUnexcitedInputDrift < 0)) return undefined;
+  return { messageId: value.messageId, recordingId: value.payload.recordingId, trials: value.payload.trials,
+    ...(value.payload.maximumUnexcitedInputDrift === undefined ? {} : { maximumUnexcitedInputDrift: value.payload.maximumUnexcitedInputDrift }) };
+}
+
+function mimoTrial(value: unknown): value is MimoSettledTrial {
+  return record(value) && nonempty(value.inputId) && mimoWindow(value.baseline) && mimoWindow(value.settled);
+}
+function mimoWindow(value: unknown): value is { startSeconds: number; endSeconds: number } {
+  return record(value) && finite(value.startSeconds) && finite(value.endSeconds) && value.startSeconds < value.endSeconds;
 }

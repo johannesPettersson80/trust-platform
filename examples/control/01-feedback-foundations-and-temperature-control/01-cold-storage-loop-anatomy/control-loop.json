@@ -1,16 +1,15 @@
 {
   "schemaVersion": 1,
   "topology": "open-loop",
-  "id": "control-cold-storage-loop-anatomy",
-  "name": "Understand a control loop in a cold-storage room",
-  "revision": "sha256:0a0cb2c41ce380dbaa641fee60f18ef8dfc83c161ba0d31d56fc484a8e64275a",
-  "projectId": "project:control-cold-storage-loop-anatomy",
+  "id": "control-lesson-01",
+  "name": "Identify the signals in a cold-room experiment",
+  "projectId": "project:control-lesson-01",
   "runtimeId": "simulator",
   "controller": {
     "instance": "P1",
     "type": "ManualLoopObservation",
     "design": "project",
-    "revision": "sha256:5b76ba27224fe13ada4e3bd25bcb38e31ae20771a5814b49d42e217bb4e2b150",
+    "revision": "sha256:a70485ed3b7e15f790e8091d1fc756a0c4e821a240e9ed7575e24c5349f2780a",
     "action": "reverse",
     "taskPeriodMs": 100
   },
@@ -34,7 +33,7 @@
       "unit": "%",
       "range": {
         "minimum": 0,
-        "maximum": 150
+        "maximum": 100
       }
     },
     "actuator": {
@@ -92,8 +91,8 @@
         }
       },
       {
-        "id": "experiment-authority",
-        "channel": "experiment-authority",
+        "id": "experiment-enabled",
+        "channel": "experiment-enabled",
         "role": "state",
         "symbol": "P1.ExperimentEnabled",
         "address": "%MX24.0",
@@ -109,12 +108,12 @@
   },
   "limits": {
     "outputMinimum": 0,
-    "outputMaximum": 150
+    "outputMaximum": 100
   },
   "observedSampleTiming": {
     "nominalPeriodMs": 100
   },
-  "plantId": "first_order",
+  "plantId": "cold-storage-room",
   "operatingPoint": "PV 4, MV 0",
   "experiment": {
     "execution": "project-scripted",
@@ -128,5 +127,6 @@
       "iecType": "BOOL",
       "direction": "write"
     }
-  }
+  },
+  "revision": "sha256:407cf34251d3d92768cd651389fbc8b09c2d255783195901ac08887fc1838cfe"
 }

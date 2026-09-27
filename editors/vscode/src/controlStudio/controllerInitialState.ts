@@ -1,0 +1,100 @@
+import type { ControlLoopDefinition } from "./loopDefinition";
+import type { GeneralModel } from "./generalModel";
+import { roundedTransferValue, type TransferMember } from "./proportionalTransfer";
+import { connectedModelChannels } from "./loopChannels";
+
+export type ControllerInitialValue = number
+  | { source: "model-input" | "model-output" | "model-state" | "model-input-is"; index: number; value?: number }
+  | { source: "pid-integral"; index: number; inputIndex: number; gainSymbol: string; weightSymbol?: string; weight?: number }
+  | { source: "weighted-error"; index: number; weightSymbol?: string; weight?: number }
+  | { source: "notch-history"; index: number; denominatorSymbols: readonly [string, string] };
+
+export interface ControllerInitialization {
+  kind: "declared-state-v1";
+  states: readonly (TransferMember & {
+    initial: ControllerInitialValue;
+    postScan: "unchanged" | "bounded";
+  })[];
+}
+export function decodeControllerInitialization(value: unknown): ControllerInitialization | undefined {
+  if (!record(value) || value.kind !== "declared-state-v1" || !Array.isArray(value.states) || value.states.length > 32) return undefined;
+  const names = new Set<string>();
+  for (const state of value.states) {
+    if (!record(state) || typeof state.symbol !== "string" || !state.symbol || names.has(state.symbol)
+      || !["REAL", "LREAL", "BOOL"].includes(String(state.iec_type)) || typeof state.unit !== "string" || !state.unit
+      || !finite(state.minimum) || !finite(state.maximum) || state.minimum > state.maximum
+      || !["unchanged", "bounded"].includes(String(state.postScan))) return undefined;
+    if (state.iec_type === "BOOL" && (state.unit !== "1" || state.minimum !== 0 || state.maximum !== 1)) return undefined;
+    const initial = state.initial;
+    if (!finite(initial)) {
+      if (!record(initial) || !["model-input", "model-output", "model-state", "model-input-is", "pid-integral", "weighted-error", "notch-history"].includes(String(initial.source))
+        || !Number.isSafeInteger(initial.index) || (initial.index as number) < 0) return undefined;
+      if (initial.source === "model-input-is" && !finite(initial.value)) return undefined;
+      if (initial.source === "pid-integral" && (!Number.isSafeInteger(initial.inputIndex) || (initial.inputIndex as number) < 0 || typeof initial.gainSymbol !== "string" || !initial.gainSymbol)) return undefined;
+      if (["pid-integral", "weighted-error"].includes(String(initial.source)) && (initial.weight !== undefined && !finite(initial.weight)
+        || initial.weightSymbol !== undefined && (typeof initial.weightSymbol !== "string" || !initial.weightSymbol)
+        || initial.weight !== undefined && initial.weightSymbol !== undefined)) return undefined;
+      if (initial.source === "notch-history" && (!Array.isArray(initial.denominatorSymbols) || initial.denominatorSymbols.length !== 2
+        || !initial.denominatorSymbols.every(symbol => typeof symbol === "string" && !!symbol))) return undefined;
+    }
+    names.add(state.symbol);
+  }
+  return structuredClone(value) as unknown as ControllerInitialization;
+}
+export function initializationValues(loop: ControlLoopDefinition, model: GeneralModel, definition: ControllerInitialization, parameters: Readonly<Record<string, number>> = {}): Record<string, number> {
+  return Object.fromEntries(definition.states.map(state => {
+    const initial = state.initial;
+    let value: number;
+    if (typeof initial === "number") value = initial;
+    else if (["pid-integral", "weighted-error", "notch-history"].includes(initial.source)) {
+      if (initial.source === "pid-integral" || initial.source === "weighted-error" || initial.source === "notch-history") {
+        const output = model.outputs[initial.index];
+        if (!output) throw new Error(`Initialization output for ${state.symbol} is unavailable.`);
+        const parameter = (symbol: string) => {
+          const binding = loop.parameterBinding?.parameters.find(parameter => parameter.symbol === symbol);
+          const value = parameters[symbol];
+          if (!binding || !Number.isFinite(value)) throw new Error(`Initialization parameter ${symbol} is not available.`);
+          return value;
+        };
+        const process = model.operatingPoint?.outputs[initial.index] ?? 0;
+        if (initial.source === "pid-integral") {
+          if (state.unit !== model.inputs[initial.inputIndex]?.unit) throw new Error("Integral initialization must use the actuator coordinate unit.");
+          const weight = initial.weightSymbol ? parameter(initial.weightSymbol) : initial.weight ?? 1;
+          value = (model.operatingPoint?.inputs[initial.inputIndex] ?? 0) - parameter(initial.gainSymbol) * (weight - 1) * process;
+        } else {
+          if (state.unit !== output.unit) throw new Error("Filter/error history must use the process coordinate unit.");
+          value = initial.source === "weighted-error" ? ((initial.weightSymbol ? parameter(initial.weightSymbol) : initial.weight ?? 0) - 1) * process
+            : process / (1 + parameter(initial.denominatorSymbols[0]) + parameter(initial.denominatorSymbols[1]));
+        }
+      } else throw new Error("Unknown controller initialization formula.");
+    }
+    else if (initial.source === "model-input-is") {
+      const input = connectedModelChannels(loop, model).inputs[initial.index];
+      if (!input || initial.value === undefined || !Number.isFinite(initial.value)
+        || initial.value < input.signal.range.minimum || initial.value > input.signal.range.maximum || state.unit !== "1") {
+        throw new Error(`Boolean operating-point initialization is incompatible with ${state.symbol}.`);
+      }
+      value = Number((model.operatingPoint?.inputs[initial.index] ?? 0) === initial.value);
+    } else {
+      const channels = initial.source === "model-input" ? model.inputs : initial.source === "model-output" ? model.outputs
+        : model.kind === "transfer-function" ? [] : model.states;
+      const index = initial.source === "model-input" || initial.source === "model-output"
+        ? controllerModelIndex(loop, model, initial.source, initial.index) : initial.index;
+      if (!channels[index] || channels[index].unit !== state.unit) throw new Error(`Initialization coordinates/units do not match ${state.symbol}.`);
+      value = initial.source === "model-input" ? model.operatingPoint?.inputs[index] ?? 0
+        : initial.source === "model-output" ? model.operatingPoint?.outputs[index] ?? 0
+        : loop.channels?.initialState?.[index] ?? 0;
+    }
+    return [state.symbol, roundedTransferValue(state, value)];
+  }));
+}
+/** Group state declarations retain their channel identities when a model orders channels differently. */
+export function controllerModelIndex(loop: ControlLoopDefinition, model: GeneralModel,
+  source: "model-input" | "model-output", index: number): number {
+  if (!loop.controller.group) return index;
+  const declared = source === "model-input" ? loop.channels?.inputs : loop.channels?.outputs;
+  const channels = source === "model-input" ? model.inputs : model.outputs;
+  return channels.findIndex(channel => channel.id === declared?.[index]?.modelChannelId);
+}
+function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }
+function finite(value: unknown): value is number { return typeof value === "number" && Number.isFinite(value); }

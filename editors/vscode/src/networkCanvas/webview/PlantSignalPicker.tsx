@@ -10,17 +10,19 @@ import { validateManualPlantSignalAddress } from "../plant/signalCatalog";
 export function PlantSignalPicker({
   catalog,
   usedFeedbackTargets,
-  commandSource,
-  feedbackTarget,
+  commandSources,
+  feedbackTargets,
+  labels,
   onCommandSource,
   onFeedbackTarget,
 }: {
   catalog: PlantSignalCatalog;
   usedFeedbackTargets: readonly string[];
-  commandSource?: string;
-  feedbackTarget?: string;
-  onCommandSource: (address: string) => void;
-  onFeedbackTarget: (address: string) => void;
+  commandSources: readonly string[];
+  feedbackTargets: readonly string[];
+  labels: { commands: string[]; feedbacks: string[] };
+  onCommandSource: (index: number, address: string) => void;
+  onFeedbackTarget: (index: number, address: string) => void;
 }) {
   if (catalog.status === "compile_error") {
     return (
@@ -32,28 +34,32 @@ export function PlantSignalPicker({
   return (
     <div style={{ display: "grid", gap: 9, marginTop: 7 }}>
       <div className="trust-help">%Q command → plant → %I feedback</div>
-      <SignalSelect
-        name="plant-command-source"
-        label="Command / PLC output"
+      {labels.commands.map((label, index) => <SignalSelect
+        key={`command-${index}`}
+        name={`plant-command-source${index === 0 ? "" : `-${index}`}`}
+        label={label}
+        portIndex={index}
         direction="%Q → plant"
         signalDirection="command"
         candidates={catalog.commands}
         catalog={catalog}
         usedFeedbackTargets={usedFeedbackTargets}
-        value={commandSource}
-        onChange={onCommandSource}
-      />
-      <SignalSelect
-        name="plant-feedback-target"
-        label="Feedback / PLC input"
+        value={commandSources[index]}
+        onChange={(address) => onCommandSource(index, address)}
+      />)}
+      {labels.feedbacks.map((label, index) => <SignalSelect
+        key={`feedback-${index}`}
+        name={`plant-feedback-target${index === 0 ? "" : `-${index}`}`}
+        label={label}
+        portIndex={index}
         direction="plant → %I"
         signalDirection="feedback"
         candidates={catalog.feedbacks}
         catalog={catalog}
-        usedFeedbackTargets={usedFeedbackTargets}
-        value={feedbackTarget}
-        onChange={onFeedbackTarget}
-      />
+        usedFeedbackTargets={[...usedFeedbackTargets, ...feedbackTargets.filter((_, other) => other !== index)]}
+        value={feedbackTargets[index]}
+        onChange={(address) => onFeedbackTarget(index, address)}
+      />)}
     </div>
   );
 }
@@ -63,6 +69,7 @@ function SignalSelect({
   label,
   direction,
   signalDirection,
+  portIndex,
   candidates,
   catalog,
   usedFeedbackTargets,
@@ -73,6 +80,7 @@ function SignalSelect({
   label: string;
   direction: string;
   signalDirection: PlantSignalDirection;
+  portIndex: number;
   candidates: readonly PlantSignalCandidate[];
   catalog: PlantSignalCatalog;
   usedFeedbackTargets: readonly string[];
@@ -136,6 +144,8 @@ function SignalSelect({
         ref={selectRef}
         id={`${name}-select`}
         name={name}
+        data-plant-port-direction={signalDirection}
+        data-plant-port-index={portIndex}
         value={value ?? ""}
         aria-invalid={Boolean(manualError)}
         aria-describedby={manualError ? `${name}-error` : undefined}

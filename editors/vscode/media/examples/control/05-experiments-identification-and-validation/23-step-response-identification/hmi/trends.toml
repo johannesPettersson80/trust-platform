@@ -1,0 +1,6 @@
+title = "Trends"
+icon = "line-chart"
+order = 50
+kind = "trend"
+duration_s = 600
+signals = ["P1.AbortReason", "P1.AppliedValve", "P1.BaselineFirst", "P1.BaselineMaximum", "P1.BaselineMinimum", "P1.BaselineRange", "P1.BaselineSlope", "P1.PredictedFinalTemperature", "P1.EstimatedDelay", "P1.EstimatedGain", "P1.EstimatedTimeConstant", "P1.OutletTemperature"]

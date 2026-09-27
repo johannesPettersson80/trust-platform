@@ -1,0 +1,6 @@
+title = "Trends"
+kind = "trend"
+icon = "line-chart"
+order = 50
+duration_s = 600
+signals = ["P1.InletFlow", "P1.NetFlow", "P1.NetFlowCommand", "P1.OutletFlow", "P1.PredictedLevelAfterTenSeconds", "P1.PredictedLevelRate", "P1.TankArea", "P1.TankLevel"]

@@ -1,0 +1,24 @@
+@startuml
+participant "Control Studio" as Studio
+participant "Viewer signal handler" as Handler
+participant "Compiled metadata + session identity" as Identity
+participant "One bounded inspection watch" as Watch
+participant "Native end-of-scan publisher" as Scan
+participant "Actual variable storage + I/O image" as Storage
+participant "Bounded recording registry" as Records
+Studio -> Handler: inspect(loop revision, exact typed selectors)
+Handler -> Identity: Validate program/bindings
+Handler -> Watch: Replace watch by exact identity
+Watch --> Studio: pending until actual scan
+Scan -> Storage: Read selected fields and addresses coherently
+Scan -> Watch: Numeric values, type/missing/force quality, timestamp
+Watch --> Studio: Genuine scan and exact selectors
+Studio -> Records: start(selectors, inspected program revision)
+loop Actual runtime scans
+Scan -> Records: Same coherent selected values and per-channel quality
+end
+Studio -> Records: stop(recording identity)
+Records --> Studio: Scan coverage + separately qualified channels
+Identity -> Watch: Invalidate on reattach/restart/bytecode reload
+Identity -> Records: Interrupt retained old-program evidence
+@enduml

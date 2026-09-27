@@ -64,6 +64,7 @@ crossbeam-channel.workspace = true
 tokio = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
+nix = { version = "=0.27.1", default-features = false, features = ["resource"] }
 ethercrab = { version = "0.6", optional = true }
 # OpenOT Rust crates are pinned so fresh source builds do not need a sibling
 # checkout. scripts/checkout_openot_ref.sh is still used for OpenOT IEC example

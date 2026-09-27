@@ -1,0 +1,65 @@
+title = "Overview"
+icon = "activity"
+order = 0
+
+[[section]]
+title = "Status"
+span = 12
+tier = "status"
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.ExperimentEnabled"
+inferred_interface = true
+label = "Experiment Enabled"
+span = 2
+
+[[section]]
+title = "Details"
+span = 12
+tier = "detail"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.AppliedTorque"
+inferred_interface = true
+label = "Applied Torque"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.DrivePosition"
+inferred_interface = true
+label = "Drive Position"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.ElapsedSeconds"
+inferred_interface = true
+label = "Elapsed Seconds"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.NaturalFrequencyHz"
+inferred_interface = true
+label = "Natural Frequency HZ"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.RequestedTorque"
+inferred_interface = true
+label = "Requested Torque"
+span = 3
+min = 0
+max = 100

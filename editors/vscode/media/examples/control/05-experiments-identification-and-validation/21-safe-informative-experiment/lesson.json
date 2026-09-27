@@ -1,0 +1,298 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-21",
+  "title": "Identification experiments",
+  "level": "Identification",
+  "sequence": 14,
+  "equipment": "Water heater",
+  "physicalPurpose": "Choose operating point, command step, duration, measurement conditions and stopping limits. Establish a repeatable baseline and retain the applied-input record.",
+  "principalTechnique": "Identification experiments",
+  "objective": "Choose operating point, command step, duration, measurement conditions and stopping limits. Establish a repeatable baseline and retain the applied-input record.",
+  "prerequisites": [
+    "control-water-heater-energy-balance"
+  ],
+  "nextLesson": "control-lesson-23",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
+      "minimum": 33,
+      "maximum": 39,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX64.0"
+    },
+    {
+      "role": "state",
+      "name": "Safety abort",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX64.1"
+    },
+    {
+      "role": "state",
+      "name": "Proposed command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%MD0"
+    },
+    {
+      "role": "state",
+      "name": "Predicted final temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%MD4"
+    },
+    {
+      "role": "state",
+      "name": "Baseline range",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%MD8"
+    },
+    {
+      "role": "state",
+      "name": "Baseline slope",
+      "unit": "degC/s",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%MD12"
+    },
+    {
+      "role": "state",
+      "name": "Baseline qualified",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX64.2"
+    },
+    {
+      "role": "state",
+      "name": "Experiment active",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX64.3"
+    },
+    {
+      "role": "state",
+      "name": "Start rejected",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX64.4"
+    },
+    {
+      "role": "quality",
+      "name": "Measurement quality",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 65535,
+      "resolution": 1,
+      "binding": "%IW16"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-lesson-14",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 35,
+      "delayedInputPct": 75
+    },
+    "seed": 20260829,
+    "simplifications": [
+      "Local heater model with initial temperature35 °C and command75%.",
+      "Nominal coefficients are supplied simulation values, not accepted learner estimates.",
+      "Simulation-only process I/O;100ms samples.",
+      "The provided baseline collector uses51actual samples at the configured100ms period. Captured timestamps still require review. Quality code1 is good; other codes are bad."
+    ],
+    "operatingPoint": {
+      "Measured temperature": 35,
+      "Applied heating command": 75,
+      "Experiment authority": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 33,
+        "maximum": 39,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 75,
+      "temperatureC": 35
+    },
+    "limitation": "An unexcited record does not reveal the complete heater dynamics."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "SelectedStepPoints": 10,
+      "HoldSeconds": 30,
+      "baselineWindowSeconds": 5
+    },
+    "decision": "Use the qualified Control Studio record to answer the lesson question; do not accept supplied nominal parameters as measured results."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 35.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "temperature_operating_range",
+      "signal": "Measured temperature",
+      "window": "complete recorded experiment",
+      "comparator": "<=",
+      "limit": 80,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/12-21-models-and-tuning.md",
+    "nativeTest": "identification_experiment",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_intro_engineering identification_experiment",
+    "projectPath": "examples/control/05-experiments-identification-and-validation/21-safe-informative-experiment",
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "sampleTime",
+      "initialState",
+      "experimentConditions",
+      "modelProvenance",
+      "stopReason",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-21"
+  },
+  "learning": {
+    "context": "Choose operating point, command step, duration, measurement conditions and stopping limits. Establish a repeatable baseline and retain the applied-input record.",
+    "reason": "Lesson 13 derived the heater balance:\n\n$$\nC\\frac{dT}{dt}=2u(t-1)-10(T-20)-D.\n$$\n\nFor this teaching case, C=50 kJ/°C, full heater power is 200 kW, each command percentage point delivers 2 kW, heat loss is H=10 kW/°C toward 20 °C, the delivered heat has a distinct 1 s delay, and the nominal time constant is τ=C/H=5 s. These are supplied engineering quantities for planning. They are not measurements from the experiment you are about to run.\n\nA step that is too small can be hidden by measurement resolution. A step that is too large can move temperature outside the exercise range. A hold that is too short can end before the delayed response and approach are visible. You must balance those risks before changing the manual command.",
+    "change": "Keep the common hot initial condition:\n\n- PV = 35 °C;\n- applied manual command = 75%;\n- preceding 1 s command history = 75%;\n- measurement quality code = 1;\n- experiment authority disabled.\n\nThe command is bounded by 0–100%. For this exercise, PV has a hard acceptable range of 33–39 °C and the measurement is invalid whenever the interface marks it invalid or stops supplying a usable timestamped value. A normal experiment must begin only after a qualified baseline. A hard safety violation or invalid measurement stops the experiment; it does not automatically restore a command.\n\n1. Stop and restart Simulator. Open **Control Studio → Monitor → Signals**. Confirm measured output 35 °C, applied input 75%, measurement quality code 1, Safety abort 0 and experiment authority 0. The native plant starts with a preceding 1 s input history at 75%.\n2. Open **Test → Experiment settings → Inspect runtime parameters**. Set `SelectedStepPoints` to your chosen 5–15 points and `HoldSeconds` to your chosen 20–40 s. Use **Review values** and **Apply reviewed values**; check the observed values. The worked choice is 10 points/30 s; 12 points/25 s is another permitted choice. Close Experiment settings.\n3. Return to **Monitor → Signals** to check Qualified=1, Range≤0.05 °C and slope magnitude≤0.01 °C/s. These values come from the program's actual 51-sample window. If the baseline drifts, keep 75% and wait or restart; do not start a step from that drift.\n4. Return to **Test**. Set **Maximum duration** to 5 s baseline + your hold + 0.1 s restoration: 35.1 s for the worked 30 s hold, or 30.1 s for 25 s. Review the plan and its 5 s baseline before **Confirm and start**. The recorder first keeps the experiment disabled at 75%; after 5 s the existing project checks qualification again and applies the chosen step. Keep the complete baseline and response together in this native recording.\n5. Treat the observed applied-input step inside the record as response time zero. Compare its actual amplitude and duration with your choice; Proposal and Prediction are planning values, not measured temperature. The five seconds immediately preceding that step must meet the baseline range/slope conditions.\n6. Use **Abort test** if PV leaves 33–39 °C, applied input leaves 0–100%, quality becomes invalid, or timestamps stop advancing. A measurement fault latches Safety abort and commands 0%; valid feedback does not clear it. An ordinary operator abort disables the experiment and restores 75% while measurements remain valid. Stop Simulator if it is unresponsive.\n7. Normal completion restores 75%. Open **Validate → Save result**, then **Saved results → select the revision → Open**. Use Recorded Response, Signals and Samples to inspect baseline, applied step, PV and terminal restoration. Keep the measured record for the next lesson. Restart and reapply your reviewed parameter values before repeating; a fault requires this fresh start and baseline qualification.",
+    "transfer": "We now have an informative applied-command and temperature record, but it\ndoes not label the model parameters for us.\n[Step-response identification](../23-step-response-identification/README.md)\nuses that record to estimate gain, delay and time constant with uncertainty.",
+    "theory": [
+      "An **identification experiment** deliberately changes a process input to obtain\nmeasurements from which we can estimate a model. Here we use a **step test**:\nchange applied heater power once, hold it, and observe how far and how quickly\ntemperature moves. PI stays inactive so it does not keep changing that input.\n\nWe first need a steady starting condition. Otherwise an existing temperature\ndrift could be mistaken for the effect of our step.\n\nQualify the baseline before choosing the step. Use a five-second pre-step window, from −5 s through 0 s where zero is the command-step time. Require every valid PV sample to remain within 35±.05 °C, the maximum minus minimum range to be at most .05 °C, and the finite-window slope to be at most .01 °C/s in magnitude. Define that slope as:\n\n$$\n\\text{window slope}=\\frac{T_{last}-T_{first}}{t_{last}-t_{first}}.\n$$\n\nThe range checks short-term spread; the slope checks drift. Both are needed. A record from 35.00 °C to 35.06 °C over 5 s has slope .012 °C/s and fails even though its change is small. If the reading is valid and within 33–39 °C but the baseline still drifts, keep the manual command at 75% and wait or reset; do not attribute later motion to the step.\n\nChoose a positive command step of 5–15 percentage points, staying within 0–100%. The model predicts the final temperature from T_eq=20+.2u when D=0. A 5-point step from 75% predicts 36 °C, a 10-point step predicts 37 °C, and a 15-point step predicts 38 °C. The worked 10-point choice therefore has a predicted steady change of 2 °C. Immediately after its one-second delivery delay, the initial model rate at 35 °C is approximately 2(10)/50=.4 °C/s. The command change corresponds to 20 kW of extra heat. With an assumed measurement-error bound of ±0.05 °C, a 2 °C final change is easy to distinguish; a 5-point change gives only 1 °C and may be safer but less informative.\n\nChoose a hold of 20–40 s. The worked choice is 30 s: after the 1 s delay, 29 s remain, corresponding to 29/5=5.8 time constants. The nominal model completes more than 99% of its temperature change in that interval. A shorter 20 s hold reaches the delay plus nearly four time constants and uses less exposure. A longer 40 s hold reveals more of the final value but keeps the changed command applied longer. Your selected duration and amplitude must be justified by this risk/information tradeoff."
+    ],
+    "workedPrediction": "Before opening the experiment controls, write down your chosen amplitude and duration and answer:\n\n1. What applied command will result from your chosen 5–15 point increase?\n2. What final PV does T_eq=20+.2u predict for that command?\n3. What is the predicted initial rate after the 1 s delay for a 10-point step?\n4. Does your predicted change exceed the assumed ±0.05 °C measurement uncertainty by enough to identify a direction?\n5. Why does your hold cover the 1 s delay and several 5 s time constants?\n6. What observation would make you reject the record as uninformative even if no hard limit was reached?\n\nThe predictions are planning calculations. They do not replace the measured PV or establish that the supplied C, H, delay, or τ are true for other equipment.",
+    "practicalPreparation": [
+      "Open `src/Main.st` and identify the experiment's command, duration, measurement-validity and limit inputs."
+    ],
+    "baseline": "Use the declared35 °C and75% initial state; retain the actual baseline record.",
+    "comparison": "Accept the record as informative only when all of these are true:\n\n- the common hot initial state was confirmed;\n- the five-second baseline passed both range and slope rules;\n- the applied, rather than merely requested, command changed by the selected amount;\n- command and PV samples are timestamped at the .1 s experiment interval;\n- no hard PV, command, validity, or timestamp fault occurred; and\n- the hold contains data after the 1 s delay and long enough to judge the approach.\n\nThen compare the measured direction, delay, rise, and final trend with the prediction. Do not insert the nominal 36, 37, or 38 °C final value into the evidence if the record differs. A record can be safe but uninformative when the PV remains within baseline noise, the command step is not applied, or the hold ends before the delayed response can be distinguished. Record that decision and redesign amplitude or duration rather than silently extending the record after seeing it.",
+    "validation": "Accept the record as informative only when all of these are true:\n\n- the common hot initial state was confirmed;\n- the five-second baseline passed both range and slope rules;\n- the applied, rather than merely requested, command changed by the selected amount;\n- command and PV samples are timestamped at the .1 s experiment interval;\n- no hard PV, command, validity, or timestamp fault occurred; and\n- the hold contains data after the 1 s delay and long enough to judge the approach.\n\nThen compare the measured direction, delay, rise, and final trend with the prediction. Do not insert the nominal 36, 37, or 38 °C final value into the evidence if the record differs. A record can be safe but uninformative when the PV remains within baseline noise, the command step is not applied, or the hold ends before the delayed response can be distinguished. Record that decision and redesign amplitude or duration rather than silently extending the record after seeing it.",
+    "explanation": "A useful step test changes one known input from a qualified steady condition.\nThe model helps us choose a bounded amplitude and duration; the actual\napplied-command and temperature record provides the data for identification."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 33,
+        "maximum": 39,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves0–80 °C or applied command leaves0–100%"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Normal completion restores75%. A latched fault forces zero; valid PV alone cannot restore heat. Explicitly restart and requalify before a repeat.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Choose operating point, command step, duration, measurement conditions and stopping limits. Establish a repeatable baseline and retain the applied-input record.",
+    "requiredVisibleEvidence": [
+      "Heater model and initial state",
+      "Applied command and temperature record",
+      "Required Control Studio analysis",
+      "Declared uncertainty and decision",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

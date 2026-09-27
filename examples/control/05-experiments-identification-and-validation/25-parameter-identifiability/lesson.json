@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-25",
+  "title": "Identifiability",
+  "level": "Identification",
+  "sequence": 17,
+  "equipment": "Water heater",
+  "physicalPurpose": "Explain practical and structural parameter ambiguity. Choose additional excitation, longer observation or an independent measurement for a specific reason.",
+  "principalTechnique": "Identifiability",
+  "objective": "Explain practical and structural parameter ambiguity. Choose additional excitation, longer observation or an independent measurement for a specific reason.",
+  "prerequisites": [
+    "control-lesson-24"
+  ],
+  "nextLesson": "control-lesson-26",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured probe temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Water temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Ideal probe temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Measurement error",
+      "unit": "degC",
+      "minimum": -0.05,
+      "maximum": 0.05,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-lesson-17",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "probe_time_constant",
+        "value": 2,
+        "unit": "s"
+      },
+      {
+        "name": "absolute_measurement_error_bound",
+        "value": 0.05,
+        "unit": "degC"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 35
+    },
+    "seed": 20260829,
+    "simplifications": [
+      "Local heater model with initial temperature35 °C and command75%.",
+      "Nominal coefficients are supplied simulation values, not accepted learner estimates.",
+      "Simulation-only process I/O;100ms samples.",
+      "Native state-space plant owns the probe state and bounded measurement error; water, ideal-probe and measurement-error signals are diagnostics, not learner fitted values."
+    ],
+    "operatingPoint": {
+      "Measured probe temperature": 35,
+      "Applied heating command": 75,
+      "Experiment authority": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Measured probe temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 75,
+      "temperatureC": 35
+    },
+    "limitation": "An unexcited record does not reveal the complete heater dynamics."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 85,
+      "durationSeconds": 40
+    },
+    "decision": "Use the qualified Control Studio record to answer the lesson question; do not accept supplied nominal parameters as measured results."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 40.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "temperature_operating_range",
+      "signal": "Measured probe temperature",
+      "window": "complete recorded experiment",
+      "comparator": "<=",
+      "limit": 80,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/12-21-models-and-tuning.md",
+    "nativeTest": "lesson17",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_design lesson17",
+    "projectPath": "examples/control/05-experiments-identification-and-validation/25-parameter-identifiability",
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "sampleTime",
+      "initialState",
+      "experimentConditions",
+      "modelProvenance",
+      "stopReason",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-25"
+  },
+  "learning": {
+    "context": "Explain practical and structural parameter ambiguity. Choose additional excitation, longer observation or an independent measurement for a specific reason.",
+    "reason": "Gain and time constant can trade off in an early response. A short record may show the same initial slope for different $K,\\tau$ pairs, while a long record may separate their final temperatures. Structural ambiguity is different: two hidden physical lags can produce exactly the same measured response, so more of the same sensor record cannot assign their origins.",
+    "change": "The calculation exercise and the Control Studio record answer different questions. The calculations use explicit local hypotheses at 1 s and 10 s; the Control Studio fit uses measured samples and its retained first-order reference. Do not present the calculated values as measured evidence.\n\n1. Return to the Lesson 16 project using **File → Open Recent** or **File → Open Folder…**. In **Control Studio → Validate → Saved results**, select its saved comparison and choose **Open**, then return to **Identify**. This lesson inspects that existing study; no new import, fit or heater command is needed.\n2. Use **Fit** and **Residuals** to inspect the measured record and retained predictions. Expand **Parameters and uncertainty** and read the parameter ranges, consistent-set counts and search-boundary warnings. These ranges describe the searched models and bounds; a narrow search alone cannot rule out alternatives it never included.\n3. Relate the worked calculations to the record's duration and uncertainty. The two fixed first-order hypotheses differ by about 0.018 °C at 1 s and 0.799 °C at 10 s after delay. Compare those differences with the 0.1 °C combined bound, then ask whether the actual record covers informative times. The plotted Lesson 16 A/B are different structures, not those two fixed worked hypotheses. The retained 0.2 °C peak and 0.1 °C final model-error limits also remain separate from measurement uncertainty.\n4. Distinguish practical ambiguity from structural ambiguity. A longer bounded hold or different excitation can separate K and τ when the record is too short. A fast independent water reference or known probe calibration is needed to assign two indistinguishable lags to water or probe; more samples from the same measured channel cannot do that.\n5. Record the supported ranges, rejected alternatives, physical assumptions and proposed next measurement in your lesson notes. Keep the saved study unchanged. Independent validation on unused data is Lesson 18's task.",
+    "transfer": "We can now distinguish parameters supported by the record from alternatives that remain unresolved. That does not yet show whether the retained model predicts a different command or disturbance accurately enough to guide tuning.\n\n[Model validation](../26-independent-model-validation/README.md) keeps the model and its uncertainty unchanged while testing unused records.",
+    "theory": [
+      "**Identifiability** is the ability to distinguish different model parameter\nvalues from the available inputs and measurements. A good fit does not\nnecessarily identify one unique model.\n\n**Practical ambiguity** comes from limited duration, noise or weak excitation;\nbetter observations can help. **Structural ambiguity** remains even with\nperfect data from the same input and measured output. We will see both kinds\nin the heater and sensor example.\n\nFor a delayed first-order step, $x(t')=K\\Delta u(1-e^{-t'/\\tau})$, where $t'=t-L$. When $t'\\ll\\tau$, use $e^{-t'/\\tau}\\approx1-t'/\\tau$, giving\n\n$$\nx(t')\\approx\\frac{K}{\\tau}\\Delta u\\,t'.\n$$\n\nThus early data mainly identify the ratio $K/\\tau$. Consider local hypotheses K=.2 °C/point, τ=5 s and K=.4 °C/point, τ=10 s for the same 10-point step after the same delay. At 1 s after delay, the predictions are $2(1-e^{-0.2})=0.36254$ °C and $4(1-e^{-0.1})=0.38065$ °C. Their difference is 0.01811 °C, smaller than twice the ±0.05 °C measurement-error bound. The candidates' uncertainty bands overlap at that time, so this early portion does not guarantee a distinction.\n\nAt 10 s after delay, the predictions are $2(1-e^{-2})=1.72933$ °C and $4(1-e^{-1})=2.52848$ °C, differing by 0.79915 °C. These are local curve hypotheses, not two asserted physical heater parameters. A separately known steady heat balance can reject the K=.4 candidate even when the short record cannot.\n\nA longer hold can resolve this practical ambiguity if PV bounds allow it. If the larger-gain hypothesis would end at 39 °C, choose a 5-point step when planning a new bounded experiment; its predicted difference scales with command amplitude. Structural ambiguity is different: a process lag of 5 s followed by sensor lag 2 s and a process lag 2 s followed by sensor lag 5 s give the same measured response when both start from the same zero-deviation initial states and their total gain matches. For arbitrary input v, eliminate the intermediate water state from the two lag equations. The measured deviation m obeys $\\tau_p\\tau_s\\ddot m+(\\tau_p+\\tau_s)\\dot m+m=Kv(t-L)$. Swapping 5 s and 2 s leaves both the product 10 s² and sum 7 s unchanged, so the measured input/output equation is identical. More data from that same channel cannot assign the two time constants to water or probe. A fast independent water reference or known probe calibration can."
+    ],
+    "workedPrediction": "Calculate the two candidate temperatures at 1 s and 10 s after delay. Compare their difference with the 0.1 °C combined bound. Predict how a longer hold, smaller bounded step, or independent reference changes the decision. State whether the question is practical parameter ambiguity or structural physical-origin ambiguity.",
+    "practicalPreparation": [
+      "Create or open this lesson's project and use [src/tests.st](src/tests.st) with **ST: Run All Tests**. Check the early/late prediction separation and swapped-lag calculations. Change `LateObservationS` from `10.0` to `1.0`, predict the failed late-separation check, then restore `10.0`. These are worked hypotheses, not measured-record fits."
+    ],
+    "baseline": "Use the declared35 °C and75% initial state; retain the actual baseline record.",
+    "comparison": "Declare candidates distinguishable only when prediction differences exceed the predeclared uncertainty in an informative portion of the record and the result persists under the stated sampling and window rules. A solver converging is not evidence of identifiability. If separation appears only after the record ends, report practical ambiguity and plan a longer bounded hold. If no measured channel can assign physical origins, report structural ambiguity and obtain an independent reference.\n\nCarry the retained parameter interval and ambiguity into Lesson 18. Independent validation tests the frozen alternatives on unused data; it may validate the measured input/output prediction without identifying the hidden physical origin. A claim about unmeasured water temperature still needs the independent reference or physical calibration.",
+    "validation": "Declare candidates distinguishable only when prediction differences exceed the predeclared uncertainty in an informative portion of the record and the result persists under the stated sampling and window rules. A solver converging is not evidence of identifiability. If separation appears only after the record ends, report practical ambiguity and plan a longer bounded hold. If no measured channel can assign physical origins, report structural ambiguity and obtain an independent reference.\n\nCarry the retained parameter interval and ambiguity into Lesson 18. Independent validation tests the frozen alternatives on unused data; it may validate the measured input/output prediction without identifying the hidden physical origin. A claim about unmeasured water temperature still needs the independent reference or physical calibration.",
+    "explanation": "Identifiability asks what this experiment can distinguish. Early heater data reveal $K/\\tau$, longer data reveal equilibrium gain and time scale, and a single measured channel may never identify which physical store caused a lag."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured probe temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves0–80 °C or applied command leaves0–100%"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Normal completion disables the experiment and restores75% heating. Abort sets SafetyAbort and commands zero heating. Keep stopped until valid measurements and the full35°C/75% hot reset are restored.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Explain practical and structural parameter ambiguity. Choose additional excitation, longer observation or an independent measurement for a specific reason.",
+    "requiredVisibleEvidence": [
+      "Heater model and initial state",
+      "Applied command and temperature record",
+      "Required Control Studio analysis",
+      "Declared uncertainty and decision",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

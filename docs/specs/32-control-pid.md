@@ -1,5 +1,8 @@
 # Control PID reference implementation
 
+Shared purpose and completion claims: [Control Platform Purpose and Acceptance Contract](control-platform-purpose.md).
+This document retains its detailed technical or teaching authority.
+
 This specification defines the first truST implementation of the combined-form
 PID controller and signal filter described in *A Practical Guide to PID
 Controller Implementation*, version 3, 15 July 2026.
@@ -217,6 +220,20 @@ PID control exactly as selected by the paper's integral switch.
 | `Configure(Parameters : PIDParameters)` | None |
 | `Initialize(State : PIDInitialState)` | None |
 | `Update(Input : PIDInput)` | `LREAL` limited controller output |
+| `GetState()` | Independent value copy of `PIDInitialState` |
+
+`GetState` is a truST observation extension, not an API defined by the paper.
+After initialization it returns all seven current retained fields listed in
+Section 2.5. It performs no controller update and changes no parameter, history
+or output. Two reads with no intervening initialization or update shall return
+equal values. Modifying the returned record shall not modify the controller.
+Subsequent `Update` results shall be identical to those of an otherwise equal
+controller that was not observed.
+
+The returned `NominalOutput` is the retained output after the configured
+anti-windup correction. It is not the pre-correction candidate. This extension
+does not expose a separate integral state or alter the positional/incremental
+equations, mode semantics or initialization contract.
 
 ### 3.2 Configuration
 

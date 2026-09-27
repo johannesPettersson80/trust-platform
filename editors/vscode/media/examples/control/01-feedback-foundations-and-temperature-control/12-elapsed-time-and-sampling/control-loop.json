@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-lesson-12",
+  "name": "Use elapsed time and understand sampling",
+  "revision": "sha256:9dcfa3daef09285f3c0c6b10105b755917cdc2b554487868d03052c78039410d",
+  "projectId": "project:control-lesson-12",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "sampled_calculation", "design": "project", "revision": "sha256:9dcfa3daef09285f3c0c6b10105b755917cdc2b554487868d03052c78039410d", "action": "direct", "taskPeriodMs": 100, "modeSignal": "%MX80.0" },
+  "signals": {
+    "processVariable": { "symbol": "P1.ScriptedElapsedTime", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "s", "range": { "minimum": 0.1, "maximum": 0.2 } },
+    "manipulatedVariable": { "symbol": "P1.AccumulatedUsingScriptedTime", "address": "%ML32", "iecType": "LREAL", "direction": "read", "unit": "command unit", "range": { "minimum": 0, "maximum": 2 } },
+    "additional": [
+      { "id": "reference-comparison", "channel": "reference-comparison", "role": "state", "symbol": "P1.AssumedElapsedTime", "address": "%ML8", "iecType": "LREAL", "direction": "read", "unit": "s", "range": { "minimum": 0, "maximum": 0.2 } },
+      { "id": "scripted-change", "channel": "scripted-change", "role": "state", "symbol": "P1.ChangeUsingScriptedTime", "address": "%ML16", "iecType": "LREAL", "direction": "read", "unit": "command unit", "range": { "minimum": 0, "maximum": 0.1 } },
+      { "id": "assumed-change", "channel": "assumed-change", "role": "state", "symbol": "P1.ChangeUsingAssumedTime", "address": "%ML24", "iecType": "LREAL", "direction": "read", "unit": "command unit", "range": { "minimum": 0, "maximum": 0.1 } },
+      { "id": "assumed-total", "channel": "assumed-total", "role": "state", "symbol": "P1.AccumulatedUsingAssumedTime", "address": "%ML40", "iecType": "LREAL", "direction": "read", "unit": "command unit", "range": { "minimum": 0, "maximum": 2 } },
+      { "id": "slow-wave", "channel": "slow-wave", "role": "state", "symbol": "P1.SlowWaveSample", "address": "%ML48", "iecType": "LREAL", "direction": "read", "unit": "1", "range": { "minimum": -1, "maximum": 1 } },
+      { "id": "fast-wave", "channel": "fast-wave", "role": "state", "symbol": "P1.FastWaveSample", "address": "%ML56", "iecType": "LREAL", "direction": "read", "unit": "1", "range": { "minimum": -1, "maximum": 1 } },
+      { "id": "lesson-experiment", "channel": "lesson-experiment", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX80.0", "iecType": "BOOL", "direction": "read", "unit": "", "range": { "minimum": 0, "maximum": 1 } }
+    ]
+  },
+  "limits": { "outputMinimum": 0, "outputMaximum": 2 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "sampled-signal-comparison",
+  "operatingPoint": "0.1 s nominal interval",
+  "experiment": { "execution": "project-scripted", "kind": "observation", "amplitude": 0, "durationSeconds": 2.1, "seed": 20260824, "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX80.0", "iecType": "BOOL", "direction": "write" } }
+}

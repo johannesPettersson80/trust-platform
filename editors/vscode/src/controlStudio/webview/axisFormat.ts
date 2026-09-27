@@ -24,7 +24,11 @@ export function linearAxisFractionDigits(values: readonly (number | null | undef
   const minimum = Math.min(...finite);
   const maximum = Math.max(...finite);
   if (minimum === maximum) return undefined;
-  return automaticFractionDigits(Math.max(Math.abs(minimum), Math.abs(maximum)));
+  const magnitudeDigits = automaticFractionDigits(Math.max(Math.abs(minimum), Math.abs(maximum)));
+  // Five divisions are the shared linear-axis default. A small change around
+  // a large operating point still needs enough decimals to distinguish ticks.
+  const spanDigits = Math.ceil(-Math.log10((maximum - minimum) / 5));
+  return Math.min(6, Math.max(magnitudeDigits, spanDigits));
 }
 
 /** Keeps every tick on a log-scaled frequency axis in plain decimal notation across the

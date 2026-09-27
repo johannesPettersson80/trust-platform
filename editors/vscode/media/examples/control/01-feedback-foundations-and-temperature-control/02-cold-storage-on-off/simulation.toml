@@ -6,80 +6,43 @@ max_plant_substeps_per_cycle = 100
 plant_trace_capacity = 2000
 plant_step_ms = 100
 
+# One thermal store, with independent refrigeration and surroundings inputs.
+# Same balance as the former first_order plant:
+# dT/dt = (surroundings - T - 0.05 * compressor_encoding) / 20.
+# ST confines compressor_encoding to 0 (OFF) or 100 (ON). No shared actuator
+# clamp: surroundings is a temperature, not an actuator command.
 [[plants]]
 id = "cold-storage-room"
-model = "first_order"
-command_sources = ["%QL0"]
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
 feedback_targets = ["%IL0"]
 initial_state = [4.0]
+initial_input = [0.0, 4.0]
 
 [plants.parameters]
-gain = -0.05
-time_constant_s = 20.0
-output_bias = 4.0
+a = [[-0.05]]
+b = [[-0.0025, 0.05]]
+c = [[1.0]]
+d = [[0.0, 0.0]]
 
-[plants.actuator]
-minimum = 0.0
-maximum = 100.0
-
+# Publish the door state and effective surroundings for observation.
+# ST owns their timing; no scenario event runs while the learner prepares.
 [[plants]]
 id = "door-open-indication"
 model = "static_gain"
-command_sources = ["%QL0"]
+command_sources = ["%QL16"]
 feedback_targets = ["%IL8"]
+initial_input = [0.0]
 
 [plants.parameters]
-gain = 0.0
-output_bias = 0.0
+gain = 1.0
 
 [[plants]]
 id = "effective-surroundings"
 model = "static_gain"
-command_sources = ["%QL0"]
+command_sources = ["%QL8"]
 feedback_targets = ["%IL16"]
+initial_input = [4.0]
 
 [plants.parameters]
-gain = 0.0
-output_bias = 4.0
-
-[[plant_events]]
-at_ms = 60000
-plant = "cold-storage-room"
-kind = "set_parameter"
-parameter = "output_bias"
-value = 6.0
-
-[[plant_events]]
-at_ms = 60000
-plant = "door-open-indication"
-kind = "set_parameter"
-parameter = "output_bias"
-value = 1.0
-
-[[plant_events]]
-at_ms = 60000
-plant = "effective-surroundings"
-kind = "set_parameter"
-parameter = "output_bias"
-value = 6.0
-
-[[plant_events]]
-at_ms = 90000
-plant = "cold-storage-room"
-kind = "set_parameter"
-parameter = "output_bias"
-value = 4.0
-
-[[plant_events]]
-at_ms = 90000
-plant = "door-open-indication"
-kind = "set_parameter"
-parameter = "output_bias"
-value = 0.0
-
-[[plant_events]]
-at_ms = 90000
-plant = "effective-surroundings"
-kind = "set_parameter"
-parameter = "output_bias"
-value = 4.0
+gain = 1.0

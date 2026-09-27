@@ -1,55 +1,193 @@
 {
   "schemaVersion": 4,
-  "id": "control-cold-storage-hysteresis-dwell",
-  "title": "Protect a cold-storage compressor with hysteresis and dwell",
+  "id": "control-lesson-03",
+  "title": "Hysteresis and dwell",
   "level": "Foundation",
   "sequence": 3,
   "equipment": "Cold-storage room refrigeration",
   "physicalPurpose": "Keep stored food below its temperature limit without damaging the compressor through excessive starts.",
   "principalTechnique": "Hysteresis and minimum on/off dwell protection",
   "objective": "Compare single threshold, hysteresis, and dwell protection on the same cold-storage room, then select the simplest configuration that meets the common temperature and transition criteria, while separately proving whether the dwell candidate enforces its declared minimum durations.",
-  "prerequisites": ["control-cold-storage-on-off"],
-  "nextLesson": "control-water-heater-p",
+  "prerequisites": [
+    "control-lesson-02"
+  ],
+  "nextLesson": "control-capstone-cold-storage",
   "signals": [
-    { "role": "SP", "name": "Cold-room temperature setpoint", "unit": "degC", "minimum": -10, "maximum": 10, "resolution": 0.1, "binding": "%ML0" },
-    { "role": "PV", "name": "Cold-room air temperature", "unit": "degC", "minimum": -30, "maximum": 20, "resolution": 0.01, "binding": "%IL0" },
-    { "role": "MV", "name": "Compressor demand", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 100, "binding": "%QL0" },
-    { "role": "disturbance", "name": "Door-load no-cooling equilibrium", "unit": "degC", "minimum": -10, "maximum": 20, "resolution": 0.1, "binding": "simulation.toml#plant_events[0]" },
-    { "role": "state", "name": "Requested cooling state", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX44.1" },
-    { "role": "state", "name": "Applied cooling state", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX44.2" },
-    { "role": "state", "name": "Dwell elapsed", "unit": "s", "minimum": 0, "maximum": 3600, "resolution": 0.1, "binding": "%ML32" },
-    { "role": "state", "name": "Dwell inhibit", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX44.3" },
-    { "role": "state", "name": "Switch count", "unit": "1", "minimum": 0, "maximum": 10000, "resolution": 1, "binding": "%MD40" },
-    { "role": "state", "name": "Door-open indication", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%IL8" },
-    { "role": "disturbance", "name": "Effective surrounding temperature", "unit": "degC", "minimum": -10, "maximum": 20, "resolution": 0.1, "binding": "%IL16" },
-    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX44.4" }
+    {
+      "role": "SP",
+      "name": "Cold-room temperature setpoint",
+      "unit": "degC",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.1,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Cold-room air temperature",
+      "unit": "degC",
+      "minimum": -30,
+      "maximum": 20,
+      "resolution": 0.01,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Compressor demand",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 100,
+      "binding": "%QL0"
+    },
+    {
+      "role": "disturbance",
+      "name": "Door-load no-cooling equilibrium",
+      "unit": "degC",
+      "minimum": -10,
+      "maximum": 20,
+      "resolution": 0.1,
+      "binding": "simulation.toml#plant_events[0]"
+    },
+    {
+      "role": "state",
+      "name": "Requested cooling state",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX44.1"
+    },
+    {
+      "role": "state",
+      "name": "Applied cooling state",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX44.2"
+    },
+    {
+      "role": "state",
+      "name": "Dwell elapsed",
+      "unit": "s",
+      "minimum": 0,
+      "maximum": 3600,
+      "resolution": 0.1,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "Dwell inhibit",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX44.3"
+    },
+    {
+      "role": "state",
+      "name": "Switch count",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 10000,
+      "resolution": 1,
+      "binding": "%MD40"
+    },
+    {
+      "role": "state",
+      "name": "Door-open indication",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%IL8"
+    },
+    {
+      "role": "disturbance",
+      "name": "Effective surrounding temperature",
+      "unit": "degC",
+      "minimum": -10,
+      "maximum": 20,
+      "resolution": 0.1,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX44.4"
+    }
   ],
   "plant": {
     "modelId": "first_order",
     "executable": "simulation.toml#plants[0]",
     "parameters": [
-      { "name": "gain", "value": -0.05, "unit": "degC/%" },
-      { "name": "time_constant", "value": 20, "unit": "s" },
-      { "name": "output_bias", "value": 4, "unit": "degC" }
+      {
+        "name": "gain",
+        "value": -0.05,
+        "unit": "degC/%"
+      },
+      {
+        "name": "time_constant",
+        "value": 20,
+        "unit": "s"
+      },
+      {
+        "name": "output_bias",
+        "value": 4,
+        "unit": "degC"
+      }
     ],
     "sampleTimeSeconds": 0.1,
-    "initialState": { "coldRoomTemperature": 4 },
+    "initialState": {
+      "coldRoomTemperature": 4
+    },
     "seed": 20260828,
-    "operatingPoint": { "PV": 4, "MV": 0 },
+    "operatingPoint": {
+      "PV": 4,
+      "MV": 0
+    },
     "validityRange": [
-      { "signal": "Cold-room air temperature", "minimum": -30, "maximum": 20, "unit": "degC" },
-      { "signal": "Compressor demand", "minimum": 0, "maximum": 100, "unit": "%" }
+      {
+        "signal": "Cold-room air temperature",
+        "minimum": -30,
+        "maximum": 20,
+        "unit": "degC"
+      },
+      {
+        "signal": "Compressor demand",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
     ],
-    "simplifications": ["The room and stored product are represented by one well-mixed thermal state.", "Door load changes the no-cooling equilibrium from 4 to 6 degC.", "The three-run comparison injects no stochastic sensor noise so its single-threshold case exactly reproduces the Lesson 2 baseline; the focused state-memory sequence uses declared deterministic temperatures."]
+    "simplifications": [
+      "The room and stored product are represented by one well-mixed thermal state.",
+      "Door load changes the no-cooling equilibrium from 4 to 6 degC.",
+      "The three-run comparison injects no stochastic sensor noise so its single-threshold case exactly reproduces the Lesson 2 baseline; the focused state-memory sequence uses declared deterministic temperatures.",
+      "Door timing is owned by the ST experiment clock, not absolute simulator startup time."
+    ]
   },
   "baseline": {
     "executableId": "ColdStorageThermostat",
-    "settings": { "hysteresisWidth": 0, "minimumOnTime": 0, "minimumOffTime": 0 },
+    "settings": {
+      "hysteresisWidth": 0,
+      "minimumOnTime": 0,
+      "minimumOffTime": 0
+    },
     "limitation": "The Lesson 2 single threshold switches on every noisy crossing and can short-cycle the compressor."
   },
   "change": {
     "executableId": "ColdStorageThermostat",
-    "settings": { "hysteresisWidth": 1, "minimumOnTime": 8, "minimumOffTime": 8 },
+    "settings": {
+      "hysteresisWidth": 1,
+      "minimumOnTime": 8,
+      "minimumOffTime": 8
+    },
     "decision": "Use separate 2.50 degC on and 1.50 degC off thresholds, then require eight complete seconds before an opposite transition."
   },
   "experiment": {
@@ -59,42 +197,151 @@
     "amplitude": 0,
     "durationSeconds": 120.1,
     "settlingSeconds": 60,
-    "disturbances": ["The door opens at 60 s and closes at 90 s"],
+    "disturbances": [
+      "The door opens at 60 s and closes at 90 s"
+    ],
     "seed": 20260828,
     "restorationValue": 0
   },
   "acceptance": [
-    { "metric": "temperature_range", "signal": "Cold-room air temperature", "window": "60 to 89.9 s door event", "comparator": "<=", "limit": 1.3, "unit": "degC", "tolerance": 0.01, "evidenceClass": "simulation" },
-    { "metric": "temperature_maximum", "signal": "Cold-room air temperature", "window": "60 to 90 s door event", "comparator": "<=", "limit": 3, "unit": "degC", "tolerance": 0.05, "evidenceClass": "simulation" },
-    { "metric": "transition_count", "signal": "Applied cooling state", "window": "complete 120 s run including initial safe-off transition", "comparator": "<=", "limit": 12, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
-    { "metric": "minimum_on_duration", "signal": "Applied cooling state", "window": "every completed on interval", "comparator": ">=", "limit": 8, "unit": "s", "tolerance": 0.001, "evidenceClass": "simulation" },
-    { "metric": "minimum_off_duration", "signal": "Applied cooling state", "window": "every completed off interval", "comparator": ">=", "limit": 8, "unit": "s", "tolerance": 0.001, "evidenceClass": "simulation" },
-    { "metric": "dwell_inhibited_sample_count", "signal": "Dwell inhibit", "window": "complete 120 s run", "comparator": ">=", "limit": 1, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" },
-    { "metric": "invalid_compressor_command_count", "signal": "Compressor demand", "window": "complete run", "comparator": "==", "limit": 0, "unit": "1", "tolerance": 0, "evidenceClass": "simulation" }
+    {
+      "metric": "temperature_range",
+      "signal": "Cold-room air temperature",
+      "window": "60 to 89.9 s door event",
+      "comparator": "<=",
+      "limit": 1.3,
+      "unit": "degC",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "temperature_maximum",
+      "signal": "Cold-room air temperature",
+      "window": "60 to 90 s door event",
+      "comparator": "<=",
+      "limit": 3,
+      "unit": "degC",
+      "tolerance": 0.05,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "transition_count",
+      "signal": "Applied cooling state",
+      "window": "complete 120 s run including initial safe-off transition",
+      "comparator": "<=",
+      "limit": 12,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "minimum_on_duration",
+      "signal": "Applied cooling state",
+      "window": "every completed on interval",
+      "comparator": ">=",
+      "limit": 8,
+      "unit": "s",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "minimum_off_duration",
+      "signal": "Applied cooling state",
+      "window": "every completed off interval",
+      "comparator": ">=",
+      "limit": 8,
+      "unit": "s",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "dwell_inhibited_sample_count",
+      "signal": "Dwell inhibit",
+      "window": "complete 120 s run",
+      "comparator": ">=",
+      "limit": 1,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "invalid_compressor_command_count",
+      "signal": "Compressor demand",
+      "window": "complete run",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
   ],
   "safety": {
     "hardLimits": [
-      { "signal": "Cold-room air temperature", "minimum": -10, "maximum": 10, "unit": "degC" },
-      { "signal": "Compressor demand", "minimum": 0, "maximum": 100, "unit": "%" }
+      {
+        "signal": "Cold-room air temperature",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "degC"
+      },
+      {
+        "signal": "Compressor demand",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
     ],
-    "abortPredicates": ["PV or MV is nonfinite", "PV leaves the -10 to 10 degC experiment range", "MV is neither 0 nor 100 percent"],
+    "abortPredicates": [
+      "PV or MV is nonfinite",
+      "PV leaves the -10 to 10 degC experiment range",
+      "MV is neither 0 nor 100 percent"
+    ],
     "safeMv": 0,
     "restorationMode": "Auto disabled with compressor demand at 0%",
     "physicalApprovalRole": "authorised refrigeration controls engineer",
-    "simulationOnlyRestrictions": ["Simulated cycling shall not be presented as physical compressor endurance evidence."]
+    "simulationOnlyRestrictions": [
+      "Simulated cycling shall not be presented as physical compressor endurance evidence."
+    ]
   },
-  "workflowStages": ["Monitor", "Test"],
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
   "proof": {
     "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-3--hysteresis-and-dwell-protection-same-cold-storage-room",
-    "nativeTest": "control_curriculum_cold_storage_hysteresis_exports_protection_tradeoff_evidence",
-    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_cold_storage_hysteresis_evidence control_curriculum_cold_storage_hysteresis_exports_protection_tradeoff_evidence -- --exact --nocapture",
+    "nativeTest": "TEST_PROGRAM::Lesson3HysteresisRetainsStateInsideBand",
+    "nativeCommand": "trust-dev test --project examples/control/01-feedback-foundations-and-temperature-control/03-cold-storage-hysteresis-dwell --filter TEST_PROGRAM::Lesson3HysteresisRetainsStateInsideBand --timeout 15 && trust-dev test --project examples/control/01-feedback-foundations-and-temperature-control/03-cold-storage-hysteresis-dwell --filter TEST_PROGRAM::Lesson3DwellRequiresCompletedMinimumTime --timeout 15",
     "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/03-cold-storage-hysteresis-dwell",
-    "runArtifactFields": ["SP", "PV", "requestedCooling", "appliedCooling", "MV", "upperThreshold", "lowerThreshold", "dwellElapsed", "dwellInhibit", "switchCount", "doorEvent", "effectiveSurroundings", "sampleTime", "seed", "limits", "evidenceClass"],
-    "renderedJourneyId": "control-cold-storage-hysteresis-dwell"
+    "runArtifactFields": [
+      "SP",
+      "PV",
+      "requestedCooling",
+      "appliedCooling",
+      "MV",
+      "upperThreshold",
+      "lowerThreshold",
+      "dwellElapsed",
+      "dwellInhibit",
+      "switchCount",
+      "doorEvent",
+      "effectiveSurroundings",
+      "sampleTime",
+      "seed",
+      "limits",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-03"
   },
   "video": {
     "viewerOutcome": "Explain why hysteresis needs retained state and why dwell protection is a separate equipment constraint.",
-    "requiredVisibleEvidence": ["single-threshold baseline", "hysteresis comparison", "dwell comparison", "same seeded door event", "switch count", "shortest on/off durations", "temperature limit"],
+    "requiredVisibleEvidence": [
+      "single-threshold baseline",
+      "hysteresis comparison",
+      "dwell comparison",
+      "same seeded door event",
+      "switch count",
+      "shortest on/off durations",
+      "temperature limit"
+    ],
     "durationClass": "standard",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
@@ -104,11 +351,19 @@
   "learning": {
     "context": "The same cold-storage plant now has automatic ON/OFF control, but Lesson 2 exposed sensor-driven chatter and excessive starts.",
     "reason": "The compressor needs protection without pretending that a binary actuator can hold one exact temperature.",
-    "theory": ["Hysteresis uses separate on and off thresholds and retains the previous output state inside the band.", "The resulting temperature cycle is a limit cycle, not numerical noise or a failure to converge.", "Minimum on-time and off-time protect equipment independently of the temperature band.", "A wider band and longer dwell reduce starts but permit larger temperature excursions."],
+    "theory": [
+      "Hysteresis uses separate ON and OFF thresholds and retains the previous requested state inside the band.",
+      "The resulting temperature cycle is a limit cycle, not numerical noise or a failure to converge.",
+      "Minimum on-time and off-time protect equipment independently of the temperature band.",
+      "Hysteresis reduces switching in this comparison; dwell enforces minimum state times and increases temperature movement even when the total switch count is unchanged."
+    ],
     "workedPrediction": "At SP 2.00 degC and width 1.00 degC, cooling starts at 2.50 degC and stops at 1.50 degC; a demand to reverse before 8 s exposes a requested/applied mismatch until dwell is complete.",
-    "practicalPreparation": ["Retain the same plant, seed, door event, initial state, and limits for all three runs.", "Predict thresholds, output state inside the band, and which transitions dwell will postpone."],
-    "baseline": "Repeat the Lesson 2 single-threshold run and retain its temperature range, start count, and shortest intervals.",
-    "change": "Run hysteresis alone, then hysteresis with 8 s minimum on/off times under the identical disturbance.",
+    "practicalPreparation": [
+      "Retain the same plant, seed, door event, initial state, and limits for all three runs.",
+      "Predict thresholds, output state inside the band, and which transitions dwell will postpone."
+    ],
+    "baseline": "Use the retained Lesson 2 single-threshold result as the baseline with matching room, initial state and simulator-relative door event.",
+    "change": "Run the delivered hysteresis-with-dwell project, then compare its observations with the three retained cases; the project has no case selector.",
     "comparison": "Compare temperature range, switch count, and shortest on/off durations without changing the plant or disturbance.",
     "validation": "Verify binary MV, both thresholds, state retention inside the band, observable requested/applied mismatch, every completed dwell of at least 8 s, and the separate 3 degC door-event criterion.",
     "explanation": "Explain why the same 2.00 degC PV can produce different MV values depending on the retained direction of travel.",

@@ -95,7 +95,7 @@ export function PlantActuatorEditor({
                 value={value[field.key] ?? ""}
                 aria-invalid={Boolean(issue)}
                 aria-describedby={issue ? `plant-actuator-error-${field.key}` : undefined}
-                placeholder="Unbounded"
+                placeholder={field.blankMeaning}
                 onChange={(event) => {
                   const next = { ...value };
                   if (event.target.value.trim() === "") delete next[field.key];
@@ -107,6 +107,9 @@ export function PlantActuatorEditor({
                 }}
                 style={INPUT}
               />
+              <span data-plant-actuator-blank-meaning={field.key} style={BLANK_MEANING}>
+                Empty: {field.blankMeaning}
+              </span>
               {issue && (
                 <span
                   id={`plant-actuator-error-${field.key}`}
@@ -147,6 +150,11 @@ const ERROR: React.CSSProperties = {
   fontSize: 10.5,
   lineHeight: 1.35,
   gridColumn: "1 / -1",
+};
+const BLANK_MEANING: React.CSSProperties = {
+  color: "var(--trust-text-muted)",
+  fontSize: 10,
+  lineHeight: 1.25,
 };
 const HELP_LABEL: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 };
 const HELP_BUTTON: React.CSSProperties = { width: 20, height: 20, border: "1px solid var(--trust-border)", borderRadius: 10, background: "transparent", color: "var(--trust-text-muted)", cursor: "pointer", fontSize: 11, padding: 0 };

@@ -1,0 +1,297 @@
+{
+  "schemaVersion": 4,
+  "id": "control-root-locus",
+  "title": "Root locus",
+  "level": "Advanced",
+  "sequence": 47,
+  "equipment": "Rigid rotary shaft with measured velocity",
+  "physicalPurpose": "Choose a proportional gain that positions the shaft with limited overshoot and settling error.",
+  "principalTechnique": "Root locus",
+  "objective": "Choose Kp from a Control Studio root locus with Kd fixed, then test the actual ST shaft response.",
+  "prerequisites": [
+    "control-characteristic-equation"
+  ],
+  "nextLesson": "control-routh-hurwitz",
+  "signals": [
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX96.0"
+    },
+    {
+      "role": "state",
+      "name": "Manual mode",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX96.3"
+    },
+    {
+      "role": "SP",
+      "name": "Shaft target",
+      "unit": "rad",
+      "minimum": -2,
+      "maximum": 2,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "PV",
+      "name": "Shaft angle",
+      "unit": "rad",
+      "minimum": -2,
+      "maximum": 2,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Shaft velocity",
+      "unit": "rad/s",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "MV",
+      "name": "Requested torque",
+      "unit": "N·m",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "MV",
+      "name": "Applied torque",
+      "unit": "N·m",
+      "minimum": -20,
+      "maximum": 20,
+      "resolution": 0.001,
+      "binding": "%QL0"
+    }
+  ],
+  "plant": {
+    "modelId": "shaft-j1-b1",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "inertia",
+        "value": 1,
+        "unit": "kg·m²"
+      },
+      {
+        "name": "viscous_friction",
+        "value": 1,
+        "unit": "N·m·s/rad"
+      },
+      {
+        "name": "fixed_velocity_gain",
+        "value": 7,
+        "unit": "N·m·s/rad"
+      }
+    ],
+    "sampleTimeSeconds": 0.02,
+    "initialState": {
+      "angleRadians": 0,
+      "velocityRadiansPerSecond": 0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Experiment authority": 0,
+      "Manual mode": 0,
+      "Shaft target": 0,
+      "Shaft angle": 0,
+      "Shaft velocity": 0,
+      "Requested torque": 0,
+      "Applied torque": 0
+    },
+    "validityRange": [
+      {
+        "minimum": -2,
+        "maximum": 2,
+        "unit": "rad",
+        "signal": "Shaft angle"
+      },
+      {
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "rad/s",
+        "signal": "Shaft velocity"
+      },
+      {
+        "minimum": -20,
+        "maximum": 20,
+        "unit": "N·m",
+        "signal": "Applied torque"
+      }
+    ],
+    "simplifications": [
+      "Rigid shaft with fixed inertia and viscous friction",
+      "Ideal torque actuation within ±20 N·m",
+      "Direct measured velocity feedback without a derivative filter",
+      "Continuous model predicts poles; ST control updates every 20 ms",
+      "Simulation-only I/O"
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "Kp": 12,
+      "Kd": 7,
+      "targetRadians": 1,
+      "durationSeconds": 8
+    },
+    "limitation": "The slower pole at -2 predicts slower decay than the repeated -4 poles at Kp=16; measured requirements must still be checked."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "Kp": 16,
+      "Kd": 7,
+      "targetRadians": 1,
+      "durationSeconds": 8
+    },
+    "decision": "Use the Control Studio locus to select Kp; keep or reject it using matched recorded step responses."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 8.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "peak_angle",
+      "signal": "Shaft angle",
+      "window": "0–8 s after 0→1 rad target step",
+      "comparator": "<=",
+      "limit": 1.1,
+      "unit": "rad",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "late_absolute_error",
+      "signal": "Shaft angle",
+      "window": "every sample from 4–8 s after the target step",
+      "comparator": "<=",
+      "limit": 0.02,
+      "unit": "rad",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "minimum": -2,
+        "maximum": 2,
+        "unit": "rad",
+        "signal": "Shaft angle"
+      },
+      {
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "rad/s",
+        "signal": "Shaft velocity"
+      },
+      {
+        "minimum": -20,
+        "maximum": 20,
+        "unit": "N·m",
+        "signal": "Applied torque"
+      }
+    ],
+    "abortPredicates": [
+      "Angle leaves ±2 rad or velocity leaves ±10 rad/s",
+      "Applied torque leaves ±20 N·m; contact with the limit is recorded saturation",
+      "Required signal is missing, stale, forced, nonfinite, or has bad quality",
+      "Plant, reset, Kd, timing or limits differ from the reviewed comparison"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Disable experiment, confirm zero torque, then restart the simulator to reset angle and velocity.",
+    "physicalApprovalRole": "authorised motion-controls engineer and responsible machine operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical servo gain application",
+      "Physical validation requires independent mechanics, drive, topology, model, limits, interlocks, rollback, and explicit immediate approval"
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Tune",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/44-54-classical-analysis.md#47-root-locus",
+    "nativeTest": "root_locus_shaft_candidates_meet_the_declared_step_requirements",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_root_locus root_locus_shaft_candidates_meet_the_declared_step_requirements",
+    "projectPath": "examples/control/07-classical-stability-and-frequency-design/45-root-locus",
+    "runArtifactFields": [
+      "plantIdentity",
+      "rootLocus",
+      "selectedKp",
+      "fixedKd",
+      "closedLoopPoles",
+      "samples",
+      "requestedTorque",
+      "appliedTorque",
+      "peakAngle",
+      "lateAbsoluteError",
+      "stopReason",
+      "seed",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-root-locus"
+  },
+  "video": {
+    "viewerOutcome": "Choose Kp from the displayed pole paths and verify the actual shaft response.",
+    "requiredVisibleEvidence": [
+      "Shaft model and units",
+      "Kp sweep with fixed Kd=7",
+      "Selected gain and pole coordinates",
+      "Matched target-step records",
+      "Angle and measured velocity",
+      "Requested and applied torque",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "One simulated shaft uses proportional position control and fixed measured-velocity braking.",
+    "reason": "A pole calculation describes one gain; we need to see how changing Kp moves the poles.",
+    "theory": [
+      "A root locus plots closed-loop pole locations as one gain changes.",
+      "Real parts describe decay or growth; imaginary parts describe oscillation.",
+      "For fixed Kd=7, the shaft equation is s²+8s+Kp=0."
+    ],
+    "workedPrediction": "Calculate the pole pairs for Kp12,16,20 and predict their decay and oscillation before testing.",
+    "practicalPreparation": [
+      "Confirm shaft J=B=1, Kd=7, 20 ms update and torque ±20 N·m.",
+      "Start each trial from zero angle and velocity."
+    ],
+    "baseline": "Kp12 predicts poles -2 and -6.",
+    "change": "Select Kp16 from the locus, giving a repeated pole at -4.",
+    "comparison": "Change only Kp; keep the plant, Kd, reset and target step fixed.",
+    "validation": "Peak angle≤1.1 rad and absolute error≤.02 rad throughout4–8s.",
+    "explanation": "Moving the slower pole left predicts faster decay; sampling and torque saturation still require measured validation.",
+    "transfer": "Use Routh–Hurwitz next to find the stable integral-gain interval of the cubic."
+  }
+}

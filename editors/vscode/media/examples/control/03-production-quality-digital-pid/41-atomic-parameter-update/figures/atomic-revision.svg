@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="350" viewBox="0 0 960 350" role="img" aria-labelledby="title desc">
+  <title id="title">Atomic controller parameter revision</title>
+  <desc id="desc">A controller scan sees either the complete old gains or the complete new gains; the mixed pair is rejected.</desc>
+  <rect width="960" height="350" fill="#f7fafc"/>
+  <text x="480" y="42" text-anchor="middle" font-family="sans-serif" font-size="25" font-weight="700" fill="#17324d">One complete record per controller scan</text>
+  <rect x="45" y="80" width="250" height="190" rx="18" fill="#e6f2ff" stroke="#2463a6" stroke-width="3"/>
+  <text x="170" y="120" text-anchor="middle" font-family="sans-serif" font-size="23" font-weight="700" fill="#17324d">Old revision</text>
+  <text x="170" y="168" text-anchor="middle" font-family="sans-serif" font-size="22" fill="#17324d">Kp = 5 · Ki = 1</text>
+  <text x="170" y="223" text-anchor="middle" font-family="sans-serif" font-size="25" fill="#17324d">Δu = 5.1</text>
+  <rect x="355" y="80" width="250" height="190" rx="18" fill="#ffe9e7" stroke="#b33a3a" stroke-width="3"/>
+  <text x="480" y="120" text-anchor="middle" font-family="sans-serif" font-size="23" font-weight="700" fill="#742020">Rejected mixture</text>
+  <text x="480" y="168" text-anchor="middle" font-family="sans-serif" font-size="22" fill="#742020">Kp = 15 · Ki = 1</text>
+  <text x="480" y="223" text-anchor="middle" font-family="sans-serif" font-size="25" fill="#742020">Δu = 15.1</text>
+  <rect x="665" y="80" width="250" height="190" rx="18" fill="#e9f8ee" stroke="#2b7a43" stroke-width="3"/>
+  <text x="790" y="120" text-anchor="middle" font-family="sans-serif" font-size="23" font-weight="700" fill="#19482a">New revision</text>
+  <text x="790" y="168" text-anchor="middle" font-family="sans-serif" font-size="22" fill="#19482a">Kp = 15 · Ki = 3</text>
+  <text x="790" y="223" text-anchor="middle" font-family="sans-serif" font-size="25" fill="#19482a">Δu = 15.3</text>
+  <text x="480" y="315" text-anchor="middle" font-family="sans-serif" font-size="22" fill="#263746">allowed before boundary ← | → allowed after boundary</text>
+</svg>

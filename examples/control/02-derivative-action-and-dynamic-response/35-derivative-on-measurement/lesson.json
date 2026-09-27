@@ -1,0 +1,301 @@
+{
+  "schemaVersion": 4,
+  "id": "control-servo-derivative-kick",
+  "title": "Prevent derivative kick at a setpoint change",
+  "level": "Modelling",
+  "sequence": 35,
+  "equipment": "Payload-loaded industrial positioning table",
+  "physicalPurpose": "Move the loaded table without allowing a setpoint discontinuity to create an unsafe motor-torque request.",
+  "principalTechnique": "Derivative setpoint weighting and derivative on measurement",
+  "objective": "Expose derivative kick, distinguish requested from applied torque, and select derivative on measurement without removing motion damping.",
+  "prerequisites": [
+    "control-loaded-position-pid"
+  ],
+  "nextLesson": "control-servo-filtered-derivative",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Table-position setpoint",
+      "unit": "rad",
+      "minimum": -2,
+      "maximum": 2,
+      "resolution": 0.001,
+      "binding": "%ML24"
+    },
+    {
+      "role": "PV",
+      "name": "Measured table position",
+      "unit": "rad",
+      "minimum": -4,
+      "maximum": 4,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Applied motor torque",
+      "unit": "N m",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Requested motor torque",
+      "unit": "N m",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Measured table velocity",
+      "unit": "rad/s",
+      "minimum": -20,
+      "maximum": 20,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX32.1"
+    }
+  ],
+  "plant": {
+    "modelId": "robot_joint",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      {
+        "name": "inertia_kg_m2",
+        "value": 1,
+        "unit": "kg m2"
+      },
+      {
+        "name": "viscous_friction_nm_s_per_rad",
+        "value": 1,
+        "unit": "N m s/rad"
+      },
+      {
+        "name": "gravity_torque_nm",
+        "value": 4,
+        "unit": "N m"
+      }
+    ],
+    "sampleTimeSeconds": 0.02,
+    "initialState": {
+      "positionRad": 0,
+      "velocityRadPerSecond": 0
+    },
+    "seed": 20260828,
+    "operatingPoint": {
+      "PV": 0,
+      "MV": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Measured table position",
+        "minimum": -4,
+        "maximum": 4,
+        "unit": "rad"
+      },
+      {
+        "signal": "Applied motor torque",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "N m"
+      }
+    ],
+    "simplifications": [
+      "The four-newton-metre gravity coefficient produces angle-dependent torque G*sin(position), not a constant disturbance.",
+      "The setpoint changes instantaneously so derivative kick is isolated and measurable.",
+      "Encoder noise remains absent until Lesson 23."
+    ]
+  },
+  "baseline": {
+    "executableId": "Control.PID.DerivativeOnError",
+    "settings": {
+      "proportionalGain": 8,
+      "integralGain": 2,
+      "derivativeGain": 3,
+      "derivativeSetpointWeight": 1,
+      "setpointRad": 0.5
+    },
+    "limitation": "Differentiating the full setpoint step creates a requested torque above 70 N m even though the drive can apply only 10 N m."
+  },
+  "change": {
+    "executableId": "Control.PID.DerivativeOnMeasurement",
+    "settings": {
+      "proportionalGain": 8,
+      "integralGain": 2,
+      "derivativeGain": 3,
+      "candidateDerivativeSetpointWeights": [
+        0.5,
+        0
+      ],
+      "setpointRad": 0.5
+    },
+    "decision": "Select c equal to zero only if the initial requested torque is at most 5 N m, applied torque remains bounded, and final position still tracks within 0.02 rad."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 15.02,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Angle-dependent payload gravity G*sin(position) with G equal to 4 N m throughout every run"
+    ],
+    "seed": 20260828,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "full_error_first_requested_torque",
+      "signal": "Requested motor torque",
+      "window": "first sample after setpoint step",
+      "comparator": ">=",
+      "limit": 70,
+      "unit": "N m",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "intermediate_minus_measurement_first_request",
+      "signal": "Requested motor torque",
+      "window": "first sample after setpoint step",
+      "comparator": ">=",
+      "limit": 30,
+      "unit": "N m",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "measurement_derivative_first_requested_torque",
+      "signal": "Requested motor torque",
+      "window": "first sample after setpoint step",
+      "comparator": "<=",
+      "limit": 5,
+      "unit": "N m",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "applied_torque_absolute_maximum",
+      "signal": "Applied motor torque",
+      "window": "complete 15 s run",
+      "comparator": "<=",
+      "limit": 10,
+      "unit": "N m",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "measurement_derivative_final_position_error",
+      "signal": "Measured table position",
+      "window": "final sample",
+      "comparator": "<=",
+      "limit": 0.02,
+      "unit": "rad",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured table position",
+        "minimum": -4,
+        "maximum": 4,
+        "unit": "rad"
+      },
+      {
+        "signal": "Applied motor torque",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "N m"
+      }
+    ],
+    "abortPredicates": [
+      "Position, velocity, requested torque or applied torque is nonfinite",
+      "Applied torque leaves -10 to 10 N m"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Manual with zero torque after mechanically supporting the payload",
+    "physicalApprovalRole": "authorised motion-control engineer",
+    "simulationOnlyRestrictions": [
+      "The deliberately discontinuous setpoint shall not be applied to a physical axis without independent motion-profile and drive-limit review."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-35--derivative-on-measurement",
+    "nativeTest": "TEST_PROGRAM::Lesson35SetpointWeightControlsOnlyTheCommandKick",
+    "nativeCommand": "target/debug/trust-dev test --project examples/control/02-derivative-action-and-dynamic-response/35-derivative-on-measurement --filter TEST_PROGRAM::Lesson35SetpointWeightControlsOnlyTheCommandKick --timeout 15",
+    "projectPath": "examples/control/02-derivative-action-and-dynamic-response/35-derivative-on-measurement",
+    "runArtifactFields": [
+      "SP",
+      "PV",
+      "velocity",
+      "T_requested",
+      "T_applied",
+      "Kp",
+      "Ki",
+      "Kd",
+      "c",
+      "dt",
+      "limits",
+      "firstPostStepRequest",
+      "finalPositionError",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-servo-derivative-kick"
+  },
+  "video": {
+    "viewerOutcome": "Explain derivative kick, distinguish controller request from drive output, and justify derivative on measurement from recorded evidence.",
+    "requiredVisibleEvidence": [
+      "c 1, 0.5 and 0 runs",
+      "setpoint step",
+      "requested torque",
+      "applied torque clamp",
+      "position response",
+      "simulation evidence label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "The loaded positioning table uses the PID gains from Lesson 21, but an instantaneous setpoint change now exposes the derivative path's command response.",
+    "reason": "Integral action removed load error, yet derivative on the full error turns a setpoint discontinuity into a very large requested torque.",
+    "theory": [
+      "The derivative setpoint weight c is a dimensionless value from zero to one that chooses how much setpoint motion enters the derivative path.",
+      "The weighted derivative input x_D equals c times SP minus PV. Its change divided by elapsed time dt is multiplied by derivative gain Kd to form derivative torque.",
+      "At c one, the full setpoint step enters the derivative calculation. At c zero, only measured PV motion enters, so a command step alone creates no derivative kick. An intermediate c retains part of the kick.",
+      "Requested motor torque T_requested is the PID calculation before the physical drive clamp. Applied motor torque T_applied is the bounded torque that reaches the plant; both must remain visible.",
+      "Derivative on measurement still responds to real table motion and therefore preserves the damping purpose from Lesson 20."
+    ],
+    "workedPrediction": "A 0.5 rad setpoint step over 0.02 s has apparent rate 25 rad/s. With Kd 3, c 1 requests about 75 N m derivative torque, c 0.5 about 37.5 N m, and c 0 none; the proportional path adds about 4 N m before the drive clamps applied torque to 10 N m.",
+    "practicalPreparation": [
+      "Confirm the project-owned 0 to 0.5 rad step, 20 ms cycle, sine-gravity law with 4 N m peak coefficient, plus or minus 10 N m physical drive limit, wide diagnostic controller-request range and supported-payload restoration."
+    ],
+    "baseline": "Run c equal to one and retain the first requested and applied torque samples after the setpoint step together with the position response.",
+    "change": "Restore identical conditions and repeat with c equal to 0.5 and then zero; change no gain, plant, event, timing, limit or seed.",
+    "comparison": "Compare first post-step requested torque, applied torque and the full position response for all three weights on equal scales.",
+    "validation": "Require c one request at least 70 N m, c 0.5 at least 30 N m above c zero, c zero request at most 5 N m, every applied torque within plus or minus 10 N m and c zero absolute SP-minus-PV error at the 15-second final sample at most 0.02 rad; do not present that endpoint as steady-state evidence.",
+    "explanation": "Explain why removing SP from the derivative input prevents a mathematical command discontinuity from becoming a torque kick while measured physical motion still produces damping torque.",
+    "transfer": "Derivative on measurement is a robust default for command-following loops, but measured encoder noise is still differentiated; Lesson 23 adds and qualifies filtering."
+  }
+}

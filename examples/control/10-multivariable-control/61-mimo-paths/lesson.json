@@ -1,0 +1,399 @@
+{
+  "schemaVersion": 4,
+  "id": "control-mimo-paths",
+  "title": "Multivariable process paths",
+  "level": "Modern",
+  "sequence": 62,
+  "equipment": "Continuous binary distillation column",
+  "physicalPurpose": "Separate a binary feed into qualified overhead and bottoms products while recognizing that reflux and reboiler steam affect both compositions.",
+  "principalTechnique": "Multivariable paths",
+  "objective": "Measure every input-output path under equivalent conditions.",
+  "prerequisites": [
+    "control-loop-diagnosis",
+    "control-capstone-reactor"
+  ],
+  "nextLesson": "control-relative-gain-array",
+  "signals": [
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.1"
+    },
+    {
+      "role": "state",
+      "name": "Automatic mode",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.0"
+    },
+    {
+      "role": "MV",
+      "name": "Reflux requested change",
+      "unit": "pp",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.01,
+      "binding": "%ML0"
+    },
+    {
+      "role": "MV",
+      "name": "Reboiler steam requested change",
+      "unit": "pp",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.01,
+      "binding": "%ML8"
+    },
+    {
+      "role": "MV",
+      "name": "Reflux applied change",
+      "unit": "pp",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "MV",
+      "name": "Reboiler steam applied change",
+      "unit": "pp",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.01,
+      "binding": "%QL8"
+    },
+    {
+      "role": "PV",
+      "name": "Overhead light-product purity deviation",
+      "unit": "pp",
+      "minimum": -6,
+      "maximum": 6,
+      "resolution": 0.01,
+      "binding": "%IL0"
+    },
+    {
+      "role": "PV",
+      "name": "Bottoms heavy-product purity deviation",
+      "unit": "pp",
+      "minimum": -6,
+      "maximum": 6,
+      "resolution": 0.01,
+      "binding": "%IL8"
+    }
+  ],
+  "plant": {
+    "modelId": "local_binary_distillation_interaction_2x2",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "overhead_from_reflux_response_time",
+        "value": 20,
+        "unit": "s"
+      },
+      {
+        "name": "overhead_from_reboiler_response_time",
+        "value": 35,
+        "unit": "s"
+      },
+      {
+        "name": "bottoms_from_reflux_response_time",
+        "value": 40,
+        "unit": "s"
+      },
+      {
+        "name": "bottoms_from_reboiler_response_time",
+        "value": 30,
+        "unit": "s"
+      },
+      {
+        "name": "g11_overhead_from_reflux",
+        "value": 0.8,
+        "unit": "pp/pp"
+      },
+      {
+        "name": "g12_overhead_from_reboiler",
+        "value": -0.4,
+        "unit": "pp/pp"
+      },
+      {
+        "name": "g21_bottoms_from_reflux",
+        "value": -0.3,
+        "unit": "pp/pp"
+      },
+      {
+        "name": "g22_bottoms_from_reboiler",
+        "value": 0.7,
+        "unit": "pp/pp"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "overheadFromReflux": 0,
+      "overheadFromReboiler": 0,
+      "bottomsFromReflux": 0,
+      "bottomsFromReboiler": 0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Reflux requested change": 0,
+      "Reboiler steam requested change": 0,
+      "Overhead light-product purity deviation": 0,
+      "Bottoms heavy-product purity deviation": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Reflux applied change",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "pp"
+      },
+      {
+        "signal": "Reboiler steam applied change",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "pp"
+      },
+      {
+        "signal": "Overhead light-product purity deviation",
+        "minimum": -6,
+        "maximum": 6,
+        "unit": "pp"
+      },
+      {
+        "signal": "Bottoms heavy-product purity deviation",
+        "minimum": -6,
+        "maximum": 6,
+        "unit": "pp"
+      }
+    ],
+    "simplifications": [
+      "The model describes local composition deviations around one declared operating point rather than absolute product compositions.",
+      "Four stable first-order path states retain unequal 20, 35, 40 and 30 second response times and all four steady input-output gains.",
+      "Tray hydraulics, analyzer delay, flooding, weeping, inventories and the physical safety system are outside this simulation.",
+      "Configured coefficients generate the plant but do not replace gain estimates calculated from the two executed step windows.",
+      "Simulation-only I/O and evidence; no physical column, reflux valve or reboiler-steam valve is operated."
+    ]
+  },
+  "baseline": {
+    "executableId": "DistillationColumn.UnpairedOpenLoopPaths",
+    "settings": {
+      "refluxChangePercentagePoints": 0,
+      "reboilerChangePercentagePoints": 0
+    },
+    "limitation": "Tag names and isolated direct gains do not show how closing the second loop changes the effective gain and feedback direction."
+  },
+  "change": {
+    "executableId": "DistillationColumn.MeasuredGainMatrixAndRga",
+    "settings": {
+      "stepSizePercentagePoints": 5,
+      "baselineSeconds": 20,
+      "stepSeconds": 180
+    },
+    "decision": "Accept the diagonal overhead-to-reflux and bottoms-to-reboiler pairing only from four valid measured gains and reject the negative-relative-gain cross pairing."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 400.1,
+    "settlingSeconds": 10,
+    "disturbances": [
+      "Run a 20-second zero-input baseline followed by a 180-second +5-percentage-point reflux step while reboiler steam remains zero.",
+      "Restore both inputs for 20 seconds, then apply the equivalent reboiler-steam step while reflux remains zero.",
+      "Estimate all four gains from the separated final-window means and calculate the determinant and Relative Gain Array from those measured values."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "g11_overhead_from_reflux",
+      "signal": "Overhead light-product purity deviation",
+      "window": "last 10 seconds of the reflux-only step window",
+      "comparator": "==",
+      "limit": 0.8,
+      "unit": "pp/pp",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "g21_bottoms_from_reflux",
+      "signal": "Bottoms heavy-product purity deviation",
+      "window": "last 10 seconds of the reflux-only step window",
+      "comparator": "==",
+      "limit": -0.3,
+      "unit": "pp/pp",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "g12_overhead_from_reboiler",
+      "signal": "Overhead light-product purity deviation",
+      "window": "last 10 seconds of the reboiler-only step window",
+      "comparator": "==",
+      "limit": -0.4,
+      "unit": "pp/pp",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "g22_bottoms_from_reboiler",
+      "signal": "Bottoms heavy-product purity deviation",
+      "window": "last 10 seconds of the reboiler-only step window",
+      "comparator": "==",
+      "limit": 0.7,
+      "unit": "pp/pp",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "rga_row_and_column_sum_error",
+      "signal": "Reflux applied change",
+      "window": "calculation from the four qualified measured steady-state gains",
+      "comparator": "<=",
+      "limit": 0.001,
+      "unit": "1",
+      "tolerance": 1e-06,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "path_response_time_error",
+      "signal": "Overhead light-product purity deviation",
+      "window": "63.2-percent crossing relative to the finite-record settled-change estimate for all four paths",
+      "comparator": "<=",
+      "limit": 1,
+      "unit": "s",
+      "tolerance": 0.1,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Reflux requested change",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "pp"
+      },
+      {
+        "signal": "Reboiler steam requested change",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "pp"
+      },
+      {
+        "signal": "Overhead light-product purity deviation",
+        "minimum": -6,
+        "maximum": 6,
+        "unit": "pp"
+      },
+      {
+        "signal": "Bottoms heavy-product purity deviation",
+        "minimum": -6,
+        "maximum": 6,
+        "unit": "pp"
+      }
+    ],
+    "abortPredicates": [
+      "Any required input or composition signal is nonfinite, stale, forced or invalid.",
+      "Either input leaves -10 through +10 percentage points or either composition deviation leaves -6 through +6 percentage points.",
+      "The non-excited input moves more than 0.02 percentage points during an identification record.",
+      "Authority, plant identity, sample schedule or restoration state differs between records.",
+      "The absolute applied step is below 4.95 percentage points or an output does not meet the settling rule."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Keep Manual authority, return both simulated input changes to zero, verify both applied inputs and composition deviations restore, then begin a new record.",
+    "physicalApprovalRole": "authorised process controls engineer with the responsible distillation operations and process-safety owners",
+    "simulationOnlyRestrictions": [
+      "No physical distillation column, reflux valve or reboiler-steam valve is operated.",
+      "The local Simulation matrix does not qualify another operating point or physical column.",
+      "Physical testing requires reviewed topology, process and safety limits, perturbation and dwell, product disposition, abort and restoration procedures, and explicit immediate approval."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#78-multivariable-control",
+    "nativeTest": "TEST_PROGRAM::Lesson61IndependentExcitationAndSafeLimitsAreExplicit",
+    "nativeCommand": "target/debug/trust-dev test --project examples/control/10-multivariable-control/61-mimo-paths --filter TEST_PROGRAM::Lesson61IndependentExcitationAndSafeLimitsAreExplicit --timeout 20",
+    "projectPath": "examples/control/10-multivariable-control/61-mimo-paths",
+    "runArtifactFields": [
+      "projectIdentity",
+      "plantIdentity",
+      "evidenceClass",
+      "sampleTime",
+      "seed",
+      "authority",
+      "requestedInputs",
+      "appliedInputs",
+      "compositionOutputs",
+      "baselineWindows",
+      "finalWindows",
+      "settlingStates",
+      "inputChanges",
+      "outputChanges",
+      "steadyStateGains",
+      "gainMatrix",
+      "determinant",
+      "relativeGainArray",
+      "rowColumnSums",
+      "pairingDecision",
+      "limits",
+      "abortState",
+      "restorationState"
+    ],
+    "renderedJourneyId": "control-mimo-paths"
+  },
+  "video": {
+    "viewerOutcome": "Execute two safe interaction tests, construct a measured gain matrix, calculate the Relative Gain Array, and justify a distillation pairing.",
+    "requiredVisibleEvidence": [
+      "binary distillation column",
+      "Simulation label",
+      "two independently excited step windows",
+      "requested and applied reflux and reboiler changes",
+      "two composition traces",
+      "four signed gains",
+      "gain matrix",
+      "determinant",
+      "Relative Gain Array",
+      "accepted and rejected pairing",
+      "physical boundary"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "A continuous binary distillation column uses reflux and reboiler steam to regulate overhead and bottoms product quality near one operating point.",
+    "reason": "Lesson 60 localized a final-element fault; with healthy valves here, genuine two-input, two-output process interaction must be measured before pairing loops.",
+    "theory": [
+      "Each steady-state gain is one settled output change divided by one independently applied input change.",
+      "The gain matrix records all four signed local paths.",
+      "The Relative Gain Array compares open-loop and closed-loop effective gains and exposes negative or strongly interacting pairings.",
+      "Pairing evidence is local to the qualified operating point and does not design or stabilize controllers."
+    ],
+    "workedPrediction": "Separate +5-percentage-point steps predict output changes of [+4.00, -1.50] and [-2.00, +3.50], gain matrix [[0.8, -0.4], [-0.3, 0.7]], determinant 0.44 and RGA [[1.2727, -0.2727], [-0.2727, 1.2727]].",
+    "practicalPreparation": [
+      "Verify Simulation evidence, Manual authority, signal quality, timing, requested/applied inputs, outputs, limits and zero restoration.",
+      "Define input/output changes, steady-state gains, settling, determinant, RGA elements and pairing rules before results."
+    ],
+    "baseline": "Recognize that names and direct open-loop gains alone do not establish a safe decentralized pairing.",
+    "change": "Execute one restored step per input, estimate all four gains, and form the Relative Gain Array from measured records.",
+    "comparison": "Hold model, initial state, timing, step magnitude, limits, seed and windows equal while changing only the excited input.",
+    "validation": "Require settled independent records, four gains within tolerance, all four response times within the finite-record tolerance, nonsingular inversion, row/column sums near one and positive diagonal versus negative cross relative gains.",
+    "explanation": "Closing one loop changes the effective gain available to the other; the RGA selects the diagonal pairing but does not remove its remaining interaction.",
+    "transfer": "Lesson 62 continues with Relative Gain Array."
+  }
+}

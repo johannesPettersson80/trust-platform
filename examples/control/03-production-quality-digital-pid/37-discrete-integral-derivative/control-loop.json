@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "id": "control-discrete-integral-derivative",
+  "name": "Discrete integral and derivative updates",
+  "revision": "sha256:028722a4ea5c99f12bdcc302696b6da08801f55f987c7025d57ad7c24307e1df",
+  "projectId": "project:control-discrete-integral-derivative",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "LessonDiscretePID",
+    "design": "project",
+    "revision": "sha256:f931fe065573cf1d48d3b4a84e4a27feea82904cd5ef520158d7ad1f4405ab0c",
+    "action": "direct",
+    "taskPeriodMs": 10,
+    "modeSignal": "%MX16.0",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML40",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rad",
+      "range": {
+        "minimum": -2,
+        "maximum": 2
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.MeasuredPosition",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rad",
+      "range": {
+        "minimum": -4,
+        "maximum": 4
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.RequestedTorque",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "N m",
+      "range": {
+        "minimum": -10,
+        "maximum": 10
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX16.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "motor-velocity",
+        "channel": "motor-velocity",
+        "role": "state",
+        "symbol": "P1.MotorVelocity",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": -10,
+    "outputMaximum": 10
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 10
+  },
+  "plantId": "digital-positioning-table",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 20.01,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX16.1",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "seed": 20260828
+  },
+  "parameterBinding": {
+    "loop_id": "control-discrete-integral-derivative",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.SampleInterval",
+        "iec_type": "REAL",
+        "unit": "s",
+        "convention": "elapsed interval used by the retained-state update",
+        "minimum": 0.02,
+        "maximum": 0.04
+      }
+    ],
+    "mode": {
+      "symbol": "P1.ExperimentEnabled",
+      "manual_value": false
+    }
+  },
+  "parameterPurpose": "experiment"
+}

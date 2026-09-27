@@ -9,7 +9,7 @@ mod cycle;
 mod faults;
 mod io_subsystem;
 mod mesh;
-mod metadata;
+pub(crate) mod metadata;
 mod metrics_subsystem;
 mod online_change;
 mod opcua_client_subsystem;

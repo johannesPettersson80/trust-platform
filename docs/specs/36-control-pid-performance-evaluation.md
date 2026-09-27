@@ -1,5 +1,8 @@
 # Control PID performance and stability evaluation
 
+Shared purpose and completion claims: [Control Platform Purpose and Acceptance Contract](control-platform-purpose.md).
+This document retains its detailed technical or teaching authority.
+
 This specification defines the deterministic benchmark used to evaluate the
 executed `Control.PID` implementation with truST simulated plants. It answers
 whether the specified controller behaves well for a declared plant and

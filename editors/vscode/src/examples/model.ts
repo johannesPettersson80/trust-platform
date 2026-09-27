@@ -7,6 +7,16 @@ import {
   type ControlLessonMetadata,
 } from "./controlLesson";
 
+export {
+  CONTROL_LESSON_PROJECTS_KEY,
+  controlLessonProjectRecovery,
+  persistControlLessonProject,
+  readControlLessonProjects,
+  recordControlLessonProject,
+  type ControlLessonProjectLocation,
+  type ControlLessonProjectRecovery,
+} from "./projectLocations";
+
 export type { ControlLessonMetadata } from "./controlLesson";
 
 export type ExampleHardware = "none" | "twincat" | "raspberrypi" | string;
@@ -80,19 +90,18 @@ export function controlModuleId(entryPath: string): string | undefined {
 
 /**
  * Humanizes a module directory basename into its display title (sentence
- * case; no acronym-casing table). The directory tree under examples/control/
- * is the one source of truth for module names and order — this never falls
- * back to a hand-maintained title list.
+ * case, preserving the PID acronym). Directory names provide identity and
+ * titles; declared lesson sequences provide ordering.
  */
 export function controlModuleTitle(moduleId: string): string {
-  const words = moduleId.replace(/^\d+-/, "").replace(/-/g, " ");
+  const words = moduleId.replace(/^\d+-/, "").replace(/-/g, " ").replace(/\bpid\b/gi, "PID");
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 /**
  * Derives the ordered module list — and each module's real lesson range —
  * from the loaded lesson entries (examples/catalog.json + lesson.json).
- * Grouping follows the fourteen module directories under examples/control/;
+ * Grouping follows the thirteen module directories under examples/control/;
  * there is no second, hand-maintained course list to keep in sync (W-04).
  */
 export function controlModulesFromEntries(
@@ -112,17 +121,33 @@ export function controlModulesFromEntries(
     sequencesById.set(id, sequences);
   }
   return Array.from(sequencesById.entries())
-    .sort(([left], [right]) => left.localeCompare(right))
+    .sort(([, leftSequences], [, rightSequences]) => Math.min(...leftSequences) - Math.min(...rightSequences))
     .map(([id, sequences]) => {
-      const minimum = Math.min(...sequences);
-      const maximum = Math.max(...sequences);
       return {
         id,
         title: controlModuleTitle(id),
-        range: minimum === maximum ? `Lesson ${minimum}` : `Lessons ${minimum}–${maximum}`,
+        range: formatLessonRuns(sequences),
         lessonCount: sequences.length,
       };
     });
+}
+
+function formatLessonRuns(values: ReadonlyArray<number>): string {
+  const sorted = [...new Set(values)].sort((left, right) => left - right);
+  const runs: string[] = [];
+  for (const value of sorted) {
+    const previous = runs[runs.length - 1];
+    const end = previous ? Number(previous.split("–").pop()) : undefined;
+    if (end !== undefined && value === end + 1) {
+      runs[runs.length - 1] = previous.includes("–") ? `${previous.split("–")[0]}–${value}` : `${end}–${value}`;
+    } else {
+      runs.push(String(value));
+    }
+  }
+  return runs.map((run, index) => {
+    const prefix = run.includes("–") ? (index === 0 ? "Lessons" : "") : "Lesson";
+    return `${prefix} ${run}`.trim();
+  }).join(", ");
 }
 
 export type ControlLessonProgressState = "not_started" | "project_created";

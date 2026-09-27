@@ -89,6 +89,11 @@ END_VAR
 StateValue := State;
 END_METHOD
 
+(* truST observation extension: a value copy, without a controller update. *)
+METHOD PUBLIC GetState : PIDInitialState
+GetState := StateValue;
+END_METHOD
+
 METHOD PUBLIC Update : LREAL
 VAR_INPUT
     Input : PIDInput;

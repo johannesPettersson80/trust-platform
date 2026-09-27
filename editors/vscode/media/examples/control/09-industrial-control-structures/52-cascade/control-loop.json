@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 1,
+  "id": "control-cascade",
+  "name": "Cascade",
+  "revision": "sha256:9d2ce6db0944f6b3597e865b9128cdfca79cb875d65aa9e67f70210a4f07f22e",
+  "projectId": "project:control-cascade",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Inner-first cascade commissioning and time-scale separation",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-54",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX136.2",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.ReactorSetpoint",
+      "address": "%ML88",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 60,
+        "maximum": 95
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.DirectReactorTemperature",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 60,
+        "maximum": 95
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.DirectValveRequest",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "inner-loop-availability-1",
+        "channel": "inner-loop-availability",
+        "role": "quality",
+        "symbol": "P1.InnerAvailable",
+        "address": "%MX136.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "inner-commissioning-mode-2",
+        "channel": "inner-commissioning-mode",
+        "role": "state",
+        "symbol": "P1.InnerCommissioning",
+        "address": "%MX136.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "heating-utility-disturbance-3",
+        "channel": "heating-utility-disturbance",
+        "role": "disturbance",
+        "symbol": "P1.UtilityDisturbance",
+        "address": "%ML104",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": -15,
+          "maximum": 15
+        }
+      },
+      {
+        "id": "jacket-test-setpoint-4",
+        "channel": "jacket-test-setpoint",
+        "role": "state",
+        "symbol": "P1.JacketTestSetpoint",
+        "address": "%ML96",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 60,
+          "maximum": 85
+        }
+      },
+      {
+        "id": "fast-jacket-setpoint-5",
+        "channel": "fast-jacket-setpoint",
+        "role": "state",
+        "symbol": "P1.FastJacketSetpoint",
+        "address": "%ML112",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 60,
+          "maximum": 85
+        }
+      },
+      {
+        "id": "slow-jacket-setpoint-6",
+        "channel": "slow-jacket-setpoint",
+        "role": "state",
+        "symbol": "P1.SlowJacketSetpoint",
+        "address": "%ML120",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 60,
+          "maximum": 85
+        }
+      },
+      {
+        "id": "direct-jacket-temperature-7",
+        "channel": "direct-jacket-temperature",
+        "role": "state",
+        "symbol": "P1.DirectJacketTemperature",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 45,
+          "maximum": 90
+        }
+      },
+      {
+        "id": "fast-cascade-reactor-temperature-8",
+        "channel": "fast-cascade-reactor-temperature",
+        "role": "state",
+        "symbol": "P1.FastReactorTemperature",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 60,
+          "maximum": 95
+        }
+      },
+      {
+        "id": "fast-cascade-jacket-temperature-9",
+        "channel": "fast-cascade-jacket-temperature",
+        "role": "state",
+        "symbol": "P1.FastJacketTemperature",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 45,
+          "maximum": 90
+        }
+      },
+      {
+        "id": "slow-cascade-reactor-temperature-10",
+        "channel": "slow-cascade-reactor-temperature",
+        "role": "state",
+        "symbol": "P1.SlowReactorTemperature",
+        "address": "%IL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 60,
+          "maximum": 95
+        }
+      },
+      {
+        "id": "slow-cascade-jacket-temperature-11",
+        "channel": "slow-cascade-jacket-temperature",
+        "role": "state",
+        "symbol": "P1.SlowJacketTemperature",
+        "address": "%IL40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 45,
+          "maximum": 90
+        }
+      },
+      {
+        "id": "fast-cascade-valve-request-12",
+        "channel": "fast-cascade-valve-request",
+        "role": "state",
+        "symbol": "P1.FastValveRequest",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "slow-cascade-valve-request-13",
+        "channel": "slow-cascade-valve-request",
+        "role": "state",
+        "symbol": "P1.SlowValveRequest",
+        "address": "%QL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX136.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "three_equivalent_jacketed_reactors",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 120.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX136.3",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
+}

@@ -1,0 +1,62 @@
+version = 1
+
+[theme]
+style = "industrial"
+accent = "#c2410c"
+
+[layout]
+navigation = "sidebar-left"
+header = true
+header_title = "P1 HMI"
+
+[write]
+enabled = false
+allow = []
+
+[[alarm]]
+bind = "P1.CandidateA"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Candidate A"
+
+[[alarm]]
+bind = "P1.CandidateB"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Candidate B"
+
+[[alarm]]
+bind = "P1.CandidateSeparation"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Candidate Separation"
+
+[[alarm]]
+bind = "P1.ElapsedSeconds"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Elapsed Seconds"
+
+[[alarm]]
+bind = "P1.MeasuredTemperature"
+high = 120
+low = 0
+deadband = 2.4
+inferred = true
+label = "Measured Temperature"
+
+[[alarm]]
+bind = "P1.ValvePosition"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Valve Position"

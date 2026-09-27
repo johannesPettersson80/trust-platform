@@ -1,0 +1,73 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 5000
+plant_step_ms = 1000
+
+[[plants]]
+id = "fixed-gravity-tank"
+name = "Fixed-PI gravity-drained tank"
+description = "Nonlinear vented tank used for the conservative fixed high-level PI baseline."
+model = "gravity_tank"
+command_sources = ["%QL152"]
+feedback_targets = ["%IL136"]
+initial_state = [0.16]
+initial_input = [0.008]
+
+[plants.parameters]
+area_m2 = 0.5
+outflow_coefficient_m2_sqrt_m_per_s = 0.020
+
+[[plants.uncertainties]]
+id = "fixed-level-sensor-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+standard_deviation = 0.0005
+
+[[plants]]
+id = "interpolated-gravity-tank"
+name = "Interpolated-PI gravity-drained tank"
+description = "Equivalent nonlinear tank controlled by one atomically scheduled PI."
+model = "gravity_tank"
+command_sources = ["%QL160"]
+feedback_targets = ["%IL144"]
+initial_state = [0.25]
+initial_input = [0.010]
+
+[plants.parameters]
+area_m2 = 0.5
+outflow_coefficient_m2_sqrt_m_per_s = 0.020
+
+[[plants.uncertainties]]
+id = "interpolated-level-sensor-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+standard_deviation = 0.0005
+
+[[plants]]
+id = "parallel-gravity-tank"
+name = "Parallel-PI gravity-drained tank"
+description = "Equivalent nonlinear tank controlled by hysteretically selected, externally tracked local PIs."
+model = "gravity_tank"
+command_sources = ["%QL168"]
+feedback_targets = ["%IL152"]
+initial_state = [0.36]
+initial_input = [0.012]
+
+[plants.parameters]
+area_m2 = 0.5
+outflow_coefficient_m2_sqrt_m_per_s = 0.020
+
+[[plants.uncertainties]]
+id = "parallel-level-sensor-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+standard_deviation = 0.0005

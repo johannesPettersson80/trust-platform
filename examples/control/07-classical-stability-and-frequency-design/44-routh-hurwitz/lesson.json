@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 4,
+  "id": "control-routh-hurwitz",
+  "title": "Routh–Hurwitz stability",
+  "level": "Advanced",
+  "sequence": 48,
+  "equipment": "Rigid rotary shaft with viscous friction",
+  "physicalPurpose": "Use the continuous-time stability prediction to choose a bounded proportional shaft trial.",
+  "principalTechnique": "Routh-Hurwitz",
+  "objective": "Interpret the Routh table for s²+s+Kp, then compare stable, boundary and unstable shaft responses.",
+  "prerequisites": ["control-characteristic-equation", "control-root-locus"],
+  "nextLesson": "control-lesson-22",
+  "signals": [
+    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.0" },
+    { "role": "state", "name": "Manual mode", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX96.3" },
+    { "role": "SP", "name": "Shaft target", "unit": "rad", "minimum": -0.2, "maximum": 0.2, "resolution": 0.0001, "binding": "%ML16" },
+    { "role": "PV", "name": "Shaft angle", "unit": "rad", "minimum": -0.2, "maximum": 0.2, "resolution": 0.0001, "binding": "%IL0" },
+    { "role": "state", "name": "Shaft velocity", "unit": "rad/s", "minimum": -2, "maximum": 2, "resolution": 0.0001, "binding": "%IL8" },
+    { "role": "MV", "name": "Requested torque", "unit": "N·m", "minimum": -20, "maximum": 20, "resolution": 0.0001, "binding": "%ML0" },
+    { "role": "MV", "name": "Applied torque", "unit": "N·m", "minimum": -20, "maximum": 20, "resolution": 0.0001, "binding": "%QL0" }
+  ],
+  "plant": {
+    "modelId": "shaft-j1-b1", "executable": "simulation.toml",
+    "parameters": [{ "name": "inertia", "value": 1, "unit": "kg·m²" }, { "name": "viscous_friction", "value": 1, "unit": "N·m·s/rad" }],
+    "sampleTimeSeconds": 0.02,
+    "initialState": { "angleRadians": 0, "velocityRadiansPerSecond": 0 },
+    "seed": 20260829,
+    "operatingPoint": { "Experiment authority": 0, "Manual mode": 1, "Shaft target": 0, "Shaft angle": 0, "Shaft velocity": 0, "Requested torque": 0, "Applied torque": 0 },
+    "validityRange": [{ "minimum": -0.2, "maximum": 0.2, "unit": "rad", "signal": "Shaft angle" }, { "minimum": -2, "maximum": 2, "unit": "rad/s", "signal": "Shaft velocity" }, { "minimum": -20, "maximum": 20, "unit": "N·m", "signal": "Applied torque" }],
+    "simplifications": ["J=B=1 shaft", "Ideal torque actuation within ±20 N·m", "The angle and velocity thresholds command zero torque and Manual mode; they are not mechanical travel hard-stops", "Continuous model predicts poles while ST updates every 20 ms", "Simulation-only I/O"]
+  },
+  "baseline": { "executableId": "P1", "settings": { "Kp": 0, "targetRadians": 0.01, "durationSeconds": 10 }, "limitation": "A finite command error with Kp=0 does not establish asymptotic stability." },
+  "change": { "executableId": "P1", "settings": { "Kp": 1, "targetRadians": 0.01, "durationSeconds": 10 }, "decision": "Apply Kp=1 after the Routh first column predicts Kp>0." },
+  "experiment": { "kind": "observation", "signal": "Experiment authority", "baseline": 0, "amplitude": 0.01, "durationSeconds": 10, "settlingSeconds": 0, "disturbances": [], "seed": 20260829, "restorationValue": 0, "activationSignal": "P1.ExperimentEnabled" },
+  "acceptance": [
+    { "metric": "positive_gain_decays", "signal": "Shaft angle", "window": "10 s after 0→0.01 rad step at Kp=1", "comparator": "<", "limit": 0.001, "unit": "rad error", "tolerance": 0, "evidenceClass": "simulation" },
+    { "metric": "zero_gain_unmoved", "signal": "Shaft angle", "window": "10 s at Kp=0", "comparator": "==", "limit": 0, "unit": "rad", "tolerance": 0.000000001, "evidenceClass": "simulation" },
+    { "metric": "negative_gain_stopped", "signal": "Applied torque", "window": "after angle or velocity safety limit at Kp=-1", "comparator": "==", "limit": 0, "unit": "N·m", "tolerance": 0, "evidenceClass": "simulation" }
+  ],
+  "safety": { "hardLimits": [{ "minimum": -0.2, "maximum": 0.2, "unit": "rad", "signal": "Shaft angle" }, { "minimum": -2, "maximum": 2, "unit": "rad/s", "signal": "Shaft velocity" }, { "minimum": -20, "maximum": 20, "unit": "N·m", "signal": "Applied torque" }], "abortPredicates": ["Angle reaches ±0.2 rad or velocity reaches ±2 rad/s; the controller commands zero torque and Manual mode", "Applied torque leaves ±20 N·m", "Required signal is nonfinite or invalid"], "safeMv": 0, "restorationMode": "Disable the experiment, confirm zero torque and Manual mode, then restart the simulator to reset angle and velocity. The thresholds do not model mechanical travel hard-stops.", "physicalApprovalRole": "authorised motion-controls engineer and responsible machine operator", "simulationOnlyRestrictions": ["This lesson cannot authorise physical servo gain application"] },
+  "workflowStages": ["Monitor", "Test", "Tune", "Validate"],
+  "proof": { "specification": "docs/specs/control-studio-routh-hurwitz.md", "nativeTest": "routh_shaft_gain_cases_match_the_declared_bounded_observations", "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_routh routh_shaft_gain_cases_match_the_declared_bounded_observations", "projectPath": "examples/control/07-classical-stability-and-frequency-design/44-routh-hurwitz", "runArtifactFields": ["plantIdentity", "selectedKp", "samples", "angle", "velocity", "requestedTorque", "appliedTorque", "stopReason"], "renderedJourneyId": "control-routh-hurwitz" },
+  "video": { "viewerOutcome": "Read the Routh first column, select Kp and compare the bounded shaft responses.", "requiredVisibleEvidence": ["J=B=1 shaft model", "s²+s+Kp Routh table", "Kp=-1, 0 and 1 selections", "Angle, velocity and applied torque", "Simulation label"], "durationClass": "standard", "scriptPath": "video/script.md", "captionPath": "video/captions.en.vtt", "thumbnailPath": "video/thumbnail.svg", "publicationState": "not_started" },
+  "learning": { "context": "A simulated J=B=1 shaft is controlled by u=Kp(r-theta).", "reason": "The root locus supplies selected gains but does not state the complete stability interval.", "theory": ["For the declared plant 1/[s(s+1)] and proportional controller Kp, the characteristic polynomial is s²+s+Kp.", "The Routh first column is 1, 1, Kp, so asymptotic stability requires Kp>0.", "Kp=0 has an origin pole and Kp=-1 has one right-half-plane pole."], "workedPrediction": "Predict decay at Kp=1, finite command error at Kp=0, and growth toward the stop threshold at Kp=-1.", "practicalPreparation": ["Confirm zero angle and velocity, 20 ms task period and ±20 N·m actuator bound.", "Use the 0.01 rad step and record angle, velocity and torque for 10 s."], "baseline": "At Kp=0 the shaft remains at zero while the 0.01 rad command error remains finite.", "change": "Apply Kp=1 from the Routh interval.", "comparison": "Change only Kp between -1, 0 and 1 while keeping the plant, reset and step fixed.", "validation": "Kp=1 decays, Kp=0 remains unmoved, and Kp=-1 grows before zero-torque Manual restoration.", "explanation": "The continuous Routh prediction does not remove sampled execution, saturation or stop-threshold assumptions.", "transfer": "Periodic excitation next measures response to continuing inputs at selected rates." }
+}

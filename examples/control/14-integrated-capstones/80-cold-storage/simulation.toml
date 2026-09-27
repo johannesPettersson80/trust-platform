@@ -1,0 +1,33 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 4000
+plant_step_ms = 100
+
+[[plants]]
+id = "cold-storage-room"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0"]
+initial_state = [4.0]
+[plants.parameters]
+a = [[-0.05]]
+b = [[-0.0025, 0.05]]
+c = [[1.0]]
+d = [[0.0, 0.0]]
+# The core assessment uses the same noise-free room as Lessons1–3.
+# Measurement-noise/fault variations belong to explicit later experiments.
+
+[[plants]]
+id = "compressor-running-feedback"
+model = "static_gain"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL8"]
+[plants.parameters]
+gain = 1.0
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 0.0

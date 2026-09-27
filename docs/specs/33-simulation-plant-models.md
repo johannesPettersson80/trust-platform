@@ -1,5 +1,8 @@
 # Simulation plant models
 
+Shared purpose and completion claims: [Control Platform Purpose and Acceptance Contract](control-platform-purpose.md).
+This document retains its detailed technical or teaching authority.
+
 This specification defines the truST fake-plant system: deterministic dynamic
 process models connected to a running PLC through the normal process image.
 The system is intended for controller development, regression testing,
@@ -113,6 +116,7 @@ Every plant defines:
 | `model` | closed string enum | yes | Selects a built-in model from Section 7. |
 | `command_sources` | array of addresses | yes | Ordered numeric PLC output signals. |
 | `feedback_targets` | array of addresses | yes | Ordered numeric PLC input signals. |
+| `actuator_feedback_targets` | array of records | no | Optional applied-actuator PLC input address for each ordered command channel; see Section 3.2.1. |
 | `step_ms` | positive integer | no | Overrides the default fixed integration step. |
 | `initial_state` | array of finite numbers | model-dependent | Sets dynamic state at activation. |
 | `initial_input` | array of finite numbers | no | Supplies engineering-unit input before the first committed PLC command. |
@@ -138,6 +142,39 @@ shall equal the command count. Plant identifiers shall match
 When present, `name` shall contain non-whitespace text. `description` may be
 empty and has no execution semantics. Neither field participates in plant
 identity, execution order, deterministic random streams, or I/O ownership.
+
+### 3.2.1 Applied actuator feedback through ordinary I/O
+
+An optional `actuator_feedback_targets` array has exactly one record per
+`command_sources` channel. Each record is either `{ address = "%IL8" }` or
+`{}` to omit that channel. Omitting the complete array publishes no actuator
+feedback and preserves existing plant behavior. A present address shall be a
+numeric PLC input binding. Its entire byte/bit range shall have one owner:
+it shall not overlap this or another plant's process/actuator feedback, a
+signal-coupling target, or an enabled physics feedback target.
+
+The existing actuator owns the value. Feedback converts its applied process
+input back to the corresponding PLC command coordinate:
+
+```text
+plc_applied[i] = (actuator_applied[i] - input_offset[i]) / input_scale[i]
+```
+
+An observed channel therefore requires a nonzero input scale. Negative scales
+remain valid; process-output scale/offset settings do not apply to this
+feedback. The observed value is after the actuator's limits, movement effects
+and installed characteristic, but before process-input uncertainty and
+transport delay. It is not commanded output, actuator position in all models,
+or measured heat delivered after transport.
+
+Initial publication uses the configured actuator initial state. A reset
+restores that state before the next substep processes the held command;
+feedback then reports the completed substep's result. The ordinary pre-cycle
+publication in Section 6 publishes actuator and process feedback as one atomic
+batch. Failure to convert or write any value leaves every input in that batch
+unchanged and reports a plant feedback-publication fault. The queued result
+remains pending for retry. This field reuses existing actuator, lifecycle,
+numeric-conversion and process-image owners; it introduces no separate model.
 
 A disabled plant owns no input target, reads no command, advances no state,
 consumes no random samples, and publishes no feedback. Enabling or disabling a
@@ -425,6 +462,30 @@ Validation shall resolve:
 - feedback-target ownership conflicts; and
 - internal-step duration and catch-up bounds.
 
+### 5.1.1 Transport-history allocation budget
+
+Each plant may reserve at most `100000` live transport-history sample slots
+across all its input channels. A stored channel requires
+`ceil(delay_nanoseconds / plant_step_nanoseconds) + 3` slots, including its
+held-value anchor and step margin. A scalar delayed model has one stored
+channel. Continuous state space with any positive delay stores all its input
+channels, including the three-slot margin for a zero-delay channel; all-zero
+state-space delays require no history storage.
+
+The runtime shall check this aggregate using checked arithmetic after resolving
+the plant's own step override and before allocating history buffers. A finite
+delay is not sufficient when its delay/step combination exceeds this budget.
+Excess capacity shall reject configuration with a clear `InvalidConfig` error
+naming transport history and the `100000` entry limit. Validation and allocation
+shall use the same capacity calculation. The transactional checkpoint reserves
+one mirror subject to the same bound, so live history and its checkpoint use at
+most `200000` sample slots together. This limit is independent of trace capacity.
+
+Native boundary tests shall inspect oversized configuration rejection without
+constructing its controller, and shall construct accepted configurations at the
+budget boundary. Existing scalar and all-zero-delay behavior remains unchanged
+within the supported capacity range.
+
 ### 5.2 Initial state
 
 Each model defines the required state-vector length. When `initial_state` is
@@ -478,9 +539,17 @@ simulation time is added to the accumulator. While the accumulator is at least
 smaller than `h` is retained for the next PLC cycle. The plant output is held
 between completed substeps.
 
+Completed process and optional actuator feedback are published together before
+the next PLC cycle. Advancing the plant after a cycle does not write its new
+inputs early. A PLC program therefore reads feedback from the preceding
+completed actuator/plant step while producing the next command; diagnostics
+that compare request and applied feedback shall preserve that sample pairing.
+
 PLC commands use zero-order hold. All substeps triggered after one PLC cycle use
 the command committed by that cycle unless an internal delayed-command boundary
-selects an older held command.
+selects an older held command. Each substep samples that raw held command anew;
+command uncertainty and actuator effects are evaluated from that raw sample and
+must not feed back into the held command used by the next substep.
 
 This rule makes results independent of how the same elapsed simulation interval
 is partitioned among PLC scans, provided the command history at plant step
@@ -601,6 +670,32 @@ y = output_bias + x_next
 Optional finite `state_minimum` and `state_maximum` clamp the completed state;
 the minimum shall not exceed the maximum. Omitted bounds are unbounded.
 
+### 7.4.1 `integrator_dead_time`
+
+A scalar integrator with command transport delay. It has one input, one output
+and one state. `gain`, `input_bias` and `output_bias` use the integrator defaults.
+`dead_time_s` is required, finite and nonnegative; `initial_delayed_input` is
+required and finite.
+
+```text
+dx/dt = gain * (u(t - dead_time_s) - input_bias)
+y = output_bias + x
+```
+
+Before recorded command history exists, the delayed input is
+`initial_delayed_input`. The runtime splits each integration step at delayed
+held-input transitions and sums the exact input areas. A delay need not be an
+integer number of task or plant steps. History uses the existing bounded
+transport-delay storage; reset clears it and restores the declared state and
+history value. Existing simulation IO offsets remain separate from these model
+biases. A selected transfer model `b/(a1*s) * exp(-L*s)` therefore maps to
+`gain=b/a1` and `dead_time_s=L`, without approximating the delay.
+
+Native acceptance covers delayed onset/area, bias, initial history, reset,
+bounded history and rejected invalid history parameters. Isolated actual-ST
+verification must also consume this exact model through the selected-model
+override and retain identical conditions for baseline/candidate runs.
+
 ### 7.5 `second_order`
 
 `second_order` represents an underdamped, critically damped, or overdamped
@@ -662,6 +757,59 @@ State advances by classical fourth-order Runge-Kutta using held input and
 parameters. Output is evaluated from the completed state and current held
 input. Matrix-vector products iterate rows and columns in increasing index
 order so arithmetic ordering is stable.
+
+#### 7.6.1 Independent continuous input delays
+
+Continuous `state_space` may declare `parameters.input_delays_s`, an ordered
+vector of transport delays in seconds. It shall contain one nonnegative finite
+value per B column/command channel; values must be representable in the native
+signed 64-bit nanosecond time base. Omission means zero for every input. The
+field does not belong to other model kinds, including `discrete_state_space`.
+
+For each input channel j, the equations use its independently delayed held
+process input in both B and D:
+
+```text
+v[j](t) = u[j](t - input_delays_s[j])
+dx/dt = A*x + B*v
+y = C*x + D*v
+```
+
+History records the existing process input after command scaling/offset,
+actuator behavior and process-input uncertainty. Before recorded history is
+available, `initial_input[j]` supplies the past value. As in Section 5.2,
+`initial_input` is already in model engineering units and shall not be scaled
+or offset again. Its omitted value remains zero. Output scaling/offset remains
+the existing separate publication boundary.
+
+Use the existing RK4 state-space integrator, splitting a plant step at every
+channel's delayed held-input transition. Delays are rounded to the native
+nanosecond time base, never to a whole plant step. A transition exactly at the
+step end contributes no integration time in that step but is the input used
+by D when its completed output is evaluated. All-zero delays retain the
+existing zero-delay arithmetic, timing and publication behavior.
+
+The existing delay-history owner shall retain only each channel's delay
+window, preceding held-value anchor and step margin. Total retained sample
+count is the sum over channels and is reported as `delay_buffer_depth`.
+Transactional rollback restores every channel's history together with the
+plant state; reset clears all recorded histories and restores configured
+initial-input prehistory without restarting absolute simulation time.
+
+The heater is one state-space plant with A=[[-0.2]], B=[[0.04,-0.02]], C=[[1]],
+D=[[0,0]], input delays [1,0] s, zero initial state/input and output_offset=[20].
+It preserves heater gain0.2 degrees/command point, load gain-0.1 degrees/kW,
+time constant5 s, and a heater-only1 s delivery delay. A simultaneous heater
+and extraction step must cool the measured water immediately through the load
+path while the new heating waits for its own delay. No ST composition or
+synthetic process-value feedback is required by this model.
+
+Native acceptance shall exercise process-image publication, aligned and
+fractional delay boundaries, D feedthrough, nonzero initial-input history,
+scaling/actuator ordering, omitted/zero-delay behavior, independent history
+bounds, reset and failed-substep rollback. Invalid vector dimensions,
+negative/nonfinite/unrepresentable delays, and use on a noncontinuous model
+shall reject configuration before activation.
 
 ### 7.7 `piecewise_linear`
 
@@ -728,6 +876,34 @@ advances by classical fourth-order Runge-Kutta with held torque and parameters.
 The model requires one command, two feedback targets, and two finite initial
 states. Torque saturation belongs to the ordinary actuator configuration, not
 to a second controller-facing path.
+
+### 7.10 `gravity_tank_cascade`
+
+This model represents two equal-area freely discharging tanks in cascade,
+with no downstream backpressure on the upstream outlet. It has one pump-flow
+input in m3/s and two level outputs/states `[h1, h2]` in metres. Parameters
+`area_m2` (positive) and `outflow_coefficient_m2_sqrt_m_per_s` (nonnegative)
+apply to both tanks and must be finite. A supplied initial state must contain
+two finite levels; omission uses [0,0], matching the standard model default contract.
+
+```text
+q12 = c * sqrt(max(h1, 0))
+qout = c * sqrt(max(h2, 0))
+h1' = (q_in - q12) / area_m2
+h2' = (q12 - qout) / area_m2
+```
+
+Both derivatives use the same intermediate state during every RK4 substage.
+The internal transfer cancels in the total-volume balance; it is not delayed
+by an ST scan or separately sampled between tank models. Completed states
+have the same physical empty-tank floor as `gravity_tank`. This floor is not
+an operating-range acceptance clamp: lesson bounds must abort before leaving
+the declared operating range. The original single-tank model is unchanged.
+
+At area .5 m2, c .020, input .010 and initial levels [.25,.25], both levels
+remain .25. From [.27,.25], the initial derivatives are approximately
+[-.0007846097,+.0007846097] m/s. These are nonlinear physical truth, distinct
+from the local A=[[-.04,0],[.04,-.04]], B=[2,0] approximation.
 
 ## 8. Actuator behavior
 

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "control-lesson-08",
+  "name": "Follow a valve that cannot move instantly",
+  "revision": "sha256:90d112d9e83339ed32bd11928ca36ad32024cd2c0a9a4cc94f53b5b1e5f73562",
+  "projectId": "project:control-lesson-08",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "parallel_pi_with_rate_tracking",
+    "design": "project",
+    "revision": "sha256:90d112d9e83339ed32bd11928ca36ad32024cd2c0a9a4cc94f53b5b1e5f73562",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX128.1"
+  },
+  "signals": {
+    "setpoint": { "symbol": "P1.Setpoint", "address": "%ML0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 15, "maximum": 60 } },
+    "processVariable": { "symbol": "P1.ProcessValue", "address": "%IL0", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 0, "maximum": 80 } },
+    "manipulatedVariable": { "symbol": "P1.AppliedValvePosition", "address": "%QL0", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+    "additional": [
+      { "id": "requested-position", "channel": "requested-position", "role": "state", "symbol": "P1.RequestedValvePosition", "address": "%ML8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "position-difference", "channel": "position-difference", "role": "state", "symbol": "P1.PositionDifference", "address": "%ML16", "iecType": "LREAL", "direction": "read", "unit": "percentage points", "range": { "minimum": -100, "maximum": 100 } },
+      { "id": "tracking-correction", "channel": "tracking-correction", "role": "state", "symbol": "P1.TrackingCorrection", "address": "%ML80", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": -1000, "maximum": 1000 } },
+      { "id": "lesson-experiment", "channel": "lesson-experiment", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX128.0", "iecType": "BOOL", "direction": "read", "unit": "", "range": { "minimum": 0, "maximum": 1 } }
+    ]
+  },
+  "limits": { "outputMinimum": 0, "outputMaximum": 100, "ratePerSecond": 5 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "first_order_dead_time",
+  "operatingPoint": "35 degC at 75% valve position",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 105.1,
+    "seed": 20260828,
+    "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX128.0", "iecType": "BOOL", "direction": "write" }
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 2,
+  "topology": "open-loop",
+  "id": "control-lesson-13",
+  "name": "Process dynamics",
+  "projectId": "project:control-lesson-13",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Main",
+    "design": "project",
+    "revision": "sha256:70c5b2b6e68ab30d94b793ef3637571cf21c9ceeba2f69bf3d2af6abcfe6dc4f",
+    "action": "direct",
+    "taskPeriodMs": 100
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.TemperatureC",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 33,
+        "maximum": 39
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.AppliedPowerPct",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX80.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "safety-abort",
+        "channel": "safety-abort",
+        "role": "state",
+        "symbol": "P1.SafetyAbort",
+        "address": "%MX80.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "heater-equilibrium-review",
+  "operatingPoint": "35 degC with a 75 percent delayed-input history",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 30.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX80.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  },
+  "revision": "sha256:71b7b64dd4ae2dc9bdc08e77b1d91a68f1e56aa5f4b79393aa445c48ddd82027"
+}

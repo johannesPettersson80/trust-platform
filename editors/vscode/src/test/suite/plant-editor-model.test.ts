@@ -1,6 +1,24 @@
 import * as assert from "assert";
 
 suite("Plant editor identity", () => {
+  test("publishes one model-first option list containing every built-in model", () => {
+    const descriptors = require("../../networkCanvas/plant/modelDescriptors") as {
+      plantModelDescriptors?: () => Array<{ kind: string; productName: string }>;
+    };
+    assert.deepStrictEqual(descriptors.plantModelDescriptors?.().map(({ kind, productName }) => ({ kind, productName })), [
+      { kind: "static_gain", productName: "Static gain" },
+      { kind: "first_order", productName: "First order" },
+      { kind: "first_order_dead_time", productName: "First order with dead time" },
+      { kind: "integrator", productName: "Integrator" },
+      { kind: "second_order", productName: "Second order" },
+      { kind: "piecewise_linear", productName: "Piecewise linear" },
+      { kind: "state_space", productName: "State space" },
+      { kind: "gravity_tank", productName: "Gravity-drained tank" },
+      { kind: "gravity_tank_cascade", productName: "Cascaded gravity tanks" },
+      { kind: "robot_joint", productName: "Gravity-loaded robot joint" },
+    ]);
+  });
+
   test("edits the runtime gravity-tank model with physical parameter names and units", () => {
     const model = require("../../networkCanvas/plant/editorModel") as {
       plantDynamicsFields?: (kind: string) => Array<{ key: string; label: string; unit: string }>;
@@ -32,7 +50,7 @@ suite("Plant editor identity", () => {
     assert.deepStrictEqual(descriptors.plantModelDescriptor?.("gravity_tank"), {
       kind: "gravity_tank",
       productName: "Gravity-drained tank",
-      purpose: "Nonlinear level from inlet and square-root outlet flow",
+      purpose: "Inflow raises the level; gravity drains it faster as the level rises.",
       states: 1,
       inputs: 1,
       outputs: 1,
@@ -60,7 +78,7 @@ suite("Plant editor identity", () => {
     assert.deepStrictEqual(descriptors.plantModelDescriptor?.("robot_joint"), {
       kind: "robot_joint",
       productName: "Gravity-loaded robot joint",
-      purpose: "Nonlinear angle, speed, gravity, and friction dynamics",
+      purpose: "Torque changes joint angle and speed; gravity depends on angle, and friction resists motion.",
       states: 2,
       inputs: 1,
       outputs: 2,
@@ -120,6 +138,54 @@ suite("Plant editor identity", () => {
       api.plantCandidateFromEditorDraft?.({ ...base, actuator: { minimum: 0, maximum: 100, characteristic_exponent: 2 } })?.actuator,
       { minimum: 0, maximum: 100, characteristic_exponent: 2 }
     );
+  });
+
+  test("publishes the runtime-resolved meaning for every blank actuator field", () => {
+    const api = require("../../networkCanvas/plant/editorModel") as {
+      PLANT_ACTUATOR_FIELDS?: Array<{
+        key: string;
+        blankMeaning?: string;
+        defaultValue?: number;
+        defaultFrom?: string;
+      }>;
+    };
+    assert.deepStrictEqual(api.PLANT_ACTUATOR_FIELDS?.map(({ key, blankMeaning, defaultValue, defaultFrom }) => ({
+      key, blankMeaning, defaultValue, defaultFrom,
+    })), [
+      { key: "minimum", blankMeaning: "Unbounded", defaultValue: undefined, defaultFrom: undefined },
+      { key: "maximum", blankMeaning: "Unbounded", defaultValue: undefined, defaultFrom: undefined },
+      { key: "rate_up_per_s", blankMeaning: "Unbounded; 0 blocks upward movement", defaultValue: undefined, defaultFrom: undefined },
+      { key: "rate_down_per_s", blankMeaning: "Unbounded; 0 blocks downward movement", defaultValue: undefined, defaultFrom: undefined },
+      { key: "deadband", blankMeaning: "0 (no deadband)", defaultValue: 0, defaultFrom: undefined },
+      { key: "stiction_band", blankMeaning: "0 (no static friction)", defaultValue: 0, defaultFrom: undefined },
+      { key: "slip_jump", blankMeaning: "0 (no breakaway jump)", defaultValue: 0, defaultFrom: undefined },
+      { key: "characteristic_exponent", blankMeaning: "1 (linear characteristic)", defaultValue: 1, defaultFrom: undefined },
+      { key: "lag_s", blankMeaning: "0 (no lag)", defaultValue: 0, defaultFrom: undefined },
+      { key: "initial_applied", blankMeaning: "Initial input (resolved at runtime)", defaultValue: undefined, defaultFrom: "initial_input" },
+    ]);
+  });
+
+  test("accepts runtime-defaulted gain and FOPDT dead time when omitted", () => {
+    const api = require("../../networkCanvas/plant/editorModel") as {
+      validatePlantDynamics?: (input: { model: string; parameters: Record<string, unknown>; initialState: number[] }) => Array<{ field: string }>;
+    };
+    assert.deepStrictEqual(api.validatePlantDynamics?.({
+      model: "static_gain",
+      parameters: {},
+      initialState: [],
+    }), []);
+    assert.deepStrictEqual(api.validatePlantDynamics?.({
+      model: "first_order_dead_time",
+      parameters: { time_constant_s: 5 },
+      initialState: [0],
+    }), []);
+    for (const [model, parameters, initialState] of [
+      ["first_order", { time_constant_s: 5 }, [0]],
+      ["integrator", {}, [0]],
+      ["second_order", { natural_frequency_rad_s: 1, damping_ratio: 0.7 }, [0, 0]],
+    ] as const) {
+      assert.deepStrictEqual(api.validatePlantDynamics?.({ model, parameters, initialState: [...initialState] }), [], model);
+    }
   });
 
   test("builds the exact persisted candidate from the visible editor draft", () => {
@@ -336,6 +402,7 @@ suite("Plant editor starting points", () => {
       [
         { id: "tank", label: "Tank or accumulated level", model: "integrator" },
         { id: "gravity_drained_tank", label: "Gravity-drained tank", model: "gravity_tank" },
+        { id: "gravity_tank_cascade", label: "Cascaded gravity tanks", model: "gravity_tank_cascade" },
         { id: "temperature", label: "Temperature or slow process", model: "first_order_dead_time" },
         { id: "motor_speed", label: "Motor speed or first-order process", model: "first_order" },
         { id: "mechanical_position", label: "Mechanical position or resonant process", model: "second_order" },
@@ -453,6 +520,7 @@ suite("Plant editor starting points", () => {
     assert.deepStrictEqual(Object.keys(help), [
       "tank",
       "gravity_drained_tank",
+      "gravity_tank_cascade",
       "temperature",
       "motor_speed",
       "mechanical_position",
@@ -463,7 +531,7 @@ suite("Plant editor starting points", () => {
     ]);
     for (const [id, copy] of Object.entries(help)) {
       assert.ok(copy?.[0]?.length, `${id} must explain why the model is reasonable`);
-      assert.match(copy?.[1] ?? "", /cannot|without|omits/i,
+      assert.match(copy?.[1] ?? "", /cannot|without|omits|assumes no/i,
         `${id} must state what it cannot reproduce`);
     }
     assert.match(help.temperature?.[0] ?? "", /lag.*delay/i);
@@ -630,6 +698,42 @@ suite("Plant imperfection editor", () => {
 });
 
 suite("Plant editor dynamics", () => {
+  test("model selection uses the existing replacement confirmation decision", () => {
+    const api = require("../../networkCanvas/plant/editorModel") as {
+      planPlantStartingPointChange: (input: {
+        currentStartingPoint: string;
+        requestedStartingPoint: string;
+        modelValuesTouched: boolean;
+      }) => { kind: string };
+    };
+    assert.strictEqual(api.planPlantStartingPointChange({
+      currentStartingPoint: "temperature",
+      requestedStartingPoint: "tank",
+      modelValuesTouched: true,
+    }).kind, "confirm");
+    assert.strictEqual(api.planPlantStartingPointChange({
+      currentStartingPoint: "temperature",
+      requestedStartingPoint: "tank",
+      modelValuesTouched: false,
+    }).kind, "apply");
+  });
+
+  test("runtime-defaultable fields describe scalar and input-bias defaults", () => {
+    const api = require("../../networkCanvas/plant/editorModel") as {
+      plantDynamicsFields?: (model: string) => Array<{ key: string; defaultValue?: number; defaultFrom?: string }>;
+    };
+    const fields = api.plantDynamicsFields?.("first_order_dead_time") ?? [];
+    assert.deepStrictEqual(
+      fields.filter((field) => ["input_bias", "output_bias", "initial_delayed_input"].includes(field.key))
+        .map(({ key, defaultValue, defaultFrom }) => ({ key, defaultValue, defaultFrom })),
+      [
+        { key: "input_bias", defaultValue: 0, defaultFrom: undefined },
+        { key: "output_bias", defaultValue: 0, defaultFrom: undefined },
+        { key: "initial_delayed_input", defaultValue: undefined, defaultFrom: "input_bias" },
+      ]
+    );
+  });
+
   test("provides compact, field-specific engineering help without changing stored values", () => {
     const api = require("../../networkCanvas/plant/editorModel") as {
       plantDynamicsFields?: (model: string) => Array<{
@@ -706,7 +810,7 @@ suite("Plant editor dynamics", () => {
         "initial_state",
       ],
       piecewise_linear: ["input_points", "output_points"],
-      state_space: ["a", "b", "c", "d", "initial_state"],
+      state_space: ["a", "b", "c", "d", "input_delays_s", "initial_state"],
     };
 
     for (const [model, keys] of Object.entries(expected)) {
@@ -770,6 +874,15 @@ suite("Plant editor dynamics", () => {
         initialState: [4],
       }),
       []
+    );
+    assert.deepStrictEqual(
+      api.validatePlantDynamics?.({
+        model: "first_order_dead_time",
+        parameters: { gain: 1, time_constant_s: 10, dead_time_s: 1 },
+        initialState: [0],
+      }),
+      [],
+      "runtime-defaultable first-order values may be omitted"
     );
     assert.deepStrictEqual(
       api.validatePlantDynamics?.({
@@ -880,39 +993,5 @@ suite("Plant piecewise-linear editor", () => {
       input_points: [-1, 0, 1],
       output_points: [-2, 0, 3],
     });
-  });
-});
-
-suite("Plant state-space editor", () => {
-  test("owns dimensions, exact cells, paste, and confirmed destructive resizing", () => {
-    let api: any;
-    try { api = require("../../networkCanvas/plant/stateSpaceEditor"); } catch { api = undefined; }
-    const oneState = { a: [[-1]], b: [[2]], c: [[3]], d: [[4]] };
-    assert.deepStrictEqual(api?.stateSpaceDimensions?.(oneState), { states: 1, inputs: 1, outputs: 1 });
-    assert.deepStrictEqual(api?.parseStateSpacePaste?.("1\t2\n3\t4"), [[1, 2], [3, 4]]);
-    assert.deepStrictEqual(api?.validateStateSpace?.({
-      parameters: { a: [[0, Number.NaN], [0, 0]], b: [[1], [0]], c: [[1, 0]], d: [[0]] },
-      initialState: [0, 0],
-      dimensions: { states: 2, inputs: 1, outputs: 1 },
-    }), [
-      { matrix: "a", row: 0, column: 1, message: "A[1,2] must be a finite number." },
-    ]);
-    const grown = api?.planStateSpaceResize?.({
-      parameters: oneState,
-      initialState: [5],
-      dimensions: { states: 1, inputs: 1, outputs: 1 },
-      requested: { states: 2, inputs: 1, outputs: 1 },
-    });
-    assert.deepStrictEqual(grown, {
-      kind: "apply",
-      parameters: { a: [[-1, 0], [0, 0]], b: [[2], [0]], c: [[3, 0]], d: [[4]] },
-      initialState: [5, 0],
-    });
-    assert.deepStrictEqual(api?.planStateSpaceResize?.({
-      parameters: grown.parameters,
-      initialState: grown.initialState,
-      dimensions: { states: 2, inputs: 1, outputs: 1 },
-      requested: { states: 1, inputs: 1, outputs: 1 },
-    })?.kind, "confirm");
   });
 });

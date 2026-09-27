@@ -1,0 +1,94 @@
+version = 1
+
+[theme]
+style = "industrial"
+accent = "#c2410c"
+
+[layout]
+navigation = "sidebar-left"
+header = true
+header_title = "P1 HMI"
+
+[write]
+enabled = false
+allow = []
+
+[[alarm]]
+bind = "P1.CommonInput"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Common Input"
+
+[[alarm]]
+bind = "P1.IntegratingResponse"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Integrating Response"
+
+[[alarm]]
+bind = "P1.InverseNegativePath"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Inverse Negative Path"
+
+[[alarm]]
+bind = "P1.InversePositivePath"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Inverse Positive Path"
+
+[[alarm]]
+bind = "P1.InverseResponse"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Inverse Response"
+
+[[alarm]]
+bind = "P1.OscillatingPoleImaginaryPart"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Oscillating Pole Imaginary Part"
+
+[[alarm]]
+bind = "P1.OscillatingPoleRealPart"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Oscillating Pole Real Part"
+
+[[alarm]]
+bind = "P1.OscillatingResponse"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Oscillating Response"
+
+[[alarm]]
+bind = "P1.StablePole"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Stable Pole"
+
+[[alarm]]
+bind = "P1.StableResponse"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Stable Response"

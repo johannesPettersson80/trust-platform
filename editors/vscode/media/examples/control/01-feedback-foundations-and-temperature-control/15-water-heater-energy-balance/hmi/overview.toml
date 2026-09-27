@@ -1,0 +1,101 @@
+title = "Overview"
+icon = "thermometer"
+order = 0
+
+[[section]]
+title = "Key Metrics"
+span = 12
+tier = "hero"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.AmbientTemperature"
+inferred_interface = true
+label = "Ambient Temperature"
+span = 4
+unit = "C"
+min = 0
+max = 120
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.AppliedHeaterPower"
+inferred_interface = true
+label = "Applied Heater Power"
+span = 4
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.FullScaleHeaterPower"
+inferred_interface = true
+label = "Full Scale Heater Power"
+span = 4
+min = 0
+max = 100
+
+[[section]]
+title = "Status"
+span = 12
+tier = "status"
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.ExperimentEnabled"
+inferred_interface = true
+label = "Experiment Enabled"
+span = 2
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.ManualMode"
+inferred_interface = true
+label = "Manual Mode"
+span = 2
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.ModelValid"
+inferred_interface = true
+label = "Model Valid"
+span = 2
+
+[[section]]
+title = "Details"
+span = 12
+tier = "detail"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.RequestedHeaterPower"
+inferred_interface = true
+label = "Requested Heater Power"
+span = 4
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.EffectiveHeatLoss"
+inferred_interface = true
+label = "Effective Heat Loss"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.InputsValid"
+inferred_interface = true
+label = "Inputs Valid"
+span = 3
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.PredictedEquilibrium"
+inferred_interface = true
+label = "Predicted Equilibrium"
+span = 3
+min = 0
+max = 100

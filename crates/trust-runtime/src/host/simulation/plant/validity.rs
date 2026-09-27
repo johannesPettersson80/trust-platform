@@ -124,7 +124,7 @@ impl Bounds {
             _ => {
                 return invalid(format!(
                     "plants.validity.{name}_minimum and {name}_maximum must be declared together"
-                ))
+                ));
             }
         };
         if minimum.len() != expected || maximum.len() != expected {

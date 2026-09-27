@@ -76,6 +76,10 @@ impl Runtime {
         }
 
         if let Some(debug) = &self.debug {
+            debug.finish_transfer_cycle(&self.storage, self.current_time);
+        }
+
+        if let Some(debug) = &self.debug {
             debug.push_runtime_event(crate::debug::RuntimeEvent::CycleEnd {
                 cycle: self.cycle_counter,
                 time: self.current_time,
@@ -252,6 +256,33 @@ impl Runtime {
     }
 
     fn execute_task(&mut self, task: &TaskConfig) -> Result<(), error::RuntimeError> {
+        if let Some(debug) = self
+            .debug
+            .clone()
+            .filter(|debug| debug.has_parameter_transaction() || debug.has_transfer_transaction())
+        {
+            let metadata = self.metadata_snapshot();
+            let has_io_driver = self
+                .io
+                .interface_and_drivers_mut()
+                .1
+                .iter()
+                .any(|entry| !entry.driver.is_simulated());
+            debug.commit_parameters(
+                &task.name,
+                &mut self.storage,
+                &metadata,
+                has_io_driver,
+                self.io.interface().bindings(),
+            );
+            debug.commit_transfer(
+                &task.name,
+                &mut self.storage,
+                &metadata,
+                has_io_driver,
+                self.io.interface().bindings(),
+            );
+        }
         if let Some(debug) = &self.debug {
             let thread_id = self.task_thread_ids.get(&task.name).copied();
             debug.set_current_thread(thread_id);
@@ -268,6 +299,13 @@ impl Runtime {
             self.execute_function_block_ref(fb_ref)?;
         }
         if let Some(debug) = &self.debug {
+            debug.confirm_parameters(&task.name, &self.storage, self.current_time);
+            debug.confirm_transfer_task(&task.name, &self.storage);
+            if let Some(reason) = debug.take_transfer_output_rejection() {
+                return Err(error::RuntimeError::IoDriver(
+                    format!("reviewed controller transfer rejected output: {reason}").into(),
+                ));
+            }
             debug.push_runtime_event(crate::debug::RuntimeEvent::TaskEnd {
                 name: task.name.clone(),
                 priority: task.priority,
@@ -295,8 +333,44 @@ impl Runtime {
         if let Some(debug) = debug {
             debug.set_current_thread(thread_id);
         }
+        if let Some(debug) = self
+            .debug
+            .clone()
+            .filter(|debug| debug.has_parameter_transaction() || debug.has_transfer_transaction())
+        {
+            let metadata = self.metadata_snapshot();
+            let has_io_driver = self
+                .io
+                .interface_and_drivers_mut()
+                .1
+                .iter()
+                .any(|entry| !entry.driver.is_simulated());
+            debug.commit_parameters(
+                "$background",
+                &mut self.storage,
+                &metadata,
+                has_io_driver,
+                self.io.interface().bindings(),
+            );
+            debug.commit_transfer(
+                "$background",
+                &mut self.storage,
+                &metadata,
+                has_io_driver,
+                self.io.interface().bindings(),
+            );
+        }
         for program_name in &background {
             self.execute_program_by_name(program_name)?;
+        }
+        if let Some(debug) = &self.debug {
+            debug.confirm_parameters("$background", &self.storage, self.current_time);
+            debug.confirm_transfer_task("$background", &self.storage);
+            if let Some(reason) = debug.take_transfer_output_rejection() {
+                return Err(error::RuntimeError::IoDriver(
+                    format!("reviewed controller transfer rejected output: {reason}").into(),
+                ));
+            }
         }
         background.clear();
         self.background_program_names_scratch = background;
@@ -462,6 +536,9 @@ impl Runtime {
     }
 
     fn record_fault(&mut self, err: error::RuntimeError) -> error::RuntimeError {
+        if let Some(debug) = &self.debug {
+            debug.fail_transfer(&err.to_string());
+        }
         self.apply_fault(err, self.faults.decision())
     }
 
@@ -480,7 +557,7 @@ impl Runtime {
                 .into_iter()
                 .map(|(address, _)| address)
                 .collect();
-            debug.push_io_snapshot(snapshot);
+            debug.push_control_snapshot_at(snapshot, self.current_time.as_nanos(), &self.storage);
         }
     }
 }

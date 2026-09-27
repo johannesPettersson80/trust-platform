@@ -1,17 +1,22 @@
 # VS Code Control Studio
 
-Status: normative truST product specification.
+This document owns Control Studio's runtime, acquisition, model, numerical and
+application contracts. The page specifications are the only layout authorities:
 
-Control Studio is the VS Code workspace for observing, testing, identifying,
-tuning, and validating one configured control loop. It uses the same
-workflow for a simulated plant and a physical plant while always identifying
-which source produced the evidence.
+- [Identify](control-studio-identify-page.md)
+- [Tune](control-studio-tune-page.md)
+- [Validate](control-studio-validate-page.md)
 
-The PID algorithm is defined by
-[`32-control-pid.md`](32-control-pid.md). Simulated plant behavior is defined by
-[`33-simulation-plant-models.md`](33-simulation-plant-models.md), and simulated
-plant configuration is defined by
-[`34-vscode-plant-simulation-ui.md`](34-vscode-plant-simulation-ui.md).
+The [shared three-page flow](control-studio-complete-workflow-specification.md#three-page-automatic-flow)
+owns automatic continuation, compact editors, autosave and restart behavior.
+The [purpose contract](control-platform-purpose.md) owns platform acceptance.
+The [complete workflow specification](control-studio-complete-workflow-specification.md)
+and its capability contracts own controller selection and engineering methods.
+Technical result fields in this document do not imply additional visible panels.
+
+PID execution is defined by [Specification 32](32-control-pid.md), plant dynamics
+by [Specification 33](33-simulation-plant-models.md), and plant configuration by
+[Specification 34](34-vscode-plant-simulation-ui.md).
 
 The words MUST, MUST NOT, SHOULD, and MAY are normative.
 
@@ -21,6 +26,10 @@ Every Control Studio binding declares whether its primary view is
 `closed-loop` or `open-loop`. A closed-loop view keeps SP, PV, and MV
 immediately visible. An open-loop view keeps the applied process input and
 measured process output immediately visible and MUST NOT invent a setpoint.
+The open-loop plot, signal list, values and accessible descriptions use the
+same applied-input/measured-output meaning. Omit the setpoint slot and series.
+If no controller mode is declared for that experiment, omit its mode display
+rather than presenting a normal open-loop state as unavailable.
 A lesson may add named auxiliary channels
 to that same binding for extra setpoints, process variables, manipulated
 variables, achieved actuator positions, disturbances, states, quality flags,
@@ -54,15 +63,15 @@ amplitude, maximum duration, and deterministic seed. `control-studio`
 execution means Control Studio writes the reviewed excitation through the
 existing runtime experiment service. `project-scripted` execution means the
 runnable lesson or simulator already owns the scenario; Control Studio MUST
-present it as `Observe without excitation`, use zero amplitude, record the
+treat it as observation with zero external amplitude, record the
 declared duration, and perform no duplicate process excitation. A
 project-scripted scenario MAY declare one writeable Boolean activation binding.
-When present, **Confirm and start** MUST use the same runtime experiment service
+When present, the authorized start MUST use the same runtime experiment service
 to write that binding true, while Abort, timeout, failure, and normal completion
-MUST restore it false and confirm the restored scan. The preview MUST name this
-as lesson experiment authority, not as SP, MV, or a second excitation. A
+MUST restore it false and confirm the restored scan. The plan MUST retain this
+as project activation authority, not as SP, MV, or a second excitation. A
 project-scripted scenario without an activation binding remains observation
-only. The UI MUST show these defaults when the loop opens.
+only. Retain these defaults in the study; use the page-defined controls.
 
 Every auxiliary signal MUST have a nonempty stable `id` distinct from the
 reserved primary identities `setpoint`, `processVariable`,
@@ -75,6 +84,17 @@ use the same engineering unit. SP, PV, actuator, state, quality, and schedule
 signals are read bindings; MV signals are write bindings. A disturbance may be
 read-only when measured or writeable when it is an explicitly actuated
 simulation/test input.
+
+When a loop supports saturation-and-windup analysis, its controller declaration
+MUST name `saturationEvidence.requestedOutputId` and
+`saturationEvidence.integralStateId`. They are the stable IDs of two distinct
+read-only `state` auxiliary signals: the unlimited controller request and the
+retained integral state. The request uses the manipulated-variable engineering
+unit. Control Studio records those exact bindings with the declared applied
+output; it never guesses them from variable names, reconstructs an unlimited
+request from a clamped output, or treats a controller parameter as live state.
+Without the two bindings, the Test result remains usable for its supported
+operations but saturation-and-windup analysis reports the missing adapter.
 
 All primary and auxiliary process-image bindings MUST occupy distinct bit
 ranges. Exact duplicates and partial byte overlaps are ambiguous and MUST be
@@ -94,12 +114,66 @@ controller type `Control.PID` and enables the shared PID identification,
 tuning, validation, application, and rollback services. `project` identifies
 an ON/OFF, manual, model-analysis, state-space, predictive, adaptive, robust,
 or other controller whose governing implementation remains in the runnable
-lesson project. A project-owned controller uses the same Monitor, Test,
-recording, plots, and evidence transport, but Control Studio MUST NOT present a
+lesson project. A project-owned controller uses the same acquisition, recording,
+analysis and evidence transport, but Control Studio MUST NOT present a
 generic PID candidate as that controller or write `Control.PID` parameters to
 it. A declared Tune / Design stage for a project-owned controller requires its
 own typed design adapter; until that adapter is present the action remains
 disabled with the missing-adapter reason.
+
+A `design: "pid"` loop MUST declare a typed PID adapter before Control Studio
+offers a connected P, PI, PD, or PID choice. The adapter is an explicit
+controller-law record, never a variable-name convention. It identifies the
+parallel `Control.PID` parameter record owner, the task-boundary apply/observe
+operation, and unique compiled bindings for every field that a selected
+structure can change. At a minimum the adapter maps proportional, integral and
+derivative gains; it maps weights, bias, output/rate limits, tracking time and
+anti-windup whenever the selected controller or tuning method changes them.
+Each binding records its IEC type, engineering unit, range and parameter-record
+revision.
+
+Loops without a compatible typed adapter retain supported acquisition and
+analysis operations. A missing adapter blocks only its dependent operations,
+with the reason in the owning page's action area. The editor MUST NOT invent
+parameter/state mappings or a different UI shell to enable Apply.
+
+For a back-calculation adapter, a PID law MAY additionally declare
+`antiWindup: { method: "back-calculation", trackingGainSymbol: "..." }`.
+That symbol is one unique bound REAL/LREAL parameter in reciprocal seconds. Its
+value is `1/Tt`; zero is the recorded untracked baseline, while a candidate
+uses a finite positive `Tt` and writes its reciprocal through the same complete
+parameter record. The law declaration, rather than a parameter name, gives
+that value its tracking meaning. A loop without this adapter can display a
+saturation finding but cannot offer a connected back-calculation candidate.
+
+A loop which supports the automatic matched anti-windup verification route
+MUST additionally declare `controller.antiWindupVerification`. Its scenario
+contains the explicit isolated-simulation scan interval, duration, deterministic
+seed, per-run wall budget, finite initial symbol values, and scan-aligned
+numeric events. The scenario MUST initialize the declared mode, setpoint and
+retained-integral symbols, and it MUST NOT target a controller parameter. The
+runtime runs the original and tracked parameter records from this one immutable
+scenario; changing either record's initial values, events, timing, seed, source
+or output limits makes the comparison inconclusive. A loop without this
+declaration can review a candidate manually but Control Studio must explain why
+it cannot run the automatic matched comparison.
+
+The adapter declares supported structures from those actual bindings:
+
+- P requires a complete parameter record mapping and writes integral and
+  derivative gains as explicit zero terms.
+- PI requires proportional and integral mappings.
+- PD requires proportional and derivative mappings.
+- PID requires proportional, integral and derivative mappings.
+
+Tune MUST retain the exact mapped parameter record, not only displayed gains.
+Verify executes that record against the compatible ST controller and simulated
+plant. Apply validates the complete record, writes it atomically through the
+declared adapter at its owning task boundary, observes the resulting revision
+and retains the prior revision for rollback. A controller with missing,
+ambiguous, stale, incompatible or non-atomic mappings exposes the unavailable
+reason; Control Studio MUST NOT enable a structure based solely on controller
+type or symbol spelling.
 
 Cascade, ratio, split-range, gain-scheduled, adaptive, and MIMO lessons reuse
 the primary plus auxiliary signal set. Their controller equations remain in
@@ -123,12 +197,27 @@ second runtime communication path. A configured plant's contextual action
 remains the preferred route when the user wants to preserve a specific plant
 or loop selection.
 
-A runnable project MAY provide one explicit `control-loop.json` at its root.
+A runnable project MAY provide `control-loop.json` at its root and additional
+loop definitions in `control-loops/*.json`. Discovery MUST enumerate both in
+deterministic filename order, validate every definition, and reject duplicate
+loop IDs within one project. More than one definition requires a labelled loop
+chooser. Cancellation MUST leave the current editor and files unchanged.
 The file contains the complete loop definition from Section 1; names or
 addresses MUST NOT be inferred from the ST program. When that file exists,
-activating the sidebar destination MUST validate it and open that bound loop.
+activating the sidebar destination or invoking the command without arguments
+MUST validate it and open that bound loop. The selected runtime remains the
+scope authority; opening MUST NOT silently switch targets. In a multi-root
+workspace, more than one configured project requires a labelled project/loop
+chooser; cancelling leaves the current editor unchanged.
 When it is absent or invalid, the sidebar MUST explain that no valid control
-loop is configured instead of opening an unexplained unbound workspace.
+loop is configured instead of opening an unexplained unbound workspace. The
+no-argument command follows the same rule and offers the configuration file as
+a repair destination when present. If no configuration exists, it MUST offer **Configure control loop** using
+explicit compiled signal selections and **Choose an example** through the
+existing gallery. Discovery never writes files. Setup saves only after a complete
+binding review, rejects incompatible bindings and never overwrites an existing
+configuration. Cancellation leaves project files unchanged. Explicit plant and loop handoffs retain
+their supplied scope and do not enter workspace discovery.
 
 The plant handoff defined by Specification 34 MUST be consumed directly. It
 MUST preserve project, runtime, plant, loop, source, and revision identity.
@@ -150,77 +239,74 @@ Every session and exported result MUST state one source:
 Simulation evidence MUST NOT be presented as physical evidence. Predicted
 model behavior MUST NOT be presented as an observed response.
 
-The header MUST show the loop, source, connection, controller mode, active
-controller revision, candidate state, and data freshness. Stale data MUST stop
-advancing and remain visibly historical.
+Store source, runtime identity, revisions, mode, quality and freshness with the
+session and recordings. They are provenance and operation inputs, not a header
+or status strip. Runtime IDs and hashes do not belong in page copy. Report a
+condition that blocks an action in that action's area; stale data must not be
+used as current evidence.
 
 ## 4. Page structure
 
-The primary navigation MUST contain exactly:
+### Shared truST UI/UX contract — mandatory
 
-1. Monitor;
-2. Test;
-3. Identify;
-4. Tune; and
-5. Validate.
+The normal workspace has exactly **Identify / Tune / Validate** navigation and
+the controls defined in those three page specifications. Apply is an action on
+Validate. Reuse the existing shared [theme](../../editors/vscode/src/webview/theme.css)
+and [tokens](../../editors/vscode/src/webview/theme.ts). Do not add another UI
+system, navigation row, toolbar, dashboard or general-purpose Details panel.
 
-The page MUST open on the loop, not a questionnaire or feature dashboard.
-Automatic Tune is a primary action that uses the five modes; it is not another
-mode.
+Every visible item must support a decision or action on that page. Labels
+state what is selected, calculated or changed. Use full identification/tuning
+method names; abbreviations may follow the full name, not replace it. Signal
+selectors show the actual signal name and unit. Controller choices identify the
+actual ST instance or declared group as well as its recommended configuration.
+Settings use readable labels such as **Proportional gain (Kp)** and
+**Integral gain (Ki)**, with the relevant units. An example value is never a
+placeholder result or a silently accepted operating limit.
 
-SP, PV, and MV MUST remain visible whenever live values exist. During a test,
-the monitor MUST also show elapsed time, injected signal, active limits, and a
-permanently visible `Abort test` action.
+A user must be able to identify the current page, next action, selected target
+and meaning of the result without opening a help page or reading a paragraph.
+Short field explanations may appear on keyboard focus or hover when a term
+needs clarification; they do not add permanent text. Required missing values,
+errors and unavailable-action reasons must instead be visible beside the
+relevant control, with a specific corrective action. Do not rely on a tooltip
+alone to explain why the next action cannot run.
 
-Advanced controls and explanations SHOULD remain collapsed until requested.
-Safety state, errors, stale data, and failed requirements MUST never be hidden.
+The compact Limits, Requirements and Channels editors have clear field labels,
+units, current values and Done/Cancel actions. Show only applicable fields.
+Invalid input names the field and permitted value, preserves the other edits
+and places focus at the problem. Do not expose JSON, protocol names, hashes,
+scan counters, proof bookkeeping or unlabeled status symbols to the user.
 
-### 4.1 Fixed visual hierarchy
+Keep the response plot dominant, with readable axes and a small legend. The
+model result is its type and equation; the Tune result is its controller and
+settings; Validate shows measured requirements and the Apply/restore action.
+Measurements and predictions must be distinguishable by text and line style.
+No permanent runtime-status or SP/PV/MV strip is permitted.
 
-Control Studio MUST use one editor surface with this top-to-bottom hierarchy:
+### 4.1 Page layout
 
-```text
-┌ Loop identity · source · runtime · mode · revision · freshness ─ Automatic Tune ┐
-├ Monitor ─ Test ─ Identify ─ Tune ─ Validate ────────────────────────────────────┤
-├ Response ─ Signals ─ Events ───────────────── Cursor  Zoom−  Zoom+  Fit  Expand ┤
-│                                                                                 │
-│                         PRIMARY ENGINEERING PLOT                                │
-│                                                                                 │
-├ SP 35.0 °C │ PV 28.4 °C │ MV 52.0 % │ Auto │ Good │ Not saturated ────────────┤
-├ Active-stage controls, evidence, decisions, warnings, and results ──────────────┤
-└─────────────────────────────────────────────────────────────────────────────────┘
-```
+Use the exact element order and conditional controls in the three page specs.
+Layouts must fit wide, split and narrow editors, including 200 percent zoom,
+without clipping controls, labels, equations or parameter values. Avoid nested
+scroll areas that hide the primary action or leave too little room to read the
+plot. Keep related controls aligned and return focus when a compact editor
+closes. Do not add a second page layout here.
 
-The plot workspace MUST span the available editor width. At a 1080-pixel-high
-wide viewport its normal plot canvas MUST be at least 420 pixels high and
-SHOULD occupy approximately half of the usable editor height. The chart MUST
-not be compressed merely to keep an empty task area visible below it.
+### 4.2 Navigation and operation state
 
-The live-value strip MUST remain immediately adjacent to the plot and MUST show
-the primary SP, PV, and MV, engineering units, controller mode, point quality,
-and saturation or limit state. It MUST use compact text, not dashboard gauges.
+Use the shared automatic flow. Navigation does not start work or overwrite a
+user's deliberate page choice. One visible Abort action remains reachable while
+work runs, using the same operation identity across pages. Changing a view must
+not duplicate acquisition or parameter writes. Errors and required recovery
+appear in the owning action area, not as permanent tab-status badges.
 
-The active-stage workspace appears below the live-value strip. On wide layouts
-it MAY use two columns for a short input form and a result summary. It MUST NOT
-place a permanently open parameter inspector beside the main plot. Detailed
-settings, model coefficients, and numerical tables use progressive disclosure.
-
-### 4.2 Header and workflow navigation
-
-The header MUST use human-readable identity first. A controller instance name
-or revision label is shown normally; a hash is shortened only after the useful
-name and the complete value remains available in a tooltip and accessible
-description. Runtime and controller state MUST use readable text with adequate
-contrast; they MUST NOT resemble disabled debug metadata.
-
-Each workflow tab MUST expose one of `Ready`, `Needs data`, `In progress`,
-`Complete`, `Warning`, or `Failed` through text or an accessible tooltip. A
-bare unexplained dot is insufficient. Selecting a stage with unmet
-prerequisites MUST open that stage and explain the missing prerequisite and
-the next action; it MUST NOT present a blank panel.
-
-Automatic Tune remains in the header. It MUST be visually secondary to a
-currently active Abort or safety action.
+For a loop bound to a local simulator, an authorized Identify/Validate operation
+starts that simulator through the shared lifecycle when required. Recheck target
+and cancellation before and after startup. Concurrent requests share one start;
+a failed start retains its reason and permits retry. A physical target is never
+started or replaced implicitly. Cancelling a study does not claim to have
+stopped the shared simulator.
 
 All displayed process values and analysis results MUST use the shared
 engineering-number formatter. It MUST suppress meaningless floating-point
@@ -233,92 +319,56 @@ retain enough displayed precision to reproduce the result. Display formatting
 MUST NOT change the full-precision value used internally, edited, recorded, or
 exported.
 
-## 5. Shared plot behavior
+## 5. Response and analysis data
 
-Control Studio MUST use one shared chart implementation for all plots.
+Use one shared response projection and chart implementation. Selected-model
+predictions use the task's reference change, duration, controller period and
+physical operating point. A zero-delay model must not acquire an extra
+controller-period delay. If the current controller cannot be modelled, do not
+fabricate its baseline by duplicating the tuned response.
 
-Every plot MUST:
+Retain bounded display data and exact underlying samples. Preserve gaps,
+quality, source, channel units and event/limit identities. Display reduction
+must retain extrema and gaps; it must not invent samples or join recordings
+across a runtime restart. A candidate edit changes only its unapplied result;
+recompute dependent response, margins and requirement evaluations against the
+same candidate/model revision. Never combine results from different revisions.
 
-- identify signals by label and line style as well as colour;
-- show axis names, units, and source;
-- render missing or bad-quality samples as gaps;
-- mark stale boundaries, experiments, limits, and important events;
-- provide cursor values, zoom, reset, and a tabular accessible alternative;
-- distinguish measured, identified, and predicted data; and
-- preserve the current time window when the user changes mode.
+### 5.1 Measurement and prediction integrity
 
-The webview MUST receive bounded display data. It MUST NOT retain an unbounded
-sample array or invent interpolated samples.
+The lifecycle I/O cache keeps observations with their tracked debug session.
+A delayed lower-scan event cannot replace a newer observation or refresh its
+freshness. A different session begins with its own scan history; untracked
+events cannot populate the active session. The monitor's independent rewind
+and freshness checks remain in force for observations reaching that boundary.
 
-### 5.1 Plot workspace and visible controls
+The shared Response projection MUST retain every declared auxiliary sample's
+identity, unit and quality in live and reopened recordings. A missing, bad or
+forced auxiliary value is a gap in that trace; it MUST NOT remove good primary
+measurements. Display reduction retains auxiliary extrema and quality/gap
+boundaries. Requested output and retained controller state are distinct from
+applied MV: when selected values exceed the actuator range, their shared unit
+axis expands to include them while keeping the actual actuator-limit lines.
+No request or state trace may be clipped to imply that it stayed within the
+physical actuator limits.
 
-The plots belonging to the active workflow stage and the essential chart
-controls MUST always be visible directly above the chart. They MUST NOT be
-hidden inside a generic `Plot tools` disclosure, nested catalogue, or
-recommended-versus-complete mode. The toolbar contains the stage's direct plot
-tabs followed by `Inspect`, zoom out, zoom in, `Fit`, `Expand`, and `Export`.
-`Signals` remains a direct Monitor tab rather than a menu. While a Tune plot is
-being edited, `Undo` and `Redo` appear in the same toolbar. PNG, SVG when
-supported, CSV, and the accessible table are direct Export actions.
-Figure export MUST contain the currently visible plot; selecting Bode and
-pressing `Export` MUST NOT silently export the Monitor response instead.
+Do not overlay incompatible units on one axis. Keep channels and units explicit
+and time aligned. Frame the actual response variation without forcing a distant
+zero or rated maximum to hide it. Preserve out-of-range values and active limit
+crossings; never clip data to imply compliance. Keep constant-value numerical
+roundoff from appearing as meaningful oscillation. The plotted time range ends
+at the last recorded sample rather than implying future data.
 
-Mouse-wheel or trackpad zoom operates around the cursor. Dragging pans when
-zoomed. A horizontal selection MAY zoom to an interval. Keyboard users use
-Left/Right to move the cursor, `+`/`-` to zoom, Shift+Left/Right to pan, Home
-to fit, and Escape to leave expanded mode. Every action MUST have a tooltip,
-visible focus, and an accessible name.
+Recorded events retain exact time, source and meaning. Do not infer an event
+from the shape of a curve. Measured and predicted traces have distinct labels
+and line styles. These data rules do not require additional plot tabs, event
+lists, buttons or toolbars.
 
-The current cursor MUST show exact time and every visible signal in a compact
-tooltip using the configured engineering precision. A vertical cursor line
-MUST remain visible while inspecting. Linked time-domain plots MUST share the
-same cursor and time window.
+### 5.2 Analysis eligibility
 
-`Expand` MUST enlarge the plot workspace within the current VS Code editor; it
-MUST NOT open a browser, a second webview, or a separate communication path.
-The toolbar, primary live-value strip, active safety state, and Abort action
-remain available in expanded mode.
+These are requirements for numerical evidence, not a catalogue of UI tabs.
 
-### 5.2 Direct stage plots
-
-Every plot has exactly one obvious home in the five-stage workflow. Selecting
-a workflow stage shows that stage's plot tabs directly in one horizontal row:
-
-| Stage | Direct plot tabs |
-| --- | --- |
-| Monitor | `Response`, `Signals`, `Events` |
-| Test | `Response`, `Experiment`, `Limits` |
-| Identify | `Fit`, `Residuals`, `Validation data`, `Poles and zeros` |
-| Tune | `Response`, `Bode`, `Root locus`, `Nyquist`, `Nichols`, `Sensitivity` |
-| Validate | `Requirements`, `Response`, `Robustness`, `Constraints` |
-
-For a multivariable loop, the same stages gain only the directly relevant tabs:
-
-- Identify adds `Channel responses` and `RGA`;
-- Tune adds `Singular values` and `Interaction`; and
-- Validate applies `Requirements`, `Robustness`, and `Constraints` to all
-  declared channels.
-
-There is no separate advanced mode, plot browser, plot catalogue, learner
-mode, professional mode, recommended group, or all-plots group. A user who
-wants Bode selects `Tune` and then `Bode`; a user who wants RGA selects
-`Identify` and then `RGA`.
-
-Every applicable tab remains visible. An unavailable tab is disabled and its
-tooltip states the exact prerequisite, for example `Identify and accept a
-dynamic model first`. A short prerequisite sentence also appears in the plot
-area when the disabled tab receives keyboard focus. The UI MUST NOT require a
-user to complete a prerequisite before learning where the resulting plot will
-appear.
-
-Control Studio remembers the selected plot separately for each workflow stage
-and loop. When a selected plot becomes ineligible because data or identity
-changes, the stage returns to its first valid tab and explains why. It MUST NOT
-display stale analysis under a new loop identity or model revision.
-
-The minimum eligibility rules are:
-
-| Plot | Required evidence |
+| Analysis | Required evidence |
 | --- | --- |
 | Live response | Current or retained synchronized samples |
 | Recorded experiment | One retained bounded recording |
@@ -332,245 +382,129 @@ The minimum eligibility rules are:
 | Uncertainty envelope | Declared uncertainty or an accepted model set |
 | Constraint trajectories | Declared constraints and a controller/model prediction that actually evaluates them |
 
-### 5.3 Signal selection and MIMO behavior
+### 5.3 Multichannel and stability evidence
 
-The primary loop's SP, PV, and MV MUST appear by default, and the live-value
-strip MUST always retain them even if the user changes the plotted signals.
-Selecting the direct `Signals` tab replaces the plot with one flat signal list.
-It is not a drawer, popup, nested tree, or separate configuration page.
+Preserve input/output ordering, channel names, units and direction in every
+matrix and prediction. RGA results retain numeric values and conditioning;
+complex or singular cases must not acquire an unsupported pairing recommendation.
+Singular values identify dimensional, normalized or decibel conventions.
 
-Each row contains one checkbox, friendly name, role, symbol, unit, live value,
-and quality. Checking or clearing it updates the Response plot immediately.
-The first rows are always primary SP, PV, and MV. Remaining rows follow their
-declared order. The selection MUST persist while the user moves between
-workflow stages and when a compatible analysis session is saved and reopened.
+Frequency-response data includes magnitude, phase, frequency units, evaluated
+range and available crossover/margin evidence. A sampled or truncated Nyquist
+trace alone does not establish a complete encirclement result. Retain the
+contour, unstable-pole count and any supported closed-loop conclusion. Root
+locus and pole data retain the controller structure, selected/fixed parameters
+and continuous s-plane or discrete z-plane convention. Sensitivity data retains
+L, S, T and control sensitivity where defined, their range and peak values.
+Undefined or numerically unreliable calculations retain a specific reason.
 
-For a multivariable loop, one plain channel heading separates each channel,
-for example `Overhead composition` and `Bottoms composition`. A channel
-heading has one checkbox that selects or clears its declared SP, PV, MV,
-actuator, and measured-disturbance rows. There are no Show/Hide menus or nested
-channel controls. Returning to `Response` shows the chosen signals.
+## 6. Recording acquisition
 
-Adding a signal MUST NOT silently place incompatible units on an existing
-axis. Signals with the same unit share one axis. Two compatible unit groups MAY
-use clearly labelled left and right axes. Three or more unit groups MUST use
-vertically aligned plot lanes with a common time axis and cursor instead of
-adding more overlaid axes. Each lane is labelled with channel, role, and unit.
-
-MIMO analytical plots MUST retain explicit input and output ordering. Matrix
-rows and columns MUST use channel names, units, and direction; hovering or
-keyboard focus on a matrix cell identifies the exact input-output pair.
-Relative Gain Array values MUST be shown as numbers and not only by colour.
-Singular-value plots MUST state whether values are dimensional, normalized, or
-in decibels. Pairing recommendations MUST retain the underlying matrix and
-must not hide a poorly conditioned or singular result.
-
-### 5.4 Axes, lines, limits, and events
-
-Axes MUST use the actual declared engineering ranges and units. A manipulated
-variable declared as 0 through 100 percent MUST use a 0 through 100 percent
-axis; it MUST NOT be autoscaled to 0 through 1 merely because current samples
-are near zero. Common aliases such as `degC` MUST render as conventional
-notation such as `°C` without changing the stored unit identity.
-
-SP, PV, MV, candidate, disturbance, and limit traces MUST have stable line
-styles in addition to colour. Normal dense traces SHOULD render without a
-symbol at every sample; symbols appear for the cursor, sparse points, events,
-or when zoomed sufficiently. Overlapping traces MUST remain distinguishable by
-line style, z-order, and the cursor readout.
-
-The fitted time range MUST end at the last retained sample rather than at an
-arbitrary rounded future time. Streaming MAY leave a small bounded right-side
-margin, but it MUST NOT imply that future samples exist.
-
-Configured high/low limits, output saturation transitions, test start/end,
-setpoint or load changes, mode changes, excluded intervals, stale boundaries,
-and declared simulation events MUST be rendered as labelled lines, bands, or
-markers. An event marker's tooltip MUST state its time, source, and meaning.
-Markers MUST originate from explicit runtime, experiment, recording, or loop
-configuration evidence; Control Studio MUST NOT infer an event from the visual
-shape of a response.
-
-The direct `Events` tab MUST present the retained event evidence as one
-chronological list with time, event class, and a readable description. Stored
-identifiers such as `recording_started` MUST be rendered as ordinary language,
-not exposed as internal protocol text. Opening a retained recording MUST make
-this tab usable even when the live runtime is disconnected. The list MUST not
-invent lifecycle events that are absent from retained evidence.
-
-Measured traces use solid lines. Model predictions and uncertainty envelopes
-MUST be identified explicitly and use a distinct dashed line or band. A legend
-MUST state `Measured`, `Simulated`, `Identified model`, or `Predicted` where
-provenance could otherwise be confused.
-
-### 5.5 Advanced plot requirements
-
-Bode plots MUST show magnitude and phase on aligned logarithmic-frequency
-axes, with crossover frequencies and available gain, phase, and delay margins.
-Frequency units (`Hz` or `rad/s`) and magnitude representation (`ratio` or
-`dB`) MUST be explicit and switchable without changing the underlying data.
-Magnitude and phase MUST read as one coordinated Bode figure: the frequency
-range, zoom window, pan position, and inspection frequency are shared; only one
-legend is shown; and inspecting either panel exposes the matching values in
-both panels. The two panels MUST remain vertically aligned when stacked and
-MUST NOT look like unrelated charts. The magnitude panel omits redundant
-frequency labels when the phase panel immediately below provides the shared
-frequency axis.
-
-The fitted Bode frequency window MUST contain the plant's useful dynamics and
-the sampled gain and phase crossovers. For a delay model it MUST NOT extend
-through many additional dead-time rotations merely to display a mathematically
-valid but unreadable phase tail. Wider qualified numerical evidence MAY be
-retained for export, but the initial visible window MUST keep crossover,
-margins, and the dominant dynamic range legible.
-
-Nyquist plots MUST show the complete evaluated contour, direction, the
-`-1 + 0j` critical point, encirclement result, open-loop unstable-pole count,
-and the resulting closed-loop stability conclusion. A truncated positive-
-frequency trace MUST NOT be presented as a complete Nyquist proof.
-
-Root-locus plots MUST show open-loop poles and zeros, branch direction, the
-current gain, candidate gain, and declared design regions or requirements.
-Pole-zero maps MUST state the continuous `s` plane or discrete `z` plane; the
-unit circle is mandatory in the `z` plane.
-
-Sensitivity views MUST provide at least loop response `L`, sensitivity `S`,
-complementary sensitivity `T`, and control sensitivity when defined. They MUST
-show the frequency range, peak values, bandwidth, and the controller/model
-revision used. Undefined or numerically unreliable values render as
-unavailable with a reason.
-
-### 5.6 Direct graphical controller design
-
-When an accepted model and editable controller candidate exist, the `Bode`,
-`Root locus`, and `Nichols` Tune tabs MUST allow direct graphical tuning on the
-plot. The user manipulates visible crossover, pole, zero, gain, or compensator
-handles appropriate to the selected controller structure. Every handle MUST
-have a precise keyboard alternative and an accessible description containing
-the parameter name, current value, unit, and permitted range.
-
-Every continuous graphical handle MUST also provide an exact numeric input in
-the same compact editing row. The handle and numeric input are two synchronized
-controls for the same value, not separate editing modes. The row MUST show the
-parameter's engineering unit and the candidate's currently evaluated gain and
-phase margins. A valid edit updates the handle, exact value, margins, and plots
-from the same candidate revision. Invalid text or an out-of-range number MUST
-leave the last valid candidate visible and explain the permitted range.
-
-A graphical edit changes only the unapplied candidate. It MUST NOT modify the
-running controller, begin a plant experiment, or apply gains. The plot MUST
-show the current controller and edited candidate with stable, distinct line
-styles. Invalid, nonfinite, structurally impossible, or out-of-range edits are
-rejected at the interaction boundary, leave the last valid candidate intact,
-and explain the violated constraint next to the plot.
-
-Every accepted candidate edit MUST immediately recompute the candidate's
-frequency response, closed-loop response, stability margins, sensitivity,
-constraint predictions, and validation requirements from one consistent
-candidate revision. The visible plot, live candidate summary, and requirement
-status update together; switching directly to another Tune or Validate tab
-shows that same revision without an additional run or save action. While a
-bounded calculation is in progress, the previous valid result remains visible
-and labelled `Updating`. A failed calculation restores the previous valid
-candidate and reports the reason. Results from different candidate revisions
-MUST NOT be combined.
-
-Declared requirements appear directly on their applicable plots as subtle
-graphical regions or boundaries:
-
-- overshoot and settling-time regions on time-response plots;
-- crossover-frequency, bandwidth, gain-margin, and phase-margin regions on
-  Bode or Nichols plots;
-- damping, natural-frequency, settling-time, and stability regions on a root
-  locus or pole-zero map;
-- peak-sensitivity and robustness bounds on sensitivity plots; and
-- actuator, rate, output, and process constraints on response and constraint
-  plots.
-
-Each region MUST state its requirement, unit, boundary, and Pass, Fail, or
-Inconclusive result in text as well as graphics. Regions are shown whenever
-their declared requirement applies; they are not hidden behind a plot-layer
-menu. Overlapping regions MUST remain distinguishable without obscuring the
-measured or predicted traces.
-
-The current controller and active candidate are always compared. `Pin design`
-retains up to three additional candidates in one compact comparison row above
-the plot. Each pinned item shows its name, controller structure, key tuning
-values, validation result, source, and remove action. Selecting an item makes
-it the inspected comparison without opening a catalogue or manager. All
-compared designs use the same model revision, experiment evidence,
-requirements, axes, and numerical method; incompatible saved designs are
-identified and cannot be presented as a valid comparison.
-
-Graphical candidate edits form one bounded undo history for the active loop and
-model revision. `Undo`, `Redo`, Ctrl/Cmd+Z, and Ctrl/Cmd+Shift+Z restore the
-complete candidate and all linked results atomically. Applying, replacing the
-model, changing the loop, or closing the session creates an explicit history
-boundary. Undo and redo MUST never alter the running controller or cross that
-boundary.
-
-### 5.7 Plot empty, stale, and failure states
-
-An empty plot MUST retain its axes and toolbar and contain exactly one concise
-explanation of what is missing and one direct next action that produces the
-required evidence. Examples include `Start the simulator to receive live
-samples`, `Record a safe experiment`, and `Accept a model before opening
-Bode`. It MUST NOT show fabricated demonstration curves, multiple competing
-actions, or decorative empty-state graphics.
-
-On stale or disconnected data, the last trace remains visible as historical,
-the cursor remains usable, and a clear stale boundary and timestamp are shown.
-New analysis and experiments are blocked while inspection and export remain
-available.
-
-## 6. Monitor
-
-Monitor displays the current loop without changing it.
-
-It MUST show:
-
-- synchronized SP, PV, and MV values and trends;
-- units, quality, freshness, and connection state;
-- automatic, manual, or tracking state;
-- output limiting or saturation;
-- active controller revision; and
-- active simulated-plant fault or effect when runtime evidence provides it.
+Acquisition provides synchronized signal values, units, timestamps, source,
+quality, controller/plant identity, limits and operating state to the shared
+workflow. Opening saved evidence cannot replace it with live values or trigger
+writes. Explicit live work resolves the current runtime identity anew.
 
 Runtime point quality is retained as `good`, `forced`, `uncertain`, `stale`, or
 `bad`; it is never silently promoted to good. A forced primary signal remains
 visible but blocks excitation. Uncertain, stale, or bad SP, PV, or MV blocks a
 new experiment and model fit while keeping the last evidence visibly marked.
 
-The user MUST be able to start and stop a bounded recording. A recording MUST
+The acquisition service MUST support bounded recording start/stop. A recording MUST
 retain synchronized samples, timing, units, quality, source, and the selected
 loop revision.
 
-Control Studio MAY show concise response error, saturation time, oscillation,
-noise, and timing summaries. A diagnostic MUST identify its evidence window
-and MUST use non-causal wording unless the cause is directly known.
+Runtime acquisition and editor refresh are separate clocks. A recording is
+complete only when a runtime-owned bounded acquisition reports every scan in
+the retained interval together with its scan-boundary time. Observing only the
+runtime's latest snapshot from the editor does not prove complete acquisition,
+even when the observed scan numbers are consecutive. Such a fallback MUST be
+labelled `Incomplete` and `UI-observed snapshots`; it MUST retain exact missing
+scan ranges whenever successive observed scan numbers differ by more than one.
+It MUST NOT infer the missing values, an actual PLC cycle interval, or sample
+freshness. Identification and any conclusion that requires a complete record
+remain unavailable until a complete runtime-owned recording is present.
 
-## 7. Test
+For incomplete recordings, observation time and the interval between editor
+observations MAY remain visible but MUST be named as editor-observation
+evidence rather than runtime cycle evidence. Capacity loss, a backwards scan,
+runtime restart, acquisition reset, or revision-boundary ambiguity makes the
+affected recording incomplete and MUST remain visible as a boundary or gap.
+Saving or exporting an incomplete recording MUST preserve that status and its
+known gap metadata; it MUST NOT upgrade it to complete evidence.
+Known gap ranges MUST stay bounded to the retained sample interval. If the
+bounded editor fallback evicts older observations, the evidence MUST retain the
+number evicted and the user-facing incomplete reason MUST report that capacity
+loss even when the retained interval also contains missing scan ranges.
 
-Test creates a bounded excitation and recording for identification or response
+## 7. Experiment execution
+
+Experiment execution creates a bounded excitation and recording for identification or response
 evaluation.
 
-The Test page supports exactly observation-only recording, setpoint step, load
-step, MV step, MV pulse, relay, PRBS, and multisine excitation. MV step remains
-wire-compatible with the earlier `output_step` name. A load step targets one
+The experiment service supports automatic bounded excitation, plus
+manual observation-only recording, setpoint step, load step, MV step, MV pulse,
+relay, PRBS, and multisine excitation. MV step remains wire-compatible with
+the earlier `output_step` name. Automatic selects a setpoint step only when the
+reviewed loop is in Auto with a declared setpoint; it selects an MV step only
+when the reviewed loop is in Manual or is explicitly open-loop; otherwise it
+reports the missing safe path. A load step targets one
 declared auxiliary `disturbance` write binding; Test never guesses one from a
 symbol name. MV step/pulse, relay, PRBS, and multisine require confirmed Manual
 mode; setpoint and load steps require Auto.
 
-The normal form asks only for amplitude and maximum duration. Observation uses
-zero amplitude. Sequence timing is derived from the positive observed sample
+Observation uses zero amplitude. Sequence timing is derived from the positive observed sample
 period: PRBS dwell is `max(10*sample_period, 500 ms)`, while multisine samples
 at `max(sample_period, 50 ms)` and uses the first three integer harmonics of
 `1/duration`. PRBS uses an explicitly retained nonzero 32-bit seed. Generated
 values, including both PRBS levels and every multisine point, MUST remain
-inside the affected signal range. The preview retains kind, affected signal,
+inside the affected signal range. The immutable experiment plan retains kind, affected signal,
 current/restoration value, requested bounds, duration, interval, seed or
 frequencies when applicable, complete bounded trajectory, stop conditions, and
 restoration action.
+
+For a project-scripted lesson, the project owns experiment kind and activation;
+external excitation must not duplicate it. A project may declare
+`parameterPurpose: "experiment"` with `parameterBinding` and its Boolean
+activation symbol (`manual_value: false`). This is valid only for project-scripted
+execution with an activation binding. Parameter updates preserve typed bounds,
+explicit authority, observed values and rollback through the existing owner.
+Freeze the experiment settings through review, baseline and execution; release
+that ownership only after terminal restoration.
+
+A project-scripted experiment may declare `baselineSeconds`. The reviewed
+maximum duration includes this baseline, the held experiment and restoration.
+During the baseline the native recorder runs with activation disabled; the
+existing timed-trajectory service enables the project only after that interval.
+The project remains responsible for qualifying its actual measurements before
+actuation. Save the consecutive native baseline and response samples together;
+do not reconstruct a baseline from nominal values or a qualification flag.
+Retain the baseline duration in the exact plan and reject a maximum
+duration that leaves no sample interval after the baseline.
+
+An MV pulse writes the requested output at `0 ms` and writes the captured
+baseline at half the planned duration; the return point is part of its runtime
+trajectory and occurs before timeout. An MV step has only its initial requested
+output point and remains held until ordinary restoration.
+
+Automatic Test derives a bounded signed amplitude from the reviewed live signal
+headroom, beginning at ten percent of its declared span. A configured
+zero-amplitude observation becomes an Automatic request with at least a
+ten-second duration. Its concrete step trajectory records the baseline at
+`0 ms`, applies the step after ten percent of the duration, restores the
+baseline at half duration, and uses the remaining interval to settle before an
+independent trial. Fitting uses the held interval before that restoration; it
+does not treat the required restoration as the process step.
+An engineer who pins Automatic to a duration too short for those three phases
+receives a rejected review with that specific reason; Control Studio does not
+silently compress or omit the baseline or restoration.
+
+For a closed loop in Manual, an MV Test writes the declared
+`controller.manualOutputSignal` at its declared
+`controller.manualOutputAddress` and `controller.manualOutputType`. The
+recording continues to capture the actual declared MV/PV channels; the command
+binding is never inferred from an observed MV name. A missing Manual-command
+address or type blocks that Test with the specific configuration requirement.
 
 Maximum duration MUST be between 1 and 3600 seconds. This bounded one-hour
 ceiling accommodates the curriculum's slow thermal experiments while retaining
@@ -582,12 +516,10 @@ Relay is feedback-dependent and MUST NOT be implemented as a precomputed,
 time-driven square-wave trajectory. The relay plan retains the current process
 value as its center, the process-value binding and unit, the current manipulated
 variable as its bias and restoration value, symmetric high and low manipulated-
-variable levels, and a positive process-value hysteresis half-width. The normal
-form continues to ask only for manipulated-variable amplitude and maximum
-duration. The initial hysteresis half-width is derived as the larger of three
+variable levels, and a positive process-value hysteresis half-width. The initial hysteresis half-width is derived as the larger of three
 process-value resolution increments and 0.5 percent of the declared process-
-value range; Advanced settings MAY allow an explicit larger value but MUST NOT
-allow a value below that noise-protection floor.
+value range. An explicitly configured larger value is permitted, but a value
+below that noise-protection floor is rejected.
 
 After approval the runtime writes the high relay level. It retains that level
 while the process value remains inside the hysteresis band, writes the low level
@@ -645,6 +577,19 @@ restoration. Closing
 or reloading the editor MUST NOT leave an indefinite excitation. `Abort test`
 MUST stop excitation and attempt restoration through the same runtime path.
 
+For a Control Studio-owned Test, the runtime recording Start MUST be acknowledged
+before the excitation is dispatched. Between those two operations, Control
+Studio MUST durably retain one credential-free recovery owner containing the
+exact loop/program/binding identity, recording ID, reviewed experiment ID and
+complete reviewed plan. It MUST contain no endpoint, token, sample data,
+approval token or mutable controller state. After a panel or Extension Host
+reload, Control Studio may reconstruct only that recording owner, poll the
+stored experiment ID and Stop the original buffer. It MUST use the stored plan
+to label and retain the terminal result, then clear the owner only after the
+terminal recording has been retained. If recovery cannot establish the exact
+runtime identity, it remains unconfirmed and MUST NOT authorize a replacement
+Test Start.
+
 Abort has priority over every trajectory write: after the runtime accepts an
 abort, no later excitation point may be queued or applied. A terminal stop
 queues the restoration value but MUST report restoration as `pending` until a
@@ -661,20 +606,60 @@ data MUST terminate excitation and enter the same confirmed restoration path.
 The result MUST state whether the test completed, aborted, failed, or failed to
 restore. It MUST retain the samples and the exact stop reason.
 
+An aborted, failed, failed-to-restore, incomplete, or unconfirmed Test record
+MUST retain its received runtime-sample prefix, acquisition completeness and
+exact stop/restoration reason. It is `Not qualified for Identify` even when its
+received samples are otherwise usable. Retry MUST create a new reviewed plan
+identity; it MUST NOT relabel or reuse the failed record as estimation or
+validation evidence.
+
+The terminal experiment record retains its outcome separately from live
+runtime state. Model analysis and tuning completion must not overwrite it or
+mark an unexecuted experiment complete. Unconfirmed restoration remains a
+blocking recovery condition in the owning action area.
+
 ## 8. Identify
 
 Identify creates a low-order plant model from a recording or imported data.
 
-Before fitting, it MUST show the chosen input and output, units, sample time,
-gaps, clipping, saturation, drift, excitation, and whether the data is suitable.
-The user MAY exclude an interval without deleting the raw samples.
+A saved Control Studio result MAY supply a recording to another project. Import
+MUST decode the result and retain only its recording and acquisition provenance;
+it MUST NOT adopt the source controller, candidate, model, tuning, verification,
+commissioning or runtime configuration. The current loop keeps its identity.
+The recording retains its original result ID/revision, timestamp, project, loop
+revision/topology, controller revision, software, units, source classification,
+and any source plant/experiment context. Raw sample identities MUST NOT be
+rewritten to the destination loop. Save/Open MUST preserve this explicitly
+versioned recording provenance, reject inconsistent sample/source/unit/revision
+claims and leave ordinary same-loop result validation unchanged.
+
+The imported input/output units MUST match the selected destination channels;
+import does not infer unit conversion or physical plant equivalence. Imported
+recordings remain historical and distinguishable from live observations. Import
+issues no runtime writes and does not establish model suitability. The existing
+qualification and fit owners MUST check the selected immutable recording, use
+its stable source result/revision identity, and require a distinct validation
+record before model acceptance for design.
+
+A completed native recording MUST retain its original runtime recording ID in
+acquisition evidence through Stop, release and saved-result serialization.
+Identify MUST select the currently displayed recording and its matching Test
+input mapping; an older ledger role cannot replace that selected source. The
+first native Test after imported estimation can supply validation without
+requiring a redundant estimation acquisition. Missing or malformed identities
+cannot establish independence.
+
+Before fitting, qualification evaluates selected inputs/outputs, units, sample
+time, gaps, clipping, saturation, drift, excitation and suitability. Exclusions
+never delete raw samples. The page presents the result and errors using its
+current UI contract; qualification metadata is retained with the recording.
 
 The qualification summary MUST retain raw and usable sample counts, retained
 duration, median sample interval, maximum interval deviation, detected gaps,
 rejected-quality samples, explicitly reported clipping and saturation samples,
 baseline drift, input and output span, a time-domain signal-to-noise estimate,
 the excitation class, and independent-validation availability. Coherence MUST
-be shown as `Not evaluated for time-domain excitation` for observation and step
+be recorded as `Not evaluated for time-domain excitation` for observation and step
 records; it MUST never be invented from a step response. Suitability for a
 same-run preview and qualification for controller design are separate states.
 
@@ -687,11 +672,11 @@ The first version supports these model structures:
 - second-order process; and
 - second-order plus dead time (SOPDT).
 
-For simulation, the configured model MAY be selected directly but MUST be
-labelled `Exact simulation model`. A fitted model remains labelled
-`Identified from simulation data`.
+A configured simulation model retains `Exact simulation model` provenance; a
+fitted simulation model retains `Identified from simulation data` provenance.
+These classifications are part of the model record, not permanent UI badges.
 
-Each fitted model MUST show parameters with units, measured versus predicted
+Each fitted model MUST retain parameters with units, measured versus predicted
 response, validation error, residual behavior, stability, delay, operating
 range, and warnings. The recommended model MUST be the simplest acceptable
 model; fit percentage alone MUST NOT select it.
@@ -704,6 +689,107 @@ parameter intervals are conservative search-resolution and held-out-residual
 bands; they MUST NOT be labelled confidence intervals or profile likelihood.
 A same-run preview may help the user inspect data, but it remains unqualified
 for tuning or design.
+
+For a bounded held-step analysis, Identify MUST retain the measured step and
+restoration timestamps, baseline/final window bounds, counts, means, ranges and
+endpoint slopes. The configured measurement bound, sustained-onset threshold,
+sample count and every grid bound/spacing are engineering inputs, not nominal
+plant coefficients. Bad, clipped, incomplete, ambiguous or nonsteady data MUST
+remain available with the rejection reason. A detectable threshold crossing is
+separate from fitted transport delay.
+
+Detectable onset MUST follow the measured output direction from the baseline
+mean to the final mean, independently of the input-step sign. For a falling
+response, use baseline minus the configured threshold and require the declared
+number of consecutive samples strictly below it; for a rising response, use
+baseline plus the threshold and samples strictly above it. An isolated crossing
+does not establish onset. Measurement and fitted-result views MUST report the
+same crossing, and no measured output change MUST leave onset unavailable.
+
+Window coverage MUST include every expected sampling instant inside each
+requested interval, including an instant exactly at its start. A fractional
+window start between sampling instants is permitted. The final window MUST lie
+entirely within the held step, before restoration, and each window needs at
+least two samples. A record with no input change MUST report the missing nonzero
+step explicitly instead of exposing an internal indexing error.
+
+Rejected qualification or fitting produces the owning action's specific error
+while retaining the record for recovery. Window-coverage errors distinguish
+missing coverage from too few samples. Client and host use the same settings
+validation; invalid edits preserve other values and cannot be cleared by a
+late acknowledgement for an older edit. Display formatting preserves the
+full-precision measurement and fit records.
+
+The bounded FOPDT fit fixes baseline and gain at the qualified window means and
+minimizes hold-sample squared error on the explicit delay/time-constant grid.
+Its separate uncertainty calculation enumerates baseline/gain/delay/time-
+constant grid points consistent with both final-window bounds and every hold
+sample's absolute measurement bound. Equivalent exact interval intersection is
+permitted; random sampling or silent coarsening is not. Report an empty set
+explicitly, never replace it with a residual-derived interval. Parameter ranges
+are grid-resolved approximations, not statistical confidence or an assertion
+that every combination of marginal bounds is consistent. Retain one-sided zero
+delay and search-boundary findings. Timestamp shifts of up to one sample are
+explicit sensitivity studies and MUST NOT relax missing-sample checks.
+
+The accepted model MUST preserve the estimation fit when scoring a distinct
+validation step with a changed amplitude. Fitting validation samples or choosing
+new parameters from them is not independent validation. Changes to analysis
+inputs invalidate dependent results; recordings remain immutable.
+Invalidation MUST clear the selected design model, tuning/application readiness
+and the current editable draft together. An empty current draft MUST supersede
+older saved results on reopen; it MUST NOT resurrect their selected model.
+Preserve historical results, recordings and compatible explicit settings.
+Replacement admission MUST be checked before any analysis state is changed
+while a runtime operation or its recovery remains active.
+
+Saved identification state MUST retain the separate estimation and current
+input records, their original identities, exclusions, model-family selection,
+measurement/grid settings, acceptance threshold and review stage. A preview
+MUST reopen as a preview, qualified validation MUST retain its estimation
+reference, and an accepted model MUST reopen with both independent inputs.
+Restore MUST recheck saved inputs through the existing qualification/fitting
+owners before restoring acceptance; malformed or incompatible state MUST leave
+the current analysis intact. A rejected Open MUST also preserve the current
+result identity, revision, source and export contents; result metadata is adopted
+only after the analysis restore succeeds. A restored preview must permit the next distinct
+recording to supply validation without collecting estimation again. Saving or
+restoring analysis MUST NOT acquire data or apply controller parameters.
+The outer saved result must also preserve the original complete acquisition
+records and provenance; derived input/output arrays alone do not replace them.
+
+Interactive fitting and numerical saved-study replay MUST leave the extension
+host responsive and use the existing bounded, cancellable analysis worker.
+An edit, replacement recording, cancellation or editor disposal MUST prevent
+late computation from publishing or persisting superseded evidence. A newer
+Open in the same editor MUST supersede an older Open, including its result
+identity and history projection. Reject malformed inputs and blocked runtime
+admission before cancelling valid current work. Replay into an isolated
+identification state and adopt it only after its inputs, derived model authority
+and request ownership still agree. Cancellation retains the original recordings
+and recoverable analysis inputs; it does not start or repeat runtime writes.
+
+The current editable draft MUST retain identification qualification, preview or
+acceptance, its settings and original recordings alongside the engineer's
+settings. Check, Fit, Accept and recording selection MUST update that draft;
+closing and reopening the editor MUST restore it ahead of older saved results.
+Draft persistence MUST reuse the existing workspace draft writer and MUST NOT
+append or replace a saved history revision. A draft is labelled as current work,
+separately from an explicitly saved result. Malformed or incompatible draft data
+MUST preserve the stored evidence and MUST NOT silently reactivate an older
+accepted model. Import admission and invalidation obey the same shared session
+boundaries as Check; independent estimation evidence remains available when the
+next selected recording is intended for validation.
+
+Editing identification fields MUST invalidate dependent model and controller
+readiness immediately, before Check. The same draft MUST retain raw field text,
+including temporarily empty values, the model selection, held-step option and
+exclusion bounds. Reopening restores these edits without qualifying or fitting
+them. A form without a recording offers Import; a form with retained data offers
+Check. Accepted estimation authority is retired on edit while original recordings
+and saved history remain intact. An unaccepted estimation preview remains
+available for independent validation after editing the next recording's settings.
+Only Check converts the raw form to validated analysis settings.
 
 PRBS generation MUST use a declared register order, nonzero seed, amplitude,
 clock interval, and sequence length. Multisine generation MUST retain every
@@ -724,9 +810,8 @@ specific reason and retain the data.
 Tune creates a controller candidate. Opening Tune or changing a tuning control
 MUST NOT modify the running controller.
 
-The default view MUST show the selected model, current controller, one
-recommended candidate, a `More robust` to `Faster` control, predicted response,
-control effort, stability margins, and the reason for the recommendation.
+The Tune page owns visible controls and results. Its selected target, model,
+current parameter record and proposed record remain one coherent study.
 
 The first version supports:
 
@@ -813,6 +898,21 @@ a candidate. AMIGO remains unavailable for integrating models. Data that failed
 qualification because it was noisy, stale, poorly excited, or insufficient
 remains an Identify failure and MUST NOT reach Tune.
 
+The native simulated plant for a selected delayed integrator MUST use
+`model = "integrator_dead_time"` with scalar `gain` (rate gain), nonnegative
+finite `dead_time_s`, finite `initial_delayed_input`, optional `input_bias` and
+`output_bias`, and one initial state. Its equations are
+`dx/dt = gain * (u(t-dead_time_s)-input_bias)` and `y = x + output_bias`.
+Before recorded input history exists, use only `initial_delayed_input`.
+Integrate each held-input interval exactly, including delayed transitions that
+fall inside a simulation step; do not replace delay with a large time constant
+or discard sub-step boundaries. Enforce the existing bounded delay-history,
+reset, status and parameter-update contracts. The Control Studio selected-model
+adapter maps `b/(a1*s) * exp(-L*s)` to rate `b/a1`, delay `L` and output-deviation
+initial state, retaining existing operating-point offsets. Native config and
+execution tests must establish delayed onset, area, output bias and reset before
+claiming the actual-ST Verify route works.
+
 Frequency results for an integrating model MUST include the integrator's
 `1 / frequency` magnitude and minus-90-degree phase before delay and controller
 effects are added. Treating an integrating rate gain as a static gain in a Bode
@@ -832,18 +932,15 @@ Tune MUST retain every attempted method with one of `Feasible`, `Rejected`, or
 requirements pass. Rejected and unavailable candidates rank after every
 feasible candidate and remain visible with their reason.
 
-Feasible candidates are ranked using the selected response objective and the
-same model-predicted scenarios. The score MUST include tracking error,
-time-weighted tracking error, controller-output movement, peak and rate-limit
-use, noise-driven movement, stability margins, and bounded model variation. It
-MUST NOT optimize IAE alone. A candidate replaces the current deterministic
-choice only when its score is at least `10 percent` lower; smaller differences
-are not treated as materially distinguishable model predictions. Within that
-equivalence band, resolve the choice by lower controller complexity, then
-`SIMC`, then `AMIGO`, then the stable candidate identifier. The selected
-candidate MUST appear first while every raw score remains visible.
+Feasible candidates are ranked by task-appropriate structural complexity first.
+Among equally simple qualifying candidates, use the declared response, effort
+and robustness objectives under matched scenarios. Retain every raw result.
+An improvement beyond mandatory requirements must not displace a simpler
+qualifying design. There is no universal 10-percent equivalence band or fixed
+SIMC-before-AMIGO preference; numerically/evidentially indistinguishable results
+remain labelled equivalent, with deterministic presentation.
 
-The first constrained comparison is a deterministic bounded neighborhood around
+One supported constrained comparison is a deterministic bounded neighborhood around
 the qualified SIMC candidate. It evaluates the formula PI, a less aggressive PI
 with `0.8 Kp` and `1.25 Ti`, P by removing integral action, PD by removing
 integral action and adding
@@ -860,10 +957,10 @@ material benefit. For other first-version formula domains, unsupported P, PD,
 or PID candidates are reported as unavailable rather than synthesized from an
 unqualified rule.
 
-The compact Tune view shows Method and Response plus the winning structure,
-method, limiting requirement, and concise reason. Exact formulas, `lambda`,
-scores, rejected candidates, conventions, and numerical values remain under
-advanced disclosure. Every generated candidate remains unapplied.
+Retain the winning structure, method, limiting requirement, rationale, exact
+formula, lambda, scores, rejected candidates and conventions in the result.
+Every generated candidate remains unapplied. The Tune page owns its concise
+presentation; this record does not add a report or disclosure.
 
 Formula authority:
 
@@ -874,10 +971,37 @@ Formula authority:
   method for PID control](https://doi.org/10.1016/j.jprocont.2004.01.002),
   *Journal of Process Control* 14 (2004), 635–650.
 
+For a selected delay-free integrating plant `G(s)=k/s`, the connected P
+candidate MUST use `lambda=k*Kp>0` and pole `-lambda`. In deviation coordinates
+`y'=k*(u-u0+d)` with `u=Kp*(r-y)`, its constant error is
+`e_inf=(u0-d)/Kp`; there is no invented controller bias. Bound separate target
+and input-disturbance scenarios with
+`E_inf=max(|u0|,|u0-d|)/|Kp|` and transient envelope
+`(|deltaR|+E_inf)*exp(-lambda*T)`. Choose a bounded compatible gain satisfying
+the declared error and settling allowances. Supplied and identified integrating
+models use this same calculation and actual-ST Verify; a candidate prediction
+alone never authorizes Apply.
+
+For the supported stable first-order PD alternative, calculate the steady error
+using its proportional DC gain: `|deltaR + K*u0|/(1 + K*Kp)`. Reject a nonpositive
+closed-loop DC denominator or error above the declared error allowance minus
+transient margin. Do not reject every PD controller merely because it lacks an
+integrator: a finite error requirement may be met. Dynamic requirements still
+require actual-ST verification before acceptance.
+
+Compatible continuous SISO state-space and transfer-function representations
+MUST feed the same controller calculations. The analysis adapter may calculate
+`G(s)=C(sI-A)^(-1)B+D` within the existing transfer-polynomial order bound, retaining
+the complete characteristic denominator: do not cancel poles that could hide
+unstable internal modes. Reject nonfinite/numerically unresolved conversions or
+unsupported domains explicitly. Keep model identity, units, operating point and
+validation evidence unchanged. Actual-ST Verify uses the originally selected
+model and its state coordinates; conversion is an analysis representation only.
+
 Automatic recommendation MUST compare the permitted P, PI, PD, and PID structures.
 It MUST choose the simplest candidate that meets the declared requirements. A
-more complex controller may be selected only when it provides a material
-benefit without unacceptable noise, actuator activity, or robustness loss.
+more complex controller may be selected only when simpler applicable designs
+cannot satisfy the declared mandatory requirements with the required evidence.
 
 Tune MUST provide:
 
@@ -938,29 +1062,27 @@ may replace this default only before the immutable validation plan is run.
 
 A validation result MUST NOT change the running controller.
 
-## 11. Automatic Tune
+## 11. Automatic workflow orchestration
 
-Automatic Tune sequences the existing Test, Identify, Tune, and Validate
-functions. It MUST NOT implement separate versions of their algorithms.
+The automatic flow sequences acquisition, identification, tuning and validation. It MUST NOT implement separate versions of their algorithms.
 
-Before starting, it MUST show one concise plan containing:
+The operation retains the selected model/data source, objective, constraints,
+proposed experiment, stop/restoration policy and controller choices before
+execution. The current page and shared-flow specs own how missing information
+and any required physical review are presented.
 
-- whether existing data can be reused;
-- the proposed bounded test when new data is required;
-- model structures to evaluate;
-- permitted controller structures and tuning methods;
-- validation requirements; and
-- whether the final candidate may be applied or only exported.
+For simulation, the complete bounded plan may be confirmed once. A reviewed
+physical campaign may authorize its specified bounded trials together. A
+materially different action outside that authorization requires renewed review.
+Automatic orchestration MUST NOT enlarge or add an unapproved physical test.
 
-For simulation, the complete bounded plan may be confirmed once. For a
-physical plant, explicit approval is required immediately before each physical
-test. Automatic Tune MUST NOT silently enlarge or repeat a physical test.
-
-Automatic Tune MUST:
+Automatic orchestration MUST:
 
 1. qualify or collect data;
 2. select the simplest acceptable model;
-3. generate applicable PI, PD, and PID candidates;
+3. generate applicable simple-controller candidates, including P, PI, PD and
+   PID where appropriate, and the other structures defined by the complete
+   workflow specification when the task requires them;
 4. validate the candidates;
 5. recommend the simplest passing candidate; and
 6. present the result for review.
@@ -969,13 +1091,62 @@ If a stage fails, it MUST stop at that stage, retain valid work, and explain the
 nearest recovery action. If no controller passes, the result MUST be
 `No acceptable controller found`; mandatory requirements MUST NOT be weakened.
 
-Completion creates a candidate only. Automatic Tune MUST never silently apply
+Completion creates a candidate only. Automatic orchestration MUST never silently apply
 controller settings.
 
 ## 12. Apply and rollback
 
-Applying a candidate requires a separate explicit review showing current and
-candidate settings, source, validation result, units, limits, and warnings.
+PI/PID Auto commissioning requires a typed initialization adapter in addition
+to the parameter-record adapter. Before the task receives Auto authority it
+must read one fresh applied output, PV, setpoint, filter state and timestamp;
+calculate the weighted proportional and derivative contributions from the
+exact candidate record; initialize retained integral state so that the first
+requested output equals the observed applied output within the declared
+tolerance; and record the initialized controller/state revision. It must then
+execute a bounded actual-ST observation with the same candidate record. Missing
+state mapping, stale values, invalid timing, saturation ambiguity or a failed
+first-output continuity check blocks Auto commissioning and leaves the
+candidate available for Manual staging or revision. The proportional-only
+initialization adapter MUST NOT be used for PI/PID.
+
+The first supported typed adapter is `controller.pidInitialization` with this
+exact shape:
+
+```json
+{
+  "kind": "parallel-pid-v1",
+  "integralState": { "symbol": "Main.Integral", "iecType": "LREAL", "unit": "%", "minimum": -100, "maximum": 100 },
+  "derivativeState": { "symbol": "Main.PreviousWeightedError", "iecType": "LREAL", "unit": "degC", "minimum": -100, "maximum": 100 },
+  "proportionalSetpointWeight": 1,
+  "derivativeSetpointWeight": 1,
+  "maximumSnapshotAgeMs": 100
+}
+```
+
+It declares the actual retained integral and derivative/filter-history states,
+their IEC representations and ranges, both setpoint weights, and how fresh the
+single task-boundary snapshot must be. For this adapter, Control Studio reads
+one snapshot of the applied output \(u_0\), process value \(y_0\), reference
+\(r_0\), both retained states and timestamp. With candidate gains \(K_p\) and
+\(K_d\), it calculates the weighted proportional contribution
+\(K_p(b r_0-y_0)\), sets the retained derivative history to \(c r_0-y_0\) so
+the first derivative contribution is zero, and initializes the integral state
+to \(u_0-K_p(b r_0-y_0)-K_i(r_0-y_0)\Delta t\), because the declared parallel
+form updates the integral once before calculating its first output. The owning runtime applies that complete state and
+the mode at one task boundary, confirms the first actual output is within the
+reviewed tolerance, and retains the snapshot and applied state as evidence.
+The adapter is rejected if any declared state, unit, range, weight, freshness
+bound or controller-law binding is incompatible. It never guesses ST variable
+names or treats a parameter write as state initialization.
+
+The same transfer protocol has an explicit `align_output` flag. It is `true`
+only for the Manual-to-Auto entry, where Control Studio calculates the retained
+states for first-output continuity. It is `false` for the later target change:
+that transaction preserves the retained PID state, allows the reviewed target
+response, and still confirms the actual ST state evolution at the task boundary.
+
+Apply is the user's explicit action on the exact selected target and validated
+candidate. The Validate page owns its confirmation and restore presentation.
 
 Apply MUST use the existing runtime authorization, audit, revision, and control
 transport. It MUST be atomic and reject a stale controller revision. A
@@ -992,11 +1163,12 @@ before that confirmation. If read-back shows another revision, Control Studio
 shall report the conflict and shall not offer rollback using stale local
 history.
 
-After apply, Control Studio MUST keep SP, PV, MV, limits, and `Rollback`
-visible during a 30-second bounded observation period beginning only after
-confirmed read-back. The application state MUST show that duration. Rollback
-MUST restore the exact
-previous confirmed controller revision or report why restoration failed.
+After confirmed read-back, observe actual parameter/state adoption for the
+30-second interval beginning only after that confirmation. Retain the outcome
+and previous
+confirmed parameter revision. Restoration uses the existing guarded transfer
+and rollback contracts; report failure instead of claiming restored settings.
+The Validate page owns the visible Apply/Restore action, without a status strip.
 
 Physical apply is allowed only with the required runtime authority and a
 separate explicit approval. Experiment approval does not authorize apply.
@@ -1051,32 +1223,44 @@ nonfinite samples, inconsistent units or source, inconsistent sample order, and
 invalid selected intervals MUST be rejected without partially accepting the
 record.
 
-The result selector MUST list saved revisions for the active project and loop.
-Opening one revision restores its recording and engineering result without
-changing the running controller. Comparing two revisions MUST use their saved
-data and MUST identify source, controller revision, method, and creation time.
-An empty result history is a normal initial state, not a failed operation. The
-Validate pane MUST retain its neutral empty-state explanation until a result
-operation actually fails, and a failure MUST show the specific returned reason.
+A retained runtime recording remains available for Save, Open and export when
+its Test was aborted or is unqualified for identification. Keep identification
+disabled for that data and preserve its stop reason, quality and restoration
+result. Acquisition completeness does not establish experiment qualification
+or a passed controller validation.
 
-`Save session` MUST store the complete analysis workspace with the result:
-active workflow stage, selected direct plot for every stage, selected signals
-and channel order, compatible axis and frequency-unit choices, cursor and zoom
-windows, expanded state, active candidate, pinned designs, declared graphical
-requirements, and the exact model, controller, evidence, and calculation
-revisions behind them. Reopening the session MUST restore that state without
-starting a runtime, changing the running controller, or applying the candidate.
-If live evidence has advanced since the save, the restored session remains
-visibly historical until the user explicitly returns to the current session.
+A terminal native recording remains immutable and available to the study as
+soon as acquisition ends. Background observation cannot append to or replace
+it. Saving does not qualify it as model or controller validation. Autosave and
+reopening follow the shared flow; recorded data is opened on Identify.
 
-In this specification, a saved plot layout means the directly selected stage
-plots, signal lanes, channel ordering, axis choices, and inspection windows. It
-does not introduce draggable dashboards, user-created panels, a plot catalogue,
-or separately configurable learner and professional layouts. Missing or
-incompatible session state MUST fall back to the nearest valid direct plot,
-retain all compatible state, and explain exactly what could not be restored.
+A confirmed replacement of the bound debug runtime session invalidates cached
+live inspection connections, program revisions and scan ordering even while a
+saved result is displayed. The next explicit live operation observes the new
+session. Preserve saved recordings and reject late inspection replies from the
+previous session; a backward scan within one unchanged session remains invalid.
+The live response starts a new time origin and sample window for the new
+confirmed session. It MUST NOT draw an interpolated response across runtime
+restart or reuse a saturation transition from the old session. Saved results
+and the retained native recording remain available under their original identity.
 
-The user MUST be able to export the complete typed workflow result as JSON and
+Live observation, identification baseline and recording startup for the same loop MUST use the same
+ordered signal selection, including actuator, auxiliary, controller-mode and acquisition-mode
+channels. A background observation must not replace the coherent selection
+needed by recording startup. Preserve the bound endpoint, loop and program
+revision, and never replay a Start whose acknowledgement is uncertain.
+
+The result service retains bounded saved revisions and their original source,
+controller, model, method and acquisition identities. Restoring does not create
+an observation, candidate, validation pass or runtime authority. An absent
+candidate must not inherit another result's predictions or application status.
+
+Autosave retains the study's page, signals, channel order, methods, candidate,
+pins, requirements and underlying result identities. Reopening restores only
+compatible saved data; it does not start a runtime or apply parameters. There is
+no separate Save session, result-history panel or recording-management page.
+
+The existing export service supports the complete typed workflow result as JSON and
 the selected signal table as CSV. CSV MUST include elapsed time, observation
 time, actual cycle interval, SP, PV, requested MV, applied MV, units, quality,
 mode, safety state, limits, source, and event markers with sufficient numeric
@@ -1109,121 +1293,279 @@ MUST NOT show fake example data in place of missing live evidence.
 
 ## 15. Visual, responsive, and accessible behavior
 
-Control Studio MUST use the existing shared truST VS Code theme, typography,
-controls, icons, and interaction patterns. It MUST NOT introduce a private
-palette, remote font, ornamental dashboard, or duplicate runtime controls.
+The shared UI contract in section 4 and the three page layouts govern all
+rendering. Use the shared dark, light and high-contrast themes, with visible
+keyboard focus, accessible names and descriptions, and equivalent keyboard
+operation. Equations and response data must be accessible without adding a
+permanent toolbar or report to the page.
 
-Layout MUST use the shared 4-pixel base spacing system: 4 pixels for tightly
-related control internals and 8-pixel multiples for gaps, padding, and section
-rhythm. Space and thin one-pixel VS Code separators establish hierarchy.
-Decorative cards, nested bordered containers, shadows, glow, gradients, and
-large ornamental headers MUST NOT compete with the engineering plot.
-
-Plot typography MUST use VS Code's editor and interface font variables with
-tabular numerals for measured values. Axis labels and legends MUST remain
-legible but visually secondary to the data. Overlapping tick labels MUST be
-suppressed and tick density MUST decrease at narrow widths. Grid lines MUST be
-subtle, axis lines MUST not be repeated when grid lines already establish the
-scale, and primary traces MUST remain the strongest marks in the plot.
-Internal scroll regions use the platform's thin scrollbar treatment derived
-from VS Code scrollbar variables; they MUST NOT introduce a bright or oversized
-browser-default scrollbar. Toolbar groups use spacing and one-pixel separators,
-not cards or extra menus, to distinguish plot selection from plot actions.
-
-Plot colours MUST come from the shared VS Code-derived truST palette and remain
-stable for the same signal role and candidate identity across time-domain,
-frequency-domain, stability, MIMO, comparison, export, and restored-session
-views. Primary measured SP, PV, and MV traces use two-pixel strokes. Secondary
-signals, identified models, predictions, and comparison traces use visually
-lighter strokes or bands while retaining required contrast. Requirement bands
-and nominal-versus-uncertainty envelopes MUST be subtle, labelled, and drawn
-behind the primary traces. Point markers remain absent on dense traces until
-the user hovers, places the cursor, or zooms far enough for individual samples
-to be meaningful.
-
-Nominal predictions MUST use a distinct line inside their uncertainty band.
-The band MUST state the uncertainty definition, confidence or bound level when
-defined, model set or variation source, and candidate revision. Colour alone
-MUST NOT distinguish nominal, lower bound, upper bound, measured response, or
-an unqualified extrapolation. Missing uncertainty remains explicitly
-`Not evaluated`; it MUST NOT be represented as a zero-width band.
-
-Cursor movement and candidate-result updates MAY use a 120-to-160 millisecond
-transition when it improves continuity without delaying values or safety
-state. Other decoration MUST NOT animate. All nonessential transitions are
-disabled when VS Code or the operating system requests reduced motion. Linked
-plots MUST update their cursor smoothly from the same exact sample or
-frequency; animation MUST NOT create different displayed values between plots.
-
-The main plot MUST remain visually dominant. The page MUST remain usable at
-wide, split, narrow, and 200 percent zoom layouts. At narrow widths, identity,
-navigation, live monitor, active task, and result MUST appear in that order.
-Abort, limits, apply state, and rollback MUST remain visible when relevant.
-
-At wide widths the plot toolbar remains on one line and the active-stage form
-and result MAY use two columns. At split widths the toolbar may wrap into two
-compact rows, but the active plot tabs, `Fit`, and `Expand` remain visible
-without opening an overflow menu. At narrow widths the workflow navigation and
-plot controls wrap into compact rows so every plot and chart action remains
-directly visible. The live-value strip wraps, analytical multi-panel plots
-stack, and the flat signal list uses the available editor width. The primary
-plot MUST remain at least 260 pixels high. At 200 percent zoom, controls MUST
-wrap without horizontal scrolling and MUST NOT overlap the plot, values, or
-one another.
-
-Expanded plot mode uses the full Control Studio editor below the fixed header
-and workflow navigation. It MUST preserve VS Code escape behavior, keyboard
-focus, plot selection, signal selection, cursor position, zoom window, live
-values, source, quality, limits, and an active Abort action.
-
-All controls MUST be keyboard operable with visible focus. Charts MUST expose
-an accessible name, summary, selected values, and tabular alternative. The
-completed surface MUST remain understandable in the shared dark, light, and
-high-contrast themes without relying on colour alone.
-
-Analysis MUST run outside the webview UI thread and remain bounded. If an
-analysis operation becomes long-running, it MUST expose cancellation before it
-ships. The UI MUST remain responsive, and live display data MUST remain bounded.
+Plots have readable units, trace identities and non-overlapping tick labels.
+Colours and line styles distinguish data without colour-only meaning. Use the
+same engineering-number precision as the result values. Respect reduced motion;
+UI animation must not delay a value, cancellation or required recovery.
+Analysis runs outside the webview thread, is bounded and remains cancellable.
 
 ## 16. Acceptance
 
-Acceptance requires executable tests for numerical results and runtime state
-changes, registered VS Code extension tests for visible behavior, and rendered
-verification of the complete workflows in the shipped extension.
+Implementation requires numerical/runtime tests, registered extension tests
+for changed behavior, and real rendered review. Documentation is not evidence
+that the interface already meets the contract.
 
-The minimum rendered journeys are:
+Exercise the complete three-page flow with configured and missing inputs,
+automatic and manual method choice, recorded data, multiple PID instances,
+multichannel mapping, failed requirements, Abort, Apply, restoration, reopening
+and runtime restart. Inspect every required screen in light, dark and high
+contrast at wide, split/narrow widths and 200 percent zoom, including keyboard
+operation and both open and closed compact editors.
 
-1. open and monitor a simulated loop;
-2. test, identify, tune, validate, and complete Automatic Tune in simulation;
-3. approve and abort a bounded physical test without silently applying gains;
-4. recover from invalid configuration, stale data, failed identification,
-   failed tuning, disconnect, and restoration failure; and
-5. complete the supported simulation workflow with keyboard navigation at
-   wide, narrow, dark, light, and high-contrast configurations;
-6. discover unavailable advanced plots, satisfy their prerequisites, and
-   inspect Bode, Nyquist, root-locus or pole-zero, sensitivity, and validation
-   evidence without losing the live monitor; and
-7. select and compare multiple channels from a multivariable loop, inspect its
-   channel matrix, RGA and singular values, and verify unit-safe aligned lanes
-   at wide and narrow widths; and
-8. tune one candidate graphically from the direct Bode, root-locus, and Nichols
-   tabs, observe linked response, margin, requirement, and validation updates,
-   pin and compare designs, undo and redo an edit, save the session, reopen it,
-   and recover the same evidence-bound analysis workspace without changing the
-   running controller.
+For each image and interaction, verify that the user can identify the current
+page, selected signals/controller, primary action, result and next corrective
+step without explanation. Reject unexplained abbreviations, ambiguous targets,
+clipped fields/equations, unreadable units, unsupported controls, duplicate
+status text, empty reports, a hidden Abort action or a plot crowded by controls.
+Confirm only the selected controller/group is changed by explicit Apply/restore.
 
-Rendered acceptance MUST reject a chart with mismatched units or ranges,
-unlabelled dual axes, clipped controls, unexplained status dots, hidden
-essential plot controls, arbitrary future-axis padding, unreadable hashes,
-colour-only identity, or a plot that is unnecessarily small while unused
-editor space remains.
+Physical qualification remains a separate boundary and must not be claimed from
+simulated or predicted results. Record each image's usability verdict; a clean
+DOM, passing unit test or attractive mockup alone does not close acceptance.
 
-Rendered acceptance MUST capture every target layout defined above and MUST
-also prove direct graphical tuning, linked candidate updates, graphical
-requirements, pinned comparison, save and restore, uncertainty envelopes, and
-undo and redo. The accepted screenshots MUST show real rendered state from the
-shipped extension; mockups, static source assertions, and stale captures do not
-close these requirements.
+## 17. General engineer workflow
 
-Unavailable physical hardware remains an explicit external boundary and MUST
-NOT be replaced by simulation evidence.
+This section governs general-loop implementation where earlier PID-only or
+lesson-specific restrictions conflict. These are product requirements, not
+claims that the implementation already satisfies them.
+
+### 17.1 Setup and capability boundaries
+
+Configuration edits preserve compatible values and revalidate dependent
+bindings. Cancellation leaves no saved configuration or runtime write. A late
+validation reply must not accept an older draft or erase a newer error.
+The current page/shared-flow contracts own missing-input presentation.
+
+An engineer MUST be able to configure an existing ST control program through
+**Configure control loop**. Setup reuses compiled/runtime symbol metadata,
+autodiscovers recognized controllers, and permits explicit custom bindings
+without requiring a wrapper FB. Bindings cover symbolic and addressed values,
+optional SP, PV, requested/applied MV, auxiliary channels, mode, task timing,
+units, scaling and limits. No signal role is inferred solely from its name.
+The reused compiled binding catalog MUST include numeric process-image memory
+variables as `processImage.memory` entries with their exact symbol, address and
+IEC type, alongside the existing commands and feedbacks. No ST source parsing
+or role-name guessing substitutes for this compiler metadata. The catalog also
+provides `controlSymbols.symbols` (symbol path, IEC type, optional address) and
+`controlSymbols.controllers` (instance path, compiled type, owning tasks).
+Nested controller fields are enumerated from compiled instance storage and
+metadata. Each task records its name and interval in milliseconds. The UI may
+autodiscover known controller types from this catalog; a variable named PID
+with another compiled type is still a custom controller.
+All three pages remain navigable. Individual operations explain missing data,
+models, adapters or permissions. Experiment ownership never disables an entire
+analysis stage; project-owned excitation still forbids duplicate tool writes.
+
+### 17.2 Models, controllers and analysis
+
+Accept fitted and provided transfer functions, continuous/discrete state-space
+models and configured simulation models with provenance, channel order, units,
+operating range, delay, sample time and validation status. Provided models can
+support predicted analysis without fabricated identification records. Model
+validation belongs in Identify; controller validation belongs in Validate.
+Assigning configured channel names MUST keep independent predictions attached
+to the same selected model revision and corresponding output. Renaming may
+update those identities together, but must preserve the recorded samples and
+prediction values. Unchanged channel names must not create a new revision.
+Rectangular MIMO channel plots are supported; square-only mathematics is gated
+per operation. Offline analysis MUST NOT require a live Control.PID instance.
+Adapters distinguish PID, declared controller dynamics, state-space controllers
+and actual custom ST execution. Existing numerical modules remain the engine.
+
+Root locus varies one explicitly named parameter while holding the other
+parameters fixed, recomputes each characteristic equation, and displays gain
+labels, pole coordinates and selected candidate. For the shaft with J=B=1,
+fixed measured-velocity feedback Kd=7, Kp=12 yields poles -2,-6; Kp=16 yields
+-4,-4; Kp=20 yields -4+2j,-4-2j. Scaling Kd together with Kp is incorrect.
+Timing, filters and delay approximations MUST be identified in the result.
+
+### 17.3 Experiments and candidate evaluation
+
+Reuse the runtime experiment service for declared multi-channel events,
+initial conditions, duration, sample sequence, constraints, abort and confirmed
+restoration. Evaluate engineer-declared error windows, overshoot, settling,
+load recovery, MV limits/rates, saturation, switching and state constraints.
+Current and candidate runs use identical immutable conditions. Missing evidence
+is Inconclusive; distinguish model prediction from measured ST execution.
+Formula methods retain their applicability domains. Custom parameter search
+uses an explicit finite grid, trial count, per-trial duration, total budget and
+abort contract, with no silent truncation. Execute actual ST against an isolated
+simulated plant with complete resets, never the selected physical runtime.
+Reject failed constraints before ranking qualifying candidates.
+
+### 17.4 Application and persistence
+
+Provide control.parameters.status/apply/rollback with typed, bounded parameter
+sets, units/conventions, exact program/binding revisions and expected values.
+Commit the whole set atomically at its owning task boundary after rechecking
+revision and mode; never partially apply separate queued writes. Custom updates
+require confirmed Manual/stopped state unless an explicit Auto adoption and
+acknowledgement contract exists. Confirm observed values after commit; queued
+is not applied. Rollback uses the retained previous snapshot and identical
+guards. Physical application requires the existing explicit review. Retain
+control.pid.* compatibility through the PID adapter.
+
+Loop schema v2 and workflow result v4 MUST read v1 loops and v3 results. Migration
+requires explicit save and preserves originals. Typed contracts cover bindings,
+models, adapters, sweeps, experiments, evaluations and transactions. Panel
+composition delegates discovery, analysis, execution and application to focused
+modules; do not duplicate runtime transports or numerical engines.
+
+### 17.5 Completion
+
+The course gallery MUST use the selected lesson's name as its primary heading,
+with position and equipment as compact context. Create/Open project actions
+appear before expandable technical metadata and expected observations. Preserve
+the full description, objective, expected observation and lesson explanation;
+omit only identical repeated presentation. The disclosure must support keyboard
+and pointer use, and the initial project action must remain visible at supported
+window sizes and zoom levels. Use the shared truST theme and navigation.
+Authored preview Markdown MUST retain its paragraph/list/table structure, inline
+code/emphasis and equations. Render equations accessibly without deleting their
+source meaning. Project-file references open a read-only preview of the bundled
+example file and identify that scope; they do not create a project, switch the
+workspace or adopt a retained project's state. Only files belonging to the
+selected catalog example may be previewed. Reject escaped paths, unlisted
+targets, executable URL schemes and raw HTML execution. Existing Create/Open
+project actions retain their current behavior.
+
+Prove an arbitrary non-course ST project end to end before aligning all 82
+lessons. Audit each executable project against its teaching specification,
+including the nine known workflow gaps. Rebuild complete example bundles and
+the extension; verify Start from example against the packaged result. Tests
+must cover cancellation, multiple loops, symbolic parameters, offline models,
+rectangular MIMO, stale/forced/cross-runtime values, races, restarts, atomic
+application and rollback. Real rendered light/dark/high-contrast evidence is
+separate from native tests. Physical qualification requires a reviewed physical
+target and must remain explicitly unqualified when that target is unavailable.
+
+### 17.6 Declared root-locus contract
+
+A v2 loop MAY declare `analysis` with a `plant` transfer function (descending
+`numerator` and `denominator` coefficient arrays, `delaySeconds`, `inputUnit`,
+`outputUnit`, `revision`, `source`, and `validation`). Source is `provided` or
+`simulation`; validation is explicitly `unvalidated` or `validated`.
+The `controller` declares a bounded parameter map (value, minimum, maximum,
+unit) and descending polynomial coefficients. Each coefficient is either a
+finite number or `{parameter: name, scale?: number}`. Parameter references must
+exist. This is an explicit linear representation supplied by the engineer;
+it is not inferred from custom ST. `rootLocus` names one parameter, its finite
+values and its selected value; all other parameters stay fixed.
+
+The declared plant input/output units MUST match the bound MV/PV units;
+Control Studio MUST reject a mismatched model instead of silently converting it.
+Declared root-locus analysis is available without a live controller or acquired
+identification record. Its result retains selected/fixed parameters, provenance,
+approximation and gain/pole coordinates. Reject unknown coefficients, zero
+denominator, invalid bounds, nonfinite values, an empty or greater-than-1001
+value sweep, or a selected value absent from the sweep. This numerical contract
+does not add controls or tables to the Tune page and cannot authorize Apply.
+
+Result v4 stores supplied analysis under `declaredAnalysis` as its exact
+`definition` and calculated `result`, including selected parameter value,
+fixed parameters and model provenance. Persistence uses the existing
+result service; reopening restores that result and selection. A run
+with no acquired samples records `evidence.observation: "Not observed"`.
+Saving creates v4; reading v3 preserves its version and source content. Selecting
+a root-locus candidate MUST NOT write the controller's live parameters.
+
+### 17.7 Runtime scan recording
+
+`control.recording.start` starts an observation-only recording on the existing
+runtime I/O snapshot stream. Its request declares `recording_id`, `loop_revision`,
+`bindings` (unique id, exact address and IEC type), `maximum_samples` and
+`maximum_duration_ms`. Bounds are 1–32 signals, 2–12000 samples, and
+10–3600000 milliseconds. At most two recordings may be retained concurrently.
+This operation never writes or excites the process.
+
+The runtime captures every published scan, with the actual scan sequence,
+runtime timestamp, typed values and force flags, before an editor can miss an
+update. `control.recording.stop` is idempotent and returns the retained samples
+and acquisition evidence. `control.recording.release` frees an acknowledged
+recording. Scope revisions must match on stop/release. Duplicate identities,
+invalid bounds and incompatible bindings are rejected before recording.
+Missing/nonmonotonic scans or absent runtime timestamps yield Incomplete;
+forced or invalid values retain their quality flags and cannot be treated as
+good identification samples. Capacity/duration stops are reported explicitly.
+Stopping or restarting the runtime terminates an active recording with a reason.
+Legacy UI-observed recordings remain explicitly incomplete.
+
+Result v4 raw samples retain `additional` channel entries with id, channel,
+role, unit, nullable value and quality. Channel identities and units must remain
+consistent throughout one recording revision. JSON and CSV export retain these
+channels. An open-loop result declares `loop.topology: "open-loop"`, uses no
+SP value or SP unit, and must not manufacture either from the process variable.
+Runtime-buffer records use runtime elapsed time and scan sequence for ordering;
+coarse or adjusted wall-clock timestamps do not replace that time base.
+
+A Stop requested while the start acknowledgement is pending MUST wait for that
+acknowledgement and stop the same recording. It MUST NOT be discarded as an
+unmatched operation. Project, runtime, loop ID and loop revision all belong to
+the recording scope; matching revision strings alone cannot authorize a stop.
+If the runtime accepted Start but its acknowledgement is lost, the persisted
+owner MUST retain that unconfirmed fact across an Extension Host reload. The
+reopened manual Record surface MUST name the unconfirmed Start, keep Start
+disabled, and offer Stop only for the same recorded identity. Its terminal
+samples remain actual runtime samples, but their evidence MUST remain
+`Incomplete` with the Start-acknowledgement reason; it MUST NOT qualify
+identification as complete evidence.
+
+## Primary Control.PID state adapter
+
+The primary guided PID journey executes the actual library block defined by
+Specification 32. A parallel PID test equation is a separate implementation.
+A schema-version-2 loop may declare `pidInitialization.kind = "control-pid-v1"`
+with `states` and `maximumSnapshotAgeMs`. The seven states must bind the actual
+controller instance's `StateValue.Setpoint`, `SetpointRate`, `ProcessValue`,
+`ProcessValueRate`, `FeedForward`, `NominalOutput` and `SaturatedOutput` members.
+Each state uses the existing declared-state scalar descriptor (LREAL, unit,
+finite bounds, initialization source and bounded post-scan observation).
+Missing, duplicated, incorrectly typed or incorrectly owned states are rejected.
+This adapter and `parallel-pid-v1` describe different retained-state semantics.
+
+At a stationary operating point, setpoint and process history use the measured
+process coordinate, both rates are zero, and nominal/saturated history use the
+applied actuator coordinate. Feedforward history uses the application's declared
+initial feedforward value. All seven states are included in actual-ST Verify
+and its mandatory state bounds. Initialization and live commissioning reuse the
+existing declared-state task-boundary transaction, boundary-measurement formulas,
+first-output observation, cancellation and recovery owners. No copied controller
+equations or second transaction service may replace the actual block.
+
+P, PI, PD and PID tuning retains the existing gain-law mapping and accepted
+family. Parameter declarations address the actual configured parameter members;
+startup initialization must not overwrite an isolated candidate or accepted live
+settings. Actual-ST evidence must confirm the entire parameter/state/mode path.
+A successful descriptor or isolated test is not full commissioning acceptance.
+
+Applications with startup supervision may additionally declare
+`pidInitialization.applicationStates` using the existing declared-state scalar
+contract. These explicitly named application states, such as a completed-startup
+flag, accompany the seven library states during Verify and commissioning. They
+prevent application startup code from overwriting the reviewed controller history
+before its first Update. The adapter must not guess a flag from its name or
+substitute a looser response requirement for missing initialization. Application
+states retain compiled ownership, type, bounds and post-scan checks.
+
+## General identified-model response evidence
+
+Every identified model retains the independent free-running predictions used
+to qualify it, with timestamps, measured/predicted outputs, residuals, physical
+units, source recording identity and selected model revision. Warm-up history
+used to initialize a state predictor is not presented as independent prediction.
+After identification, Identify shows measured versus predicted response for the
+selected output. Frequency response remains an analysis view; it must not replace
+available fit evidence because a general state/physical fitter selected the model.
+Model replacement invalidates the comparison; reopening the same model restores
+its retained evidence. All output channels retain their own units and predictions.
+
+Time-response plots frame SP/PV and MV around their actual displayed variation.
+Do not force a distant zero or rated actuator maximum into the range when that
+hides the response being assessed. Declared bounds remain in the result and Limits/Requirements editors;
+relevant active bounds are drawn within the visible range; data reaching a limit remains visible.

@@ -1,0 +1,6 @@
+title = "Trends"
+kind = "trend"
+icon = "line-chart"
+order = 50
+duration_s = 600
+signals = ["P1.AppliedValvePosition", "P1.ControllerOutputState", "P1.Error", "P1.PreviousProcessValue", "P1.PreviousSetpoint", "P1.Setpoint", "P1.SetpointChange", "P1.SetpointWeight"]

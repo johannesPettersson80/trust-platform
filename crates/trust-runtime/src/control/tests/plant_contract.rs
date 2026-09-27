@@ -96,11 +96,14 @@ fn plant_capabilities_reports_the_closed_runtime_surface() {
             "first_order",
             "first_order_dead_time",
             "integrator",
+            "integrator_dead_time",
             "gravity_tank",
+            "gravity_tank_cascade",
             "piecewise_linear",
             "robot_joint",
             "second_order",
-            "state_space"
+            "state_space",
+            "discrete_state_space"
         ]))
     );
     assert_eq!(

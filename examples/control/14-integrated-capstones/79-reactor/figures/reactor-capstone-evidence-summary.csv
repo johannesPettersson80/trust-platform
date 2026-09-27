@@ -1,8 +1,0 @@
-case,status,cold_feed_iae_degC_s,cold_feed_departure_degC,valve_travel_pp,protected_peak_degC,maximum_valve_jump_pp,shutdown_final_degC,identified_jacket_gain,identified_reactor_gain,identified_feed_gain,identified_jacket_tau_s,identified_reactor_tau_s,identified_time_scale_ratio,identified_feedforward_gain
-identification,qualified,,,,,,,,0.160000,0.178654,-0.599964,2.000000,13.700000,6.850000,3.358236
-feedback_only,baseline,17.516839,0.680602,16.183849,,,,,,,,,,
-integrated,qualified,6.913970,0.551742,35.880448,84.525623,5.000000,71.689814,,,,,,,
-heating_unavailable,safe_state_then_recovered,,,,,,,,,,,,,,,
-cooling_unavailable,safe_state_then_recovered,,,,,,,,,,,,,,,
-reactor_quality_invalid,safe_state_then_recovered,,,,,,,,,,,,,,,
-shutdown,qualified,,,,,,71.689814,,,,,,,

@@ -58,15 +58,8 @@ impl PlantInstance {
         let effective_model = config.model.clone();
         let model_workspace = ModelWorkspace::new(state.len());
         let command_count = initial_inputs.len();
-        let history_capacity = match &config.model {
-            PlantModelConfig::FirstOrderDeadTime { dead_time_s, .. } => {
-                ((*dead_time_s * 1_000_000_000.0 / config.step.as_nanos() as f64).ceil() as usize)
-                    .saturating_add(3)
-            }
-            _ => 0,
-        };
         let parameter_overrides = vec![None; event_capacity];
-        let input_history = VecDeque::with_capacity(history_capacity);
+        let input_history = InputHistory::for_config(&config);
         let sensor_bias = vec![0.0; output_count];
         let published_feedback = vec![0.0; output_count];
         let checkpoint = PlantCheckpoint {
@@ -74,12 +67,13 @@ impl PlantInstance {
             queued_feedback: initial_feedback.clone(),
             feedback_pending: true,
             model_time_nanos: 0,
-            input_history: VecDeque::with_capacity(history_capacity),
+            input_history: InputHistory::for_config(&config),
             actuators: actuators.clone(),
             uncertainties: uncertainties.clone(),
             event_cursor: 0,
             parameter_overrides: parameter_overrides.clone(),
             sensor_bias: sensor_bias.clone(),
+            held_command: initial_inputs.clone(),
             latest_command: initial_inputs.clone(),
             latest_applied_input: applied_input.clone(),
             latest_ideal_output: initial_ideal.clone(),
@@ -99,6 +93,7 @@ impl PlantInstance {
             parameter_overrides,
             sensor_bias,
             last_substeps: 0,
+            held_command: initial_inputs.clone(),
             latest_command: initial_inputs,
             latest_applied_input: applied_input,
             latest_ideal_output: initial_ideal,
@@ -109,6 +104,7 @@ impl PlantInstance {
             trace,
             effective_model,
             effective_commands: vec![0.0; command_count],
+            delayed_inputs: vec![0.0; command_count],
             model_workspace,
             checkpoint,
         }
@@ -159,7 +155,7 @@ impl PlantInstance {
         self.last_substeps = required;
         for (channel, source) in self.config.command_sources.iter().enumerate() {
             let plc_command = read_numeric(runtime.io(), source)?;
-            self.effective_commands[channel] =
+            self.held_command[channel] =
                 self.config.input_scale[channel] * plc_command + self.config.input_offset[channel];
         }
         if required == 0 {
@@ -169,16 +165,17 @@ impl PlantInstance {
         for substep in 0..required {
             self.save_checkpoint();
             let result = (|| {
-                self.latest_command.clone_from(&self.effective_commands);
+                self.effective_commands.clone_from(&self.held_command);
+                self.latest_command.clone_from(&self.held_command);
                 self.fired_events.clear();
                 self.apply_due_events(self.model_time_nanos + step_nanos);
                 let time_s = (self.model_time_nanos + step_nanos) as f64 / 1_000_000_000.0;
-                self.effective_commands.clone_from(&self.latest_command);
                 for (channel, effective_command) in self.effective_commands.iter_mut().enumerate() {
                     for effect in &mut self.uncertainties {
                         *effective_command =
                             effect.apply_command(channel, *effective_command, time_s, h)?;
                     }
+                    self.latest_command[channel] = *effective_command;
                     self.latest_applied_input[channel] =
                         self.actuators[channel].advance(*effective_command, h);
                     for effect in &mut self.uncertainties {
@@ -193,16 +190,11 @@ impl PlantInstance {
                 self.config
                     .validity
                     .check_input(&self.config.id, &self.latest_applied_input)?;
-                if matches!(
-                    self.config.model,
-                    PlantModelConfig::FirstOrderDeadTime { .. }
-                ) {
-                    // Dead time belongs to the process model, so its held history must
-                    // contain the signal after command uncertainty and actuator effects.
-                    self.input_history
-                        .push_back((self.model_time_nanos, self.latest_applied_input[0]));
-                    self.prune_input_history();
-                }
+                // Transport history is in model units, after command scaling,
+                // actuator processing and process-input uncertainty for each channel.
+                self.input_history
+                    .record(self.model_time_nanos, &self.latest_applied_input);
+                self.prune_input_history();
                 self.effective_model.reset_values_from(&self.config.model);
                 apply_parameter_overrides(
                     &mut self.effective_model,
@@ -239,7 +231,7 @@ impl PlantInstance {
                         &mut self.state[0],
                         self.model_time_nanos,
                         step_nanos,
-                        &self.input_history,
+                        self.input_history.channel(0),
                         *gain,
                         *time_constant_s,
                         *input_bias,
@@ -252,11 +244,37 @@ impl PlantInstance {
                     } => {
                         self.state[0] += h * gain * (self.latest_applied_input[0] - input_bias);
                     }
+                    PlantModelConfig::IntegratorDeadTime {
+                        gain,
+                        input_bias,
+                        dead_time_s,
+                        initial_delayed_input,
+                        ..
+                    } => advance_delayed_integrator(
+                        &mut self.state[0],
+                        self.model_time_nanos,
+                        step_nanos,
+                        self.input_history.channel(0),
+                        *gain,
+                        *input_bias,
+                        *dead_time_s,
+                        *initial_delayed_input,
+                    ),
                     PlantModelConfig::GravityTank {
                         area_m2,
                         outflow_coefficient,
                     } => rk4_gravity_tank(
                         &mut self.state[0],
+                        self.latest_applied_input[0],
+                        h,
+                        *area_m2,
+                        *outflow_coefficient,
+                    ),
+                    PlantModelConfig::GravityTankCascade {
+                        area_m2,
+                        outflow_coefficient,
+                    } => rk4_gravity_tank_cascade(
+                        &mut self.state,
                         self.latest_applied_input[0],
                         h,
                         *area_m2,
@@ -294,14 +312,34 @@ impl PlantInstance {
                         *input_bias,
                     ),
                     PlantModelConfig::StateSpace { ref a, ref b, .. } => {
-                        rk4_state_space(
-                            &mut self.state,
-                            &self.latest_applied_input,
-                            h,
-                            a,
-                            b,
-                            &mut self.model_workspace,
-                        );
+                        if self.config.discrete_state_space {
+                            model::step_discrete_state_space(
+                                &mut self.state,
+                                &self.latest_applied_input,
+                                a,
+                                b,
+                                &mut self.model_workspace,
+                            );
+                        } else if self.input_history.enabled() {
+                            state_space_delay::advance(
+                                &mut self.state,
+                                self.model_time_nanos..self.model_time_nanos + step_nanos,
+                                &self.input_history,
+                                &self.config.initial_input,
+                                (a, b),
+                                &mut self.model_workspace,
+                                &mut self.delayed_inputs,
+                            );
+                        } else {
+                            rk4_state_space(
+                                &mut self.state,
+                                &self.latest_applied_input,
+                                h,
+                                a,
+                                b,
+                                &mut self.model_workspace,
+                            );
+                        }
                     }
                 }
                 for (channel, state) in self.state.iter_mut().enumerate() {
@@ -315,7 +353,13 @@ impl PlantInstance {
                 model_output_into(
                     &self.effective_model,
                     &self.state,
-                    &self.latest_applied_input,
+                    if matches!(self.effective_model, PlantModelConfig::StateSpace { .. })
+                        && self.input_history.enabled()
+                    {
+                        &self.delayed_inputs
+                    } else {
+                        &self.latest_applied_input
+                    },
                     &mut self.latest_ideal_output,
                 );
                 self.latest_measured_feedback
@@ -393,7 +437,7 @@ impl PlantInstance {
         self.checkpoint.model_time_nanos = self.model_time_nanos;
         self.checkpoint
             .input_history
-            .clone_from(&self.input_history);
+            .copy_runtime_from(&self.input_history);
         self.checkpoint.actuators.clone_from(&self.actuators);
         for (target, source) in self
             .checkpoint
@@ -408,6 +452,7 @@ impl PlantInstance {
             .parameter_overrides
             .clone_from(&self.parameter_overrides);
         self.checkpoint.sensor_bias.clone_from(&self.sensor_bias);
+        self.checkpoint.held_command.clone_from(&self.held_command);
         self.checkpoint
             .latest_command
             .clone_from(&self.latest_command);
@@ -429,7 +474,7 @@ impl PlantInstance {
         self.feedback_pending = self.checkpoint.feedback_pending;
         self.model_time_nanos = self.checkpoint.model_time_nanos;
         self.input_history
-            .clone_from(&self.checkpoint.input_history);
+            .copy_runtime_from(&self.checkpoint.input_history);
         self.actuators.clone_from(&self.checkpoint.actuators);
         for (target, source) in self
             .uncertainties
@@ -442,6 +487,7 @@ impl PlantInstance {
         self.parameter_overrides
             .clone_from(&self.checkpoint.parameter_overrides);
         self.sensor_bias.clone_from(&self.checkpoint.sensor_bias);
+        self.held_command.clone_from(&self.checkpoint.held_command);
         self.latest_command
             .clone_from(&self.checkpoint.latest_command);
         self.latest_applied_input
@@ -453,19 +499,8 @@ impl PlantInstance {
     }
 
     fn prune_input_history(&mut self) {
-        let PlantModelConfig::FirstOrderDeadTime { dead_time_s, .. } = &self.config.model else {
-            self.input_history.clear();
-            return;
-        };
-        let delay_nanos = (*dead_time_s * 1_000_000_000.0).round() as i64;
-        let cutoff = self
-            .model_time_nanos
-            .saturating_sub(delay_nanos)
-            .saturating_sub(self.config.step.as_nanos());
-        // Retain the newest sample before the delay window as its ZOH anchor.
-        while self.input_history.len() > 1 && self.input_history[1].0 <= cutoff {
-            self.input_history.pop_front();
-        }
+        self.input_history
+            .prune(self.model_time_nanos, self.config.step.as_nanos());
     }
 
     fn apply_due_events(&mut self, step_boundary_nanos: i64) {

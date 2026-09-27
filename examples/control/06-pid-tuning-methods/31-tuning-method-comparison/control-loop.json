@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 2,
+  "id": "control-tuning-method-comparison",
+  "name": "Tuning comparison",
+  "projectId": "project:control-tuning-method-comparison",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Control.PID",
+    "design": "project",
+    "revision": "sha256:e8660a69c9dacde2c7e21d7e2f18ca077ae03cb8b26e11ef6978a5ba9e4b2c77",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "P1.ExperimentEnabled",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.TemperatureC",
+      "address": "%ML40",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.AppliedPowerPct",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX104.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "thermal-load",
+        "channel": "thermal-load",
+        "role": "disturbance",
+        "symbol": "P1.DisturbanceKw",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": 0,
+          "maximum": 30
+        }
+      },
+      {
+        "id": "actual-water",
+        "channel": "actual-water",
+        "role": "state",
+        "symbol": "P1.WaterTemperatureC",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "integral",
+        "channel": "integral",
+        "role": "state",
+        "symbol": "P1.IntegralPct",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "activity",
+        "channel": "activity",
+        "role": "state",
+        "symbol": "P1.CommandActivityPoints",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "percentage-point",
+        "range": {
+          "minimum": 0,
+          "maximum": 100000
+        }
+      },
+      {
+        "id": "requested-power",
+        "channel": "requested-power",
+        "role": "MV",
+        "symbol": "P1.RequestedPowerPct",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 300
+        }
+      },
+      {
+        "id": "candidate-kp",
+        "channel": "candidate-kp",
+        "role": "parameter",
+        "symbol": "P1.KpPctPerC",
+        "address": "%ML72",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%/degC",
+        "range": { "minimum": 0, "maximum": 20 }
+      },
+      {
+        "id": "candidate-ki",
+        "channel": "candidate-ki",
+        "role": "parameter",
+        "symbol": "P1.KiPctPerCs",
+        "address": "%ML88",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%/(degC*s)",
+        "range": { "minimum": 0, "maximum": 10 }
+      },
+      {
+        "id": "candidate-revision",
+        "channel": "candidate-revision",
+        "role": "parameter",
+        "symbol": "P1.CandidateRevision",
+        "address": "%ML96",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "revision",
+        "range": { "minimum": 0, "maximum": 1000000000 }
+      },
+      {
+        "id": "safety-abort",
+        "channel": "safety-abort",
+        "role": "state",
+        "symbol": "P1.SafetyAbort",
+        "address": "%MX104.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ],
+    "setpoint": {
+      "symbol": "P1.SetpointC",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    }
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "heater-selected-candidate",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 60.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX104.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  },
+  "parameterBinding": {
+    "loop_id": "control-tuning-method-comparison",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.KpPctPerC",
+        "iec_type": "LREAL",
+        "unit": "%/degC",
+        "convention": "selected candidate proportional gain; edit only while stopped",
+        "minimum": 0,
+        "maximum": 20
+      },
+      {
+        "symbol": "P1.KiPctPerCs",
+        "iec_type": "LREAL",
+        "unit": "%/(degC*s)",
+        "convention": "selected candidate integral gain; edit only while stopped",
+        "minimum": 0,
+        "maximum": 10
+      },
+      {
+        "symbol": "P1.CandidateRevision",
+        "iec_type": "LREAL",
+        "unit": "revision",
+        "convention": "source record or model revision identifier",
+        "minimum": 0,
+        "maximum": 1000000000
+      },
+      {
+        "symbol": "P1.TrialKind",
+        "iec_type": "INT",
+        "unit": "trial",
+        "convention": "0 setpoint; 1 load",
+        "minimum": 0,
+        "maximum": 1
+      }
+    ],
+    "mode": { "symbol": "P1.ExperimentEnabled", "manual_value": false }
+  },
+  "revision": "sha256:lesson21-control-pid-candidate-binding-v1"
+}

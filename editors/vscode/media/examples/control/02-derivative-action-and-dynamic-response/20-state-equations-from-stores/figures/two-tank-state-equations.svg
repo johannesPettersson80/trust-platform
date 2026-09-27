@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="300" viewBox="0 0 720 300" role="img" aria-labelledby="title desc">
+  <title id="title">Two connected water stores</title>
+  <desc id="desc">Pump flow enters tank 1, inter-tank flow enters tank 2, and outlet flow leaves tank 2.</desc>
+  <rect x="1" y="1" width="718" height="298" rx="16" fill="#f7f9fc" stroke="#d8e0eb"/>
+  <text x="360" y="36" text-anchor="middle" font-family="sans-serif" font-size="23" fill="#243044">One balance for each stored quantity</text>
+  <rect x="150" y="95" width="170" height="140" rx="8" fill="#dcecff" stroke="#526078" stroke-width="2"/>
+  <rect x="420" y="115" width="170" height="120" rx="8" fill="#dcecff" stroke="#526078" stroke-width="2"/>
+  <line x1="55" y1="150" x2="150" y2="150" stroke="#0072b2" stroke-width="4"/>
+  <line x1="320" y1="175" x2="420" y2="175" stroke="#d55e00" stroke-width="4"/>
+  <line x1="590" y1="205" x2="675" y2="205" stroke="#009e73" stroke-width="4"/>
+  <text x="102" y="138" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#0072b2">pump u</text>
+  <text x="370" y="163" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#d55e00">0.5 h1</text>
+  <text x="632" y="193" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#009e73">0.2 h2</text>
+  <text x="235" y="82" text-anchor="middle" font-family="sans-serif" font-size="19" font-weight="bold" fill="#243044">Tank 1</text>
+  <text x="505" y="102" text-anchor="middle" font-family="sans-serif" font-size="19" font-weight="bold" fill="#243044">Tank 2</text>
+  <text x="235" y="170" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#243044">level h1</text>
+  <text x="505" y="185" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#243044">level h2</text>
+  <text x="235" y="263" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#65738a">measured level</text>
+  <text x="505" y="263" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#65738a">measured level</text>
+</svg>

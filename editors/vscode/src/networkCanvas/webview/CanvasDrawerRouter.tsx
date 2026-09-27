@@ -28,7 +28,8 @@ export interface CanvasDrawerRoutes {
 // selection, and a browse task wins over discovery. This preserves one active
 // right-hand task surface and keeps drawer geometry deterministic.
 export function activeDrawerWidth(routes: CanvasDrawerRoutes): number {
-  if (routes.plantDraft) return 360;
+  // Plant setup is a main-canvas editor surface, not a narrow inspector.
+  if (routes.plantDraft) return 0;
   if (routes.addDevice) return 360;
   if (routes.inspectNode) return 340;
   if (routes.browseTags) return 340;

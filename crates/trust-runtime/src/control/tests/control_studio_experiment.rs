@@ -381,6 +381,34 @@ fn control_studio_experiment_executes_bounded_trajectory_and_restores_once() {
 }
 
 #[test]
+fn control_studio_mv_pulse_requires_a_timed_return_to_its_baseline() {
+    let state = experiment_state(10, false);
+    let rejected = start_experiment(
+        &state,
+        json!({
+            "kind": "mv_pulse",
+            "controller_mode": "Manual",
+            "trajectory": [{ "at_ms": 0, "value": 15 }]
+        }),
+    );
+    assert!(!rejected.ok);
+    assert_eq!(rejected.error_code.as_deref(), Some("invalid_experiment"));
+
+    let started = start_experiment(
+        &state,
+        json!({
+            "kind": "mv_pulse",
+            "controller_mode": "Manual",
+            "trajectory": [
+                { "at_ms": 0, "value": 15 },
+                { "at_ms": 2500, "value": 10 }
+            ]
+        }),
+    );
+    assert!(started.ok, "pulse start failed: {:?}", started.error);
+}
+
+#[test]
 fn control_studio_relay_switches_from_process_feedback_and_never_from_elapsed_dwell() {
     let state = experiment_state(10, false);
     let started = start_experiment(

@@ -1,0 +1,280 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-11",
+  "title": "Measurement filtering",
+  "level": "Foundation",
+  "sequence": 23,
+  "equipment": "Temperature sensor, heating valve, and recirculating water loop",
+  "physicalPurpose": "Reduce valve-request movement caused by rapid sensor variation while retaining slower process information.",
+  "principalTechnique": "First-order low-pass measurement filtering",
+  "objective": "Derive a filter update, compare raw and filtered measurements, and quantify the resulting request ranges.",
+  "prerequisites": [
+    "control-lesson-10"
+  ],
+  "nextLesson": "control-lesson-12",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Desired water temperature",
+      "unit": "degC",
+      "minimum": 15,
+      "maximum": 60,
+      "resolution": 0.1,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Raw temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.01,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "True simulated temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.01,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Filtered temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.01,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Filter time",
+      "unit": "s",
+      "minimum": 0.1,
+      "maximum": 10,
+      "resolution": 0.1,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "Raw-measurement request",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "Filtered-measurement request",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML56"
+    },
+    {
+      "role": "MV",
+      "name": "Applied valve position",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    }
+  ],
+  "plant": {
+    "modelId": "first_order_dead_time_with_measurement_noise",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      {
+        "name": "gain",
+        "value": 0.2,
+        "unit": "degC/%"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "dead_time",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "measurement_noise_standard_deviation",
+        "value": 0.1,
+        "unit": "degC"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "waterTemperature": 20
+    },
+    "seed": 20260824,
+    "operatingPoint": {
+      "PV": 35,
+      "MV": 75
+    },
+    "validityRange": [
+      {
+        "signal": "Raw temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied valve position",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "A second noise-free plant instance provides the true-temperature reference.",
+      "Filter time 1 s is a teaching choice."
+    ]
+  },
+  "baseline": {
+    "executableId": "Lesson11.RawMeasurementRequest",
+    "settings": {
+      "filter": "bypass",
+      "proportionalGain": 2
+    },
+    "limitation": "Rapid sensor variation becomes rapid valve-request variation."
+  },
+  "change": {
+    "executableId": "Lesson11.FilteredMeasurementRequest",
+    "settings": {
+      "filterTimeSeconds": 1,
+      "cycleTimeSeconds": 0.1
+    },
+    "decision": "Move the stored measurement 0.1/(1.0+0.1) of the remaining difference each scan."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 80.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Deterministic zero-mean sensor noise with 0.1 degC standard deviation."
+    ],
+    "seed": 20260824,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "filtered_temperature_range",
+      "signal": "Filtered temperature",
+      "window": "steady 35 degC samples",
+      "comparator": "<",
+      "limit": 0.15,
+      "unit": "degC",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "filtered_request_range",
+      "signal": "Filtered-measurement request",
+      "window": "steady 35 degC samples",
+      "comparator": "<",
+      "limit": 0.3,
+      "unit": "pp",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Raw temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied valve position",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Temperature or valve position is not finite",
+      "Temperature or valve position leaves its limit"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Valve position 0%",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "Noise and filter values are simulation teaching choices."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#71-feedback-and-practical-temperature-control",
+    "nativeTest": "TEST_PROGRAM::Lesson11FilterMovesPartwayTowardRawMeasurement",
+    "nativeCommand": "trust-dev test --project examples/control/01-feedback-foundations-and-temperature-control/11-measurement-filtering --filter TEST_PROGRAM::Lesson11FilterMovesPartwayTowardRawMeasurement --timeout 15",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/11-measurement-filtering",
+    "runArtifactFields": [
+      "rawTemperature",
+      "filteredTemperature",
+      "trueTemperature",
+      "rawRequest",
+      "filteredRequest",
+      "appliedPosition"
+    ],
+    "renderedJourneyId": "control-lesson-11"
+  },
+  "learning": {
+    "context": "Lesson 10 retained full proportional response to measured temperature.",
+    "reason": "Rapid sensor variation can cause unnecessary output movement.",
+    "change": "Smooth measurement changes before calculating the valve request.",
+    "transfer": "Lesson 12 replaces assumed scan time with measured elapsed time and examines missed information.",
+    "theory": [
+      "Rapid sensor variation can cause unnecessary output movement."
+    ],
+    "workedPrediction": "Move the stored measurement 0.1/(1.0+0.1) of the remaining difference each scan.",
+    "practicalPreparation": [
+      "Lesson 10 retained full proportional response to measured temperature."
+    ],
+    "baseline": "Rapid sensor variation becomes rapid valve-request variation.",
+    "comparison": "Derive a filter update, compare raw and filtered measurements, and quantify the resulting request ranges.",
+    "validation": "Check the declared acceptance metrics against the retained run.",
+    "explanation": "Derive a filter update, compare raw and filtered measurements, and quantify the resulting request ranges."
+  },
+  "video": {
+    "viewerOutcome": "Derive a filter update, compare raw and filtered measurements, and quantify the resulting request ranges.",
+    "requiredVisibleEvidence": [
+      "rawTemperature",
+      "filteredTemperature",
+      "trueTemperature",
+      "rawRequest",
+      "filteredRequest",
+      "appliedPosition"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

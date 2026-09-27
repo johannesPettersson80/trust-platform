@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="390" viewBox="0 0 900 390" role="img" aria-labelledby="title desc">
+  <title id="title">Relay input and resulting temperature cycle</title>
+  <desc id="desc">The valve alternates between two bounded positions. Delayed temperature cycles around the center, with amplitude a and period Pu.</desc>
+  <rect x="1" y="1" width="898" height="388" rx="16" fill="#f7f9fc" stroke="#d8e0eb"/>
+  <text x="450" y="38" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#243044">Measure the cycle created by a known relay amplitude</text>
+  <text x="65" y="95" font-family="sans-serif" font-size="17" fill="#243044">valve</text>
+  <line x1="110" y1="120" x2="220" y2="120" stroke="#0072b2" stroke-width="4"/><line x1="220" y1="120" x2="220" y2="180" stroke="#0072b2" stroke-width="4"/><line x1="220" y1="180" x2="360" y2="180" stroke="#0072b2" stroke-width="4"/><line x1="360" y1="180" x2="360" y2="120" stroke="#0072b2" stroke-width="4"/><line x1="360" y1="120" x2="500" y2="120" stroke="#0072b2" stroke-width="4"/><line x1="500" y1="120" x2="500" y2="180" stroke="#0072b2" stroke-width="4"/><line x1="500" y1="180" x2="640" y2="180" stroke="#0072b2" stroke-width="4"/><line x1="640" y1="180" x2="640" y2="120" stroke="#0072b2" stroke-width="4"/><line x1="640" y1="120" x2="790" y2="120" stroke="#0072b2" stroke-width="4"/>
+  <text x="90" y="125" text-anchor="end" font-family="sans-serif" font-size="15" fill="#0072b2">38%</text>
+  <text x="90" y="185" text-anchor="end" font-family="sans-serif" font-size="15" fill="#0072b2">2%</text>
+  <text x="65" y="245" font-family="sans-serif" font-size="17" fill="#243044">temperature</text>
+  <line x1="110" y1="285" x2="180" y2="255" stroke="#d55e00" stroke-width="4"/><line x1="180" y1="255" x2="250" y2="315" stroke="#d55e00" stroke-width="4"/><line x1="250" y1="315" x2="320" y2="255" stroke="#d55e00" stroke-width="4"/><line x1="320" y1="255" x2="390" y2="315" stroke="#d55e00" stroke-width="4"/><line x1="390" y1="315" x2="460" y2="255" stroke="#d55e00" stroke-width="4"/><line x1="460" y1="255" x2="530" y2="315" stroke="#d55e00" stroke-width="4"/><line x1="530" y1="315" x2="600" y2="255" stroke="#d55e00" stroke-width="4"/><line x1="600" y1="255" x2="670" y2="315" stroke="#d55e00" stroke-width="4"/><line x1="670" y1="315" x2="740" y2="255" stroke="#d55e00" stroke-width="4"/><line x1="740" y1="255" x2="790" y2="285" stroke="#d55e00" stroke-width="4"/>
+  <line x1="320" y1="335" x2="460" y2="335" stroke="#526078" stroke-width="2"/>
+  <line x1="320" y1="328" x2="320" y2="342" stroke="#526078" stroke-width="2"/>
+  <line x1="460" y1="328" x2="460" y2="342" stroke="#526078" stroke-width="2"/>
+  <text x="390" y="365" text-anchor="middle" font-family="sans-serif" font-size="17" fill="#243044">period Pu</text>
+  <line x1="815" y1="255" x2="815" y2="285" stroke="#526078" stroke-width="2"/>
+  <line x1="808" y1="255" x2="822" y2="255" stroke="#526078" stroke-width="2"/>
+  <line x1="808" y1="285" x2="822" y2="285" stroke="#526078" stroke-width="2"/>
+  <text x="837" y="275" font-family="sans-serif" font-size="17" fill="#243044">a</text>
+</svg>

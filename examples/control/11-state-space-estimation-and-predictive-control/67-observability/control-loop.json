@@ -1,0 +1,322 @@
+{
+  "schemaVersion": 2,
+  "topology": "open-loop",
+  "id": "control-observability",
+  "name": "Observability from downstream tank level",
+  "projectId": "project:control-observability",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Main",
+    "design": "project",
+    "revision": "sha256:866af523a0686f827e4fe17246f00bd559e759e96c21eca557ae4bdb831c6faa",
+    "action": "direct",
+    "taskPeriodMs": 1000,
+    "modeSignal": "%MX80.0"
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.MeasuredTank2LevelM",
+      "address": "%ML56",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m",
+      "range": {
+        "minimum": 0.05,
+        "maximum": 0.45
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.PumpFlow",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m3/s",
+      "range": {
+        "minimum": 0,
+        "maximum": 0.02
+      }
+    },
+    "additional": [
+      {
+        "id": "upstream-truth",
+        "channel": "upstream-truth",
+        "role": "state",
+        "symbol": "P1.Tank1Truth",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0.05,
+          "maximum": 0.45
+        }
+      },
+      {
+        "id": "downstream-truth",
+        "channel": "downstream-truth",
+        "role": "state",
+        "symbol": "P1.Tank2Truth",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0.05,
+          "maximum": 0.45
+        }
+      },
+      {
+        "id": "upstream-estimate",
+        "channel": "upstream-estimate",
+        "role": "state",
+        "symbol": "P1.UpstreamEstimateM",
+        "address": "%ML0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": -1,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "measured-deviation",
+        "channel": "measured-deviation",
+        "role": "state",
+        "symbol": "P1.MeasuredDeviationM",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": -0.2,
+          "maximum": 0.2
+        }
+      },
+      {
+        "id": "downstream-slope",
+        "channel": "downstream-slope",
+        "role": "state",
+        "symbol": "P1.SlopeMPerS",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m/s",
+        "range": {
+          "minimum": -0.05,
+          "maximum": 0.05
+        }
+      },
+      {
+        "id": "estimate-error",
+        "channel": "estimate-error",
+        "role": "state",
+        "symbol": "P1.EstimateErrorM",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": -1,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "rmse",
+        "channel": "rmse",
+        "role": "state",
+        "symbol": "P1.RmseM",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "valid-estimates",
+        "channel": "valid-estimates",
+        "role": "quality",
+        "symbol": "P1.SampleCount",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "upstream-truth-deviation",
+        "channel": "upstream-truth-deviation",
+        "role": "state",
+        "symbol": "P1.TruthDeviationM",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": -0.2,
+          "maximum": 0.2
+        }
+      },
+      {
+        "id": "sensor-noise",
+        "channel": "sensor-noise",
+        "role": "quality",
+        "symbol": "P1.NoiseValueM",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": -0.005,
+          "maximum": 0.005
+        }
+      },
+      {
+        "id": "noise-amplitude",
+        "channel": "noise-amplitude",
+        "role": "quality",
+        "symbol": "P1.NoiseAmplitudeM",
+        "address": "%ML72",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.005
+        }
+      },
+      {
+        "id": "peak-error",
+        "channel": "peak-error",
+        "role": "state",
+        "symbol": "P1.PeakAbsoluteErrorM",
+        "address": "%ML88",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "elapsed",
+        "channel": "elapsed",
+        "role": "state",
+        "symbol": "P1.ExperimentElapsedS",
+        "address": "%ML96",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "experiment-enabled",
+        "channel": "experiment-enabled",
+        "role": "quality",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX80.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "estimate-ready",
+        "channel": "estimate-ready",
+        "role": "quality",
+        "symbol": "P1.EstimateReady",
+        "address": "%MX80.6",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "fault-latched",
+        "channel": "fault-latched",
+        "role": "quality",
+        "symbol": "P1.FaultLatched",
+        "address": "%MX80.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "clock-valid",
+        "channel": "clock-valid",
+        "role": "quality",
+        "symbol": "P1.ClockValid",
+        "address": "%MX80.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 0.02
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 1000,
+    "maximumJitterMs": 0
+  },
+  "plantId": "observability-cascade",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 20,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX80.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  },
+  "parameterBinding": {
+    "loop_id": "control-observability",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.NoiseAmplitudeM",
+        "iec_type": "LREAL",
+        "unit": "m",
+        "convention": "Magnitude of alternating downstream measurement noise on consecutive one-second samples",
+        "minimum": 0,
+        "maximum": 0.005
+      }
+    ],
+    "mode": {
+      "symbol": "P1.ExperimentEnabled",
+      "manual_value": false
+    }
+  },
+  "revision": "sha256:15f37f55d21d86834d8e4032aca7d067763d9938eb64ec870c33fbb142480434"
+}

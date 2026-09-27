@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   plantDynamicsFields,
@@ -7,22 +7,37 @@ import {
   type PlantParameterValue,
 } from "../plant/editorModel";
 import { plantModelDescriptor } from "../plant/modelDescriptors";
+import { plantStartingStateFields } from "../plant/startingConditions";
 import { PlantPiecewiseEditor } from "./PlantPiecewiseEditor";
 import { PlantStateSpaceEditor } from "./PlantStateSpaceEditor";
 
 export function PlantDynamicsEditor({
   draft,
   onChange,
+  onRawValidityChange,
 }: {
   draft: PlantEditorDraft;
   onChange: (draft: PlantEditorDraft) => void;
+  onRawValidityChange?: (field: string, message?: string) => void;
 }) {
   const [parseErrors, setParseErrors] = useState<Record<string, string>>({});
+  const [rawValues, setRawValues] = useState<Record<string, string>>({});
+  const [modelDetailsOpen, setModelDetailsOpen] = useState(false);
   const [activeHelpKey, setActiveHelpKey] = useState<string>();
   const [summaryHelpKey, setSummaryHelpKey] = useState<string>();
   const helpButtons = useRef(new Map<string, HTMLButtonElement>());
-  const fields = plantDynamicsFields(draft.model);
+  const allFields = plantDynamicsFields(draft.model);
+  const temperatureView = draft.model === "first_order_dead_time" && draft.startingPoint === "temperature_example";
+  const fields = temperatureView ? [] : draft.model === "first_order_dead_time"
+    ? allFields.filter((field) => ["gain", "time_constant_s", "dead_time_s"].includes(field.key))
+    : plantStartingStateFields(draft.model).length > 0 ? allFields.filter((field) => field.key !== "initial_state") : allFields;
+  const modelDetailFields = temperatureView ? allFields : draft.model === "first_order_dead_time"
+    ? allFields.filter((field) => !["gain", "time_constant_s", "dead_time_s"].includes(field.key))
+    : [];
   const descriptor = plantModelDescriptor(draft.model);
+  useEffect(() => {
+    setRawValues((current) => Object.fromEntries(Object.entries(current).filter(([key]) => parseErrors[key])));
+  }, [draft.parameters, draft.initialState, parseErrors]);
   const shape = plantModelShape(draft, descriptor);
   const issues = useMemo(
     () => validatePlantDynamics(draft),
@@ -76,31 +91,36 @@ export function PlantDynamicsEditor({
         throw new Error();
       }
       update(key, value as number[] | number[][]);
+      onRawValidityChange?.(key);
     } catch {
+      const message = matrix
+        ? "Enter a matrix such as [[0, 1], [-1, 0]]."
+        : "Enter a list such as [0, 1, 2].";
+      onRawValidityChange?.(key, message);
       setParseErrors((current) => ({
         ...current,
-        [key]: matrix
-          ? "Enter a matrix such as [[0, 1], [-1, 0]]."
-          : "Enter a list such as [0, 1, 2].",
+        [key]: message,
       }));
     }
   };
 
   return (
     <section className="trust-section">
-      <div className="trust-section__title">Dynamics</div>
-      <p data-plant-model-name className="trust-help" style={{ marginTop: 7 }}>
-        {descriptor.productName} · {descriptor.purpose} · {count(shape.states, "state")} · {count(shape.inputs, "input")} · {count(shape.outputs, "output")}
-      </p>
+      {!temperatureView && <div className="trust-section__title">Dynamics</div>}
+      {!temperatureView && <p data-plant-model-name className="trust-help" style={{ marginTop: 7 }}>
+        {count(shape.states, "state")} · {count(shape.inputs, "input")} · {count(shape.outputs, "output")}
+      </p>}
       {draft.model === "piecewise_linear" ? (
         <PlantPiecewiseEditor draft={draft} onChange={onChange} />
       ) : draft.model === "state_space" ? (
         <PlantStateSpaceEditor draft={draft} onChange={onChange} />
       ) : (
+      <>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 8 }}>
         {fields.map((field) => {
           const issue = issueFor(field.key);
           const value = valueFor(field.key);
+          const label = fopdtLabel(draft.model, field.key, field.label);
           const common = {
             name: `plant-dynamics-${field.key}`,
             "data-plant-dynamics-field": field.key,
@@ -110,7 +130,7 @@ export function PlantDynamicsEditor({
           return (
             <label key={field.key} style={FIELD}>
               <span style={HELP_LABEL}>
-                <span style={LABEL}>{field.label}</span>
+                <span style={LABEL}>{label}</span>
                 <button
                   ref={(button) => {
                     if (button) helpButtons.current.set(field.key, button);
@@ -118,7 +138,7 @@ export function PlantDynamicsEditor({
                   }}
                   type="button"
                   data-plant-parameter-help={field.key}
-                  aria-label={`Help for ${field.label}`}
+                  aria-label={`Help for ${label}`}
                   aria-expanded={activeHelpKey === field.key}
                   aria-describedby={summaryHelpKey === field.key ? `plant-parameter-help-summary-${field.key}` : undefined}
                   title={`${field.plainTerm}: ${field.effect}`}
@@ -142,6 +162,13 @@ export function PlantDynamicsEditor({
                   style={HELP_BUTTON}
                 >?</button>
               </span>
+              {draft.model === "first_order_dead_time" && (
+                <span className="trust-help">
+                  {field.key === "time_constant_s"
+                    ? "After the delay, about 63% of the remaining output change occurs in this time."
+                    : field.effect}
+                </span>
+              )}
               {summaryHelpKey === field.key && activeHelpKey !== field.key && (
                 <span
                   id={`plant-parameter-help-summary-${field.key}`}
@@ -157,7 +184,7 @@ export function PlantDynamicsEditor({
                 <span
                   data-plant-parameter-help-popover={field.key}
                   role="dialog"
-                  aria-label={`Help for ${field.label}`}
+                  aria-label={`Help for ${label}`}
                   tabIndex={-1}
                   autoFocus
                   onKeyDown={(event) => {
@@ -177,22 +204,29 @@ export function PlantDynamicsEditor({
               {field.valueKind === "number" ? (
                 <input
                   {...common}
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   step="any"
-                  placeholder={field.optional ? "Unbounded" : undefined}
-                  defaultValue={typeof value === "number" ? String(value) : ""}
+                  placeholder={field.defaultValue !== undefined ? `Default: ${field.defaultValue}`
+                    : field.optional ? "Unbounded" : undefined}
+                  value={rawValues[field.key] ?? (typeof value === "number" ? String(value) : "")}
                   onChange={(event) => {
+                    setRawValues((current) => ({ ...current, [field.key]: event.target.value }));
                     if (field.optional && !event.target.value.trim()) {
+                      onRawValidityChange?.(field.key);
                       clearOptionalParameter(field.key);
                       return;
                     }
                     const parsed = Number(event.target.value);
                     if (event.target.value.trim() && Number.isFinite(parsed)) {
                       update(field.key, parsed);
+                      onRawValidityChange?.(field.key);
                     } else {
+                      const message = `${label} must be a finite number.`;
+                      onRawValidityChange?.(field.key, message);
                       setParseErrors((current) => ({
                         ...current,
-                        [field.key]: `${field.label} must be a finite number.`,
+                        [field.key]: message,
                       }));
                     }
                   }}
@@ -202,9 +236,10 @@ export function PlantDynamicsEditor({
                 <textarea
                   {...common}
                   rows={field.valueKind === "matrix" ? 3 : 2}
-                  defaultValue={JSON.stringify(value)}
+                  value={rawValues[field.key] ?? JSON.stringify(value)}
                   onChange={(event) =>
-                    updateStructured(field.key, event.target.value, field.valueKind === "matrix")
+                    (setRawValues((current) => ({ ...current, [field.key]: event.target.value })),
+                    updateStructured(field.key, event.target.value, field.valueKind === "matrix"))
                   }
                   spellCheck={false}
                   style={{ ...INPUT, resize: "vertical", fontFamily: "var(--vscode-editor-font-family)" }}
@@ -223,6 +258,27 @@ export function PlantDynamicsEditor({
           );
         })}
       </div>
+      {modelDetailFields.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <button type="button" className="trust-button" data-plant-model-details aria-expanded={modelDetailsOpen} onClick={() => setModelDetailsOpen((open) => !open)}>Model details</button>
+          {modelDetailsOpen && <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 8, marginTop: 8 }}>
+            {temperatureView && <div data-plant-temperature-equation className="trust-help" style={{ overflowWrap: "anywhere" }}>
+              <div>Settled temperature (°C) = {String(draft.parameters.output_bias ?? 0)} + {String(draft.parameters.gain ?? 1)} × (power − {String(draft.parameters.input_bias ?? 0)}).</div>
+              <div>Power is heater command in %. Gain: {String(draft.parameters.gain ?? 1)} °C / %. Full-power rise: {Number(draft.parameters.gain ?? 1) * 100} °C.</div>
+              <div>This is the equilibrium target, not an immediate temperature jump. Delay and response time determine how temperature approaches it.</div>
+            </div>}
+            {modelDetailFields.map((field) => {
+              const issue = issueFor(field.key);
+              const value = valueFor(field.key);
+              return <label key={field.key} style={FIELD}><span style={LABEL}>{field.label}</span>
+                {field.valueKind === "number" ? <input name={`plant-dynamics-${field.key}`} data-plant-dynamics-field={field.key} type="text" inputMode="decimal" value={rawValues[field.key] ?? (typeof value === "number" ? String(value) : "")} aria-invalid={Boolean(issue)} aria-describedby={issue ? `plant-dynamics-error-${field.key}` : undefined} onChange={(event) => { const raw = event.target.value; setRawValues((current) => ({ ...current, [field.key]: raw })); const parsed = Number(raw); if (raw.trim() && Number.isFinite(parsed)) { update(field.key, parsed); onRawValidityChange?.(field.key); } else { const message = `${field.label} must be a finite number.`; setParseErrors((current) => ({ ...current, [field.key]: message })); onRawValidityChange?.(field.key, message); } }} style={INPUT} /> : <textarea name={`plant-dynamics-${field.key}`} data-plant-dynamics-field={field.key} rows={2} value={rawValues[field.key] ?? JSON.stringify(value)} aria-invalid={Boolean(issue)} aria-describedby={issue ? `plant-dynamics-error-${field.key}` : undefined} onChange={(event) => { setRawValues((current) => ({ ...current, [field.key]: event.target.value })); updateStructured(field.key, event.target.value, field.valueKind === "matrix"); }} style={{ ...INPUT, resize: "vertical", fontFamily: "var(--vscode-editor-font-family)" }} />}
+                {issue && <span id={`plant-dynamics-error-${field.key}`} data-plant-dynamics-error={field.key} style={ERROR}>{issue}</span>}
+              </label>;
+            })}
+          </div>}
+        </div>
+      )}
+      </>
       )}
     </section>
   );
@@ -244,6 +300,15 @@ function plantModelShape(
 
 function count(value: number, label: string): string {
   return `${value} ${label}${value === 1 ? "" : "s"}`;
+}
+
+function fopdtLabel(model: string, key: string, fallback: string): string {
+  if (model !== "first_order_dead_time") return fallback;
+  return ({
+    gain: "Response gain",
+    time_constant_s: "Response time (s)",
+    dead_time_s: "Delay before response (s)",
+  } as Record<string, string>)[key] ?? fallback;
 }
 
 const FIELD: React.CSSProperties = {

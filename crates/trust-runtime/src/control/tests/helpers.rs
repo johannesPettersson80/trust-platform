@@ -199,6 +199,7 @@ fn hmi_test_state_with_status_reports(
         plant_service: Arc::new(PlantControlService::default()),
         experiments: ControlExperimentService::default(),
         controllers: ControllerParameterService::default(),
+        searches: super::search::SearchService::default(),
         resource_name: SmolStr::new("RESOURCE"),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),

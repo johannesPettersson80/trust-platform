@@ -1,0 +1,101 @@
+title = "Overview"
+icon = "activity"
+order = 0
+
+[[section]]
+title = "Status"
+span = 12
+tier = "status"
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.ExperimentEnabled"
+inferred_interface = true
+label = "Experiment Enabled"
+span = 2
+
+[[section]]
+title = "Details"
+span = 12
+tier = "detail"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.CommonInput"
+inferred_interface = true
+label = "Common Input"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.IntegratingResponse"
+inferred_interface = true
+label = "Integrating Response"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.InverseNegativePath"
+inferred_interface = true
+label = "Inverse Negative Path"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.InversePositivePath"
+inferred_interface = true
+label = "Inverse Positive Path"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.InverseResponse"
+inferred_interface = true
+label = "Inverse Response"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.OscillatingPoleImaginaryPart"
+inferred_interface = true
+label = "Oscillating Pole Imaginary Part"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.OscillatingPoleRealPart"
+inferred_interface = true
+label = "Oscillating Pole Real Part"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.OscillatingResponse"
+inferred_interface = true
+label = "Oscillating Response"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.StablePole"
+inferred_interface = true
+label = "Stable Pole"
+span = 3
+min = 0
+max = 100

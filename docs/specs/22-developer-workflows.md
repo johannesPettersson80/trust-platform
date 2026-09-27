@@ -139,6 +139,10 @@ offset, and name so repeated discovery of the same source set is deterministic.
 
 `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` are truST test-workflow extensions,
 not additional IEC 61131-3 POU kinds and not IEC deviations.
+They are executable entry points for the test runner. Unused-POU analysis must
+not report W009 for either declaration merely because no production program
+instance or function-block variable references it. Unreferenced production
+POUs and unused local variables inside tests retain their ordinary warnings.
 
 ## Test case execution
 
@@ -149,6 +153,13 @@ Shared discovery, compilation, and runtime preparation occur outside the
 per-case execution deadline; that deadline begins immediately before the
 selected case is invoked.
 
+A matching name filter restricts execution and reported cases, not the source
+set needed to compile them. Register every discovered test program during
+runtime preparation, including filtered-out declarations in a configured
+project. Only matching cases are invoked. Human/CLI and structured JSON paths
+must obey the same rule; unrelated test programs must not become unbound or
+execute merely because a sibling test was selected.
+
 Execution mode also compiles the complete project when discovery finds no test
 POU. An invalid project therefore fails visibly instead of being reported as a
 successful empty test run. Listing remains discovery-only, and an explicit
@@ -158,7 +169,7 @@ The selected declaration is then invoked at its own boundary:
 `TEST_PROGRAM` as a program and `TEST_FUNCTION_BLOCK` as a function-block
 instance.
 
-When a production `CONFIGURATION` exists, selected test programs are registered
+When a production `CONFIGURATION` exists, all discovered test programs are registered
 as additional program instances for the test session. Ordinary runtime
 construction without that explicit registration continues to reject an
 unconfigured test program; the test runner does not silently alter the

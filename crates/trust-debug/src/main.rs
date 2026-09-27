@@ -3,6 +3,16 @@ use trust_debug::{DebugAdapter, DebugSession};
 use trust_runtime::Runtime;
 
 fn main() {
+    // ControlBridge searches supervise the current host executable. Dispatch
+    // the shared bounded worker before starting DAP or its logging surface.
+    if std::env::args().nth(1).as_deref() == Some("control-search-worker") {
+        if let Err(error) = trust_runtime::control::search::worker_stdio() {
+            eprintln!("control-search-worker: {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()

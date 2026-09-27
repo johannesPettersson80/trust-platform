@@ -1,2 +1,0 @@
-run_id,maximum_opening_rate_pp_s,maximum_closing_rate_pp_s,maximum_requested_applied_gap_pp,flow_at_5_s_L_min,opening_limit_time_s,closing_limit_time_s,return_to_closed_time_s,position_limit_valid,opening_rate_valid,closing_rate_valid,both_directions_exercised,safe_restoration,validity,abort_state,conclusion,evidence_class
-lesson-09-rate-limit-seed-20260824-dt0.1,1.500000,0.500000,22.667982,5.191261,12.3,34.5,34.6,true,true,true,true,true,valid,none,actuator_rate_limits_create_direction_dependent_requested_applied_motion_gap,simulation

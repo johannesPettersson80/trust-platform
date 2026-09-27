@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="620" viewBox="0 0 960 620" role="img" aria-labelledby="title desc">
+  <title id="title">Six common open-loop response observations</title>
+  <desc id="desc">Six panels show self-regulating, integrating, delayed, oscillating, inverse, and interacting responses.</desc>
+  <rect width="960" height="620" fill="#ffffff"/>
+  <text x="42" y="42" font-family="sans-serif" font-size="26" fill="#20252b">The same kind of input change can reveal different behavior</text>
+
+  <g font-family="sans-serif" font-size="20" fill="#20252b" stroke-linecap="round">
+    <text x="65" y="90">Self-regulating</text>
+    <line x1="55" y1="235" x2="285" y2="235" stroke="#89939e"/><line x1="55" y1="105" x2="55" y2="235" stroke="#89939e"/>
+    <line x1="55" y1="225" x2="95" y2="185" stroke="#2374ab" stroke-width="5"/><line x1="95" y1="185" x2="145" y2="150" stroke="#2374ab" stroke-width="5"/><line x1="145" y1="150" x2="205" y2="130" stroke="#2374ab" stroke-width="5"/><line x1="205" y1="130" x2="275" y2="124" stroke="#2374ab" stroke-width="5"/>
+
+    <text x="370" y="90">Integrating</text>
+    <line x1="355" y1="235" x2="585" y2="235" stroke="#89939e"/><line x1="355" y1="105" x2="355" y2="235" stroke="#89939e"/>
+    <line x1="355" y1="225" x2="575" y2="115" stroke="#2374ab" stroke-width="5"/>
+
+    <text x="680" y="90">Delayed</text>
+    <line x1="655" y1="235" x2="885" y2="235" stroke="#89939e"/><line x1="655" y1="105" x2="655" y2="235" stroke="#89939e"/>
+    <line x1="655" y1="225" x2="740" y2="225" stroke="#2374ab" stroke-width="5"/><line x1="740" y1="225" x2="785" y2="170" stroke="#2374ab" stroke-width="5"/><line x1="785" y1="170" x2="835" y2="138" stroke="#2374ab" stroke-width="5"/><line x1="835" y1="138" x2="875" y2="130" stroke="#2374ab" stroke-width="5"/>
+
+    <text x="75" y="345">Oscillating</text>
+    <line x1="55" y1="500" x2="285" y2="500" stroke="#89939e"/><line x1="55" y1="365" x2="55" y2="500" stroke="#89939e"/>
+    <line x1="55" y1="485" x2="90" y2="380" stroke="#2374ab" stroke-width="5"/><line x1="90" y1="380" x2="125" y2="465" stroke="#2374ab" stroke-width="5"/><line x1="125" y1="465" x2="160" y2="405" stroke="#2374ab" stroke-width="5"/><line x1="160" y1="405" x2="195" y2="450" stroke="#2374ab" stroke-width="5"/><line x1="195" y1="450" x2="230" y2="420" stroke="#2374ab" stroke-width="5"/><line x1="230" y1="420" x2="275" y2="435" stroke="#2374ab" stroke-width="5"/>
+
+    <text x="395" y="345">Inverse</text>
+    <line x1="355" y1="435" x2="585" y2="435" stroke="#89939e"/><line x1="355" y1="365" x2="355" y2="510" stroke="#89939e"/>
+    <line x1="355" y1="435" x2="400" y2="390" stroke="#2374ab" stroke-width="5"/><line x1="400" y1="390" x2="455" y2="440" stroke="#2374ab" stroke-width="5"/><line x1="455" y1="440" x2="515" y2="475" stroke="#2374ab" stroke-width="5"/><line x1="515" y1="475" x2="575" y2="485" stroke="#2374ab" stroke-width="5"/>
+
+    <text x="680" y="345">Interacting</text>
+    <line x1="655" y1="500" x2="885" y2="500" stroke="#89939e"/><line x1="655" y1="365" x2="655" y2="500" stroke="#89939e"/>
+    <line x1="655" y1="490" x2="710" y2="430" stroke="#2374ab" stroke-width="5"/><line x1="710" y1="430" x2="770" y2="400" stroke="#2374ab" stroke-width="5"/><line x1="770" y1="400" x2="875" y2="390" stroke="#2374ab" stroke-width="5"/>
+    <line x1="655" y1="490" x2="710" y2="465" stroke="#d76720" stroke-width="5"/><line x1="710" y1="465" x2="770" y2="445" stroke="#d76720" stroke-width="5"/><line x1="770" y1="445" x2="875" y2="430" stroke="#d76720" stroke-width="5"/>
+  </g>
+  <text x="55" y="570" font-family="sans-serif" font-size="19" fill="#424b55">The curves classify observations. Conservation and physical models explain their causes.</text>
+</svg>

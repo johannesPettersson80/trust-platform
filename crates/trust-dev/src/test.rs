@@ -51,7 +51,8 @@ pub(crate) fn run_test_json(
         anyhow::bail!("no ST sources found under {}", sources_root.display());
     }
 
-    let mut tests = discover_tests(&sources);
+    let discovered_tests = discover_tests(&sources);
+    let mut tests = discovered_tests.clone();
     let discovered_total = tests.len();
     if let Some(filter) = filter.as_deref() {
         let needle = filter.to_ascii_lowercase();
@@ -91,7 +92,7 @@ pub(crate) fn run_test_json(
         }));
     }
 
-    let mut runtime = compile_test_runtime(&project_root, &tests)?;
+    let mut runtime = compile_test_runtime(&project_root, &discovered_tests)?;
     if tests.is_empty() {
         return Ok(json!({
             "version": 1,

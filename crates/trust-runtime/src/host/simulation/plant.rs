@@ -1,7 +1,5 @@
 //! Dynamic process models for simulation-mode process-image feedback.
 
-use std::collections::VecDeque;
-
 use serde::Deserialize;
 
 use crate::error::RuntimeError;
@@ -10,12 +8,20 @@ use crate::memory::IoArea;
 use crate::value::Duration;
 use crate::Runtime;
 
+#[cfg(test)]
+#[path = "plant/cascade_tests.rs"]
+mod cascade_tests;
+#[cfg(test)]
+#[path = "plant/course_tanks_tests.rs"]
+mod course_tanks_tests;
 #[path = "plant/effects.rs"]
 mod effects;
 #[path = "plant/events.rs"]
 mod events;
 #[path = "plant/execution.rs"]
 mod execution;
+#[path = "plant/input_history.rs"]
+mod input_history;
 #[path = "plant/model.rs"]
 mod model;
 #[path = "plant/numeric_io.rs"]
@@ -23,6 +29,10 @@ mod numeric_io;
 #[cfg(test)]
 #[path = "plant/resource_tests.rs"]
 mod resource_tests;
+#[path = "plant/state_space_delay.rs"]
+mod state_space_delay;
+#[path = "plant/state_space_parameters.rs"]
+mod state_space_parameters;
 #[path = "plant/status.rs"]
 mod status;
 #[path = "plant/uncertainty.rs"]
@@ -35,9 +45,11 @@ mod validity;
 use effects::{ActuatorConfig, ActuatorSection, ActuatorState};
 pub(super) use events::PlantEventSection;
 use events::{PlantEventAction, PlantEventConfig};
+use input_history::InputHistory;
 use model::{
-    advance_fopdt, model_output_into, rk4_gravity_tank, rk4_robot_joint, rk4_second_order,
-    rk4_state_space, ModelWorkspace, PlantModelConfig,
+    advance_delayed_integrator, advance_fopdt, model_output_into, rk4_gravity_tank,
+    rk4_gravity_tank_cascade, rk4_robot_joint, rk4_second_order, rk4_state_space, ModelWorkspace,
+    PlantModelConfig,
 };
 use numeric_io::read_numeric;
 use status::TraceBuffer;
@@ -56,11 +68,14 @@ pub(crate) const SUPPORTED_MODEL_KINDS: &[&str] = &[
     "first_order",
     "first_order_dead_time",
     "integrator",
+    "integrator_dead_time",
     "gravity_tank",
+    "gravity_tank_cascade",
     "piecewise_linear",
     "robot_joint",
     "second_order",
     "state_space",
+    "discrete_state_space",
 ];
 
 #[derive(Debug, Clone)]
@@ -86,8 +101,11 @@ impl Default for PlantSystemConfig {
 pub struct PlantConfig {
     id: String,
     model: PlantModelConfig,
+    discrete_state_space: bool,
+    input_delays_nanos: Vec<i64>,
     command_sources: Vec<IoAddress>,
     feedback_targets: Vec<IoAddress>,
+    actuator_feedback_targets: Vec<Option<IoAddress>>,
     step: Duration,
     initial_state: Vec<f64>,
     initial_input: Vec<f64>,
@@ -105,6 +123,12 @@ pub struct PlantConfig {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct ActuatorFeedbackTarget {
+    address: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct PlantSection {
     id: String,
     name: Option<String>,
@@ -112,6 +136,7 @@ pub(super) struct PlantSection {
     model: String,
     command_sources: Vec<String>,
     feedback_targets: Vec<String>,
+    actuator_feedback_targets: Option<Vec<ActuatorFeedbackTarget>>,
     step_ms: Option<u64>,
     initial_state: Option<Vec<f64>>,
     initial_input: Option<Vec<f64>>,
@@ -122,6 +147,7 @@ pub(super) struct PlantSection {
     parameters: PlantParametersSection,
     enabled: Option<bool>,
     actuator: Option<ActuatorSection>,
+    actuators: Option<Vec<ActuatorSection>>,
     #[serde(default)]
     uncertainties: Vec<UncertaintySection>,
     validity: Option<ValiditySection>,
@@ -142,6 +168,7 @@ struct PlantParametersSection {
     b: Option<Vec<Vec<f64>>>,
     c: Option<Vec<Vec<f64>>>,
     d: Option<Vec<Vec<f64>>>,
+    input_delays_s: Option<Vec<f64>>,
     dead_time_s: Option<f64>,
     initial_delayed_input: Option<f64>,
     area_m2: Option<f64>,
@@ -157,6 +184,13 @@ impl PlantParametersSection {
     fn validate_for_model(&self, model: &str) -> Result<(), RuntimeError> {
         let allowed: &[&str] = match model {
             "static_gain" | "integrator" => &["gain", "input_bias", "output_bias"],
+            "integrator_dead_time" => &[
+                "gain",
+                "input_bias",
+                "output_bias",
+                "dead_time_s",
+                "initial_delayed_input",
+            ],
             "first_order" => &["gain", "time_constant_s", "input_bias", "output_bias"],
             "first_order_dead_time" => &[
                 "gain",
@@ -174,8 +208,11 @@ impl PlantParametersSection {
                 "input_bias",
                 "output_bias",
             ],
-            "state_space" => &["a", "b", "c", "d"],
-            "gravity_tank" => &["area_m2", "outflow_coefficient_m2_sqrt_m_per_s"],
+            "state_space" => &["a", "b", "c", "d", "input_delays_s"],
+            "discrete_state_space" => &["a", "b", "c", "d"],
+            "gravity_tank" | "gravity_tank_cascade" => {
+                &["area_m2", "outflow_coefficient_m2_sqrt_m_per_s"]
+            }
             "robot_joint" => &[
                 "inertia_kg_m2",
                 "gravity_torque_nm",
@@ -201,6 +238,7 @@ impl PlantParametersSection {
             ("b", self.b.is_some()),
             ("c", self.c.is_some()),
             ("d", self.d.is_some()),
+            ("input_delays_s", self.input_delays_s.is_some()),
             ("dead_time_s", self.dead_time_s.is_some()),
             (
                 "initial_delayed_input",
@@ -296,12 +334,17 @@ pub(super) fn build_config(
     plants.sort_by(|left, right| left.id.as_bytes().cmp(right.id.as_bytes()));
     for (index, plant) in plants.iter().enumerate() {
         if plants[..index].iter().any(|other| {
-            plant.feedback_targets.iter().any(|target| {
-                other
-                    .feedback_targets
-                    .iter()
-                    .any(|owned| super::addresses_overlap(owned, target))
-            })
+            plant
+                .feedback_targets
+                .iter()
+                .chain(plant.actuator_feedback_targets.iter().flatten())
+                .any(|target| {
+                    other
+                        .feedback_targets
+                        .iter()
+                        .chain(other.actuator_feedback_targets.iter().flatten())
+                        .any(|owned| super::addresses_overlap(owned, target))
+                })
         }) {
             return invalid(format!(
                 "plant '{}' feedback target is already owned by another plant",
@@ -327,6 +370,7 @@ impl PlantSystemConfig {
             plant
                 .feedback_targets
                 .iter()
+                .chain(plant.actuator_feedback_targets.iter().flatten())
                 .map(move |target| (plant.id.as_str(), target))
         })
     }
@@ -358,7 +402,47 @@ impl PlantSection {
         let command_sources = parse_addresses(&self.command_sources, IoArea::Output, "command")?;
         let feedback_targets = parse_addresses(&self.feedback_targets, IoArea::Input, "feedback")?;
         let command_count = command_sources.len();
+        let actuator_feedback_targets = self.actuator_feedback_targets.unwrap_or_else(|| {
+            (0..command_count)
+                .map(|_| ActuatorFeedbackTarget { address: None })
+                .collect()
+        });
+        if actuator_feedback_targets.len() != command_count {
+            return invalid("actuator feedback targets must match ordered command channels");
+        }
+        let actuator_feedback_targets = actuator_feedback_targets
+            .into_iter()
+            .map(|target| {
+                target
+                    .address
+                    .map(|target| {
+                        let parsed =
+                            parse_addresses(&[target], IoArea::Input, "actuator feedback")?;
+                        Ok(parsed[0].clone())
+                    })
+                    .transpose()
+            })
+            .collect::<Result<Vec<_>, RuntimeError>>()?;
+        let published = feedback_targets
+            .iter()
+            .chain(actuator_feedback_targets.iter().flatten())
+            .collect::<Vec<_>>();
+        if published.iter().enumerate().any(|(index, target)| {
+            published[..index]
+                .iter()
+                .any(|other| super::addresses_overlap(other, target))
+        }) {
+            return invalid("plant feedback/actuator targets overlap");
+        }
         let feedback_count = feedback_targets.len();
+        let input_delays_nanos = if self.model == "state_space" {
+            state_space_parameters::input_delays(
+                self.parameters.input_delays_s.take(),
+                command_count,
+            )?
+        } else {
+            Vec::new()
+        };
         let requested_state = self.initial_state;
         let model = match self.model.as_str() {
             "static_gain" => PlantModelConfig::StaticGain {
@@ -437,7 +521,9 @@ impl PlantSection {
                     dead_time_s,
                     initial_delayed_input: finite(
                         "plants.parameters.initial_delayed_input",
-                        self.parameters.initial_delayed_input.unwrap_or(0.0),
+                        self.parameters
+                            .initial_delayed_input
+                            .unwrap_or(self.parameters.input_bias.unwrap_or(0.0)),
                     )?,
                 }
             }
@@ -455,7 +541,39 @@ impl PlantSection {
                     self.parameters.output_bias.unwrap_or(0.0),
                 )?,
             },
-            "gravity_tank" => {
+            "integrator_dead_time" => {
+                let dead_time_s = finite(
+                    "plants.parameters.dead_time_s",
+                    self.parameters.dead_time_s.unwrap_or(0.0),
+                )?;
+                if dead_time_s < 0.0 {
+                    return invalid("delayed integrator dead time must be >= 0");
+                }
+                PlantModelConfig::IntegratorDeadTime {
+                    gain: finite(
+                        "plants.parameters.gain",
+                        self.parameters.gain.unwrap_or(1.0),
+                    )?,
+                    input_bias: finite(
+                        "plants.parameters.input_bias",
+                        self.parameters.input_bias.unwrap_or(0.0),
+                    )?,
+                    output_bias: finite(
+                        "plants.parameters.output_bias",
+                        self.parameters.output_bias.unwrap_or(0.0),
+                    )?,
+                    dead_time_s,
+                    initial_delayed_input: finite(
+                        "plants.parameters.initial_delayed_input",
+                        self.parameters.initial_delayed_input.ok_or_else(|| {
+                            RuntimeError::InvalidConfig(
+                                "integrator_dead_time requires initial_delayed_input".into(),
+                            )
+                        })?,
+                    )?,
+                }
+            }
+            "gravity_tank" | "gravity_tank_cascade" => {
                 let area_m2 = finite(
                     "plants.parameters.area_m2",
                     self.parameters.area_m2.ok_or_else(|| {
@@ -477,9 +595,16 @@ impl PlantSection {
                         "gravity_tank area must be > 0 and outflow coefficient must be >= 0",
                     );
                 }
-                PlantModelConfig::GravityTank {
-                    area_m2,
-                    outflow_coefficient,
+                if self.model == "gravity_tank_cascade" {
+                    PlantModelConfig::GravityTankCascade {
+                        area_m2,
+                        outflow_coefficient,
+                    }
+                } else {
+                    PlantModelConfig::GravityTank {
+                        area_m2,
+                        outflow_coefficient,
+                    }
                 }
             }
             "robot_joint" => {
@@ -583,44 +708,20 @@ impl PlantSection {
                     )?,
                 }
             }
-            "state_space" => {
-                let a = self.parameters.a.ok_or_else(|| {
-                    RuntimeError::InvalidConfig("state_space requires matrix a".into())
-                })?;
-                let b = self.parameters.b.ok_or_else(|| {
-                    RuntimeError::InvalidConfig("state_space requires matrix b".into())
-                })?;
-                let c = self.parameters.c.ok_or_else(|| {
-                    RuntimeError::InvalidConfig("state_space requires matrix c".into())
-                })?;
-                let d = self.parameters.d.ok_or_else(|| {
-                    RuntimeError::InvalidConfig("state_space requires matrix d".into())
-                })?;
-                let n = a.len();
-                let m = command_count;
-                let p = feedback_count;
-                if n == 0
-                    || a.iter().any(|row| row.len() != n)
-                    || b.len() != n
-                    || b.iter().any(|row| row.len() != m)
-                    || c.len() != p
-                    || c.iter().any(|row| row.len() != n)
-                    || d.len() != p
-                    || d.iter().any(|row| row.len() != m)
-                    || [&a, &b, &c, &d]
-                        .into_iter()
-                        .flat_map(|matrix| matrix.iter().flatten())
-                        .any(|value| !value.is_finite())
-                {
-                    return invalid("state_space matrix dimensions or values are invalid");
-                }
-                PlantModelConfig::StateSpace { a, b, c, d }
+            "state_space" | "discrete_state_space" => {
+                state_space_parameters::model(&mut self.parameters, command_count, feedback_count)?
             }
             other => return invalid(format!("unsupported plant model '{other}'")),
         };
         match &model {
             PlantModelConfig::StateSpace { .. } => {}
-            PlantModelConfig::RobotJoint { .. } if command_count == 1 && feedback_count == 2 => {}
+            PlantModelConfig::RobotJoint { .. } | PlantModelConfig::GravityTankCascade { .. }
+                if command_count == 1 && feedback_count == 2 => {}
+            PlantModelConfig::GravityTankCascade { .. } => {
+                return invalid(
+                    "gravity_tank_cascade requires one command and two feedback targets",
+                );
+            }
             PlantModelConfig::RobotJoint { .. } => {
                 return invalid(
                     "plant model 'robot_joint' requires one command and two feedback targets",
@@ -638,9 +739,10 @@ impl PlantSection {
             PlantModelConfig::StaticGain { .. } | PlantModelConfig::PiecewiseLinear { .. } => 0,
             PlantModelConfig::FirstOrder { .. }
             | PlantModelConfig::FirstOrderDeadTime { .. }
-            | PlantModelConfig::Integrator { .. } => 1,
+            | PlantModelConfig::Integrator { .. }
+            | PlantModelConfig::IntegratorDeadTime { .. } => 1,
             PlantModelConfig::GravityTank { .. } => 1,
-            PlantModelConfig::RobotJoint { .. } => 2,
+            PlantModelConfig::RobotJoint { .. } | PlantModelConfig::GravityTankCascade { .. } => 2,
             PlantModelConfig::SecondOrder { .. } => 2,
             PlantModelConfig::StateSpace { a, .. } => a.len(),
         };
@@ -656,6 +758,13 @@ impl PlantSection {
             .map(|value| checked_step("plants.step_ms", value))
             .transpose()?
             .unwrap_or(default_step);
+        InputHistory::validate_configuration(
+            &self.id,
+            &model,
+            self.model == "discrete_state_space",
+            &input_delays_nanos,
+            step.as_nanos(),
+        )?;
         let initial_input = channel_setting(
             "plants.initial_input",
             self.initial_input,
@@ -678,18 +787,11 @@ impl PlantSection {
             feedback_count,
             0.0,
         )?;
-        if command_count > 1 && self.actuator.is_some() {
-            return invalid("plants.actuator is supported only for scalar-input models");
-        }
-        let mut actuators = Vec::with_capacity(command_count);
-        for (channel, initial) in initial_input.iter().copied().enumerate() {
-            let section = if channel == 0 {
-                self.actuator.take().unwrap_or_default()
-            } else {
-                ActuatorSection::default()
-            };
-            actuators.push(section.into_config(initial)?);
-        }
+        let actuators = effects::configured_actuators(
+            self.actuator.take(),
+            self.actuators.take(),
+            &initial_input,
+        )?;
         let validity = self.validity.unwrap_or_default().into_config(
             command_count,
             state.len(),
@@ -715,11 +817,22 @@ impl PlantSection {
         {
             return invalid("uncertainty ids must be unique within a plant");
         }
+        if actuator_feedback_targets
+            .iter()
+            .enumerate()
+            .any(|(channel, target)| target.is_some() && input_scale[channel] == 0.0)
+        {
+            return invalid("applied actuator feedback cannot invert a zero command scale");
+        }
+        let discrete_state_space = self.model == "discrete_state_space";
         Ok(PlantConfig {
             id: self.id,
             model,
+            discrete_state_space,
+            input_delays_nanos,
             command_sources,
             feedback_targets,
+            actuator_feedback_targets,
             step,
             initial_state: state,
             initial_input,
@@ -790,13 +903,14 @@ struct PlantInstance {
     queued_feedback: Vec<f64>,
     feedback_pending: bool,
     model_time_nanos: i64,
-    input_history: VecDeque<(i64, f64)>,
+    input_history: InputHistory,
     actuators: Vec<ActuatorState>,
     uncertainties: Vec<UncertaintyState>,
     event_cursor: usize,
     parameter_overrides: Vec<Option<f64>>,
     sensor_bias: Vec<f64>,
     last_substeps: usize,
+    held_command: Vec<f64>,
     latest_command: Vec<f64>,
     latest_applied_input: Vec<f64>,
     latest_ideal_output: Vec<f64>,
@@ -807,6 +921,7 @@ struct PlantInstance {
     trace: TraceBuffer,
     effective_model: PlantModelConfig,
     effective_commands: Vec<f64>,
+    delayed_inputs: Vec<f64>,
     model_workspace: ModelWorkspace,
     checkpoint: PlantCheckpoint,
 }
@@ -817,12 +932,13 @@ struct PlantCheckpoint {
     queued_feedback: Vec<f64>,
     feedback_pending: bool,
     model_time_nanos: i64,
-    input_history: VecDeque<(i64, f64)>,
+    input_history: InputHistory,
     actuators: Vec<ActuatorState>,
     uncertainties: Vec<UncertaintyState>,
     event_cursor: usize,
     parameter_overrides: Vec<Option<f64>>,
     sensor_bias: Vec<f64>,
+    held_command: Vec<f64>,
     latest_command: Vec<f64>,
     latest_applied_input: Vec<f64>,
     latest_ideal_output: Vec<f64>,

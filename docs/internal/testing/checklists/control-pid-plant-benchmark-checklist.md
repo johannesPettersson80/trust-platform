@@ -1,5 +1,21 @@
 # Control.PID plant benchmark checklist
 
+## Required purpose checkpoint
+
+Release-level gates and the final user walkthrough are tracked in the
+[Control platform release-readiness checklist](control-platform-release-readiness.md).
+
+Read the [Control Platform Purpose and Acceptance Contract](../../../specs/control-platform-purpose.md)
+for every new or resumed task on this checklist. Record a fresh Start/Finish
+entry using its Section 6; existing checkmarks retain only their stated evidence.
+
+- [ ] **Start (current/next task):** identify the platform part, owning spec,
+  existing worktree and implementation, and actual acceptance target.
+- [ ] **Finish (current/next task):** name the controller/project/plant and what
+  actually ran or was reviewed; link evidence and state gaps without substituting
+  a simpler fixture for the intended goal.
+
+
 This checklist extends the executed `Control.PID` evaluation from the paper's
 nominal process to representative plant classes already provided by the truST
 simulation system. Specification 36 is the product authority.

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="350" viewBox="0 0 960 350" role="img" aria-labelledby="title desc">
+  <title id="title">Derivative on error versus derivative on measurement</title>
+  <desc id="desc">A setpoint jump enters derivative on error but not derivative on an unchanged measured position.</desc>
+  <rect width="960" height="350" fill="#f7fafc"/>
+  <text x="480" y="42" text-anchor="middle" font-family="sans-serif" font-size="25" font-weight="700" fill="#17324d">At the first sample after the setpoint changes</text>
+  <rect x="45" y="78" width="410" height="220" rx="18" fill="#ffe9e7" stroke="#b33a3a" stroke-width="3"/>
+  <text x="250" y="118" text-anchor="middle" font-family="sans-serif" font-size="23" font-weight="700" fill="#742020">Derivative on error</text>
+  <text x="250" y="164" text-anchor="middle" font-family="sans-serif" font-size="21" fill="#742020">setpoint changed: 0.5 rad</text>
+  <text x="250" y="201" text-anchor="middle" font-family="sans-serif" font-size="21" fill="#742020">measurement changed: 0 rad</text>
+  <text x="250" y="251" text-anchor="middle" font-family="sans-serif" font-size="25" font-weight="700" fill="#742020">derivative torque: 175 N m</text>
+  <rect x="505" y="78" width="410" height="220" rx="18" fill="#e9f8ee" stroke="#2b7a43" stroke-width="3"/>
+  <text x="710" y="118" text-anchor="middle" font-family="sans-serif" font-size="23" font-weight="700" fill="#19482a">Derivative on measurement</text>
+  <text x="710" y="164" text-anchor="middle" font-family="sans-serif" font-size="21" fill="#19482a">setpoint is not differentiated</text>
+  <text x="710" y="201" text-anchor="middle" font-family="sans-serif" font-size="21" fill="#19482a">measurement changed: 0 rad</text>
+  <text x="710" y="251" text-anchor="middle" font-family="sans-serif" font-size="25" font-weight="700" fill="#19482a">derivative torque: 0 N m</text>
+</svg>

@@ -1,0 +1,113 @@
+title = "Overview"
+icon = "droplets"
+order = 0
+
+[[section]]
+title = "Key Metrics"
+span = 12
+tier = "hero"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.LargeInletFlow"
+inferred_interface = true
+label = "Large Inlet Flow"
+span = 4
+unit = "l/min"
+min = 0
+max = 500
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.OperatingFlow"
+inferred_interface = true
+label = "Operating Flow"
+span = 4
+unit = "l/min"
+min = 0
+max = 500
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.SmallInletFlow"
+inferred_interface = true
+label = "Small Inlet Flow"
+span = 4
+unit = "l/min"
+min = 0
+max = 500
+
+[[section]]
+title = "Status"
+span = 12
+tier = "status"
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.ExperimentEnabled"
+inferred_interface = true
+label = "Experiment Enabled"
+span = 2
+
+[[section]]
+title = "Details"
+span = 12
+tier = "detail"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.LargeFlowDeviation"
+inferred_interface = true
+label = "Large Flow Deviation"
+span = 3
+unit = "l/min"
+min = 0
+max = 500
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.SmallFlowDeviation"
+inferred_interface = true
+label = "Small Flow Deviation"
+span = 3
+unit = "l/min"
+min = 0
+max = 500
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.LargeLocalLevel"
+inferred_interface = true
+label = "Large Local Level"
+span = 4
+unit = "%"
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.LargePhysicalLevel"
+inferred_interface = true
+label = "Large Physical Level"
+span = 4
+unit = "%"
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.LargePhysicalEquilibrium"
+inferred_interface = true
+label = "Large Physical Equilibrium"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.LocalGain"
+inferred_interface = true
+label = "Local Gain"
+span = 3
+min = 0
+max = 100

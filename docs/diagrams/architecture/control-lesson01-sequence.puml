@@ -1,0 +1,26 @@
+@startuml control-lesson01-sequence
+!theme plain
+title Lesson 1: experiment-relative manual sequence
+component "Control Studio\nreview / enable / restore" as studio
+component "Lesson 1 ST\nfixed reference + measured-input validity\nexperiment update counter" as lesson
+component "ColdStorageManualDemand\nON for 200 enabled updates\nOFF afterward" as compressor
+component "Door schedule\nopen at 60 s, closed at 90 s\nrelative to enablement" as door
+component "One thermal state\nstate_space model\nindependent compressor / surroundings inputs" as room
+component "Published temperature, door\nand surroundings observations" as observations
+
+studio --> lesson : P1.ExperimentEnabled\nexisting Boolean experiment path
+lesson --> compressor : enable, validity, abort, counter
+lesson --> door : same counter and enable conditions
+compressor --> room : %QL0: OFF / ON encoding
+door --> room : %QL8: effective surroundings, degC
+door --> observations : %QL16: door indication\n%QL8: surroundings
+room --> observations : %IL0: room temperature
+observations --> studio : existing live samples\neditor-observed recording remains incomplete
+observations --> lesson : measured temperature validity only\nno temperature regulation
+
+note bottom of lesson
+Disabled, invalid or aborted: compressor OFF and door closed.
+Restart simulator for a matching thermal initial state.
+No activation-relative runtime event API is introduced.
+end note
+@enduml

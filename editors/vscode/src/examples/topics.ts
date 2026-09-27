@@ -15,6 +15,18 @@ export const EXAMPLE_TOPICS = [
   { id: "runbooks", title: "Runbooks", description: "Site-specific operator and technician handoff templates.", path: "examples/runbooks.md" },
 ] as const;
 
+export type ExampleTopicAction =
+  | { type: "browseExamples"; topicId: string }
+  | { type: "openExamplesDocumentation"; topicId: string };
+
+/** Topic cards stay inside the runnable gallery; only an explicit Read guide leaves VS Code. */
+export function exampleTopicAction(actionId: string): ExampleTopicAction {
+  if (actionId.startsWith("read-guide:")) {
+    return { type: "openExamplesDocumentation", topicId: actionId.slice("read-guide:".length) };
+  }
+  return { type: "browseExamples", topicId: actionId };
+}
+
 export function exampleDocumentationUrl(topicId: string | undefined): string {
   const path = EXAMPLE_TOPICS.find((topic) => topic.id === topicId)?.path ??
     "examples/index.md";

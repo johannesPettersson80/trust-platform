@@ -15,9 +15,11 @@ export interface ValueStripHistoricalState {
  * dimmed), so a caller can pass the result straight through without an extra branch. */
 export function valueStripHistoricalState(
   active: boolean,
-  openedAtDisplay: string | undefined
+  openedAtDisplay: string | undefined,
+  kind: "saved" | "draft" = "saved"
 ): ValueStripHistoricalState | undefined {
   if (!active) return undefined;
+  if (kind === "draft") return { badgeText: "Working draft", dimmed: true };
   const trimmed = (openedAtDisplay ?? "").trim();
   return { badgeText: trimmed ? `Saved result · ${trimmed}` : "Saved result", dimmed: true };
 }

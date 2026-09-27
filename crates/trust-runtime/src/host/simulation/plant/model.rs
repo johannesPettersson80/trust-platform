@@ -28,7 +28,18 @@ pub(super) enum PlantModelConfig {
         input_bias: f64,
         output_bias: f64,
     },
+    IntegratorDeadTime {
+        gain: f64,
+        input_bias: f64,
+        output_bias: f64,
+        dead_time_s: f64,
+        initial_delayed_input: f64,
+    },
     GravityTank {
+        area_m2: f64,
+        outflow_coefficient: f64,
+    },
+    GravityTankCascade {
         area_m2: f64,
         outflow_coefficient: f64,
     },
@@ -65,7 +76,9 @@ impl PlantModelConfig {
             Self::FirstOrder { .. } => "first_order",
             Self::FirstOrderDeadTime { .. } => "first_order_dead_time",
             Self::Integrator { .. } => "integrator",
+            Self::IntegratorDeadTime { .. } => "integrator_dead_time",
             Self::GravityTank { .. } => "gravity_tank",
+            Self::GravityTankCascade { .. } => "gravity_tank_cascade",
             Self::RobotJoint { .. } => "robot_joint",
             Self::PiecewiseLinear { .. } => "piecewise_linear",
             Self::SecondOrder { .. } => "second_order",
@@ -106,11 +119,43 @@ impl PlantModelConfig {
                 *output_bias = *source_output_bias;
             }
             (
+                Self::IntegratorDeadTime {
+                    gain,
+                    input_bias,
+                    output_bias,
+                    dead_time_s,
+                    initial_delayed_input,
+                },
+                Self::IntegratorDeadTime {
+                    gain: source_gain,
+                    input_bias: source_input_bias,
+                    output_bias: source_output_bias,
+                    dead_time_s: source_dead_time,
+                    initial_delayed_input: source_initial_delayed_input,
+                },
+            ) => {
+                *gain = *source_gain;
+                *input_bias = *source_input_bias;
+                *output_bias = *source_output_bias;
+                *dead_time_s = *source_dead_time;
+                *initial_delayed_input = *source_initial_delayed_input;
+            }
+            (
                 Self::GravityTank {
                     area_m2,
                     outflow_coefficient,
                 },
                 Self::GravityTank {
+                    area_m2: source_area,
+                    outflow_coefficient: source_outflow,
+                },
+            )
+            | (
+                Self::GravityTankCascade {
+                    area_m2,
+                    outflow_coefficient,
+                },
+                Self::GravityTankCascade {
                     area_m2: source_area,
                     outflow_coefficient: source_outflow,
                 },
@@ -249,8 +294,11 @@ pub(super) fn model_output_into(
         PlantModelConfig::FirstOrder { .. } => outputs[0] = state[0],
         PlantModelConfig::FirstOrderDeadTime { .. } => outputs[0] = state[0],
         PlantModelConfig::Integrator { output_bias, .. } => outputs[0] = output_bias + state[0],
+        PlantModelConfig::IntegratorDeadTime { output_bias, .. } => {
+            outputs[0] = output_bias + state[0]
+        }
         PlantModelConfig::GravityTank { .. } => outputs[0] = state[0],
-        PlantModelConfig::RobotJoint { .. } => {
+        PlantModelConfig::RobotJoint { .. } | PlantModelConfig::GravityTankCascade { .. } => {
             outputs[0] = state[0];
             outputs[1] = state[1];
         }
@@ -347,6 +395,36 @@ pub(super) fn advance_fopdt(
     *state = target + (*state - target) * a;
 }
 
+#[allow(clippy::too_many_arguments)]
+pub(super) fn advance_delayed_integrator(
+    state: &mut f64,
+    start_nanos: i64,
+    step_nanos: i64,
+    history: &VecDeque<(i64, f64)>,
+    gain: f64,
+    input_bias: f64,
+    dead_time_s: f64,
+    initial_delayed_input: f64,
+) {
+    let delay_nanos = (dead_time_s * 1_000_000_000.0).round() as i64;
+    let end_nanos = start_nanos + step_nanos;
+    let mut cursor = start_nanos;
+    let mut delayed = history
+        .iter()
+        .rev()
+        .find(|(time, _)| *time + delay_nanos <= cursor)
+        .map_or(initial_delayed_input, |(_, value)| *value);
+    for (boundary, next_value) in history.iter().filter_map(|(time, value)| {
+        let due = time.saturating_add(delay_nanos);
+        (due > start_nanos && due < end_nanos).then_some((due, *value))
+    }) {
+        *state += (boundary - cursor) as f64 / 1_000_000_000.0 * gain * (delayed - input_bias);
+        delayed = next_value;
+        cursor = boundary;
+    }
+    *state += (end_nanos - cursor) as f64 / 1_000_000_000.0 * gain * (delayed - input_bias);
+}
+
 pub(super) fn rk4_state_space(
     state: &mut [f64],
     inputs: &[f64],
@@ -407,6 +485,29 @@ pub(super) fn rk4_gravity_tank(
     let k3 = derivative(*level + 0.5 * h * k2);
     let k4 = derivative(*level + h * k3);
     *level = (*level + h * (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0).max(0.0);
+}
+
+pub(super) fn rk4_gravity_tank_cascade(
+    state: &mut [f64],
+    inlet_flow: f64,
+    h: f64,
+    area_m2: f64,
+    outflow_coefficient: f64,
+) {
+    let derivative = |upstream: f64, downstream: f64| {
+        let transfer = outflow_coefficient * upstream.max(0.0).sqrt();
+        let outflow = outflow_coefficient * downstream.max(0.0).sqrt();
+        (
+            (inlet_flow - transfer) / area_m2,
+            (transfer - outflow) / area_m2,
+        )
+    };
+    let (k1_up, k1_down) = derivative(state[0], state[1]);
+    let (k2_up, k2_down) = derivative(state[0] + 0.5 * h * k1_up, state[1] + 0.5 * h * k1_down);
+    let (k3_up, k3_down) = derivative(state[0] + 0.5 * h * k2_up, state[1] + 0.5 * h * k2_down);
+    let (k4_up, k4_down) = derivative(state[0] + h * k3_up, state[1] + h * k3_down);
+    state[0] = (state[0] + h * (k1_up + 2.0 * k2_up + 2.0 * k3_up + k4_up) / 6.0).max(0.0);
+    state[1] = (state[1] + h * (k1_down + 2.0 * k2_down + 2.0 * k3_down + k4_down) / 6.0).max(0.0);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -479,4 +580,16 @@ pub(super) fn rk4_second_order(
     let (k4x, k4v) = derivative(state[0] + h * k3x, state[1] + h * k3v);
     state[0] += h * (k1x + 2.0 * k2x + 2.0 * k3x + k4x) / 6.0;
     state[1] += h * (k1v + 2.0 * k2v + 2.0 * k3v + k4v) / 6.0;
+}
+
+/// Execute one discrete update without treating A and B as derivatives.
+pub(super) fn step_discrete_state_space(
+    state: &mut [f64],
+    inputs: &[f64],
+    a: &[Vec<f64>],
+    b: &[Vec<f64>],
+    workspace: &mut ModelWorkspace,
+) {
+    derivative_into(state, inputs, a, b, &mut workspace.temporary);
+    state.copy_from_slice(&workspace.temporary);
 }

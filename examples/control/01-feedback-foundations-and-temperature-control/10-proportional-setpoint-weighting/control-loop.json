@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "id": "control-lesson-10",
+  "name": "Reduce the proportional response to a target change",
+  "projectId": "project:control-lesson-10",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Control.PID",
+    "design": "project",
+    "revision": "sha256:e8752397e93aef92fb41d8427aad983587562a4e102db44b5ef2cb210dd51fde",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX128.1"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.SetpointC",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 15,
+        "maximum": 60
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.AppliedValvePosition",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "requested-position",
+        "channel": "requested-position",
+        "role": "state",
+        "symbol": "P1.RequestedValvePosition",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "setpoint-weight",
+        "channel": "setpoint-weight",
+        "role": "state",
+        "symbol": "P1.SetpointWeight",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "proportional-change",
+        "channel": "proportional-change",
+        "role": "state",
+        "symbol": "P1.ProportionalChange",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -100,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "integral-change",
+        "channel": "integral-change",
+        "role": "state",
+        "symbol": "P1.IntegralChange",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": { "minimum": -100, "maximum": 100 }
+      },
+      {
+        "id": "true-water-temperature",
+        "channel": "true-water-temperature",
+        "role": "state",
+        "symbol": "P1.WaterTemperatureC",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": { "minimum": 0, "maximum": 80 }
+      },
+      {
+        "id": "thermal-load",
+        "channel": "thermal-load",
+        "role": "disturbance",
+        "symbol": "P1.DisturbanceKw",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": { "minimum": 0, "maximum": 30 }
+      },
+      {
+        "id": "lesson-experiment",
+        "channel": "lesson-experiment",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX128.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100,
+    "ratePerSecond": 5
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "valve-heated-water-loop",
+  "operatingPoint": "35 degC at 75% valve position",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 115.1,
+    "seed": 20260824,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX128.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  },
+  "parameterBinding": {
+    "loop_id": "control-lesson-10",
+    "task_name": "MainTask",
+    "parameters": [
+      { "symbol": "P1.SetpointWeight", "iec_type": "LREAL", "unit": "1", "convention": "beta in [0,1], edit while stopped", "minimum": 0, "maximum": 1 },
+      { "symbol": "P1.KpPctPerC", "iec_type": "LREAL", "unit": "%/degC", "convention": "selected Lesson 21 Kp", "minimum": 0, "maximum": 20 },
+      { "symbol": "P1.KiPctPerCs", "iec_type": "LREAL", "unit": "%/(degC*s)", "convention": "selected Lesson 21 Ki", "minimum": 0, "maximum": 10 },
+      { "symbol": "P1.TrialKind", "iec_type": "INT", "unit": "trial", "convention": "0 setpoint; 1 load", "minimum": 0, "maximum": 1 }
+    ],
+    "mode": { "symbol": "P1.ExperimentEnabled", "manual_value": false }
+  },
+  "revision": "sha256:lesson22-control-pid-weighted-heater-v1"
+}

@@ -1,0 +1,512 @@
+{
+  "schemaVersion": 4,
+  "id": "control-robust-mimo-selection",
+  "title": "Multivariable design selection",
+  "level": "Modern",
+  "sequence": 66,
+  "equipment": "Continuous binary distillation column",
+  "physicalPurpose": "Regulate both product purities when interaction strength and actuator feasibility vary inside a declared local operating region.",
+  "principalTechnique": "Robust MIMO selection",
+  "objective": "Choose the simplest architecture that passes uncertainty and limits.",
+  "prerequisites": [
+    "control-decoupling"
+  ],
+  "nextLesson": "control-lesson-20",
+  "signals": [
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.4"
+    },
+    {
+      "role": "state",
+      "name": "Overhead automatic mode",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.0"
+    },
+    {
+      "role": "state",
+      "name": "Bottoms automatic mode",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.1"
+    },
+    {
+      "role": "state",
+      "name": "Control architecture",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 2,
+      "resolution": 1,
+      "binding": "%MW16"
+    },
+    {
+      "role": "SP",
+      "name": "Overhead purity setpoint",
+      "unit": "pp",
+      "minimum": -4,
+      "maximum": 4,
+      "resolution": 0.01,
+      "binding": "%ML32"
+    },
+    {
+      "role": "SP",
+      "name": "Bottoms purity setpoint",
+      "unit": "pp",
+      "minimum": -4,
+      "maximum": 4,
+      "resolution": 0.01,
+      "binding": "%ML40"
+    },
+    {
+      "role": "disturbance",
+      "name": "Feed-composition disturbance request",
+      "unit": "pp",
+      "minimum": -3,
+      "maximum": 3,
+      "resolution": 0.01,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "Virtual overhead correction",
+      "unit": "pp",
+      "minimum": -8,
+      "maximum": 8,
+      "resolution": 0.01,
+      "binding": "%ML56"
+    },
+    {
+      "role": "state",
+      "name": "Virtual bottoms correction",
+      "unit": "pp",
+      "minimum": -8,
+      "maximum": 8,
+      "resolution": 0.01,
+      "binding": "%ML64"
+    },
+    {
+      "role": "MV",
+      "name": "Requested reflux change",
+      "unit": "pp",
+      "minimum": -16,
+      "maximum": 16,
+      "resolution": 0.01,
+      "binding": "%ML72"
+    },
+    {
+      "role": "MV",
+      "name": "Requested reboiler steam change",
+      "unit": "pp",
+      "minimum": -16,
+      "maximum": 16,
+      "resolution": 0.01,
+      "binding": "%ML80"
+    },
+    {
+      "role": "state",
+      "name": "Centralized common scale",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%ML88"
+    },
+    {
+      "role": "MV",
+      "name": "Applied reflux change",
+      "unit": "pp",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "MV",
+      "name": "Applied reboiler steam change",
+      "unit": "pp",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.01,
+      "binding": "%QL8"
+    },
+    {
+      "role": "disturbance",
+      "name": "Applied feed-composition disturbance",
+      "unit": "pp",
+      "minimum": -3,
+      "maximum": 3,
+      "resolution": 0.01,
+      "binding": "%QL16"
+    },
+    {
+      "role": "PV",
+      "name": "Overhead light-product purity deviation",
+      "unit": "pp",
+      "minimum": -6,
+      "maximum": 6,
+      "resolution": 0.01,
+      "binding": "%IL0"
+    },
+    {
+      "role": "PV",
+      "name": "Bottoms heavy-product purity deviation",
+      "unit": "pp",
+      "minimum": -6,
+      "maximum": 6,
+      "resolution": 0.01,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Static decoupler qualified",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.2"
+    },
+    {
+      "role": "state",
+      "name": "Physical input saturation active",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.3"
+    }
+  ],
+  "plant": {
+    "modelId": "local_binary_distillation_nominal_and_strong_interaction_set",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "nominal_sigma_max",
+        "value": 1.464923,
+        "unit": "1"
+      },
+      {
+        "name": "nominal_sigma_min",
+        "value": 0.536352,
+        "unit": "1"
+      },
+      {
+        "name": "interaction_sigma_max",
+        "value": 1.751249,
+        "unit": "1"
+      },
+      {
+        "name": "interaction_sigma_min",
+        "value": 0.251249,
+        "unit": "1"
+      },
+      {
+        "name": "interaction_uncertainty_norm",
+        "value": 0.3,
+        "unit": "1"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "overheadFromReflux": 0,
+      "overheadFromReboiler": 0,
+      "bottomsFromReflux": 0,
+      "bottomsFromReboiler": 0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Overhead purity setpoint": 0,
+      "Bottoms purity setpoint": 0,
+      "Applied reflux change": 0,
+      "Applied reboiler steam change": 0,
+      "Applied feed-composition disturbance": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Overhead purity setpoint",
+        "minimum": -4,
+        "maximum": 4,
+        "unit": "pp"
+      },
+      {
+        "signal": "Bottoms purity setpoint",
+        "minimum": -4,
+        "maximum": 4,
+        "unit": "pp"
+      },
+      {
+        "signal": "Applied reflux change",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "pp"
+      },
+      {
+        "signal": "Applied reboiler steam change",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "pp"
+      },
+      {
+        "signal": "Overhead light-product purity deviation",
+        "minimum": -6,
+        "maximum": 6,
+        "unit": "pp"
+      },
+      {
+        "signal": "Bottoms heavy-product purity deviation",
+        "minimum": -6,
+        "maximum": 6,
+        "unit": "pp"
+      }
+    ],
+    "simplifications": [
+      "The declared uncertainty set contains two qualified local linear models and does not represent every distillation condition.",
+      "The stronger-interaction model changes only declared cross gains and response times while retaining stable diagonal paths.",
+      "The centralized candidate coordinates a static inverse under input limits; it is not MPC and has no optimizer or prediction horizon.",
+      "The controllers and allocation execute in Structured Text; singular values, sensitivity, metrics, and selection remain evidence calculations.",
+      "Simulation-only I/O and evidence; no physical column or actuator is operated."
+    ]
+  },
+  "baseline": {
+    "executableId": "DistillationColumn.DirectDecentralizedPI",
+    "settings": {
+      "architecture": 0,
+      "overheadKp": 1.666666666666667,
+      "overheadKi": 0.0833333333333333,
+      "bottomsKp": 2.142857142857143,
+      "bottomsKi": 0.0714285714285714
+    },
+    "limitation": "Separate diagonal-loop behavior does not reveal weak combined directions, interaction uncertainty, or joint input feasibility."
+  },
+  "change": {
+    "executableId": "DistillationColumn.RobustArchitectureComparison",
+    "settings": {
+      "staticArchitecture": 1,
+      "centralizedConstraintArchitecture": 2,
+      "inputLimit": 10,
+      "minimumMaterialImprovementPercent": 20
+    },
+    "decision": "Select the least coupled architecture that passes every normal-envelope record on both models; retain the +2/+2 record as Infeasible rather than ranking it."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 720.1,
+    "settlingSeconds": 10,
+    "activationSignal": "P1.ExperimentEnabled",
+    "disturbances": [
+      "Run separately restored overhead-only, bottoms-only, simultaneous +1/+1, and feed-composition records on each model and architecture.",
+      "Run a separately restored +2/+2 stronger-interaction constraint challenge for every architecture.",
+      "Do not retune from validation data or include the deliberately infeasible record in normal-envelope ranking."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "normal_final_window_combined_absolute_error",
+      "signal": "Overhead light-product purity deviation",
+      "window": "mean over the final 10 seconds of each 240-second normal event",
+      "comparator": "<=",
+      "limit": 0.1,
+      "unit": "pp",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "normal_single_axis_cross_peak",
+      "signal": "Bottoms heavy-product purity deviation",
+      "window": "complete single-axis normal event",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "pp",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "normal_input_limit_duration",
+      "signal": "Applied reflux change",
+      "window": "complete normal event across both applied inputs",
+      "comparator": "<=",
+      "limit": 0.5,
+      "unit": "s",
+      "tolerance": 0.1,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "restoration_combined_absolute_error",
+      "signal": "Overhead light-product purity deviation",
+      "window": "mean over the final 10 seconds of an at-most-300-second restoration interval",
+      "comparator": "<=",
+      "limit": 0.02,
+      "unit": "pp",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_multivariable_sensitivity",
+      "signal": "Control architecture",
+      "window": "0.002 through 2 radians per second over both models and output directions",
+      "comparator": "<=",
+      "limit": 1.2,
+      "unit": "1",
+      "tolerance": 0.001,
+      "evidenceClass": "model"
+    },
+    {
+      "metric": "centralized_direction_error",
+      "signal": "Centralized common scale",
+      "window": "cross-product residual from requested and applied reflux/reboiler vectors at every limited sample of the +2/+2 challenge",
+      "comparator": "<=",
+      "limit": 1e-08,
+      "unit": "1",
+      "tolerance": 1e-09,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Overhead purity setpoint",
+        "minimum": -4,
+        "maximum": 4,
+        "unit": "pp"
+      },
+      {
+        "signal": "Bottoms purity setpoint",
+        "minimum": -4,
+        "maximum": 4,
+        "unit": "pp"
+      },
+      {
+        "signal": "Applied reflux change",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "pp"
+      },
+      {
+        "signal": "Applied reboiler steam change",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "pp"
+      },
+      {
+        "signal": "Overhead light-product purity deviation",
+        "minimum": -6,
+        "maximum": 6,
+        "unit": "pp"
+      },
+      {
+        "signal": "Bottoms heavy-product purity deviation",
+        "minimum": -6,
+        "maximum": 6,
+        "unit": "pp"
+      }
+    ],
+    "abortPredicates": [
+      "Any required signal is nonfinite, stale, forced, invalid, missing, or bound to the wrong model.",
+      "Either applied input leaves -10 through +10 percentage points or either product deviation leaves -6 through +6 composition percentage points.",
+      "The selected decoupled path is unqualified or controller settings differ between architecture records.",
+      "Authority, timing, seed, event, uncertainty case, metric window, or restoration differs across compared records."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Return both setpoint deviations and the feed-disturbance request to zero, transfer both controllers to reviewed Manual authority with explicit zero manual outputs, verify rate-limited inputs and both products restore, and freshly initialize controller state before a new record.",
+    "physicalApprovalRole": "authorised process controls engineer with the responsible distillation operations and process-safety owners",
+    "simulationOnlyRestrictions": [
+      "No physical distillation column, reflux valve, or reboiler-steam valve is operated.",
+      "Passing the two-model set does not qualify an untested physical operating condition.",
+      "Physical use requires independently reviewed models, topology, product and equipment limits, uncertainty set, abort/restoration, and explicit immediate approval."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#78-multivariable-control",
+    "nativeTest": "TEST_PROGRAM::Lesson65FeasibilityScheduleScalingAndAbortAreExplicit",
+    "nativeCommand": "target/debug/trust-dev test --project examples/control/10-multivariable-control/65-robust-mimo-selection --filter TEST_PROGRAM::Lesson65FeasibilityScheduleScalingAndAbortAreExplicit --timeout 20",
+    "projectPath": "examples/control/10-multivariable-control/65-robust-mimo-selection",
+    "runArtifactFields": [
+      "projectIdentity",
+      "plantIdentity",
+      "evidenceClass",
+      "sampleTime",
+      "seed",
+      "architecture",
+      "controllerParameters",
+      "setpoints",
+      "processValues",
+      "virtualCorrections",
+      "requestedInputs",
+      "commonScale",
+      "appliedInputs",
+      "disturbance",
+      "uncertaintySet",
+      "singularValues",
+      "sensitivitySweep",
+      "limits",
+      "abortState",
+      "restorationState",
+      "metricDefinitions",
+      "metrics",
+      "eligibility",
+      "architectureDecision"
+    ],
+    "renderedJourneyId": "control-robust-mimo-selection"
+  },
+  "video": {
+    "viewerOutcome": "Recognize weak multivariable directions, test uncertainty and constraints, and select or reject the simplest defensible architecture.",
+    "requiredVisibleEvidence": [
+      "same binary column",
+      "two declared models",
+      "singular values and directions",
+      "condition number",
+      "sensitivity peak",
+      "three architecture paths",
+      "requested and applied vectors",
+      "common scale",
+      "normal-envelope records",
+      "Infeasible constraint record",
+      "selection evidence",
+      "Simulation and physical boundary"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "The same binary column is evaluated over nominal and stronger-interaction local models with unchanged controllers and physical limits.",
+    "reason": "Nominal decoupling and separate loop checks do not prove behavior in weak combined directions or under joint actuator constraints.",
+    "theory": [
+      "Singular values measure the strongest and weakest directional gains.",
+      "Condition number and inverse amplification expose sensitivity to interaction error.",
+      "The sensitivity matrix must be checked over direction and frequency.",
+      "A centralized common scale preserves command direction but cannot create unavailable actuator capacity."
+    ],
+    "workedPrediction": "The stronger-interaction model needs about 5.44/5.24 input points for a feasible +1/+1 target and about 10.88/10.47 for an infeasible +2/+2 target.",
+    "practicalPreparation": [
+      "Verify Simulation identity, both model revisions, authority, SP/PV pairs, virtual/requested/applied commands, scale, timing, limits, and restoration.",
+      "Define singular values, sensitivity, error, interaction, effort, saturation, feasibility, and selection rules before results."
+    ],
+    "baseline": "Run direct decentralized PI over the complete common record set rather than inferring robustness from separate loops.",
+    "change": "Insert the fixed nominal inverse, then add only joint direction-preserving scaling without changing the PI settings.",
+    "comparison": "Use restored overhead, bottoms, common, load, and infeasible records on the nominal and stronger-interaction models.",
+    "validation": "Select the least centralized candidate that passes every eligible normal record; classify the +2/+2 challenge as Infeasible.",
+    "explanation": "Opposing actuator effects create a weak direction, model mismatch raises inverse sensitivity, and allocation cannot overcome physical capacity.",
+    "transfer": "Lesson 66 continues with Controllability."
+  }
+}

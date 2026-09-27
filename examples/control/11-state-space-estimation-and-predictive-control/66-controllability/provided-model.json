@@ -1,0 +1,75 @@
+{
+  "kind": "continuous-state-space",
+  "revision": "cascade-linearization-h025-v1",
+  "source": "provided",
+  "validation": "unvalidated",
+  "evidence": [],
+  "delaySeconds": 0,
+  "inputs": [
+    {
+      "id": "pump-flow-deviation",
+      "unit": "m3/s",
+      "operatingRange": {
+        "minimum": -0.001,
+        "maximum": 0.001
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "downstream-level-deviation",
+      "unit": "m",
+      "operatingRange": {
+        "minimum": -0.05,
+        "maximum": 0.05
+      }
+    }
+  ],
+  "states": [
+    {
+      "id": "upstream-level-deviation",
+      "unit": "m",
+      "operatingRange": {
+        "minimum": -0.05,
+        "maximum": 0.05
+      }
+    },
+    {
+      "id": "downstream-level-deviation",
+      "unit": "m",
+      "operatingRange": {
+        "minimum": -0.05,
+        "maximum": 0.05
+      }
+    }
+  ],
+  "a": [
+    [
+      -0.04,
+      0
+    ],
+    [
+      0.04,
+      -0.04
+    ]
+  ],
+  "b": [
+    [
+      2
+    ],
+    [
+      0
+    ]
+  ],
+  "c": [
+    [
+      0,
+      1
+    ]
+  ],
+  "d": [
+    [
+      0
+    ]
+  ]
+}

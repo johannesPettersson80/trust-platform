@@ -1,0 +1,30 @@
+[simulation]
+enabled = true
+seed = 7
+time_scale = 1
+plant_step_ms = 20
+max_plant_substeps_per_cycle = 100
+
+[[plants]]
+id = "engineer-first-order"
+model = "first_order"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [0.0]
+initial_input = [0.0]
+
+[plants.parameters]
+gain = 1.0
+time_constant_s = 1.0
+
+[plants.actuator]
+minimum = -20.0
+maximum = 20.0
+
+[plants.validity]
+input_minimum = [-20.0]
+input_maximum = [20.0]
+state_minimum = [-20.0]
+state_maximum = [20.0]
+output_minimum = [-20.0]
+output_maximum = [20.0]

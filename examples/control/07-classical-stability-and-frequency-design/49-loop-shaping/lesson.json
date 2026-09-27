@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 4,
+  "id": "control-loop-shaping",
+  "title": "Loop shaping",
+  "level": "Advanced",
+  "sequence": 52,
+  "equipment": "Water heater",
+  "physicalPurpose": "Derive and implement lead/lag compensation. Assess the complete loop, noise amplification, actuator demand and temperature performance under fixed requirements.",
+  "principalTechnique": "Loop shaping",
+  "objective": "Derive and implement lead/lag compensation. Assess the complete loop, noise amplification, actuator demand and temperature performance under fixed requirements.",
+  "prerequisites": [
+    "control-sensitivity-functions"
+  ],
+  "nextLesson": "control-nyquist-stability",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML40"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX96.0"
+    },
+    {
+      "role": "disturbance",
+      "name": "DisturbanceKw",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 30,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "WaterTemperatureC",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "IntegralPct",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "NoiseC",
+      "unit": "degC",
+      "minimum": -0.05,
+      "maximum": 0.05,
+      "resolution": 0.001,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "ShapeStatePct",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%ML72"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-lesson-52",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 35
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Measured temperature": 35,
+      "Applied heating command": 75,
+      "Experiment authority": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "Local heater model with initial temperature35 °C and command75%.",
+      "Nominal coefficients are supplied simulation values, not accepted learner estimates.",
+      "Simulation-only process I/O;100ms samples.",
+      "Probe/filter bypassed. Simulation-only ST adds immediate load-path contribution; the selected experiment may add.05sin(t) °C measurement noise."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "ZeroTimeS": 2,
+      "PoleTimeS": 2,
+      "temperatureC": 35,
+      "integralPct": 75
+    },
+    "limitation": "An unexcited record does not reveal the complete heater dynamics."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "ZeroTimeS": 3,
+      "PoleTimeS": 2,
+      "KpPctPerC": 5,
+      "KiPctPerCs": 1,
+      "TrialKind": "0:target;1:load;2:measurement noise",
+      "durationSeconds": 60
+    },
+    "decision": "Use the qualified Control Studio record to answer the lesson question; do not accept supplied nominal parameters as measured results."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 60.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "temperature_operating_range",
+      "signal": "Measured temperature",
+      "window": "complete recorded experiment",
+      "comparator": "<=",
+      "limit": 80,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves0–80 °C or applied command leaves0–100%"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Disable experiment, restore75% command, stop and reset the simulator to35 °C and75% delayed history for a new independent trial.",
+    "physicalApprovalRole": "authorised motion-control engineer and responsible machine operator",
+    "simulationOnlyRestrictions": [
+      "The lesson does not apply either controller to a physical motor",
+      "Simulation sensitivity and effort evidence cannot authorise physical motion",
+      "Physical work requires independent topology, current, speed, vibration, coupling, guarding, emergency-stop, motion-zone, abort, rollback, and immediate approval review"
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Tune",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/44-54-classical-analysis.md#52-loop-shaping",
+    "nativeTest": "lesson52",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_design lesson52",
+    "projectPath": "examples/control/07-classical-stability-and-frequency-design/49-loop-shaping",
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "sampleTime",
+      "initialState",
+      "experimentConditions",
+      "modelProvenance",
+      "stopReason",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-loop-shaping"
+  },
+  "video": {
+    "viewerOutcome": "Derive and implement lead/lag compensation. Assess the complete loop, noise amplification, actuator demand and temperature performance under fixed requirements.",
+    "requiredVisibleEvidence": [
+      "Heater model and initial state",
+      "Applied command and temperature record",
+      "Required Control Studio analysis",
+      "Declared uncertainty and decision",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Derive and implement lead/lag compensation. Assess the complete loop, noise amplification, actuator demand and temperature performance under fixed requirements.",
+    "reason": "The heater model is G_u(s)=.2 exp(−s)/(5s+1), with command in percentage points and temperature in °C. The preceding lesson showed how feedback routes disturbances and noise. We now need a specific controller change to modify those responses. A controller element can preserve its steady, zero-frequency (DC) command while changing how different frequencies are amplified or delayed. The lead/lag choice must be judged with the actual shaped command and measurement noise, not by a phase number alone.",
+    "theory": [
+      "**Loop shaping** designs controller dynamics to obtain useful gain and phase\nbehavior across frequencies. We change the controller for the response or\nnoise requirement identified in the preceding lesson, then assess the entire\nloop rather than one attractive point on a plot.\n\nUse the common hot reset: T=35 °C, SP=35 °C, applied command=75%, I=75%, P=0, delayed command history=75%, dt=.1 s, beta=1, and filter bypassed. The worked PI values are Kp=5 point/°C and Ki=1 point/(°C s); retain learner gains when available and label 5/1 as the worked case.\n\nShape controller command deviation w=(P+I)−75 with:\n\n$$\nF(s)=\\frac{1+sT_z}{1+sT_p},\\qquad T_p=2\\ \\mathrm s.\n$$\n\n$T_z$ and $T_p$ are time constants. Choose $T_z=3$ s or 10 s for comparison.\n\nThe baseline is F=1. Requirements are fixed before choosing Tz: both standard 60 s trials (SP35→38: peak PV≤39 and |error|≤.2 from 30–60; separate SP35,D30: minimum PV≥33 and same error); command 0–100; plus a separate noise trial with D=0,SP35, measurement noise n=.05 sin(ωn t) °C, with ωn=1 rad/s, 60 s, and applied-command amplitude over the three complete periods from t=6P_n to t=9P_n, where P_n=2π s (t≈37.70–56.55 s) no greater than .5 percentage point.\n\nWith $T_z>T_p$, the element above is **lead compensation**: it adds positive\nphase over a frequency range but also increases high-frequency gain. Reversing\nthe ordering gives **lag compensation**, which contributes negative phase\nand reduces high-frequency gain relative to its unchanged steady gain.\n\nThe pole is −1/Tp and zero is −1/Tz. DC gain is one. At high frequency the magnitude tends to a=Tz/Tp: a=1.5 for Tz=3 and a=5 for Tz=10. For complex s=jω:\n\n$$\n|F(j\\omega)|=\\frac{\\sqrt{1+(\\omega T_z)^2}}{\\sqrt{1+(\\omega T_p)^2}},\n\\qquad \\angle F=\\arctan(\\omega T_z)-\\arctan(\\omega T_p).\n$$\n\nFor Tz=10,Tp=2, at ω=.1 rad/s magnitude is sqrt(2)/sqrt(1.04)=1.38675 and phase is 45°−atan(.2)=33.6901°. At ω=1 magnitude is sqrt(101)/sqrt(5)=4.49444 and phase is atan(10)−atan(2)=20.8545°. The loop transfer is $L=C F G_u$, where $C=K_p+K_i/s$. Extra phase at one frequency does not guarantee more margin because loop crossover can move. Define crossover by |L(jωc)|=1 and phase margin as the angular separation of L(jωc) from −180°; a full Nyquist check belongs to Lesson 53.\n\nThe noise-to-command path also changes. With zero setpoint deviation, $y=G_u v$ and $v=-CF(y+n)$, so $v/n=-CF/(1+CFG_u)$. A .05 °C noise amplitude meets the .5-point command limit only if this path’s magnitude is at most 10 points/°C. Evaluate this at 1 rad/s for the selected PI gains; phase lead alone cannot answer the noise question.\n\nA lag has reciprocal ordering: Tz<Tp, so it preserves DC gain but attenuates high frequency and contributes negative phase. This lesson uses a lead choice for the worked comparison; lag is a design alternative, not a mandatory replacement."
+    ],
+    "workedPrediction": "Calculate pole/zero locations, high-frequency gains, and both frequency results for Tz=10. Predict which lead has greater noise-to-command gain and whether its phase benefit can move crossover unfavorably. Predict which candidate may fail the .5-point noise requirement while still passing a temperature trial.",
+    "practicalPreparation": [
+      "The prepared program exposes symbolic `ZeroTimeS` and `PoleTimeS`. Keep\n`PoleTimeS=2`; set `ZeroTimeS` to2 for the unshaped baseline,3 or10 for the\nlead choices. `TrialKind` at `%MW80` selects0 for the target step,1 for jacket-\nindependent heater load extraction, or2 for the declared measurement-noise\ntrial. (The heater load acts directly on the water; there is no jacket here.)\nRestart for every60s trial. The physical probe/filter is bypassed; `NoiseC`\nis added only in trial2. `RequestedPowerPct` is the shaped request before\nlimiting, and `IntegralPct` includes the tracking correction divided by a.\nSet `SafetyAbort` for zero heat and zero load/noise; normal completion restores75%.\nTune/Validate candidate selection and assessment remain subject to the\nworkflow verification below."
+    ],
+    "baseline": "Use the declared35 °C and75% initial state; retain the actual baseline record.",
+    "change": "Use the prepared candidate controls and keep every actual-runtime record; complete the stated Control Studio verification before acceptance.",
+    "comparison": "Report temperature peak/error, load minimum/error, noise command amplitude, saturation, crossover screen, and state reset. Tz=10 may be unqualified despite more phase lead if its high-frequency command amplification violates noise activity or output limits. Retain the baseline when no shaped candidate meets all requirements. A nominal phase calculation is not a full stability margin.",
+    "validation": "Report temperature peak/error, load minimum/error, noise command amplitude, saturation, crossover screen, and state reset. Tz=10 may be unqualified despite more phase lead if its high-frequency command amplification violates noise activity or output limits. Retain the baseline when no shaped candidate meets all requirements. A nominal phase calculation is not a full stability margin.",
+    "explanation": "Lead/lag shaping changes dynamic magnitude and phase while preserving or changing high-frequency gain according to pole/zero ordering. The state implementation and scaled tracking correction determine the actual bounded heater command.",
+    "transfer": "The lead/lag calculation and finite tests compare response and command movement, but added phase at one frequency does not establish stability of the complete loop. The unity-gain crossing may move, and the delivery delay keeps adding phase lag as frequency increases.\n\n[Nyquist stability](../47-nyquist-stability/README.md) examines the complete directed frequency curve, then returns to these shaped PI candidates instead of treating a single phase number as a stability conclusion."
+  }
+}

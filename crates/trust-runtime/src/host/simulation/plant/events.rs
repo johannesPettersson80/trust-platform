@@ -109,7 +109,7 @@ impl PlantEventSection {
                     "stick_actuator" if scalar_actuator => PlantEventAction::StickActuator,
                     "release_actuator" if scalar_actuator => PlantEventAction::ReleaseActuator,
                     "stick_actuator" | "release_actuator" => {
-                        return invalid("actuator events require a scalar-input plant")
+                        return invalid("actuator events require a scalar-input plant");
                     }
                     _ => PlantEventAction::ResetPlant,
                 }

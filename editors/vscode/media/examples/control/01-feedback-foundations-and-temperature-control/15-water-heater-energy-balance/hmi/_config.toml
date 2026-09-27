@@ -1,0 +1,94 @@
+version = 1
+
+[theme]
+style = "industrial"
+accent = "#c2410c"
+
+[layout]
+navigation = "sidebar-left"
+header = true
+header_title = "P1 HMI"
+
+[write]
+enabled = false
+allow = []
+
+[[alarm]]
+bind = "P1.AmbientTemperature"
+high = 120
+low = 0
+deadband = 2.4
+inferred = true
+label = "Ambient Temperature"
+
+[[alarm]]
+bind = "P1.AppliedHeaterPower"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Applied Heater Power"
+
+[[alarm]]
+bind = "P1.EffectiveHeatLoss"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Effective Heat Loss"
+
+[[alarm]]
+bind = "P1.FullScaleHeaterPower"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Full Scale Heater Power"
+
+[[alarm]]
+bind = "P1.PredictedEquilibrium"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Predicted Equilibrium"
+
+[[alarm]]
+bind = "P1.ProcessValue"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Process Value"
+
+[[alarm]]
+bind = "P1.RequestedHeaterPower"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Requested Heater Power"
+
+[[alarm]]
+bind = "P1.StaticGain"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Static Gain"
+
+[[alarm]]
+bind = "P1.ThermalCapacitance"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Thermal Capacitance"
+
+[[alarm]]
+bind = "P1.TimeConstant"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Time Constant"

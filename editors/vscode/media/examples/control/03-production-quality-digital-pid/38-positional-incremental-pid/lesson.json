@@ -1,0 +1,342 @@
+{
+  "schemaVersion": 4,
+  "id": "control-pid-forms",
+  "title": "Positional and incremental PID",
+  "level": "Practitioner",
+  "sequence": 38,
+  "equipment": "Industrial positioning table and recirculating water heater",
+  "physicalPurpose": "Use one production controller for P, PI, PD, and PID without allowing an invalid state-update realization to be selected.",
+  "principalTechnique": "Positional, incremental, and combined PID realization",
+  "objective": "Explain and verify why Control.PID uses positional realization without integral action and incremental realization with integral action.",
+  "prerequisites": [
+    "control-discrete-integral-derivative"
+  ],
+  "nextLesson": "control-capstone-servo",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Table-position setpoint",
+      "unit": "rad",
+      "minimum": -2,
+      "maximum": 2,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Measured table position",
+      "unit": "rad",
+      "minimum": -4,
+      "maximum": 4,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Position motor torque",
+      "unit": "N m",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "SP",
+      "name": "Heater-temperature setpoint",
+      "unit": "degC",
+      "minimum": 15,
+      "maximum": 60,
+      "resolution": 0.1,
+      "binding": "%ML16"
+    },
+    {
+      "role": "PV",
+      "name": "Outlet-water temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.1,
+      "binding": "%IL16"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heater power",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.1,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "Rejected incremental-P output",
+      "unit": "N m",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.01,
+      "binding": "%ML56"
+    },
+    {
+      "role": "state",
+      "name": "Positional-P prediction",
+      "unit": "N m",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.01,
+      "binding": "%ML64"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX120.1"
+    }
+  ],
+  "plant": {
+    "modelId": "robot_joint and first_order_dead_time",
+    "executable": "simulation.toml#plants[0..1]",
+    "parameters": [
+      {
+        "name": "table_inertia",
+        "value": 1,
+        "unit": "kg m2"
+      },
+      {
+        "name": "table_gravity_torque",
+        "value": 4,
+        "unit": "N m"
+      },
+      {
+        "name": "heater_gain",
+        "value": 0.2,
+        "unit": "degC/%"
+      },
+      {
+        "name": "heater_time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "heater_dead_time",
+        "value": 1,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.02,
+    "initialState": {
+      "tablePositionRad": 0,
+      "tableVelocityRadPerSecond": 0,
+      "heaterTemperatureDegC": 20
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Measured table position": 0,
+      "Position motor torque": 0,
+      "Outlet-water temperature": 20,
+      "Applied heater power": 30
+    },
+    "validityRange": [
+      {
+        "signal": "Measured table position",
+        "minimum": -4,
+        "maximum": 4,
+        "unit": "rad"
+      },
+      {
+        "signal": "Position motor torque",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "N m"
+      },
+      {
+        "signal": "Outlet-water temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heater power",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "The two deterministic simulator plants isolate controller realization; they are not physical-plant evidence.",
+      "The rejected incremental-P recurrence is a calculation-only diagnostic and is never connected to either plant.",
+      "The lesson holds process inputs unchanged for the exact two-update gain-change comparison before allowing either plant to advance."
+    ]
+  },
+  "baseline": {
+    "executableId": "RejectedIncrementalP.ConstantError",
+    "settings": {
+      "errorRad": 0.5,
+      "initialOutputNm": 1,
+      "proportionalGainBefore": 4,
+      "proportionalGainAfter": 8,
+      "integralGain": 0
+    },
+    "limitation": "At unchanged nonzero error, the rejected incremental-P recurrence calculates zero output increment and remains at its arbitrary retained output after a proportional-gain change."
+  },
+  "change": {
+    "executableId": "Control.PID.CombinedForm",
+    "settings": {
+      "positionIntegralGain": 0,
+      "heaterIntegralGain": 0.8,
+      "sampleIntervalSeconds": 0.02
+    },
+    "decision": "Let the shipped controller select positional P when integral gain is zero and incremental PI when integral gain is nonzero; do not expose a user form switch."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 30.02,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Proportional gain changes from 4 to 8 while error and plant feedback are held unchanged for one update"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "positional_p_immediate_gain_change",
+      "signal": "Position motor torque",
+      "window": "one 20 ms update at unchanged 0.5 rad error",
+      "comparator": "==",
+      "limit": 2,
+      "unit": "N m",
+      "tolerance": 1e-09,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "rejected_incremental_p_prediction_error",
+      "signal": "Rejected incremental-P output",
+      "window": "first update after gain changes from 4 to 8",
+      "comparator": ">=",
+      "limit": 3,
+      "unit": "N m",
+      "tolerance": 1e-09,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "pi_gain_change_discontinuity_after_integral_increment",
+      "signal": "Applied heater power",
+      "window": "one 20 ms update at unchanged 15 degC error",
+      "comparator": "<=",
+      "limit": 1e-09,
+      "unit": "%",
+      "tolerance": 1e-09,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured table position",
+        "minimum": -4,
+        "maximum": 4,
+        "unit": "rad"
+      },
+      {
+        "signal": "Position motor torque",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "N m"
+      },
+      {
+        "signal": "Outlet-water temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heater power",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Any plant or controller value is nonfinite",
+      "Table position, torque, water temperature, or heater power leaves its declared hard limit",
+      "The rejected diagnostic is connected to a plant command"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Manual mode with zero motor torque and zero heater power",
+    "physicalApprovalRole": "authorised control engineer",
+    "simulationOnlyRestrictions": [
+      "These results do not qualify physical drive startup, heater protection, mode transfer, or gain changes."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-38--positional-and-incremental-pid",
+    "nativeTest": "TEST_PROGRAM::Lesson38IntegralPresenceSelectsTheValidRealization",
+    "nativeCommand": "target/debug/trust-dev test --project examples/control/03-production-quality-digital-pid/38-positional-incremental-pid --filter TEST_PROGRAM::Lesson38IntegralPresenceSelectsTheValidRealization --timeout 15",
+    "projectPath": "examples/control/03-production-quality-digital-pid/38-positional-incremental-pid",
+    "runArtifactFields": [
+      "sampleIndex",
+      "sampleTime",
+      "SP",
+      "PV",
+      "error",
+      "errorChange",
+      "Kp",
+      "Ki",
+      "previousRequestedOutput",
+      "requestedOutput",
+      "appliedOutput",
+      "selectedForm",
+      "limitState",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-pid-forms"
+  },
+  "video": {
+    "viewerOutcome": "Predict and verify why one production PID selects positional realization for P or PD and incremental realization for PI or PID.",
+    "requiredVisibleEvidence": [
+      "constant-error prediction",
+      "rejected incremental-P state",
+      "positioning-table P output",
+      "water-heater PI output",
+      "gain-change timestamp",
+      "selected realization",
+      "simulation evidence label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "The positioning table needs P action while the water heater needs PI action, but operators should use the same production Control.PID block for both.",
+    "reason": "Lesson 25 showed that a digital controller is a recurrence with retained state. A single recurrence is not valid for every P, PI, PD, and PID combination.",
+    "theory": [
+      "Positional realization calculates the complete output from present terms. Incremental or velocity realization adds term increments to the retained previous output.",
+      "At unchanged error the proportional increment is zero. Pure incremental P can therefore retain an arbitrary output and ignore a proportional-gain change, while positional P immediately recalculates the physically required output.",
+      "With nonzero integral action, the integral increment continually changes output in response to persistent error. Retaining output also supports practical tracking, clamping anti-windup, and bumpless parameter changes.",
+      "Control.PID selects positional realization when integral gain is zero and incremental realization when integral gain is nonzero. This realization choice is different from parallel, ideal, or series parameter forms."
+    ],
+    "workedPrediction": "At constant error 0.5 rad, positional P torque changes from 2 to 4 N m when gain changes from 4 to 8 N m/rad. The rejected incremental-P error change is zero, so its arbitrary 1 N m retained output does not change. At 15 degC heater error, integral gain 0.8 %/(degC*s), and 0.02 s sample interval, the expected PI output increment is 0.24%.",
+    "practicalPreparation": [
+      "Bind both plant SP, PV, and MV signals; both gains; the rejected diagnostic; positional prediction; selected-form indicators; limits; update time; and simulation evidence label.",
+      "Restore both plants to the declared initial state and freeze error, previous error, sample interval, bias, limits, and retained output for the exact gain-change comparison."
+    ],
+    "baseline": "Run the rejected incremental-P diagnostic at constant error and prove that changing gain from 4 to 8 leaves its arbitrary 1 N m retained output unchanged.",
+    "change": "Run the same gain change through Control.PID with zero integral gain on the positioning table, then repeat the unchanged-signal gain change with nonzero integral gain on the heater.",
+    "comparison": "Compare the immediate positional-P output change, rejected incremental-P state, and PI output change after subtracting the predicted integral increment over the same one-update window.",
+    "validation": "Require positional P to change from 2 to 4 N m, rejected incremental P to remain at 1 N m, PI discontinuity after the expected 0.24% integral increment to be zero within tolerance, and all applied outputs to remain finite and inside limits.",
+    "explanation": "A state-update formula is part of controller behavior, not an interchangeable coding style. The presence of integral action determines which recurrence preserves the required control meaning and practical transitions.",
+    "transfer": "Use one Control.PID instance for P, PI, PD, or PID and let its integral gain select the valid internal realization. Lesson 27 introduces initialization, manual, tracking, disabled, and transition behavior."
+  }
+}

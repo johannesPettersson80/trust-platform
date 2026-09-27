@@ -1,12 +1,20 @@
+mod abort_binding;
+use abort_binding::{AbortBinding, AbortBindingParams};
+mod values;
+use values::{
+    decode_params, decode_relay_feedback, decode_trajectory, experiment_type_id, experiment_value,
+    numeric_value, snapshot_type, snapshot_value,
+};
+
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
 
-use super::{parse_value, ControlResponse, ControlState};
+use super::{ControlResponse, ControlState};
 use crate::debug::DebugControl;
-use crate::io::{validate_process_image_address, IoAddress, IoSnapshot, IoSnapshotValue};
+use crate::io::{validate_process_image_address, IoAddress, IoSnapshot};
 use crate::value::Value;
 use trust_hir::TypeId;
 
@@ -39,6 +47,8 @@ struct ExperimentRecord {
     next_trajectory: usize,
     relay_feedback: Option<RelayFeedbackRecord>,
     write_enabled: bool,
+    abort_binding: Option<AbortBinding>,
+    restoration_after_scan: Option<u64>,
 }
 
 #[derive(Clone, Debug)]
@@ -88,6 +98,8 @@ struct StartParams {
     trajectory: Vec<TrajectoryPoint>,
     #[serde(default)]
     relay_feedback: Option<RelayFeedbackParams>,
+    #[serde(default)]
+    abort_binding: Option<AbortBindingParams>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -333,6 +345,15 @@ pub(super) fn handle_start(
         },
         None => None,
     };
+    let abort_binding = match params.abort_binding {
+        Some(binding) => {
+            match AbortBinding::decode(binding, &params.kind, &address, declared_type, &snapshot) {
+                Ok(binding) => Some(binding),
+                Err((message, code)) => return error(id, message, code),
+            }
+        }
+        None => None,
+    };
     let trajectory = if let Some(relay) = relay_feedback.as_ref() {
         vec![(Duration::ZERO, relay.high_value.clone())]
     } else {
@@ -346,12 +367,27 @@ pub(super) fn handle_start(
             address.size,
         ) {
             Ok(values) if values.is_empty() && write_enabled => {
-                vec![(Duration::ZERO, write_value)]
+                vec![(Duration::ZERO, write_value.clone())]
             }
             Ok(values) => values,
             Err(message) => return error(id, message, "invalid_experiment"),
         }
     };
+    if params.kind == "mv_pulse"
+        && (trajectory.len() != 2
+            || trajectory[0] != (Duration::ZERO, write_value.clone())
+            || trajectory[1]
+                != (
+                    Duration::from_millis(params.duration_ms / 2),
+                    restoration_write_value.clone(),
+                ))
+    {
+        return error(
+            id,
+            "MV pulses must rise at 0 ms and return to baseline halfway through duration",
+            "invalid_experiment",
+        );
+    }
 
     let record = ExperimentRecord {
         id: params.experiment_id.clone(),
@@ -380,6 +416,8 @@ pub(super) fn handle_start(
         next_trajectory: usize::from(write_enabled),
         relay_feedback,
         write_enabled,
+        abort_binding,
+        restoration_after_scan: None,
     };
     {
         let mut active = match state.experiments.active.lock() {
@@ -392,24 +430,24 @@ pub(super) fn handle_start(
                 )
             }
         };
-        if active
-            .as_ref()
-            .is_some_and(|current| current.status == ExperimentStatus::Running)
-        {
+        if active.as_ref().is_some_and(|current| {
+            current.status == ExperimentStatus::Running
+                || (current.abort_binding.is_some() && current.restoration == "pending")
+        }) {
             return error(
                 id,
                 "another experiment is already running",
                 "experiment_active",
             );
         }
+        // Start and stop queue writes under one lifecycle lock. An abort cannot
+        // be followed by a delayed first activation write from this request.
+        if write_enabled {
+            state
+                .debug
+                .enqueue_io_write(address, record.trajectory[0].1.clone());
+        }
         *active = Some(record);
-    }
-
-    if write_enabled {
-        state.debug.enqueue_io_write(
-            address,
-            record_first_value(&state.experiments, &params.experiment_id),
-        );
     }
     spawn_guard(
         state.experiments.clone(),
@@ -469,6 +507,7 @@ pub(super) fn handle_abort(
     match finish(
         &state.experiments,
         &state.debug,
+        &state.io_snapshot,
         params.experiment_id.as_str(),
         ExperimentStatus::Aborted,
         "user_abort",
@@ -488,7 +527,7 @@ fn spawn_guard(
 ) {
     std::thread::spawn(move || loop {
         std::thread::sleep(Duration::from_millis(20));
-        let (elapsed, duration, address, minimum, maximum, relay_feedback) =
+        let (elapsed, duration, address, minimum, maximum, relay_feedback, abort_binding) =
             match service.active.lock() {
                 Ok(mut active) => {
                     let Some(record) = active.as_mut().filter(|record| record.id == experiment_id)
@@ -499,12 +538,27 @@ fn spawn_guard(
                         if record.restoration != "pending" {
                             return;
                         }
-                        let confirmed = snapshot
-                            .lock()
-                            .ok()
-                            .and_then(|value| value.clone())
-                            .and_then(|value| snapshot_value(&value, &record.address).cloned())
-                            .is_some_and(|value| value == record.restoration_observed_value);
+                        let observed = snapshot.lock().ok().and_then(|value| value.clone());
+                        let confirmed = observed.as_ref().is_some_and(|value| {
+                            if snapshot_value(value, &record.address)
+                                != Some(&record.restoration_observed_value)
+                            {
+                                return false;
+                            }
+                            if let Some(abort) = record.abort_binding.as_mut() {
+                                if value
+                                    .scan
+                                    .zip(record.restoration_after_scan)
+                                    .is_none_or(|(scan, after)| scan <= after)
+                                    || value.forced.contains(&record.address)
+                                    || snapshot_type(value, &record.address) != Some(TypeId::BOOL)
+                                {
+                                    return false;
+                                }
+                                return abort.confirm(value);
+                            }
+                            true
+                        });
                         if confirmed {
                             record.restoration = "restored";
                             record.restoration_deadline = None;
@@ -515,6 +569,9 @@ fn spawn_guard(
                             .is_some_and(|deadline| Instant::now() >= deadline)
                         {
                             record.status = ExperimentStatus::FailedToRestore;
+                            if let Some(abort) = record.abort_binding.as_mut() {
+                                abort.fail_confirmation();
+                            }
                             record.restoration = "failed";
                             record.restoration_reason = Some("confirmation_timeout");
                             record.restoration_deadline = None;
@@ -542,14 +599,18 @@ fn spawn_guard(
                         record.minimum,
                         record.maximum,
                         record.relay_feedback.clone(),
+                        record.abort_binding.clone(),
                     )
                 }
                 Err(_) => return,
             };
-        if elapsed >= duration {
+        // Legacy plans retain their established timeout precedence. A reviewed
+        // abort policy checks faults before declaring normal completion.
+        if elapsed >= duration && abort_binding.is_none() {
             let _ = finish(
                 &service,
                 &debug,
+                &snapshot,
                 &experiment_id,
                 ExperimentStatus::Completed,
                 "duration_complete",
@@ -564,6 +625,7 @@ fn spawn_guard(
             let _ = finish(
                 &service,
                 &debug,
+                &snapshot,
                 &experiment_id,
                 ExperimentStatus::Failed,
                 "signal_forced",
@@ -579,6 +641,7 @@ fn spawn_guard(
             let _ = finish(
                 &service,
                 &debug,
+                &snapshot,
                 &experiment_id,
                 ExperimentStatus::Failed,
                 "stale_runtime_data",
@@ -594,6 +657,7 @@ fn spawn_guard(
             let _ = finish(
                 &service,
                 &debug,
+                &snapshot,
                 &experiment_id,
                 ExperimentStatus::Failed,
                 "bad_runtime_data",
@@ -604,9 +668,46 @@ fn spawn_guard(
             let _ = finish(
                 &service,
                 &debug,
+                &snapshot,
                 &experiment_id,
                 ExperimentStatus::Failed,
                 "signal_outside_limits",
+            );
+            continue;
+        }
+        if let Some(abort) = abort_binding {
+            let failure = current_snapshot
+                .as_ref()
+                .map_or(Some("bad_abort_binding"), |value| {
+                    if snapshot_type(value, &address) != Some(TypeId::BOOL) {
+                        return Some("bad_runtime_data");
+                    }
+                    match abort.asserted(value) {
+                        Ok(false) => None,
+                        Ok(true) => Some("project_abort_asserted"),
+                        Err(reason) => Some(reason),
+                    }
+                });
+            if let Some(reason) = failure {
+                let _ = finish(
+                    &service,
+                    &debug,
+                    &snapshot,
+                    &experiment_id,
+                    ExperimentStatus::Failed,
+                    reason,
+                );
+                continue;
+            }
+        }
+        if elapsed >= duration {
+            let _ = finish(
+                &service,
+                &debug,
+                &snapshot,
+                &experiment_id,
+                ExperimentStatus::Completed,
+                "duration_complete",
             );
             continue;
         }
@@ -623,6 +724,7 @@ fn spawn_guard(
             let _ = finish(
                 &service,
                 &debug,
+                &snapshot,
                 &experiment_id,
                 ExperimentStatus::Failed,
                 "relay_feedback_forced",
@@ -640,6 +742,7 @@ fn spawn_guard(
             let _ = finish(
                 &service,
                 &debug,
+                &snapshot,
                 &experiment_id,
                 ExperimentStatus::Failed,
                 "bad_relay_feedback",
@@ -661,166 +764,29 @@ fn spawn_guard(
         // The relay changes state only after measured PV crosses a hysteresis
         // threshold. Holding the experiment lock prevents an abort restoration
         // from being followed by a late relay write.
-        if relay.high_active && relay_value >= relay.center + relay.hysteresis {
-            debug.enqueue_io_write(record.address.clone(), relay.low_value.clone());
-            relay.high_active = false;
-        } else if !relay.high_active && relay_value <= relay.center - relay.hysteresis {
-            debug.enqueue_io_write(record.address.clone(), relay.high_value.clone());
-            relay.high_active = true;
+        let high = super::relay_state::next_relay_state(
+            relay_value,
+            relay.center,
+            relay.hysteresis,
+            true,
+            relay.high_active,
+        );
+        if high != relay.high_active {
+            let value = if high {
+                relay.high_value.clone()
+            } else {
+                relay.low_value.clone()
+            };
+            debug.enqueue_io_write(record.address.clone(), value);
+            relay.high_active = high;
         }
     });
-}
-
-fn record_first_value(service: &ControlExperimentService, experiment_id: &str) -> Value {
-    service
-        .active
-        .lock()
-        .ok()
-        .and_then(|active| {
-            active
-                .as_ref()
-                .filter(|record| record.id == experiment_id)
-                .map(|record| record.trajectory[0].1.clone())
-        })
-        .expect("new experiment retains its first trajectory value")
-}
-
-fn decode_relay_feedback(
-    params: &RelayFeedbackParams,
-    snapshot: &IoSnapshot,
-    minimum: f64,
-    maximum: f64,
-    output_value_type: Option<&str>,
-    output_type: Option<TypeId>,
-    output_size: crate::io::IoSize,
-    requested: f64,
-) -> Result<RelayFeedbackRecord, (String, &'static str)> {
-    if !params.center.is_finite() || !params.hysteresis.is_finite() || params.hysteresis <= 0.0 {
-        return Err((
-            "relay center must be finite and hysteresis must be positive".to_string(),
-            "invalid_experiment",
-        ));
-    }
-    let address = IoAddress::parse(&params.address)
-        .map_err(|error| (error.to_string(), "invalid_address"))?;
-    validate_process_image_address(&address)
-        .map_err(|error| (error.to_string(), "invalid_address"))?;
-    if snapshot.forced.iter().any(|forced| forced == &address) {
-        return Err((
-            "relay feedback signal is forced".to_string(),
-            "forced_signal",
-        ));
-    }
-    let value_type =
-        experiment_type_id(&params.value_type).map_err(|message| (message, "invalid_value"))?;
-    if snapshot_type(snapshot, &address) != Some(value_type) {
-        return Err((
-            "declared relay feedback type does not match the runtime binding".to_string(),
-            "incompatible_binding",
-        ));
-    }
-    snapshot_value(snapshot, &address)
-        .and_then(numeric_value)
-        .filter(|value| value.is_finite())
-        .ok_or_else(|| {
-            (
-                "relay feedback must be finite and numeric".to_string(),
-                "bad_runtime_data",
-            )
-        })?;
-
-    let decode_output = |value: &JsonValue| -> Result<(Value, f64), (String, &'static str)> {
-        let raw = experiment_value(value, output_value_type)
-            .map_err(|message| (message, "invalid_value"))?;
-        let numeric = numeric_value(&raw)
-            .filter(|value| value.is_finite())
-            .ok_or_else(|| {
-                (
-                    "relay output must be finite and numeric".to_string(),
-                    "invalid_value",
-                )
-            })?;
-        if numeric < minimum || numeric > maximum {
-            return Err((
-                "relay output is outside declared limits".to_string(),
-                "outside_limits",
-            ));
-        }
-        let write_value = match output_type {
-            Some(value_type) => crate::io::coerce_to_io(raw, value_type, output_size)
-                .map_err(|error| (error.to_string(), "incompatible_binding")),
-            None => Ok(raw),
-        }?;
-        Ok((write_value, numeric))
-    };
-    let (low_value, low) = decode_output(&params.low_value)?;
-    let (high_value, high) = decode_output(&params.high_value)?;
-    if low >= high || (requested - high).abs() > f64::EPSILON {
-        return Err((
-            "relay outputs must be ordered and the requested value must equal the high output"
-                .to_string(),
-            "invalid_experiment",
-        ));
-    }
-    Ok(RelayFeedbackRecord {
-        address,
-        address_text: params.address.clone(),
-        value_type,
-        center: params.center,
-        hysteresis: params.hysteresis,
-        low_value,
-        high_value,
-        low_numeric: low,
-        high_numeric: high,
-        high_active: true,
-    })
-}
-
-fn decode_trajectory(
-    points: Vec<TrajectoryPoint>,
-    duration_ms: u64,
-    minimum: f64,
-    maximum: f64,
-    value_type: Option<&str>,
-    declared_type: Option<TypeId>,
-    address_size: crate::io::IoSize,
-) -> Result<Vec<(Duration, Value)>, String> {
-    if points.len() > 10_000 {
-        return Err("experiment trajectory exceeds 10000 points".to_string());
-    }
-    let mut previous = None;
-    let mut values = Vec::with_capacity(points.len());
-    for point in points {
-        if point.at_ms >= duration_ms || previous.is_some_and(|last| point.at_ms <= last) {
-            return Err(
-                "experiment trajectory times must be strictly increasing and before duration"
-                    .to_string(),
-            );
-        }
-        if previous.is_none() && point.at_ms != 0 {
-            return Err("experiment trajectory must begin at 0 ms".to_string());
-        }
-        let raw = experiment_value(&point.value, value_type)?;
-        let numeric = numeric_value(&raw)
-            .filter(|value| value.is_finite())
-            .ok_or_else(|| "trajectory value must be finite and numeric".to_string())?;
-        if numeric < minimum || numeric > maximum {
-            return Err("trajectory value is outside declared limits".to_string());
-        }
-        let value = match declared_type {
-            Some(value_type) => crate::io::coerce_to_io(raw, value_type, address_size)
-                .map_err(|error| error.to_string())?,
-            None => raw,
-        };
-        values.push((Duration::from_millis(point.at_ms), value));
-        previous = Some(point.at_ms);
-    }
-    Ok(values)
 }
 
 fn finish(
     service: &ControlExperimentService,
     debug: &DebugControl,
+    snapshot: &Arc<Mutex<Option<IoSnapshot>>>,
     experiment_id: &str,
     status: ExperimentStatus,
     stop_reason: &'static str,
@@ -843,8 +809,21 @@ fn finish(
     if record.status != ExperimentStatus::Running {
         return Ok(record_json(record));
     }
-    // Queue restoration before publishing a terminal state to observers.
+    // Abort assertion precedes deactivation; the declared ST program owns the
+    // actuator policy. Queue both while excluding late excitation writes.
     if record.write_enabled {
+        if let Some(abort) = record.abort_binding.as_mut() {
+            record.restoration_after_scan = Some(
+                snapshot
+                    .lock()
+                    .ok()
+                    .and_then(|value| value.as_ref().and_then(|value| value.scan))
+                    .unwrap_or(record.started_scan),
+            );
+            if status != ExperimentStatus::Completed {
+                abort.request(debug);
+            }
+        }
         debug.enqueue_io_write(record.address.clone(), record.restoration_value.clone());
     }
     record.status = status;
@@ -892,140 +871,8 @@ fn record_json(record: &ExperimentRecord) -> JsonValue {
         "restoration": record.restoration,
         "restoration_reason": record.restoration_reason,
         "relay_feedback": relay_feedback,
+        "abort_binding": record.abort_binding.as_ref().map(AbortBinding::json),
     })
-}
-
-fn snapshot_value<'a>(snapshot: &'a IoSnapshot, address: &IoAddress) -> Option<&'a Value> {
-    snapshot
-        .inputs
-        .iter()
-        .chain(&snapshot.outputs)
-        .chain(&snapshot.memory)
-        .find(|entry| &entry.address == address)
-        .and_then(|entry| match &entry.value {
-            IoSnapshotValue::Value(value) => Some(value),
-            IoSnapshotValue::Error(_) | IoSnapshotValue::Unresolved => None,
-        })
-}
-
-fn snapshot_type(snapshot: &IoSnapshot, address: &IoAddress) -> Option<TypeId> {
-    snapshot
-        .inputs
-        .iter()
-        .chain(&snapshot.outputs)
-        .chain(&snapshot.memory)
-        .find(|entry| &entry.address == address)
-        .and_then(|entry| entry.value_type)
-}
-
-fn experiment_value(value: &JsonValue, value_type: Option<&str>) -> Result<Value, String> {
-    if let Some(value_type) = value_type {
-        return typed_numeric_value(value, value_type);
-    }
-    match value {
-        JsonValue::Number(number) if number.is_i64() => {
-            Ok(Value::LInt(number.as_i64().expect("checked i64")))
-        }
-        JsonValue::Number(number) => number
-            .as_f64()
-            .filter(|value| value.is_finite())
-            .map(Value::LReal)
-            .ok_or_else(|| "experiment value must be finite".to_string()),
-        JsonValue::Bool(value) => Ok(Value::Bool(*value)),
-        JsonValue::String(value) => {
-            parse_value(value).map_err(|error_value| error_value.to_string())
-        }
-        _ => Err("experiment value must be numeric or boolean".to_string()),
-    }
-}
-
-fn typed_numeric_value(value: &JsonValue, value_type: &str) -> Result<Value, String> {
-    let invalid = || {
-        format!(
-            "experiment value is not a valid {}",
-            value_type.to_ascii_uppercase()
-        )
-    };
-    let signed = || value.as_i64().ok_or_else(&invalid);
-    let unsigned = || value.as_u64().ok_or_else(&invalid);
-    let real = || {
-        value
-            .as_f64()
-            .filter(|number| number.is_finite())
-            .ok_or_else(&invalid)
-    };
-    match value_type.trim().to_ascii_uppercase().as_str() {
-        "BOOL" => value.as_bool().map(Value::Bool).ok_or_else(invalid),
-        "SINT" => i8::try_from(signed()?)
-            .map(Value::SInt)
-            .map_err(|_| invalid()),
-        "INT" => i16::try_from(signed()?)
-            .map(Value::Int)
-            .map_err(|_| invalid()),
-        "DINT" => i32::try_from(signed()?)
-            .map(Value::DInt)
-            .map_err(|_| invalid()),
-        "LINT" => signed().map(Value::LInt),
-        "USINT" => u8::try_from(unsigned()?)
-            .map(Value::USInt)
-            .map_err(|_| invalid()),
-        "UINT" => u16::try_from(unsigned()?)
-            .map(Value::UInt)
-            .map_err(|_| invalid()),
-        "UDINT" => u32::try_from(unsigned()?)
-            .map(Value::UDInt)
-            .map_err(|_| invalid()),
-        "ULINT" => unsigned().map(Value::ULInt),
-        "REAL" => {
-            let number = real()?;
-            let narrowed = number as f32;
-            narrowed
-                .is_finite()
-                .then_some(Value::Real(narrowed))
-                .ok_or_else(invalid)
-        }
-        "LREAL" => real().map(Value::LReal),
-        _ => Err(format!("unsupported experiment value type '{value_type}'")),
-    }
-}
-
-fn experiment_type_id(value_type: &str) -> Result<TypeId, String> {
-    match value_type.trim().to_ascii_uppercase().as_str() {
-        "BOOL" => Ok(TypeId::BOOL),
-        "SINT" => Ok(TypeId::SINT),
-        "INT" => Ok(TypeId::INT),
-        "DINT" => Ok(TypeId::DINT),
-        "LINT" => Ok(TypeId::LINT),
-        "USINT" => Ok(TypeId::USINT),
-        "UINT" => Ok(TypeId::UINT),
-        "UDINT" => Ok(TypeId::UDINT),
-        "ULINT" => Ok(TypeId::ULINT),
-        "REAL" => Ok(TypeId::REAL),
-        "LREAL" => Ok(TypeId::LREAL),
-        _ => Err(format!("unsupported experiment value type '{value_type}'")),
-    }
-}
-
-fn numeric_value(value: &Value) -> Option<f64> {
-    match value {
-        Value::Bool(value) => Some(if *value { 1.0 } else { 0.0 }),
-        Value::SInt(value) => Some(f64::from(*value)),
-        Value::Int(value) => Some(f64::from(*value)),
-        Value::DInt(value) => Some(f64::from(*value)),
-        Value::LInt(value) => Some(*value as f64),
-        Value::USInt(value) => Some(f64::from(*value)),
-        Value::UInt(value) => Some(f64::from(*value)),
-        Value::UDInt(value) => Some(f64::from(*value)),
-        Value::ULInt(value) => Some(*value as f64),
-        Value::Real(value) => Some(f64::from(*value)),
-        Value::LReal(value) => Some(*value),
-        _ => None,
-    }
-}
-
-fn decode_params<T: for<'de> Deserialize<'de>>(params: Option<JsonValue>) -> Result<T, String> {
-    serde_json::from_value(params.ok_or_else(|| "missing params".to_string())?)
-        .map_err(|error_value| format!("invalid params: {error_value}"))
 }
 
 fn error(id: u64, message: impl Into<String>, code: &'static str) -> ControlResponse {

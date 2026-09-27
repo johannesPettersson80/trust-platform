@@ -28,6 +28,15 @@ function cargoDebugBinary(repoRoot: string, binaryName: string): string {
   return path.join(cargoTargetDir(repoRoot), "debug", binaryName);
 }
 
+function removeTestTempDirectory(directory: string): void {
+  const tempRoot = `${path.resolve(os.tmpdir())}${path.sep}`;
+  const resolved = path.resolve(directory);
+  if (!resolved.startsWith(tempRoot)) {
+    throw new Error(`Refusing to remove non-temporary test directory: ${resolved}`);
+  }
+  fs.rmSync(resolved, { recursive: true, force: true });
+}
+
 async function main(): Promise<void> {
   const extensionDevelopmentPath = path.resolve(__dirname, "../../");
   const extensionTestsPath = path.resolve(__dirname, "./suite/index");
@@ -76,6 +85,11 @@ async function main(): Promise<void> {
   for (const key of [
     "TRUST_VSCODE_TEST_EVIDENCE",
     "TRUST_VSCODE_TEST_SOURCE_COMMIT",
+    "TRUST_PLANT_RENDERED_THEME",
+    "TRUST_PLANT_RENDERED_SPLIT",
+    "TRUST_PLANT_RENDERED_SCREENSHOT",
+    "TRUST_PLANT_RENDERED_CAPTURE_SECTION",
+    "TRUST_PLANT_RENDERED_CAPTURE_MODEL",
   ]) {
     const value = process.env[key]?.trim();
     if (value) {
@@ -83,18 +97,141 @@ async function main(): Promise<void> {
     }
   }
 
-  await runTests({
-    extensionDevelopmentPath,
-    extensionTestsPath,
-    launchArgs: [
-      workspacePath,
-      "--user-data-dir",
-      userDataDir,
-      "--extensions-dir",
-      extensionsDir,
-    ],
-    extensionTestsEnv,
-  });
+  try {
+    await runTests({
+      extensionDevelopmentPath,
+      extensionTestsPath,
+      launchArgs: [
+        workspacePath,
+        "--user-data-dir",
+        userDataDir,
+        "--extensions-dir",
+        extensionsDir,
+      ],
+      extensionTestsEnv,
+    });
+  } finally {
+    removeTestTempDirectory(workspacePath);
+    removeTestTempDirectory(userDataDir);
+    removeTestTempDirectory(extensionsDir);
+  }
+
+  const renderedTestFullTitles = [
+    "Rendered example open recovery CPEX-009 retries the same copied destination from the real notification",
+    "Rendered retained lesson projects CPEX-012 selected lesson detail offers Open existing project",
+    "Rendered plant editor CPFIX-003 rendered full candidate preservation",
+    "Rendered plant editor CPFIX-006 rendered robot optional defaults preserve blank parameters",
+    "Rendered plant editor CPFIX-006 rendered omitted initial state remains editable and omission-preserving",
+    "Control Studio three-page workflow opens recorded data from its visible button and continues after an independent record without starting a runtime",
+    "Rendered example filters CPEX-005 compact filters combine with search and reset empty results",
+    "Rendered plant editor CPUI-017/019 rendered optional task destinations",
+    "Rendered plant editor CPUI-004 all model routes",
+    "Rendered plant editor CPUI-019 scenario seconds preserve exact backend milliseconds",
+    "Rendered plant editor CPUI-019 scenario events use named state and sensor quantities",
+    "Rendered plant editor CPUI-017/018 focused effect cards preserve order and applicable controls",
+    "Rendered starter execution badges CPEX-005 shows simulator execution independently from optional hardware",
+    "Rendered example focus CPEX-005 preserves focus through search, filters, and reset",
+    "Rendered unavailable examples CPEX-013 keeps valid starters usable and disables damaged lesson creation",
+    "Rendered examples gallery CPEX-007 full selected lesson detail",
+    "Rendered plant editor CPFIX-005 rendered plant invalid input guard",
+    "Rendered plant editor CPUI-005 rendered FOPDT temperature example",
+    "Rendered plant editor CPFIX-008 rendered actuator blank defaults",
+    "Rendered plant editor CPFIX-004 rendered robot joint multiport bindings",
+    "Rendered plant editor CPFIX-004 rendered state-space multiport preservation",
+    "Rendered plant editor CPUI-006 rendered model starting conditions",
+    "Control Studio three-page native journey identifies tunes validates applies and restores the real library PID from the visible controls",
+    "Control Studio three-page PID group rendered review shows group members in controller settings and channel mapping in the real editor",
+    "Control Studio native PID group tunes validates applies and restores two actual library PIDs without changing an unselected PID",
+    "Control Studio three-page workflow starts identification from its visible button with the actual Control.PID plant",
+    "Control Studio three-page workflow edits manual settings in the existing result area and preserves full values and pins when changing method",
+    "Control Studio three-page recovery rendered projection shows Identify cancellation recovery while keeping page navigation usable",
+    "Control Studio three-page recovery rendered projection restores the same retry action after a generic recovery failure",
+    "Control Studio three-page recovery rendered projection clears recovery locks on terminal resolution and does not add a second button for normal Apply review",
+    "Control Studio three-page binding selection edits per-output requirements and per-channel limits in the rendered MIMO workspace",
+  ];
+  for (const renderedTestFullTitle of renderedTestFullTitles) {
+    if (configuredTestGrep && !new RegExp(configuredTestGrep).test(renderedTestFullTitle)) continue;
+    const renderedRunDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "trust-lsp-vscode-plant-rendered-")
+    );
+    const renderedWorkspacePath = path.join(renderedRunDir, "workspace");
+    const renderedUserDataDir = path.join(renderedRunDir, "user-data");
+    const renderedExtensionsDir = path.join(renderedRunDir, "extensions");
+    try {
+      const nativePidGroup = renderedTestFullTitle.startsWith("Control Studio native PID group");
+      const studioCase = nativePidGroup || renderedTestFullTitle.startsWith("Control Studio three-page");
+      const renderedFixture = nativePidGroup
+        ? path.join(extensionDevelopmentPath, "src", "test", "fixtures", "control-studio-pid-group")
+        : renderedTestFullTitle.startsWith("Control Studio three-page")
+        ? path.join(repoRoot, "examples", "control-pid-commissioning")
+        : path.join(extensionDevelopmentPath, "src", "test", "fixtures",
+          renderedTestFullTitle.includes("CPFIX-003 rendered full candidate") ? "plant-rendered-full-preservation"
+          : renderedTestFullTitle.includes("CPFIX-006 rendered omitted") ? "plant-rendered-omitted-initial-state"
+          : renderedTestFullTitle.startsWith("Rendered Control Studio ") ? "control-studio-recording-gap"
+          : "plant-rendered-invalid-input");
+      fs.cpSync(
+        renderedFixture,
+        renderedWorkspacePath,
+        { recursive: true }
+      );
+      if (studioCase) {
+        const settingsFile = path.join(renderedWorkspacePath, ".vscode", "settings.json");
+        fs.mkdirSync(path.dirname(settingsFile), { recursive: true });
+        const settings = fs.existsSync(settingsFile) ? JSON.parse(fs.readFileSync(settingsFile, "utf8")) : {};
+        fs.writeFileSync(settingsFile, JSON.stringify({ ...settings, "trust.runtime.mode": "simulate",
+          "trust.runtime.executablePath": runtimePath, "trust.languageServer.executablePath": serverPath,
+          "trust.debugAdapter.executablePath": cargoDebugBinary(repoRoot, process.platform === "win32" ? "trust-debug.exe" : "trust-debug"),
+        }));
+      }
+      const renderedEvidenceRoot = extensionTestsEnv.TRUST_VSCODE_TEST_EVIDENCE
+        ? path.join(path.dirname(extensionTestsEnv.TRUST_VSCODE_TEST_EVIDENCE), "rendered",
+          renderedTestFullTitle.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase())
+        : renderedRunDir;
+      fs.mkdirSync(renderedEvidenceRoot, { recursive: true });
+      const renderedScreenshot = process.env.TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT?.trim()
+        || path.join(renderedEvidenceRoot, `${renderedTestFullTitle.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}.png`);
+
+      await runTests({
+        extensionDevelopmentPath,
+        extensionTestsPath,
+        launchArgs: [
+          renderedWorkspacePath,
+          ...(studioCase ? ["--window-size=1600,1000"] : []),
+          "--user-data-dir",
+          renderedUserDataDir,
+          "--extensions-dir",
+          renderedExtensionsDir,
+          "--remote-debugging-port=0",
+          "--disable-gpu",
+          "--no-sandbox",
+          "--disable-workspace-trust",
+          "--skip-welcome",
+        ],
+        extensionTestsEnv: {
+          ...extensionTestsEnv,
+          ...(extensionTestsEnv.TRUST_VSCODE_TEST_EVIDENCE
+            ? {
+                TRUST_VSCODE_TEST_EVIDENCE: `${extensionTestsEnv.TRUST_VSCODE_TEST_EVIDENCE}.plant-rendered.${renderedTestFullTitle
+                  .replace(/[^a-z0-9]+/gi, "-")
+                  .replace(/^-|-$/g, "")
+                  .toLowerCase()}.json`,
+              }
+            : {}),
+          TRUST_PLANT_RENDERED_TEST: "1",
+          ...(studioCase ? { TRUST_CONTROL_STUDIO_THREE_PAGE: "1" } : {}),
+          ...(nativePidGroup ? { TRUST_CONTROL_STUDIO_PID_GROUP_NATIVE: "1" } : {}),
+          ...(renderedTestFullTitle.startsWith("Control Studio three-page native journey") ? { TRUST_CONTROL_STUDIO_THREE_PAGE_NATIVE: "1" } : {}),
+          TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT: renderedScreenshot,
+          ...(process.env.TRUST_CONTROL_STUDIO_RENDERED_THEME ? { TRUST_CONTROL_STUDIO_RENDERED_THEME: process.env.TRUST_CONTROL_STUDIO_RENDERED_THEME } : {}),
+          ...(process.env.TRUST_CONTROL_STUDIO_RENDERED_SPLIT ? { TRUST_CONTROL_STUDIO_RENDERED_SPLIT: process.env.TRUST_CONTROL_STUDIO_RENDERED_SPLIT } : {}),
+          TRUST_PLANT_RENDERED_USER_DATA_DIR: renderedUserDataDir,
+          TRUST_VSCODE_TEST_GREP: `^${renderedTestFullTitle}$`,
+        },
+      });
+    } finally {
+      removeTestTempDirectory(renderedRunDir);
+    }
+  }
 }
 
 main().catch((error) => {

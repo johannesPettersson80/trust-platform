@@ -1,0 +1,21 @@
+@startuml
+title ST source selection for Simulator and tests
+skinparam componentStyle rectangle
+component "Delivered ST project" as project
+component "Simulator source selection\ncollect_sources" as simulator
+component "Test discovery\nall test POUs" as discovery
+component "Native runtime compilation" as compiler
+component "Selected test cases" as selected
+component "Cold restart and invoke\nper-case execution deadline" as execution
+project --> simulator : ordinary sources\nignore test-only header
+simulator --> compiler : PLC bindings
+project --> discovery : retain test declarations
+discovery --> compiler : register all test programs\nincluding filtered-out siblings
+discovery --> selected : optional name filter
+compiler --> execution : complete compiled runtime
+selected --> execution : invoke only matching cases
+note bottom of execution
+Human and structured JSON results report only executed cases.
+Test headers preserve source assertions and test discovery.
+end note
+@enduml

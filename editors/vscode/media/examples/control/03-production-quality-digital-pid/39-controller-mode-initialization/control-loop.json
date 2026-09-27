@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "id": "control-booster-pump-modes",
+  "name": "Controller mode initialization",
+  "revision": "sha256:a9cf064b2d098692905d96615cb5239be00ccfa7479f37580baf3e88b4e06072",
+  "projectId": "project:control-booster-pump-modes",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:2c74154a9ca086a277e41904c505b9bf4da6a3d80f3acd0296baaf046f47a8f6",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX41.0",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 2,
+        "maximum": 10
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.RawPressure",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 0,
+        "maximum": 12
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ValveCommand",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX40.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "filtered-discharge-pressure",
+        "channel": "filtered-discharge-pressure",
+        "role": "state",
+        "symbol": "P1.FilteredPressure",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "bar",
+        "range": {
+          "minimum": 0,
+          "maximum": 12
+        }
+      },
+      {
+        "id": "actual-valve-position",
+        "channel": "actual-valve-position",
+        "role": "state",
+        "symbol": "P1.ActualValvePosition",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "requested-mode",
+        "channel": "requested-mode",
+        "role": "state",
+        "symbol": "P1.RequestedMode",
+        "address": "%MW42",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": -1,
+          "maximum": 4
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "booster-pump-pressure",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 10.1,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX40.3",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "seed": 20260829
+  }
+}

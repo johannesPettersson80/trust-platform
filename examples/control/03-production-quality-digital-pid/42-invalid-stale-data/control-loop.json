@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "id": "control-booster-pump-invalid-data",
+  "name": "Reject invalid or stale data before it changes controller state",
+  "revision": "sha256:962551531481fd3ad28c22471f423e7a1c117f7516c23e7e8acfef245daaded9",
+  "projectId": "project:control-booster-pump-invalid-data",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:ffb65549aae20f6f372b115ca021e484c5ff8d3a19cc95c3da34578c4e7a7398",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX65.6",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 0,
+        "maximum": 12
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 0,
+        "maximum": 12
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ValveCommand",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX64.7",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "sensor-age",
+        "channel": "sensor-age",
+        "role": "quality",
+        "symbol": "P1.SensorAgeSeconds",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "measured-cycle-time",
+        "channel": "measured-cycle-time",
+        "role": "state",
+        "symbol": "P1.MeasuredCycleTime",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "fault-code",
+        "channel": "fault-code",
+        "role": "state",
+        "symbol": "P1.FaultCode",
+        "address": "%MW66",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 5
+        }
+      },
+      {
+        "id": "recovery-valid-count",
+        "channel": "recovery-valid-count",
+        "role": "state",
+        "symbol": "P1.RecoveryValidCount",
+        "address": "%MW70",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 3
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "booster-pump-pressure",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 10.1,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX64.7",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "seed": 20260829
+  }
+}

@@ -1,5 +1,0 @@
-case,accepted,decision_measure,measured_value,unit
-low small step,true,local-model final error,0.249938131184,cm
-middle small step,true,local-model final error,0.248879685841,cm
-high small step,true,local-model final error,0.245077099868,cm
-low large step,false,extrapolation error,6.241135736538,cm

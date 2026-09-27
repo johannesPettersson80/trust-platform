@@ -7,6 +7,84 @@ import { candidateFromControlPid, type ControlPidParameters } from "../../contro
 import * as workflowResultModule from "../../controlStudio/workflowResult";
 
 suite("Control Studio validation, apply, rollback, and export", () => {
+  test("exports the current completed recording instead of an older working draft", async () => {
+    const exportResult = require("../../controlStudio/workflowResult").workflowResultForExport;
+    const previous = { recording: { rawSamples: [] } };
+    const current = { recording: { rawSamples: [{ elapsedSeconds: 0, appliedMv: 85, pv: 35 }] } };
+    const result = await exportResult(previous, () => current, false);
+    assert.deepStrictEqual(result, current, "A working view must snapshot its current recording at export time");
+    assert.deepStrictEqual(await exportResult(previous, () => current, true), previous,
+      "Explicitly opened historical results remain immutable");
+  });
+
+  test("retains project-owned Boolean activation and terminal restoration in saved results", () => {
+    for (const status of ["completed", "aborted", "failed"] as const) {
+      const context = workflowResultModule.workflowExperimentContext({
+        source: "simulation", kind: "project_sequence", affectedSignal: "P1.ExperimentEnabled", address: "%MX112.0",
+        from: false, to: true, minimum: 0, maximum: 1, restorationValue: false,
+        durationMs: 60100, trajectory: [], stopConditions: ["Abort", "Signal force"],
+      }, { status, stop_reason: status === "completed" ? "duration_complete" : "signal_forced", restoration: "restored", applied_value: false });
+      assert.ok(context, "a project-owned experiment must retain its terminal evidence");
+      assert.strictEqual(context.kind, "observation");
+      assert.strictEqual(context.affectedSignal, "P1.ExperimentEnabled");
+      assert.strictEqual(context.requestedValue, 1);
+      assert.strictEqual(context.appliedValue, 0, "retain the actual Boolean applied value, including false");
+      assert.strictEqual(context.durationMs, 60100);
+      assert.strictEqual(context.status, status);
+      assert.strictEqual(context.aborted, status === "aborted");
+      assert.deepStrictEqual(context.restoration, { value: 0, status: "confirmed" });
+      const saved = { ...completeSavedRun(`project-${status}`, 1), experiment: context };
+      assert.deepStrictEqual(decodeWorkflowResult(JSON.parse(exportWorkflowJson(saved)))?.experiment, context);
+    }
+  });
+  test("v4 exports auxiliary channels and rejects changing channel metadata", () => {
+    const base = completeSavedRun("channels", 1);
+    const additional = [{ id: "speed", channel: "shaft", role: "state", unit: "rad/s", value: 2, quality: "good" }] as const;
+    const samples = [{ ...base.recording.rawSamples[0], additional },
+      { ...base.recording.rawSamples[0], scan: 2, elapsedSeconds: 0.1, observedAtMs: 1100, additional }];
+    assert.match(exportSamplesCsv(samples), /additional\.speed\.value/, "CSV must retain the measured auxiliary signal");
+    const result = { ...base, recording: { rawSamples: samples, selectedIntervals: [] } };
+    assert.ok(decodeWorkflowResult(result));
+    assert.strictEqual(decodeWorkflowResult({ ...result, recording: { ...result.recording,
+      rawSamples: [samples[0], { ...samples[1], additional: [{ ...additional[0], unit: "rpm" }] }],
+    } }), undefined, "a loop revision cannot silently change a recorded channel's unit");
+  });
+
+  test("v4 retains open-loop observations without inventing a setpoint or its unit", () => {
+    const base = completeSavedRun("open-recording", 1);
+    const units = { sp: "", pv: "%", mv: "%" };
+    const value = { ...base, loop: { ...base.loop, topology: "open-loop" }, units,
+      recording: { rawSamples: base.recording.rawSamples.map(sample => ({ ...sample, sp: null, units })), selectedIntervals: [] } };
+    assert.ok(decodeWorkflowResult(value), "an open-loop record has no SP unit");
+    assert.strictEqual(decodeWorkflowResult({ ...value, recording: { ...value.recording,
+      rawSamples: value.recording.rawSamples.map(sample => ({ ...sample, sp: 1 })),
+    } }), undefined, "open-loop records cannot claim a setpoint");
+  });
+
+  test("runtime recordings use scan time when wall-clock milliseconds repeat", () => {
+    const base = completeSavedRun("fast-recording", 1);
+    const sample = base.recording.rawSamples[0];
+    const value = { ...base, recording: {
+      rawSamples: [{ ...sample, actualCycleSeconds: null },
+        { ...sample, scan: 2, elapsedSeconds: 0.01, actualCycleSeconds: 0.01 }],
+      selectedIntervals: [],
+      acquisition: { method: "runtime_scan_buffer", completeness: "complete", observedSampleCount: 2,
+        scanRange: { first: 1, last: 2 }, missingScanRanges: [], droppedObservedSamples: 0,
+        actualCycleTimingAvailable: true, freshnessAvailable: false, reason: "Every runtime scan was captured." },
+    } };
+    assert.ok(decodeWorkflowResult(value), "runtime sequence and elapsed time establish ordering independently of coarse wall time");
+    assert.strictEqual(decodeWorkflowResult({ ...value, schemaVersion: 3 }), undefined, "legacy timestamp validation is preserved");
+  });
+
+  test("writes result v4 while preserving readable v3 records without migration on read", () => {
+    const created = completeSavedRun("schema-current", 1);
+    assert.strictEqual(created.schemaVersion, 4, "new saves use the current result schema");
+    const legacy = { ...created, schemaVersion: 3 };
+    const original = JSON.stringify(legacy);
+    assert.strictEqual(decodeWorkflowResult(legacy)?.schemaVersion, 3, "reading legacy data does not silently rewrite it");
+    assert.strictEqual(JSON.stringify(legacy), original);
+  });
+
   test("projects complete validation evidence for the collapsed professional details", () => {
     const rows = (require("../../controlStudio/validation") as {
       validationRequirementRows?: (requirements: unknown[]) => unknown;
@@ -259,7 +337,7 @@ suite("Control Studio validation, apply, rollback, and export", () => {
     assert.deepStrictEqual(decoded, result);
     assert.strictEqual(decoded?.recording.rawSamples[0].pv, 0, "saving must not alias or rewrite the raw recording");
     assert.doesNotMatch(exportWorkflowJson(result), /authToken|secret/);
-    assert.strictEqual(decodeWorkflowResult({ ...result, schemaVersion: 4 }), undefined);
+    assert.strictEqual(decodeWorkflowResult({ ...result, schemaVersion: 5 }), undefined);
   });
 
   test("round-trips a retained constrained proportional recommendation", () => {
@@ -387,7 +465,7 @@ suite("Control Studio validation, apply, rollback, and export", () => {
       conclusion: "Recording retained for later identification.",
     }, "2026-08-26T12:00:00.000Z");
 
-    assert.strictEqual(result.schemaVersion, 3);
+    assert.strictEqual(result.schemaVersion, 4);
     assert.strictEqual(result.resultId, "run-20260826-1");
     assert.strictEqual(result.resultRevision, 3);
     assert.deepStrictEqual((result.recording as { rawSamples: unknown[] }).rawSamples, [{
@@ -445,7 +523,7 @@ suite("Control Studio validation, apply, rollback, and export", () => {
     assert.strictEqual(csv.split("\n")[0], [
       "elapsed_seconds", "observed_at_ms", "actual_cycle_seconds", "sp", "pv",
       "requested_mv", "applied_mv",
-      "sp_unit", "pv_unit", "mv_unit", "quality", "freshness_ms", "controller_mode",
+      "sp_unit", "pv_unit", "mv_unit", "quality", "freshness_ms", "editor_observation_interval_seconds", "controller_mode",
       "safety_state", "output_minimum", "output_maximum", "rate_down_per_second",
       "rate_up_per_second", "source", "events",
     ].join(","));

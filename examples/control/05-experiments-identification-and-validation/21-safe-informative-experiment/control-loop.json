@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 2,
+  "topology": "open-loop",
+  "id": "control-lesson-21",
+  "name": "Identification experiments",
+  "projectId": "project:control-lesson-21",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Main",
+    "design": "project",
+    "revision": "sha256:4446617407a3bc068a2ecada3819249b2ba19343971f0f58a1e101f305f49207",
+    "action": "direct",
+    "taskPeriodMs": 100
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.TemperatureC",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 33,
+        "maximum": 39
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.AppliedPowerPct",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX64.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "safety-abort",
+        "channel": "safety-abort",
+        "role": "state",
+        "symbol": "P1.SafetyAbort",
+        "address": "%MX64.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "proposal",
+        "channel": "proposal",
+        "role": "state",
+        "symbol": "P1.ProposedCommandPct",
+        "address": "%MD0",
+        "iecType": "REAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "prediction",
+        "channel": "prediction",
+        "role": "state",
+        "symbol": "P1.PredictedFinalC",
+        "address": "%MD4",
+        "iecType": "REAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "range",
+        "channel": "range",
+        "role": "state",
+        "symbol": "P1.BaselineRangeC",
+        "address": "%MD8",
+        "iecType": "REAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "slope",
+        "channel": "slope",
+        "role": "state",
+        "symbol": "P1.BaselineSlopeCPerS",
+        "address": "%MD12",
+        "iecType": "REAL",
+        "direction": "read",
+        "unit": "degC/s",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "qualified",
+        "channel": "qualified",
+        "role": "state",
+        "symbol": "P1.BaselineQualified",
+        "address": "%MX64.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "active",
+        "channel": "active",
+        "role": "state",
+        "symbol": "P1.Active",
+        "address": "%MX64.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "rejected",
+        "channel": "rejected",
+        "role": "state",
+        "symbol": "P1.StartRejected",
+        "address": "%MX64.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "quality",
+        "channel": "quality",
+        "role": "quality",
+        "symbol": "P1.MeasurementQuality",
+        "address": "%IW16",
+        "iecType": "UINT",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 65535
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "heater-qualified-experiment",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 45.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX64.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "baselineSeconds": 5
+  },
+  "parameterBinding": {
+    "loop_id": "control-lesson-21",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.SelectedStepPoints",
+        "iec_type": "REAL",
+        "unit": "percentage-point",
+        "convention": "positive step above75% baseline",
+        "minimum": 5,
+        "maximum": 15
+      },
+      {
+        "symbol": "P1.HoldSeconds",
+        "iec_type": "REAL",
+        "unit": "s",
+        "convention": "held step duration",
+        "minimum": 20,
+        "maximum": 40
+      }
+    ],
+    "mode": {
+      "symbol": "P1.ExperimentEnabled",
+      "manual_value": false
+    }
+  },
+  "parameterPurpose": "experiment",
+  "revision": "sha256:168152ed188d9f200f13f426b86ced5b8e7bc84e62b58fed533f351ffdceac39"
+}

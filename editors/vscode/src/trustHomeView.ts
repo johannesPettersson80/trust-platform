@@ -45,7 +45,6 @@ import {
 } from "./managedRuntimeSession";
 import type { ManagedRuntime } from "./localRuntimeModel";
 import { getWorkspaceProjectState } from "./workspaceProject";
-import { controlStudioRequestForWorkspace } from "./controlStudio/projectLoop";
 
 // The ONE truST sidebar (WebviewView `trust.home`). It keeps one fixed layout:
 //   • No project open  → Examples-first onboarding; no transport controls.
@@ -315,15 +314,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
         await vscode.commands.executeCommand("trust-lsp.networkCanvas.open");
         return;
       case "navControlStudio":
-        {
-          const resolution = await controlStudioRequestForWorkspace(getSelectedRuntimeId());
-          if (resolution.kind !== "accepted") {
-            void vscode.window.showWarningMessage(resolution.reason);
-            return;
-          }
-          const request = resolution.request;
-          await vscode.commands.executeCommand("trust-lsp.controlStudio.open", request);
-        }
+        await vscode.commands.executeCommand("trust-lsp.controlStudio.open");
         return;
       case "navLibraries":
         await vscode.commands.executeCommand("trust-lsp.libraries.open");

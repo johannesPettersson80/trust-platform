@@ -1,0 +1,318 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-kalman-filter",
+  "name": "Kalman filter",
+  "revision": "sha256:67d8bde286a16578bb402078fdf20bf17b8677239d10d3171c34339583539c10",
+  "projectId": "project:control-kalman-filter",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Scalar discrete Kalman filtering and innovation diagnosis",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-66",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX120.3",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.MassFlowMeasurement",
+      "address": "%IL8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "kg/s",
+      "range": {
+        "minimum": -10,
+        "maximum": 30
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.BeltCommandRequested",
+      "address": "%ML16",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": -20,
+        "maximum": 40
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX120.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "estimator-execution-enabled",
+        "channel": "estimator-execution-enabled",
+        "role": "state",
+        "symbol": "P1.Enabled",
+        "address": "%MX120.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "kalman-estimate-selected",
+        "channel": "kalman-estimate-selected",
+        "role": "state",
+        "symbol": "P1.UseKalman",
+        "address": "%MX120.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "estimator-covariance-valid",
+        "channel": "estimator-covariance-valid",
+        "role": "quality",
+        "symbol": "P1.EstimatorValid",
+        "address": "%MX120.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "process-noise-variance",
+        "channel": "process-noise-variance",
+        "role": "state",
+        "symbol": "P1.ProcessNoiseVariance",
+        "address": "%ML0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "(kg/s)^2",
+        "range": {
+          "minimum": 0,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "measurement-noise-variance",
+        "channel": "measurement-noise-variance",
+        "role": "state",
+        "symbol": "P1.MeasurementNoiseVariance",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "(kg/s)^2",
+        "range": {
+          "minimum": 0.001,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "predicted-mass-flow-estimate",
+        "channel": "predicted-mass-flow-estimate",
+        "role": "state",
+        "symbol": "P1.PredictedEstimate",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kg/s",
+        "range": {
+          "minimum": -20,
+          "maximum": 40
+        }
+      },
+      {
+        "id": "predicted-estimate-covariance",
+        "channel": "predicted-estimate-covariance",
+        "role": "state",
+        "symbol": "P1.PredictedCovariance",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "(kg/s)^2",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "kalman-gain",
+        "channel": "kalman-gain",
+        "role": "state",
+        "symbol": "P1.KalmanGain",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "corrected-kalman-mass-flow-estimate",
+        "channel": "corrected-kalman-mass-flow-estimate",
+        "role": "state",
+        "symbol": "P1.Estimate",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kg/s",
+        "range": {
+          "minimum": -20,
+          "maximum": 40
+        }
+      },
+      {
+        "id": "corrected-estimate-covariance",
+        "channel": "corrected-estimate-covariance",
+        "role": "state",
+        "symbol": "P1.Covariance",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "(kg/s)^2",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "fixed-filter-mass-flow-estimate",
+        "channel": "fixed-filter-mass-flow-estimate",
+        "role": "state",
+        "symbol": "P1.SimpleEstimate",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kg/s",
+        "range": {
+          "minimum": -20,
+          "maximum": 40
+        }
+      },
+      {
+        "id": "selected-mass-flow-estimate",
+        "channel": "selected-mass-flow-estimate",
+        "role": "state",
+        "symbol": "P1.SelectedEstimate",
+        "address": "%ML72",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kg/s",
+        "range": {
+          "minimum": -20,
+          "maximum": 40
+        }
+      },
+      {
+        "id": "mass-flow-innovation",
+        "channel": "mass-flow-innovation",
+        "role": "state",
+        "symbol": "P1.Innovation",
+        "address": "%ML80",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kg/s",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "innovation-variance",
+        "channel": "innovation-variance",
+        "role": "state",
+        "symbol": "P1.InnovationVariance",
+        "address": "%ML88",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "(kg/s)^2",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "normalized-innovation-squared",
+        "channel": "normalized-innovation-squared",
+        "role": "state",
+        "symbol": "P1.NormalizedInnovationSquared",
+        "address": "%ML96",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "applied-belt-speed-command",
+        "channel": "applied-belt-speed-command",
+        "role": "MV",
+        "symbol": "P1.BeltCommandApplied",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "simulation-truth-mass-flow",
+        "channel": "simulation-truth-mass-flow",
+        "role": "state",
+        "symbol": "P1.MassFlowTruth",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kg/s",
+        "range": {
+          "minimum": 0,
+          "maximum": 20
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": -20,
+    "outputMaximum": 40
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "equivalent_truth_and_noisy_weigh_feeder_copies",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 30.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX120.3",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
+}

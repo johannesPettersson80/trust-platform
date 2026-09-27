@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="250" viewBox="0 0 920 250" role="img" aria-labelledby="title desc">
+  <title id="title">Safe experiment sequence</title>
+  <desc id="desc">Review the plan, verify a steady baseline, apply the bounded change, monitor abort conditions, and restore the starting valve position.</desc>
+  <rect x="1" y="1" width="918" height="248" rx="16" fill="#f7f9fc" stroke="#d8e0eb"/>
+  <text x="460" y="38" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#243044">The restoration path is defined before the valve moves</text>
+  <rect x="35" y="85" width="135" height="70" rx="10" fill="#dcecff" stroke="#526078"/>
+  <rect x="215" y="85" width="135" height="70" rx="10" fill="#dcecff" stroke="#526078"/>
+  <rect x="395" y="85" width="135" height="70" rx="10" fill="#fff0d8" stroke="#526078"/>
+  <rect x="575" y="85" width="135" height="70" rx="10" fill="#fff0d8" stroke="#526078"/>
+  <rect x="755" y="85" width="130" height="70" rx="10" fill="#dff3e8" stroke="#526078"/>
+  <line x1="170" y1="120" x2="215" y2="120" stroke="#526078" stroke-width="3"/>
+  <line x1="350" y1="120" x2="395" y2="120" stroke="#526078" stroke-width="3"/>
+  <line x1="530" y1="120" x2="575" y2="120" stroke="#526078" stroke-width="3"/>
+  <line x1="710" y1="120" x2="755" y2="120" stroke="#526078" stroke-width="3"/>
+  <text x="102" y="112" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#243044">Review limits</text>
+  <text x="102" y="134" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#243044">and restoration</text>
+  <text x="282" y="112" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#243044">Confirm steady</text>
+  <text x="282" y="134" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#243044">starting state</text>
+  <text x="462" y="112" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#243044">Apply bounded</text>
+  <text x="462" y="134" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#243044">valve change</text>
+  <text x="642" y="112" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#243044">Watch every</text>
+  <text x="642" y="134" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#243044">abort condition</text>
+  <text x="820" y="112" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#243044">Restore 60%</text>
+  <text x="820" y="134" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#243044">on stop or abort</text>
+  <line x1="642" y1="155" x2="642" y2="205" stroke="#c33" stroke-width="3"/>
+  <line x1="642" y1="205" x2="820" y2="205" stroke="#c33" stroke-width="3"/>
+  <line x1="820" y1="205" x2="820" y2="155" stroke="#c33" stroke-width="3"/>
+  <text x="730" y="225" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#a22">any abort condition</text>
+</svg>

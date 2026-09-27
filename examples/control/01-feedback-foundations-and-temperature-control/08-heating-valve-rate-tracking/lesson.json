@@ -1,0 +1,315 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-08",
+  "title": "Actuator tracking",
+  "level": "Foundation",
+  "sequence": 30,
+  "equipment": "Motor-operated heating valve and recirculating water loop",
+  "physicalPurpose": "Separate a PI position request from the position a motorized valve can reach during one scan.",
+  "principalTechnique": "Actuator rate limiting with applied-position tracking",
+  "objective": "Derive the valve movement available per scan, apply it in both directions, and make PI state track the applied position.",
+  "prerequisites": [
+    "control-lesson-07",
+    "control-capstone-water-heater"
+  ],
+  "nextLesson": "control-valve-characterization",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Desired water temperature",
+      "unit": "degC",
+      "minimum": 15,
+      "maximum": 60,
+      "resolution": 0.1,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Measured water temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.01,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Requested valve position",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Position difference",
+      "unit": "pp",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "Proportional gain",
+      "unit": "%/degC",
+      "minimum": 0,
+      "maximum": 20,
+      "resolution": 0.1,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "Integral gain",
+      "unit": "%/(degC*s)",
+      "minimum": 0,
+      "maximum": 20,
+      "resolution": 0.1,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "Stored correction",
+      "unit": "%",
+      "minimum": -1000,
+      "maximum": 1000,
+      "resolution": 0.01,
+      "binding": "%ML64"
+    },
+    {
+      "role": "state",
+      "name": "Tracking correction",
+      "unit": "%",
+      "minimum": -1000,
+      "maximum": 1000,
+      "resolution": 0.001,
+      "binding": "%ML80"
+    },
+    {
+      "role": "state",
+      "name": "Maximum valve speed",
+      "unit": "%/s",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.1,
+      "binding": "%ML88"
+    },
+    {
+      "role": "MV",
+      "name": "Applied valve position",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX128.0"
+    },
+    {
+      "role": "state",
+      "name": "Automatic control",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX128.1"
+    }
+  ],
+  "plant": {
+    "modelId": "first_order_dead_time",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      {
+        "name": "gain",
+        "value": 0.2,
+        "unit": "degC/%"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "dead_time",
+        "value": 1,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "waterTemperature": 20
+    },
+    "seed": 20260828,
+    "operatingPoint": {
+      "PV": 35,
+      "MV": 75
+    },
+    "validityRange": [
+      {
+        "signal": "Measured water temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied valve position",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "The valve position represents the heating input to a one-temperature water process.",
+      "The motorized valve opens and closes at 5 percentage points per second.",
+      "The 38 degC target requires an in-range 90 percent steady valve position."
+    ]
+  },
+  "baseline": {
+    "executableId": "Lesson7.AmplitudeLimitedActuator",
+    "settings": {
+      "outputMinimum": 0,
+      "outputMaximum": 100
+    },
+    "limitation": "An amplitude clamp allows an in-range request to change instantaneously."
+  },
+  "change": {
+    "executableId": "Lesson8.RateLimitedTrackedValve",
+    "settings": {
+      "maximumValveRate": 5,
+      "cycleTimeSeconds": 0.1,
+      "trackingTimeSeconds": 1
+    },
+    "decision": "Limit valve movement to 0.5 percentage point per scan and use applied position in the tracking correction."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 105.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Desired temperature changes from 35 to 38 degC at 55 s and returns to 35 degC at 75 s."
+    ],
+    "seed": 20260828,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "movement_per_scan",
+      "signal": "Applied valve position",
+      "window": "all adjacent samples",
+      "comparator": "<=",
+      "limit": 0.5,
+      "unit": "pp",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "negative_tracking_while_opening",
+      "signal": "Tracking correction",
+      "window": "request above applied",
+      "comparator": "<",
+      "limit": 0,
+      "unit": "%",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "positive_tracking_while_closing",
+      "signal": "Tracking correction",
+      "window": "request below applied",
+      "comparator": ">",
+      "limit": 0,
+      "unit": "%",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured water temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied valve position",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Temperature or valve position is not finite",
+      "Temperature or valve position leaves its limit"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Automatic control off and valve moving toward 0% at its configured rate",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The valve speed, gains, and target sequence are simulation teaching values."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#71-feedback-and-practical-temperature-control",
+    "nativeTest": "TEST_PROGRAM::Lesson8AppliedPowerCannotMoveFasterThanActuator",
+    "nativeCommand": "trust-dev test --project examples/control/01-feedback-foundations-and-temperature-control/08-heating-valve-rate-tracking --filter TEST_PROGRAM::Lesson8AppliedPowerCannotMoveFasterThanActuator --timeout 15",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/08-heating-valve-rate-tracking",
+    "runArtifactFields": [
+      "desiredTemperature",
+      "measuredTemperature",
+      "requestedPosition",
+      "appliedPosition",
+      "positionDifference",
+      "trackingCorrection"
+    ],
+    "renderedJourneyId": "control-lesson-08"
+  },
+  "learning": {
+    "context": "Lesson 7 used applied output to correct PI state during amplitude saturation.",
+    "reason": "A motorized valve may also lag behind an allowed request because it has finite travel speed.",
+    "change": "Limit valve movement per scan and track its applied position.",
+    "transfer": "Lesson 9 compares target response with rejection of a load disturbance.",
+    "theory": [
+      "A motorized valve may also lag behind an allowed request because it has finite travel speed."
+    ],
+    "workedPrediction": "Limit valve movement to 0.5 percentage point per scan and use applied position in the tracking correction.",
+    "practicalPreparation": [
+      "Lesson 7 used applied output to correct PI state during amplitude saturation."
+    ],
+    "baseline": "An amplitude clamp allows an in-range request to change instantaneously.",
+    "comparison": "Derive the valve movement available per scan, apply it in both directions, and make PI state track the applied position.",
+    "validation": "Check the declared acceptance metrics against the retained run.",
+    "explanation": "Derive the valve movement available per scan, apply it in both directions, and make PI state track the applied position."
+  },
+  "video": {
+    "viewerOutcome": "Derive the valve movement available per scan, apply it in both directions, and make PI state track the applied position.",
+    "requiredVisibleEvidence": [
+      "desiredTemperature",
+      "measuredTemperature",
+      "requestedPosition",
+      "appliedPosition",
+      "positionDifference",
+      "trackingCorrection"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

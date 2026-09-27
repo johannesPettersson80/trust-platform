@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="460" viewBox="0 0 900 460" role="img" aria-labelledby="title desc">
+  <title id="title">Tangent approximation to gravity outflow</title>
+  <desc id="desc">A straight tangent touches the curved square-root outflow relationship at the 0.25 metre operating level and separates from it farther away.</desc>
+  <rect width="900" height="460" fill="#ffffff"/>
+  <text x="60" y="45" font-family="sans-serif" font-size="27" fill="#20252b">A tangent matches the curve near one operating point</text>
+  <line x1="105" y1="375" x2="830" y2="375" stroke="#424b55" stroke-width="3"/>
+  <line x1="105" y1="375" x2="105" y2="85" stroke="#424b55" stroke-width="3"/>
+  <text x="665" y="420" font-family="sans-serif" font-size="22" fill="#20252b">tank level, h</text>
+  <text x="18" y="230" font-family="sans-serif" font-size="22" fill="#20252b" transform="rotate(-90 18 230)">outlet flow</text>
+
+  <line x1="105" y1="375" x2="160" y2="310" stroke="#2374ab" stroke-width="6"/>
+  <line x1="160" y1="310" x2="230" y2="260" stroke="#2374ab" stroke-width="6"/>
+  <line x1="230" y1="260" x2="320" y2="215" stroke="#2374ab" stroke-width="6"/>
+  <line x1="320" y1="215" x2="430" y2="178" stroke="#2374ab" stroke-width="6"/>
+  <line x1="430" y1="178" x2="560" y2="145" stroke="#2374ab" stroke-width="6"/>
+  <line x1="560" y1="145" x2="700" y2="118" stroke="#2374ab" stroke-width="6"/>
+  <line x1="700" y1="118" x2="820" y2="100" stroke="#2374ab" stroke-width="6"/>
+
+  <line x1="150" y1="305" x2="760" y2="80" stroke="#d76720" stroke-width="5"/>
+  <circle cx="320" cy="215" r="10" fill="#111820"/>
+  <line x1="320" y1="215" x2="320" y2="375" stroke="#9aa4ae" stroke-width="2"/>
+  <text x="272" y="404" font-family="sans-serif" font-size="20" fill="#20252b">h₀ = 0.25 m</text>
+  <text x="610" y="145" font-family="sans-serif" font-size="21" fill="#2374ab">square-root outflow</text>
+  <text x="625" y="68" font-family="sans-serif" font-size="21" fill="#d76720">local tangent</text>
+  <text x="110" y="445" font-family="sans-serif" font-size="19" fill="#424b55">Close to h₀ the line follows the curve; farther away their predictions separate.</text>
+</svg>

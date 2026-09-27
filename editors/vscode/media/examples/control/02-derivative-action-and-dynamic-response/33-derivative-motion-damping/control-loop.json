@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "id": "control-derivative-motion-damping",
+  "name": "Derivative motion damping",
+  "revision": "sha256:9616bbb4731516dc719ee8bfe93dc3ddf1fe0cd846d4c5622e12bb95b41197b9",
+  "projectId": "project:control-derivative-motion-damping",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:e3d7e3fdf461fb8ab96c9aab1b76894398a63a8575b79d64082d171a469f38e9",
+    "action": "direct",
+    "taskPeriodMs": 20,
+    "modeSignal": "%MX32.0",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML24",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rad",
+      "range": {
+        "minimum": -2,
+        "maximum": 2
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.Position",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rad",
+      "range": {
+        "minimum": -4,
+        "maximum": 4
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.MotorTorque",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "N m",
+      "range": {
+        "minimum": -10,
+        "maximum": 10
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX32.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "measured-table-velocity",
+        "channel": "measured-table-velocity",
+        "role": "state",
+        "symbol": "P1.Velocity",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": -10,
+    "outputMaximum": 10
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 20
+  },
+  "plantId": "payload-loaded-servo-positioning-table",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 30.02,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX32.1",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "seed": 20260828
+  }
+}

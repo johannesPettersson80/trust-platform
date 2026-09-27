@@ -337,12 +337,10 @@ END_PROGRAM
             "first phase should create the target file"
         );
         assert!(
-            operations[1]
-                .iter()
-                .all(|operation| matches!(
-                    operation,
-                    DocumentChangeOperation::Op(ResourceOp::Delete(_))
-                )),
+            operations[1].iter().all(|operation| matches!(
+                operation,
+                DocumentChangeOperation::Op(ResourceOp::Delete(_))
+            )),
             "second phase should only clean up source files"
         );
         assert!(
@@ -532,6 +530,53 @@ END_PROGRAM
     }
 
     #[test]
+    fn hmi_bindings_excludes_runtime_ignored_lesson_tests() {
+        for lesson in ["01-cold-storage-loop-anatomy", "02-cold-storage-on-off", "03-cold-storage-hysteresis-dwell"] {
+            let project = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../examples/control/01-feedback-foundations-and-temperature-control")
+                .join(lesson);
+            let root = temp_dir("trustlsp-lesson-bindings");
+            let src = root.join("src");
+            std::fs::create_dir_all(&src).unwrap();
+            std::fs::copy(project.join("src/Main.st"), src.join("Main.st")).unwrap();
+            std::fs::copy(project.join("src/tests.st"), src.join("tests.st")).unwrap();
+            let root_uri = Url::from_directory_path(&root).unwrap();
+            let context = MockContext {
+                workspace_configs: vec![(
+                    root_uri.clone(),
+                    test_project_config(root.to_string_lossy().as_ref(), "x86_64"),
+                )],
+                workspace_folders: vec![root_uri],
+                ..MockContext::default()
+            };
+            let result = hmi_bindings_value_with_context(&context, Vec::new()).unwrap();
+            assert_eq!(
+                result.get("ok").and_then(Value::as_bool),
+                Some(true),
+                "actual lesson bindings must compile without test programs: {result}"
+            );
+            let text = result.to_string();
+            for name in [
+                "ProcessValue",
+                "ManipulatedValue",
+                "EffectiveSurroundings",
+                "DoorOpenIndication",
+            ] {
+                assert!(
+                    text.contains(name),
+                    "missing configured signal {name}: {result}"
+                );
+            }
+            assert!(!text.contains("Lesson1ManualDemandIsDirectAndBounded"));
+            // Removing the opt-out must expose the unbound program error again.
+            std::fs::write(src.join("tests.st"), "PROGRAM UnboundTest END_PROGRAM").unwrap();
+            let invalid = hmi_bindings_value_with_context(&context, Vec::new()).unwrap();
+            assert_eq!(invalid.get("ok").and_then(Value::as_bool), Some(false));
+            std::fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
     fn hmi_bindings_command_rejects_invalid_argument_shape() {
         let context = MockContext::default();
         let result = hmi_bindings_value_with_context(
@@ -555,12 +600,17 @@ END_PROGRAM
         std::fs::write(
             src_dir.join("main.st"),
             r#"
+FUNCTION_BLOCK CustomRegulator
+VAR Alpha : REAL := 2.0; END_VAR
+END_FUNCTION_BLOCK
+
 PROGRAM Main
 VAR
     Command : LREAL;
     Feedback : REAL;
     Enabled : BOOL;
     Scratch : DINT;
+    PID : CustomRegulator;
 END_VAR
 END_PROGRAM
 
@@ -614,6 +664,29 @@ END_CONFIGURATION
                 "type": "REAL"
             })])
         );
+
+        assert_eq!(
+            process_image.get("memory").and_then(Value::as_array),
+            Some(&vec![json!({
+                "symbol": "P1.Scratch",
+                "address": "%MD20",
+                "type": "DINT"
+            })]),
+            "compiled memory variables must be selectable in Control Studio"
+        );
+
+        let symbols = result["controlSymbols"]["symbols"].as_array()
+            .expect("compiled control symbols must be available");
+        assert!(symbols.iter().any(|entry| entry["symbol"] == "P1.PID.Alpha"
+            && entry["type"] == "REAL" && entry.get("address").is_none()),
+            "unaddressed controller parameters must retain their compiled symbolic path");
+        let controllers = result["controlSymbols"]["controllers"].as_array()
+            .expect("compiled controller instances");
+        assert!(controllers.iter().any(|entry| entry["instance"] == "P1.PID"
+            && entry["type"] == "CustomRegulator"
+            && entry["tasks"][0]["name"] == "MainTask"
+            && entry["tasks"][0]["intervalMs"] == 100.0),
+            "a misleading instance name must not replace the actual compiled controller type");
 
         std::fs::remove_dir_all(root).expect("remove temp dir");
     }

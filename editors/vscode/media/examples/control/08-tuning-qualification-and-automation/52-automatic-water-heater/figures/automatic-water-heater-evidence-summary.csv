@@ -1,3 +1,0 @@
-case,controller,status,iae,ise,itae,overshoot_percent,final_mean_absolute_error,applied_movement_pp,completed_stages,candidate_applied,active_controller_changed,evidence_class
-current,Robust_PI,running,46.996344,109.562857,1228.648135,0.396504,0.012606,52.643853,Test|Identify|Tune|Validate,false,false,simulation
-candidate,Balanced_PI,validated_unapplied,27.439550,67.496928,726.151701,0.393329,0.012560,93.338377,Test|Identify|Tune|Validate,false,false,simulation

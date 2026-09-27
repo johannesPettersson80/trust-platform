@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-12",
+  "title": "Sampling and timing",
+  "level": "Foundation",
+  "sequence": 24,
+  "equipment": "Digital controller, sampled sensor, and held actuator command",
+  "physicalPurpose": "Show how elapsed time and sampling affect a controller calculation.",
+  "principalTechnique": "Elapsed-time scaling and aliasing observation",
+  "objective": "Use actual elapsed time after a missed update and show that different continuous signals can have equal samples.",
+  "prerequisites": [
+    "control-lesson-11"
+  ],
+  "nextLesson": "control-booster-pump-modes",
+  "signals": [
+    {
+      "role": "state",
+      "name": "Actual elapsed time",
+      "unit": "s",
+      "minimum": 0,
+      "maximum": 0.2,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Change using actual time",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 0.1,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "Change using assumed time",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 0.1,
+      "resolution": 0.001,
+      "binding": "%ML24"
+    },
+    {
+      "role": "MV",
+      "name": "Accumulated correction using actual time",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 2,
+      "resolution": 0.001,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "Accumulated correction using assumed time",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 2,
+      "resolution": 0.001,
+      "binding": "%ML40"
+    },
+    {
+      "role": "PV",
+      "name": "Slow-wave sample",
+      "unit": "1",
+      "minimum": -1,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "Fast-wave sample",
+      "unit": "1",
+      "minimum": -1,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%ML56"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    }
+  ],
+  "plant": {
+    "modelId": "sampled-signal-comparison",
+    "executable": "src/Main.st",
+    "parameters": [
+      {
+        "name": "nominal_sample_interval",
+        "value": 0.1,
+        "unit": "s"
+      },
+      {
+        "name": "missed_update_elapsed_time",
+        "value": 0.2,
+        "unit": "s"
+      },
+      {
+        "name": "change_rate",
+        "value": 0.5,
+        "unit": "1/s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "accumulatedCorrection": 0
+    },
+    "seed": 20260824,
+    "operatingPoint": {
+      "Actual elapsed time": 0.1,
+      "Accumulated correction using actual time": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Accumulated correction using actual time",
+        "minimum": 0,
+        "maximum": 2,
+        "unit": "1"
+      },
+      {
+        "signal": "Slow-wave sample",
+        "minimum": -1,
+        "maximum": 1,
+        "unit": "1"
+      }
+    ],
+    "simplifications": [
+      "The missed update is scripted so the arithmetic can be observed deterministically.",
+      "The wave comparison represents sensor motion before sampling."
+    ]
+  },
+  "baseline": {
+    "executableId": "Lesson12.AssumedTime",
+    "settings": {
+      "elapsedTimeSeconds": 0.1
+    },
+    "limitation": "The assumed interval remains 0.1 s after 0.2 s has passed."
+  },
+  "change": {
+    "executableId": "Lesson12.ActualTime",
+    "settings": {
+      "normalElapsedTimeSeconds": 0.1,
+      "missedUpdateElapsedTimeSeconds": 0.2
+    },
+    "decision": "Scale the accumulated change by the elapsed time represented by the update."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 2.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "One scripted missed update after ten ordinary updates."
+    ],
+    "seed": 20260824,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "ordinary_update_change",
+      "signal": "Change using actual time",
+      "window": "0.1 s updates",
+      "comparator": "==",
+      "limit": 0.05,
+      "unit": "1",
+      "tolerance": 1e-06,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "missed_update_change",
+      "signal": "Change using actual time",
+      "window": "0.2 s update",
+      "comparator": "==",
+      "limit": 0.1,
+      "unit": "1",
+      "tolerance": 1e-06,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "alias_sample_difference",
+      "signal": "Slow-wave sample",
+      "window": "all samples",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 1e-12,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#71-feedback-and-practical-temperature-control",
+    "nativeTest": "TEST_PROGRAM::Lesson12UsesScriptedElapsedTime",
+    "nativeCommand": "trust-dev test --project examples/control/01-feedback-foundations-and-temperature-control/12-elapsed-time-and-sampling --filter TEST_PROGRAM::Lesson12UsesScriptedElapsedTime && trust-dev test --project examples/control/01-feedback-foundations-and-temperature-control/12-elapsed-time-and-sampling --filter TEST_PROGRAM::Lesson12DifferentWavesCanHaveEqualSamples",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/12-elapsed-time-and-sampling",
+    "runArtifactFields": [
+      "actualElapsedTime",
+      "changeUsingActualTime",
+      "changeUsingAssumedTime",
+      "slowWaveSample",
+      "fastWaveSample"
+    ],
+    "renderedJourneyId": "control-lesson-12"
+  },
+  "learning": {
+    "context": "Lesson 11 used time in a measurement filter.",
+    "reason": "Late and missed updates make a fixed assumed interval incorrect, while sampling can lose motion between updates.",
+    "change": "Use actual elapsed time and compare two different waves at common sample instants.",
+    "transfer": "Lesson 13 observes process response shapes without yet explaining their physical causes.",
+    "theory": [
+      "Late and missed updates make a fixed assumed interval incorrect, while sampling can lose motion between updates."
+    ],
+    "workedPrediction": "Scale the accumulated change by the elapsed time represented by the update.",
+    "practicalPreparation": [
+      "Lesson 11 used time in a measurement filter."
+    ],
+    "baseline": "The assumed interval remains 0.1 s after 0.2 s has passed.",
+    "comparison": "Use actual elapsed time after a missed update and show that different continuous signals can have equal samples.",
+    "validation": "Check the declared acceptance metrics against the retained run.",
+    "explanation": "Use actual elapsed time after a missed update and show that different continuous signals can have equal samples."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Accumulated correction using actual time",
+        "minimum": 0,
+        "maximum": 2,
+        "unit": "1"
+      },
+      {
+        "signal": "Slow-wave sample",
+        "minimum": -1,
+        "maximum": 1,
+        "unit": "1"
+      }
+    ],
+    "abortPredicates": [
+      "Signals must remain finite and inside the declared lesson ranges."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Restore Lesson experiment to 0.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Use actual elapsed time after a missed update and show that different continuous signals can have equal samples.",
+    "requiredVisibleEvidence": [
+      "actualElapsedTime",
+      "changeUsingActualTime",
+      "changeUsingAssumedTime",
+      "slowWaveSample",
+      "fastWaveSample"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

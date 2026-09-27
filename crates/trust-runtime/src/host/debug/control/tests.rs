@@ -1,4 +1,5 @@
 use super::*;
+use serde_json::json;
 use std::sync::mpsc::{channel, Receiver};
 use std::thread;
 use std::time::Duration;
@@ -81,4 +82,231 @@ fn pause_after_continue_while_waiting_emits_pause_stop() {
     control.continue_run();
     handle.join().expect("hook thread joins");
     second_handle.join().expect("second hook thread joins");
+}
+
+#[test]
+fn nested_control_pid_parameter_transaction_adopts_and_rejects_post_st_write() {
+    let mut runtime = crate::harness::CompileSession::from_sources(vec![
+        crate::harness::SourceFile::with_path(
+            "Control/control.st",
+            include_str!("../../../../../../libraries/control/src/control.st"),
+        ),
+        crate::harness::SourceFile::with_path(
+            "src/tests.st",
+            include_str!("../../../../../../examples/control-pid-commissioning/src/main.st"),
+        ),
+    ])
+    .build_runtime()
+    .expect("compile real Control.PID fixture");
+    let control = runtime.enable_debug();
+    runtime.execute_cycle().expect("execute Control.PID task");
+    let metadata = runtime.metadata_snapshot();
+    let binding = json!({
+        "loop_id": "nested-pid",
+        "task_name": "MainTask",
+        "parameters": [{
+            "symbol": "P1.Controller.ParametersValue.ProportionalGain",
+            "iec_type": "LREAL",
+            "unit": "gain",
+            "convention": "positive gain",
+            "minimum": 0.0,
+            "maximum": 10.0
+        }],
+        "mode": {"symbol": "P1.AutoMode", "manual_value": false}
+    });
+    {
+        let (lock, _) = &*control.state;
+        lock.lock().expect("debug state").snapshot = Some(crate::debug::DebugSnapshot {
+            storage: runtime.storage().clone(),
+            now: crate::value::Duration::from_millis(100),
+        });
+    }
+    let status = control
+        .parameter_status(json!({"binding": binding}), &metadata)
+        .expect("read nested parameter status");
+    let apply = control
+        .parameter_apply(
+            json!({
+                    "transaction_id": "nested-apply",
+                    "binding": binding,
+                    "expected_program_revision": status["program_revision"],
+                    "expected_binding_revision": status["binding_revision"],
+                    "expected_active_revision": status["active_revision"],
+                    "expected_values": status["values"],
+            "values": {"P1.Controller.ParametersValue.ProportionalGain": 2.5},
+                    "source": "simulation",
+                    "physical_approved": false
+                }),
+            &metadata,
+            false,
+        )
+        .expect("stage nested parameter transaction");
+    assert_eq!(apply["status"], "pending");
+    let mut task_storage = runtime.storage().clone();
+    control.commit_parameters("MainTask", &mut task_storage, &metadata, false, &[]);
+    let proportional = parameters::resolve_path(
+        &task_storage,
+        "P1.Controller.ParametersValue.ProportionalGain",
+    )
+    .expect("committed nested parameter")
+    .value;
+    assert_eq!(proportional, crate::value::Value::LReal(2.5));
+    let sibling =
+        parameters::resolve_path(&task_storage, "P1.Controller.ParametersValue.IntegralGain")
+            .expect("preserved nested sibling")
+            .value;
+    assert_eq!(sibling, crate::value::Value::LReal(0.0));
+    control.confirm_parameters(
+        "MainTask",
+        &task_storage,
+        crate::value::Duration::from_millis(200),
+    );
+    let adopted = control
+        .parameter_status(json!({"binding": binding}), &metadata)
+        .expect("read adopted nested parameter status");
+    assert_eq!(adopted["status"], "applied");
+    assert_eq!(
+        adopted["values"]["P1.Controller.ParametersValue.ProportionalGain"],
+        2.5
+    );
+
+    let status = adopted;
+    control
+        .parameter_apply(
+            json!({
+                "transaction_id": "nested-reject",
+                "binding": binding,
+                "expected_program_revision": status["program_revision"],
+                "expected_binding_revision": status["binding_revision"],
+                "expected_active_revision": status["active_revision"],
+                "expected_values": status["values"],
+                "values": {"P1.Controller.ParametersValue.ProportionalGain": 3.5},
+                "source": "simulation",
+                "physical_approved": false
+            }),
+            &metadata,
+            false,
+        )
+        .expect("stage second nested parameter transaction");
+    control.commit_parameters("MainTask", &mut task_storage, &metadata, false, &[]);
+    let reference = parameters::resolve_path(
+        &task_storage,
+        "P1.Controller.ParametersValue.ProportionalGain",
+    )
+    .expect("resolve second nested parameter")
+    .reference;
+    assert!(task_storage.write_by_ref(reference, crate::value::Value::LReal(2.5)));
+    control.confirm_parameters(
+        "MainTask",
+        &task_storage,
+        crate::value::Duration::from_millis(300),
+    );
+    let rejected = control
+        .parameter_status(json!({"binding": binding}), &metadata)
+        .expect("read rejected nested parameter status");
+    assert_eq!(rejected["status"], "rejected");
+    assert_eq!(
+        rejected["values"]["P1.Controller.ParametersValue.ProportionalGain"],
+        2.5
+    );
+}
+
+#[test]
+fn nested_control_pid_transfer_transaction_adopts_state_at_task_boundary() {
+    let mut runtime = crate::harness::CompileSession::from_sources(vec![
+        crate::harness::SourceFile::with_path(
+            "Control/control.st",
+            include_str!("../../../../../../libraries/control/src/control.st"),
+        ),
+        crate::harness::SourceFile::with_path(
+            "src/main.st",
+            include_str!("../../../../../../examples/control-pid-commissioning/src/main.st"),
+        ),
+    ])
+    .build_runtime()
+    .expect("compile real Control.PID fixture");
+    let control = runtime.enable_debug();
+    runtime.execute_cycle().expect("execute Control.PID task");
+    let metadata = runtime.metadata_snapshot();
+    let binding = json!({
+        "loop_id": "nested-transfer",
+        "task_name": "MainTask",
+        "mode": {"symbol": "P1.AutoMode", "manual_value": false},
+        "states": [{
+            "symbol": "P1.Controller.StateValue.NominalOutput",
+            "iec_type": "LREAL",
+            "unit": "output",
+            "minimum": -100.0,
+            "maximum": 100.0
+        }],
+        "guards": [{
+            "symbol": "P1.Controller.StateValue.ProcessValue",
+            "iec_type": "LREAL",
+            "unit": "process",
+            "minimum": -100.0,
+            "maximum": 100.0
+        }],
+        "output": {
+            "symbol": "P1.Controller.StateValue.SaturatedOutput",
+            "iec_type": "LREAL",
+            "unit": "output",
+            "minimum": -100.0,
+            "maximum": 100.0
+        },
+        "additional_outputs": [],
+        "tracking_outputs": {}
+    });
+    {
+        let (lock, _) = &*control.state;
+        lock.lock().expect("debug state").snapshot = Some(crate::debug::DebugSnapshot {
+            storage: runtime.storage().clone(),
+            now: crate::value::Duration::from_millis(100),
+        });
+    }
+    let status = control
+        .transfer_status(json!({"binding": binding}), &metadata)
+        .expect("read nested transfer status");
+    let initial_process_value = status["values"]["P1.Controller.StateValue.ProcessValue"]
+        .as_f64()
+        .expect("initial nested guard value");
+    control
+        .transfer_apply(
+            json!({
+                "transaction_id": "nested-transfer-apply",
+                "binding": binding,
+                "expected_program_revision": status["program_revision"],
+                "expected_binding_revision": status["binding_revision"],
+                "expected_values": status["values"],
+                "values": {"P1.Controller.StateValue.NominalOutput": 7.5},
+                "manual": true,
+                "maximum_output_change": 100.0,
+                "source": "simulation",
+                "physical_approved": false,
+                "tracking": null
+            }),
+            &metadata,
+        )
+        .expect("stage nested transfer transaction");
+    let mut task_storage = runtime.storage().clone();
+    control.commit_transfer("MainTask", &mut task_storage, &metadata, false, &[]);
+    assert_eq!(
+        parameters::resolve_path(&task_storage, "P1.Controller.StateValue.NominalOutput")
+            .expect("committed nested state")
+            .value,
+        crate::value::Value::LReal(7.5)
+    );
+    let process_value =
+        parameters::resolve_path(&task_storage, "P1.Controller.StateValue.ProcessValue")
+            .expect("preserved nested guard")
+            .value;
+    assert_eq!(
+        process_value,
+        crate::value::Value::LReal(initial_process_value)
+    );
+    control.confirm_transfer_task("MainTask", &task_storage);
+    control.finish_transfer_cycle(&task_storage, crate::value::Duration::from_millis(200));
+    let confirmed = control
+        .transfer_status(json!({"binding": binding}), &metadata)
+        .expect("read confirmed nested transfer status");
+    assert_eq!(confirmed["status"], "applied");
 }

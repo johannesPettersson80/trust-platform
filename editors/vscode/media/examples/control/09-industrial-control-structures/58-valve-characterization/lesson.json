@@ -1,0 +1,470 @@
+{
+  "schemaVersion": 4,
+  "id": "control-valve-characterization",
+  "title": "Valve characteristics",
+  "level": "Advanced",
+  "sequence": 31,
+  "equipment": "pneumatically actuated globe valve",
+  "physicalPurpose": "Meter cooling-water flow while separating the controller request, physical valve motion, installed flow characteristic, and mechanical faults.",
+  "principalTechnique": "Valve characterization",
+  "objective": "Measure installed gain, deadband, and travel rate.",
+  "prerequisites": [
+    "control-lesson-08"
+  ],
+  "nextLesson": "control-valve-stiction",
+  "signals": [
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX91.1"
+    },
+    {
+      "role": "state",
+      "name": "Automatic mode",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX91.0"
+    },
+    {
+      "role": "MV",
+      "name": "Common manual valve demand",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.1,
+      "binding": "%ML328"
+    },
+    {
+      "role": "SP",
+      "name": "Cooling-water flow setpoint",
+      "unit": "m3/h",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML336"
+    },
+    {
+      "role": "PV",
+      "name": "Healthy measured flow",
+      "unit": "m3/h",
+      "minimum": 0,
+      "maximum": 105,
+      "resolution": 0.01,
+      "binding": "%IL168"
+    },
+    {
+      "role": "PV",
+      "name": "Deadband measured flow",
+      "unit": "m3/h",
+      "minimum": 0,
+      "maximum": 105,
+      "resolution": 0.01,
+      "binding": "%IL176"
+    },
+    {
+      "role": "PV",
+      "name": "Stiction measured flow",
+      "unit": "m3/h",
+      "minimum": 0,
+      "maximum": 105,
+      "resolution": 0.01,
+      "binding": "%IL184"
+    },
+    {
+      "role": "MV",
+      "name": "Healthy requested valve position",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL184"
+    },
+    {
+      "role": "MV",
+      "name": "Deadband requested valve position",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL192"
+    },
+    {
+      "role": "MV",
+      "name": "Stiction requested valve position",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL200"
+    },
+    {
+      "role": "state",
+      "name": "Healthy physical valve position",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "plant://healthy-valve-bench/actuators/0/position"
+    },
+    {
+      "role": "state",
+      "name": "Deadband physical valve position",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "plant://deadband-valve-bench/actuators/0/position"
+    },
+    {
+      "role": "state",
+      "name": "Stiction physical valve position",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "plant://stiction-valve-bench/actuators/0/position"
+    },
+    {
+      "role": "state",
+      "name": "Deadband active state",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "plant://deadband-valve-bench/actuators/0/deadband_active"
+    },
+    {
+      "role": "state",
+      "name": "Stiction active state",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "plant://stiction-valve-bench/actuators/0/stiction_active"
+    }
+  ],
+  "plant": {
+    "modelId": "three_nonlinear_installed_valve_flow_benches",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "maximum_flow",
+        "value": 100,
+        "unit": "m3/h"
+      },
+      {
+        "name": "minimum_position",
+        "value": 0,
+        "unit": "%"
+      },
+      {
+        "name": "maximum_position",
+        "value": 100,
+        "unit": "%"
+      },
+      {
+        "name": "position_rate",
+        "value": 25,
+        "unit": "%/s"
+      },
+      {
+        "name": "positioner_lag",
+        "value": 0.4,
+        "unit": "s"
+      },
+      {
+        "name": "hydraulic_time_constant",
+        "value": 3,
+        "unit": "s"
+      },
+      {
+        "name": "deadband_width",
+        "value": 2,
+        "unit": "pp"
+      },
+      {
+        "name": "stiction_breakaway_band",
+        "value": 5,
+        "unit": "pp"
+      },
+      {
+        "name": "stiction_slip_jump",
+        "value": 2,
+        "unit": "pp"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "flowM3PerHour": 64,
+      "valvePositionPercent": 80
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Cooling-water flow setpoint": 64,
+      "Healthy measured flow": 64,
+      "Deadband measured flow": 64,
+      "Stiction measured flow": 64,
+      "Common manual valve demand": 80
+    },
+    "validityRange": [
+      {
+        "signal": "Cooling-water flow setpoint",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "m3/h"
+      },
+      {
+        "signal": "Healthy measured flow",
+        "minimum": 0,
+        "maximum": 105,
+        "unit": "m3/h"
+      },
+      {
+        "signal": "Deadband measured flow",
+        "minimum": 0,
+        "maximum": 105,
+        "unit": "m3/h"
+      },
+      {
+        "signal": "Stiction measured flow",
+        "minimum": 0,
+        "maximum": 105,
+        "unit": "m3/h"
+      },
+      {
+        "signal": "Common manual valve demand",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "The simulator uses a declared square-law installed flow target rather than an inherent manufacturer curve or a complete piping-network calculation",
+      "Positioner lag, travel rate and a three-second hydraulic response are retained while the detailed pump curve, cavitation and fluid-property changes are omitted",
+      "Deadband and stiction are injected separately on equivalent valve benches; backlash is explained and recalled from Lesson 24 but is not relabelled as either fault",
+      "Simulator actuator status supplies independent position evidence; Structured Text does not synthesize it",
+      "Simulation-only I/O and evidence; no physical valve, pump or cooling-water system is operated"
+    ]
+  },
+  "baseline": {
+    "executableId": "ValveBench.HealthyAndDeadband",
+    "settings": {
+      "proportionalGain": 0.5,
+      "integralGain": 0.25,
+      "biasPercent": 80,
+      "deadbandWidthPercentagePoints": 2
+    },
+    "limitation": "Flow and controller-request traces alone do not prove whether nonlinear response comes from the installed curve, command deadband, mechanical play, stiction, or process dynamics."
+  },
+  "change": {
+    "executableId": "ValveBench.PositionFeedbackStictionDiagnosis",
+    "settings": {
+      "stictionBandPercentagePoints": 5,
+      "slipJumpPercentagePoints": 2,
+      "minimumRepeatedReversalProbes": 3
+    },
+    "decision": "Classify stiction only from repeated request-to-position holds and breakaway jumps with corresponding flow response; otherwise retain the run as inconclusive."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 180.1,
+    "settlingSeconds": 10,
+    "disturbances": [
+      "Characterize the healthy installed curve at 0, 20, 40, 60, 80 and 100 percent",
+      "Restore 70 percent and apply identical 0.5-percentage-point opening and closing increments",
+      "Repeat the complete restored Test run three times",
+      "Restore 80 percent, enter Auto bumplessly, and request 70 m3/h on all three benches"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "installed_curve_point_error",
+      "signal": "Healthy measured flow",
+      "window": "settled sample at every 0, 20, 40, 60, 80 and 100 percent manual position",
+      "comparator": "<=",
+      "limit": 0.05,
+      "unit": "m3/h",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "deadband_held_request_travel",
+      "signal": "Deadband physical valve position",
+      "window": "70 through 72 percent opening request before first larger increment",
+      "comparator": ">=",
+      "limit": 2,
+      "unit": "pp",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "stiction_breakaway_size",
+      "signal": "Stiction physical valve position",
+      "window": "first movement after the 70 through 75.5 percent opening probe",
+      "comparator": "==",
+      "limit": 2,
+      "unit": "pp",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "qualified_stiction_reversal_probes",
+      "signal": "Stiction active state",
+      "window": "three independently restored 70 through 75.5 percent opening probes",
+      "comparator": ">=",
+      "limit": 3,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Common manual valve demand",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Healthy requested valve position",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Deadband requested valve position",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Stiction requested valve position",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Healthy measured flow",
+        "minimum": 0,
+        "maximum": 105,
+        "unit": "m3/h"
+      },
+      {
+        "signal": "Deadband measured flow",
+        "minimum": 0,
+        "maximum": 105,
+        "unit": "m3/h"
+      },
+      {
+        "signal": "Stiction measured flow",
+        "minimum": 0,
+        "maximum": 105,
+        "unit": "m3/h"
+      }
+    ],
+    "abortPredicates": [
+      "Any required request, position or flow is nonfinite, stale, forced or invalid",
+      "Any valve request or physical position leaves 0 through 100 percent",
+      "Any measured flow leaves 0 through 105 m3/h",
+      "Mode, authority or plant identity is inconsistent across the comparison",
+      "The valves fail to close during restoration"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Return all controllers to Manual, ramp the common simulated demand to zero, verify all three physical positions and flows reach the declared safe state, then start a fresh restored run.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible cooling-water system owner",
+    "simulationOnlyRestrictions": [
+      "No physical valve, pump or cooling-water header is operated",
+      "An injected Simulation fault demonstrates a signature but does not certify a physical diagnosis",
+      "Physical testing requires reviewed topology, positioner calibration, differential pressure, hydraulic limits, safe state, abort and restoration procedure, and explicit immediate approval"
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#77-industrial-control-structures",
+    "nativeTest": "TEST_PROGRAM::Lesson58InstalledCurveProbeAndSafeClosureAreExplicit",
+    "nativeCommand": "target/debug/trust-dev test --project examples/control/09-industrial-control-structures/58-valve-characterization --filter TEST_PROGRAM::Lesson58InstalledCurveProbeAndSafeClosureAreExplicit --timeout 20",
+    "projectPath": "examples/control/09-industrial-control-structures/58-valve-characterization",
+    "runArtifactFields": [
+      "projectIdentity",
+      "plantIdentities",
+      "controllerIdentities",
+      "evidenceClass",
+      "sampleTime",
+      "seed",
+      "mode",
+      "flowSetpoint",
+      "manualDemand",
+      "requestedPositions",
+      "physicalPositions",
+      "appliedInputs",
+      "measuredFlows",
+      "actuatorStates",
+      "installedCurve",
+      "reversalDirection",
+      "limits",
+      "abortState",
+      "restorationState",
+      "metricDefinitions",
+      "metrics",
+      "qualificationStates"
+    ],
+    "renderedJourneyId": "control-valve-characterization"
+  },
+  "video": {
+    "viewerOutcome": "Characterize an installed control valve and use independent stem-position evidence to distinguish deadband from stiction before changing controller tuning.",
+    "requiredVisibleEvidence": [
+      "cooling-water flow bench",
+      "inherent versus installed characteristic",
+      "common manual demand",
+      "three requested positions",
+      "three measured stem positions",
+      "three flow traces",
+      "deadband hold",
+      "three restored stiction hold-and-slip probes",
+      "closed-loop flow consequence",
+      "Simulation label and physical boundary"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "A regulated cooling-water flow bench uses a pneumatic globe valve and digital positioner, making controller request, physical stem position and measured flow separately observable.",
+    "reason": "Lesson 59 bounded model-based compensation; this lesson addresses a different mismatch in which the final control element itself does not follow a sound controller request.",
+    "theory": [
+      "Inherent valve capacity and installed process flow are different relationships.",
+      "The declared square-law installed curve has changing local flow gain.",
+      "Command deadband, reversal-dependent backlash and static-friction stiction have different position signatures.",
+      "A confirmed diagnosis requires repeatable request, independent position and process-response evidence."
+    ],
+    "workedPrediction": "The fixed-head square-law installed curve predicts 0.00, 4.00, 16.00, 36.00, 64.00 and 100.00 m3/h at 0, 20, 40, 60, 80 and 100 percent, while the reversal probe predicts a two-point deadband hold and a five-point stiction hold followed by a two-point slip jump.",
+    "practicalPreparation": [
+      "Verify Simulation evidence, identities, units, quality, timing, mode, requests, physical positions, actuator states, flows, limits and safe-close restoration.",
+      "Define curve error, request-position gap, stationary time, breakaway, reversal lost motion, flow excursion and physical-position travel before results."
+    ],
+    "baseline": "Characterize the healthy installed curve and show why flow gain changes with position before attributing nonlinear flow to a fault.",
+    "change": "Change only actuator condition to command deadband or stiction and apply one equivalent opening, closing and closed-loop experiment.",
+    "comparison": "Keep installed curve, controller, initial position, request trajectory, timing, limits, seed and metric windows equal across all three benches.",
+    "validation": "Require the predicted curve points, distinct two-point deadband and five-point stiction holds, the two-point slip jump, and three independently restored reversal probes before classifying the injected fault.",
+    "explanation": "Integral action grows the request while static friction holds the stem; breakaway moves flow abruptly and creates a cycle that retuning can change but not repair.",
+    "transfer": "Lesson 59 continues with Valve stiction."
+  }
+}

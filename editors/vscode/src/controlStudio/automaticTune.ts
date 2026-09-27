@@ -26,7 +26,7 @@ export interface AutomaticTuneResult {
   structure: "P" | "PI" | "PD" | "PID";
   method: "SIMC" | "AMIGO" | "Constrained comparison";
   kp: number;
-  tiSeconds: number;
+  tiSeconds?: number;
   validation: "Model-based validation · Pass";
   model: { kind: "first_order_dead_time"; gain: number; timeConstantSeconds: number; deadTimeSeconds: number };
   metrics: { finalError: number; overshootPercent: number; settlingTimeSeconds: number };
@@ -114,6 +114,14 @@ export function automaticTunePlan(objective: AutomaticTuneObjective): AutomaticT
     stages: ["Test", "Identify", "Tune", "Validate"],
     evidenceReuse: "The saved simulation model is exact configuration evidence; no excitation is required.",
   };
+}
+
+export function materializeAutomaticTuneController(
+  candidate: ControlPidCandidate
+): { kp: number; tiSeconds?: number } {
+  const kp = rounded(candidate.parameters.proportionalGain);
+  if (candidate.parameters.integralGain === 0) return { kp };
+  return { kp, tiSeconds: rounded(candidate.parameters.proportionalGain / candidate.parameters.integralGain) };
 }
 
 /**
@@ -238,32 +246,20 @@ export function tuneSavedSimulationPlant(
       ...(Number.isFinite(item.score) ? { score: rounded(item.score) } : {}),
       ...(!item.feasible ? { reason: failedRequirements(evaluation.validation.requirements) } : {}) });
   }
-  const selectedTi = recommendation.parameters.integralGain === 0
-    ? undefined : recommendation.parameters.proportionalGain / recommendation.parameters.integralGain;
-  if (selectedTi === undefined) throw new Error("No acceptable controller found.");
+  const controller = materializeAutomaticTuneController(recommendation);
   const metrics = {
     finalError: requirementValue(selectedEvaluation.validation.requirements, "Steady-state error"),
     overshootPercent: requirementValue(selectedEvaluation.validation.requirements, "Overshoot"),
     settlingTimeSeconds: requirementValue(selectedEvaluation.validation.requirements, "Settling time"),
   };
   const plot = buildEngineeringPlotEvidence(model, current, recommendation);
-  const selectedAttempt = attempts.find((item) => item.id === selectedEvaluation.id);
-  const lowerScoreAlternative = attempts
-    .filter((item) => item.status === "Feasible" && item.score !== undefined
-      && selectedAttempt?.score !== undefined && item.score < selectedAttempt.score)
-    .sort((left, right) => left.score! - right.score!)[0];
-  const selectionExplanation = lowerScoreAlternative && selectedAttempt?.score !== undefined
-    ? `${lowerScoreAlternative.method}'s raw score improves by ${Math.round(
-      (selectedAttempt.score - lowerScoreAlternative.score!) / selectedAttempt.score * 1_000
-    ) / 10} percent, below the 10 percent material-benefit threshold, so deterministic method order keeps ${selectedEvaluation.method}`
-    : `No alternative provides the 10 percent material benefit required to displace ${selectedEvaluation.method}`;
+  const selectionExplanation = "Structural simplicity is ranked before response, effort, and robustness scores.";
   return {
     applied: false,
     modelEvidence: "Exact simulation model",
     structure: recommendation.structure,
     method: selectedEvaluation.method,
-    kp: rounded(recommendation.parameters.proportionalGain),
-    tiSeconds: rounded(selectedTi),
+    ...controller,
     validation: "Model-based validation · Pass",
     model: { kind: "first_order_dead_time", gain, timeConstantSeconds, deadTimeSeconds },
     metrics,

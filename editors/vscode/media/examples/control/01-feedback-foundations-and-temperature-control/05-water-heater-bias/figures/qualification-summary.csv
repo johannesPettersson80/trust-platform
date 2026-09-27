@@ -1,8 +1,0 @@
-case,window,start_s,end_s,settled,pv_range_degC,requested_range_pp,applied_range_pp,mean_absolute_error_degC,simulation_criterion,eligible,selected,evidence_class
-manual_70_percent,holding_output,50.1,60.0,true,0.000656,0.000000,0.000000,1.000332,fail,true,false,simulation
-manual_75_percent,holding_output,50.1,60.0,true,0.000703,0.000000,0.000000,0.000356,pass,true,true,simulation
-manual_80_percent,holding_output,50.1,60.0,true,0.000750,0.000000,0.000000,0.999620,fail,true,false,simulation
-zero_bias,nominal,50.1,60.0,true,0.059404,0.000000,0.000000,5.769825,baseline,true,false,simulation
-zero_bias,changed_load,110.1,120.0,true,0.000000,0.000000,0.000000,6.923077,baseline,true,false,simulation
-measured_bias,nominal,50.1,60.0,true,0.059404,0.000000,0.000000,0.000594,pass,true,true,simulation
-measured_bias,changed_load,110.1,120.0,true,0.000000,0.000000,0.000000,1.153846,retained_limitation,true,true,simulation

@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import type { PlantDraft } from "../plant/addFlow";
 import {
-  CUSTOM_STATE_SPACE_HELP,
   PLANT_ACTUATOR_FIELDS,
   PLANT_STARTING_POINTS,
   planPlantStartingPointChange,
@@ -15,13 +14,15 @@ import {
   validatePlantActuator,
   validatePlantIdentity,
   validatePlantSignalEngineering,
+  plantPortLabels,
+  validatePlantPortBindings,
+  updatePlantPortBinding,
 } from "../plant/editorModel";
-import {
-  type PlantSignalCatalog,
-  validateManualPlantSignalAddress,
-} from "../plant/signalCatalog";
+import { plantModelDescriptors } from "../plant/modelDescriptors";
+import type { PlantSignalCatalog } from "../plant/signalCatalog";
 import { PlantSignalPicker } from "./PlantSignalPicker";
 import { PlantDynamicsEditor } from "./PlantDynamicsEditor";
+import { PlantStartingConditionsEditor } from "./PlantStartingConditionsEditor";
 import { PlantActuatorEditor } from "./PlantActuatorEditor";
 import { PlantImperfectionsEditor } from "./PlantImperfectionsEditor";
 import { PlantSignalEngineeringEditor } from "./PlantSignalEngineeringEditor";
@@ -29,6 +30,11 @@ import { plantUncertaintyFieldLabel, validatePlantUncertainties } from "../plant
 import { validatePlantScenarioEvents } from "../plant/scenarioEventEditor";
 import { PlantScenarioEventsEditor } from "./PlantScenarioEventsEditor";
 import { RemoveBrickActions } from "./RemoveBrickActions";
+import { PlantTemperatureExampleEditor } from "./PlantTemperatureExampleEditor";
+import { applyTemperatureExample, temperatureExampleValues } from "../plant/temperatureExample";
+import { plantStartingStateFields } from "../plant/startingConditions";
+import { PlantOptionalSettings, type PlantOptionalDestination } from "./PlantOptionalSettings";
+import { PlantModelSchematic } from "./PlantModelSchematic";
 
 export function PlantDraftPanel({
   draft,
@@ -60,22 +66,24 @@ export function PlantDraftPanel({
   onReloadConflict?: () => void;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
-  const [engineeringOpen, setEngineeringOpen] = useState(false);
-  const [startingPointHelpOpen, setStartingPointHelpOpen] = useState(false);
+  const [optionalDestination, setOptionalDestination] = useState<PlantOptionalDestination>();
+  const [activeEffectIndex, setActiveEffectIndex] = useState(0);
+  const [technicalOpen, setTechnicalOpen] = useState(false);
+  const [temperatureUnitsConfirmed, setTemperatureUnitsConfirmed] = useState(false);
+  const [modelRevision, setModelRevision] = useState(0);
   const [pendingStartingPoint, setPendingStartingPoint] = useState<PlantStartingPoint>();
+  const [rawInputIssues, setRawInputIssues] = useState<Record<string, string>>({});
   const startingPointTrigger = useRef<HTMLElement | null>(null);
   const editor = draft;
-  const selectedStartingPoint = PLANT_STARTING_POINTS.find(
-    (candidate) => candidate.id === editor.startingPoint
-  );
-  const startingPointHelp =
-    editor.startingPoint === "custom_state_space"
-      ? CUSTOM_STATE_SPACE_HELP
-      : selectedStartingPoint;
-  const startingPointLabel =
-    editor.startingPoint === "custom_state_space"
-      ? "Custom state space"
-      : selectedStartingPoint?.label ?? "starting point";
+  const startingStateFields = plantStartingStateFields(editor.model);
+  const temperatureView = editor.model === "first_order_dead_time" && editor.startingPoint === "temperature_example";
+  const updateRawIssue = (field: string, message?: string) => setRawInputIssues((current) => {
+    const next = { ...current };
+    if (message) next[field] = message;
+    else delete next[field];
+    return next;
+  });
+  const modelDescriptors = plantModelDescriptors();
   const identityIssues = useMemo(
     () =>
       validatePlantIdentity({
@@ -100,19 +108,26 @@ export function PlantDraftPanel({
     outputCount: Math.max(1, editor.feedbackTargets.length),
     scalarActuator: editor.model !== "state_space" || editor.commandSources.length <= 1,
     parameters: Object.keys(editor.parameters),
-  }), [editor.enabled, editor.initialState.length, editor.feedbackTargets.length, editor.model, editor.commandSources.length, editor.parameters]);
+    stateLabels: startingStateFields.map((field) => {
+      const quantity = field.label.replace(/^Starting /, "");
+      return quantity.charAt(0).toUpperCase() + quantity.slice(1);
+    }),
+    outputLabels: plantPortLabels(editor).feedbacks,
+  }), [editor.enabled, editor.initialState.length, editor.feedbackTargets.length, editor.model, editor.commandSources.length, editor.parameters, startingStateFields]);
   const scenarioIssues = useMemo(
     () => validatePlantScenarioEvents(editor.scenarioEvents ?? [], scenarioContext),
     [editor.scenarioEvents, scenarioContext]
   );
-  const commandValid = editor.commandSources.length === 1 &&
-    validateManualPlantSignalAddress(signalCatalog, "command", editor.commandSources[0]).ok;
-  const feedbackValid = editor.feedbackTargets.length === 1 &&
-    validateManualPlantSignalAddress(signalCatalog, "feedback", editor.feedbackTargets[0], {
-      usedFeedbackTargets,
-    }).ok;
+  const portLabels = plantPortLabels(editor);
+  const portIssues = useMemo(() => validatePlantPortBindings(editor, signalCatalog, usedFeedbackTargets), [editor, signalCatalog, usedFeedbackTargets]);
   const validationItems = useMemo(() => {
-    const items: Array<{ message: string; selector: string; engineering?: boolean }> = [];
+    const items: Array<{ message: string; selector: string; destination?: PlantOptionalDestination; effect?: number }> = [];
+    if (temperatureView && !temperatureUnitsConfirmed) {
+      items.push({ message: "Confirm that the PLC signals use the displayed heater-percent and temperature units, or configure their conversion.", selector: '[name="plant-temperature-units-confirmed"]' });
+    }
+    for (const [field, message] of Object.entries(rawInputIssues)) {
+      items.push({ message, selector: `[data-plant-dynamics-field="${field}"]` });
+    }
     for (const issue of identityIssues) {
       const label = issue.field === "id" ? "Plant ID" : "Display name";
       const value = issue.field === "id" ? editor.plantId : editor.displayName;
@@ -121,22 +136,11 @@ export function PlantDraftPanel({
         selector: issue.field === "id" ? '[name="plant-id"]' : '[name="plant-display-name"]',
       });
     }
-    if (!commandValid) {
-      const result = editor.commandSources[0]
-        ? validateManualPlantSignalAddress(signalCatalog, "command", editor.commandSources[0])
-        : undefined;
+    for (const issue of portIssues) {
+      const base = issue.direction === "command" ? "plant-command-source" : "plant-feedback-target";
       items.push({
-        message: result && !result.ok ? result.message : "Choose the PLC output that commands the plant.",
-        selector: '[name="plant-command-source"]',
-      });
-    }
-    if (!feedbackValid) {
-      const result = editor.feedbackTargets[0]
-        ? validateManualPlantSignalAddress(signalCatalog, "feedback", editor.feedbackTargets[0], { usedFeedbackTargets })
-        : undefined;
-      items.push({
-        message: result && !result.ok ? result.message : "Choose the PLC input that receives simulated feedback.",
-        selector: '[name="plant-feedback-target"]',
+        message: issue.message,
+        selector: `[name="${base}${issue.index === 0 ? "" : `-${issue.index}`}"]`,
       });
     }
     for (const issue of dynamicsIssues) {
@@ -145,7 +149,11 @@ export function PlantDraftPanel({
       const value = key === "initial_state" ? editor.initialState : editor.parameters[key];
       items.push({
         message: `${field?.label ?? key} (${exactValue(value)}): ${issue.message}`,
-        selector: `[data-plant-dynamics-field="${key}"]`,
+        selector: key === "input_delays_s"
+          ? `[data-plant-input-delay-cell="${issue.field.split(".")[1] ?? "0"}"]`
+          : startingStateFields.length > 0 && key === "initial_state"
+          ? '[data-plant-starting-state="0"]'
+          : `[data-plant-dynamics-field="${key}"]`,
       });
     }
     for (const issue of actuatorIssues) {
@@ -154,7 +162,7 @@ export function PlantDraftPanel({
       items.push({
         message: `${field?.label ?? issue.field} (${exactValue(value)}): ${issue.message}`,
         selector: `[data-plant-actuator-field="${issue.field}"]`,
-        engineering: true,
+        destination: "actuator",
       });
     }
     for (const issue of signalEngineeringIssues) {
@@ -162,7 +170,7 @@ export function PlantDraftPanel({
       items.push({
         message: `${SIGNAL_ENGINEERING_LABELS[issue.field] ?? issue.field} (${exactValue(signalEngineeringValue(editor, issue.field))}): ${issue.message}`,
         selector: `[data-plant-engineering-field="${field}"]`,
-        engineering: true,
+        destination: "signals",
       });
     }
     for (const issue of uncertaintyIssues) {
@@ -171,18 +179,19 @@ export function PlantDraftPanel({
       items.push({
         message: `Effect ${issue.row + 1} (${row?.id ?? "unknown"}) · ${plantUncertaintyFieldLabel(issue.field)} (${exactValue(value)}): ${issue.message}`,
         selector: `[data-plant-uncertainty-row="${issue.row}"] [data-plant-uncertainty-field="${issue.field}"]`,
-        engineering: true,
+        destination: "realism",
+        effect: issue.row,
       });
     }
     for (const issue of scenarioIssues) {
       items.push({
         message: `Event ${issue.row + 1}: ${issue.message}`,
-        selector: `[data-plant-scenario-event-row="${issue.row}"] [data-plant-scenario-event-field="${issue.field}"]`,
-        engineering: true,
+        selector: `[data-plant-scenario-event-row="${issue.row}"] [data-plant-scenario-event-field="${issue.field === "at_ms" ? "at_s" : issue.field}"]`,
+        destination: "scenarios",
       });
     }
     return items;
-  }, [identityIssues, commandValid, feedbackValid, editor.commandSources, editor.feedbackTargets, signalCatalog, usedFeedbackTargets, dynamicsIssues, actuatorIssues, signalEngineeringIssues, uncertaintyIssues, scenarioIssues]);
+  }, [identityIssues, rawInputIssues, portIssues, editor, startingStateFields, dynamicsIssues, actuatorIssues, signalEngineeringIssues, uncertaintyIssues, scenarioIssues, temperatureView, temperatureUnitsConfirmed]);
   const canSave =
     identityIssues.length === 0 &&
     dynamicsIssues.length === 0 &&
@@ -190,8 +199,9 @@ export function PlantDraftPanel({
     signalEngineeringIssues.length === 0 &&
     uncertaintyIssues.length === 0 &&
     scenarioIssues.length === 0 &&
-    commandValid &&
-    feedbackValid &&
+    Object.keys(rawInputIssues).length === 0 &&
+    portIssues.length === 0 &&
+    (!temperatureView || temperatureUnitsConfirmed) &&
     !saving;
   const pendingStartingPointPlan = pendingStartingPoint
     ? planPlantStartingPointChange({
@@ -201,10 +211,23 @@ export function PlantDraftPanel({
       })
     : undefined;
   const applyStartingPoint = (startingPoint: PlantStartingPoint) => {
+    if (startingPoint === "temperature_example") {
+      onChange(applyTemperatureExample(editor));
+      setTemperatureUnitsConfirmed(false);
+      setRawInputIssues({});
+      setModelRevision((revision) => revision + 1);
+      setPendingStartingPoint(undefined);
+      return;
+    }
     const proposal = startingPoint === "custom_state_space"
       ? proposeCustomStateSpace()
       : proposePlantStartingPoint(startingPoint);
-    if (proposal) onChange({ ...editor, startingPoint, ...proposal, modelValuesTouched: false });
+    if (proposal) {
+      onChange({ ...editor, startingPoint, ...proposal, modelValuesTouched: false });
+      setRawInputIssues({});
+      setModelRevision((revision) => revision + 1);
+      setTemperatureUnitsConfirmed(false);
+    }
     setPendingStartingPoint(undefined);
   };
   const requestStartingPoint = (startingPoint: PlantStartingPoint, trigger: HTMLElement) => {
@@ -213,16 +236,19 @@ export function PlantDraftPanel({
       currentStartingPoint: editor.startingPoint,
       requestedStartingPoint: startingPoint,
       modelValuesTouched: editor.modelValuesTouched,
+      hasSavedConfiguration: editor.persisted,
     });
-    if (plan.kind === "confirm") setPendingStartingPoint(startingPoint);
+    if (plan.kind === "confirm" || startingPoint === "temperature_example") setPendingStartingPoint(startingPoint);
     else applyStartingPoint(startingPoint);
   };
   const closeStartingPointConfirmation = () => {
     setPendingStartingPoint(undefined);
     requestAnimationFrame(() => startingPointTrigger.current?.focus());
   };
-  const focusValidationItem = (item: { selector: string; engineering?: boolean }) => {
-    if (item.engineering) setEngineeringOpen(true);
+  const focusValidationItem = (item: { selector: string; destination?: PlantOptionalDestination; effect?: number }) => {
+    if (item.destination) setOptionalDestination(item.destination);
+    if (item.effect !== undefined) setActiveEffectIndex(item.effect);
+    if (/plant-id|plant-display-name/.test(item.selector)) setTechnicalOpen(true);
     requestAnimationFrame(() => {
       const target = document.querySelector<HTMLElement>(item.selector);
       target?.scrollIntoView({ block: "center" });
@@ -230,13 +256,38 @@ export function PlantDraftPanel({
     });
   };
   useEffect(() => sectionRef.current?.focus(), []);
+  const modelChoice = (
+    <label style={FIELD}>
+      <span style={FIELD_LABEL}>Plant model</span>
+      <select
+        name="plant-model"
+        data-plant-model-select
+        value={editor.model}
+        onChange={(event) => {
+          const model = event.target.value as import("../plant/editorModel").PlantModelKind;
+          const startingPoint = PLANT_STARTING_POINTS.find((candidate) => candidate.model === model);
+          requestStartingPoint(startingPoint?.id ?? "custom_state_space", event.currentTarget);
+        }}
+        style={INPUT}
+      >
+        {modelDescriptors.map((descriptor) => (
+          <option key={descriptor.kind} value={descriptor.kind}>{descriptor.productName}</option>
+        ))}
+      </select>
+      <span data-plant-model-explanation className="trust-help" style={{ marginTop: 1 }}>
+        {modelDescriptors.find((descriptor) => descriptor.kind === editor.model)?.purpose}
+      </span>
+      <PlantModelSchematic model={editor.model} />
+    </label>
+  );
 
   return (
     <aside
-      className="trust-inspector"
+      className="trust-inspector trust-plant-draft-surface"
       style={PANEL}
       aria-label="Plant properties"
       data-plant-dirty={String(editor.dirty)}
+      data-plant-layout="main-canvas"
     >
       <div className="trust-inspector__header">
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -245,10 +296,11 @@ export function PlantDraftPanel({
               ? `Devices & Connections / Edit ${editor.plantId}`
               : "Devices & Connections / Add simulated plant"}
           </div>
-          <div className="trust-inspector__title">Plant properties</div>
+          <div className="trust-inspector__title">{editor.persisted ? "Configure plant" : "Add simulated plant"}</div>
         </div>
         <button onClick={onCancel} aria-label="Cancel simulated plant draft" style={ICON_BUTTON}>✕</button>
       </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 16, padding: 16, alignItems: "start" }}>
       <section
         ref={sectionRef}
         data-plant-section
@@ -257,7 +309,34 @@ export function PlantDraftPanel({
         aria-labelledby="plant-draft-section-title"
         style={{ outline: "none" }}
       >
-        <div id="plant-draft-section-title" className="trust-section__title">Plant</div>
+        <section data-plant-setup-section="model-behavior" className="trust-section" style={{ padding: 0, border: 0 }}>
+          <div id="plant-draft-section-title" className="trust-section__title">Model &amp; behavior</div>
+          {modelChoice}
+          {editor.model === "first_order_dead_time" && <button
+            type="button" className="trust-button" data-plant-temperature-example
+            onClick={(event) => requestStartingPoint("temperature_example", event.currentTarget)}
+            style={{ marginTop: 8 }}
+          >Use temperature example</button>}
+          {temperatureView && <PlantTemperatureExampleEditor
+            key={modelRevision}
+            draft={editor} inputStyle={INPUT}
+            onChange={(next) => onChange({ ...editor, ...next })}
+            onRawValidityChange={updateRawIssue}
+          />}
+        <PlantDynamicsEditor
+          key={`${editor.startingPoint}:${editor.model}:${modelRevision}`}
+          draft={editor}
+          onChange={(next) => onChange({ ...editor, ...next })}
+          onRawValidityChange={(field, message) => setRawInputIssues((current) => {
+            const next = { ...current };
+            if (message) next[field] = message;
+            else delete next[field];
+            return next;
+          })}
+        />
+        </section>
+        <details data-plant-technical-details open={technicalOpen} onToggle={(event) => setTechnicalOpen(event.currentTarget.open)} style={{ marginTop: 16 }}>
+        <summary style={{ cursor: "pointer" }}>Plant details · {editor.displayName}</summary>
         <div style={{ marginTop: 9, display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 650 }}>{editor.displayName}</div>
           {editor.dirty && <span style={DIRTY_BADGE}>Unsaved</span>}
@@ -316,87 +395,7 @@ export function PlantDraftPanel({
             Enabled
           </label>
         </div>
-        {editor.startingPoint === "custom_state_space" ? (
-          <div style={{ ...FIELD, position: "relative" }}>
-            <div style={HELP_LABEL_ROW}>
-              <span style={FIELD_LABEL}>Starting point</span>
-              <button
-                type="button"
-                data-plant-starting-point-help
-                aria-label={`Help for ${startingPointLabel}`}
-                aria-expanded={startingPointHelpOpen}
-                onClick={() => setStartingPointHelpOpen((open) => !open)}
-                style={HELP_BUTTON}
-              >?</button>
-            </div>
-            {startingPointHelpOpen && startingPointHelp && (
-              <div data-plant-help-popover role="dialog" aria-label={`Help for ${startingPointLabel}`} style={HELP_POPOVER}>
-                <strong>Why it fits</strong><br />{startingPointHelp.whyReasonable}<br />
-                <strong>Limitation</strong><br />{startingPointHelp.limitation}
-              </div>
-            )}
-            <div data-plant-advanced-model style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ flex: 1, fontSize: 12 }}>Custom state space</span>
-              <span style={DIRTY_BADGE}>Advanced</span>
-            </div>
-            <button
-              data-plant-familiar-starting-points
-              className="trust-button"
-              onClick={(event) => requestStartingPoint("temperature", event.currentTarget)}
-              style={{ alignSelf: "flex-start" }}
-            >
-              Choose a familiar starting point
-            </button>
-          </div>
-        ) : (
-          <div style={{ ...FIELD, position: "relative" }}>
-            <div style={HELP_LABEL_ROW}>
-              <label htmlFor="plant-starting-point-select" style={FIELD_LABEL}>Starting point</label>
-              <button
-                type="button"
-                data-plant-starting-point-help
-                aria-label={`Help for ${startingPointLabel}`}
-                aria-expanded={startingPointHelpOpen}
-                onClick={() => setStartingPointHelpOpen((open) => !open)}
-                style={HELP_BUTTON}
-              >?</button>
-            </div>
-            {startingPointHelpOpen && startingPointHelp && (
-              <div data-plant-help-popover role="dialog" aria-label={`Help for ${startingPointLabel}`} style={HELP_POPOVER}>
-                <strong>Why it fits</strong><br />{startingPointHelp.whyReasonable}<br />
-                <strong>Limitation</strong><br />{startingPointHelp.limitation}
-              </div>
-            )}
-            <select
-              id="plant-starting-point-select"
-              name="plant-starting-point"
-              value={editor.startingPoint}
-              onChange={(event) => {
-                const startingPoint = event.target.value as PlantStartingPoint;
-                requestStartingPoint(startingPoint, event.currentTarget);
-              }}
-              style={INPUT}
-            >
-              {PLANT_STARTING_POINTS.map((startingPoint) => (
-                <option key={startingPoint.id} value={startingPoint.id}>
-                  {startingPoint.label}
-                </option>
-              ))}
-            </select>
-            <span data-plant-starting-point-note className="trust-help" style={{ marginTop: 1 }}>
-              Editable simulation starting point — adapt it to the process you want to study.
-            </span>
-            <button
-              type="button"
-              data-plant-custom-state-space
-              className="trust-button"
-              onClick={(event) => requestStartingPoint("custom_state_space", event.currentTarget)}
-              style={{ alignSelf: "flex-start" }}
-            >
-              Advanced: use custom state space…
-            </button>
-          </div>
-        )}
+        </details>
         {pendingStartingPoint && (
           <div
             data-plant-starting-point-confirmation
@@ -409,9 +408,11 @@ export function PlantDraftPanel({
             }}
             style={CONFIRMATION}
           >
-            <strong id="plant-starting-point-confirmation-title">Replace edited dynamics?</strong>
+            <strong id="plant-starting-point-confirmation-title">Replace {pendingStartingPoint === "temperature_example" ? "with temperature example" : "edited dynamics"}?</strong>
             <span id="plant-starting-point-confirmation-message">
-              {pendingStartingPointPlan?.kind === "confirm"
+              {pendingStartingPoint === "temperature_example"
+                ? "Replace model values, starting state, actuator settings and signal conversions with the temperature teaching example? This sets 20 °C at rest and start, 100 °C full-power rise, 30 s response, 2 s delay, heater limits 0–100%, initial heater power 0%, and identity PLC conversions. Keep the existing name, runtime, bindings, validity, imperfections and scenarios; retained effects can change the nominal response."
+                : pendingStartingPointPlan?.kind === "confirm"
                 ? pendingStartingPointPlan.message
                 : "Replace the edited dynamics?"}
             </span>
@@ -426,70 +427,123 @@ export function PlantDraftPanel({
           </div>
         )}
       </section>
-      <section className="trust-section">
-        <div className="trust-section__title">PLC signals</div>
+      <div style={{ minWidth: 0 }}>
+      <section className="trust-section" data-plant-setup-section="connections">
+        <div className="trust-section__title">Connections</div>
+        <p className="trust-help" style={{ marginTop: 0 }}>Choose a named PLC signal for each model port. Command ports read PLC outputs; feedback ports write PLC inputs.</p>
+        {temperatureView && <div className="trust-help" data-plant-temperature-assumptions>
+          <p>{(editor.inputScale?.[0] ?? 1) === 1 && (editor.inputOffset?.[0] ?? 0) === 0
+            ? "PLC 0–100 = heater 0–100%"
+            : `Heater power (%) = ${editor.inputScale?.[0] ?? 1} × PLC command + ${editor.inputOffset?.[0] ?? 0}`}</p>
+          <p>{(editor.outputScale?.[0] ?? 1) === 1 && (editor.outputOffset?.[0] ?? 0) === 0
+            ? "PLC feedback = temperature in °C"
+            : `PLC feedback = ${editor.outputScale?.[0] ?? 1} × temperature (°C) + ${editor.outputOffset?.[0] ?? 0}`}</p>
+          <label style={{ display: "flex", alignItems: "start", gap: 6 }}>
+            <input type="checkbox" name="plant-temperature-units-confirmed" checked={temperatureUnitsConfirmed}
+              onChange={(event) => setTemperatureUnitsConfirmed(event.target.checked)} />
+            I confirm these units and conversions for the selected PLC signals.
+          </label>
+          <p>Raw-count signals need setup in Signal conversions. Signal names do not establish units.</p>
+        </div>}
         <PlantSignalPicker
           catalog={signalCatalog}
           usedFeedbackTargets={usedFeedbackTargets}
-          commandSource={editor.commandSources[0]}
-          feedbackTarget={editor.feedbackTargets[0]}
-          onCommandSource={(address) =>
-            onChange({
-              ...editor,
-              commandSources: address ? [address] : [],
-              initialInput: address ? resizeScalar(editor.initialInput, 0) : [],
-              inputScale: address ? resizeScalar(editor.inputScale, 1) : [],
-              inputOffset: address ? resizeScalar(editor.inputOffset, 0) : [],
-            })
-          }
-          onFeedbackTarget={(address) =>
-            onChange({
-              ...editor,
-              feedbackTargets: address ? [address] : [],
-              outputScale: address ? resizeScalar(editor.outputScale, 1) : [],
-              outputOffset: address ? resizeScalar(editor.outputOffset, 0) : [],
-            })
-          }
+          commandSources={editor.commandSources}
+          feedbackTargets={editor.feedbackTargets}
+          labels={portLabels}
+          onCommandSource={(index, address) => {
+            setTemperatureUnitsConfirmed(false);
+            onChange(updatePlantPortBinding(editor, "command", index, address));
+          }}
+          onFeedbackTarget={(index, address) => {
+            setTemperatureUnitsConfirmed(false);
+            onChange(updatePlantPortBinding(editor, "feedback", index, address));
+          }}
         />
       </section>
-      <PlantDynamicsEditor
-        key={`${editor.startingPoint}:${editor.model}`}
-        draft={editor}
-        onChange={(next) => onChange({ ...editor, ...next })}
-      />
-      <section className="trust-section" style={{ paddingTop: 8, paddingBottom: 8 }}>
-        <button
-          className="trust-button"
-          aria-expanded={engineeringOpen}
-          onClick={() => setEngineeringOpen((open) => !open)}
-          style={{ width: "100%", display: "flex", justifyContent: "space-between" }}
-        >
-          <span>{engineeringOpen ? "Hide" : "Show"} engineering details</span>
-          <span aria-hidden="true">{engineeringOpen ? "−" : "+"}</span>
-        </button>
+      <section className="trust-section" data-plant-setup-section="starting-conditions" style={{ paddingTop: 8, paddingBottom: 8 }}>
+        <div className="trust-section__title">Starting conditions</div>
+        {editor.model === "first_order_dead_time" ? (
+          <PlantStartingConditionsEditor
+            key={`${editor.model}:${editor.startingPoint}:${modelRevision}`}
+            value={editor.initialState[0]}
+            label={temperatureView ? "Starting temperature (°C)" : undefined}
+            description={temperatureView ? "Absolute temperature when simulation starts or resets. This need not equal the resting temperature." : undefined}
+            inputStyle={INPUT}
+            onChange={(value) => onChange({ ...editor, initialState: [value], modelValuesTouched: true })}
+            onValidityChange={(message) => setRawInputIssues((current) => {
+              const next = { ...current };
+              if (message) next.starting_value = message;
+              else delete next.starting_value;
+              return next;
+            })}
+          />
+        ) : startingStateFields.length > 0 ? (
+          <div style={{ display: "grid", gap: 12 }}>
+            {startingStateFields.map(({ label, description }, index) => (
+              <PlantStartingConditionsEditor
+                key={`${editor.model}:${modelRevision}:${index}`}
+                stateIndex={index}
+                value={editor.initialState[index]}
+                label={label}
+                description={description}
+                inputStyle={INPUT}
+                onChange={(value) => {
+                  const initialState = [...editor.initialState];
+                  initialState[index] = value;
+                  onChange({ ...editor, initialState, modelValuesTouched: true });
+                }}
+                onValidityChange={(message) => updateRawIssue(`starting_state.${index}`, message)}
+              />
+            ))}
+          </div>
+        ) : <p className="trust-help">Initial model state: {JSON.stringify(editor.initialState)}. Change it in Model &amp; behavior.</p>}
+        {temperatureView && editor.initialState[0] !== temperatureExampleValues(editor).resting_temperature && <p className="trust-help">Non-equilibrium start: the starting temperature differs from the heater-off resting temperature. The configured input history remains visible in Model details.</p>}
+        {temperatureView && <p className="trust-help">Heater range: {editor.actuator?.minimum ?? "unbounded"}–{editor.actuator?.maximum ?? "unbounded"}%. Adjust limits in Actuator &amp; command.</p>}
+        <p className="trust-help">Plant step: {editor.stepMs === undefined ? "uses the project simulation setting" : `${editor.stepMs} ms`}. Saving does not start or restart simulation.</p>
       </section>
-      {engineeringOpen && (
-        <>
+      <PlantOptionalSettings
+        draft={editor}
+        active={optionalDestination}
+        onActiveChange={setOptionalDestination}
+      />
+      {optionalDestination && (
+        <div data-plant-optional-editor={optionalDestination}>
+          {optionalDestination === "actuator" && (
           <PlantActuatorEditor
             value={editor.actuator ?? {}}
             onChange={(actuator) => onChange({ ...editor, actuator })}
           />
+          )}
+          {optionalDestination === "signals" && (
           <PlantSignalEngineeringEditor
             draft={editor}
-            onChange={(next) => onChange({ ...editor, ...next })}
+            onChange={(next) => {
+              setTemperatureUnitsConfirmed(false);
+              onChange({ ...editor, ...next });
+            }}
           />
+          )}
+          {optionalDestination === "realism" && (
           <PlantImperfectionsEditor
             rows={editor.uncertainties ?? []}
+            activeIndex={activeEffectIndex}
+            onActiveIndexChange={setActiveEffectIndex}
             modelParameters={Object.keys(editor.parameters)}
             onChange={(uncertainties) => onChange({ ...editor, uncertainties })}
           />
+          )}
+          {optionalDestination === "scenarios" && (
           <PlantScenarioEventsEditor
             rows={editor.scenarioEvents ?? []}
             context={scenarioContext}
             onChange={(scenarioEvents) => onChange({ ...editor, scenarioEvents })}
           />
-        </>
+          )}
+        </div>
       )}
+      </div>
+      </div>
       {editor.persisted && onOpenControlStudio && (
         <section className="trust-section" style={{ paddingTop: 8, paddingBottom: 8 }}>
           <button
@@ -512,7 +566,7 @@ export function PlantDraftPanel({
                 className="trust-button"
                 data-plant-focus-first-error
                 onClick={() => focusValidationItem(validationItems[0])}
-                style={{ marginTop: 5, justifySelf: "start" }}
+                style={{ marginTop: 5, justifySelf: "start", maxWidth: "100%", whiteSpace: "normal", textAlign: "left", overflowWrap: "anywhere" }}
               >
                 {validationItems[0].message}
               </button>
@@ -573,10 +627,6 @@ export function PlantDraftPanel({
   );
 }
 
-function resizeScalar(current: number[] | undefined, fallback: number): number[] {
-  return [current?.[0] ?? fallback];
-}
-
 function exactValue(value: unknown): string {
   return JSON.stringify(value) ?? String(value);
 }
@@ -607,8 +657,11 @@ const PANEL: React.CSSProperties = {
   top: 0,
   right: 0,
   bottom: 0,
-  width: 360,
-  maxWidth: "100%",
+  left: 0,
+  width: "auto",
+  maxWidth: "none",
+  overflow: "auto",
+  background: "var(--vscode-editor-background, var(--trust-bg))",
   zIndex: 7,
 };
 
@@ -683,39 +736,4 @@ const FIELD_ERROR: React.CSSProperties = {
   color: "var(--trust-danger)",
   fontSize: 10.5,
   lineHeight: 1.35,
-};
-
-const HELP_LABEL_ROW: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 8,
-};
-
-const HELP_BUTTON: React.CSSProperties = {
-  width: 20,
-  height: 20,
-  border: "1px solid var(--trust-border)",
-  borderRadius: 10,
-  background: "transparent",
-  color: "var(--trust-text-muted)",
-  cursor: "pointer",
-  fontSize: 11,
-  padding: 0,
-};
-
-const HELP_POPOVER: React.CSSProperties = {
-  position: "absolute",
-  top: 23,
-  left: 0,
-  right: 0,
-  zIndex: 4,
-  border: "1px solid var(--trust-border)",
-  borderRadius: 3,
-  background: "var(--vscode-editorHoverWidget-background, var(--trust-surface))",
-  color: "var(--trust-text)",
-  fontSize: 11,
-  lineHeight: 1.4,
-  padding: "8px 9px",
-  boxShadow: "0 3px 10px var(--vscode-widget-shadow)",
 };

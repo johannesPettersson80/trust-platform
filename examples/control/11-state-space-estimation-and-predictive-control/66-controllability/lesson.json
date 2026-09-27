@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 4,
+  "id": "control-controllability",
+  "title": "Controllability",
+  "level": "Modern",
+  "sequence": 68,
+  "equipment": "Two equal gravity-drained tanks and one upstream pump",
+  "physicalPurpose": "Observe direct and propagated influence of the same bounded upstream pump.",
+  "principalTechnique": "Controllability matrix and bounded physical pulse experiments",
+  "objective": "Distinguish local transient controllability from holding arbitrary unequal steady levels.",
+  "prerequisites": [
+    "control-lesson-20"
+  ],
+  "nextLesson": "control-observability",
+  "signals": [
+    {
+      "role": "MV",
+      "name": "Pump flow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 0.02,
+      "resolution": 1e-06,
+      "binding": "%QL0"
+    },
+    {
+      "role": "PV",
+      "name": "Tank 2 level",
+      "unit": "m",
+      "minimum": 0.05,
+      "maximum": 0.45,
+      "resolution": 1e-06,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Tank 1 level",
+      "unit": "m",
+      "minimum": 0.05,
+      "maximum": 0.45,
+      "resolution": 1e-06,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Upstream model error",
+      "unit": "m",
+      "minimum": -0.4,
+      "maximum": 0.4,
+      "resolution": 1e-06,
+      "binding": "%ML88"
+    },
+    {
+      "role": "state",
+      "name": "Downstream model error",
+      "unit": "m",
+      "minimum": -0.4,
+      "maximum": 0.4,
+      "resolution": 1e-06,
+      "binding": "%ML96"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    }
+  ],
+  "plant": {
+    "modelId": "controllability-cascade",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "area_m2",
+        "value": 0.5,
+        "unit": "m2"
+      },
+      {
+        "name": "outflow_coefficient_m2_sqrt_m_per_s",
+        "value": 0.02,
+        "unit": "m^(5/2)/s"
+      }
+    ],
+    "sampleTimeSeconds": 1,
+    "initialState": {
+      "tank1Level": 0.25,
+      "tank2Level": 0.25
+    },
+    "seed": 20260829,
+    "simplifications": [
+      "Equal fixed cross sections and discharge coefficients; free upstream discharge without downstream backpressure.",
+      "Physical levels use coupled RK4 gravity balances; the ST predictor is a separate local one-second Euler approximation."
+    ],
+    "operatingPoint": {
+      "Pump flow": 0.01,
+      "Tank 1 level": 0.25,
+      "Tank 2 level": 0.25
+    },
+    "validityRange": [
+      {
+        "signal": "Pump flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Tank 1 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      },
+      {
+        "signal": "Tank 2 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      }
+    ]
+  },
+  "baseline": {
+    "executableId": "Lesson68.PositivePumpPulse",
+    "settings": {
+      "P1.FlowDeviationM3PerS": 0.001
+    },
+    "limitation": "Local transient controllability does not establish arbitrary unequal steady-state levels."
+  },
+  "change": {
+    "executableId": "Lesson68.NegativePumpPulse",
+    "settings": {
+      "P1.FlowDeviationM3PerS": -0.001
+    },
+    "decision": "Compare opposite bounded pulse responses while preserving the same equilibrium and physical model."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 120,
+    "settlingSeconds": 100,
+    "disturbances": [
+      "Separate fresh h1=h2=.25 m cases use +.001 and \u2212.001 m3/s pump deviations for20s, then restore .010m3/s for100s."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "bounded_level",
+      "signal": "Tank 1 level",
+      "window": "full120s trial and recovery",
+      "comparator": "<=",
+      "limit": 0.45,
+      "unit": "m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "bounded_level",
+      "signal": "Tank 2 level",
+      "window": "full120s trial and recovery",
+      "comparator": "<=",
+      "limit": 0.45,
+      "unit": "m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Pump flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Tank 1 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      },
+      {
+        "signal": "Tank 2 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      }
+    ],
+    "abortPredicates": [
+      "Level outside .05\u2013.45 m, requested flow outside0\u2013.020 m3/s, invalid data or a non-one-second clock interval."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Normal completion restores .010 m3/s; early abort commands zero and requires simulator stop/reset.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Tune"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/67-75-state-estimation-and-optimal-control.md#68-controllability",
+    "nativeTest": "lesson68_one_upstream_pump_produces_bounded_opposite_transients",
+    "nativeCommand": "cargo test -p trust-runtime --lib lesson68_one_upstream_pump_produces_bounded_opposite_transients -- --nocapture",
+    "projectPath": "examples/control/11-state-space-estimation-and-predictive-control/66-controllability",
+    "runArtifactFields": [
+      "PumpFlow",
+      "Tank1Level",
+      "Tank2Level",
+      "FlowDeviationM3PerS"
+    ],
+    "renderedJourneyId": "control-controllability"
+  },
+  "video": {
+    "viewerOutcome": "Distinguish local transient controllability from holding arbitrary unequal steady levels.",
+    "requiredVisibleEvidence": [
+      "PumpFlow",
+      "Tank1Level",
+      "Tank2Level",
+      "FlowDeviationM3PerS"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "The two state equations preserve upstream and downstream water storage.",
+    "reason": "One pump acts directly upstream; its effect reaches downstream later.",
+    "theory": [
+      "B=[2,0] and AB=[\u2212.08,.08] span two local transient directions. Equal steady levels remain required by the downstream balance."
+    ],
+    "workedPrediction": "The determinant2*.08\u22120*(\u2212.08)=.16 is nonzero; the input can influence both local transient state directions.",
+    "practicalPreparation": [
+      "Reset both physical levels to .25m and pump flow to .010m3/s."
+    ],
+    "baseline": "Apply +.001m3/s upstream for20s.",
+    "change": "Use Control Studio to display B, AB and rank, then compare opposite physical pump pulses.",
+    "comparison": "After a full reset, apply\u2212.001m3/s for20s.",
+    "validation": "Inspect bounded same-sign direct/upstream and delayed/downstream deviations; do not infer arbitrary steady targets.",
+    "explanation": "Controllability concerns independent transient directions under the local model, with physical constraints considered separately.",
+    "transfer": "Observability asks whether downstream measurement history distinguishes both states."
+  }
+}

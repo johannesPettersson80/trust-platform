@@ -1,0 +1,4 @@
+case,status,overhead_cross_peak_pp,overhead_combined_iae_pp_s,overhead_applied_travel_pp,perturbed_cross_peak_pp
+direct,rejected,0.185093,73.164766,4.472029,0.156818
+static_decoupling,selected,0.042939,50.264290,4.562363,0.067782
+dynamic_decoupling,nominal_only,0.000051,55.444211,4.515826,0.059432

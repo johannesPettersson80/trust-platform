@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-28",
+  "title": "Manual PI tuning",
+  "level": "Tuning",
+  "sequence": 11,
+  "equipment": "Water heater",
+  "physicalPurpose": "Choose a bounded gain change, predict its effect, repeat matched experiments and keep or reject the new settings.",
+  "principalTechnique": "Manual PI tuning",
+  "objective": "Choose a bounded gain change, predict its effect, repeat matched experiments and keep or reject the new settings.",
+  "prerequisites": [
+    "control-loop-diagnosis"
+  ],
+  "nextLesson": "control-lesson-13",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX112.0"
+    },
+    {
+      "role": "disturbance",
+      "name": "DisturbanceKw",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 30,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "IntegralPct",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "ProportionalPct",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%ML56"
+    },
+    {
+      "role": "MV",
+      "name": "RequestedPowerPct",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 300,
+      "resolution": 0.001,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "ObservedKp",
+      "unit": "percentage-point/degC",
+      "minimum": 1,
+      "maximum": 4,
+      "resolution": 0.001,
+      "binding": "%ML96"
+    },
+    {
+      "role": "state",
+      "name": "ObservedKi",
+      "unit": "percentage-point/(degC*s)",
+      "minimum": 0.2,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%ML104"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-manual-tuning",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 35,
+      "appliedPowerPct": 75,
+      "integralPct": 75,
+      "heatingDelayHistoryPct": 75
+    },
+    "seed": 20260829,
+    "simplifications": [
+      "Local heater model with initial temperature35 °C and command75%.",
+      "Nominal coefficients are supplied simulation values, not accepted learner estimates.",
+      "Simulation-only process I/O;100ms samples.",
+      "No probe filter or valve rate limit is added to the Lesson9 heater."
+    ],
+    "operatingPoint": {
+      "Measured temperature": 35,
+      "Applied heating command": 75,
+      "Experiment authority": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ]
+  },
+  "baseline": {
+    "executableId": "P1.Controller",
+    "settings": {
+      "appliedPowerPct": 75,
+      "temperatureC": 35,
+      "ProportionalGain": 2,
+      "IntegralGain": 0.5
+    },
+    "limitation": "The baseline passes the target trial but narrowly misses the load-settling requirement; compare both matched records."
+  },
+  "change": {
+    "executableId": "P1.Controller",
+    "settings": {
+      "TrialKind": "0:target35→38°C;1:30kW extraction at SP35",
+      "durationSeconds": 60,
+      "Parameters.ProportionalGain": 2,
+      "Parameters.IntegralGain": 0.5
+    },
+    "decision": "Use the qualified Control Studio record to answer the lesson question; do not accept supplied nominal parameters as measured results."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 60.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "temperature_operating_range",
+      "signal": "Measured temperature",
+      "window": "complete recorded experiment",
+      "comparator": "<=",
+      "limit": 80,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Tune",
+    "Test",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/01-11-foundations-and-pi.md",
+    "nativeTest": "manual_tuning",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_intro_engineering manual_tuning",
+    "projectPath": "examples/control/06-pid-tuning-methods/28-manual-pi-tuning",
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "sampleTime",
+      "initialState",
+      "experimentConditions",
+      "modelProvenance",
+      "stopReason",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-28"
+  },
+  "learning": {
+    "context": "Choose a bounded gain change, predict its effect, repeat matched experiments and keep or reject the new settings.",
+    "reason": "Diagnosis has separated measurement, delivery and capacity questions from\ntuning. We now test whether a deliberate gain change improves the response.\n\nThe anti-windup controller has fixed $K_p=2$ percentage points/°C and $K_i=0.5$ percentage points/(°C s). In the prepared Lesson 9 simulation, these gains pass the setpoint requirement but narrowly miss the disturbance-settling requirement: the largest error during 30–60 s is about 0.212 °C against a 0.2 °C limit. Confirm that baseline in your own matched records before changing a gain. A stronger response can reduce error sooner while increasing peak temperature or actuator use.",
+    "change": "1. Leave the source `TrialKind` initializer at `0`, start Simulator and inspect the baseline gain values in **Tune → Inspect runtime parameters**. In **Control Studio → Monitor → Response**, inspect SP/PV in °C and requested/applied output and I in percent. Use **Signals** for the recorded gains; select Error separately when judging the ±0.2 °C band. In **Test**, review the baseline setpoint trial: reset to SP=PV=35 °C, I=75%, applied output=75%, P=0% and no load, with the preceding 1 s command history at 75%. Use **Review test**, then **Confirm and start** to establish time zero and apply SP 35→38 °C for 60 s. Test automatically records the reviewed sequence.\n2. After terminal restoration, use **Validate → Save result**. Stop Simulator, set the `TrialKind` initializer to `1`, restart and restore the same state. Run the baseline disturbance trial: keep SP=35 °C and introduce 30 kW at time zero for 60 s. Decide whether the baseline qualifies before selecting a gain change.\n3. Choose the response feature to improve, one gain and a factor from 0.8 to 1.2 within the stated gain bounds. After each reset, inspect runtime parameters, edit only the chosen numeric gain field, then use **Review candidate → Apply reviewed values** and wait for observed confirmation. Predict the benefit and possible cost. Reset fully and repeat the most informative trial first; if that passes, save its Test result after terminal restoration, reset with the other `TrialKind`, reapply the same candidate gains, and record that event too.\n4. Retain or reject that candidate using both event types. For the next change, start from the last retained gains so a rejected change does not silently become the new baseline. Test at most two further candidates, again changing only one gain at a time. You may stop earlier when a candidate qualifies, when no candidate qualifies, or when the evidence is not discriminating.\n5. Record peak or minimum PV, first entry into the ±0.2 °C band that remains to 60 s, output range, and any saturation. Abort outside 0–80 °C, outside 0–100% applied output, or on unusable measurements. Select **Abort test** when a stopping condition occurs. After each run, cancel the load, restore SP35, disable heating and confirm 0% output; stop the simulator if it is unresponsive. Reset the complete hot state before the next trial.",
+    "transfer": "These trials show how the tested feedback controllers behave. They do not\nseparate the heater's own response from the controller continually changing\nits power. [Process dynamics](../../01-feedback-foundations-and-temperature-control/13-process-response-classes/README.md)\nidentifies the gain, speed and delay information that a useful heater model must supply.",
+    "theory": [
+      "**Manual tuning** adjusts controller gains through repeatable experiments\nagainst unchanged requirements. We choose which gain to change from the\nresponse we want to improve. The baseline and every candidate use the Lesson 9 requirements:\n\n| Trial | Requirement through 60 s |\n| --- | --- |\n| SP 35→38 °C | Peak ≤39 °C; $\\vert PV-38\\vert≤0.2$ °C by 30 s and thereafter |\n| SP 35 °C, load +30 kW | Minimum ≥33 °C; $\\vert PV-35\\vert≤0.2$ °C by 30 s and thereafter |\n\nCompare the baseline first. A factor 1.2 applied to $K_p=2$ gives 2.4 percentage points/°C; a factor 0.8 gives 1.6. A factor 1.2 applied to $K_i=0.5$ gives 0.6 percentage points/(°C s); a factor 0.8 gives 0.4. These are candidate settings, not guaranteed improvements. For the 3 °C setpoint step, increasing Kp from 2 to 2.4 adds $0.4(3)=1.2$ percentage points to the first proportional correction: the first complete request changes from 81.15% to 82.35%. Increasing Ki from 0.5 to 0.6 instead adds only $0.1(3)(0.1)=0.03$ point on the first scan, making 81.18%, but the extra accumulation continues on later scans while error remains. Anti-windup remains enabled and applied output must stay 0–100%.\n\nChanging Kp changes the output produced by the current error immediately. Changing Ki changes the rate at which the retained contribution moves while error persists. Because this heater stores energy and has a delivery delay, the effect of earlier heating commands can continue after the error has changed sign. That is why peak, minimum, band entry, and output range must all be recorded instead of selecting a gain from the first visible movement."
+    ],
+    "workedPrediction": "Which signal changes first after the setpoint step and after the load event? Predict what increasing Kp changes immediately and what increasing Ki changes over time. Which requirement might become worse with a stronger gain? Define in advance what result would make you retain a candidate, reject it, or stop because the data are inconclusive.",
+    "practicalPreparation": [
+      "Keep the heater, initial state, event, duration, limits, and reset identical. Change one gain per trial, record what improved and worsened, and test at most three changed candidate parameter sets in addition to the baseline. Each candidate requires a setpoint trial and a separately reset disturbance trial before it can qualify. Choose a factor from 0.8 to 1.2 for one gain per candidate, keeping Kp within 1–4 percentage points/°C and Ki within 0.2–1 percentage points/(°C·s). These are bounds for this exercise, not a guarantee of stability; never alter both gains to explain one result.",
+      "The project runs the same `Control.PID` with proportional and integral action,\nback-calculation anti-windup and a 1 s tracking time. Each 100 ms task configures\nthe complete accepted parameter record before `Update`; initialization runs\nonce at the hot reset. Changing a gain does not replace the other parameters\nor reset the retained controller state.",
+      "The native heater supplies measured temperature on `%IL0` and applied heating\nfeedback on `%IL8`. The PID drives the heater through `%QL0`; `%QL8` requests\nheat extraction. [simulation.toml](simulation.toml) owns the 1 s heating delay,\nimmediate load response, 0–100% actuator and 35 °C/75% initial state.",
+      "Restart to the hot reset first, then open **Tune → Inspect runtime parameters**.\nEdit **Proportional gain** or **Integral gain**, then use\n**Review candidate → Apply reviewed values**. These numeric fields address the\nactual `LREAL` record leaves `P1.Parameters.ProportionalGain` and\n`P1.Parameters.IntegralGain`\nwhile the experiment is disabled. Only one field changes for each candidate;\nthe review shows both current and proposed values. Wait for confirmation that\nthe values were observed after ST execution before starting the trial.",
+      "Applying before restart would lose the candidate. Set `TrialKind` to `0` or `1`\nin [Main.st](src/Main.st) before each restart, then reapply the same accepted\ncandidate for its separate target/load records. `ObservedKp` (`%ML96`) and\n`ObservedKi` (`%ML104`) record the actual accepted LREAL gains with every sample;\nthe gain mirrors are observations, not tuning inputs. Inspect their numerical\nvalues in **Monitor → Signals**, leaving them unselected when plotting the\ntemperature and heater response.",
+      "For each trial, retain the exact gains, initial I=75% and event type. Keep the\nreset, tracking time, setpoints, load, sample interval and output limits fixed.\nThe valid 100% output limit is an observation, not an automatic stop. Abort for\nthe stated temperature, applied-output or measurement limits. Keep each\ncandidate and its one changed gain with the record; a method label alone does\nnot qualify it."
+    ],
+    "baseline": "Use the declared35 °C and75% initial state; retain the actual baseline record.",
+    "comparison": "Judge each trial against both requirements when both are required for the decision. Keep a candidate only if it passes the stated temperature limits and applied-output bounds with the exact reset and event. A quicker first movement does not compensate for a failed peak or minimum. If the baseline qualifies, you may retain it or investigate a candidate for a stated secondary benefit, such as shorter settling, while preserving every temperature and output requirement. If all bounded candidates fail, report that result and the unresolved cause; it does not prove that no other tuning exists.\n\nKeep the event records separate: the setpoint trial changes error immediately, while the disturbance trial must first change PV. Compare candidates only within the same event and matched initial state.\n\nUse the same candidate on both event types when the tuning decision covers both requirements. If one event fails and the other passes, do not average them into one score: identify which physical demand is limiting the decision. A trial stopped for an output or temperature boundary is a failed requirement for that condition, but it does not prove that every possible gain would fail.",
+    "validation": "Judge each trial against both requirements when both are required for the decision. Keep a candidate only if it passes the stated temperature limits and applied-output bounds with the exact reset and event. A quicker first movement does not compensate for a failed peak or minimum. If the baseline qualifies, you may retain it or investigate a candidate for a stated secondary benefit, such as shorter settling, while preserving every temperature and output requirement. If all bounded candidates fail, report that result and the unresolved cause; it does not prove that no other tuning exists.\n\nKeep the event records separate: the setpoint trial changes error immediately, while the disturbance trial must first change PV. Compare candidates only within the same event and matched initial state.\n\nUse the same candidate on both event types when the tuning decision covers both requirements. If one event fails and the other passes, do not average them into one score: identify which physical demand is limiting the decision. A trial stopped for an output or temperature boundary is a failed requirement for that condition, but it does not prove that every possible gain would fail.",
+    "explanation": "Manual PI tuning is a finite decision loop: establish a baseline, change one gain within declared bounds, repeat the requirements, and retain or reject the candidate from evidence. The result can be baseline retained, a candidate retained, no qualifying candidate, or an inconclusive experiment."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves0–80 °C or applied command leaves0–100%"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Stop to zero heating and extraction. Restore the full35°C/75% state before the next independent trial.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Choose a bounded gain change, predict its effect, repeat matched experiments and keep or reject the new settings.",
+    "requiredVisibleEvidence": [
+      "Heater model and initial state",
+      "Applied command and temperature record",
+      "Required Control Studio analysis",
+      "Declared uncertainty and decision",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

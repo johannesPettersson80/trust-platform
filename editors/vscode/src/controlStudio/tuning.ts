@@ -214,7 +214,7 @@ function loopFrequency(model: IdentifiedModel, kp: number, tiSeconds: number): F
 }
 
 function validateModel(model: IdentifiedModel): void {
-  if (!model.stable) throw new Error("A stable model is required for frequency results.");
+  if (!model.stable && model.kind !== "integrating") throw new Error("A stable model is required for frequency results.");
   if (!Number.isFinite(model.gain) || model.gain === 0) throw new Error("Model gain must be finite and non-zero.");
   for (const value of [model.timeConstantSeconds, model.secondTimeConstantSeconds]) {
     if (value !== undefined && (!Number.isFinite(value) || value <= 0)) throw new Error("Model time constants must be finite and positive.");

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "control-lesson-27",
+  "name": "Select the minimum controller structure",
+  "revision": "sha256:bd97fc8d9edda2886fcefca90ea56ee2bf8b32fb630c3a56180063f1ab2c6059",
+  "projectId": "project:control-lesson-27",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "controller_selection_examples", "design": "project", "revision": "sha256:bd97fc8d9edda2886fcefca90ea56ee2bf8b32fb630c3a56180063f1ab2c6059", "action": "direct", "taskPeriodMs": 100, "modeSignal": "%MX88.0" },
+  "signals": {
+    "setpoint": { "symbol": "P1.HeaterSetpoint", "address": "%ML8", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 20, "maximum": 30 } },
+    "processVariable": { "symbol": "P1.HeaterTemperature", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "degC", "range": { "minimum": 0, "maximum": 60 } },
+    "manipulatedVariable": { "symbol": "P1.HeaterPower", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+    "additional": [
+      { "id": "compressor-on", "channel": "compressor-on", "role": "state", "symbol": "P1.CompressorOn", "address": "%MX88.4", "iecType": "BOOL", "direction": "read", "unit": "", "range": { "minimum": 0, "maximum": 1 } },
+      { "id": "tank-level", "channel": "tank-level", "role": "state", "symbol": "P1.TankLevel", "address": "%IL16", "iecType": "LREAL", "direction": "read", "unit": "cm", "range": { "minimum": 0, "maximum": 100 } },
+      { "id": "table-position", "channel": "table-position", "role": "state", "symbol": "P1.TablePosition", "address": "%IL24", "iecType": "LREAL", "direction": "read", "unit": "rad", "range": { "minimum": -4, "maximum": 4 } },
+      { "id": "lesson-experiment", "channel": "lesson-experiment", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX88.0", "iecType": "BOOL", "direction": "read", "unit": "", "range": { "minimum": 0, "maximum": 1 } }
+    ]
+  },
+  "limits": { "outputMinimum": 0, "outputMaximum": 100 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "controller-selection-examples",
+  "experiment": { "execution": "project-scripted", "kind": "observation", "amplitude": 0, "durationSeconds": 90.1, "seed": 20260829, "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX88.0", "iecType": "BOOL", "direction": "write" } }
+}

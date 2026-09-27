@@ -1,0 +1,80 @@
+title = "Overview"
+icon = "thermometer"
+order = 0
+
+[[section]]
+title = "Key Metrics"
+span = 12
+tier = "hero"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.MeasuredTemperature"
+inferred_interface = true
+label = "Measured Temperature"
+span = 4
+unit = "C"
+min = 0
+max = 120
+
+[[section]]
+title = "Status"
+span = 12
+tier = "status"
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.ExperimentEnabled"
+inferred_interface = true
+label = "Experiment Enabled"
+span = 2
+
+[[section]]
+title = "Details"
+span = 12
+tier = "detail"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.CandidateA"
+inferred_interface = true
+label = "Candidate A"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.CandidateB"
+inferred_interface = true
+label = "Candidate B"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.CandidateSeparation"
+inferred_interface = true
+label = "Candidate Separation"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.ElapsedSeconds"
+inferred_interface = true
+label = "Elapsed Seconds"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.ValvePosition"
+inferred_interface = true
+label = "Valve Position"
+span = 3
+min = 0
+max = 100

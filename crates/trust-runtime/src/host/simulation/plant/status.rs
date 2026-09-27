@@ -181,6 +181,22 @@ impl super::PlantInstance {
                 super::numeric_io::encode_numeric(runtime.io(), address, *value)
                     .map(|encoded| (address.clone(), encoded))
             })
+            .chain(
+                self.config
+                    .actuator_feedback_targets
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(channel, address)| {
+                        address.as_ref().map(|address| (channel, address))
+                    })
+                    .map(|(channel, address)| {
+                        let applied = (self.actuators[channel].current_applied()
+                            - self.config.input_offset[channel])
+                            / self.config.input_scale[channel];
+                        super::numeric_io::encode_numeric(runtime.io(), address, applied)
+                            .map(|encoded| (address.clone(), encoded))
+                    }),
+            )
             .collect::<Result<Vec<_>, _>>()
             .and_then(|pending| {
                 runtime.io_mut().write_batch(&pending)?;
@@ -194,7 +210,16 @@ impl super::PlantInstance {
                 return Err(fault);
             }
         };
-        debug_assert_eq!(pending.len(), self.config.feedback_targets.len());
+        debug_assert_eq!(
+            pending.len(),
+            self.config.feedback_targets.len()
+                + self
+                    .config
+                    .actuator_feedback_targets
+                    .iter()
+                    .flatten()
+                    .count()
+        );
         self.published_feedback.clone_from(values);
         self.feedback_pending = false;
         Ok(())

@@ -16,6 +16,9 @@ pub(super) struct ActuatorConfig {
     characteristic_exponent: f64,
     lag_s: f64,
     initial_applied: f64,
+    switching: bool,
+    minimum_on_s: f64,
+    minimum_off_s: f64,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -31,6 +34,9 @@ pub(super) struct ActuatorSection {
     characteristic_exponent: Option<f64>,
     lag_s: Option<f64>,
     initial_applied: Option<f64>,
+    kind: Option<String>,
+    minimum_on_s: Option<f64>,
+    minimum_off_s: Option<f64>,
 }
 
 impl ActuatorSection {
@@ -82,6 +88,31 @@ impl ActuatorSection {
         if !(minimum..=maximum).contains(&initial_applied) {
             return invalid("plants.actuator.initial_applied must be within saturation limits");
         }
+        let switching = match self.kind.as_deref().unwrap_or("continuous") {
+            "continuous" => false,
+            "on-off" => true,
+            _ => return invalid("plants.actuator.kind must be continuous or on-off"),
+        };
+        let minimum_on_s = nonnegative(
+            "plants.actuator.minimum_on_s",
+            self.minimum_on_s.unwrap_or(0.0),
+        )?;
+        let minimum_off_s = nonnegative(
+            "plants.actuator.minimum_off_s",
+            self.minimum_off_s.unwrap_or(0.0),
+        )?;
+        if switching
+            && (minimum >= maximum
+                || !(maximum - minimum).is_finite()
+                || (initial_applied != minimum && initial_applied != maximum))
+        {
+            return invalid(
+                "on-off actuator requires distinct finite levels and an initial applied level",
+            );
+        }
+        if !switching && (minimum_on_s != 0.0 || minimum_off_s != 0.0) {
+            return invalid("on/off dwell belongs to a switching actuator");
+        }
         Ok(ActuatorConfig {
             minimum,
             maximum,
@@ -93,6 +124,9 @@ impl ActuatorSection {
             characteristic_exponent,
             lag_s,
             initial_applied,
+            switching,
+            minimum_on_s,
+            minimum_off_s,
         })
     }
 }
@@ -109,12 +143,15 @@ pub(super) struct ActuatorState {
     deadband_active: bool,
     stiction_active: bool,
     sliding: bool,
+    switch_high: bool,
+    dwell_s: f64,
 }
 
 impl ActuatorState {
     pub(super) fn new(config: ActuatorConfig) -> Self {
         let initial = config.initial_applied;
         let applied = config.map_position(initial);
+        let switch_high = initial == config.maximum;
         Self {
             config,
             accepted_command: initial,
@@ -126,10 +163,16 @@ impl ActuatorState {
             deadband_active: false,
             stiction_active: false,
             sliding: false,
+            switch_high,
+            dwell_s: 0.0,
         }
     }
 
     pub(super) fn initial_applied(&self) -> f64 {
+        self.current_applied()
+    }
+
+    pub(super) fn current_applied(&self) -> f64 {
         self.applied
     }
 
@@ -138,6 +181,27 @@ impl ActuatorState {
             self.stiction_active = false;
             return self.applied;
         }
+        let command = if self.config.switching {
+            self.dwell_s = (self.dwell_s + step_s).min(f64::MAX);
+            let requested_high =
+                command >= self.config.minimum + (self.config.maximum - self.config.minimum) * 0.5;
+            let required_dwell = if self.switch_high {
+                self.config.minimum_on_s
+            } else {
+                self.config.minimum_off_s
+            };
+            if requested_high != self.switch_high && self.dwell_s >= required_dwell {
+                self.switch_high = requested_high;
+                self.dwell_s = 0.0;
+            }
+            if self.switch_high {
+                self.config.maximum
+            } else {
+                self.config.minimum
+            }
+        } else {
+            command
+        };
         let command_delta = (command - self.accepted_command).abs();
         self.deadband_active = command_delta > 0.0 && command_delta <= self.config.deadband;
         if command_delta > self.config.deadband {
@@ -248,4 +312,30 @@ fn nonnegative(name: &str, value: f64) -> Result<f64, RuntimeError> {
 
 fn invalid<T>(message: impl Into<String>) -> Result<T, RuntimeError> {
     Err(RuntimeError::InvalidConfig(message.into().into()))
+}
+
+/// Ordered per-input actuator ownership; the scalar spelling remains compatible.
+pub(super) fn configured_actuators(
+    scalar: Option<ActuatorSection>,
+    channels: Option<Vec<ActuatorSection>>,
+    initial: &[f64],
+) -> Result<Vec<ActuatorConfig>, RuntimeError> {
+    if scalar.is_some() && channels.is_some() {
+        return invalid("declare plants.actuator or plants.actuators, not both");
+    }
+    let sections = match (scalar, channels) {
+        (Some(section), None) if initial.len() == 1 => vec![section],
+        (Some(_), None) => return invalid("plants.actuator requires a scalar-input model"),
+        (None, Some(sections)) if sections.len() == initial.len() => sections,
+        (None, Some(_)) => return invalid("plants.actuators must match the ordered input count"),
+        (None, None) => (0..initial.len())
+            .map(|_| ActuatorSection::default())
+            .collect(),
+        (Some(_), Some(_)) => unreachable!("exclusive forms checked above"),
+    };
+    sections
+        .into_iter()
+        .zip(initial)
+        .map(|(section, initial)| section.into_config(*initial))
+        .collect()
 }

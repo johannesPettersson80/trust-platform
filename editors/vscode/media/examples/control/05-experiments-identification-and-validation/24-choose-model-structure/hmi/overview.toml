@@ -1,0 +1,71 @@
+title = "Overview"
+icon = "thermometer"
+order = 0
+
+[[section]]
+title = "Key Metrics"
+span = 12
+tier = "hero"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.DryerTemperature"
+inferred_interface = true
+label = "Dryer Temperature"
+span = 4
+unit = "C"
+min = 0
+max = 120
+
+[[section]]
+title = "Status"
+span = 12
+tier = "status"
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.ExperimentEnabled"
+inferred_interface = true
+label = "Experiment Enabled"
+span = 2
+
+[[section]]
+title = "Details"
+span = 12
+tier = "detail"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.HeaterDemand"
+inferred_interface = true
+label = "Heater Demand"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.FirstOrderAt2Seconds"
+inferred_interface = true
+label = "First Order AT2 Seconds"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.FopdtAt2Seconds"
+inferred_interface = true
+label = "Fopdt AT2 Seconds"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.IntegratorAt60Seconds"
+inferred_interface = true
+label = "Integrator At60 Seconds"
+span = 3
+min = 0
+max = 100

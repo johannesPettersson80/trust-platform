@@ -12,18 +12,216 @@ import {
   wrapPhaseDegrees,
 } from "../../controlStudio/chartContract";
 import * as chartContractModule from "../../controlStudio/chartContract";
-
-// panel.ts's markup and styles were split out into panelTemplate.ts and panelStyles.ts;
-// every test below that inspects the shipped document or CSS reads all of them together
-// so it keeps validating the same rendered surface regardless of which file currently
-// owns a given fragment.
-function readControlStudioPanelSource(extensionRoot: string): string {
-  return ["panel.ts", "panelTemplate.ts", "panelStyles.ts", "stageAvailability.ts"]
-    .map((file) => fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", file), "utf8"))
-    .join("\n");
-}
+import { buildEngineeringPlotEvidence, engineeringPlotMessageEvidence } from "../../controlStudio/engineeringPlots";
+import { candidateFromControlPid, type ControlPidParameters } from "../../controlStudio/controllerCandidate";
+import { recordedResponseChannels } from "../../controlStudio/webview/engineerRecordedResponses";
+import { commissioningRecordedResponse } from "../../controlStudio/webview/commissioningRecordedResponse";
+import { ControlChartWorkspace } from "../../controlStudio/webview/chartWorkspace";
+import { liveSignalPlot, liveSignals } from "../../controlStudio/webview/liveSignalPlot";
 
 suite("Control Studio chart contract", () => {
+  test("a provisional structure comparison exposes paired fit, residuals and the original record without claiming validation data", () => {
+    const tabs = chartContractModule.controlStagePlots("Identify", { recording: true, model: true, structureComparison: true } as any);
+    assert.deepStrictEqual(tabs.map(tab => tab.id), ["fit", "residuals", "recorded-response"]);
+    assert.ok(tabs.every(tab => tab.available));
+  });
+  test("Identify exposes the retained response before fitting and keeps preview and recording views distinct", () => {
+    const before = chartContractModule.controlStagePlots("Identify", { recording: true });
+    assert.ok(before.some(plot => plot.id === "recorded-response" && plot.available),
+      "the selected recording must be inspectable before its model exists");
+    assert.ok(before.some(plot => plot.id === "fit" && !plot.available && !/accept/i.test(plot.reason ?? "")),
+      "a first fit must not tell the engineer to accept a nonexistent model");
+    assert.strictEqual(chartContractModule.controlPlotView("Identify", "recorded-response"), "response");
+    const after = chartContractModule.controlStagePlots("Identify", { recording: true, model: true });
+    assert.ok(after.some(plot => plot.id === "fit" && plot.available));
+    assert.ok(after.some(plot => plot.id === "recorded-response" && plot.available));
+  });
+  test("projects an explicit open-loop plot without inventing a setpoint", () => {
+    const samples = [{ elapsedSeconds: 0, sp: null, pv: 35, mv: 85, additional: [
+      { id: "experiment-authority", channel: "experiment", role: "state", unit: "", value: 1, quality: "good" as const },
+    ] }];
+    const openLoopSignals = (liveSignals as unknown as (
+      values: typeof samples, processUnit: string, outputUnit: string, topology?: "closed-loop" | "open-loop"
+    ) => ReturnType<typeof liveSignals>)(samples, "°C", "%", "open-loop");
+    const theme = { foreground: "black", muted: "gray", border: "gray", background: "white",
+      sp: "green", pv: "blue", mv: "red", auxiliaryOrange: "orange", auxiliaryPurple: "purple", auxiliaryYellow: "gold" };
+    assert.deepStrictEqual(openLoopSignals.map(signal => signal.id), ["pv", "mv", "experiment-authority"],
+      "an open-loop process has measured output and applied input, with no fabricated SP");
+    assert.deepStrictEqual(openLoopSignals.slice(0, 2).map(signal => signal.name), ["Measured output", "Applied input"]);
+    const all = liveSignalPlot(samples, openLoopSignals, new Set(openLoopSignals.map(signal => signal.id)),
+      { width: 1280, height: 500 }, { minimum: 0, maximum: 100 }, "%", theme);
+    assert.deepStrictEqual(all.legend.data, ["Measured output", "Applied input", "Experiment authority"]);
+    assert.ok(!all.series.some(series => series.name === "SP"), "the open-loop option must not contain an invented setpoint series");
+    const auxiliary = all.series.find(series => series.name === "Experiment authority");
+    assert.strictEqual(auxiliary?.itemStyle.color, theme.auxiliaryOrange,
+      "removing SP must not shift the first auxiliary trace to a negative palette index");
+    const primary = liveSignalPlot(samples, openLoopSignals, new Set(["pv", "mv"]),
+      { width: 1280, height: 500 }, { minimum: 0, maximum: 100 }, "%", theme);
+    assert.ok(primary.yAxis.some(axis => axis.name === "Measured output (°C)"));
+    assert.ok(primary.yAxis.some(axis => axis.name === "Applied input (%)"));
+  });
+  test("labels an isolated controller-state axis by its actual role", () => {
+    const samples = [{ elapsedSeconds: 0, sp: 45, pv: 39, mv: 100, additional: [
+      { id: "tracking-correction", channel: "tracking", role: "state", unit: "percentage points", value: -0.2, quality: "good" as const },
+    ] }];
+    const signals = liveSignals(samples, "°C", "%");
+    const theme = { foreground: "black", muted: "gray", border: "gray", background: "white",
+      sp: "green", pv: "blue", mv: "red", auxiliaryOrange: "orange", auxiliaryPurple: "purple", auxiliaryYellow: "gold" };
+    const option = liveSignalPlot(samples, signals, new Set(["sp", "pv", "tracking-correction"]),
+      { width: 1280, height: 500 }, { minimum: 0, maximum: 100 }, "%", theme);
+    assert.strictEqual(option.yAxis[1].name, "Tracking correction (percentage points)",
+      "the right axis represents recorded controller state, not process PV");
+  });
+  test("keeps auxiliary trace identities distinct from primary signals and stable across selections", () => {
+    const samples = [{ elapsedSeconds: 0, sp: 45, pv: 39, mv: 100, additional:
+      Array.from({ length: 9 }, (_, index) => ({ id: `state-${index}`, channel: `state-${index}`,
+        role: "state", unit: "%", value: index, quality: "good" as const })),
+    }];
+    const signals = liveSignals(samples, "°C", "%");
+    const theme = { foreground: "black", muted: "gray", border: "gray", background: "white",
+      sp: "green", pv: "blue", mv: "red", auxiliaryOrange: "orange", auxiliaryPurple: "purple", auxiliaryYellow: "gold" };
+    const make = (selected: string[]) => liveSignalPlot(samples, signals, new Set(selected),
+      { width: 1280, height: 500 }, { minimum: 0, maximum: 100 }, "%", theme);
+    const all = make(signals.map(signal => signal.id));
+    const identity = (series: typeof all.series[number]) => `${series.lineStyle.color}/${series.lineStyle.type}`;
+    assert.strictEqual(new Set(all.series.map(identity)).size, signals.length,
+      "the included diagnostic traces must not reuse each other's or the primary traces' colour/style pair");
+    const isolated = make(["sp", "pv", "state-3"]);
+    assert.deepStrictEqual(isolated.series.map(identity), all.series.map(identity),
+      "signal selection must not reassign the remaining trace identities");
+  });
+  test("reserves a legend header above the response lanes and their axis labels", () => {
+    const samples = [{ elapsedSeconds: 0, sp: 45, pv: 39, mv: 100, additional: [
+      { id: "requested-power", channel: "requested-power", role: "state", unit: "%", value: 125, quality: "good" as const },
+      { id: "unavailable-power", channel: "unavailable-power", role: "state", unit: "percentage points", value: 25, quality: "good" as const },
+    ] }];
+    const signals = liveSignals(samples, "°C", "%");
+    const theme = { foreground: "black", muted: "gray", border: "gray", background: "white",
+      sp: "green", pv: "blue", mv: "red", auxiliaryOrange: "orange", auxiliaryPurple: "purple", auxiliaryYellow: "gold" };
+    const option = liveSignalPlot(samples, signals, new Set(signals.map(signal => signal.id)),
+      { width: 1280, height: 500 }, { minimum: 0, maximum: 100 }, "%", theme);
+    const legendTop = (option.legend as { top?: number }).top;
+    assert.strictEqual(typeof legendTop, "number", "the scroll legend must explicitly occupy the reserved header");
+    assert.ok(legendTop! >= 0 && legendTop! + 24 < option.grid[0].top - 15,
+      "legend text must fit above the first lane's axis heading instead of overlapping time ticks");
+    const compact = liveSignalPlot(samples, signals, new Set(signals.map(signal => signal.id)),
+      { width: 1280, height: 300 }, { minimum: 0, maximum: 100 }, "%", theme);
+    assert.ok(compact.grid[0].height / compact.yAxis[0].splitNumber >= 18,
+      "the compact Test plot must leave a readable line height between y-axis tick labels");
+  });
+  test("applies saved plot selection without requiring a current monitor sample", () => {
+    const { JSDOM } = require("jsdom");
+    const dom = new JSDOM('<div data-control-studio></div>');
+    const original = { window: globalThis.window, document: globalThis.document, CustomEvent: globalThis.CustomEvent };
+    Object.assign(globalThis, { window: dom.window, document: dom.window.document, CustomEvent: dom.window.CustomEvent });
+    try {
+      let applied: string[] = [];
+      const owner = Object.assign(Object.create(ControlChartWorkspace.prototype), {
+        root: dom.window.document.querySelector("div"), selectedPlots: {}, revision: 0,
+        sessionBoundary: () => "saved-loop", renderSignals: () => {}, renderDesigns: () => {}, renderTabs: () => {},
+        adapter: { restoreWindow: () => {}, setSelectedSignals: (ids: readonly string[]) => { applied = [...ids]; } },
+      });
+      owner.restoreSession({ schemaVersion: 1, boundary: "saved-loop", activeStage: "Monitor",
+        selectedPlots: { Monitor: "response" }, selectedSignals: ["sp", "pv", "requested-power"],
+        window: [0, 100], expanded: false, pinnedCandidateRevisions: [] });
+      assert.deepStrictEqual(applied, ["sp", "pv", "requested-power"],
+        "historical plot selection must reach its adapter even without any current monitor declaration");
+    } finally { Object.assign(globalThis, original); dom.window.close(); }
+  });
+  test("retains auxiliary identities and independent quality when reopening measured samples", () => {
+    const sample = { elapsedSeconds: 1, sp: 45, pv: 39, appliedMv: 100,
+      quality: "good" as const, events: [], additional: [
+        { id: "requested-power", channel: "heater", role: "state" as const, unit: "%", value: 125, quality: "good" as const },
+        { id: "stored-correction", channel: "heater", role: "state" as const, unit: "%", value: 113, quality: "forced" as const },
+      ] };
+    assert.deepStrictEqual(chartContractModule.restoredControlChartSamples([sample]), [{
+      elapsedSeconds: 1, sp: 45, pv: 39, mv: 100, quality: "good", events: [],
+      additional: sample.additional,
+    }], "saved auxiliary values, units and quality must reach the shared plot without replacing applied MV");
+  });
+  test("retains auxiliary extrema and quality gaps during display reduction", () => {
+    const samples = Array.from({ length: 21 }, (_, index) => ({
+      elapsedSeconds: index, sp: 45, pv: 39, mv: 100,
+      additional: [{ id: "request", channel: "heater", role: "state" as const, unit: "%",
+        value: index === 3 ? 125 : index === 11 ? null : 100,
+        quality: index === 7 ? "bad" as const : "good" as const }],
+    }));
+    const displayed = displayedControlSamples(samples, 3);
+    for (const index of [3, 7, 8, 11, 12]) assert.ok(displayed.some(sample => sample.elapsedSeconds === index),
+      `auxiliary extremum or quality/gap boundary ${index} must not disappear`);
+  });
+  test("exports auxiliary samples with unit and quality alongside primary measured values", () => {
+    const csv = controlChartCsv([{ elapsedSeconds: 1, sp: 45, pv: 39, mv: 100,
+      additional: [{ id: "request", channel: "heater", role: "state", unit: "%", value: 125, quality: "good" }],
+    } as Parameters<typeof controlChartCsv>[0][number]]);
+    assert.ok(csv.includes('"request (%)"'), "export must name the additional signal and its unit");
+    assert.ok(csv.includes('"request.quality"'), "export must retain additional quality");
+    assert.ok(csv.includes(',125,good'), "export must retain the unclipped request");
+  });
+  test("opens recording-only validation evidence on its measured response without requiring a candidate", () => {
+    const tabs = chartContractModule.controlStagePlots("Validate", { recording: true });
+    const selected = chartContractModule.selectControlPlot(tabs, "requirements");
+    assert.strictEqual(selected, "recorded-response");
+    assert.strictEqual(chartContractModule.controlPlotView("Validate", selected!), "response");
+    assert.deepStrictEqual(tabs.map(tab => tab.id), ["recorded-response", "signals"],
+      "a recording must not expose unavailable candidate-only plots");
+    assert.strictEqual(chartContractModule.controlStagePlots("Validate", {}).some(tab => tab.id === "recorded-response"), false);
+    assert.strictEqual(chartContractModule.selectControlPlot(
+      chartContractModule.controlStagePlots("Validate", { recording: true, candidate: true }), "requirements"), "requirements",
+    "qualified saved analysis keeps its selected view");
+  });
+  test("offers explicitly live validation inspection without manufacturing recorded evidence", () => {
+    const tabs = chartContractModule.controlStagePlots("Validate", { samples: true });
+    assert.deepStrictEqual(tabs.map(tab => tab.id), ["live-response"]);
+    assert.strictEqual(chartContractModule.selectControlPlot(tabs, "requirements"), "live-response");
+    assert.strictEqual(chartContractModule.controlPlotView("Validate", "live-response"), "response");
+    assert.ok(!tabs.some(tab => tab.id === "recorded-response"));
+  });
+  test("manual parameter tuning shows the measured response without an invented model prediction", () => {
+    const evidence = { samples: true, manualParameters: true };
+    assert.deepStrictEqual(chartContractModule.controlStagePlots("Tune", evidence).map(tab => tab.id), ["live-response"]);
+    assert.deepStrictEqual(chartContractModule.controlStagePlots("Tune", { ...evidence, recording: true }).map(tab => tab.id), ["recorded-response"]);
+    const modelTabs = chartContractModule.controlStagePlots("Tune", { ...evidence, model: true, candidate: true });
+    assert.ok(modelTabs.some(tab => tab.id === "bode" && tab.available));
+    assert.strictEqual(chartContractModule.controlPlotView("Tune", "live-response"), "response");
+  });
+  test("commissioning recordings retain explicit SP PV MV identities despite output-only bounds", () => {
+    const channels = [{ id: "target", unit: "m" }, { id: "position", unit: "m" }, { id: "drive", unit: "V" }];
+    const evaluation = commissioningRecordedResponse({ status: "passed", modelRevision: "model", channels,
+      recording: { evidence: { programRevision: "program" }, rawSamples: [
+        { elapsedSeconds: 0, sp: 1, pv: 0, appliedMv: 2, quality: "good", source: "Simulation", outputLimits: { minimum: -20, maximum: 20 } },
+        { elapsedSeconds: 1, sp: 1, pv: 0.9, appliedMv: 0.1, quality: "good", source: "Simulation", outputLimits: { minimum: -20, maximum: 20 } },
+      ] } } as any)!;
+    assert.deepStrictEqual(recordedResponseChannels(evaluation.run, evaluation), {
+      setpoint: channels[0], processVariable: channels[1], manipulatedVariable: channels[2],
+    }, "all three actual recorded curves must have their original units and values");
+    assert.strictEqual(evaluation.run.samples[1].values.position.value, 0.9);
+    assert.strictEqual(evaluation.specification!.length, 1, "display roles must not invent verification requirements");
+  });
+  test("resolves recorded SP, PV, and MV roles from requirement identities when channels are permuted", () => {
+    const run = {
+      channels: [{ id: "Main.MV", unit: "V" }, { id: "Main.PV", unit: "m" }, { id: "Main.SP", unit: "m" }],
+      samples: [], evidence: "ST-executed", conditions: { modelRevision: "model", programRevision: "program" },
+    } as any;
+    const resolved = recordedResponseChannels(run, { specification: [
+      { id: "target-error", kind: "error", channel: "Main.PV", reference: { channel: "Main.SP" }, window: { start: 0, end: 1 } },
+      { id: "output-bounds", kind: "bounds", channel: "Main.MV", minimum: 0, maximum: 100, window: { start: 0, end: 1 } },
+    ] });
+    assert.strictEqual(resolved.setpoint?.id, "Main.SP");
+    assert.strictEqual(resolved.processVariable?.id, "Main.PV");
+    assert.strictEqual(resolved.manipulatedVariable?.id, "Main.MV");
+  });
+
+  test("uses positional roles only for a legacy three-channel record without role metadata", () => {
+    const run = { channels: [{ id: "sp", unit: "m" }, { id: "pv", unit: "m" }, { id: "mv", unit: "V" }] } as any;
+    const resolved = recordedResponseChannels(run, { specification: [] });
+    assert.deepStrictEqual(Object.fromEntries(Object.entries(resolved).map(([key, channel]) => [key, channel?.id])), {
+      setpoint: "sp", processVariable: "pv", manipulatedVariable: "mv",
+    });
+    const unknown = recordedResponseChannels(run, { specification: [{ kind: "bounds", channel: "pv", window: { start: 0, end: 1 } }] });
+    assert.strictEqual(unknown.setpoint, undefined);
+    assert.strictEqual(unknown.manipulatedVariable, undefined);
+  });
   test("formats engineering values compactly for bounded metric cards", () => {
     const format = (chartContractModule as unknown as {
       formatEngineeringNumber?: (value: unknown, fractionDigits?: number) => string;
@@ -65,44 +263,29 @@ suite("Control Studio chart contract", () => {
       showLegend: true, showAxisNames: true,
     });
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = readControlStudioPanelSource(extensionRoot);
-    assert.match(panel, /\.plot-view>\.analysis-plot\{position:absolute;inset:0\}/,
-      "single-panel direct analysis plots must fill the dominant plot region");
-    assert.doesNotMatch(panel, /html,body(?:,\.studio)?\{[^}]*overflow-x:clip/,
-      "document clipping must not break sticky workflow navigation");
-    assert.doesNotMatch(panel, /@media\(max-width:600px\)\{html\{[^}]*overflow-x:clip/,
-      "the root viewport must remain available to the studio scroll container");
-    assert.match(panel, /@media\(max-width:600px\)\{body\{height:100vh;min-height:0;overflow:hidden\}\.studio\{height:100%;min-height:0;display:block;overflow-y:auto;overflow-x:hidden\}/,
-      "the narrow studio must own scrolling so its workflow navigation can remain sticky");
-    assert.match(panel, /@media\(max-width:600px\)\{\.workspace\{overflow-x:clip\}\}/,
-      "workflow content must not widen the page at 200 percent zoom");
-    assert.match(panel, /@media\(max-width:600px\)\{\.chart-table\{width:100%;min-width:0;contain:inline-size paint\}\}/,
-      "wide engineering tables must scroll inside their own container at 200 percent zoom");
+    const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
+    const styles = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageStyles.ts"), "utf8");
+    assert.match(template, /data-studio-three-page/);
+    assert.match(template, /class="studio-response"[^>]*aria-label="Response plot"/);
+    assert.match(styles, /\.studio-chart \{ width: 100%; height: max\(280px/,
+      "the response plot must retain a bounded readable height");
+    assert.match(styles, /@media\(max-width: 650px\).*\.studio-chart \{ height: 320px; \}/s,
+      "narrow layouts must preserve a usable chart height");
+    assert.doesNotMatch(styles, /overflow-x: clip/,
+      "the current shell must keep the viewport available to its own scroll owner");
   });
 
-  test("keeps direct charts readable and their states visible in constrained layouts", () => {
+  test("keeps the approved response plot readable without legacy plot-editor controls", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = readControlStudioPanelSource(extensionRoot);
-    const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
-
-    assert.match(panel, /@media\(max-width:720px\)\{[\s\S]*?\.studio\{height:100%;min-height:0;display:block;overflow-y:auto;overflow-x:hidden\}/,
-      "split and narrow layouts need a scroll owner instead of compressing the chart row");
-    assert.match(panel, /@media\(max-width:720px\)\{[\s\S]*?\.monitor\{min-height:600px;grid-template-rows:minmax\(420px,1fr\) auto\}/,
-      "split and narrow layouts must reserve a usable primary-chart height");
-    assert.match(chart, /const row = document\.querySelector<HTMLElement>\("\[data-control-designs\]"\)[\s\S]*?row\.append\(handle\)/,
-      "graphical tuning controls must live outside the evidence plot they edit");
-    assert.doesNotMatch(chart, /plotWrap\.append\(handle\)/,
-      "the chart workspace must not move tuning controls back over plot axes");
-    assert.match(panel, /\.plot-empty\{[^}]*z-index:3[^}]*background:var\(--vscode-editor-background\)/,
-      "empty and unavailable chart explanations must remain visibly above the chart canvas");
-    assert.match(chart, /No live samples yet\. Verify the loop signal bindings in Live Values\./,
-      "the visible empty state must explain the next recovery action");
-    assert.match(panel, /@media\(max-width:600px\)\{\.plot-toolbar\{flex-direction:column;align-items:stretch\}\.plot-tabs,\.plot-actions\{flex-wrap:wrap;overflow-x:visible\}\.design-row\{flex-wrap:wrap;overflow-x:hidden\}\.design-handle\{width:100%;margin-left:0\}/,
-      "at 200 percent zoom, every direct plot tab and chart action must remain immediately visible without horizontal scrolling");
-    assert.match(panel, /@media\(max-width:600px\)\{\.design-handle\{display:grid;grid-template-columns:minmax\(0,1fr\) 68px auto/,
-      "the exact graphical editor must use a bounded compact grid at 200 percent zoom");
-    assert.match(panel, /@media\(min-width:601px\) and \(max-width:720px\)\{\.analysis-grid:not\(\.bode-grid\)\{grid-template-columns:1fr 1fr\}\}/,
-      "the split layout may preserve other analysis grids without separating the coordinated Bode figure");
+    const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
+    const styles = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageStyles.ts"), "utf8");
+    assert.match(template, /class="studio-response"/);
+    assert.match(template, /data-control-studio-chart/);
+    assert.match(styles, /\.studio-chart \{ width: 100%; height: max\(280px/);
+    assert.match(styles, /@media\(max-width: 650px\).*\.studio-chart \{ height: 320px; \}/s);
+    assert.match(styles, /data-binding-draft="true"/);
+    assert.doesNotMatch(template, /plot-toolbar|plot-tools|data-design-exact|data-engineering-bode/,
+      "the approved three-page shell does not expose legacy plot-editor controls");
   });
 
   test("labels live plots with real units and marks only saturation transitions", () => {
@@ -156,7 +339,7 @@ suite("Control Studio chart contract", () => {
       minimum: 29.7, maximum: 30.3,
     });
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
+    const chart = readControlChartSource(extensionRoot);
     assert.match(chart, /markLine:[\s\S]*?label:\s*\{\s*show:\s*false\s*\}/,
       "output-limit labels must not cover live traces; the adjacent loop state owns their text");
   });
@@ -189,27 +372,20 @@ suite("Control Studio chart contract", () => {
     assert.strictEqual(status?.("failed"), "The workflow result operation failed.");
   });
 
-  test("keeps unavailable analysis compact and blocks impossible workflow actions", () => {
+  test("keeps the current three-page actions gated until their prerequisite evidence exists", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = readControlStudioPanelSource(extensionRoot);
-    const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
-    const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "workflow.ts"), "utf8");
-    assert.match(panel, /\.studio\[data-plot-available=false\]\{grid-template-rows:auto auto minmax\(180px,24vh\)/,
-      "a prerequisite message must not reserve a full evidence-chart row");
-    for (const attribute of ["data-identify-run", "data-tune-generate", "data-validate-run",
-      "data-result-save", "data-result-export-csv", "data-result-export-json"]) {
-      assert.match(panel, new RegExp(`${attribute}[^>]*disabled`), `${attribute} must start unavailable`);
-    }
-    assert.match(chart, /root\.dataset\.plotAvailable = String\(Boolean\(active\?\.available\)\)/,
-      "the selected plot availability must drive the compact prerequisite layout");
-    assert.match(workflow, /setWorkflowActionAvailability\(\{\s*recording: true\s*\}\)/,
-      "stopping a real recording must unlock identification");
-    assert.match(workflow, /setWorkflowActionAvailability\(\{\s*model: true\s*\}\)/,
-      "accepting a model must unlock candidate generation");
-    assert.match(workflow, /setWorkflowActionAvailability\(\{\s*candidate: true\s*\}\)/,
-      "creating a candidate must unlock validation");
-    assert.match(workflow, /setWorkflowActionAvailability\(\{\s*result: true\s*\}\)/,
-      "completed validation must unlock save and export");
+    const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
+    const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "threePageWorkflow.ts"), "utf8");
+    assert.match(template, /data-engineer-find[^>]* disabled/,
+      "Identify must remain gated when no declared loop is bound");
+    assert.match(template, /data-engineer-tune disabled/,
+      "Tune must remain gated until an identified model is available");
+    assert.match(template, /data-engineer-verify disabled/,
+      "Validate must remain gated until a candidate exists");
+    assert.match(template, /data-engineer-apply disabled/,
+      "Apply must remain gated until validation has passed");
+    assert.match(workflow, /operation\.synchronize\(\); application\.synchronize\(\);/,
+      "current Operation/Application gates must be synchronized after host updates");
   });
 
   test("derives controller-setting units from the bound process and output signals", () => {
@@ -249,6 +425,15 @@ suite("Control Studio chart contract", () => {
       "Simulation control-loop time plot. Current at 4.25 s: SP 5 °C, PV 4.38 °C, MV 3.27 %.");
   });
 
+  test("describes explicit open-loop values accessibly without a fictitious setpoint", () => {
+    const summary = (chartContractModule.controlChartAccessibleSummary as (...args: any[]) => string)(
+      "Simulation", { elapsedSeconds: 2, sp: null, pv: 35, mv: 85 }, "degC", "%", "open-loop");
+    assert.strictEqual(summary, "Simulation open-loop time plot. Current at 2 s: Measured output 35 °C, Applied input 85 %.");
+    const axes = (chartContractModule.controlChartAxisLabels as (...args: any[]) => unknown)("degC", "%", "open-loop");
+    assert.deepStrictEqual(axes, { process: "Measured output (°C)", output: "Applied input (%)",
+      description: "Measured output in °C; applied input in %" });
+  });
+
   test("projects retained experiment and quality events in chronological order", () => {
     const rows = (chartContractModule as unknown as {
       controlChartEventRows?: (samples: readonly unknown[]) => unknown[];
@@ -275,7 +460,7 @@ suite("Control Studio chart contract", () => {
 
   test("keeps the owned unit-aware chart summary from being overwritten", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
+    const chart = readControlChartSource(extensionRoot);
     const adapter = chart.slice(chart.indexOf("class ControlChartAdapter"), chart.indexOf("type DesignSnapshot"));
     assert.match(adapter, /aria:\s*\{\s*enabled:\s*false/,
       "the live chart must own its accessible summary so ECharts cannot replace engineering units");
@@ -284,7 +469,7 @@ suite("Control Studio chart contract", () => {
 
   test("resizes engineering charts when a hidden direct plot becomes visible", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
+    const chart = readControlChartSource(extensionRoot);
     const engineering = chart.slice(chart.indexOf("class EngineeringChartAdapter"), chart.indexOf("class MimoChartAdapter"));
     assert.match(engineering, /addEventListener\("trust-control-studio-plot-shown"/,
       "direct engineering plots must react when their previously hidden host becomes visible");
@@ -301,24 +486,24 @@ suite("Control Studio chart contract", () => {
     assert.match(identification, /if \(this\.lastEvidence\) this\.setEvidence\(this\.lastEvidence\);/);
   });
 
-  test("presents magnitude and phase as one coordinated Bode figure", () => {
+  test("keeps the current three-page plot owner separate from legacy Bode editor markup", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = readControlStudioPanelSource(extensionRoot);
-    const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
-    const engineering = chart.slice(chart.indexOf("class EngineeringChartAdapter"), chart.indexOf("class MimoChartAdapter"));
-    assert.match(panel, /class="analysis-grid bode-grid"/,
-      "Bode magnitude and phase need an owned coordinated layout");
-    assert.match(engineering, /this\.magnitude\.group = "control-studio-bode"/);
-    assert.match(engineering, /this\.phase\.group = "control-studio-bode"/);
-    assert.match(engineering, /echarts\.connect\("control-studio-bode"\)/,
-      "frequency zoom, pan, and inspection must be linked");
-    assert.match(engineering, /this\.phase\.setOption\(\{[\s\S]*?legend:\s*\{\s*show:\s*false\s*\}/,
-      "the coordinated figure must not repeat its legend");
-    assert.match(panel, /\.bode-grid\{grid-template-columns:1fr;grid-template-rows:minmax\(0,1fr\) minmax\(0,1fr\)/,
-      "magnitude and phase must use aligned stacked panels");
+    const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
+    assert.match(template, /data-control-studio-chart/);
+    assert.match(template, /aria-label="Response plot"/);
+    assert.doesNotMatch(template, /bode-grid|plot-toolbar|analysis-grid/,
+      "the current three-page panel must not retain obsolete Bode/editor containers");
   });
 
-  test("validates exact graphical gain edits without losing the last valid candidate", () => {
+  test("keeps the current shell free of obsolete graphical gain controls", () => {
+    const extensionRoot = path.resolve(__dirname, "..", "..", "..");
+    const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
+    assert.doesNotMatch(template, /data-design-exact|data-design-error|data-design-handle/);
+    assert.match(template, /data-engineer-tuning-method/);
+    assert.match(template, /data-studio-tuning-result/);
+  });
+
+  test("keeps exact graphical gain parsing as a pure controller input boundary", () => {
     const parseGraphicalGain = (chartContractModule as unknown as {
       parseGraphicalGain?: (text: string, minimum: number, maximum: number) => unknown;
     }).parseGraphicalGain;
@@ -330,31 +515,18 @@ suite("Control Studio chart contract", () => {
     assert.deepStrictEqual(parseGraphicalGain?.("not-a-number", 0.01, 20), {
       ok: false, reason: "Enter a finite value from 0.01 to 20.",
     });
-    const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = readControlStudioPanelSource(extensionRoot);
-    const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
-    assert.match(panel, /data-design-exact="proportionalGain"[^>]*type="number"/,
-      "graphical Kp must have a keyboard-exact numeric input");
-    assert.match(panel, /data-design-error[^>]*role="status"/,
-      "an invalid exact edit needs an adjacent accessible explanation");
-    assert.match(chart, /range\.value = exact\.value = String\(value\)/,
-      "range and exact controls must stay synchronized");
   });
 
-  test("shows candidate margins from the same engineering evidence update", () => {
+  test("keeps candidate settings in the Tune result area without legacy margin cards", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = readControlStudioPanelSource(extensionRoot);
-    const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
-    assert.match(panel, /data-design-gain-margin/);
-    assert.match(panel, /data-design-phase-margin/);
-    const evidence = chart.slice(chart.indexOf("setEvidence(evidence: EngineeringPlotMessageEvidence)"), chart.indexOf("private renderRootLocus"));
-    assert.match(evidence, /\[data-design-gain-margin\][\s\S]*?evidence\.gainMarginDb/);
-    assert.match(evidence, /\[data-design-phase-margin\][\s\S]*?evidence\.phaseMarginDegrees/);
+    const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
+    assert.match(template, /data-studio-tuning-result/);
+    assert.doesNotMatch(template, /data-design-gain-margin|data-design-phase-margin/);
   });
 
   test("renders one selectable signal row with identity, value, unit, and quality", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
+    const chart = readControlChartSource(extensionRoot);
     assert.match(chart, /role\.textContent\s*=\s*`\$\{signal\.role\} · \$\{signal\.symbol\}`/,
       "the flat Signals view must not hide the bound runtime symbol");
     assert.match(chart, /checked\.addEventListener\("change"/);
@@ -592,77 +764,41 @@ suite("Control Studio chart contract", () => {
       "signal selection order must not contain duplicate channels");
   });
 
-  test("rebuilds direct engineering plots when a compatible saved result is reopened", () => {
-    const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = readControlStudioPanelSource(extensionRoot);
-    assert.match(panel, /async function postRestoredEngineeringPlots/,
-      "saved results need an explicit direct-plot restoration path");
-    assert.match(panel, /buildEngineeringPlotEvidence\(result\.model, current, result\.candidate\)/,
-      "restored plots must use the saved model, current controller, and candidate");
-    assert.match(panel, /phase === "restored" \|\| phase === "opened"/);
-    assert.match(panel, /await postRestoredEngineeringPlots\(result\)/,
-      "plot restoration must occur as part of reopening the saved result");
+  test("keeps direct engineering evidence serializable for a compatible saved result", () => {
+    const model = { kind: "first_order" as const, gain: 1, timeConstantSeconds: 2, stable: true, normalizedError: 0.01 };
+    const parameters: ControlPidParameters = {
+      proportionalGain: 0.4, integralGain: 0.1, derivativeGain: 0,
+      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
+      outputMinimum: 0, outputMaximum: 100, rateMinimum: -100, rateMaximum: 100,
+      trackingTime: 1, antiWindup: "BackCalculation",
+    };
+    const current = candidateFromControlPid(parameters, "Imported");
+    const candidate = candidateFromControlPid({ ...parameters, proportionalGain: 0.6 }, "Manual");
+    const evidence = buildEngineeringPlotEvidence(model, current, candidate);
+    const serialized = engineeringPlotMessageEvidence(evidence);
+    assert.ok(serialized.timeResponse.length > 0, "saved direct plot evidence must retain the response trace");
+    assert.ok(serialized.candidateOpenLoopBode.length > 0, "saved direct plot evidence must retain frequency evidence");
+    assert.strictEqual(serialized.evidence, "Model-predicted");
   });
 
-  test("renders one direct chart workspace without a tools disclosure or plot catalogue", () => {
+  test("renders one response plot in the current three-page shell without legacy chart catalogues", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = readControlStudioPanelSource(extensionRoot);
-    const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
-    const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "workflow.ts"), "utf8");
-    assert.doesNotMatch(panel, /<details class="plot-tools"/);
-    assert.match(panel, /data-control-plot-tabs/);
-    assert.match(panel, /data-control-signals/);
-    assert.match(panel, /data-control-designs/);
-    assert.match(panel, /data-engineering-root-locus/);
-    assert.match(panel, /data-engineering-nyquist/);
-    assert.match(panel, /data-engineering-nichols/);
-    assert.match(panel, /data-engineering-sensitivity/);
-    assert.match(panel, /data-engineering-requirements/);
-    assert.match(panel, /data-design-handle="proportionalGain"/);
-    assert.match(panel, /\.monitor\{display:grid;grid-template-columns:minmax\(0,1fr\);grid-template-rows:auto minmax\(\d+px,1fr\)/,
-      "the compact live strip must not take horizontal width away from the dominant plot");
-    assert.match(panel, /\.plot-column\{grid-row:2/);
-    assert.match(panel, /\.values\{grid-row:1/);
-    assert.match(panel, /\.design-handle\[hidden\]\{display:none\}/,
-      "graphical tuning controls must not leak into Monitor or other stages");
-    const engineeringAdapter = chart.slice(
-      chart.indexOf("class EngineeringChartAdapter"),
-      chart.indexOf("class IdentificationChartAdapter")
-    );
-    assert.doesNotMatch(engineeringAdapter, /this\.section\.hidden = false/,
-      "legacy engineering evidence must not open a second chart surface");
-    assert.match(chart, /controlStagePlots/);
-    assert.match(chart, /trust-control-studio-stage/);
-    assert.match(workflow, /trust-control-studio-stage/);
-    assert.match(chart, /trust-control-studio-restore-stage/);
-    assert.match(workflow, /trust-control-studio-restore-stage/);
-    assert.match(chart, /selectedSignals: \[\.\.\.this\.selectedSignals\]/,
-      "the saved session must retain the user's actual signal selection");
-    for (const plot of ["fit", "residuals", "validation-data", "poles-zeros"] as const) {
-      assert.match(chart, new RegExp(`installAnalysisView\\(\"${plot}\"`),
-        `${plot} must have its own direct analysis view`);
-    }
-    for (const plot of ["channel-responses", "rga", "singular-values", "interaction"] as const) {
-      assert.match(chart, new RegExp(`installMimoView\\(\"${plot}\"`),
-        `${plot} must have its own direct MIMO view`);
-    }
-    assert.match(chart, /control-studio\.mimo\.result/);
-    assert.match(chart, /decodeMimoPlotEvidence/);
-    assert.match(chart, /new CustomEvent\("trust-control-studio-plot-shown"/,
-      "revealing a direct plot must notify adapters that were initialized while hidden");
-    assert.match(chart, /addEventListener\("trust-control-studio-plot-shown"/,
-      "MIMO charts must resize after their direct plot becomes visible");
-    assert.match(chart, /this\.renderEvidence\(this\.evidence\)/,
-      "MIMO chart options must be reapplied after a hidden chart becomes visible");
-    assert.match(chart, /chart\.resize\(\{ width: rect\.width, height: rect\.height \}\)/,
-      "MIMO charts must receive the measured visible host size explicitly");
-    assert.match(chart, /const cellHeight = \(76 - gap \* \(rows - 1\)\) \/ rows/,
-      "MIMO response grids must reserve space for lower axis labels");
-    assert.match(chart, /scrollIntoView\(\{ block: "nearest", inline: "nearest" \}\)/,
-      "the selected plot tab must remain visible in the compact toolbar");
-    assert.match(chart, /MIMO channel responses for/,
-      "MIMO channel evidence needs an owned accessible summary");
-    assert.match(chart, /installGraphicalDesignHandle/,
-      "Bode, root-locus, and Nichols must share the same direct candidate handle");
+    const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
+    const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "threePageWorkflow.ts"), "utf8");
+    assert.match(template, /data-studio-three-page/);
+    assert.match(template, /data-studio-model-result/);
+    assert.match(template, /data-studio-tuning-result/);
+    assert.match(template, /data-studio-validation-result/);
+    assert.match(template, /data-control-studio-chart/);
+    assert.match(template, /data-engineer-apply/);
+    assert.match(workflow, /bindThreePageHostState/);
+    assert.match(workflow, /renderValidationResults/);
+    assert.doesNotMatch(template, /plot-tools|data-control-plot-tabs|data-control-signals|data-design-handle|analysis-grid/);
   });
 });
+
+
+function readControlChartSource(extensionRoot: string): string {
+  return ["chart.ts", "liveChart.ts", "liveSignalPlot.ts", "chartWorkspace.ts", "engineeringCharts.ts", "chartPrimitives.ts"]
+    .map(file => fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", file), "utf8")).join("\n");
+}

@@ -1,5 +1,8 @@
 # Advanced control structures for PID loops
 
+Shared purpose and completion claims: [Control Platform Purpose and Acceptance Contract](control-platform-purpose.md).
+This document retains its detailed technical or teaching authority.
+
 This specification defines three optional structures that extend the useful
 plant range of `Control.PID` without changing its
 equations:

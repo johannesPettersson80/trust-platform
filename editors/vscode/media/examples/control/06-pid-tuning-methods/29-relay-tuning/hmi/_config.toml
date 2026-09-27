@@ -1,0 +1,62 @@
+version = 1
+
+[theme]
+style = "industrial"
+accent = "#c2410c"
+
+[layout]
+navigation = "sidebar-left"
+header = true
+header_title = "P1 HMI"
+
+[write]
+enabled = false
+allow = []
+
+[[alarm]]
+bind = "P1.ExperimentElapsed"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Experiment Elapsed"
+
+[[alarm]]
+bind = "P1.QualifiedRelayApplied"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Qualified Relay Applied"
+
+[[alarm]]
+bind = "P1.QualifiedTemperature"
+high = 120
+low = 0
+deadband = 2.4
+inferred = true
+label = "Qualified Temperature"
+
+[[alarm]]
+bind = "P1.RejectedRelayApplied"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Rejected Relay Applied"
+
+[[alarm]]
+bind = "P1.RejectedTemperature"
+high = 120
+low = 0
+deadband = 2.4
+inferred = true
+label = "Rejected Temperature"
+
+[[alarm]]
+bind = "P1.RelayAmplitude"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Relay Amplitude"

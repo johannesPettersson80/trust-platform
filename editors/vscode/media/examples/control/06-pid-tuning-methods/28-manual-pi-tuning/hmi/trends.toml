@@ -1,0 +1,6 @@
+title = "Trends"
+kind = "trend"
+icon = "line-chart"
+order = 50
+duration_s = 600
+signals = ["P1.IntegralCorrection", "P1.LowPTemperature", "P1.LowPValve", "P1.PiTemperature", "P1.PiValve", "P1.SelectedPTemperature", "P1.SelectedPValve", "P1.TargetTemperature"]

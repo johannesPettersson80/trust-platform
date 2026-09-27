@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="350" viewBox="0 0 960 350" role="img" aria-labelledby="title desc">
+  <title id="title">Tracked authority handover</title>
+  <desc id="desc">The external owner, actual valve, tracking state, and first automatic request all align at sixty percent.</desc>
+  <rect width="960" height="350" fill="#f7fafc"/>
+  <text x="480" y="42" text-anchor="middle" font-family="sans-serif" font-size="25" font-weight="700" fill="#17324d">One value follows through the handover</text>
+  <rect x="35" y="105" width="190" height="130" rx="18" fill="#e6f2ff" stroke="#2463a6" stroke-width="3"/>
+  <text x="130" y="149" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="700" fill="#17324d">External owner</text>
+  <text x="130" y="199" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#17324d">60%</text>
+  <line x1="225" y1="170" x2="275" y2="170" stroke="#40566d" stroke-width="5"/>
+  <path d="M275 170 L258 160 L258 180 Z" fill="#40566d"/>
+  <rect x="285" y="105" width="190" height="130" rx="18" fill="#ffffff" stroke="#5f7184" stroke-width="3"/>
+  <text x="380" y="149" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="700" fill="#263746">Applied valve</text>
+  <text x="380" y="199" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#263746">60%</text>
+  <line x1="475" y1="170" x2="525" y2="170" stroke="#40566d" stroke-width="5"/>
+  <path d="M525 170 L508 160 L508 180 Z" fill="#40566d"/>
+  <rect x="535" y="105" width="190" height="130" rx="18" fill="#fff3d6" stroke="#b87900" stroke-width="3"/>
+  <text x="630" y="149" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="700" fill="#5b3d00">Tracked state</text>
+  <text x="630" y="199" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#5b3d00">60%</text>
+  <line x1="725" y1="170" x2="775" y2="170" stroke="#40566d" stroke-width="5"/>
+  <path d="M775 170 L758 160 L758 180 Z" fill="#40566d"/>
+  <rect x="785" y="105" width="140" height="130" rx="18" fill="#e9f8ee" stroke="#2b7a43" stroke-width="3"/>
+  <text x="855" y="145" text-anchor="middle" font-family="sans-serif" font-size="19" font-weight="700" fill="#19482a">First Auto</text>
+  <text x="855" y="199" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#19482a">60%</text>
+  <text x="480" y="294" text-anchor="middle" font-family="sans-serif" font-size="23" fill="#263746">transfer bump = |60 − 60| = 0</text>
+</svg>

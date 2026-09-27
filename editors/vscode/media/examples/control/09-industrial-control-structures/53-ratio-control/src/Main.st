@@ -1,0 +1,185 @@
+USING Control;
+
+FUNCTION Lesson53RatioAuthority : BOOL
+VAR_INPUT
+    WildFlowValid : BOOL;
+    InputsValid : BOOL;
+    SafetyAbort : BOOL;
+    MeasuredWildFlow : LREAL;
+END_VAR
+Lesson53RatioAuthority := WildFlowValid AND InputsValid AND (NOT SafetyAbort)
+    AND (MeasuredWildFlow >= LREAL#10.0)
+    AND (MeasuredWildFlow <= LREAL#160.0);
+END_FUNCTION
+
+FUNCTION Lesson53RatioDemand : LREAL
+VAR_INPUT
+    RatioSetpoint : LREAL;
+    MeasuredWildFlow : LREAL;
+    RatioAuthority : BOOL;
+END_VAR
+IF RatioAuthority THEN
+    Lesson53RatioDemand := RatioSetpoint * MeasuredWildFlow;
+ELSE
+    Lesson53RatioDemand := LREAL#0.0;
+END_IF;
+END_FUNCTION
+
+FUNCTION Lesson53ConfiguredRatioSetpoint : LREAL
+Lesson53ConfiguredRatioSetpoint := LREAL#0.10;
+END_FUNCTION
+
+FUNCTION Lesson53ReviewedWildFlow : LREAL
+VAR_INPUT
+    ExperimentElapsedSeconds : LREAL;
+    ExperimentEnabled : BOOL;
+    InputsValid : BOOL;
+    SafetyAbort : BOOL;
+END_VAR
+IF ExperimentEnabled AND InputsValid AND (NOT SafetyAbort)
+    AND (ExperimentElapsedSeconds >= LREAL#30.0) THEN
+    Lesson53ReviewedWildFlow := LREAL#120.0;
+ELSE
+    Lesson53ReviewedWildFlow := LREAL#100.0;
+END_IF;
+END_FUNCTION
+
+PROGRAM Main
+VAR
+    FeedbackController : Control.PID;
+    RatioController : Control.PID;
+    Parameters : Control.PIDParameters;
+    FeedbackState : Control.PIDInitialState;
+    RatioState : Control.PIDInitialState;
+    FeedbackInput : Control.PIDInput;
+    RatioInput : Control.PIDInput;
+    Initialized : BOOL := FALSE;
+    ExperimentEnabled : BOOL := FALSE;
+    SafetyAbort : BOOL := FALSE;
+    InputsValid : BOOL := TRUE;
+    ExperimentElapsed : LREAL := 0.0;
+    WildFlowValid : BOOL := TRUE;
+    RatioAuthority : BOOL := TRUE;
+    RatioSetpoint : LREAL := 0.10;
+    ActualWildFlow : LREAL := 100.0;
+    MeasuredWildFlow : LREAL := 100.0;
+    FeedbackRatio : LREAL := 0.10;
+    RatioControlledRatio : LREAL := 0.10;
+    RatioDemand : LREAL := 10.0;
+    RatioTrim : LREAL := 0.0;
+    FeedbackAdditiveRequest : LREAL := 10.0;
+    FeedbackWildFlowInput : LREAL := 100.0;
+    RatioAdditiveRequest : LREAL := 10.0;
+    RatioWildFlowInput : LREAL := 100.0;
+    AutomaticMode : BOOL := TRUE;
+END_VAR
+
+IF ExperimentEnabled AND (NOT SafetyAbort) AND InputsValid THEN
+    ExperimentElapsed := ExperimentElapsed + LREAL#0.1;
+ELSE
+    ExperimentElapsed := LREAL#0.0;
+END_IF;
+ActualWildFlow := Lesson53ReviewedWildFlow(
+    ExperimentElapsedSeconds := ExperimentElapsed,
+    ExperimentEnabled := ExperimentEnabled,
+    InputsValid := InputsValid,
+    SafetyAbort := SafetyAbort);
+MeasuredWildFlow := ActualWildFlow;
+
+RatioAuthority := Lesson53RatioAuthority(
+    WildFlowValid := WildFlowValid,
+    InputsValid := InputsValid,
+    SafetyAbort := SafetyAbort,
+    MeasuredWildFlow := MeasuredWildFlow);
+RatioDemand := Lesson53RatioDemand(
+    RatioSetpoint := RatioSetpoint,
+    MeasuredWildFlow := MeasuredWildFlow,
+    RatioAuthority := RatioAuthority);
+
+IF NOT Initialized THEN
+    RatioSetpoint := Lesson53ConfiguredRatioSetpoint();
+    ActualWildFlow := LREAL#100.0;
+    Parameters.ProportionalGain := LREAL#50.0;
+    Parameters.IntegralGain := LREAL#10.0;
+    Parameters.DerivativeGain := LREAL#0.0;
+    Parameters.ProportionalSetpointWeight := LREAL#1.0;
+    Parameters.DerivativeSetpointWeight := LREAL#0.0;
+    Parameters.Bias := LREAL#0.0;
+    Parameters.OutputMinimum := LREAL#0.0;
+    Parameters.OutputMaximum := LREAL#60.0;
+    Parameters.RateMinimum := LREAL#-1000.0;
+    Parameters.RateMaximum := LREAL#1000.0;
+    Parameters.TrackingTime := LREAL#1.0;
+    Parameters.AntiWindup := PIDAntiWindup#Combined;
+
+    FeedbackState.Setpoint := RatioSetpoint;
+    FeedbackState.ProcessValue := FeedbackRatio;
+    FeedbackState.FeedForward := LREAL#0.0;
+    FeedbackState.NominalOutput := LREAL#10.0;
+    FeedbackState.SaturatedOutput := LREAL#10.0;
+    RatioState.Setpoint := RatioSetpoint;
+    RatioState.ProcessValue := RatioControlledRatio;
+    RatioState.FeedForward := RatioDemand;
+    RatioState.NominalOutput := LREAL#10.0;
+    RatioState.SaturatedOutput := LREAL#10.0;
+    FeedbackController.Configure(Parameters := Parameters);
+    RatioController.Configure(Parameters := Parameters);
+    FeedbackController.Initialize(State := FeedbackState);
+    RatioController.Initialize(State := RatioState);
+    Initialized := TRUE;
+END_IF;
+
+FeedbackWildFlowInput := ActualWildFlow;
+RatioWildFlowInput := ActualWildFlow;
+
+FeedbackInput.Setpoint := RatioSetpoint;
+FeedbackInput.ProcessValue := FeedbackRatio;
+FeedbackInput.FeedForward := LREAL#0.0;
+FeedbackInput.Mode := PIDMode#Auto;
+FeedbackInput.CycleTime := LREAL#0.1;
+FeedbackAdditiveRequest := FeedbackController.Update(Input := FeedbackInput);
+
+RatioInput.Setpoint := RatioSetpoint;
+RatioInput.ProcessValue := RatioControlledRatio;
+RatioInput.CycleTime := LREAL#0.1;
+IF RatioAuthority THEN
+    RatioInput.FeedForward := RatioDemand;
+    RatioInput.Mode := PIDMode#Auto;
+ELSE
+    (* Near zero flow, a reported ratio is physically ill-conditioned. Track
+       the reviewed safe request instead of integrating analyser noise. *)
+    RatioInput.Setpoint := RatioControlledRatio;
+    RatioInput.FeedForward := LREAL#0.0;
+    RatioInput.Mode := PIDMode#Track;
+    RatioInput.TrackingOutput := LREAL#0.0;
+END_IF;
+RatioAdditiveRequest := RatioController.Update(Input := RatioInput);
+RatioTrim := RatioAdditiveRequest - RatioDemand;
+AutomaticMode := TRUE;
+END_PROGRAM
+
+CONFIGURATION Config
+RESOURCE Res ON PLC
+    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM P1 WITH MainTask : Main;
+END_RESOURCE
+VAR_CONFIG
+    P1.WildFlowValid AT %MX88.2 : BOOL;
+    P1.RatioAuthority AT %MX88.3 : BOOL;
+    P1.AutomaticMode AT %MX160.0 : BOOL;
+    P1.ExperimentEnabled AT %MX160.1 : BOOL;
+    P1.SafetyAbort AT %MX160.2 : BOOL;
+    P1.InputsValid AT %MX160.3 : BOOL;
+    P1.RatioSetpoint AT %ML120 : LREAL;
+    P1.ActualWildFlow AT %ML128 : LREAL;
+    P1.MeasuredWildFlow AT %ML136 : LREAL;
+    P1.RatioDemand AT %ML144 : LREAL;
+    P1.RatioTrim AT %ML152 : LREAL;
+    P1.FeedbackRatio AT %IL48 : LREAL;
+    P1.RatioControlledRatio AT %IL56 : LREAL;
+    P1.FeedbackAdditiveRequest AT %QL48 : LREAL;
+    P1.FeedbackWildFlowInput AT %QL56 : LREAL;
+    P1.RatioAdditiveRequest AT %QL64 : LREAL;
+    P1.RatioWildFlowInput AT %QL72 : LREAL;
+END_VAR
+END_CONFIGURATION

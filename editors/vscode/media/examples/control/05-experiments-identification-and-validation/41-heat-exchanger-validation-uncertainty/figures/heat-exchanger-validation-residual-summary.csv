@@ -1,4 +1,0 @@
-condition,rmse_degC,bias_degC,lag_one_correlation,envelope_coverage,verdict,purpose,failed_criteria
-local,0.148788183303,-0.001845995405,-0.013346248825,0.998333333333,accepted,local command prediction,none
-cold_flow,1.099879451908,-0.729810296486,0.966456571109,0.536428571429,restricted,local command prediction without cold-flow load,post-load residual bias
-high_flow,1.146676950737,-1.120388937943,0.610900823170,0.022142857143,rejected,outside local operating region,late residual bias and envelope coverage

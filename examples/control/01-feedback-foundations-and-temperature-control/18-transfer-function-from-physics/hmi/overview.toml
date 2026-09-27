@@ -1,0 +1,109 @@
+title = "Overview"
+icon = "droplets"
+order = 0
+
+[[section]]
+title = "Key Metrics"
+span = 12
+tier = "hero"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.InletFlow"
+inferred_interface = true
+label = "Inlet Flow"
+span = 4
+unit = "l/min"
+min = 0
+max = 500
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.OperatingFlow"
+inferred_interface = true
+label = "Operating Flow"
+span = 4
+unit = "l/min"
+min = 0
+max = 500
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.NonlinearTankLevel"
+inferred_interface = true
+label = "Nonlinear Tank Level"
+span = 4
+unit = "%"
+min = 0
+max = 100
+
+[[section]]
+title = "Status"
+span = 12
+tier = "status"
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.ExperimentEnabled"
+inferred_interface = true
+label = "Experiment Enabled"
+span = 2
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.ExperimentWasEnabled"
+inferred_interface = true
+label = "Experiment WAS Enabled"
+span = 2
+
+[[section]]
+title = "Details"
+span = 12
+tier = "detail"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.DifferentialDeviation"
+inferred_interface = true
+label = "Differential Deviation"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.DifferentialLevel"
+inferred_interface = true
+label = "Differential Level"
+span = 3
+unit = "%"
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.InputDeviation"
+inferred_interface = true
+label = "Input Deviation"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.TransferDeviation"
+inferred_interface = true
+label = "Transfer Deviation"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.OperatingLevel"
+inferred_interface = true
+label = "Operating Level"
+span = 4
+unit = "%"
+min = 0
+max = 100

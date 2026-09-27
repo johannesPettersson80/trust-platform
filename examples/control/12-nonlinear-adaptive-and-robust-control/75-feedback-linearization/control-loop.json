@@ -1,0 +1,328 @@
+{
+  "schemaVersion": 1,
+  "id": "control-feedback-linearization",
+  "name": "Feedback linearization",
+  "revision": "sha256:f0ecd7d789f7880af61f3732a693b98c5ef39e4a220f373830ea027b9d5811c4",
+  "projectId": "project:control-feedback-linearization",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Comparison of fixed PID, gain-scheduled PID, and eligible feedback linearisation",
+    "design": "project",
+    "revision": "sha256:curriculum-controller-70",
+    "action": "direct",
+    "taskPeriodMs": 20,
+    "modeSignal": "%MX4.4",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.JointSetpoint",
+      "address": "%ML8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rad",
+      "range": {
+        "minimum": -1.2,
+        "maximum": 1.2
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.JointAngle",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rad",
+      "range": {
+        "minimum": -1.5,
+        "maximum": 1.5
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.TorqueRequested",
+      "address": "%ML72",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "N m",
+      "range": {
+        "minimum": -100,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX4.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "requested-architecture",
+        "channel": "requested-architecture",
+        "role": "state",
+        "symbol": "P1.ControllerMode",
+        "address": "%MW0",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "active-architecture",
+        "channel": "active-architecture",
+        "role": "state",
+        "symbol": "P1.ActiveArchitecture",
+        "address": "%MW2",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "control-enabled",
+        "channel": "control-enabled",
+        "role": "state",
+        "symbol": "P1.Enabled",
+        "address": "%MX4.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "model-eligible",
+        "channel": "model-eligible",
+        "role": "quality",
+        "symbol": "P1.ModelEligible",
+        "address": "%MX4.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "scheduled-fallback-active",
+        "channel": "scheduled-fallback-active",
+        "role": "state",
+        "symbol": "P1.FallbackActive",
+        "address": "%MX4.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "torque-saturated",
+        "channel": "torque-saturated",
+        "role": "state",
+        "symbol": "P1.TorqueSaturated",
+        "address": "%MX4.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "fixed-proportional-gain",
+        "channel": "fixed-proportional-gain",
+        "role": "state",
+        "symbol": "P1.FixedProportionalGain",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m/rad",
+        "range": {
+          "minimum": 0,
+          "maximum": 50
+        }
+      },
+      {
+        "id": "scheduled-proportional-gain",
+        "channel": "scheduled-proportional-gain",
+        "role": "state",
+        "symbol": "P1.ScheduledProportionalGain",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m/rad",
+        "range": {
+          "minimum": 0,
+          "maximum": 50
+        }
+      },
+      {
+        "id": "active-proportional-gain",
+        "channel": "active-proportional-gain",
+        "role": "state",
+        "symbol": "P1.ActiveProportionalGain",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m/rad",
+        "range": {
+          "minimum": 0,
+          "maximum": 50
+        }
+      },
+      {
+        "id": "estimated-inertia",
+        "channel": "estimated-inertia",
+        "role": "state",
+        "symbol": "P1.EstimatedInertia",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kg m2",
+        "range": {
+          "minimum": 0,
+          "maximum": 3
+        }
+      },
+      {
+        "id": "estimated-gravity-coefficient",
+        "channel": "estimated-gravity-coefficient",
+        "role": "state",
+        "symbol": "P1.EstimatedGravityCoefficient",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m",
+        "range": {
+          "minimum": 0,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "estimated-viscous-coefficient",
+        "channel": "estimated-viscous-coefficient",
+        "role": "state",
+        "symbol": "P1.EstimatedViscousCoefficient",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m s/rad",
+        "range": {
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "nominal-model-compensation",
+        "channel": "nominal-model-compensation",
+        "role": "state",
+        "symbol": "P1.GravityCompensation",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m",
+        "range": {
+          "minimum": -25,
+          "maximum": 25
+        }
+      },
+      {
+        "id": "scheduling-angle-magnitude",
+        "channel": "scheduling-angle-magnitude",
+        "role": "state",
+        "symbol": "P1.SchedulingVariable",
+        "address": "%ML80",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad",
+        "range": {
+          "minimum": 0,
+          "maximum": 1.2
+        }
+      },
+      {
+        "id": "nominal-gravity-and-viscous-compensation",
+        "channel": "nominal-gravity-and-viscous-compensation",
+        "role": "state",
+        "symbol": "P1.ModelCompensation",
+        "address": "%ML88",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m",
+        "range": {
+          "minimum": -30,
+          "maximum": 30
+        }
+      },
+      {
+        "id": "applied-motor-torque",
+        "channel": "applied-motor-torque",
+        "role": "MV",
+        "symbol": "P1.TorqueApplied",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N m",
+        "range": {
+          "minimum": -30,
+          "maximum": 30
+        }
+      },
+      {
+        "id": "joint-angular-rate",
+        "channel": "joint-angular-rate",
+        "role": "state",
+        "symbol": "P1.JointRate",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -4,
+          "maximum": 4
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": -100,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 20
+  },
+  "plantId": "gravity_loaded_industrial_robot_joint",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 31.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX4.4",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  }
+}

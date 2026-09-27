@@ -144,7 +144,7 @@ fn run_resource_loop_core<C, F>(
                         let snapshot = runner
                             .simulation
                             .as_ref()
-                            .map(crate::simulation::SimulationController::runtime_snapshot);
+                            .map(|simulation|simulation.runtime_snapshot_for(&runner.runtime));
                         let _ = respond_to.send(snapshot);
                     }
                     ResourceCommand::SimulationTraceClear {

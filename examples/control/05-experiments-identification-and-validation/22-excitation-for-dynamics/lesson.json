@@ -1,0 +1,245 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-22",
+  "title": "Periodic excitation",
+  "level": "Identification",
+  "sequence": 49,
+  "equipment": "Slow water heater and flexible mechanical drive",
+  "physicalPurpose": "Match experiment timing and direction changes to the behavior that must be measured.",
+  "principalTechnique": "Excitation selection",
+  "objective": "Choose step, pulse, ramp, relay, or multisine excitation from the required information.",
+  "prerequisites": [
+    "control-lesson-21",
+    "control-routh-hurwitz"
+  ],
+  "nextLesson": "control-bode-frequency-response",
+  "signals": [
+    {
+      "role": "MV",
+      "name": "Applied drive torque",
+      "unit": "N m",
+      "minimum": -0.1,
+      "maximum": 0.1,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "PV",
+      "name": "Drive position",
+      "unit": "rad",
+      "minimum": -0.35,
+      "maximum": 0.35,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Requested drive torque",
+      "unit": "N m",
+      "minimum": -0.1,
+      "maximum": 0.1,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    }
+  ],
+  "plant": {
+    "modelId": "flexible-drive",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "gain",
+        "value": 0.4,
+        "unit": "rad/(N m)"
+      },
+      {
+        "name": "natural_angular_frequency",
+        "value": 6,
+        "unit": "rad/s"
+      },
+      {
+        "name": "damping_ratio",
+        "value": 0.08,
+        "unit": "1"
+      },
+      {
+        "name": "multisine_frequency_1",
+        "value": 0.4,
+        "unit": "Hz"
+      },
+      {
+        "name": "multisine_frequency_2",
+        "value": 1,
+        "unit": "Hz"
+      },
+      {
+        "name": "multisine_frequency_3",
+        "value": 1.6,
+        "unit": "Hz"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "position": 0,
+      "velocity": 0,
+      "torque": 0
+    },
+    "seed": 20260829,
+    "simplifications": [
+      "The run demonstrates one multisine; the table explains when the other four patterns answer different questions."
+    ],
+    "operatingPoint": {
+      "Applied drive torque": 0,
+      "Drive position": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Applied drive torque",
+        "minimum": -0.1,
+        "maximum": 0.1,
+        "unit": "N m"
+      },
+      {
+        "signal": "Drive position",
+        "minimum": -0.35,
+        "maximum": 0.35,
+        "unit": "rad"
+      }
+    ]
+  },
+  "baseline": {
+    "executableId": "Lesson22.ZeroTorque",
+    "settings": {
+      "torque": 0
+    },
+    "limitation": "No dynamic response is visible without an intentional input variation."
+  },
+  "change": {
+    "executableId": "Lesson22.Multisine",
+    "settings": {
+      "frequenciesHz": [
+        0.4,
+        1,
+        1.6
+      ],
+      "maximumTorque": 0.1
+    },
+    "decision": "Use a pattern only when its information matches the modelling question and its bounds match the reviewed plan."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 30.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "A bounded multisine torque runs from 5 s to 25 s."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "torque_bound",
+      "signal": "Applied drive torque",
+      "window": "complete run",
+      "comparator": "<=",
+      "limit": 0.1,
+      "unit": "N m",
+      "tolerance": 0.0001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "restored_torque",
+      "signal": "Applied drive torque",
+      "window": "after 25 s",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "N m",
+      "tolerance": 0.0001,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#73-experiments-identification-validation-and-tuning",
+    "nativeTest": "TEST_PROGRAM::Lesson22PatternMatchesRequiredDynamics",
+    "nativeCommand": "trust-dev test --project examples/control/05-experiments-identification-and-validation/22-excitation-for-dynamics --filter TEST_PROGRAM::Lesson22PatternMatchesRequiredDynamics",
+    "projectPath": "examples/control/05-experiments-identification-and-validation/22-excitation-for-dynamics",
+    "runArtifactFields": [
+      "requestedTorque",
+      "appliedTorque",
+      "drivePosition",
+      "naturalFrequencyHz"
+    ],
+    "renderedJourneyId": "control-lesson-22"
+  },
+  "learning": {
+    "context": "Lesson 21 bounded a safe step experiment.",
+    "reason": "Different dynamics and modelling questions require different input patterns.",
+    "change": "Select an excitation from the information required and the process time scale.",
+    "transfer": "Lesson 23 estimates model values from a qualified step response.",
+    "theory": [
+      "Different dynamics and modelling questions require different input patterns."
+    ],
+    "workedPrediction": "Use a pattern only when its information matches the modelling question and its bounds match the reviewed plan.",
+    "practicalPreparation": [
+      "Lesson 21 bounded a safe step experiment."
+    ],
+    "baseline": "No dynamic response is visible without an intentional input variation.",
+    "comparison": "Choose step, pulse, ramp, relay, or multisine excitation from the required information.",
+    "validation": "Check the declared acceptance metrics against the retained run.",
+    "explanation": "Choose step, pulse, ramp, relay, or multisine excitation from the required information."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Applied drive torque",
+        "minimum": -0.1,
+        "maximum": 0.1,
+        "unit": "N m"
+      },
+      {
+        "signal": "Drive position",
+        "minimum": -0.35,
+        "maximum": 0.35,
+        "unit": "rad"
+      }
+    ],
+    "abortPredicates": [
+      "Signals must remain finite and inside the declared lesson ranges."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Restore Lesson experiment to 0.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Choose step, pulse, ramp, relay, or multisine excitation from the required information.",
+    "requiredVisibleEvidence": [
+      "requestedTorque",
+      "appliedTorque",
+      "drivePosition",
+      "naturalFrequencyHz"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

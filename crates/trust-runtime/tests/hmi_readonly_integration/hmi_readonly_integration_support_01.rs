@@ -127,6 +127,7 @@ pub(super) fn hmi_control_state_with_root(
         plant_service: Arc::new(trust_runtime::control::PlantControlService::default()),
         experiments: trust_runtime::control::ControlExperimentService::default(),
         controllers: trust_runtime::control::ControllerParameterService::default(),
+        searches: trust_runtime::control::search::SearchService::default(),
         resource_name: SmolStr::new("RESOURCE"),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),

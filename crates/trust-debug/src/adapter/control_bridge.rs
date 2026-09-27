@@ -66,6 +66,7 @@ impl DebugControlServer {
             plant_service: Arc::new(trust_runtime::control::PlantControlService::default()),
             experiments: trust_runtime::control::ControlExperimentService::default(),
             controllers: trust_runtime::control::ControllerParameterService::default(),
+            searches: trust_runtime::control::search::SearchService::default(),
             sources,
             io_snapshot: io_snapshot.clone(),
             io_snapshot_seen_ms: io_snapshot_seen_ms.clone(),
@@ -102,7 +103,12 @@ impl DebugControlServer {
         });
         trust_runtime::control::spawn_hmi_descriptor_watcher(state.clone());
         let server = ControlServer::start(endpoint, state.clone())?;
-        let drain = spawn_command_drain(cmd_rx, debug, session.runtime_handle());
+        let drain = spawn_command_drain(
+            cmd_rx,
+            debug,
+            session.runtime_handle(),
+            session.simulation_handle(),
+        );
         Ok(Self {
             server,
             io_snapshot,
@@ -189,6 +195,7 @@ fn spawn_command_drain(
     rx: std::sync::mpsc::Receiver<ResourceCommand>,
     debug: DebugControl,
     runtime: Arc<Mutex<trust_runtime::Runtime>>,
+    simulation: Arc<Mutex<Option<trust_runtime::simulation::SimulationController>>>,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         while let Ok(command) = rx.recv() {
@@ -206,7 +213,18 @@ fn spawn_command_drain(
                     let _ = respond_to.send(debug.snapshot().unwrap_or_else(empty_debug_snapshot));
                 }
                 ResourceCommand::SimulationSnapshot { respond_to } => {
-                    let _ = respond_to.send(None);
+                    let qualified = runtime
+                        .lock()
+                        .ok()
+                        .map(|runtime| runtime.simulation_only_io());
+                    let snapshot = simulation.lock().ok().and_then(|simulation| {
+                        simulation.as_ref().map(|simulation| {
+                            let mut snapshot = simulation.runtime_snapshot();
+                            snapshot.simulation_only_io = qualified;
+                            snapshot
+                        })
+                    });
+                    let _ = respond_to.send(snapshot);
                 }
                 ResourceCommand::SimulationTraceClear { respond_to, .. } => {
                     let _ = respond_to.send(Err(
@@ -264,5 +282,164 @@ fn empty_debug_snapshot() -> DebugSnapshot {
     DebugSnapshot {
         storage: trust_runtime::memory::VariableStorage::new(),
         now: trust_runtime::value::Duration::ZERO,
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod search_provenance_tests {
+    use super::*;
+    use crate::DebugAdapter;
+    #[test]
+    fn debug_bridge_reports_the_actual_session_simulation_snapshot() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root =
+            std::env::temp_dir().join(format!("debug-search-host-{}-{stamp}", std::process::id()));
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/control_search_worker.json"
+        ))
+        .unwrap();
+        std::fs::write(
+            root.join("src/Main.st"),
+            fixture["snapshot"]["sources"][0]["text"].as_str().unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("simulation.toml"),
+            fixture["snapshot"]["simulation"].as_str().unwrap(),
+        )
+        .unwrap();
+        let mut session = crate::DebugSession::new(trust_runtime::Runtime::new());
+        session.update_source_options(crate::session::SourceOptionsUpdate {
+            root: Some(root.to_string_lossy().into_owned()),
+            include_globs: Some(vec!["**/*.st".into()]),
+            exclude_globs: Some(vec![]),
+            ignore_pragmas: None,
+        });
+        session
+            .reload_program(Some(root.join("src/Main.st").to_string_lossy().as_ref()))
+            .unwrap();
+        let bridge = DebugControlServer::start(
+            &session,
+            ControlEndpoint::Tcp("127.0.0.1:0".parse().unwrap()),
+            None,
+            Some(root.clone()),
+        )
+        .unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        bridge
+            .server
+            .state()
+            .resource
+            .send_command(ResourceCommand::SimulationSnapshot { respond_to: sender })
+            .unwrap();
+        let snapshot = receiver
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        assert!(
+            snapshot.is_some(),
+            "debug control bridge must expose its real simulation instead of hardcoded None"
+        );
+        assert!(snapshot.unwrap().status.active);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn simulation_snapshot_remains_available_between_slow_runner_scans() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "debug-slow-simulation-snapshot-{}-{stamp}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        let source = r#"
+PROGRAM Main
+VAR
+    PV AT %IL0 : LREAL;
+    MV AT %QL0 : LREAL := LREAL#0.0;
+END_VAR
+END_PROGRAM
+
+CONFIGURATION Config
+RESOURCE Res ON PLC
+    TASK MainTask(INTERVAL := T#1s, PRIORITY := 1);
+    PROGRAM Main WITH MainTask : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#;
+        std::fs::write(root.join("src/Main.st"), source).unwrap();
+        std::fs::write(
+            root.join("simulation.toml"),
+            r#"
+[simulation]
+enabled = true
+plant_step_ms = 1000
+[[plants]]
+id = "slow-plant"
+model = "first_order"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [0.0]
+[plants.parameters]
+gain = 1.0
+time_constant_s = 1.0
+"#,
+        )
+        .unwrap();
+        let mut session = crate::DebugSession::new(trust_runtime::Runtime::new());
+        session.update_source_options(crate::session::SourceOptionsUpdate {
+            root: Some(root.to_string_lossy().into_owned()),
+            include_globs: Some(vec!["**/*.st".into()]),
+            exclude_globs: Some(vec![]),
+            ignore_pragmas: None,
+        });
+        session
+            .reload_program(Some(root.join("src/Main.st").to_string_lossy().as_ref()))
+            .unwrap();
+        let mut adapter = DebugAdapter::new(session);
+        adapter.control_server = Some(
+            DebugControlServer::start(
+                adapter.session(),
+                ControlEndpoint::Tcp("127.0.0.1:0".parse().unwrap()),
+                None,
+                Some(root.clone()),
+            )
+            .unwrap(),
+        );
+        let resource = adapter
+            .control_server
+            .as_ref()
+            .unwrap()
+            .server
+            .state()
+            .resource
+            .clone();
+        let runtime = adapter.session().runtime_handle();
+        adapter.start_runner();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while runtime.lock().unwrap().current_time() == Duration::ZERO {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "runner did not finish its first cycle"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        let (sender, receiver) = std::sync::mpsc::channel();
+        resource
+            .send_command(ResourceCommand::SimulationSnapshot { respond_to: sender })
+            .unwrap();
+        let snapshot = receiver.recv_timeout(std::time::Duration::from_millis(250));
+        adapter.stop_runner();
+        let snapshot = snapshot
+            .expect("active simulation snapshot must not wait for the next one-second scan")
+            .expect("active simulated session must report a snapshot between scans");
+        assert!(snapshot.status.active);
+        let _ = std::fs::remove_dir_all(root);
     }
 }

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "id": "control-capstone-independent",
-  "name": "Defend an independent compressed-air control-system recommendation",
-  "revision": "sha256:curriculum-loop-84",
+  "name": "Independent capstone",
+  "revision": "sha256:da973e089708679716fcd4ec8dddc0f5104a9a749437b2fda72c52162f9348c9",
   "projectId": "project:control-capstone-independent",
   "runtimeId": "simulator",
   "controller": {

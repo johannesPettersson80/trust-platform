@@ -1,0 +1,496 @@
+{
+  "schemaVersion": 4,
+  "id": "control-robust-control",
+  "title": "Robust control",
+  "level": "Modern",
+  "sequence": 79,
+  "equipment": "Ground vibration-test flexible-wing load-alleviation rig",
+  "physicalPurpose": "Reduce gust-driven wing-root bending across declared modal uncertainty without presenting a numerical grid as flight certification.",
+  "principalTechnique": "Robust control",
+  "objective": "Qualify one controller over a declared uncertainty set.",
+  "prerequisites": [
+    "control-adaptive-control"
+  ],
+  "nextLesson": "control-networked-control",
+  "signals": [
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX64.2"
+    },
+    {
+      "role": "state",
+      "name": "Safety abort",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX64.3"
+    },
+    {
+      "role": "state",
+      "name": "Inputs valid",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX64.4"
+    },
+    {
+      "role": "state",
+      "name": "Controller enabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX64.0"
+    },
+    {
+      "role": "quality",
+      "name": "Bending data healthy",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX64.1"
+    },
+    {
+      "role": "state",
+      "name": "Nominal surface saturated",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX65.0"
+    },
+    {
+      "role": "state",
+      "name": "Robust surface saturated",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX65.1"
+    },
+    {
+      "role": "state",
+      "name": "Natural angular frequency",
+      "unit": "rad/s",
+      "minimum": 3.2,
+      "maximum": 4.8,
+      "resolution": 0.1,
+      "binding": "simulation.parameters.omega_n"
+    },
+    {
+      "role": "state",
+      "name": "Damping ratio",
+      "unit": "1",
+      "minimum": 0.03,
+      "maximum": 0.15,
+      "resolution": 0.01,
+      "binding": "simulation.parameters.zeta"
+    },
+    {
+      "role": "state",
+      "name": "Control effectiveness",
+      "unit": "1",
+      "minimum": 0.8,
+      "maximum": 1.2,
+      "resolution": 0.1,
+      "binding": "simulation.parameters.g_u"
+    },
+    {
+      "role": "state",
+      "name": "Weighted sampled closed-loop paths",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 2000,
+      "resolution": 0.0001,
+      "binding": "Control Studio sampled-frequency result"
+    },
+    {
+      "role": "state",
+      "name": "Sampled closed-loop poles",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 2,
+      "resolution": 1e-06,
+      "binding": "Control Studio sampled-pole result"
+    },
+    {
+      "role": "SP",
+      "name": "Wing-root bending setpoint",
+      "unit": "g",
+      "minimum": -0.1,
+      "maximum": 0.1,
+      "resolution": 0.001,
+      "binding": "constant zero"
+    },
+    {
+      "role": "PV",
+      "name": "Nominal-loop wing-root bending",
+      "unit": "g",
+      "minimum": -1,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "PV",
+      "name": "Robust-loop wing-root bending",
+      "unit": "g",
+      "minimum": -1,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "disturbance",
+      "name": "Gust-equivalent load",
+      "unit": "g",
+      "minimum": 0,
+      "maximum": 0.1,
+      "resolution": 0.001,
+      "binding": "%ML96"
+    },
+    {
+      "role": "state",
+      "name": "Filtered robust-loop bending",
+      "unit": "g",
+      "minimum": -1,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%ML88"
+    },
+    {
+      "role": "MV",
+      "name": "Nominal requested surface position",
+      "unit": "%",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML72"
+    },
+    {
+      "role": "MV",
+      "name": "Nominal applied surface position",
+      "unit": "%",
+      "minimum": -15,
+      "maximum": 15,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "MV",
+      "name": "Robust requested surface position",
+      "unit": "%",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML80"
+    },
+    {
+      "role": "MV",
+      "name": "Robust applied surface position",
+      "unit": "%",
+      "minimum": -15,
+      "maximum": 15,
+      "resolution": 0.01,
+      "binding": "%QL16"
+    }
+  ],
+  "plant": {
+    "modelId": "flexible_wing_uncertainty_grid",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "natural_angular_frequency",
+        "value": 4,
+        "unit": "rad/s"
+      },
+      {
+        "name": "damping_ratio",
+        "value": 0.08,
+        "unit": "1"
+      },
+      {
+        "name": "control_effectiveness",
+        "value": 1,
+        "unit": "1"
+      },
+      {
+        "name": "controller_interval",
+        "value": 20,
+        "unit": "ms"
+      },
+      {
+        "name": "plant_substep",
+        "value": 5,
+        "unit": "ms"
+      }
+    ],
+    "sampleTimeSeconds": 0.02,
+    "initialState": {
+      "nominalBending": 0,
+      "robustBending": 0,
+      "nominalSurface": 0,
+      "robustSurface": 0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Wing-root bending setpoint": 0,
+      "Nominal-loop wing-root bending": 0,
+      "Robust-loop wing-root bending": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Natural angular frequency",
+        "minimum": 3.2,
+        "maximum": 4.8,
+        "unit": "rad/s"
+      },
+      {
+        "signal": "Damping ratio",
+        "minimum": 0.03,
+        "maximum": 0.15,
+        "unit": "1"
+      },
+      {
+        "signal": "Control effectiveness",
+        "minimum": 0.8,
+        "maximum": 1.2,
+        "unit": "1"
+      },
+      {
+        "signal": "Nominal applied surface position",
+        "minimum": -15,
+        "maximum": 15,
+        "unit": "%"
+      },
+      {
+        "signal": "Robust applied surface position",
+        "minimum": -15,
+        "maximum": 15,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "One local bending mode represents the ground vibration-test article.",
+      "The 27 structured cases are deterministic qualification points, not a claim for every intermediate airframe.",
+      "The supplied multiplicative residual envelope is independent design evidence and is not inferred from the favorable time trace.",
+      "No nonlinear aeroelasticity, structural damage, flutter clearance, certification or flight operation is represented."
+    ]
+  },
+  "baseline": {
+    "executableId": "Control.PID.NominalAirframeP",
+    "settings": {
+      "proportionalGain": 40,
+      "integralGain": 0,
+      "derivativeGain": 0,
+      "outputMinimum": -15,
+      "outputMaximum": 15
+    },
+    "limitation": "Aggressive nominal proportional control ignores the sampled delay and loses damping or stability over the declared flexible-mode set."
+  },
+  "change": {
+    "executableId": "Control.LowPassPlusPID.RobustFilteredPD",
+    "settings": {
+      "proportionalGain": 10,
+      "integralGain": 0,
+      "derivativeGain": 3,
+      "filterTimeConstant": 0.05,
+      "outputMinimum": -15,
+      "outputMaximum": 15,
+      "frequencyMinimum": 0.01,
+      "frequencyMaximum": 100,
+      "frequencyPoints": 20000
+    },
+    "decision": "Accept only a candidate whose three weighted paths and sampled poles pass at every declared structured case; retain all peak locations and time-domain costs."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 25.1,
+    "settlingSeconds": 2,
+    "disturbances": [
+      "Apply the same +0.10 g gust-equivalent load from 5 through 6 seconds to nominal and robust plant copies.",
+      "Repeat the record at all 27 declared natural-frequency, damping and effectiveness cases.",
+      "In a separate restored nominal-model case, mark bending data unhealthy from 12 through 13 seconds, restore it, then disable at 14 seconds."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Nominal applied surface position",
+        "minimum": -15,
+        "maximum": 15,
+        "unit": "%"
+      },
+      {
+        "signal": "Robust applied surface position",
+        "minimum": -15,
+        "maximum": 15,
+        "unit": "%"
+      },
+      {
+        "signal": "Nominal-loop wing-root bending",
+        "minimum": -1,
+        "maximum": 1,
+        "unit": "g"
+      },
+      {
+        "signal": "Robust-loop wing-root bending",
+        "minimum": -1,
+        "maximum": 1,
+        "unit": "g"
+      }
+    ],
+    "abortPredicates": [
+      "Any required bending, gust, surface, quality, frequency, pole or uncertainty value is nonfinite, stale, forced, missing or bound incorrectly.",
+      "The model set, residual envelope, candidate set, interval, substep, initial state, gust, limits, controller realization or evidence class differs without declaration.",
+      "A selected sampled pole is not strictly inside the unit circle or any selected weighted peak reaches one.",
+      "Bad bending quality drives a nonzero applied surface, restoration exceeds the declared surface limit, or disabled output is nonzero."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Apply zero surface command for unhealthy data, restore bounded control explicitly, then disable both loops to zero.",
+    "physicalApprovalRole": "authorised flight-controls engineer with structures, aeroelasticity, instrumentation, test and safety owners",
+    "simulationOnlyRestrictions": [
+      "No physical wing, actuator, shaker, wind-tunnel article or aircraft is operated.",
+      "The uncertainty grid and residual envelope are lesson inputs, not measurements from a physical article.",
+      "Ground-rig Simulation evidence cannot establish flutter clearance, structural integrity, certification or flight safety."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "learning": {
+    "context": "A flexible-wing ground test rig must reduce gust-driven bending despite uncertain modal frequency, damping, effectiveness and residual dynamics.",
+    "reason": "Adaptive estimation of a few slowly varying parameters cannot safely cover a continuum of resonant and unstructured uncertainty.",
+    "theory": [
+      "Structured uncertainty names physical parameters; multiplicative uncertainty bounds an unparameterized frequency-dependent residual.",
+      "Sensitivity, complementary sensitivity and control sensitivity expose disturbance rejection, model-error amplification and surface effort.",
+      "Frequency weights turn those paths into explicit requirements and the mixed-sensitivity score retains the worst component rather than an average.",
+      "Small-gain, sampled poles and time-domain actuator evidence answer different parts of a bounded robust claim."
+    ],
+    "workedPrediction": "Calculate the weakest-plant low-frequency weighted sensitivity as approximately 0.833 and prove the continuous filtered-PD Routh determinant is positive for the declared positive parameters.",
+    "practicalPreparation": [
+      "Verify the 27 structured cases, residual weight, four candidates, exact sampled realization, frequency range, gust, limits and evidence class.",
+      "Declare the three weighted acceptance bounds and time-domain measures before running any candidate."
+    ],
+    "baseline": "Run the nominal Kp=40 proportional loop and retain every failed weighted bound, pole and gust response.",
+    "change": "Evaluate the four filtered-PD candidates and execute the selected (10,3,0.05) realization on equivalent restored plants.",
+    "comparison": "Compare all three weighted peaks, gamma, pole radius, bending peak and IAE, settling, surface movement, request, application and saturation.",
+    "validation": "Prove independent sampled-frequency calculations, scan-level controller agreement, all-case time behavior, bad-quality zero output, restoration and disable.",
+    "explanation": "Use S, T and KS to connect low-frequency rejection, uncertain resonance and surface effort to the measured tradeoff.",
+    "transfer": "Lesson 78 continues with Networked control."
+  },
+  "acceptance": [
+    {
+      "metric": "selected_mixed_sensitivity_gamma",
+      "signal": "Weighted sampled closed-loop paths",
+      "window": "0.01 through 100 rad/s over all 27 structured cases",
+      "comparator": "<",
+      "limit": 1,
+      "unit": "1",
+      "tolerance": 0.0001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "selected_maximum_pole_radius",
+      "signal": "Sampled closed-loop poles",
+      "window": "all 27 structured cases",
+      "comparator": "<",
+      "limit": 1,
+      "unit": "1",
+      "tolerance": 1e-08,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "robust_worst_case_iae",
+      "signal": "Robust-loop wing-root bending",
+      "window": "5 through 25 seconds over all 27 cases",
+      "comparator": "<",
+      "limit": 999,
+      "unit": "g*s",
+      "tolerance": 0.0001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "robust_surface_saturation",
+      "signal": "Robust applied surface position",
+      "window": "all 27 common gust records",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "s",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "bad_quality_safe_output",
+      "signal": "MV",
+      "window": "12 through 13 seconds",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "%",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#710-nonlinear-adaptive-robust-networked-and-fault-aware-control",
+    "nativeTest": "TEST_PROGRAM::Lesson77GustAndControllerRequestsAreExplicit",
+    "nativeCommand": "target/debug/trust-dev test --project examples/control/12-nonlinear-adaptive-and-robust-control/77-robust-control --filter TEST_PROGRAM::Lesson77GustAndControllerRequestsAreExplicit --timeout 20",
+    "projectPath": "examples/control/12-nonlinear-adaptive-and-robust-control/77-robust-control",
+    "runArtifactFields": [
+      "projectIdentity",
+      "plantIdentity",
+      "evidenceClass",
+      "sampleTime",
+      "structuredUncertainty",
+      "residualWeight",
+      "candidate",
+      "frequencyGrid",
+      "weightedPeaks",
+      "peakLocations",
+      "gamma",
+      "sampledPoles",
+      "gust",
+      "bending",
+      "requestedSurface",
+      "appliedSurface",
+      "saturation",
+      "quality",
+      "metrics"
+    ],
+    "renderedJourneyId": "control-robust-control"
+  },
+  "video": {
+    "viewerOutcome": "Distinguish a bounded sampled robust-control qualification from an unsupported general or flight-safety claim.",
+    "requiredVisibleEvidence": [
+      "flexible-wing signal path",
+      "structured uncertainty grid",
+      "multiplicative residual envelope",
+      "S T and KS weighted plots",
+      "candidate rejection and selection",
+      "sampled poles",
+      "common gust responses",
+      "requested and applied surface positions",
+      "bad-quality safe output",
+      "Simulation and flight boundary"
+    ],
+    "durationClass": "extended",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

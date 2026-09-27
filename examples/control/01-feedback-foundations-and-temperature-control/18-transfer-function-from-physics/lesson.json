@@ -1,0 +1,254 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-18",
+  "title": "Laplace transforms",
+  "level": "Foundation",
+  "sequence": 44,
+  "equipment": "Lesson 17 gravity tank and its local tangent model",
+  "physicalPurpose": "Convert a physically derived local differential equation into an equivalent input-output representation.",
+  "principalTechnique": "Laplace transform and transfer-function derivation",
+  "objective": "Derive G(s)=K/(tau*s+1) from the local tank balance and verify equivalent response predictions.",
+  "prerequisites": [
+    "control-lesson-17",
+    "control-gain-scheduling"
+  ],
+  "nextLesson": "control-lesson-19",
+  "signals": [
+    {
+      "role": "MV",
+      "name": "Inlet flow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 0.02,
+      "resolution": 1e-06,
+      "binding": "%QL0"
+    },
+    {
+      "role": "PV",
+      "name": "Nonlinear tank level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Input-flow deviation",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 0.005,
+      "resolution": 1e-06,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Differential-equation level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "Transfer-function level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    }
+  ],
+  "plant": {
+    "modelId": "gravity-tank-and-equivalent-local-representations",
+    "executable": "simulation.toml and src/Main.st",
+    "parameters": [
+      {
+        "name": "operating_level",
+        "value": 0.25,
+        "unit": "m"
+      },
+      {
+        "name": "operating_inlet_flow",
+        "value": 0.01,
+        "unit": "m3/s"
+      },
+      {
+        "name": "local_gain",
+        "value": 50,
+        "unit": "m/(m3/s)"
+      },
+      {
+        "name": "local_time_constant",
+        "value": 25,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "levelDeviation": 0,
+      "inputDeviation": 0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Nonlinear tank level": 0.25,
+      "Inlet flow": 0.01
+    },
+    "validityRange": [
+      {
+        "signal": "Input-flow deviation",
+        "minimum": -0.001,
+        "maximum": 0.001,
+        "unit": "m3/s"
+      }
+    ],
+    "simplifications": [
+      "The transfer function assumes zero initial deviation.",
+      "It retains the Lesson 17 operating point and local valid region.",
+      "The scan-by-scan differential calculation uses forward Euler integration."
+    ]
+  },
+  "baseline": {
+    "executableId": "Lesson18.DifferentialEquation",
+    "settings": {
+      "gain": 50,
+      "timeConstantSeconds": 25
+    },
+    "limitation": "The time-domain differential equation is not the algebraic input-output form used by later linear analysis."
+  },
+  "change": {
+    "executableId": "Lesson18.TransferFunction",
+    "settings": {
+      "numerator": 50,
+      "denominator": [
+        25,
+        1
+      ]
+    },
+    "decision": "Use the Laplace definition and zero initial deviation to derive, not assume, the transfer function."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 100.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Inlet-flow deviation changes from 0 to 0.001 m3/s."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "one_time_constant_level",
+      "signal": "Transfer-function level",
+      "window": "25 s",
+      "comparator": "==",
+      "limit": 0.281606,
+      "unit": "m",
+      "tolerance": 0.0001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "representation_difference",
+      "signal": "Transfer-function level",
+      "window": "complete run",
+      "comparator": "<=",
+      "limit": 0.0002,
+      "unit": "m",
+      "tolerance": 1e-05,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#72-plant-physics-and-models",
+    "nativeTest": "TEST_PROGRAM::Lesson18TransferFunctionMatchesLocalStepResponse",
+    "nativeCommand": "trust-dev test --project examples/control/01-feedback-foundations-and-temperature-control/18-transfer-function-from-physics --filter TEST_PROGRAM::Lesson18TransferFunctionMatchesLocalStepResponse",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/18-transfer-function-from-physics",
+    "runArtifactFields": [
+      "inputDeviation",
+      "elapsedTime",
+      "differentialLevel",
+      "transferLevel",
+      "nonlinearTankLevel",
+      "gain",
+      "timeConstant"
+    ],
+    "renderedJourneyId": "control-lesson-18"
+  },
+  "learning": {
+    "context": "Lesson 17 derived a local differential equation from gravity-tank physics.",
+    "reason": "Later linear analysis uses a compact algebraic input-output representation.",
+    "change": "Derive the derivative transform and transfer-function ratio under zero initial deviation.",
+    "transfer": "Lesson 19 connects denominator and numerator roots to response behavior.",
+    "theory": [
+      "Later linear analysis uses a compact algebraic input-output representation."
+    ],
+    "workedPrediction": "Use the Laplace definition and zero initial deviation to derive, not assume, the transfer function.",
+    "practicalPreparation": [
+      "Lesson 17 derived a local differential equation from gravity-tank physics."
+    ],
+    "baseline": "The time-domain differential equation is not the algebraic input-output form used by later linear analysis.",
+    "comparison": "Derive G(s)=K/(tau*s+1) from the local tank balance and verify equivalent response predictions.",
+    "validation": "Check the declared acceptance metrics against the retained run.",
+    "explanation": "Derive G(s)=K/(tau*s+1) from the local tank balance and verify equivalent response predictions."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Inlet flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Nonlinear tank level",
+        "minimum": 0,
+        "maximum": 1,
+        "unit": "m"
+      }
+    ],
+    "abortPredicates": [
+      "Signals must remain finite and inside the declared lesson ranges."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Restore Lesson experiment to 0.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Derive G(s)=K/(tau*s+1) from the local tank balance and verify equivalent response predictions.",
+    "requiredVisibleEvidence": [
+      "inputDeviation",
+      "elapsedTime",
+      "differentialLevel",
+      "transferLevel",
+      "nonlinearTankLevel",
+      "gain",
+      "timeConstant"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

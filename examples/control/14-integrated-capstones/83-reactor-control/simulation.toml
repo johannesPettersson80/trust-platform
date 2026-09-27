@@ -1,0 +1,24 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 4000
+plant_step_ms = 100
+
+# States are jacket and vessel temperature deviations from38/35°C.
+# 5 Tj'=2u-10(Tj-Tv)-Dj; 50 Tv'=10(Tj-Tv)-2(Tv-20).
+[[plants]]
+id = "jacketed-vessel"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0.0, 0.0]
+initial_input = [15.0, 0.0]
+input_offset = [-15.0, 0.0]
+output_offset = [35.0, 38.0]
+[plants.parameters]
+a = [[-2.0, 2.0], [0.2, -0.24]]
+b = [[0.4, -0.2], [0.0, 0.0]]
+c = [[0.0, 1.0], [1.0, 0.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]

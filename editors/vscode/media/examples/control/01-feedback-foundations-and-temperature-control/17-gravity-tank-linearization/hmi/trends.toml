@@ -1,0 +1,6 @@
+title = "Trends"
+kind = "trend"
+icon = "line-chart"
+order = 50
+duration_s = 600
+signals = ["P1.LargeFlowDeviation", "P1.LargeInletFlow", "P1.LargeLocalLevel", "P1.LargePhysicalLevel", "P1.OperatingFlow", "P1.OperatingLevel", "P1.SmallFlowDeviation", "P1.SmallInletFlow"]

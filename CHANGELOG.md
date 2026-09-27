@@ -6,25 +6,516 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-- Rewrite all 84 control lessons around the reviewed water-heater saturation
-  teaching flow: a named equipment problem, a distinct learner-facing need,
-  words and prediction before implementation, one non-duplicated Control
-  Studio procedure with explicit checks/decisions/recovery, progressively
-  revealed evidence, physical derivations and parameter provenance for every
-  introduced plant model, left-aligned equations, preview-safe SVG diagrams,
-  and syntax-highlighted Structured Text.
+- Keep chart tick labels distinct when small temperature changes occur around a nonzero operating point.
+
+- Keep rejected independent model predictions inspectable after save/reopen without allowing acceptance. Preserve the model overlay when restoring hidden experiment signal selections.
+- Keep Lesson18 on the same native heater used for identification, and use the permitted40s estimation hold for its independent validation handoff. Preserve the lesson's fixed error and timing requirements.
+- Align the relay acquisition project with the specified35°C/75% heater, bounded noise and60s cycle experiment; retain guarded, unapplied cycle-derived PI candidates.
+
+
+### Changed
+
+- Control Studio's recorded-fit comparison now exposes the existing model-error and uncertainty evidence in collapsed details, retains the recommended structure with one primary action, and restores its model family and measurement settings when the editor reopens. Lessons16–17 use the three-page controls without changing their teaching objectives.
+- Control Studio retains project-experiment recordings and signal selections on
+  reopen, shows selected live setpoints and diagnostics with stable colours, and
+  frames constant measurements without exaggerating numerical roundoff.
+- Keep experiment review text compact and use shared numeric controls for declared
+  settings. Save native recordings through the response context menu or command palette.
+- Allow the identification-experiment lesson's complete 40-second hold after its
+  five-second baseline; retain the actual applied-input record for subsequent identification.
+- Adapt control-course experiment instructions to the existing three-page
+  Control Studio while preserving the taught concepts and declared requirements.
+- Tune automatically fills missing test settings from the selected plant model,
+  recording and operating limits. Keep declared/manual requirements and pinned
+  controller settings; label generated criteria in the optional editor and
+  validation results and retain them across reopening.
+- Control Studio Identify now performs one live experiment and retains its
+  provisional model and measured response. Tune stops with the candidate;
+  explicit Validate acquires independent data, checks the frozen model and
+  executes the controller campaign before enabling Apply.
+- Control Studio Identify records and excites the connected running plant in real time,
+  using native experiment restoration and per-scan recording. Reset and reopening
+  resume live selected signals. Independent live records retain their own provenance.
+- Control Studio: replace the old multi-mode workspace with the agreed Identify,
+  Tune and Validate pages, sharing the existing workflow/runtime services.
+  Keep exact controller bindings, recorded-data identification, manual/pinned
+  settings, channel limits and requirements, and guarded Apply/Restore in that flow.
+  Fit explicitly selected recording channels and retain them after reopening;
+  identify every declared PID-group member and require a supported complete
+  parameter/state transaction before group tuning or application.
+  Restore contextual project experiments, manual recorded-data fitting, supplied
+  model import, analysis tools and scenario editing within those same pages.
+  Retain measured frequency/MIMO results, exact Routh regions, initial-state
+  responses and finite-horizon Riccati stages; preserve declared state and
+  switching-controller pins during retuning.
+
+### Fixed
+
+- Recognize a rate-limited step's rising increments as part of the same step,
+  preserving the existing fitter's estimation of gain, dynamics and delay.
+
+- Identify plant executes a fresh experiment for the chosen method instead of
+  silently refitting a previous method's recording. Reset clears the working
+  model, chart and dependent results, including the saved draft, while keeping
+  configured signals/limits and the running controller unchanged.
+
+- Keep large identified model equations scrollable above the experiment plot;
+  explain clipped or rate-limited relay records without reporting missing cycles.
+
+- Show actual identification inputs alongside measured outputs and model
+  predictions on aligned time axes. Display returned experiment records before
+  fitting completes and retain the matching input trace when reopening results.
+
+- Keep identification on its model and response for review. Identify plant keeps
+  its label; Reset chart clears the display without starting identification or
+  deleting the model. Use the Tune tab to navigate; ask for missing requirements
+  only when tuning is requested.
+
+- Prepare isolated Control Studio bytecode before starting PLC scan deadlines,
+  so compilation cannot consume the first scan budget on slower hosts.
+
+- Show selected plant signals and their current readings in Identify before a
+  model is acquired. Signal dropdowns apply checkbox choices immediately and
+  close on outside click, without Done/Cancel buttons.
+
+- Preserve scenario values when adding or renaming signals.
+
+- Run the model-validation heater/probe through native plant simulation and
+  preserve its five-second holdout baseline. Model-based PI tuning now executes
+  the library `Control.PID`; source-selected trials run the selected command/load.
+- Make the identifiability lesson reuse the saved model comparison and explain
+  practical versus structural ambiguity with runnable ST calculations. Its
+  heater project reads the noisy probe from native simulation through PLC input.
+- Make the model-structure lesson follow the existing Control Studio import,
+  comparison and Save/Open controls. Include runnable ST calculations for its
+  two-state update and worked prediction, with an explained update-order exercise.
+- Import the original first-order estimation run and its settings when a saved
+  study also contains later validation data. Expose the additional-lag search
+  grid and model-error limits; preserve the original reference
+  and unfinished field values across Save/Open.
+- Keep identification fitting and saved-study calculations responsive in the
+  editor. Cancel retains the recording and confirms the outcome; edits and
+  newer Open requests discard obsolete calculations. Preserve current field
+  errors when an older settings acknowledgement arrives.
+- Fit an additional physical lag on an explicit held-step parameter grid while
+  preserving the first-order reference and recording. Keep model-adequacy
+  limits separate from measurement-consistent uncertainty, retain ambiguous
+  time-constant assignments, and reopen the provisional comparison through the
+  existing identification session. The model-structure lesson now reads water
+  and probe temperatures from the native plant through ordinary PLC inputs.
+- Recognize `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` as test-runner entry
+  points in unused-POU analysis, preserving warnings for unused production
+  declarations and unused variables inside tests.
+- Retain identification previews, measurement settings and both original
+  estimation/validation recordings across editor restarts. Recheck accepted
+  models on restore. Changing identification inputs clears the selected model
+  and dependent tuning state, including the current saved draft. Preserve
+  unfinished field edits and imported recordings in the current working draft
+  without adding saved history revisions. Rejected saved results leave the
+  current result identity and exported contents unchanged.
+- Add measured held-step analysis in Identify with qualified baseline/final
+  windows, explicit FOPDT search, measurement-consistent parameter ranges and
+  grid refinement. Preserve estimation parameters when checking a distinct
+  validation step; reject bad, clipped, saturated and inconsistent-unit data.
+  Detect sustained onset in either response direction, explain missing input
+  steps and require complete baseline and held-step window coverage.
+  The lesson gain helper rejects zero input change through ENO without a
+  division-by-zero fault; its adaptation and abort instructions match the project.
+  Identify names and focuses invalid settings, explains rejected windows and
+  points opened recordings to Validate. Short and zoomed editor layouts keep
+  settings reachable; narrow plots retain readable reference labels. Zoom and
+  Fit clear the previous inspection so its values cannot describe another window.
+- Preserve native acquisition identities through recording and saved results,
+  so an imported estimation run can use the next native Test for validation.
+  Check the selected recording rather than an older Test with the same role.
+  Include the five-second baseline in the step-identification lesson's Test.
+
+- Distinguish the last Control Studio Test outcome from the current runtime and
+  a newly reviewed plan, while retaining recordings and explicit recovery needs.
+  Model and tuning updates preserve the Test-owned status and its accessible label.
+
+- Put the selected course lesson's name and project action before expandable
+  technical details. Preserve full teaching text, remove identical repeated
+  introductions and retain the PID acronym in module titles.
+  Copied lessons also adapt descriptive next-lesson links to the current
+  catalogue instead of leaving links to sibling folders that were not copied.
+  The step-identification lesson explains EN/ENO without a reference link to
+  repository files absent from the copied project.
+
+- Render authored lesson instructions, tables and equations in the example
+  gallery. Open referenced bundled files as read-only source previews while
+  keeping the selected lesson available in the same editor group.
+
+- Keep native ST assertions out of Simulator source selection in the remaining
+  control-course projects while preserving their test bodies and discovery.
+  Filtered `trust-dev test` runs now register all test declarations for
+  compilation and execute only matching cases, including configured projects.
+
+- Import saved Control Studio recordings for identification while retaining their
+  original acquisition identity through Save/Open. Keep source controller and
+  design state out of the import, and exclude the step-identification lesson's
+  native assertions from Simulator using the existing runtime-ignore marker.
+  Show the recording before fitting, keep one primary next action and one
+  historical source badge, and return explicit Monitor navigation to live data.
+
+- Accept the documented manual PI Tune-to-Test lesson route when building the
+  course catalog, while still rejecting unknown and duplicate stages. Align
+  the Routh–Hurwitz lesson title and next-lesson link with the approved course.
+
+- Keep identification experiment settings in Test, lock them during review/run,
+  and record the declared baseline before enabling the existing project.
+  Preserve newer I/O observations per debug session when delayed events arrive.
+
+- Label paired process signals with their actual names on Control Studio axes,
+  including model/measurement and heater/loss comparisons in Energy balance.
+  Keep unselected diagnostics in Signals, and allow recorded channel selection
+  directly in Validate without leaving the saved or retained response.
+
+- Show applied input and measured output consistently for open-loop experiments,
+  without a fictitious setpoint or undeclared controller mode. Validate displays
+  the retained native recording before Save/Open while Monitor keeps live data.
+  Keep padded temperature-axis endpoints from repeating rounded tick labels.
+
+- Refresh Control Studio observations after a confirmed simulator restart and
+  start a fresh live response window while preserving saved recordings. Share
+  the coherent signal selection with recording and identification. Reject new
+  project-owned Tests while primary signals have forcing or bad quality.
+
+- Keep aborted Test recordings available for save/open/export while identification
+  remains disabled for unqualified data. Preserve project-owned activation, stop
+  and restoration details, including Boolean applied values, in saved results.
+
+- Give manual controller parameters labelled numeric fields, bounded change
+  reviews and observed rollback values. Keep model/search tools and raw JSON
+  expandable, and show measured response while tuning without a fitted model.
+
+- Keep recording-only Control Studio validation focused on the measured response,
+  save/open/export actions and review readiness. Opening saved revisions replaces
+  previous plot evidence and validation status without changing the controller.
+- Name isolated diagnostic axes after their selected signal and draw an explicit
+  explanation when a saved controller candidate has no stored comparison.
+- Keep arithmetic roundoff in constant recorded signals from appearing as a
+  large oscillation when Control Studio fits its axes; preserve raw samples.
+
+- Run the heater setpoint/load lesson through the existing Control.PID and one
+  native temperature sensor, with separate heater/load delays and applied-output
+  feedback. Preserve both experiments and their original response requirements.
+- Bind manual PI tuning to the actual Control.PID parameter record and native
+  heater inputs. Preserve one-gain changes, accepted values and independent
+  target/load trials across explicit restart and reapplication.
+- Reuse that PID and native heater in Loop Diagnosis, with separate measured
+  and reference inputs, a native sensor-bias experiment and aligned request/
+  applied-output diagnostics.
+- Omit a repeated controller type from Control Studio setup choices when it
+  duplicates the instance label; preserve compiled identities and custom choices.
+
+- Align live Control Studio event markers with actual time and plot boundaries,
+  including zoom and resize; show source, time and meaning on hover. Use
+  Ready to apply / Ready to restore for the corresponding open change review.
+
+- Add Back and four named phases to native Control Studio setup. Preserve
+  compatible answers, revalidate changed choices, and prevent stale asynchronous
+  validation from accepting an edited value.
+
+- Hide Control Studio figure tools on Signals and Events. Expose the Response
+  sample table with selected channels, engineering units and individual quality.
+- Keep live time-axis labels separated near the latest observation without
+  trimming the recorded response.
+
+- Keep the existing Abort test action visible across Control Studio modes,
+  Signals and plot expansion until the native experiment stops.
+- Show the active Test recording and progress consistently; prevent manual
+  recording controls and late notices from taking over its acquisition.
+- Simplify lesson-owned Test review to duration and a compact exact plan;
+  omit fixed controls, unused excitation seeds and internal Boolean units.
+  Remove unsupported Automatic Tune actions and collapse empty header space.
+
+- Keep the Signals list on the opened recording's values, units and quality;
+  preserve offline readings and return to current values when live observation resumes.
+
+- Draw selected controller diagnostics in live and reopened Response plots,
+  preserve their samples and quality in exports, and separate incompatible
+  units into aligned lanes. Restore the visible signal checkboxes with saved
+  selection and show requests above the physical actuator limit without clipping.
+- Keep multi-unit chart labels readable in compact Test views, contain long
+  review values, and draw theme-derived measurement strokes at full opacity.
+- Label controller-state axes by their actual role and keep diagnostic trace
+  colours/styles distinct from primary SP/PV/MV when selecting signals.
+
+- Run the heater P and PI lessons through the actual Control.PID block and keep
+  the library quick-start example's history between scans. Add a read-only
+  state snapshot for diagnostics without changing the controller equations.
+- Use Test's automatic recording in the heater lesson instructions and explain
+  how to save and reopen the measured response.
+- Keep the manual Control Studio response, compact live values and Test form
+  from overlapping; show a saved recording without requiring a tuned candidate.
+- Give reviewed tests one confirmation action and a return to editing, keep
+  pending starts locked, and restore controls for the next experiment.
+- Preserve imported-run identity labels when reopening an evaluation and keep
+  optional run-import fields behind an expandable control.
+- Expose independent state-space input delays in the plant editor, preserving
+  channel values and enforcing the native history bound before Save.
+- Keep identified-model predictions bound to their model and output when
+  guided setup assigns explicit channel names.
+- Reject applied-actuator feedback mappings that overlap coupling or physics
+  outputs, and run the windup lessons through the real PID and actuator readback.
+- Keep independent model-fit evidence attached to its selected model, retain
+  completed Tune/Verify results on screen, and use consistent response colors
+  and compact parameter comparisons throughout Control Studio.
+
+- Map the actual `Control.PID` seven-state initialization through the shared Control Studio verification and commissioning workflow.
+
+- Show builtin tuning controls only for adapters that use them and keep hidden
+  gain fields from blocking project-owned tuning.
+- Disable empty Monitor plot actions until samples arrive while preserving
+  inspection of retained samples after disconnection.
+- Hide controller removal when no controller is attached and clear its previous
+  file selection on removal.
+- Let engineers close an unapplied controller review with Close or Escape
+  without applying or discarding the candidate.
+- Honor a specific proportional gain when P is the only available adapter,
+  including its declared parameter bounds, under automatic family selection.
+- Preserve a newly selected Control Studio stage when a delayed opening-state
+  response arrives.
+- Keep empty advanced-workspace charts inside their allocated space so model
+  import and validation controls remain visible.
+- Keep supplied-model analysis disabled after a rejected import when no valid
+  model has been selected.
+- Bind declared-project controller tuning to the runtime's project identity,
+  avoiding a false program-change rejection on the first tuning attempt.
+- Keep unconfirmed Manual transactions on the recovery route, lock dependent
+  inputs, and unlock a new study after reviewed runtime replacement.
+- Navigate directly to the earliest missing workflow prerequisite.
+- Keep supported controller predictions visible beyond the initial frequency
+  range, use the task's physical coordinates and sampling period, and remove
+  the extra prediction delay and invented current-controller baseline.
+- Show one verification retry action when a failed run has no response samples.
+- Connect pinned controller comparisons to their cached prediction plots, retain
+  unavailable pins across context changes, and support keyboard design history.
+- Preserve commissioning recording channel roles so SP/PV/MV curves render with
+  their original units even when the recorded requirements only contain output bounds.
+- Keep automatic model previews separate from saved analysis studies and format
+  displayed search scores without meaningless floating-point digits.
+- Control Studio replaces stale model plots on import, keeps unvalidated models
+  inspectable without enabling Tune, and uses the actual engineering units in
+  selected-sample announcements.
+- Guided tuning distinguishes Automatic rule selection from explicit SIMC/AMIGO
+  choices and hides response preferences for rules that do not use them.
+- Manual/imported PID inputs report validation errors before submission; plot
+  exports use the native Save dialog and report the actual saved filename or
+  cancellation. Reviewed numerical settings use shared engineering precision.
+
+- Validate the final part of an identified model's independent response as well
+  as its average error, preventing an integrating approximation from hiding
+  a first-order process's final-response mismatch.
+
+- Reject blank required Control Studio tuning goals and gains, and show manual
+  tuning errors instead of leaving the candidate in a generating state.
+
+- Remove duplicate headings and introductory copy from Control Studio; keep manual tools and scenario editing inside Settings.
+
+
+### Fixed
+
+- Classical tuning accepts the exact held-input equivalent of supported scalar
+  sampled models while actual-ST verification retains the original discrete plant.
+- Relay qualification excludes recording startup and incomplete initial periods;
+  switching between loops keeps each loop's task and draft in its own session.
+- Updated the locked `js-yaml` dependency to 4.3.2 to address its dependency audit finding.
+
+- Control Studio keeps supplied-model imports in the main workflow, shows task
+  requirements before tuning, and preserves one primary next action after edits
+  and reopen. High-contrast primary buttons retain a visible outline.
+- Recorded response plots resolve SP/PV/MV by requirement channel identity, keeping
+  labels, units and output limits correct when observations are reordered.
+- Auto commissioning retains native recordings and completed checkpoints on
+  close. Matching saved receipts restore their plots without restoring Apply
+  approval; lost acknowledgements reconcile the original parameter operation.
+
+
+- Control Studio shares relay transitions and transfer-function realization
+  between existing and new paths, and centralizes P/PID adapter operations.
+  Explicit state, ON/OFF and project-owned controller mappings now use shared
+  tuning, initialization and commissioning paths. Binary identification preserves
+  actuator output levels and minimum dwell; switching commissioning evaluates
+  observed levels and completed dwell intervals. Native tuning retains its runs
+  and stops if the loaded program changes. Guided ON/OFF setup maps the existing
+  mode, parameters and retained states from compiled symbols. Isolated operations
+  save their identity before Start and restore it on reopen; Manual application
+  recovery compares the exact reviewed record and revision history.
+  The connected Main workflow now retains editable drafts automatically,
+  restores recovery ownership before permitting new operations, and includes
+  declared noise, load, interaction, switching and state-recovery scenarios.
+  Model-derived settings check coordinate units; verification respects model
+  validity ranges as well as equipment limits.
+
+
+- Added exact delayed-integrator simulation for selected-model actual-ST verification, with bounded input history and reset support.
+
+
+- Control Studio connects integrating models to the shared P/PI design paths and considers PD candidates using their calculated steady-error limits.
+
+
+- Control Studio rejects nonrepeatable relay amplitudes and periods before offering tuning settings.
+- Control Studio supports explicitly choosing P on a typed PID controller, zeroing I/D gains through verification and commissioning.
+
+### Added
+
+- Control Studio now checks supplied-model validation evidence and bound channel
+  units before controller recommendation, selects PI when P cannot meet the
+  declared gain bounds, rejects initial commands beyond the actuator range, and
+  returns failures through the existing Find model, Tune, controller-choice or
+  requirements controls. It also preserves declared pulse identification and
+  uses a held-out multisine or PRBS frequency fit when requested. Explicit relay selection uses the feedback-relay acquisition route.
+
+- Control Studio can commission a declared first-order PI controller in Auto
+  through a typed retained-state adapter. It verifies the actual ST baseline,
+  candidate and first-output continuity case, aligns integral and derivative
+  history at the runtime task boundary, observes the applied response, and
+  returns to Manual with the prior parameter record on rollback.
+
+- Control Studio's automatic recommendation now lets a selected proportional
+  controller continue through its own P tracking and Auto commissioning path
+  when the declared loop has no PID retained-state adapter. PI and PID Auto
+  commissioning still require their declared state-initialization adapter.
+
+- Control Studio Test now offers automatic bounded excitation, derives a safe
+  reviewed step from the live loop mode and command headroom, and carries
+  independent Test-record identities through model validation. Manual-output
+  tests can write a declared command address/type while retaining the actual
+  MV/PV response for fitting.
+
+- Control Studio Relay Test now qualifies the runtime's measured feedback
+  cycles, then offers one explicit calculation of an unapplied PI proposal.
+  It never substitutes a timed square wave, accepts gains from the webview, or
+  applies a relay result automatically.
+
+- Runtime controller transfers apply mode and state coherently at the owning
+  task boundary, track fresh P-controller inputs, and retain observed adoption,
+  cancellation and failure outcomes. Control Studio connects this to reviewed
+  local-simulator Auto commissioning and guarded Manual rollback. Recorded
+  responses, manual transfer tolerance and fresh recovery reviews survive saved
+  studies; completed unconfirmed recovery is retained when its editor closes.
+
+- Control Studio records declared symbolic controller modes with program identity
+  and per-channel quality, protects active verification from model replacement,
+  and clears incompatible manual gain pins when identification changes the model.
+
+- Isolated Control Studio verification retains received sample prefixes after
+  cancellation or wall-budget termination, with bounded capture and explicit
+  failure status; cancelled records remain available to inspect, save and reopen.
+
+- Connected Control Studio P workflows show current model, tuning and verification
+  stage status, clear historical qualification on reopening, and use one Tune action.
+
+- Control Studio carries declared and measured operating points into selected-model
+  simulation, proportional tuning and matched actual-ST verification without
+  adding controller bias. Automatic simulation identification reads the actual
+  Manual operating command and checks its retained pre-excitation baseline.
+
+- Control Studio reads a declared symbolic controller mode together with process
+  signals from one runtime scan, and clears unavailable mode values.
+- Opening a saved study during active work is rejected before replacing state;
+  fresh verification resumes live readings and shows the unapplied candidate.
+
+- Guided setup binds an existing proportional ST controller without invented
+  plant coefficients, for model identification followed by tuning and verification.
+
+- Control Studio retains completed identification trials when qualification or a
+  later trial fails, and preserves earlier campaign evidence across retries.
+- Failed Control Studio identification studies can be saved and reopened with
+  their raw trial evidence; reopening does not authorize controller application.
+
+- Control Studio uses the selected compatible supplied model for Routh analysis,
+  and controller comparison prefers simpler sufficient designs over additional performance.
+
+- Control Studio now retains declared unlimited-request and integral-state signals
+  beside applied output for a completed saturation-return Test. It reports the
+  actual clamp, integral change and release delay, then recommends anti-windup
+  without resetting controller state or claiming additional actuator capacity.
+
+- After a qualified saturation-return record, Control Studio can review one
+  typed back-calculation candidate for the declared simulation loop, stage its
+  complete parameter record, and restore the exact untracked baseline. Matched
+  tracked-versus-untracked Test comparison remains in progress.
+
+- Control Studio Routh–Hurwitz analysis displays declared characteristic
+  polynomials, table calculations and analytical intervals for supported
+  first- and second-order models, with explicit special-case limitations.
+
+- Control Studio configures existing projects from compiled signal and controller
+  metadata, discovers multiple loops, and rejects duplicate loop identities.
+- Project-owned experiments can open every Control Studio workflow stage.
+- Provided transfer-function models support offline named-parameter root-locus
+  calculation, candidate selection and saved-result restoration, with explicit
+  model provenance and approximation labels. New results use schema v4 while
+  legacy v3 records remain readable.
+
+### Fixed
+
+- Closing Control Studio during a standard Manual parameter apply or rollback
+  now preserves only the native transaction identity and rechecks the matching
+  runtime status after reopening. It never replays the write or retains a
+  closed review token or client.
+
+- Control Studio manual recording now retains the original recording owner when
+  Start acknowledgement is lost, retries Stop on that owner, preserves returned
+  runtime samples, and labels unconfirmed captures as unqualified evidence.
+
+
+- Start Lesson 1's door disturbance with its experiment, so reading the
+  instructions while the simulator runs no longer consumes the scenario.
+
+- Begin targeted repairs to the 82-lesson control curriculum, preserving the
+  P-to-PI progression and separating prose, executable-project and rendered
+  workflow verification. Individual lesson acceptance remains in progress.
 - Control Studio can now start and safely restore project-scripted curriculum
   experiments through one typed Boolean lesson authority without injecting a
   duplicate process excitation.
-- All 84 control lessons now provide lesson-specific Control Studio steps with
-  explicit operating-point checks, experiment values, decisions, visible
-  completion evidence, and recovery actions. Correct non-overlapping process
-  image mappings also let the affected saturation, rate-limit, motion, and
-  multivariable lessons retain their declared automatic mode at runtime.
+- Add lesson-specific Control Studio instructions and process-image mapping
+  repairs. Their individual execution and rendered acceptance are tracked
+  separately; this is not a claim that the entire course is verified.
 
 Target release: `v0.24.65`
 
 ### Added
+
+- Show full objectives, expected observations and lesson-specific previews in
+  the example gallery, and bundle first-action guidance with all six non-control
+  starters. Preserve created projects when VS Code cannot switch folders and
+  offer an explicit retry without copying or generating their files again.
+- Replace the example gallery's filter-chip wall with compact hardware/category
+  selectors and a result count. Isolate damaged lesson metadata and show its
+  reason without offering a misleading Create action.
+- Preserve learner-selected actuator and sensor layouts in the controllability
+  and observability lessons, so their alternate comparison cases can actually
+  run. Keep safe zero-flow restoration independent of those selections.
+- Retain the state-feedback and observer lesson comparison controls instead of
+  forcing the preferred controller path every scan; document separate fair runs
+  and preserve existing safe current/torque restoration.
+- Split optional plant settings into named actuator, signal conversion, realism
+  and scenario tasks, with visible summaries that include disabled configured
+  effects. Opening one task no longer exposes every engineering field at once.
+- Show scenario event times in seconds with exact millisecond persistence;
+  retain invalid edits and block Save instead of rounding or treating blanks
+  as zero. Distinguish runnable simulator defaults from optional physical
+  hardware on the six starter example cards.
+- Return focus to example search after clearing an empty result, so the removed
+  reset button does not leave keyboard focus lost.
+- Reopen saved plant models that omit default starting values. Show their
+  model-sized zero state without substituting a teaching template, and preserve
+  the original omission when only the name changes.
+- Show effective zero defaults for optional robot-joint friction and gravity
+  parameters while preserving omitted values on save.
+- Retain created lesson-project locations and offer Open existing project,
+  without treating project creation as lesson completion.
+- Label editor-polled Control Studio recordings as incomplete, retain observed
+  scan gaps and dropped samples, and block identification from these partial
+  recordings. Do not report editor refresh intervals as actual PLC cycle timing.
+
+- Add an explicit optional temperature teaching example after selecting the
+  first-order-with-delay plant model, with percent/Celsius assumptions and
+  reversible physical parameter wording. Keep generic imported models generic.
 
 - Add deterministic simulation plant models for controller verification,
   including static, first-order, FOPDT, integrator, gravity-tank, robot-joint,
@@ -371,6 +862,40 @@ Target release: `v0.24.65`
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
 ### Fixed
+
+- Replace raw starting-state arrays with labelled controls for first-order,
+  integrator, gravity-tank, second-order and robot-joint models, retaining
+  invalid-input protection and exact values.
+- Render every robot-joint and state-space plant connection with its own named
+  picker; preserve neighboring channel bindings and conversions when one changes.
+- Route starter and lesson opening through one project-scoped pending destination,
+  suppress superseded instructions, and offer recovery or an explicit retry when
+  the selected source file or lesson cannot open.
+- Show field-specific plant actuator defaults instead of labelling every empty
+  value “Unbounded”; distinguish a zero slew rate from no slew limit.
+- Order control lesson modules by their declared lesson sequence and show
+  noncontiguous lesson ranges without implying missing lessons are included.
+
+- Default omitted FOPDT delay history to its input operating point as specified,
+  preserving explicitly configured zero history and deliberate non-equilibrium starts.
+
+- Preserve simulated-plant validity limits when editing names or other exposed
+  settings, carrying unedited configuration through the canvas draft and save
+  candidate without resurrecting explicitly cleared editable effects.
+
+- Apply plant command uncertainty independently to the held PLC command on
+  every simulation substep, avoiding compounded offsets or gains within one
+  PLC scan while preserving raw-command trace identity and deterministic replay.
+
+- Resolve the configured project loop when Open Control Studio is invoked
+  without arguments or from the sidebar, offer a labelled choice for multiple
+  projects, and provide repair/example actions for invalid or missing loop
+  configuration while preserving explicitly scoped plant/loop handoffs.
+
+- Correct rejected Control Studio bindings in 24 control lessons and their
+  bundled copies. Project-owned controllers declare their actual design owner;
+  open-loop comparisons retain reference signals without inventing a setpoint
+  or weakening unit and address validation.
 
 - Keep the real Control Studio response chart visible at a usable height, use
   the declared manipulated-variable engineering range, disable plot and

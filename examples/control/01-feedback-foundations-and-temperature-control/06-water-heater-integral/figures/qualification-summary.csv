@@ -1,5 +1,0 @@
-case,window,start_s,end_s,settled,pv_range_degC,requested_range_pp,applied_range_pp,mean_absolute_error_degC,cumulative_applied_movement_pp,simulation_criterion,eligible,selected,evidence_class
-biased_p,early_load,60.1,75.0,false,1.037006,8.761870,8.761870,1.066759,9.243442,comparison,true,false,simulation
-biased_p,final,110.1,120.0,true,0.000000,0.000000,0.000000,1.153846,9.243442,baseline,true,false,simulation
-integral_only,early_load,60.1,75.0,false,1.928019,12.059948,12.059948,1.617434,17.384782,comparison,true,false,simulation
-integral_only,final,110.1,120.0,true,0.052046,0.073912,0.073912,0.015674,17.384782,pass,true,false,simulation

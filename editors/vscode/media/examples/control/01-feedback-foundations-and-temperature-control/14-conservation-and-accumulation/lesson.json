@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-14",
+  "title": "Volume balance",
+  "level": "Foundation",
+  "sequence": 40,
+  "equipment": "Constant-area liquid tank with measured inlet and outlet flows",
+  "physicalPurpose": "Explain level movement from stored volume and flow imbalance.",
+  "principalTechnique": "Conservation balance",
+  "objective": "Derive accumulation equals inflow minus outflow and predict tank level from measured flows.",
+  "prerequisites": [
+    "control-lesson-13",
+    "control-capstone-servo"
+  ],
+  "nextLesson": "control-lesson-16",
+  "signals": [
+    {
+      "role": "disturbance",
+      "name": "Inlet flow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 20,
+      "resolution": 0.01,
+      "binding": "%ML0"
+    },
+    {
+      "role": "disturbance",
+      "name": "Outlet flow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 20,
+      "resolution": 0.01,
+      "binding": "%ML8"
+    },
+    {
+      "role": "MV",
+      "name": "Net flow",
+      "unit": "m3/s",
+      "minimum": -20,
+      "maximum": 20,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "PV",
+      "name": "Tank level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Predicted level rate",
+      "unit": "m/s",
+      "minimum": -4,
+      "maximum": 4,
+      "resolution": 0.001,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    }
+  ],
+  "plant": {
+    "modelId": "constant-area-tank",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      {
+        "name": "tank_area",
+        "value": 0.5,
+        "unit": "m2"
+      }
+    ],
+    "sampleTimeSeconds": 1,
+    "initialState": {
+      "tankLevel": 0.25,
+      "inletFlow": 10,
+      "outletFlow": 10
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Tank level": 0.25,
+      "Inlet flow": 10,
+      "Outlet flow": 10
+    },
+    "validityRange": [
+      {
+        "signal": "Tank level",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "m"
+      }
+    ],
+    "simplifications": [
+      "Tank area is constant.",
+      "Liquid density is constant.",
+      "Inlet and outlet flows are independent measured quantities."
+    ]
+  },
+  "baseline": {
+    "executableId": "Lesson14.BalancedFlows",
+    "settings": {
+      "inletFlowLitresPerSecond": 10,
+      "outletFlowLitresPerSecond": 10
+    },
+    "limitation": "Balanced flow does not reveal accumulation."
+  },
+  "change": {
+    "executableId": "Lesson14.PositiveNetFlow",
+    "settings": {
+      "inletFlowLitresPerSecond": 12,
+      "outletFlowLitresPerSecond": 10
+    },
+    "decision": "Predict and observe level rise from net flow divided by tank area."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 10.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Inlet flow increases by 2 L/s while outlet flow remains fixed."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "level_rate",
+      "signal": "Predicted level rate",
+      "window": "experiment active",
+      "comparator": "==",
+        "limit": 0.004,
+        "unit": "m/s",
+      "tolerance": 1e-06,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "level_after_ten_seconds",
+      "signal": "Tank level",
+      "window": "10 s after inlet change",
+      "comparator": "==",
+        "limit": 0.29,
+        "unit": "m",
+      "tolerance": 0.05,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#72-plant-physics-and-models",
+    "nativeTest": "TEST_PROGRAM::Lesson14ConservationPredictsTankLevel",
+    "nativeCommand": "trust-dev test --project examples/control/01-feedback-foundations-and-temperature-control/14-conservation-and-accumulation --filter TEST_PROGRAM::Lesson14ConservationPredictsTankLevel",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/14-conservation-and-accumulation",
+    "runArtifactFields": [
+      "inletFlow",
+      "outletFlow",
+      "netFlow",
+      "predictedLevelRate",
+      "tankLevel"
+    ],
+    "renderedJourneyId": "control-lesson-14"
+  },
+  "learning": {
+    "context": "Lesson 13 identified an integrating response from its curve.",
+    "reason": "A response name does not explain why the stored quantity changes.",
+    "change": "Derive accumulation as inflow minus outflow across a physical boundary.",
+    "transfer": "Lesson 15 applies conservation to stored thermal energy and heat flows.",
+    "theory": [
+      "A response name does not explain why the stored quantity changes."
+    ],
+    "workedPrediction": "Predict and observe level rise from net flow divided by tank area.",
+    "practicalPreparation": [
+      "Lesson 13 identified an integrating response from its curve."
+    ],
+    "baseline": "Balanced flow does not reveal accumulation.",
+    "comparison": "Derive accumulation equals inflow minus outflow and predict tank level from measured flows.",
+    "validation": "Check the declared acceptance metrics against the retained run.",
+    "explanation": "Derive accumulation equals inflow minus outflow and predict tank level from measured flows."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Net flow",
+        "minimum": -20,
+        "maximum": 20,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Tank level",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "m"
+      }
+    ],
+    "abortPredicates": [
+      "Signals must remain finite and inside the declared lesson ranges."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Restore Lesson experiment to 0.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Derive accumulation equals inflow minus outflow and predict tank level from measured flows.",
+    "requiredVisibleEvidence": [
+      "inletFlow",
+      "outletFlow",
+      "netFlow",
+      "predictedLevelRate",
+      "tankLevel"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

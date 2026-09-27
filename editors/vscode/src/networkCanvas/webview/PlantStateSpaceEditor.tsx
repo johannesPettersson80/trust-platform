@@ -5,6 +5,7 @@ import {
   planStateSpaceResize,
   stateSpaceDimensions,
   validateStateSpace,
+  validateStateSpaceInputDelays,
   type PlantStateSpaceDimensions,
 } from "../plant/stateSpaceEditor";
 import type { PlantEditorDraft } from "../plant/editorModel";
@@ -22,6 +23,10 @@ export function PlantStateSpaceEditor({
   const [pending, setPending] = useState<ReturnType<typeof planStateSpaceResize>>();
   const [pasteError, setPasteError] = useState<string>();
   const issues = validateStateSpace({ parameters: draft.parameters, initialState: draft.initialState, dimensions });
+  const delays = draft.parameters.input_delays_s;
+  const delayValues = Array.from({ length: dimensions.inputs }, (_, index) =>
+    delays === undefined ? 0 : Array.isArray(delays) && typeof delays[index] === "number" ? delays[index] as number : Number.NaN);
+  const delayIssues = validateStateSpaceInputDelays({ ...draft, inputs: dimensions.inputs });
   const commit = (parameters: PlantEditorDraft["parameters"], initialState = draft.initialState) => {
     setPasteError(undefined);
     onChange({ ...draft, parameters, initialState, modelValuesTouched: true });
@@ -75,6 +80,39 @@ export function PlantStateSpaceEditor({
         </div>
       )}
       {pasteError && <div data-plant-state-space-error role="alert" style={ERROR}>{pasteError}</div>}
+      <div data-plant-input-delays style={MATRIX_CARD}>
+        <strong style={{ fontSize: 11.5 }}>Input delays (s)</strong>
+        <p className="trust-help" style={{ margin: 0 }}>Time before each input reaches the process. Zero means no delay.</p>
+        <div style={{ overflowX: "auto", paddingBottom: 2 }}>
+          <div style={{ display: "grid", alignItems: "start", gridTemplateColumns: `repeat(${dimensions.inputs}, minmax(80px, 1fr))`, gap: 5, minWidth: dimensions.inputs * 84 }}>
+            {delayValues.map((value, column) => {
+              const issue = delayIssues.find((candidate) => candidate.column === column);
+              const errorId = `plant-input-delay-error-${column}`;
+              return <label key={column} style={FIELD}>
+                <span style={LABEL}>Input {column + 1}</span>
+                <input type="number" min={0} step="any" data-plant-input-delay-cell={column}
+                  aria-label={`Input ${column + 1} delay (seconds)`} value={Number.isFinite(value) ? value : ""}
+                  aria-invalid={Boolean(issue) || delayIssues.some((candidate) => candidate.column === undefined)}
+                  aria-describedby={issue ? errorId : undefined}
+                  onChange={(event) => {
+                    const next = Array.isArray(delays) ? [...delays] : [...delayValues];
+                    next[column] = event.target.value.trim() ? Number(event.target.value) : Number.NaN;
+                    commit({ ...draft.parameters, input_delays_s: next as number[] });
+                  }} style={INPUT} />
+                {issue && <span id={errorId} data-plant-input-delay-error style={ERROR}>{issue.message}</span>}
+              </label>;
+            })}
+          </div>
+        </div>
+        {delayIssues.filter((issue) => issue.column === undefined).map((issue) =>
+          <span key={issue.message} role="alert" data-plant-input-delay-error style={ERROR}>{issue.message}</span>)}
+        {delays !== undefined && <button type="button" className="trust-button" data-plant-input-delay-defaults
+          style={{ justifySelf: "start" }} onClick={() => {
+            const next = { ...draft.parameters };
+            delete next.input_delays_s;
+            commit(next);
+          }}>Use zero defaults</button>}
+      </div>
       <MatrixGrid name="a" label="A · state dynamics" value={draft.parameters.a as number[][]} issues={issues} onChange={updateMatrixCell} onPaste={(event) => pasteMatrix(event, "a", dimensions.states, dimensions.states)} />
       <MatrixGrid name="b" label="B · input to state" value={draft.parameters.b as number[][]} issues={issues} onChange={updateMatrixCell} onPaste={(event) => pasteMatrix(event, "b", dimensions.states, dimensions.inputs)} />
       <MatrixGrid name="c" label="C · state to output" value={draft.parameters.c as number[][]} issues={issues} onChange={updateMatrixCell} onPaste={(event) => pasteMatrix(event, "c", dimensions.outputs, dimensions.states)} />

@@ -34,6 +34,7 @@ export type RuntimeLifecycleResult =
   | { readonly ok: false; readonly failure: RuntimeStartFailure };
 
 export type RuntimeLifecycleSnapshot = {
+  readonly sessionId?: string;
   readonly status: RuntimeStatusPayload;
   readonly ioState: IoState;
   readonly starting: boolean;
@@ -63,7 +64,11 @@ class RuntimeLifecycleService {
   private readonly sessions = new Map<string, vscode.DebugSession>();
   private readonly changeEmitter = new vscode.EventEmitter<void>();
   private registered = false;
-  private lastIoState: IoState = EMPTY_IO_STATE;
+  private readonly ioStates = new Map<string, { state: IoState; highWaterScan?: number }>();
+  private get lastIoState(): IoState {
+    const session = this.getStructuredTextSession();
+    return session ? this.ioStates.get(structuredTextSessionKey(session))?.state ?? EMPTY_IO_STATE : EMPTY_IO_STATE;
+  }
   private starting = false;
   private failure: RuntimeStartFailure | undefined;
 
@@ -85,8 +90,14 @@ class RuntimeLifecycleService {
         if (event.event !== "stIoState" || event.session.type !== DEBUG_TYPE) {
           return;
         }
-        this.lastIoState = normalizeIoState(event.body);
-        this.emitChanged();
+        const key = structuredTextSessionKey(event.session);
+        if (!this.sessions.has(key)) return;
+        const state = normalizeIoState(event.body);
+        const previous = this.ioStates.get(key);
+        if (state.scan !== undefined && previous?.highWaterScan !== undefined && state.scan < previous.highWaterScan) return;
+        this.ioStates.set(key, { state, highWaterScan: state.scan ?? previous?.highWaterScan });
+        const active = this.getStructuredTextSession();
+        if (active && structuredTextSessionKey(active) === key) this.emitChanged();
       })
     );
 
@@ -110,7 +121,7 @@ class RuntimeLifecycleService {
         }
         this.untrackStructuredTextSession(session);
         if (!this.getStructuredTextSession()) {
-          this.lastIoState = EMPTY_IO_STATE;
+          this.ioStates.clear();
         }
         this.starting = false;
         this.emitChanged();
@@ -176,10 +187,12 @@ class RuntimeLifecycleService {
   }
 
   async snapshot(): Promise<RuntimeLifecycleSnapshot> {
+    const session = this.getStructuredTextSession();
     return {
+      sessionId: session?.id,
       status: await runtimeStatusPayload({
         runtimeConfigTarget: () => this.runtimeConfigTarget(),
-        getStructuredTextSession: () => this.getStructuredTextSession(),
+        getStructuredTextSession: () => session,
       }),
       ioState: this.lastIoState,
       starting: this.starting,
@@ -535,10 +548,11 @@ class RuntimeLifecycleService {
 
   private untrackStructuredTextSession(session: vscode.DebugSession): void {
     this.sessions.delete(structuredTextSessionKey(session));
+    this.ioStates.delete(structuredTextSessionKey(session));
   }
 
   private markStopped(message: string): RuntimeLifecycleResult {
-    this.lastIoState = EMPTY_IO_STATE;
+    if (!this.getStructuredTextSession()) this.ioStates.clear();
     this.starting = false;
     this.failure = undefined;
     this.emitChanged();

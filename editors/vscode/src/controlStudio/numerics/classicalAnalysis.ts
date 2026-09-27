@@ -186,7 +186,12 @@ export function routhHurwitz(coefficients: readonly number[]): any | Rejected {
 }
 
 export function rootLocus(tf: TransferFunction, gains: readonly number[]): any | Rejected {
-  const invalid = validateTransferFunction(tf);
+  // A zero numerator is the valid open-loop starting point for a gain sweep.
+  // The general transfer-function validator rejects an identically zero
+  // numerator because it cannot be normalized; root-locus only needs the
+  // denominator and finite numerator coefficients to form the characteristic
+  // polynomial.
+  const invalid = validateRootLocusTransferFunction(tf);
   if (invalid) return invalid;
   if (tf.delaySeconds !== 0 || gains.length === 0 || !gains.every((value) => Number.isFinite(value) && value >= 0)) {
     return rejected("nonfinite-input");
@@ -372,6 +377,13 @@ function evaluate(coefficients: readonly number[], value: Complex): Complex {
 function validateTransferFunction(tf: TransferFunction): Rejected | undefined {
   return !Number.isFinite(tf.delaySeconds) || tf.delaySeconds < 0
     || !normalizePolynomial(tf.denominator) || !normalizePolynomial(tf.numerator)
+    ? rejected("invalid-polynomial") : undefined;
+}
+
+function validateRootLocusTransferFunction(tf: TransferFunction): Rejected | undefined {
+  return !Number.isFinite(tf.delaySeconds) || tf.delaySeconds < 0
+    || !normalizePolynomial(tf.denominator) || tf.numerator.length === 0
+    || !tf.numerator.every(Number.isFinite)
     ? rejected("invalid-polynomial") : undefined;
 }
 

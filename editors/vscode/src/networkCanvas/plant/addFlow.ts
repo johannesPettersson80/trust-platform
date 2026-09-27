@@ -9,6 +9,7 @@ import {
 } from "./editorModel";
 import type { PlantUncertaintyDraft } from "./uncertaintyEditor";
 import type { PlantScenarioEventDraft } from "./scenarioEventEditor";
+import { preservedPlantConfiguration } from "./preservedConfiguration";
 
 export const PLANT_DRAG_MIME = "application/vnd.trust.simulated-plant+json";
 
@@ -22,6 +23,7 @@ export interface PlantDraft extends PlantEditorDraft {
 }
 
 export function createPlantEditDraft(input: {
+  preservedConfiguration?: Record<string, unknown>;
   id: string;
   projectId: string;
   runtimeId: string;
@@ -30,12 +32,15 @@ export function createPlantEditDraft(input: {
   displayName: string;
   description: string;
   enabled: boolean;
+  enabledDefaulted?: boolean;
   model: PlantModelKind;
   parameters: PlantParameters;
   initialState: number[];
+  initialStateDefaulted?: boolean;
   commandSources: string[];
   feedbackTargets: string[];
   stepMs?: number;
+  projectStepMs?: number;
   initialInput?: number[];
   inputScale?: number[];
   inputOffset?: number[];
@@ -48,6 +53,9 @@ export function createPlantEditDraft(input: {
   activeConfigurationDigest?: string;
 }): PlantDraft {
   return {
+    ...(input.preservedConfiguration ? {
+      preservedConfiguration: preservedPlantConfiguration(input.preservedConfiguration),
+    } : {}),
     id: input.id,
     projectId: input.projectId,
     plantId: input.plantId,
@@ -56,14 +64,17 @@ export function createPlantEditDraft(input: {
     runtimeId: input.runtimeId,
     runtimeName: input.runtimeName,
     enabled: input.enabled,
+    ...(input.enabledDefaulted ? { enabledDefaulted: true } : {}),
     startingPoint: startingPointForPlantModel(input.model),
     model: input.model,
-    parameters: { ...input.parameters },
+    parameters: structuredClone(input.parameters),
     initialState: [...input.initialState],
+    ...(input.initialStateDefaulted ? { initialStateDefaulted: true } : {}),
     modelValuesTouched: false,
     commandSources: [...input.commandSources],
     feedbackTargets: [...input.feedbackTargets],
     stepMs: input.stepMs,
+    ...(input.projectStepMs === undefined ? {} : { projectStepMs: input.projectStepMs }),
     initialInput: input.initialInput ? [...input.initialInput] : Array(input.commandSources.length).fill(0),
     inputScale: input.inputScale ? [...input.inputScale] : Array(input.commandSources.length).fill(1),
     inputOffset: input.inputOffset ? [...input.inputOffset] : Array(input.commandSources.length).fill(0),

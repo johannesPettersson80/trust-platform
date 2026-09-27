@@ -104,6 +104,261 @@ function toolResultText(result: unknown): string {
 
 suite("New project command (VS Code)", function () {
   this.timeout(60000);
+
+  test("starter handoff clears a stale example README landing", async () => {
+    const api = require("../../newProject") as {
+      prepareStarterProjectHandoff?: (context: unknown, mainPath: string) => Promise<void>;
+    };
+    assert.strictEqual(typeof api.prepareStarterProjectHandoff, "function");
+    if (!api.prepareStarterProjectHandoff) return;
+    const updates: Array<[string, unknown]> = [];
+    await api.prepareStarterProjectHandoff({
+      globalState: { update: async (key: string, value: unknown) => updates.push([key, value]) },
+    }, "/tmp/starter/src/Main.st");
+    assert.strictEqual(updates[0]?.[0], "trust.projectLanding");
+    assert.deepStrictEqual(updates[0]?.[1], {
+      intentId: updates[0]?.[1] && (updates[0][1] as { intentId?: string }).intentId,
+      projectPath: "/tmp/starter",
+      kind: "starter",
+      filePath: "/tmp/starter/src/Main.st",
+    });
+    assert.ok(typeof (updates[0]?.[1] as { intentId?: unknown }).intentId === "string");
+    assert.deepStrictEqual(updates.slice(1), [
+      ["trust.newProject.focusMain", undefined],
+      ["trust.examples.openLessonReadme", undefined],
+    ]);
+  });
+
+  test("structured landing dispatcher scopes and retains only an unrelated intent", async () => {
+    const api = require("../../projectLanding") as {
+      consumeProjectLanding?: (context: unknown) => Promise<{ kind: string }>;
+    };
+    assert.strictEqual(typeof api.consumeProjectLanding, "function");
+    if (!api.consumeProjectLanding) return;
+    const updates: Array<[string, unknown]> = [];
+    const state = new Map<string, unknown>([["trust.projectLanding", {
+      intentId: "intent-1", projectPath: "/tmp/project-a", kind: "starter", filePath: "/tmp",
+    }]]);
+    const context = { globalState: {
+      get: <T>(key: string) => state.get(key) as T,
+      update: async (key: string, value: unknown) => { updates.push([key, value]); state.set(key, value); },
+    }};
+    const result = await api.consumeProjectLanding(context);
+    assert.strictEqual(result.kind, "waiting");
+    assert.deepStrictEqual(updates, []);
+    assert.ok(state.get("trust.projectLanding"));
+  });
+
+  test("structured landing dispatcher concurrently consumes one legacy lesson handoff", async () => {
+    const api = require("../../projectLanding") as { consumeProjectLanding?: (context: unknown) => Promise<{ kind: string }> };
+    assert.strictEqual(typeof api.consumeProjectLanding, "function");
+    if (!api.consumeProjectLanding) return;
+    const project = vscode.Uri.joinPath(fixturesRoot, "legacy-lesson");
+    const readme = vscode.Uri.joinPath(project, "README.md");
+    await vscode.workspace.fs.writeFile(readme, Buffer.from("# Legacy lesson\n"));
+    const state = new Map<string, unknown>([["trust.examples.openLessonReadme", readme.fsPath]]);
+    const updates: Array<[string, unknown]> = [];
+    const context = { globalState: {
+      get: <T>(key: string) => state.get(key) as T,
+      update: async (key: string, value: unknown) => { updates.push([key, value]); state.set(key, value); },
+    }};
+    try {
+      const results = await Promise.all([
+        api.consumeProjectLanding(context),
+        api.consumeProjectLanding(context),
+      ]);
+      assert.deepStrictEqual(results.map((result) => result.kind), ["opened", "opened"]);
+      assert.strictEqual(updates.filter(([key, value]) => key === "trust.examples.openLessonReadme" && value === undefined).length, 1);
+    } finally {
+      await vscode.workspace.fs.delete(project, { recursive: true, useTrash: false });
+    }
+  });
+
+  test("structured landing dispatcher retains a newer intent after opening the older one", async () => {
+    const api = require("../../projectLanding") as { consumeProjectLanding?: (context: unknown) => Promise<{ kind: string }> };
+    assert.strictEqual(typeof api.consumeProjectLanding, "function");
+    if (!api.consumeProjectLanding) return;
+    const project = vscode.Uri.joinPath(fixturesRoot, "post-open-supersede");
+    const readme = vscode.Uri.joinPath(project, "README.md");
+    await vscode.workspace.fs.writeFile(readme, Buffer.from("# Superseded lesson\n"));
+    const newer = { intentId: "intent-newer", projectPath: project.fsPath, kind: "lesson", filePath: vscode.Uri.joinPath(project, "Other.md").fsPath, exampleId: "newer" };
+    const state = new Map<string, unknown>([["trust.projectLanding", {
+      intentId: "intent-older", projectPath: project.fsPath, kind: "lesson", filePath: readme.fsPath, exampleId: "older",
+    }]]);
+    const originalExecute = vscode.commands.executeCommand;
+    (vscode.commands as unknown as { executeCommand: typeof vscode.commands.executeCommand }).executeCommand = async <T>() => {
+      state.set("trust.projectLanding", newer);
+      return undefined as T;
+    };
+    const context = { globalState: {
+      get: <T>(key: string) => state.get(key) as T,
+      update: async (key: string, value: unknown) => { state.set(key, value); },
+    }};
+    try {
+      assert.strictEqual((await api.consumeProjectLanding(context)).kind, "opened");
+      assert.deepStrictEqual(state.get("trust.projectLanding"), newer);
+    } finally {
+      (vscode.commands as unknown as { executeCommand: typeof vscode.commands.executeCommand }).executeCommand = originalExecute;
+      await vscode.workspace.fs.delete(project, { recursive: true, useTrash: false });
+    }
+  });
+
+  test("structured landing dispatcher opens one matching starter and clears its intent", async () => {
+    const api = require("../../projectLanding") as {
+      consumeProjectLanding?: (context: unknown) => Promise<{ kind: string }>;
+    };
+    assert.strictEqual(typeof api.consumeProjectLanding, "function");
+    if (!api.consumeProjectLanding) return;
+    const mainUri = vscode.Uri.joinPath(fixturesRoot, "project-b", "src", "Main.st");
+    // VS Code keeps this opened buffer live across later tests even after its
+    // temporary path is deleted. Give the dispatcher-only fixture its own POU
+    // identity so it cannot pollute scaffold diagnostics in the shared host.
+    await vscode.workspace.fs.writeFile(mainUri, Buffer.from("PROGRAM LandingFixture\nEND_PROGRAM\n"));
+    const state = new Map<string, unknown>([["trust.projectLanding", {
+      intentId: "intent-2", projectPath: vscode.Uri.joinPath(fixturesRoot, "project-b").fsPath, kind: "starter", filePath: mainUri.fsPath,
+    }]]);
+    const updates: Array<[string, unknown]> = [];
+    const context = { globalState: {
+      get: <T>(key: string) => state.get(key) as T,
+      update: async (key: string, value: unknown) => { updates.push([key, value]); state.set(key, value); },
+    }};
+    try {
+      const result = await api.consumeProjectLanding(context);
+      assert.strictEqual(result.kind, "opened");
+      assert.strictEqual(vscode.window.activeTextEditor?.document.uri.toString(), mainUri.toString());
+      assert.deepStrictEqual(updates, [["trust.projectLanding", undefined]]);
+    } finally {
+      await vscode.workspace.fs.delete(vscode.Uri.joinPath(fixturesRoot, "project-b"), { recursive: true, useTrash: false });
+    }
+  });
+
+  test("structured landing dispatcher retains an intent outside its exact destination project", async () => {
+    const api = require("../../projectLanding") as { consumeProjectLanding?: (context: unknown) => Promise<{ kind: string }> };
+    assert.strictEqual(typeof api.consumeProjectLanding, "function");
+    if (!api.consumeProjectLanding) return;
+    const file = vscode.Uri.joinPath(fixturesRoot, "outside-scope", "src", "Main.st");
+    await vscode.workspace.fs.writeFile(file, Buffer.from("PROGRAM Main\nEND_PROGRAM\n"));
+    const state = new Map<string, unknown>([["trust.projectLanding", {
+      intentId: "intent-scope", projectPath: "/tmp/not-this-workspace", kind: "starter", filePath: file.fsPath,
+    }]]);
+    const context = { globalState: {
+      get: <T>(key: string) => state.get(key) as T,
+      update: async (key: string, value: unknown) => { state.set(key, value); },
+    }};
+    try {
+      assert.strictEqual((await api.consumeProjectLanding(context)).kind, "waiting");
+      assert.ok(state.get("trust.projectLanding"));
+    } finally {
+      await vscode.workspace.fs.delete(vscode.Uri.joinPath(fixturesRoot, "outside-scope"), { recursive: true, useTrash: false });
+    }
+  });
+
+  test("structured landing dispatcher does not clear a missing file from an unrelated activation", async () => {
+    const api = require("../../projectLanding") as { consumeProjectLanding?: (context: unknown) => Promise<{ kind: string }> };
+    assert.strictEqual(typeof api.consumeProjectLanding, "function");
+    if (!api.consumeProjectLanding) return;
+    const state = new Map<string, unknown>([["trust.projectLanding", {
+      intentId: "intent-missing-scope", projectPath: "/tmp/not-this-workspace", kind: "starter", filePath: "/tmp/not-this-workspace/src/Missing.st",
+    }]]);
+    const context = { globalState: {
+      get: <T>(key: string) => state.get(key) as T,
+      update: async (key: string, value: unknown) => { state.set(key, value); },
+    }};
+    assert.strictEqual((await api.consumeProjectLanding(context)).kind, "waiting");
+    assert.ok(state.get("trust.projectLanding"));
+  });
+
+  test("structured landing dispatcher clears a missing file only in its destination project with recovery guidance", async () => {
+    const api = require("../../projectLanding") as { consumeProjectLanding?: (context: unknown) => Promise<{ kind: string; message?: string }> };
+    assert.strictEqual(typeof api.consumeProjectLanding, "function");
+    if (!api.consumeProjectLanding) return;
+    const project = vscode.Uri.joinPath(fixturesRoot, "missing-destination");
+    const state = new Map<string, unknown>([["trust.projectLanding", {
+      intentId: "intent-missing-local", projectPath: project.fsPath, kind: "starter",
+      filePath: vscode.Uri.joinPath(project, "src", "Missing.st").fsPath,
+    }]]);
+    const context = { globalState: {
+      get: <T>(key: string) => state.get(key) as T,
+      update: async (key: string, value: unknown) => { state.set(key, value); },
+    }};
+    const result = await api.consumeProjectLanding(context);
+    assert.strictEqual(result.kind, "cleared");
+    assert.match(result.message ?? "", /recreate|copy.*again/i);
+    assert.strictEqual(state.get("trust.projectLanding"), undefined);
+  });
+
+  test("structured landing dispatcher retains an open failure and exposes retry guidance", async () => {
+    const api = require("../../projectLanding") as { consumeProjectLanding?: (context: unknown) => Promise<{ kind: string; message?: string }> };
+    assert.strictEqual(typeof api.consumeProjectLanding, "function");
+    if (!api.consumeProjectLanding) return;
+    const project = vscode.Uri.joinPath(fixturesRoot, "open-failure");
+    const directory = vscode.Uri.joinPath(project, "src");
+    await vscode.workspace.fs.createDirectory(directory);
+    const state = new Map<string, unknown>([["trust.projectLanding", {
+      intentId: "intent-open-failure", projectPath: project.fsPath, kind: "starter", filePath: directory.fsPath,
+    }]]);
+    const context = { globalState: {
+      get: <T>(key: string) => state.get(key) as T,
+      update: async (key: string, value: unknown) => { state.set(key, value); },
+    }};
+    try {
+      const result = await api.consumeProjectLanding(context);
+      assert.strictEqual(result.kind, "failed");
+      assert.match(result.message ?? "", /retry/i);
+      assert.ok(state.get("trust.projectLanding"));
+    } finally {
+      await vscode.workspace.fs.delete(project, { recursive: true, useTrash: false });
+    }
+  });
+
+  test("structured landing dispatcher rechecks intent identity before opening an older file", async () => {
+    const api = require("../../projectLanding") as { consumeProjectLanding?: (context: unknown) => Promise<{ kind: string }> };
+    assert.strictEqual(typeof api.consumeProjectLanding, "function");
+    if (!api.consumeProjectLanding) return;
+    const project = vscode.Uri.joinPath(fixturesRoot, "superseded-landing");
+    const oldFile = vscode.Uri.joinPath(project, "src", "Old.st");
+    await vscode.workspace.fs.writeFile(oldFile, Buffer.from("PROGRAM Old\nEND_PROGRAM\n"));
+    const oldIntent = { intentId: "intent-old", projectPath: project.fsPath, kind: "starter", filePath: oldFile.fsPath };
+    const newIntent = { intentId: "intent-new", projectPath: project.fsPath, kind: "starter", filePath: vscode.Uri.joinPath(project, "src", "New.st").fsPath };
+    let reads = 0;
+    const state = new Map<string, unknown>([["trust.projectLanding", oldIntent]]);
+    const context = { globalState: {
+      get: <T>(key: string) => {
+        if (key === "trust.projectLanding" && reads++ === 1) state.set(key, newIntent);
+        return state.get(key) as T;
+      },
+      update: async (key: string, value: unknown) => { state.set(key, value); },
+    }};
+    try {
+      assert.strictEqual((await api.consumeProjectLanding(context)).kind, "waiting");
+      assert.deepStrictEqual(state.get("trust.projectLanding"), newIntent);
+    } finally {
+      await vscode.workspace.fs.delete(project, { recursive: true, useTrash: false });
+    }
+  });
+
+  test("structured landing dispatcher opens a lesson README through the native markdown command", async () => {
+    const api = require("../../projectLanding") as { consumeProjectLanding?: (context: unknown) => Promise<{ kind: string }> };
+    assert.strictEqual(typeof api.consumeProjectLanding, "function");
+    if (!api.consumeProjectLanding) return;
+    const project = vscode.Uri.joinPath(fixturesRoot, "lesson-landing");
+    const readme = vscode.Uri.joinPath(project, "README.md");
+    await vscode.workspace.fs.writeFile(readme, Buffer.from("# Native lesson landing\n"));
+    const state = new Map<string, unknown>([["trust.projectLanding", {
+      intentId: "intent-lesson", projectPath: project.fsPath, kind: "lesson", filePath: readme.fsPath,
+      exampleId: "control-lesson",
+    }]]);
+    const context = { globalState: {
+      get: <T>(key: string) => state.get(key) as T,
+      update: async (key: string, value: unknown) => { state.set(key, value); },
+    }};
+    try {
+      assert.strictEqual((await api.consumeProjectLanding(context)).kind, "opened");
+      assert.strictEqual(state.get("trust.projectLanding"), undefined);
+    } finally {
+      await vscode.workspace.fs.delete(project, { recursive: true, useTrash: false });
+    }
+  });
   let fixturesRoot: vscode.Uri;
   let secondWorkspaceRoot: vscode.Uri | undefined;
 
@@ -122,6 +377,57 @@ suite("New project command (VS Code)", function () {
       "vscode-new-project"
     );
     await vscode.workspace.fs.createDirectory(fixturesRoot);
+  });
+
+  // Keep the clean-first-open assertion ahead of tests that deliberately
+  // create and remove other Main/Config scaffolds in this shared Extension
+  // Host. Recursive fixture deletion does not retract every already-indexed
+  // child declaration from the running VS Code/LSP session.
+  test("generated ST parses cleanly and TOML is usable by build", async function () {
+    const targetUri = vscode.Uri.joinPath(fixturesRoot, "compile-smoke-project");
+    const created = await vscode.commands.executeCommand<boolean>(
+      NEW_PROJECT_COMMAND,
+      { targetUri, openWorkspace: false }
+    );
+    assert.strictEqual(created, true);
+
+    const mainUri = vscode.Uri.joinPath(targetUri, "src", "Main.st");
+    const mainDoc = await vscode.workspace.openTextDocument(mainUri);
+    await vscode.window.showTextDocument(mainDoc);
+    await waitForNoErrors(mainUri);
+
+    const completion = (await vscode.commands.executeCommand(
+      "vscode.executeCompletionItemProvider",
+      mainUri,
+      new vscode.Position(0, 0)
+    )) as CompletionResult;
+    assert.ok(
+      completionItems(completion).length > 0,
+      "Expected completion provider to respond on generated file."
+    );
+
+    const runtimeBin = process.env.ST_RUNTIME_TEST_BIN;
+    assert.ok(
+      runtimeBin,
+      "ST_RUNTIME_TEST_BIN must be provided by the extension test harness."
+    );
+
+    const buildResult = spawnSync(
+      runtimeBin,
+      ["build", "--project", targetUri.fsPath],
+      {
+        encoding: "utf8",
+      }
+    );
+    assert.strictEqual(
+      buildResult.status,
+      0,
+      [
+        "trust-runtime build failed.",
+        buildResult.stdout ?? "",
+        buildResult.stderr ?? "",
+      ].join("\n")
+    );
   });
 
   suiteTeardown(async () => {
@@ -309,53 +615,6 @@ suite("New project command (VS Code)", function () {
       true
     );
     await deleteTreeIfExists(targetUri);
-  });
-
-  test("generated ST parses cleanly and TOML is usable by build", async function () {
-    const targetUri = vscode.Uri.joinPath(fixturesRoot, "compile-smoke-project");
-    const created = await vscode.commands.executeCommand<boolean>(
-      NEW_PROJECT_COMMAND,
-      { targetUri, openWorkspace: false }
-    );
-    assert.strictEqual(created, true);
-
-    const mainUri = vscode.Uri.joinPath(targetUri, "src", "Main.st");
-    const mainDoc = await vscode.workspace.openTextDocument(mainUri);
-    await vscode.window.showTextDocument(mainDoc);
-    await waitForNoErrors(mainUri);
-
-    const completion = (await vscode.commands.executeCommand(
-      "vscode.executeCompletionItemProvider",
-      mainUri,
-      new vscode.Position(0, 0)
-    )) as CompletionResult;
-    assert.ok(
-      completionItems(completion).length > 0,
-      "Expected completion provider to respond on generated file."
-    );
-
-    const runtimeBin = process.env.ST_RUNTIME_TEST_BIN;
-    assert.ok(
-      runtimeBin,
-      "ST_RUNTIME_TEST_BIN must be provided by the extension test harness."
-    );
-
-    const buildResult = spawnSync(
-      runtimeBin,
-      ["build", "--project", targetUri.fsPath],
-      {
-        encoding: "utf8",
-      }
-    );
-    assert.strictEqual(
-      buildResult.status,
-      0,
-      [
-        "trust-runtime build failed.",
-        buildResult.stdout ?? "",
-        buildResult.stderr ?? "",
-      ].join("\n")
-    );
   });
 
   test("works in single-root and multi-root workspace setups", async () => {

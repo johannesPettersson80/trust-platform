@@ -1,14 +1,15 @@
 import * as vscode from "vscode";
 
-import { FOCUS_MAIN_KEY } from "../newProject";
+import { prepareLessonProjectHandoff, prepareStarterProjectHandoff } from "../projectLanding";
+import { openPendingProjectLanding } from "../projectLandingActivation";
+import { openCreatedProjectFolder } from "../projectOpening";
+export { OPEN_LESSON_README_KEY } from "../projectLanding";
 import type { ExampleEntry } from "./model";
+import { adaptCopiedLessonReadme } from "./copiedLessonReadme";
+import { persistControlLessonProject } from "./projectLocations";
 
-// After Create project scaffolds a lesson + reloads the window (which reopens the folder),
-// this globalState key tells the next activation which README to land the learner on (W-06:
-// "the learner lands in an empty Explorer and must know to open README.md ... the lesson text
-// is the entire course"). Mirrors newProject.ts's FOCUS_MAIN_KEY reload handoff.
-export const OPEN_LESSON_README_KEY = "trust.examples.openLessonReadme";
-
+// Copy the selected example, then hand its intended destination to the shared
+// activation dispatcher before opening the new folder.
 export async function copyExample(
   context: vscode.ExtensionContext,
   entry: ExampleEntry
@@ -19,83 +20,82 @@ export async function copyExample(
     return false;
   }
 
-  const name = automation?.name ?? (await promptExampleName(entry));
-  if (!name) {
-    return false;
-  }
-
   const source = vscode.Uri.joinPath(
     context.extensionUri,
     "media",
     "examples",
     entry.path
   );
-  const dest = vscode.Uri.joinPath(base, name.trim());
-
-  if (await pathExists(dest)) {
-    const choice = await vscode.window.showWarningMessage(
-      `${dest.fsPath} already exists. Overwrite its contents with the example?`,
-      { modal: true },
-      "Overwrite"
-    );
-    if (choice !== "Overwrite") {
+  while (true) {
+    const name = automation?.name ?? (await promptExampleName(entry));
+    if (!name) {
       return false;
     }
-  }
+    const nameValidation = validateExampleFolderName(name);
+    if (nameValidation) {
+      void vscode.window.showErrorMessage(nameValidation);
+      return false;
+    }
+    const dest = vscode.Uri.joinPath(base, name.trim());
+    if (await pathExists(dest)) {
+      if (automation) {
+        return false;
+      }
+      const choice = await vscode.window.showWarningMessage(
+        `${dest.fsPath} already exists. Choose another project name; existing files will not be overwritten.`,
+        { modal: true },
+        "Choose another name"
+      );
+      if (choice === "Choose another name") {
+        continue;
+      }
+      return false;
+    }
 
-  try {
-    await vscode.workspace.fs.copy(source, dest, { overwrite: true });
-  } catch (error) {
-    void vscode.window.showErrorMessage(
-      `Could not copy the example: ${String(error)}`
-    );
-    return false;
-  }
+    try {
+      await vscode.workspace.fs.copy(source, dest, { overwrite: false });
+      if (entry.lesson) {
+        await adaptCopiedLessonReadme(context, entry, dest);
+      }
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `Could not copy the example: ${String(error)}`
+      );
+      return false;
+    }
 
-  // Reuse Create project's reload handoff so copied projects open at Main.st.
-  await context.globalState.update(
-    FOCUS_MAIN_KEY,
-    vscode.Uri.joinPath(dest, "src", "Main.st").fsPath
-  );
-  if (entry.lesson) {
-    // Same reload handoff, for the lesson's README preview (W-06).
-    await context.globalState.update(
-      OPEN_LESSON_README_KEY,
-      vscode.Uri.joinPath(dest, "README.md").fsPath
-    );
+    if (entry.lesson) {
+      await persistControlLessonProject(context.globalState, entry.id, dest.fsPath);
+    }
+
+    // Keep one landing handoff per copied project. Control lessons land on their
+    // instructions; ordinary starters land on Main.st. Setting both keys caused
+    // two activation consumers to compete for the first editor.
+    if (entry.lesson) {
+      await prepareLessonProjectHandoff(
+        context,
+        dest.fsPath,
+        vscode.Uri.joinPath(dest, "README.md").fsPath,
+        entry.id
+      );
+    } else {
+      await prepareStarterProjectHandoff(context, vscode.Uri.joinPath(dest, "src", "Main.st").fsPath);
+    }
+    if (automation?.openFolder === false) {
+      return true;
+    }
+    return openCreatedProjectFolder(dest);
   }
-  if (automation?.openFolder === false) {
-    return true;
-  }
-  await vscode.commands.executeCommand("vscode.openFolder", dest, false);
-  return true;
 }
 
 /**
- * Consumes the reload handoff written above: after "Create project" reloads the window into
- * the new lesson folder, open its README in preview so the learner lands on the lesson text
- * instead of an empty Explorer (W-06). No-op when there is no pending README, it no longer
- * exists, or it does not belong to the workspace that just opened.
+ * Compatibility entrypoint for the shared project landing dispatcher. Missing
+ * destinations produce recovery guidance; unrelated workspaces leave them pending.
  */
 export async function openPendingControlLessonReadme(
   context: vscode.ExtensionContext
 ): Promise<void> {
-  const pending = context.globalState.get<string>(OPEN_LESSON_README_KEY);
-  if (!pending) {
-    return;
-  }
-  const uri = vscode.Uri.file(pending);
-  try {
-    await vscode.workspace.fs.stat(uri);
-  } catch {
-    await context.globalState.update(OPEN_LESSON_README_KEY, undefined);
-    return;
-  }
-  if (!vscode.workspace.getWorkspaceFolder(uri)) {
-    return;
-  }
-  await context.globalState.update(OPEN_LESSON_README_KEY, undefined);
-  await vscode.commands.executeCommand("markdown.showPreview", uri);
+  await openPendingProjectLanding(context);
 }
 
 async function promptExampleDestination(): Promise<vscode.Uri | undefined> {
@@ -116,13 +116,25 @@ async function promptExampleName(entry: ExampleEntry): Promise<string | undefine
   });
 }
 
-function validateExampleFolderName(value: string): string | undefined {
+export function validateExampleFolderName(value: string): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) {
     return "A folder name is required.";
   }
+  if (trimmed === "." || trimmed === "..") {
+    return "Choose a project folder name, not a path marker.";
+  }
   if (trimmed.includes("/") || trimmed.includes("\\")) {
     return "The name must not contain path separators.";
+  }
+  if (/[<>:\"|?*\u0000-\u001f]/.test(trimmed)) {
+    return "The name contains characters that are not valid in a folder name.";
+  }
+  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(trimmed)) {
+    return "Choose a name that is valid on Windows too.";
+  }
+  if (/[. ]$/.test(trimmed)) {
+    return "A folder name cannot end with a space or period.";
   }
   return undefined;
 }

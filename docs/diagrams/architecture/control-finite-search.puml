@@ -1,0 +1,32 @@
+@startuml
+actor Engineer
+participant "Control Studio" as Studio
+participant "Search protocol handler" as Handler
+participant "Loaded SourceRegistry + simulation snapshot" as Snapshot
+participant "Bounded SearchService" as Service
+participant "Disposable worker process" as Worker
+participant "Fresh compiled ST runtime" as Runtime
+participant "Fresh SimulationController" as Plant
+Engineer -> Studio: Review finite grid, conditions and budgets
+Studio -> Handler: start(expected project revision, complete declaration)
+Handler -> Snapshot: Freeze bounded loaded ST + simulation.toml
+Handler -> Service: Validate exact Cartesian count and conflicts
+loop Every explicit candidate
+Service -> Worker: Immutable snapshot + candidate (bounded stdin)
+Worker -> Worker: OS memory limit before parsing / compiling
+Worker -> Runtime: Compile fresh ST and seed parameters / initial state
+Worker -> Plant: Construct fresh configured simulation + shared seed
+loop Declared scan sequence
+Worker -> Plant: Pre-cycle input update
+Worker -> Runtime: Execute actual ST with instruction deadline
+Worker -> Runtime: Read observed channels
+Worker -> Plant: Post-cycle plant advance
+end
+Worker --> Service: RecordedRun + constraint status + ISE
+Service -> Service: Reject violations before ranking; bound retained output
+end
+Studio -> Service: status(job, project revision)
+Service --> Studio: Actual results, provenance, qualifying ranking
+Studio -> Service: cancel(job, project revision)
+Service -> Worker: Kill and reap on cancellation / wall budget
+@enduml

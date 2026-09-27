@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "id": "control-booster-pump-atomic-update",
+  "name": "Atomic parameter update",
+  "revision": "sha256:af39c422e9ee6f8505f6708a18b7d29130a0bc404fc22eea6454f4722d604fae",
+  "projectId": "project:control-booster-pump-atomic-update",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:fe39a3360bb39077f4f0749e69038bd5885a51f3a1fa6255cfb555bcb37f8484",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX120.3",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 2,
+        "maximum": 10
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "bar",
+      "range": {
+        "minimum": 0,
+        "maximum": 12
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ValveCommand",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX121.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "diagnostic-nominal-request",
+        "channel": "diagnostic-nominal-request",
+        "role": "state",
+        "symbol": "P1.UnconstrainedTargetDiagnostic",
+        "address": "%ML80",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -1000,
+          "maximum": 1000
+        }
+      },
+      {
+        "id": "feedforward-contribution",
+        "channel": "feedforward-contribution",
+        "role": "state",
+        "symbol": "P1.FeedForward",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -100,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "active-proportional-gain",
+        "channel": "active-proportional-gain",
+        "role": "state",
+        "symbol": "P1.ActiveProportionalGain",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%/bar",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "active-integral-gain",
+        "channel": "active-integral-gain",
+        "role": "state",
+        "symbol": "P1.ActiveIntegralGain",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%/(bar*s)",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "active-revision",
+        "channel": "active-revision",
+        "role": "state",
+        "symbol": "P1.ActiveRevision",
+        "address": "%MW112",
+        "iecType": "INT",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 32767
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "booster-pump-pressure",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 10.1,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX121.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "seed": 20260829
+  }
+}

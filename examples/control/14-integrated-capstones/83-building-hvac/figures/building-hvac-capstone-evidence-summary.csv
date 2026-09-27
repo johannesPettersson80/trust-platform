@@ -1,5 +1,0 @@
-architecture,absolute_error_degC_s,tariff_cost_percent_s,movement_pp,comfort_violation_degC_s,verdict
-PI,158.670000000,46624.000000000,18.740000000,0.000000000,selected
-balanced-MPC,146.720000000,46200.000000000,160.000000000,0.000000000,reject-movement-limit
-conservative-MPC,221.570000000,45660.000000000,80.000000000,0.000000000,reject-movement-limit
-estimator-residual-rms,0.160000000,0.010000000,raw-and-corrected,,qualified

@@ -78,6 +78,7 @@ impl Runtime {
 
     /// Set an external debug control handle.
     pub fn set_debug_control(&mut self, control: crate::debug::DebugControl) {
+        control.invalidate_control_program();
         self.debug = Some(control);
     }
 

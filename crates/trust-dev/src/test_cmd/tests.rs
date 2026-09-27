@@ -551,6 +551,65 @@ END_TEST_PROGRAM
 }
 
 #[test]
+fn run_test_filter_registers_all_discovered_test_programs() {
+    let project = unique_temp_dir("config-filtered-test-program-project");
+    let sources = project.join("src");
+    std::fs::create_dir_all(&sources).expect("create src dir");
+    std::fs::write(
+        sources.join("tests.st"),
+        r#"
+CONFIGURATION Cfg
+    RESOURCE Res ON PLC
+        TASK MainTask(INTERVAL := T#10ms, PRIORITY := 1);
+        PROGRAM MainInst WITH MainTask : Main;
+    END_RESOURCE
+END_CONFIGURATION
+
+PROGRAM Main
+END_PROGRAM
+
+TEST_PROGRAM Probe
+ASSERT_TRUE(FALSE);
+END_TEST_PROGRAM
+
+TEST_PROGRAM Sibling
+ASSERT_TRUE(FALSE);
+END_TEST_PROGRAM
+"#,
+    )
+    .expect("create config + filtered test source");
+
+    let result = run_test(
+        Some(project.clone()),
+        Some("Probe".to_string()),
+        false,
+        0,
+        TestOutput::Human,
+        false,
+    );
+    let error = result.expect_err("filtered configured test must execute its failing assertion");
+    assert!(
+        format!("{error:#}").contains("1 ST test(s) failed")
+            && !format!("{error:#}").contains("unbound PROGRAM declaration(s) under CONFIGURATION"),
+        "unexpected test command failure: {error:#}"
+    );
+
+    let payload = run_test_json(Some(project.clone()), Some("Probe".to_string()), false, 0)
+        .expect("filtered JSON test execution should return its failure payload");
+    assert_eq!(payload["summary"]["total"], 1);
+    assert_eq!(payload["summary"]["failed"], 1);
+    assert_eq!(payload["summary"]["errors"], 0);
+    assert_eq!(payload["tests"].as_array().map(Vec::len), Some(1));
+    assert_eq!(payload["tests"][0]["name"], "Probe");
+    assert_eq!(payload["tests"][0]["status"], "failed");
+    let payload_text = payload.to_string();
+    assert!(!payload_text.contains("Sibling"));
+    assert!(!payload_text.contains("unbound PROGRAM declaration(s) under CONFIGURATION"));
+
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
 fn json_output_contract() {
     let results = sample_results();
     let summary = summarize_results(&results);

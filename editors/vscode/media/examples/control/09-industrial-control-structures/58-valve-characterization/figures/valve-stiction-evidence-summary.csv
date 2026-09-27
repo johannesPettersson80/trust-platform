@@ -1,0 +1,5 @@
+case,status,peak_request_position_gap_percent,final_window_flow_excursion_m3_h
+healthy,qualified,2.597002,0.000001
+deadband,diagnosed,2.597002,2.693693
+stiction,diagnosed,4.950000,0.000001
+stiction_breakaway_probe,qualified,2.000000,

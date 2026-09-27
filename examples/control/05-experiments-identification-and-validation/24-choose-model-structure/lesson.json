@@ -1,0 +1,231 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-24",
+  "title": "Model structure",
+  "level": "Identification",
+  "sequence": 16,
+  "equipment": "Water heater",
+  "physicalPurpose": "Compare simple and extended models. Derive an additional sensor or process state from its physical operation rather than adding an unexplained fitting parameter.",
+  "principalTechnique": "Model structure",
+  "objective": "Compare simple and extended models. Derive an additional sensor or process state from its physical operation rather than adding an unexplained fitting parameter.",
+  "prerequisites": [
+    "control-lesson-23"
+  ],
+  "nextLesson": "control-lesson-25",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    },
+    {
+      "role": "state",
+      "name": "Actual water temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-lesson-16",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "probe_time_constant",
+        "value": 2,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "waterTemperatureC": 35,
+      "probeTemperatureC": 35
+    },
+    "seed": 20260829,
+    "simplifications": [
+      "Local heater model with initial temperature35 °C and command75%.",
+      "Nominal coefficients are supplied simulation values, not accepted learner estimates.",
+      "Simulation-only process I/O;100ms samples.",
+      "Native simulation represents water and probe as two thermal states with a one-second command delay; both temperatures enter normal PLC inputs."
+    ],
+    "operatingPoint": {
+      "Measured temperature": 35,
+      "Applied heating command": 75,
+      "Experiment authority": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 75,
+      "temperatureC": 35
+    },
+    "limitation": "An unexcited record does not reveal the complete heater dynamics."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 85,
+      "durationSeconds": 40
+    },
+    "decision": "Use the qualified Control Studio record to answer the lesson question; do not accept supplied nominal parameters as measured results."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 40.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "temperature_operating_range",
+      "signal": "Measured temperature",
+      "window": "complete recorded experiment",
+      "comparator": "<=",
+      "limit": 80,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/12-21-models-and-tuning.md",
+    "nativeTest": "lesson16",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_design lesson16",
+    "projectPath": "examples/control/05-experiments-identification-and-validation/24-choose-model-structure",
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "sampleTime",
+      "initialState",
+      "experimentConditions",
+      "modelProvenance",
+      "stopReason",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-24"
+  },
+  "learning": {
+    "context": "Compare simple and extended models. Derive an additional sensor or process state from its physical operation rather than adding an unexplained fitting parameter.",
+    "reason": "The step-response fit assumed one temperature state. If the final value agrees but a repeatable bend remains unexplained, changing its parameters may not describe the missing physics. An extra bend can come from another physical store in the water process or from the measurement probe. Both can make a first-order fit look wrong. Adding a term because it lowers residuals does not identify its physical origin.",
+    "change": "Use the saved Lesson 15 result for this comparison. The runtime can remain\nstopped: importing and fitting the existing record do not require another\nheater experiment. The worked 2 s probe response is a hypothesis to examine,\nnot a result the learner must obtain.\n\n1. In Lesson 15, open the saved result in **Validate** and choose **Export result**. Open this lesson's project and choose **Identify → Import recording…**. Select that JSON file and expand **Recording source**. Confirm the original source, temperature and applied-command units, and estimation record. An export may also contain the later validation recording; the comparison uses the original estimation data. If that prerequisite is missing, finish Lesson 15 first.\n2. Keep **Measure a held step** enabled and select **Compare additional lag**. Open **Measurement and search settings**. Keep the imported baseline/final windows, measurement bound and first-order search settings. Set the additional time-constant range to **0.1–10 s**, with **0.1 s** spacing. Use **0.2 °C** for the peak model-error limit and **0.1 °C** for the final model-error limit. These limits allow model approximation error; they do not replace the separate **±0.05 °C** measurement bound.\n3. Choose **Check recording**, then **Fit estimation run**. If Check rejects the record, follow the named coverage, window or measurement issue before fitting. Candidate A retains the original first-order fit; Candidate B searches the additional-lag model against the same estimation samples.\n4. Use **Fit** to compare the measured temperature and both predictions on the same axes. Switch to **Residuals** to inspect measured minus predicted temperature. Look for a repeatable error pattern, not just a small reduction in the total error. Read the peak and final errors in **Model comparison** against the limits declared in step 2.\n5. Expand **Parameters and uncertainty**. Record each candidate's equation, parameters, consistent ranges and search-boundary warnings. **No consistent candidates** means no searched parameter set explains every sample within the measurement bound. It does not by itself mean the model misses the looser approximation-error limits. A fitted pair of time constants cannot identify which lag belongs to the water or the probe.\n6. If the first-order model meets the limits, choose **Keep first-order model**. If the additional lag is supported, inspect its error improvement and choose **Keep additional-lag model**; without an independent reference, record its physical origin as unresolved. If neither is supported, use **Review settings** and investigate the reported issue. Keep the original error requirements when comparing refinements.\n7. Choose **Save comparison**. To revisit it, open **Validate → Saved results**, select the saved revision and choose **Open**, then return to **Identify**. Keep the equations, uncertainty and your reason for the provisional choice for Lesson 17. Independent validation remains the task of Lesson 18.",
+    "transfer": "An additional state can explain a measured lag, but the fitted curve alone may not tell us whether it belongs to the water or the probe, or which parameter values are distinguishable from the record.\n\n[Identifiability](../25-parameter-identifiability/README.md) uses these same candidates to decide what information the experiment actually supplies.",
+    "theory": [
+      "**Model structure** is the choice of physical relationships and stored quantities\nrepresented in the model. Changing coefficients cannot always explain a missing\nmechanism. Here a probe may warm more slowly than the water, so we give water\nand sensor temperature separate states and compare that prediction with the\ninstantaneous-sensor model.\n\nLet $T$ be water temperature and $T_s$ the measured sensor temperature. For a possible sensor thermal response, use\n\n$$\nC_s\\frac{dT_s}{dt}=G_s(T-T_s),\\qquad \\tau_s=\\frac{C_s}{G_s}=2\\text{ s}.\n$$\n\nHere Cs is the probe's thermal capacitance in J/°C and Gs is heat conductance from water to probe in W/°C. Illustrative values Cs=5 J/°C and Gs=2.5 W/°C give the 2 s ratio. Probe mass and material properties determine Cs; a separate immersion response can estimate the ratio. Its energy exchange is small compared with the vessel, so it is neglected in the water balance. The water physics is unchanged; the extra state belongs to the measurement. With deviations $x=T-35$, $m=T_s-35$, and applied command deviation $v=u-75$, the supplied process example is\n\n$$\n5\\dot x+x=0.2v(t-1),\\qquad 2\\dot m+m=x.\n$$\n\nCandidate A predicts $m=x$, an instantaneous sensor. Candidate B predicts the second equation as well. The model must say which signal each state represents; a second process store could produce the same measured shape.\n\nFor a held 10-point step after the 1 s transport delay, Candidate A gives $x(t')=2(1-e^{-t'/5})$, where $t'=t-1$. Try $m(t')=2+a e^{-t'/5}+b e^{-t'/2}$ in the sensor equation. Substitution into $2\\dot m+m=x=2-2e^{-t'/5}$ gives $3a/5=-2$, so $a=-10/3$ °C. The initial condition m(0)=0 then gives b=4/3 °C. Thus\n\n$$\nm(t')=2\\left[1-\\frac{5e^{-t'/5}-2e^{-t'/2}}{3}\\right].\n$$\n\nAt 6 s, $t'=5$: $x=1.26424$ °C and $m\\approx0.88318$ °C, so the instantaneous-sensor prediction differs by about 0.38106 °C. This is a model calculation, not a recorded result. It shows what a 2 s sensor response could explain; it does not prove the probe has that response.\n\nTo distinguish probe lag from a process lag, use a fast independent water reference or a known probe-immersion/step calibration. A curve fit alone cannot assign the extra time constant to water or sensor.\n\nUse the qualified applied-command record, baseline 35 °C, and learner K, τ, and L from Lesson 15. Retain the first-order fit as Candidate A. Its τ and L may already include part of the probe response, so they are starting estimates for an extended model, not independently known water parameters. Define two candidates before comparison. A residual is measured minus predicted temperature. For this exercise, require absolute residual no greater than 0.2 °C throughout the valid record and final-temperature prediction within 0.1 °C; keep the same fitting window for both candidates. An added state must explain a repeatable feature larger than the measurement uncertainty. The preceding lesson used the sensor error bound to examine parameter consistency. The .2 °C and .1 °C limits here are declared allowances for model-approximation error, not a larger sensor-error claim; keep them fixed for both structures. Candidate A keeps the sensor instantaneous. Candidate B adds a sensor state."
+    ],
+    "workedPrediction": "Calculate Candidate A and B at 6 s for the 75→85 step. Predict whether an extra lag changes early slope, delay, or late value. Decide whether the existing learner record has enough resolution and duration to distinguish a 0.381 °C difference, using its actual K, τ, L and uncertainty rather than replacing them with the worked values.",
+    "practicalPreparation": [
+      "Create or open this lesson’s project before running or editing its code. In [src/tests.st](src/tests.st), use **ST: Run All Tests** to check the two state updates and the worked 6 s prediction. The project README explains the equations and the update-order experiment.",
+      "Use the saved Lesson 15 estimation record for the Control Studio steps below. Preserve its measured inputs and uncertainty. The illustrative 2 s probe response is a hypothesis; a simpler model may already explain the record."
+    ],
+    "baseline": "Use the declared35 °C and75% initial state; retain the actual baseline record.",
+    "comparison": "Keep Candidate A when it meets the declared model-error limits. Candidate B is justified when A misses those limits, B meets them, and its repeatable error improvement exceeds the measurement uncertainty. The extra state represents a possible additional physical response; the fit does not establish whether it belongs to the water or the probe. Without an independent reference, report “additional lag observed; physical origin unresolved.” A short or noisy record may be insufficient to justify the extra state.\n\nDo not infer precision from the rounded 6 s calculation. Carry uncertainty from K, τ, L, sample interval, sensor noise and final-window choice. A selected structure is still provisional until unused records pass Lesson 18.",
+    "validation": "Keep Candidate A when it meets the declared model-error limits. Candidate B is justified when A misses those limits, B meets them, and its repeatable error improvement exceeds the measurement uncertainty. The extra state represents a possible additional physical response; the fit does not establish whether it belongs to the water or the probe. Without an independent reference, report “additional lag observed; physical origin unresolved.” A short or noisy record may be insufficient to justify the extra state.\n\nDo not infer precision from the rounded 6 s calculation. Carry uncertainty from K, τ, L, sample interval, sensor noise and final-window choice. A selected structure is still provisional until unused records pass Lesson 18.",
+    "explanation": "Model structure connects a measured feature to a physical state. A sensor response can produce a second lag without changing water dynamics, but the record alone may not distinguish it from a process store. Use the simplest structure that meets evidence and physical provenance requirements."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves0–80 °C or applied command leaves0–100%"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Normal completion disables the experiment and restores 75% heating. Abort sets SafetyAbort and commands zero heating. Keep stopped until valid measurements and the full 35 °C / 75% hot reset are restored.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Compare simple and extended models. Derive an additional sensor or process state from its physical operation rather than adding an unexplained fitting parameter.",
+    "requiredVisibleEvidence": [
+      "Heater model and initial state",
+      "Applied command and temperature record",
+      "Required Control Studio analysis",
+      "Declared uncertainty and decision",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

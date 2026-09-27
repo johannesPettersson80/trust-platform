@@ -1,3 +1,47 @@
+FUNCTION Lesson50ReviewedSetpoint : LREAL
+VAR_INPUT
+    ExperimentEnabled : BOOL;
+    InputsValid : BOOL;
+    SafetyAbort : BOOL;
+END_VAR
+IF ExperimentEnabled AND InputsValid AND NOT SafetyAbort THEN
+    Lesson50ReviewedSetpoint := LREAL#1.0;
+ELSE
+    Lesson50ReviewedSetpoint := LREAL#0.0;
+END_IF;
+END_FUNCTION
+
+FUNCTION Lesson50VelocityDecay : LREAL
+VAR_INPUT
+    SampleSeconds : LREAL;
+END_VAR
+Lesson50VelocityDecay := EXP(LREAL#-2.0 * SampleSeconds);
+END_FUNCTION
+
+FUNCTION Lesson50PositionInputCoefficient : LREAL
+VAR_INPUT
+    SampleSeconds : LREAL;
+END_VAR
+Lesson50PositionInputCoefficient := LREAL#5.0 * SampleSeconds
+    - LREAL#2.5 * (LREAL#1.0
+        - Lesson50VelocityDecay(SampleSeconds := SampleSeconds));
+END_FUNCTION
+
+FUNCTION Lesson50VelocityInputCoefficient : LREAL
+VAR_INPUT
+    SampleSeconds : LREAL;
+END_VAR
+Lesson50VelocityInputCoefficient := LREAL#5.0
+    * (LREAL#1.0 - Lesson50VelocityDecay(SampleSeconds := SampleSeconds));
+END_FUNCTION
+
+FUNCTION Lesson50NyquistAngularFrequency : LREAL
+VAR_INPUT
+    SampleSeconds : LREAL;
+END_VAR
+Lesson50NyquistAngularFrequency := LREAL#3.141592653589793 / SampleSeconds;
+END_FUNCTION
+
 PROGRAM Main
 VAR
     ExperimentEnabled : BOOL := FALSE;
@@ -14,7 +58,7 @@ VAR
     CorrectedDerivativeGain : LREAL := 0.4;
     ForceMinimum : LREAL := -10.0;
     ForceMaximum : LREAL := 10.0;
-    PositionSetpoint : LREAL := 1.0;
+    PositionSetpoint : LREAL := 0.0;
     FinePosition : LREAL := 0.0;
     FineVelocity : LREAL := 0.0;
     CoarsePosition : LREAL := 0.0;
@@ -33,6 +77,12 @@ VAR
     CoarseCounter : DINT := 0;
     CorrectedCounter : DINT := 0;
 END_VAR
+
+PositionSetpoint := Lesson50ReviewedSetpoint(
+    ExperimentEnabled := ExperimentEnabled,
+    InputsValid := InputsValid,
+    SafetyAbort := SafetyAbort
+);
 
 IF ExperimentEnabled AND (NOT SafetyAbort) AND InputsValid THEN
     IF FineAborted THEN

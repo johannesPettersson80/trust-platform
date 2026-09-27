@@ -87,7 +87,47 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         false,
     ),
     operation("io.list", RolePolicy::Fixed(AccessRole::Viewer), false),
+    operation(
+        "control.simulation.run.status",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
+        "control.signals.inspect",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
+        "control.search.status",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
+        "control.parameters.status",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
+        "control.transfer.status",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
     operation("io.read", RolePolicy::Fixed(AccessRole::Viewer), false),
+    operation(
+        "control.recording.start",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
+        "control.recording.stop",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
+        "control.recording.release",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
     operation(
         "control.experiment.status",
         RolePolicy::Fixed(AccessRole::Viewer),
@@ -235,6 +275,51 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     ),
     operation(
         "control.pid.rollback",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
+        "control.simulation.run.start",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
+        "control.simulation.run.cancel",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
+        "control.search.start",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
+        "control.search.cancel",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
+        "control.parameters.apply",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
+        "control.transfer.apply",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
+        "control.transfer.cancel",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
+        "control.parameters.rollback",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
+    operation(
+        "control.parameters.cancel",
         RolePolicy::Fixed(AccessRole::Engineer),
         false,
     ),

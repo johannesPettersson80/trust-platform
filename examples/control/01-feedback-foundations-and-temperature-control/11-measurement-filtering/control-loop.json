@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "id": "control-lesson-11",
+  "name": "Reduce control movement caused by sensor noise",
+  "projectId": "project:control-lesson-11",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Control.PID",
+    "design": "project",
+    "revision": "sha256:b2dc2c6e5beee3f06c4b99d06073a51868954358783ed40982226cc4b96ae841",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "%MX80.0"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.SetpointC",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 15,
+        "maximum": 60
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.RawTemperature",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.AppliedValvePosition",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "filtered-temperature",
+        "channel": "filtered-temperature",
+        "role": "state",
+        "symbol": "P1.FilteredTemperature",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "true-temperature",
+        "channel": "true-temperature",
+        "role": "state",
+        "symbol": "P1.TrueTemperature",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "filtered-request",
+        "channel": "filtered-request",
+        "role": "state",
+        "symbol": "P1.FilteredRequestedPosition",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "filter-fraction",
+        "channel": "filter-fraction",
+        "role": "state",
+        "symbol": "P1.FilterFraction",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": { "minimum": 0, "maximum": 1 }
+      },
+      {
+        "id": "true-temperature",
+        "channel": "true-temperature",
+        "role": "state",
+        "symbol": "P1.TrueTemperature",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": { "minimum": 0, "maximum": 80 }
+      },
+      {
+        "id": "thermal-load",
+        "channel": "thermal-load",
+        "role": "disturbance",
+        "symbol": "P1.DisturbanceKw",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": { "minimum": 0, "maximum": 30 }
+      },
+      {
+        "id": "lesson-experiment",
+        "channel": "lesson-experiment",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX80.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "noisy-water-temperature",
+  "operatingPoint": "35 degC at 75% valve position",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 80.1,
+    "seed": 20260824,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX80.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  },
+  "parameterBinding": {
+    "loop_id": "control-lesson-11",
+    "task_name": "MainTask",
+    "parameters": [
+      { "symbol": "P1.FilterTime", "iec_type": "LREAL", "unit": "s", "convention": "0 bypass; positive first-order lag", "minimum": 0, "maximum": 10 },
+      { "symbol": "P1.SetpointWeight", "iec_type": "LREAL", "unit": "1", "convention": "Lesson 22 beta", "minimum": 0, "maximum": 1 },
+      { "symbol": "P1.KpPctPerC", "iec_type": "LREAL", "unit": "%/degC", "convention": "selected Lesson 21 Kp", "minimum": 0, "maximum": 20 },
+      { "symbol": "P1.KiPctPerCs", "iec_type": "LREAL", "unit": "%/(degC*s)", "convention": "selected Lesson 21 Ki", "minimum": 0, "maximum": 10 },
+      { "symbol": "P1.TrialKind", "iec_type": "INT", "unit": "trial", "convention": "0 setpoint; 1 load", "minimum": 0, "maximum": 1 }
+    ],
+    "mode": { "symbol": "P1.ExperimentEnabled", "manual_value": false }
+  },
+  "revision": "sha256:lesson23-control-pid-filtered-heater-v1"
+}

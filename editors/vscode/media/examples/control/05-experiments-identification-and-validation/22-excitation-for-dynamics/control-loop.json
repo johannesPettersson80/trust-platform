@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "topology": "open-loop",
+  "id": "control-lesson-22",
+  "name": "Choose an input pattern for the dynamics",
+  "revision": "sha256:2377768169062de65e117e4dfd912e178bba8f2afde0dc2e048d08957d058ceb",
+  "projectId": "project:control-lesson-22",
+  "runtimeId": "simulator",
+  "controller": { "instance": "P1", "type": "experiment_excitation", "design": "project", "revision": "sha256:2377768169062de65e117e4dfd912e178bba8f2afde0dc2e048d08957d058ceb", "action": "direct", "taskPeriodMs": 100, "modeSignal": "%MX80.0" },
+  "signals": {
+    "processVariable": { "symbol": "P1.DrivePosition", "address": "%IL8", "iecType": "LREAL", "direction": "read", "unit": "rad", "range": { "minimum": -0.35, "maximum": 0.35 } },
+    "manipulatedVariable": { "symbol": "P1.AppliedTorque", "address": "%QL8", "iecType": "LREAL", "direction": "read", "unit": "N m", "range": { "minimum": -0.1, "maximum": 0.1 } },
+    "additional": [
+      { "id": "reference-comparison", "channel": "reference-comparison", "role": "state", "symbol": "P1.RequestedTorque", "address": "%ML16", "iecType": "LREAL", "direction": "read", "unit": "N m", "range": { "minimum": -0.1, "maximum": 0.1 } },
+      { "id": "natural-frequency", "channel": "natural-frequency", "role": "state", "symbol": "P1.NaturalFrequencyHz", "address": "%ML32", "iecType": "LREAL", "direction": "read", "unit": "Hz", "range": { "minimum": 0, "maximum": 2 } },
+      { "id": "lesson-experiment", "channel": "lesson-experiment", "role": "state", "symbol": "P1.ExperimentEnabled", "address": "%MX80.0", "iecType": "BOOL", "direction": "read", "unit": "", "range": { "minimum": 0, "maximum": 1 } }
+    ]
+  },
+  "limits": { "outputMinimum": -0.1, "outputMaximum": 0.1 },
+  "observedSampleTiming": { "nominalPeriodMs": 100 },
+  "plantId": "flexible-drive",
+  "experiment": { "execution": "project-scripted", "kind": "observation", "amplitude": 0, "durationSeconds": 30.1, "seed": 20260829, "activation": { "symbol": "P1.ExperimentEnabled", "address": "%MX80.0", "iecType": "BOOL", "direction": "write" } }
+}

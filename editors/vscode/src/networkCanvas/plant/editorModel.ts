@@ -2,6 +2,10 @@ import {
   persistedPlantUncertainties,
   type PlantUncertaintyDraft,
 } from "./uncertaintyEditor";
+import { preservedPlantConfiguration } from "./preservedConfiguration";
+import { proposeTemperatureExample } from "./temperatureExample";
+import { stateSpaceDimensions, validateStateSpaceInputDelays } from "./stateSpaceEditor";
+export { plantPortLabels, updatePlantPortBinding, validatePlantPortBindings } from "./portBindings";
 import {
   persistedPlantScenarioEvents,
   type PlantScenarioEventDraft,
@@ -10,7 +14,9 @@ import {
 export type PlantStartingPoint =
   | "tank"
   | "gravity_drained_tank"
+  | "gravity_tank_cascade"
   | "temperature"
+  | "temperature_example"
   | "motor_speed"
   | "mechanical_position"
   | "robot_joint"
@@ -21,6 +27,7 @@ export type PlantStartingPoint =
 export type PlantModelKind =
   | "integrator"
   | "gravity_tank"
+  | "gravity_tank_cascade"
   | "first_order_dead_time"
   | "first_order"
   | "second_order"
@@ -51,20 +58,28 @@ const actuatorField = (
   plainTerm: string,
   controlTerm: string,
   unit: string,
-  effect: string
-) => ({ key, label, plainTerm, controlTerm, unit, effect, storedKey: `actuator.${key}` });
+  effect: string,
+  blankMeaning: string,
+  defaultValue?: number,
+  defaultFrom?: "initial_input"
+) => ({
+  key, label, plainTerm, controlTerm, unit, effect, blankMeaning,
+  ...(defaultValue === undefined ? {} : { defaultValue }),
+  ...(defaultFrom === undefined ? {} : { defaultFrom }),
+  storedKey: `actuator.${key}`,
+});
 
 export const PLANT_ACTUATOR_FIELDS = [
-  actuatorField("minimum", "Minimum", "Lowest actuator output", "Lower saturation limit", "output units", "A higher minimum prevents the actuator from applying smaller values."),
-  actuatorField("maximum", "Maximum", "Highest actuator output", "Upper saturation limit", "output units", "A lower maximum makes the actuator saturate sooner on increasing commands."),
-  actuatorField("rate_up_per_s", "Rising rate per second", "Maximum opening speed", "Positive slew-rate limit", "output units per second", "A smaller value makes increasing actuator movement slower; zero prevents upward movement."),
-  actuatorField("rate_down_per_s", "Falling rate per second", "Maximum closing speed", "Negative slew-rate limit", "output units per second", "A smaller value makes decreasing actuator movement slower; zero prevents downward movement."),
-  actuatorField("deadband", "Deadband", "Ignored command movement", "Actuator deadband", "command units", "A larger value ignores a wider band of small command changes."),
-  actuatorField("stiction_band", "Stiction band", "Breakaway movement", "Static-friction band", "command units", "A larger value makes the actuator hold until command and position differ further."),
-  actuatorField("slip_jump", "Slip jump", "Breakaway jump", "Slip-jump magnitude", "output units", "This is the first bounded position movement after static friction breaks."),
-  actuatorField("characteristic_exponent", "Installed characteristic", "Position-to-process curve", "Installed characteristic exponent", "ratio", "One is linear; values above one reduce process effect at low travel, while values below one increase it."),
-  actuatorField("lag_s", "Actuator lag (s)", "Actuator response speed", "Actuator time constant", "seconds", "A larger value makes the applied actuator output respond more slowly."),
-  actuatorField("initial_applied", "Initial applied value", "Starting actuator output", "Initial applied output", "output units", "This is the actuator output held at simulation start before command dynamics advance."),
+  actuatorField("minimum", "Minimum", "Lowest actuator output", "Lower saturation limit", "output units", "A higher minimum prevents the actuator from applying smaller values.", "Unbounded"),
+  actuatorField("maximum", "Maximum", "Highest actuator output", "Upper saturation limit", "output units", "A lower maximum makes the actuator saturate sooner on increasing commands.", "Unbounded"),
+  actuatorField("rate_up_per_s", "Rising rate per second", "Maximum opening speed", "Positive slew-rate limit", "output units per second", "A smaller value makes increasing actuator movement slower; zero prevents upward movement.", "Unbounded; 0 blocks upward movement"),
+  actuatorField("rate_down_per_s", "Falling rate per second", "Maximum closing speed", "Negative slew-rate limit", "output units per second", "A smaller value makes decreasing actuator movement slower; zero prevents downward movement.", "Unbounded; 0 blocks downward movement"),
+  actuatorField("deadband", "Deadband", "Ignored command movement", "Actuator deadband", "command units", "A larger value ignores a wider band of small command changes.", "0 (no deadband)", 0),
+  actuatorField("stiction_band", "Stiction band", "Breakaway movement", "Static-friction band", "command units", "A larger value makes the actuator hold until command and position differ further.", "0 (no static friction)", 0),
+  actuatorField("slip_jump", "Slip jump", "Breakaway jump", "Slip-jump magnitude", "output units", "This is the first bounded position movement after static friction breaks.", "0 (no breakaway jump)", 0),
+  actuatorField("characteristic_exponent", "Installed characteristic", "Position-to-process curve", "Installed characteristic exponent", "ratio", "One is linear; values above one reduce process effect at low travel, while values below one increase it.", "1 (linear characteristic)", 1),
+  actuatorField("lag_s", "Actuator lag (s)", "Actuator response speed", "Actuator time constant", "seconds", "A larger value makes the applied actuator output respond more slowly.", "0 (no lag)", 0),
+  actuatorField("initial_applied", "Initial applied value", "Starting actuator output", "Initial applied output", "output units", "This is the actuator output held at simulation start before command dynamics advance.", "Initial input (resolved at runtime)", undefined, "initial_input"),
 ] as const;
 
 export function validatePlantActuator(value: PlantActuatorSettings): PlantDynamicsIssue[] {
@@ -124,6 +139,8 @@ export interface PlantDynamicsField {
   effect: string;
   storedKey: string;
   optional?: boolean;
+  defaultValue?: number;
+  defaultFrom?: "input_bias";
 }
 
 function dynamicsField(
@@ -134,7 +151,9 @@ function dynamicsField(
   controlTerm: string,
   unit: string,
   effect: string,
-  optional = false
+  optional = false,
+  defaultValue?: number,
+  defaultFrom?: "input_bias"
 ): PlantDynamicsField {
   return {
     key,
@@ -146,12 +165,14 @@ function dynamicsField(
     effect,
     storedKey: key === "initial_state" ? "initial_state" : `parameters.${key}`,
     optional,
+    ...(defaultValue === undefined ? {} : { defaultValue }),
+    ...(defaultFrom === undefined ? {} : { defaultFrom }),
   };
 }
 
-const GAIN = () => dynamicsField("gain", "Gain", "number", "Response size", "Process gain", "output per input", "A larger magnitude produces a larger output change for the same input change.");
-const INPUT_BIAS = () => dynamicsField("input_bias", "Input bias", "number", "Input resting point", "Input operating-point bias", "input units", "The model responds to command changes relative to this value.");
-const OUTPUT_BIAS = () => dynamicsField("output_bias", "Output bias", "number", "Output resting point", "Output operating-point bias", "output units", "This offsets the model output without changing its dynamic response.");
+const GAIN = () => dynamicsField("gain", "Gain", "number", "Response size", "Process gain", "output per input", "A larger magnitude produces a larger output change for the same input change.", true, 1);
+const INPUT_BIAS = () => dynamicsField("input_bias", "Input bias", "number", "Input resting point", "Input operating-point bias", "input units", "The model responds to command changes relative to this value; empty uses the runtime default of 0.", true, 0);
+const OUTPUT_BIAS = () => dynamicsField("output_bias", "Output bias", "number", "Output resting point", "Output operating-point bias", "output units", "This offsets the model output without changing its dynamic response; empty uses the runtime default of 0.", true, 0);
 const INITIAL_STATE = (label = "Initial state") => dynamicsField("initial_state", label, "vector", "Starting internal value", "Initial state vector", "state units", "This is the model state at simulation start or reset.");
 
 const DYNAMICS_FIELDS: Readonly<Record<PlantModelKind, readonly PlantDynamicsField[]>> = {
@@ -166,13 +187,13 @@ const DYNAMICS_FIELDS: Readonly<Record<PlantModelKind, readonly PlantDynamicsFie
   first_order_dead_time: [
     GAIN(),
     dynamicsField("time_constant_s", "Time constant (s)", "number", "Response speed", "Time constant", "s", "A larger value makes the response slower after the delay has elapsed."),
-    dynamicsField("dead_time_s", "Dead time (s)", "number", "Waiting time", "Transport delay", "s", "The output does not react to a new input until this delay has elapsed."),
+    dynamicsField("dead_time_s", "Dead time (s)", "number", "Waiting time", "Transport delay", "s", "The output does not react to a new input until this delay has elapsed.", true, 0),
     INPUT_BIAS(), OUTPUT_BIAS(),
-    dynamicsField("initial_delayed_input", "Initial delayed input", "number", "Input already in transit", "Initial delay-line value", "input units", "This fills the delay before the first new command reaches the model."),
+    dynamicsField("initial_delayed_input", "Initial delayed input", "number", "Input already in transit", "Initial delay-line value", "input units", "This fills the delay before the first new command reaches the model; empty uses the input bias.", true, undefined, "input_bias"),
     INITIAL_STATE(),
   ],
   integrator: [
-    dynamicsField("gain", "Integral gain", "number", "Accumulation rate", "Integrator gain", "output per input-second", "A larger magnitude stores change faster while the input differs from its bias."),
+    dynamicsField("gain", "Integral gain", "number", "Accumulation rate", "Integrator gain", "output per input-second", "A larger magnitude stores change faster while the input differs from its bias.", true, 1),
     INPUT_BIAS(),
     OUTPUT_BIAS(),
     dynamicsField("state_minimum", "Minimum state", "number", "Lowest stored value", "Lower integrator clamp", "state units", "When set, the accumulated state cannot fall below this value; empty means unbounded.", true),
@@ -184,11 +205,16 @@ const DYNAMICS_FIELDS: Readonly<Record<PlantModelKind, readonly PlantDynamicsFie
     dynamicsField("outflow_coefficient_m2_sqrt_m_per_s", "Outlet coefficient", "number", "Outlet size", "Square-root discharge coefficient", "m²√m/s", "A larger coefficient drains the tank faster, especially at higher level."),
     INITIAL_STATE("Initial level"),
   ],
+  gravity_tank_cascade: [
+    dynamicsField("area_m2", "Area of each tank (m²)", "number", "Equal tank cross-sections", "Cross-sectional area", "m²", "This area applies to both freely discharging tanks."),
+    dynamicsField("outflow_coefficient_m2_sqrt_m_per_s", "Outlet coefficient of each tank", "number", "Equal outlet sizes", "Square-root discharge coefficient", "m²√m/s", "The upstream outlet feeds the downstream tank without an added scan delay."),
+    INITIAL_STATE("Initial upstream and downstream levels"),
+  ],
   robot_joint: [
     dynamicsField("inertia_kg_m2", "Joint inertia (kg·m²)", "number", "Resistance to acceleration", "Rotational inertia", "kg·m²", "A larger inertia reduces angular acceleration for the same net torque."),
-    dynamicsField("gravity_torque_nm", "Gravity torque coefficient (N·m)", "number", "Gravity load", "Maximum gravity torque", "N·m", "This sets how strongly joint angle changes the gravity load."),
-    dynamicsField("viscous_friction_nm_s_per_rad", "Viscous friction", "number", "Speed-dependent drag", "Viscous friction coefficient", "N·m·s/rad", "A larger value opposes angular speed more strongly."),
-    dynamicsField("coulomb_friction_nm", "Coulomb friction (N·m)", "number", "Dry friction", "Coulomb friction torque", "N·m", "This opposes motion with nearly constant torque away from zero speed."),
+    dynamicsField("gravity_torque_nm", "Gravity torque coefficient (N·m)", "number", "Gravity load", "Maximum gravity torque", "N·m", "This sets how strongly joint angle changes the gravity load.", true, 0),
+    dynamicsField("viscous_friction_nm_s_per_rad", "Viscous friction", "number", "Speed-dependent drag", "Viscous friction coefficient", "N·m·s/rad", "A larger value opposes angular speed more strongly.", true, 0),
+    dynamicsField("coulomb_friction_nm", "Coulomb friction (N·m)", "number", "Dry friction", "Coulomb friction torque", "N·m", "This opposes motion with nearly constant torque away from zero speed.", true, 0),
     dynamicsField("friction_smoothing_rad_s", "Friction smoothing (rad/s)", "number", "Zero-speed transition", "Coulomb smoothing speed", "rad/s", "A smaller value makes the friction reversal sharper around zero speed."),
     INITIAL_STATE("Initial angle and speed"),
   ],
@@ -206,7 +232,8 @@ const DYNAMICS_FIELDS: Readonly<Record<PlantModelKind, readonly PlantDynamicsFie
     dynamicsField("a", "A matrix", "matrix", "State-to-state dynamics", "State matrix A", "state rate per state", "Defines how the current states drive their own rates of change."),
     dynamicsField("b", "B matrix", "matrix", "Input-to-state dynamics", "Input matrix B", "state rate per input", "Defines how each command drives each state."),
     dynamicsField("c", "C matrix", "matrix", "State-to-output mapping", "Output matrix C", "output per state", "Defines how states contribute to each process output."),
-    dynamicsField("d", "D matrix", "matrix", "Immediate input-to-output mapping", "Feedthrough matrix D", "output per input", "Defines output that changes immediately with the input."),
+    dynamicsField("d", "D matrix", "matrix", "Direct input-to-output mapping", "Feedthrough matrix D", "output per input", "Defines direct output from each input after its configured transport delay."),
+    dynamicsField("input_delays_s", "Input delays (s)", "vector", "Input delivery time", "Input transport delays", "s", "Each input reaches the process after its own delay; omitted values use zero delay.", true),
     INITIAL_STATE(),
   ],
 };
@@ -233,6 +260,7 @@ export function plantCandidateFromEditorDraft(
     | "displayName"
     | "description"
     | "enabled"
+    | "enabledDefaulted"
     | "model"
     | "commandSources"
     | "feedbackTargets"
@@ -244,12 +272,15 @@ export function plantCandidateFromEditorDraft(
     | "outputOffset"
     | "parameters"
     | "initialState"
+    | "initialStateDefaulted"
     | "actuator"
     | "uncertainties"
     | "scenarioEvents"
+    | "preservedConfiguration"
   >
 ): Record<string, unknown> {
   const candidate: Record<string, unknown> = {
+    ...preservedPlantConfiguration(draft.preservedConfiguration),
     id: draft.plantId,
     name: draft.displayName,
     description: draft.description,
@@ -257,9 +288,15 @@ export function plantCandidateFromEditorDraft(
     model: draft.model,
     command_sources: [...draft.commandSources],
     feedback_targets: [...draft.feedbackTargets],
-    parameters: { ...draft.parameters },
+    parameters: structuredClone(draft.parameters),
     initial_state: [...draft.initialState],
   };
+  if (draft.enabledDefaulted && draft.enabled) {
+    delete candidate.enabled;
+  }
+  if (draft.initialStateDefaulted && draft.initialState.every((value) => value === 0)) {
+    delete candidate.initial_state;
+  }
   if (draft.stepMs !== undefined) candidate.step_ms = draft.stepMs;
   for (const [key, current] of [
     ["initial_input", draft.initialInput],
@@ -282,12 +319,14 @@ export function validatePlantDynamics(input: {
   model: string;
   parameters: PlantParameters;
   initialState: number[];
+  stepMs?: number;
+  projectStepMs?: number;
 }): PlantDynamicsIssue[] {
   const issues: PlantDynamicsIssue[] = [];
   const value = (key: string): PlantParameterValue | undefined =>
     key === "initial_state" ? input.initialState : input.parameters[key];
-
   for (const field of plantDynamicsFields(input.model)) {
+    if (field.key === "input_delays_s") continue;
     const current = value(field.key);
     if (field.optional && current === undefined) continue;
     const numbers = Array.isArray(current) ? current.flat(Infinity) : [current];
@@ -298,6 +337,14 @@ export function validatePlantDynamics(input: {
     ) {
       issues.push({ field: field.key, message: `${field.label} must contain finite numbers.` });
     }
+  }
+
+  if (input.model === "state_space") {
+    for (const issue of validateStateSpaceInputDelays({ ...input, inputs: stateSpaceDimensions(input.parameters).inputs })) {
+      issues.push({ field: issue.column === undefined ? "input_delays_s" : `input_delays_s.${issue.column}`, message: issue.message });
+    }
+  } else if (input.parameters.input_delays_s !== undefined) {
+    issues.push({ field: "input_delays_s", message: "Input delays are available only for continuous state-space models." });
   }
 
   const scalar = (key: string): number | undefined => {
@@ -375,7 +422,7 @@ export const CUSTOM_STATE_SPACE_HELP = {
   whyReasonable:
     "Coupled linear states represent multi-state or multi-channel linear dynamics.",
   limitation:
-    "It cannot reproduce nonlinear or time-varying behavior, and delay requires an explicit state approximation.",
+    "It cannot reproduce nonlinear or time-varying behavior. Input transport delays use explicit per-input settings.",
 } as const;
 
 // These are deliberately conservative, unit-neutral simulation seeds. They
@@ -405,6 +452,15 @@ export const PLANT_STARTING_POINTS: readonly PlantStartingPointDescriptor[] = [
       "A physical mass balance and square-root outlet flow reproduce the level-dependent tank speed.",
     limitation:
       "It assumes a constant tank area and free discharge, without pump curves, pipe storage, or overflow.",
+  },
+  {
+    id: "gravity_tank_cascade",
+    label: "Cascaded gravity tanks",
+    model: "gravity_tank_cascade",
+    parameters: { area_m2: 0.5, outflow_coefficient_m2_sqrt_m_per_s: 0.020 },
+    initialState: [0.25, 0.25],
+    whyReasonable: "Two coupled mass balances preserve water transferred from the upstream to the downstream tank.",
+    limitation: "Both tanks share the same area and discharge coefficient; free discharge assumes no downstream backpressure.",
   },
   {
     id: "temperature",
@@ -495,7 +551,9 @@ export function proposePlantStartingPoint(id: string): {
   model: PlantModelKind;
   parameters: PlantParameters;
   initialState: number[];
+  actuator?: PlantActuatorSettings;
 } | undefined {
+  if (id === "temperature_example") return proposeTemperatureExample();
   const descriptor = PLANT_STARTING_POINTS.find((candidate) => candidate.id === id);
   if (!descriptor) return undefined;
   return {
@@ -530,6 +588,7 @@ export function proposeCustomStateSpace(): {
 }
 
 function startingPointProductName(id: string): string {
+  if (id === "temperature_example") return "temperature teaching example";
   if (id === "custom_state_space") return "Custom state space";
   return PLANT_STARTING_POINTS.find((candidate) => candidate.id === id)?.label ?? id;
 }
@@ -538,6 +597,7 @@ export function planPlantStartingPointChange(input: {
   currentStartingPoint: string;
   requestedStartingPoint: string;
   modelValuesTouched: boolean;
+  hasSavedConfiguration?: boolean;
 }):
   | { kind: "apply"; requestedStartingPoint: string }
   | {
@@ -546,7 +606,7 @@ export function planPlantStartingPointChange(input: {
       requestedStartingPoint: string;
       message: string;
     } {
-  if (!input.modelValuesTouched) {
+  if (!input.modelValuesTouched && !input.hasSavedConfiguration) {
     return { kind: "apply", requestedStartingPoint: input.requestedStartingPoint };
   }
   return {
@@ -562,6 +622,11 @@ export function planPlantStartingPointChange(input: {
 }
 
 export interface PlantEditorDraft {
+  /** Saved omission; effective enabled state is shown without materializing the default. */
+  enabledDefaulted?: boolean;
+  /** Saved omission; effective zeros are shown without silently rewriting it. */
+  initialStateDefaulted?: boolean;
+  preservedConfiguration?: Record<string, unknown>;
   plantId: string;
   displayName: string;
   description: string;
@@ -579,6 +644,8 @@ export interface PlantEditorDraft {
   commandSources: string[];
   feedbackTargets: string[];
   stepMs?: number;
+  /** Known project simulation step; editor context only, never persisted as a plant override. */
+  projectStepMs?: number;
   initialInput?: number[];
   inputScale?: number[];
   inputOffset?: number[];

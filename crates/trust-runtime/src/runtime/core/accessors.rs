@@ -236,6 +236,11 @@ impl Runtime {
     }
 
     /// Register an I/O driver invoked at cycle boundaries.
+    /// True when native I/O and active protocol clients are simulation-only.
+    pub fn simulation_only_io(&self)->bool {
+        self.io.all_drivers_simulated() && self.ads_connection_count()==0 && self.opcua_client_connection_count()==0
+    }
+
     pub fn add_io_driver(&mut self, name: impl Into<SmolStr>, driver: Box<dyn IoDriver>) {
         self.io.add_driver(name, driver);
     }

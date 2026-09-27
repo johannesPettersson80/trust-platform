@@ -7,8 +7,8 @@ const root = path.resolve(__dirname, "..");
 
 esbuild.build({
   entryPoints: {
-    controlStudioChart: path.join(root, "src", "controlStudio", "webview", "chart.ts"),
-    controlStudioWorkflow: path.join(root, "src", "controlStudio", "webview", "workflow.ts"),
+    controlStudioChart: path.join(root, "src", "controlStudio", "webview", "threePageChart.ts"),
+    controlStudioWorkflow: path.join(root, "src", "controlStudio", "webview", "threePageWorkflow.ts"),
   },
   bundle: true,
   outdir: path.join(root, "media"),

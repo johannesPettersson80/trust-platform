@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-labelledby="title desc">
+  <title id="title">Proportional gain behaves as position stiffness</title>
+  <desc id="desc">Low and high proportional gains create different restoring torques for the same position error.</desc>
+  <rect width="960" height="360" fill="#f7fafc"/>
+  <line x1="90" y1="180" x2="870" y2="180" stroke="#66788a" stroke-width="4"/>
+  <line x1="480" y1="75" x2="480" y2="285" stroke="#1f4f7a" stroke-width="5"/>
+  <text x="480" y="48" text-anchor="middle" font-family="sans-serif" font-size="23" font-weight="700" fill="#17324d">Requested position</text>
+  <circle cx="300" cy="180" r="34" fill="#e6f2ff" stroke="#2463a6" stroke-width="4"/>
+  <text x="300" y="187" text-anchor="middle" font-family="sans-serif" font-size="21" fill="#17324d">shaft</text>
+  <line x1="340" y1="145" x2="455" y2="145" stroke="#2463a6" stroke-width="5"/>
+  <path d="M455 145 L438 135 L438 155 Z" fill="#2463a6"/>
+  <text x="397" y="126" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#17324d">Kp = 4</text>
+  <circle cx="660" cy="180" r="34" fill="#fff3d6" stroke="#b87900" stroke-width="4"/>
+  <text x="660" y="187" text-anchor="middle" font-family="sans-serif" font-size="21" fill="#5b3d00">shaft</text>
+  <line x1="620" y1="225" x2="505" y2="225" stroke="#b87900" stroke-width="9"/>
+  <path d="M505 225 L526 212 L526 238 Z" fill="#b87900"/>
+  <text x="562" y="263" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#5b3d00">Kp = 16</text>
+  <text x="480" y="325" text-anchor="middle" font-family="sans-serif" font-size="21" fill="#263746">Same position error → four times the gain gives four times the restoring torque</text>
+</svg>

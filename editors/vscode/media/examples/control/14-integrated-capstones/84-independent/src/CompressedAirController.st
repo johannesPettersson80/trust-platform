@@ -52,8 +52,16 @@ END_VAR
 
 ControllerRevision := DINT#84;
 IF NOT Initialized THEN
-    Parameters.ProportionalGain := LREAL#40.0;
-    Parameters.IntegralGain := LREAL#1.0;
+    Parameters.ProportionalGain := Lesson84PiProportionalGain(
+        CharacteristicLinearCoefficient := LREAL#0.04,
+        CompressorTimeConstant := LREAL#5.0,
+        ReceiverRateGain := LREAL#0.005
+    );
+    Parameters.IntegralGain := Lesson84PiIntegralGain(
+        CharacteristicConstantCoefficient := LREAL#0.001,
+        CompressorTimeConstant := LREAL#5.0,
+        ReceiverRateGain := LREAL#0.005
+    );
     Parameters.DerivativeGain := LREAL#0.0;
     Parameters.ProportionalSetpointWeight := LREAL#1.0;
     Parameters.DerivativeSetpointWeight := LREAL#0.0;
@@ -87,7 +95,10 @@ FaultActive := (NOT PressureQualityGood) OR (NOT DeliveryQualityGood)
 FeedforwardQualified := DemandQualityGood
     AND (MeasuredDemand >= LREAL#0.0) AND (MeasuredDemand <= LREAL#100.0);
 IF FeedforwardQualified THEN
-    IntegratedFeedforward := MeasuredDemand - LREAL#50.0;
+    IntegratedFeedforward := Lesson84DemandFeedforward(
+        MeasuredDemand := MeasuredDemand,
+        OperatingDemand := LREAL#50.0
+    );
 ELSE
     (* Demand is an enhancement signal: invalid demand removes feedforward but
        does not remove qualified pressure feedback authority. *)

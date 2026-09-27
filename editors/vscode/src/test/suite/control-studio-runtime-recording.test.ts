@@ -1,0 +1,197 @@
+import * as assert from "assert";
+import { RuntimeRecordingSession } from "../../controlStudio/runtimeRecording";
+import type { ControlLoopDefinition } from "../../controlStudio/loopDefinition";
+
+function fixture(releaseFails: boolean, sensorQuality: number, change?: (result: any) => unknown, symbolicMode = false, unaddressedMode = false) {
+  const signal = (symbol: string, address: string, iecType = "LREAL") => ({ symbol, address, iecType,
+    direction: "read" as const, unit: "%", range: { minimum: 0, maximum: 100 } });
+  const loop: ControlLoopDefinition = {
+    schemaVersion: 2, id: "loop", name: "Custom loop", revision: "sha256:loop", projectId: "project", runtimeId: "simulator",
+    controller: { instance: "P1", type: "Custom", design: "project", revision: "sha256:controller", action: "direct", taskPeriodMs: 10 },
+    signals: { setpoint: signal("P1.SP", "%ML0"), processVariable: signal("P1.PV", "%IL0"),
+      manipulatedVariable: signal("P1.MV", "%QL0"), additional: [
+        { ...signal("P1.Valid", "%MX16.0", "BOOL"), id: "valid", channel: "primary", role: "quality" },
+      ] },
+    limits: { outputMinimum: 0, outputMaximum: 100 }, observedSampleTiming: { nominalPeriodMs: 10 },
+  };
+  if (symbolicMode) { loop.controller.modeSignal = "P1.Valid"; loop.controller.modeWhenTrue = "Auto"; }
+  if (unaddressedMode) { loop.controller.modeSignal = "P1.Manual"; loop.controller.modeWhenTrue = "Manual"; }
+  const bindings: { id: string; address?: string; symbol?: string; iec_type: string }[] = [
+    { id: "setpoint", address: "%ML0", iec_type: "LREAL" },
+    { id: "processVariable", address: "%IL0", iec_type: "LREAL" },
+    { id: "manipulatedVariable", address: "%QL0", iec_type: "LREAL" },
+    { id: "valid", address: "%MX16.0", iec_type: "BOOL" },
+  ];
+  if (unaddressedMode) bindings.push({ id: "controllerMode", symbol: "P1.Manual", iec_type: "BOOL" });
+  let releaseCalls = 0;
+  const send = async (operation: string) => {
+    if (operation === "control.recording.release") {
+      if (releaseFails && releaseCalls++ === 0) throw new Error("release reply lost");
+      return { status: "released" };
+    }
+    const result = { recording_id: "record", loop_revision: loop.revision, program_revision: unaddressedMode ? "program" : undefined, bindings: bindings.map(binding => ({ ...binding })), stop_reason: "stopped",
+      samples: [0, 1].map(index => ({ scan: index + 1, runtime_time_ns: index * 10_000_000,
+        captured_at_ms: 1000, values: [1, 0.5, 2, sensorQuality, ...(unaddressedMode ? [1] : [])],
+        forced: bindings.map(() => false), quality: unaddressedMode ? bindings.map(() => "good") : undefined })),
+      acquisition: { method: "runtime_scan_buffer", completeness: "complete", observedSampleCount: 2,
+        scanRange: { first: 1, last: 2 }, missingScanRanges: [], droppedObservedSamples: 0,
+        actualCycleTimingAvailable: true, freshnessAvailable: false, reason: "Captured every scan." },
+    };
+    return change ? change(result) : result;
+  };
+  const Constructor = RuntimeRecordingSession as unknown as new (...args: unknown[]) => RuntimeRecordingSession;
+  return new Constructor(loop, "record", bindings, "Simulation", send, "", unaddressedMode ? "program" : undefined);
+}
+
+suite("Control Studio runtime recording client", () => {
+  test("retains the original native recording identity after Stop and release", async () => {
+    const session = fixture(false, 1);
+    const result = await session.stop();
+    assert.strictEqual((result.evidence as any).recordingId, "record",
+      "independent identification needs the acquisition identity of the selected native record");
+    assert.strictEqual(((await session.stop()).evidence as any).recordingId, "record");
+  });
+
+  test("resolves a symbolic controller mode through its declared BOOL channel", async () => {
+    const result = await fixture(false, 1, undefined, true).stop();
+    assert.strictEqual(result.rawSamples?.[0].controllerMode, "Auto");
+  });
+
+  test("decodes an unaddressed symbolic BOOL mode and rejects bad-quality mode as unavailable", async () => {
+    const result = await fixture(false, 1, raw => {
+      raw.samples[1].quality[4] = "bad"; return raw;
+    }, false, true).stop();
+    assert.strictEqual(result.evidence?.programRevision, "program");
+    assert.strictEqual(result.rawSamples?.[0].controllerMode, "Manual");
+    assert.strictEqual(result.rawSamples?.[1].controllerMode, "Unavailable",
+      "A numeric mode value with bad quality cannot establish current controller mode");
+    assert.strictEqual(result.rawSamples?.[1].quality, "bad");
+  });
+
+  test("rejects malformed symbolic recording identities, quality vectors and BOOL values", async () => {
+    for (const mutate of [
+      (raw: any) => { raw.program_revision = "other"; },
+      (raw: any) => { raw.bindings[4] = { ...raw.bindings[4], symbol: "Other.Manual" }; },
+      (raw: any) => { raw.samples[0].quality = ["good"]; },
+      (raw: any) => { raw.samples[0].values[4] = 2; },
+    ]) {
+      await assert.rejects(fixture(false, 1, raw => { mutate(raw); return raw; }, false, true).stop(),
+        /recording|samples|BOOL/i);
+    }
+  });
+
+  test("retains auxiliary channel values and their declared meaning", async () => {
+    const result = await fixture(false, 0).stop();
+    assert.deepStrictEqual((result.rawSamples?.[0] as any).additional, [
+      { id: "valid", channel: "primary", role: "quality", unit: "%", value: 0, quality: "bad" },
+    ]);
+  });
+
+  test("rejects contradictory complete-acquisition claims", async () => {
+    await assert.rejects(() => fixture(false, 1, result => ({ ...result,
+      acquisition: { ...result.acquisition, missingScanRanges: [{ first: 1, last: 1 }] },
+    })).stop(), /acquisition/i);
+    await assert.rejects(() => fixture(false, 1, result => ({ ...result,
+      acquisition: { ...result.acquisition, actualCycleTimingAvailable: false },
+    })).stop(), /acquisition/i);
+  });
+
+  test("a lost release reply cannot discard an already received recording", async () => {
+    const session = fixture(true, 1);
+    const result = await session.stop();
+    assert.strictEqual(result.rawSamples?.length, 2);
+    assert.strictEqual((await session.stop()).rawSamples?.length, 2);
+  });
+
+  test("exposes an immutable credential-free owner for extension-lifetime recovery", () => {
+    const session = fixture(false, 1, undefined, false, true);
+    assert.strictEqual(typeof (session as any).recoveryOwner, "function",
+      "A recording must expose a bounded owner before Control Studio can persist and recover its original Stop path.");
+    const owner = (session as any).recoveryOwner();
+    assert.deepStrictEqual(owner, {
+      schemaVersion: 1, recordingId: "record", projectId: "project", runtimeId: "simulator", loopId: "loop", loopRevision: "sha256:loop",
+      source: "Simulation", programRevision: "program", bindings: [
+        { id: "setpoint", address: "%ML0", iec_type: "LREAL" },
+        { id: "processVariable", address: "%IL0", iec_type: "LREAL" },
+        { id: "manipulatedVariable", address: "%QL0", iec_type: "LREAL" },
+        { id: "valid", address: "%MX16.0", iec_type: "BOOL" },
+        { id: "controllerMode", symbol: "P1.Manual", iec_type: "BOOL" },
+      ],
+    });
+    owner.bindings[0].id = "mutated";
+    assert.strictEqual((session as any).recoveryOwner().bindings[0].id, "setpoint",
+      "Persisted recovery metadata must not mutate the live recording session.");
+    assert.ok(!JSON.stringify(owner).match(/endpoint|token|authorization/i));
+  });
+
+  test("persists only a matching bounded recording owner and returns a detached recovery copy", async () => {
+    const session = fixture(false, 1, undefined, false, true);
+    const owner = (session as any).recoveryOwner();
+    const persistence = require("../../controlStudio/panelPersistence");
+    assert.strictEqual(typeof persistence.storeRecordingRecovery, "function",
+      "Control Studio must persist the generated owner before Start can create a runtime buffer.");
+    const state = new Map<string, unknown>();
+    const context = { workspaceState: { get: (key: string) => state.get(key), update: async (key: string, value: unknown) => { state.set(key, value); } } };
+    await persistence.storeRecordingRecovery(context, session.loop, owner);
+    owner.bindings[0].id = "mutated-after-save";
+    const restored = persistence.restoreRecordingRecovery(context, session.loop);
+    assert.deepStrictEqual(restored.bindings[0], { id: "setpoint", address: "%ML0", iec_type: "LREAL" });
+    restored.bindings[0].id = "mutated-after-read";
+    assert.strictEqual(persistence.restoreRecordingRecovery(context, session.loop).bindings[0].id, "setpoint");
+    assert.strictEqual(persistence.restoreRecordingRecovery(context, { ...session.loop, revision: "sha256:other" }), undefined,
+      "A persisted owner cannot cross a loop revision boundary.");
+  });
+
+  test("reconstructs Stop only for the persisted recording owner", async () => {
+    const session = fixture(false, 1, undefined, false, true);
+    const owner = (session as any).recoveryOwner();
+    const calls: any[] = [];
+    const api: any = RuntimeRecordingSession;
+    assert.strictEqual(typeof api.fromRecoveryOwner, "function",
+      "A host-recovery path must rebuild only the persisted recording owner before it can submit Stop.");
+    const recovered = api.fromRecoveryOwner(session.loop, owner, async (operation: string, params: unknown) => {
+      calls.push({ operation, params });
+      return (session as any).send(operation, params);
+    }, "");
+    const result = await recovered.stop();
+    assert.strictEqual(result.rawSamples.length, 2);
+    assert.deepStrictEqual(calls[0], { operation: "control.recording.stop", params: { recording_id: "record", loop_revision: "sha256:loop" } });
+    assert.throws(() => api.fromRecoveryOwner({ ...session.loop, revision: "sha256:changed" }, owner, async () => ({}), ""), /scope|loop/i);
+  });
+
+  test("keeps a lost Start acknowledgement incomplete after host recovery stops the same owner", async () => {
+    const session = fixture(false, 1, undefined, false, true);
+    const owner = { ...(session as any).recoveryOwner(), startAcknowledgementUnconfirmed: true };
+    const calls: any[] = [];
+    const api: any = RuntimeRecordingSession;
+    const recovered = api.fromRecoveryOwner(session.loop, owner, async (operation: string, params: unknown) => {
+      calls.push({ operation, params });
+      return (session as any).send(operation, params);
+    }, "");
+
+    const result = await recovered.stop();
+
+    assert.deepStrictEqual(calls[0], { operation: "control.recording.stop", params: { recording_id: "record", loop_revision: "sha256:loop" } });
+    assert.strictEqual(result.evidence.completeness, "incomplete",
+      "A recovered owner cannot upgrade an unacknowledged Start to complete evidence.");
+    assert.match(result.evidence.reason, /Start acknowledgement unconfirmed/i);
+    assert.match(result.evidence.reason, /Extension Host reload/i);
+    assert.strictEqual(result.rawSamples.length, 2, "The same owner must still retain the runtime's actual samples.");
+  });
+
+  test("keeps an acknowledged recovered owner complete", async () => {
+    const session = fixture(false, 1, undefined, false, true);
+    const api: any = RuntimeRecordingSession;
+    const recovered = api.fromRecoveryOwner(session.loop, (session as any).recoveryOwner(),
+      (operation: string, params: unknown) => (session as any).send(operation, params), "");
+    const result = await recovered.stop();
+    assert.strictEqual(result.evidence.completeness, "complete");
+    assert.doesNotMatch(result.evidence.reason, /Start acknowledgement unconfirmed/i);
+  });
+
+  test("preserves a false sensor-quality signal as bad identification data", async () => {
+    const result = await fixture(false, 0).stop();
+    assert.strictEqual(result.rawSamples?.[0].quality, "bad", "a complete acquisition can still contain bad-quality values");
+    assert.strictEqual(result.evidence.completeness, "complete");
+  });
+});

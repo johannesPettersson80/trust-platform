@@ -1,6 +1,24 @@
 import * as assert from "assert";
 
 suite("Plant scenario event editor", () => {
+  test("converts decimal seconds without rounding sub-millisecond edits", () => {
+    const api = require("../../networkCanvas/plant/scenarioEventEditor");
+    assert.strictEqual(typeof api.scenarioMillisecondsFromSeconds, "function");
+    for (const [raw, expected] of [["0", 0], ["1.001", 1001], ["1.0010", 1001], ["0.029", 29], ["2.5", 2500]]) {
+      assert.strictEqual(api.scenarioMillisecondsFromSeconds(raw), expected, String(raw));
+    }
+    for (const raw of ["", " ", "0.0001", "-1", "Infinity", "NaN", "9007199254740992", "1e-4", "abc"]) {
+      assert.ok(Number.isNaN(api.scenarioMillisecondsFromSeconds(raw)), raw);
+    }
+  });
+  test("keeps scenario time inside the runtime duration boundary", () => {
+    const api = require("../../networkCanvas/plant/scenarioEventEditor");
+    const limit = 9_223_372_036_854;
+    assert.strictEqual(api.scenarioMillisecondsFromSeconds(String(limit / 1000)), limit);
+    assert.ok(Number.isNaN(api.scenarioMillisecondsFromSeconds("9223372036.855")), "one millisecond beyond the runtime duration must be invalid");
+    const row = { enabled: true, atMs: 1001, timeSecondsText: "1.0010", kind: "reset_plant" };
+    assert.deepStrictEqual(api.persistedPlantScenarioEvents([row]), [{ at_ms: 1001, kind: "reset_plant" }]);
+  });
   test("owns conditional fields, validation, equal-time order, and exact serialization", () => {
     let api: any;
     try {

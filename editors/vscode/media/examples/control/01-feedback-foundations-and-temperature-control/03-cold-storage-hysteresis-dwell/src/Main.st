@@ -1,3 +1,32 @@
+FUNCTION ColdStorageHysteresisRequest : BOOL
+VAR_INPUT
+    CurrentRequest : BOOL;
+    ProcessValue : LREAL;
+    Setpoint : LREAL;
+    HysteresisWidth : LREAL;
+END_VAR
+
+ColdStorageHysteresisRequest := CurrentRequest;
+IF ProcessValue >= Setpoint + HysteresisWidth * LREAL#0.5 THEN
+    ColdStorageHysteresisRequest := TRUE;
+ELSIF ProcessValue <= Setpoint - HysteresisWidth * LREAL#0.5 THEN
+    ColdStorageHysteresisRequest := FALSE;
+END_IF;
+END_FUNCTION
+
+FUNCTION ColdStorageDwellComplete : BOOL
+VAR_INPUT
+    CoolingEnabled : BOOL;
+    DwellElapsed : LREAL;
+    MinimumOnTime : LREAL;
+    MinimumOffTime : LREAL;
+END_VAR
+
+ColdStorageDwellComplete :=
+    (CoolingEnabled AND DwellElapsed >= MinimumOnTime - LREAL#1.0e-9)
+    OR ((NOT CoolingEnabled) AND DwellElapsed >= MinimumOffTime - LREAL#1.0e-9);
+END_FUNCTION
+
 PROGRAM Main
 VAR
     AutoMode : BOOL := FALSE;
@@ -17,10 +46,36 @@ VAR
     DwellInhibit : BOOL := FALSE;
     SwitchCount : DINT := DINT#0;
     ExperimentEnabled : BOOL := FALSE;
+    ExperimentScan : ULINT := ULINT#0;
+    DoorCommand : LREAL := 0.0;
+    SurroundingsCommand : LREAL := 4.0;
     SafetyAbort : BOOL := FALSE;
     InputsValid : BOOL := TRUE;
 END_VAR
+(* These are fixed experiment settings, not live tuning selections. Publish
+   them after the addressed process image is read on every update. *)
+Setpoint := LREAL#2.0;
+HysteresisWidth := LREAL#1.0;
+MinimumOnTime := LREAL#8.0;
+MinimumOffTime := LREAL#8.0;
+(* Temperature-range abort remains the learner's check in this lesson. *)
+InputsValid := TRUE;
 AutoMode := ExperimentEnabled AND InputsValid AND NOT SafetyAbort;
+
+(* The same physical door experiment as Lesson1 starts with control authority,
+   never while the learner is still preparing the simulator. *)
+IF AutoMode THEN ExperimentScan := ExperimentScan + ULINT#1;
+ELSE ExperimentScan := ULINT#0;
+END_IF;
+DoorCommand := LREAL#0.0;
+SurroundingsCommand := LREAL#4.0;
+IF AutoMode AND ExperimentScan >= ULINT#601 AND ExperimentScan <= ULINT#900 THEN
+    DoorCommand := LREAL#1.0;
+    SurroundingsCommand := LREAL#6.0;
+END_IF;
+
+
+
 
 (* Qualifying the initial dwell allows the first safe demand immediately;
    later scans retain elapsed time so minimum on/off durations are enforceable. *)
@@ -34,16 +89,20 @@ IF AutoMode THEN
     DwellInhibit := FALSE;
     (* Inside the band, the requested state is retained. This state memory is
        what prevents measurement crossings near one threshold from chattering. *)
-    IF ProcessValue >= Setpoint + HysteresisWidth * LREAL#0.5 THEN
-        RequestedCooling := TRUE;
-    ELSIF ProcessValue <= Setpoint - HysteresisWidth * LREAL#0.5 THEN
-        RequestedCooling := FALSE;
-    END_IF;
+    RequestedCooling := ColdStorageHysteresisRequest(
+        CurrentRequest := RequestedCooling,
+        ProcessValue := ProcessValue,
+        Setpoint := Setpoint,
+        HysteresisWidth := HysteresisWidth
+    );
 
     IF RequestedCooling <> CoolingEnabled THEN
-        IF (CoolingEnabled AND (DwellElapsed >= MinimumOnTime - LREAL#1.0e-9))
-            OR ((NOT CoolingEnabled) AND (DwellElapsed >= MinimumOffTime - LREAL#1.0e-9))
-        THEN
+        IF ColdStorageDwellComplete(
+            CoolingEnabled := CoolingEnabled,
+            DwellElapsed := DwellElapsed,
+            MinimumOnTime := MinimumOnTime,
+            MinimumOffTime := MinimumOffTime
+        ) THEN
             CoolingEnabled := RequestedCooling;
             DwellElapsed := LREAL#0.0;
             SwitchCount := SwitchCount + DINT#1;
@@ -89,6 +148,8 @@ VAR_CONFIG
     P1.CoolingEnabled AT %MX44.2 : BOOL;
     P1.DwellInhibit AT %MX44.3 : BOOL;
     P1.ManipulatedValue AT %QL0 : LREAL;
+    P1.SurroundingsCommand AT %QL8 : LREAL;
+    P1.DoorCommand AT %QL16 : LREAL;
     P1.ProcessValue AT %IL0 : LREAL;
     P1.DoorOpenIndication AT %IL8 : LREAL;
     P1.EffectiveSurroundings AT %IL16 : LREAL;

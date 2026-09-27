@@ -17,6 +17,8 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    #[command(hide = true)]
+    ControlSearchWorker,
     /// Run a runtime instance (PLC mode).
     Run {
         /// Project folder directory.

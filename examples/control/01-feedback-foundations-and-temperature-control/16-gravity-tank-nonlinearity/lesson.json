@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-16",
+  "title": "Gravity outflow",
+  "level": "Foundation",
+  "sequence": 41,
+  "equipment": "Constant-area tank with pump inlet and fixed gravity outlet",
+  "physicalPurpose": "Explain how liquid level changes gravity-driven outlet flow.",
+  "principalTechnique": "Nonlinear gravity-tank balance",
+  "objective": "Derive the square-root outflow law and use it to predict the tank equilibrium.",
+  "prerequisites": [
+    "control-water-heater-energy-balance",
+    "control-lesson-14"
+  ],
+  "nextLesson": "control-lesson-17",
+  "signals": [
+    {
+      "role": "MV",
+      "name": "Inlet flow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 0.02,
+      "resolution": 1e-06,
+      "binding": "%QL0"
+    },
+    {
+      "role": "PV",
+      "name": "Tank level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Gravity outflow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 0.02,
+      "resolution": 1e-06,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Net flow",
+      "unit": "m3/s",
+      "minimum": -0.02,
+      "maximum": 0.02,
+      "resolution": 1e-06,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Initial level rate",
+      "unit": "m/s",
+      "minimum": -0.04,
+      "maximum": 0.04,
+      "resolution": 1e-05,
+      "binding": "%ML16"
+    },
+    {
+      "role": "SP",
+      "name": "Predicted equilibrium level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    }
+  ],
+  "plant": {
+    "modelId": "gravity_tank",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      {
+        "name": "tank_area",
+        "value": 0.5,
+        "unit": "m2"
+      },
+      {
+        "name": "outflow_coefficient",
+        "value": 0.02,
+        "unit": "m2*sqrt(m)/s"
+      }
+    ],
+    "sampleTimeSeconds": 1,
+    "initialState": {
+      "tankLevel": 0.25,
+      "inletFlow": 0.01
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Tank level": 0.25,
+      "Inlet flow": 0.01
+    },
+    "validityRange": [
+      {
+        "signal": "Tank level",
+        "minimum": 0,
+        "maximum": 1,
+        "unit": "m"
+      }
+    ],
+    "simplifications": [
+      "Tank area and liquid properties are constant.",
+      "The fixed outlet coefficient combines opening area, gravity, contraction, and friction.",
+      "Pump and sensor dynamics are omitted."
+    ]
+  },
+  "baseline": {
+    "executableId": "Lesson16.BalancedTank",
+    "settings": {
+      "inletFlow": 0.01,
+      "level": 0.25
+    },
+    "limitation": "A single balanced point does not reveal how outlet flow changes with level."
+  },
+  "change": {
+    "executableId": "Lesson16.InletStep",
+    "settings": {
+      "inletFlow": 0.011
+    },
+    "decision": "Use the square-root outflow law to predict the changing net flow and final level."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 200.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Inlet flow changes from 0.010 to 0.011 m3/s."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "initial_level_rate",
+      "signal": "Initial level rate",
+      "window": "first update after inlet change",
+      "comparator": "==",
+      "limit": 0.002,
+      "unit": "m/s",
+      "tolerance": 1e-05,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "final_level",
+      "signal": "Tank level",
+      "window": "end of run",
+      "comparator": "==",
+      "limit": 0.3025,
+      "unit": "m",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#72-plant-physics-and-models",
+    "nativeTest": "TEST_PROGRAM::Lesson16GravityBalancePredictsFlowAndEquilibrium",
+    "nativeCommand": "trust-dev test --project examples/control/01-feedback-foundations-and-temperature-control/16-gravity-tank-nonlinearity --filter TEST_PROGRAM::Lesson16GravityBalancePredictsFlowAndEquilibrium",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/16-gravity-tank-nonlinearity",
+    "runArtifactFields": [
+      "inletFlow",
+      "tankLevel",
+      "gravityOutflow",
+      "netFlow",
+      "initialLevelRate",
+      "predictedEquilibriumLevel"
+    ],
+    "renderedJourneyId": "control-lesson-16"
+  },
+  "learning": {
+    "context": "Lesson 15 derived a linear thermal model from conservation.",
+    "reason": "Gravity-driven outlet flow changes nonlinearly with tank level.",
+    "change": "Derive outlet velocity from gravitational energy and insert its square-root flow law into the tank balance.",
+    "transfer": "Lesson 17 builds a local linear approximation around one balanced tank level.",
+    "theory": [
+      "Gravity-driven outlet flow changes nonlinearly with tank level."
+    ],
+    "workedPrediction": "Use the square-root outflow law to predict the changing net flow and final level.",
+    "practicalPreparation": [
+      "Lesson 15 derived a linear thermal model from conservation."
+    ],
+    "baseline": "A single balanced point does not reveal how outlet flow changes with level.",
+    "comparison": "Derive the square-root outflow law and use it to predict the tank equilibrium.",
+    "validation": "Check the declared acceptance metrics against the retained run.",
+    "explanation": "Derive the square-root outflow law and use it to predict the tank equilibrium."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Inlet flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Tank level",
+        "minimum": 0,
+        "maximum": 1,
+        "unit": "m"
+      }
+    ],
+    "abortPredicates": [
+      "Signals must remain finite and inside the declared lesson ranges."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Restore Lesson experiment to 0.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Derive the square-root outflow law and use it to predict the tank equilibrium.",
+    "requiredVisibleEvidence": [
+      "inletFlow",
+      "tankLevel",
+      "gravityOutflow",
+      "netFlow",
+      "initialLevelRate",
+      "predictedEquilibriumLevel"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

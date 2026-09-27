@@ -1,7 +1,7 @@
 {
   "name": "trust-lsp",
   "displayName": "truST",
-  "description": "truST — IEC 61131-3 Structured Text language support",
+  "description": "truST \u2014 IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
   "version": "0.24.65",
   "publisher": "trust-platform",
@@ -38,6 +38,7 @@
     "onCommand:trust-lsp.debug.openIoPanel",
     "onCommand:trust-lsp.networkCanvas.open",
     "onCommand:trust-lsp.controlStudio.open",
+    "onCommand:trust-lsp.controlStudio.configure",
     "onCommand:trust-lsp.libraries.open",
     "onCommand:trust-lsp.hmi.openPreview",
     "onCommand:trust-lsp.hmi.refreshFromDescriptor",
@@ -2270,6 +2271,12 @@
         "icon": "$(circuit-board)"
       },
       {
+        "command": "trust-lsp.controlStudio.configure",
+        "title": "Configure control loop",
+        "category": "truST",
+        "icon": "$(settings-gear)"
+      },
+      {
         "command": "trust-lsp.controlStudio.open",
         "title": "Open Control Studio",
         "category": "truST",
@@ -2380,6 +2387,11 @@
         "command": "trust-lsp.visual.syncCompanionSt",
         "title": "Sync Structured Text from Visual Editor",
         "category": "truST"
+      },
+      {
+        "command": "trust-lsp.controlStudio.exportRecording",
+        "title": "Save recording\u2026",
+        "category": "Control Studio"
       }
     ],
     "menus": {
@@ -2438,6 +2450,13 @@
           "command": "trust-lsp.moveNamespace.ui",
           "when": "editorLangId == structured-text && trust-lsp.namespaceContext",
           "group": "refactor"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "trust-lsp.controlStudio.exportRecording",
+          "when": "webviewId == trust-control-studio && webviewSection == control-studio-response",
+          "group": "1_recording"
         }
       ]
     },
@@ -2596,8 +2615,10 @@
     "blockly": "^11.1.1",
     "clsx": "^2.1.1",
     "echarts": "6.1.0",
+    "katex": "0.18.7",
     "konva": "^9.3.22",
     "lucide-react": "^0.575.0",
+    "markdown-it": "15.0.2",
     "ml-matrix": "6.15.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -2616,7 +2637,8 @@
     "esbuild": "^0.28.1",
     "eslint": "^10.0.0",
     "mocha": "^11.7.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "ws": "8.21.1"
   },
   "overrides": {
     "diff": "8.0.3",

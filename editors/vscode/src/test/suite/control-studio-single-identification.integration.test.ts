@@ -1,0 +1,87 @@
+import { validateFrozenModel, decodeIndependentModelValidation } from "../../controlStudio/independentModelValidation";
+import * as assert from "assert";
+import * as fs from "fs";
+import * as path from "path";
+import { withStudio } from "./control-studio-three-page.integration.test";
+import { pollValue, requiredEnvironment } from "./plant-rendered-harness";
+
+suite("Control Studio single identification experiment", () => {
+  test("one Identify produces a provisional model and preserves its measured experiment", async function () {
+    if (process.env.TRUST_IDENTIFY_SINGLE !== "1") this.skip();
+    this.timeout(95000);
+    await withStudio(async (inner, reopen, capture) => {
+      await inner("d.defaultView.__single=[];d.defaultView.addEventListener('trust-control-studio-engineer',e=>d.defaultView.__single.push(e.detail));const m=d.querySelector('[data-engineer-acquisition-method]');m.value='mv_step';m.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'step';");
+      await new Promise(resolve=>setTimeout(resolve,250));
+      await inner("d.querySelector('[data-engineer-find]').click();return 'identify';");
+      await new Promise(resolve=>setTimeout(resolve,68000));
+      const events = JSON.parse(await inner("return JSON.stringify(d.defaultView.__single);"));
+      fs.writeFileSync(path.join(path.dirname(requiredEnvironment("TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT")),"single-identify.json"),JSON.stringify(events));
+      const result = events.find((event: any)=>event.status==='model-ready');
+      assert.ok(result, "Identify must finish after one configured-duration experiment, without starting another acquisition");
+      assert.strictEqual(result.identification.runs.length,1);
+      assert.strictEqual(result.model.validation,"unvalidated","One record is provisional, never independently validated");
+      assert.match(await inner("return d.querySelector('[data-studio-model-type]').textContent;"),/provisional/i);
+      assert.strictEqual(await inner("return d.querySelector('[data-studio-three-page]').dataset.selectedStage;"),"model");
+      assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-apply]').disabled);"),"true");
+      await capture("single-identify");
+      await reopen();
+      await pollValue("restored model",()=>inner("return d.querySelector('[data-studio-model-type]').textContent;"),value=>/provisional/i.test(value),10000);
+      assert.ok(Number(await inner("return d.querySelector('[data-control-studio-chart]').dataset.pointCount;"))>100);
+    },{loop:loop=>{loop.experiment.durationSeconds=60;}});
+  });
+  test("Validate collects independent model evidence and checks the tuned controller after an explicit click", async function () {
+    if (process.env.TRUST_IDENTIFY_SINGLE_VALIDATE !== "1") this.skip();
+    this.timeout(170000);
+    await withStudio(async (inner, reopen, capture) => {
+      await inner("d.defaultView.__single=[];d.defaultView.addEventListener('trust-control-studio-engineer',e=>d.defaultView.__single.push(e.detail));d.querySelector('[data-engineer-find]').click();return 'identify';");
+      const events = JSON.parse(await pollValue("one model",()=>inner("return JSON.stringify(d.defaultView.__single);"),value=>JSON.parse(value).some((e:any)=>['model-ready','failed'].includes(e.status)),50000));
+      const found=events.find((e:any)=>e.status==='model-ready');
+      assert.ok(found,JSON.stringify(events.map((e:any)=>({status:e.status,reason:e.reason}))));
+      assert.strictEqual(found.identification.runs.length,1);
+      await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();d.querySelector('[data-studio-requirements]').click();return 'requirements';");
+      await inner("const values={referenceChange:3,maximumError:1,settlingBand:0.2,settlingTimeSeconds:30,durationSeconds:60};for(const [key,value] of Object.entries(values)){const input=d.querySelector('[data-studio-requirement='+key+']');input.value=String(value);input.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));}d.querySelector('[data-trust-compact-editor] button[type=submit]').click();return 'set';");
+      await new Promise(resolve=>setTimeout(resolve,300));
+      await inner("d.querySelector('[data-engineer-tune]').click();return 'tune';");
+      await pollValue("tuning stops",()=>inner("return d.querySelector('[data-studio-three-page]').dataset.busy;"),value=>value==='false',25000);
+      const tuned=JSON.parse(await inner("return JSON.stringify(d.defaultView.__single);"));
+      assert.ok(tuned.some((e:any)=>e.status==='candidate'),JSON.stringify(tuned.map((e:any)=>({status:e.status,reason:e.reason}))));
+      assert.strictEqual(await inner("return d.querySelector('[data-studio-three-page]').dataset.selectedStage;"),'tune');
+      assert.ok(!tuned.some((e:any)=>e.modelValidation||e.liveModelValidation||e.status==='verified'));
+      await capture('provisional-tune');
+      await inner("d.querySelector('[data-engineer-stage-tab=verify]').click();d.querySelector('[data-engineer-verify]').click();return 'validate';");
+      await new Promise(resolve=>setTimeout(resolve,5000));
+      const running=JSON.parse(await inner("return JSON.stringify(d.defaultView.__single);"));
+      assert.ok(running.some((e:any)=>e.liveModelValidation===true),'Validate must acquire independent plant evidence for the provisional model');
+      await capture('model-validation-live');
+      const completed=JSON.parse(await pollValue("validation result",()=>inner("return JSON.stringify(d.defaultView.__single);"),value=>JSON.parse(value).some((e:any)=>['verified','verification-failed','failed'].includes(e.status)),90000));
+      fs.writeFileSync(path.join(path.dirname(requiredEnvironment("TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT")),"single-validate.json"),JSON.stringify(completed));
+      const result=[...completed].reverse().find((e:any)=>['verified','verification-failed'].includes(e.status));
+      assert.ok(result,JSON.stringify(completed.map((e:any)=>({status:e.status,reason:e.reason}))));
+      assert.strictEqual(result.modelValidation.status,'Pass');
+      assert.strictEqual(result.status,'verified',result.reason);
+      assert.strictEqual(result.campaignStatus,'Pass');
+      assert.notStrictEqual(result.modelValidation.record.run.id,found.identification.runs[0].run.id);
+      assert.strictEqual(result.modelValidation.modelRevision,found.model.revision,'Validation does not refit coefficients');
+      const wrong = structuredClone(found.model);
+      if (wrong.kind === 'transfer-function') wrong.numerator = wrong.numerator.map((value:number)=>value*0.1);
+      else wrong.b = wrong.b.map((row:number[])=>row.map(value=>value*0.1));
+      const frozen = JSON.stringify(wrong);
+      const rejected = validateFrozenModel(wrong,found.identification.runs[0],result.modelValidation.record,result.modelValidation.channels,result.modelValidation.maximumNormalizedError);
+      assert.strictEqual(rejected.status,'Fail','Independent measurements reject the wrong frozen model');
+      assert.strictEqual(JSON.stringify(wrong),frozen,'The validator never refits a failing model');
+      assert.strictEqual(decodeIndependentModelValidation({...rejected,status:'Pass'},wrong,found.identification.runs),undefined,'Forged Pass evidence is rejected');
+      assert.ok(result.candidate?.run.samples.length>30,'Actual-ST controller checks also ran');
+      assert.match(await inner("return d.querySelector('[data-studio-validation-result]').textContent;"),/Model agreement/);
+      assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-apply]').disabled);"),'false','Apply requires the completed model and controller checks');
+      assert.strictEqual(await inner("return d.querySelector('[data-studio-three-page]').dataset.selectedStage;"),'verify');
+      await capture('model-controller-validated');
+      await reopen();
+      await inner("d.querySelector('[data-engineer-stage-tab=model]').click();return 'model';");
+      assert.doesNotMatch(await inner("return d.querySelector('[data-studio-model-type]').textContent;"),/provisional/i);
+      await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();d.querySelector('[data-studio-requirements]').click();const input=d.querySelector('[data-studio-requirement=maximumError]');input.value='0.5';input.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));d.querySelector('[data-trust-compact-editor] button[type=submit]').click();return 'changed';");
+      await new Promise(resolve=>setTimeout(resolve,300));
+      assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-apply]').disabled);"),'true','A changed requirement invalidates the previous application eligibility');
+    },{loop:loop=>{loop.experiment.durationSeconds=30;}});
+  });
+
+});

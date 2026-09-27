@@ -9,7 +9,13 @@ title truST Simulation Plant System: Scan And Ownership Boundaries
 package "VS Code extension" {
   component "Plant contract +\nmodel descriptors" as plant_contract
   component "Devices & Connections\ngraph shell" as device_graph
-  component "Add workflow +\ndrawer router" as plant_drawer
+  component "Add/configure workflow\nmain-area plant setup" as plant_drawer
+  component "Model response / Connections /\nStarting conditions / Optional effects" as plant_sections
+  component "PlantModelSchematic\nqualitative themed SVG" as plant_schematic
+  component "Optional teaching example\nphysical wording / exact parameter mapping" as plant_example
+  component "Indexed port bindings\nmodel cardinality / ownership validation" as plant_ports
+  component "Labelled starting-state fields\ncanonical index / finite raw-input guard" as plant_starting
+  component "PlantOptionalSettings\none selected task / configured summaries" as plant_optional
   component "Project plant repository\natomic save/remove + revision" as plant_repo
   component "Runtime plant client\nstatus + trace" as plant_client
   component "Stopped-project session\nJSON-lines correlation" as offline_client
@@ -17,6 +23,13 @@ package "VS Code extension" {
 }
 
 component "Live control transport" as live_transport
+plant_sections --> plant_ports : named command / feedback rows
+plant_sections --> plant_schematic : selected model identity + purpose
+plant_ports --> plant_contract : same canonical draft\npreserve channel order and conversions
+plant_sections --> plant_starting : model-specific starting conditions
+plant_starting --> plant_contract : same initial-state vector\nno unit or dynamics conversion
+plant_sections --> plant_optional : actuator / conversions / realism / scenarios
+plant_optional --> plant_contract : read canonical draft summaries\nno secondary settings state
 component "trust-runtime plant serve\nstopped-project producer" as offline_transport
 component "Shared plant handler\nPlantHandlerContext" as plant_operations
 component "PlantControlService\nrevision + idempotency" as plant_service
@@ -25,6 +38,13 @@ component "Scheduler command boundary\nstatus / trace / scoped clear" as schedul
 component "PLC program\nControl.PID" as plc
 component "Process image\n%Q command / %I feedback" as io
 component "SimulationController\npre/post-cycle orchestration" as simulation
+note right of simulation
+Model-structure teaching project: the existing continuous state-space
+model owns water and probe deviations, input delay and initial history.
+Binding offsets preserve the 35 C / 75% operating point; model-coordinate
+actuator limits map to physical 0..100% heating. ST reads both native
+temperatures through ordinary PLC inputs and does not emulate the probe.
+end note
 component "Launch safety gate\nreject physical I/O drivers" as safety
 component "Status + bounded trace" as observability
 
@@ -33,6 +53,7 @@ package "PlantSystem" {
   component "Typed numeric I/O\nchecked conversion + atomic batch" as numeric
   component "Scheduled events" as events
   component "Command and actuator effects" as actuator
+  component "Shared bounded input history\nscalar / continuous state-space channel delays\nchecked aggregate capacity before allocation" as input_history
   component "Nominal model" as model
   component "Parameter, state, output,\nand measurement uncertainty" as uncertainty
   component "Model-validity bounds\ninput + state + output" as validity
@@ -41,7 +62,10 @@ package "PlantSystem" {
 
 safety --> simulation : permits nonphysical drivers only
 plant_contract --> device_graph : typed topology state
-plant_contract --> plant_drawer : descriptors + validation
+plant_contract --> plant_drawer : descriptors + validation\nresolve omitted starting state; preserve omission on save
+plant_drawer --> plant_sections : one draft and validation state
+plant_sections --> plant_example : explicit example choice and replacement review
+plant_example --> plant_contract : same canonical draft; no browser physics
 plant_drawer --> plant_repo : validate / atomic save or remove
 device_graph --> plant_client : current status request
 plant_client --> live_transport : bounded typed request
@@ -59,8 +83,16 @@ io --> simulation : post-cycle held command
 simulation --> plant : elapsed simulation time
 events --> plant : due actions before substep
 plant --> actuator : command uncertainty first
-actuator --> model : applied process input
+actuator --> model : undelayed process input
+actuator --> input_history : configured transport delay
+input_history --> model : held channel inputs\nsplit existing RK4 steps at delayed boundaries
 actuator --> validity : check applied input
+actuator --> numeric : optional applied-input feedback\ninverse binding scale; previous completed substep
+note right of numeric
+Applied feedback shares byte-range ownership checks with
+plant, coupling and physics inputs. Reset and fault paths
+retain one atomic next-scan publication boundary.
+end note
 uncertainty --> model : effective parameters
 model --> uncertainty : state and ideal output
 uncertainty --> validity : check completed state + ideal output
@@ -68,6 +100,7 @@ validity --> checkpoint : fail outside local model region
 uncertainty --> plant : completed measurement
 plant --> checkpoint : save before substep
 checkpoint --> plant : restore on fault
+checkpoint --> input_history : same substep rollback boundary
 plant --> numeric : queue complete feedback
 numeric --> simulation : checked encoded batch
 simulation --> io : next pre-cycle atomic publication

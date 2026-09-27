@@ -1,58 +1,168 @@
 {
   "schemaVersion": 4,
   "id": "control-water-heater-energy-balance",
-  "title": "Water-heater energy balance",
+  "title": "Energy balance",
   "level": "Modelling",
-  "sequence": 15,
-  "equipment": "Well-mixed recirculating vessel, electric heater, outlet-temperature sensor, and power stage",
-  "physicalPurpose": "Predict outlet temperature from stored thermal energy, heater input, and ambient or fixed-flow heat loss before fitting a model from data.",
-  "principalTechnique": "First-principles energy balance and local FOPDT parameter derivation",
-  "objective": "Derive a local dynamic model of a recirculating water heater from stated equipment properties, predict one bounded temperature response, and decide whether the configured simulator is consistent with that model without presenting the result as identified or physical-plant evidence.",
-  "prerequisites": ["control-sampling-interval"],
-  "nextLesson": "control-heater-step-identification",
+  "sequence": 13,
+  "equipment": "Water heater",
+  "physicalPurpose": "Derive temperature dynamics from heat capacity, delivered power, heat loss and delay. Explain units, assumptions and operating-point deviations.",
+  "principalTechnique": "Energy balance",
+  "objective": "Derive temperature dynamics from heat capacity, delivered power, heat loss and delay. Explain units, assumptions and operating-point deviations.",
+  "prerequisites": [
+    "control-lesson-13"
+  ],
+  "nextLesson": "control-lesson-21",
   "signals": [
-    { "role": "PV", "name": "Outlet-water temperature", "unit": "degC", "minimum": 0, "maximum": 80, "resolution": 0.01, "binding": "%IL0" },
-    { "role": "MV", "name": "Requested heater power command", "unit": "%", "minimum": -1000, "maximum": 1000, "resolution": 0.01, "binding": "%ML32" },
-    { "role": "MV", "name": "Applied heater power command", "unit": "%", "minimum": 0, "maximum": 100, "resolution": 0.01, "binding": "%QL0" },
-    { "role": "state", "name": "Derived static gain", "unit": "degC/%", "minimum": 0, "maximum": 10, "resolution": 0.001, "binding": "%ML0" },
-    { "role": "state", "name": "Derived time constant", "unit": "s", "minimum": 0, "maximum": 1000, "resolution": 0.01, "binding": "%ML8" },
-    { "role": "SP", "name": "Predicted equilibrium temperature", "unit": "degC", "minimum": 0, "maximum": 80, "resolution": 0.01, "binding": "%ML16" },
-    { "role": "state", "name": "Model validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX40.0" },
-    { "role": "state", "name": "Input validity", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX40.1" },
-    { "role": "state", "name": "Experiment authority", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX40.2" },
-    { "role": "state", "name": "Manual mode active", "unit": "1", "minimum": 0, "maximum": 1, "resolution": 1, "binding": "%MX40.3" }
+    {
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
+      "minimum": 32,
+      "maximum": 39,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX40.2"
+    },
+    {
+      "role": "state",
+      "name": "Safety abort",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX40.1"
+    },
+    {
+      "role": "state",
+      "name": "Model temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%MD0"
+    },
+    {
+      "role": "state",
+      "name": "Delivered heater power",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%MD4"
+    },
+    {
+      "role": "state",
+      "name": "Heat loss power",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 800,
+      "resolution": 0.001,
+      "binding": "%MD8"
+    },
+    {
+      "role": "state",
+      "name": "Model temperature rate",
+      "unit": "degC/s",
+      "minimum": -20,
+      "maximum": 20,
+      "resolution": 0.001,
+      "binding": "%MD12"
+    },
+    {
+      "role": "state",
+      "name": "Delayed command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%MD16"
+    }
   ],
   "plant": {
-    "modelId": "first_order_dead_time_from_energy_balance",
+    "modelId": "heater-lesson-13",
     "executable": "simulation.toml#plants[0]",
     "parameters": [
-      { "name": "thermal_capacitance", "value": 50, "unit": "kJ/degC" },
-      { "name": "effective_heat_loss", "value": 10, "unit": "kW/degC" },
-      { "name": "full_scale_heater_power", "value": 200, "unit": "kW" },
-      { "name": "ambient_temperature", "value": 20, "unit": "degC" },
-      { "name": "gain", "value": 0.2, "unit": "degC/%" },
-      { "name": "time_constant", "value": 5, "unit": "s" },
-      { "name": "dead_time", "value": 1, "unit": "s" }
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      }
     ],
     "sampleTimeSeconds": 0.1,
-    "initialState": { "outletTemperature": 20, "heaterPower": 0 },
-    "seed": 20260824,
-    "operatingPoint": { "PV": 20, "MV": 0 },
+    "initialState": {
+      "temperatureC": 35,
+      "delayedInputPct": 75
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Measured temperature": 35,
+      "Applied heating command": 75,
+      "Experiment authority": 0
+    },
     "validityRange": [
-      { "signal": "Outlet-water temperature", "minimum": 20, "maximum": 24, "unit": "degC" },
-      { "signal": "Applied heater power command", "minimum": 0, "maximum": 20, "unit": "%" }
+      {
+        "signal": "Measured temperature",
+        "minimum": 32,
+        "maximum": 39,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
     ],
-    "simplifications": ["One perfectly mixed thermal state and constant material properties.", "Effective linear loss combines ambient and fixed-flow heat removal.", "Constant heater efficiency with a separate 1 s apparent transport delay.", "Stratification, changing flow, boiling, radiation nonlinearity, sensor dynamics, and actuator faults are omitted."]
+    "simplifications": [
+      "Local heater model with initial temperature35 °C, command75% and preceding1s delayed history.",
+      "Nominal coefficients are supplied simulation values, not accepted learner estimates.",
+      "Simulation-only process I/O;100ms samples.",
+      "A separately retained REAL Euler model uses its own1s command history; it never overwrites the measured PV."
+    ]
   },
   "baseline": {
-    "executableId": "ConfiguredFopdtStatement",
-    "settings": { "gain": 0.2, "timeConstantSeconds": 5, "deadTimeSeconds": 1 },
-    "limitation": "Earlier lessons stated observed/configured dynamic parameters without deriving their physical cause or validity region."
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 75,
+      "temperatureC": 35
+    },
+    "limitation": "An unexcited record does not reveal the complete heater dynamics."
   },
   "change": {
-    "executableId": "EnergyBalanceDerivation",
-    "settings": { "thermalCapacitanceKjPerDegC": 50, "effectiveHeatLossKwPerDegC": 10, "fullScaleHeaterPowerKw": 200, "ambientTemperatureDegC": 20 },
-    "decision": "Derive K and tau before running a 0 to 20 percent manual-power step; compare the prediction with, but do not relabel it as, configured simulation truth."
+    "executableId": "P1",
+    "settings": {
+      "appliedCommandPct": 85,
+      "durationSeconds": 30,
+      "modelIntervalSeconds": 0.1
+    },
+    "decision": "Use the qualified Control Studio record to answer the lesson question; do not accept supplied nominal parameters as measured results."
   },
   "experiment": {
     "kind": "observation",
@@ -62,44 +172,112 @@
     "durationSeconds": 30.1,
     "settlingSeconds": 0,
     "disturbances": [],
-    "seed": 20260824,
-    "restorationValue": 0
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
   },
   "acceptance": [
-    { "metric": "derived_static_gain", "signal": "Derived static gain", "window": "complete run", "comparator": "==", "limit": 0.2, "unit": "degC/%", "tolerance": 1e-09, "evidenceClass": "model" },
-    { "metric": "derived_time_constant", "signal": "Derived time constant", "window": "complete run", "comparator": "==", "limit": 5, "unit": "s", "tolerance": 1e-09, "evidenceClass": "model" },
-    { "metric": "predicted_equilibrium", "signal": "Predicted equilibrium temperature", "window": "complete run", "comparator": "==", "limit": 24, "unit": "degC", "tolerance": 1e-09, "evidenceClass": "model" },
-    { "metric": "delay_plus_tau_prediction_error", "signal": "Outlet-water temperature", "window": "at 6 s", "comparator": "<=", "limit": 0.08, "unit": "degC", "tolerance": 0.001, "evidenceClass": "simulation" },
-    { "metric": "final_window_pv_range", "signal": "Outlet-water temperature", "window": "29.0 s through 30.0 s", "comparator": "<=", "limit": 0.004, "unit": "degC", "tolerance": 0, "evidenceClass": "simulation" },
-    { "metric": "final_window_equilibrium_error", "signal": "Outlet-water temperature", "window": "29.0 s through 30.0 s", "comparator": "<=", "limit": 0.02, "unit": "degC", "tolerance": 0.001, "evidenceClass": "simulation" },
-    { "metric": "active_requested_heater_power", "signal": "Requested heater power command", "window": "0.0 s through 30.0 s", "comparator": "==", "limit": 20, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" },
-    { "metric": "active_applied_heater_power", "signal": "Applied heater power command", "window": "0.0 s through 30.0 s", "comparator": "==", "limit": 20, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" },
-    { "metric": "requested_power_safe_restoration", "signal": "Requested heater power command", "window": "retained sample at 30.1 s", "comparator": "==", "limit": 0, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" },
-    { "metric": "applied_power_safe_restoration", "signal": "Applied heater power command", "window": "retained sample at 30.1 s", "comparator": "==", "limit": 0, "unit": "%", "tolerance": 1e-09, "evidenceClass": "simulation" }
+    {
+      "metric": "applied_command",
+      "signal": "Applied heating command",
+      "window": "0-30 s while enabled",
+      "comparator": "==",
+      "limit": 85,
+      "unit": "%",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "temperature_at_6s",
+      "signal": "Measured temperature",
+      "window": "6 s",
+      "comparator": "==",
+      "limit": 36.264,
+      "unit": "degC",
+      "tolerance": 0.04,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "temperature_at_26s",
+      "signal": "Measured temperature",
+      "window": "26 s",
+      "comparator": "==",
+      "limit": 36.986,
+      "unit": "degC",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "temperature_operating_range",
+      "signal": "Measured temperature",
+      "window": "complete recorded experiment",
+      "comparator": "<=",
+      "limit": 39,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
   ],
   "safety": {
     "hardLimits": [
-      { "signal": "Outlet-water temperature", "minimum": 0, "maximum": 80, "unit": "degC" },
-      { "signal": "Applied heater power command", "minimum": 0, "maximum": 100, "unit": "%" }
+      {
+        "signal": "Measured temperature",
+        "minimum": 32,
+        "maximum": 39,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
     ],
-    "abortPredicates": ["the typed runtime rejects a nonfinite process-image value before the Structured Text scan", "a finite model parameter or signal leaves the declared diagnostic envelope", "PV or applied MV leaves its hard limit", "Control Studio does not enable Test authority for an unapproved experiment"],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves32–39 °C or applied command leaves0–100%"
+    ],
     "safeMv": 0,
-    "restorationMode": "Manual with 0 percent heater power",
+    "restorationMode": "On stop or abort command zero heat, then restart water/model/history at35°C/75% before repeating.",
     "physicalApprovalRole": "authorised heater controls engineer",
-    "simulationOnlyRestrictions": ["Agreement with configured truth is simulation evidence, not identification or physical validation.", "A physical heater step requires independently reviewed topology and immediate approval."]
+    "simulationOnlyRestrictions": [
+      "Agreement with configured truth is simulation evidence, not identification or physical validation.",
+      "A physical heater step requires independently reviewed topology and immediate approval."
+    ]
   },
-  "workflowStages": ["Monitor", "Test"],
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Validate"
+  ],
   "proof": {
-    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-15--first-principles-thermal-model-water-heater",
-    "nativeTest": "control_curriculum_heater_energy_balance_predicts_configured_plant_truth",
-    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_modelling_progression control_curriculum_heater_energy_balance_predicts_configured_plant_truth -- --exact --nocapture",
+    "specification": "docs/specs/control-course-content/12-21-models-and-tuning.md",
+    "nativeTest": "energy_balance_predicts_the_hot_step_with_separate_delayed_model_and_measurement",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_intro_engineering energy_balance_predicts_the_hot_step_with_separate_delayed_model_and_measurement -- --exact",
     "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/15-water-heater-energy-balance",
-    "runArtifactFields": ["physicalParameters", "parameterUnits", "derivedGain", "derivedTimeConstant", "deadTime", "predictedEquilibrium", "predictedDelayPlusTauPV", "sixSecondAbsoluteError", "requestedHeaterPower", "appliedHeaterPower", "PV", "inputsValid", "testAuthority", "manualMode", "finalWindowEligibility", "safeRestoration", "assumptions", "validityRange", "seed", "limits", "modelProvenance", "simulationProvenance", "evidenceClass"],
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "sampleTime",
+      "initialState",
+      "experimentConditions",
+      "modelProvenance",
+      "stopReason",
+      "evidenceClass"
+    ],
     "renderedJourneyId": "control-water-heater-energy-balance"
   },
   "video": {
-    "viewerOutcome": "Derive a local thermal model with correct units and test a numerical prediction without confusing configured truth with identified or physical evidence.",
-    "requiredVisibleEvidence": ["energy boundary", "unit-consistent differential equation", "K and tau derivation", "24 degC equilibrium calculation", "22.53 degC prediction at 6 s", "predicted and simulated PV overlay", "validity region", "Simulation and model provenance labels"],
+    "viewerOutcome": "Derive temperature dynamics from heat capacity, delivered power, heat loss and delay. Explain units, assumptions and operating-point deviations.",
+    "requiredVisibleEvidence": [
+      "Heater model and initial state",
+      "Applied command and temperature record",
+      "Model, delayed command, heat, loss, rate, authority and Safety abort signal groups",
+      "Saved revision reopened from Validate",
+      "Required Control Studio analysis",
+      "Declared uncertainty and decision",
+      "Simulation label"
+    ],
     "durationClass": "standard",
     "scriptPath": "video/script.md",
     "captionPath": "video/captions.en.vtt",
@@ -107,16 +285,20 @@
     "publicationState": "not_started"
   },
   "learning": {
-    "context": "The earlier water-heater experiments revealed response curves but did not explain their gain and time constant from equipment physics.",
-    "reason": "A physical balance supports unit checks and predictions beyond one observed curve, while exposing assumptions and unknown parameters that motivate identification.",
-    "theory": ["Conservation gives C dT/dt = Qin - H(T-Tambient), with every term in kW because 1 kW equals 1 kJ/s.", "At equilibrium accumulation is zero, giving Teq=Tambient+Qin/H.", "The local first-order time constant is C/H and command-to-temperature gain is (P100/100)/H; apparent dead time is a separate transport effect.", "A model is only qualified inside its declared operating region and under its mixing, property, flow, efficiency, and loss assumptions."],
-    "workedPrediction": "C=50 kJ/degC, H=10 kW/degC, and P100=200 kW give tau=5 s and K=0.2 degC/%; a 20% step predicts 24 degC equilibrium and about 22.53 degC at dead time plus one tau.",
-    "practicalPreparation": ["Draw the energy boundary and identify sensor, actuator, stored energy, heat flows, operating point, limits, safe state, and evidence provenance.", "Check units and calculate equilibrium, gain, time constant, and the 63.2 percent point before opening Identify or running the simulator."],
-    "baseline": "Retain the earlier unexplained configured FOPDT statement as the limitation, not as a new measured result.",
-    "change": "Derive the model from physical parameters and run one bounded 0 to 20 percent manual-power step without changing configured truth.",
-    "comparison": "Compare exact derived parameters and the independent 6 s and equilibrium predictions with the configured simulation response on one scale.",
-    "validation": "Require unit consistency, finite positive parameters, exact K/tau/equilibrium, bounded MV, and declared prediction tolerances; investigate rather than tune away mismatch.",
-    "explanation": "Agreement is expected because simulation truth is consistent with the balance, but the derivation remains model evidence and does not establish unknown physical parameters.",
-    "transfer": "Repeat the boundary, units, derivation, assumptions, prediction, bounded experiment, and provenance separation for another thermal plant before estimating any unknown quantities."
+    "context": "Derive temperature dynamics from heat capacity, delivered power, heat loss and delay. Explain units, assumptions and operating-point deviations.",
+    "reason": "The water warms because the heater supplies energy, and it stops warming when that input balances energy leaving the vessel. To predict both facts, we need a physical balance rather than a command-to-temperature rule. The model below is a supplied teaching case; its parameters have physical measurement origins, but this lesson does not claim to identify them from a run.",
+    "theory": [
+      "An **energy balance** states that stored energy changes by energy entering\nminus energy leaving. For our water, delivered heating adds energy and heat\nloss removes it. Their difference determines the temperature rate.\n\nAssume a well-mixed vessel, constant effective capacity and loss coefficient over the range, and one temperature state.\n\nThermal capacitance is the energy needed for a one-degree temperature rise. The value $C=50\\ \\mathrm{kJ/°C}$ combines fluid mass times specific heat with the vessel's heat capacity. Specific heat is energy per unit mass per degree, so multiplying it by mass gives energy per degree. The loss coefficient $H=10\\ \\mathrm{kW/°C}$ combines ambient heat transfer and any fixed throughflow loss, whose physical contribution would be mass flow times specific heat. Both quantities are supplied teaching values and would be established on real equipment from dimensions, material data, flow measurements and thermal tests. Take the surroundings and nominal inlet to be at 20 °C; a colder inlet creates the separate additional loss D.\n\nLet $T$ be vessel temperature in °C, $u$ applied heater command in percent, and $D$ positive extra heat removal in kW. The 200 kW heater produces $2\\ \\mathrm{kW}$ per command point. A colder inlet at unchanged flow is represented by positive $D$. For constant C, stored thermal energy relative to 20 °C is E = C(T − 20), so its rate of change is C·dT/dt. One kJ/s is one kW. Equating that rate to heater input minus heat leaving the water gives\n\n$$\nC\\frac{dT}{dt}=2u(t-1)-H(T-20)-D.\n$$\n\nThe one-second argument is the heat-delivery delay: the balance receives $u(t-1)$, not the current request. It is separate from thermal storage; it shifts when input arrives and does not add to $C$.\n\nAt equilibrium, set the derivative to zero. With $C=50$, $H=10$, command 75% and $D=0$, $T_{eq}=20+(150/10)=35$ °C. At 85%, $T_{eq}=37$ °C. At 75% with $D=30$ kW, $T_{eq}=20+(150-30)/10=32$ °C. The nominal steady gain is $K=2/H=.2$ °C per percentage point.\n\nNow use deviations about the hot operating point: $x=T-35$ °C and $v=u-75$ percentage points. Dividing the balance by $H$ gives\n\n$$\n5\\frac{dx}{dt}+x=.2v(t-1)-\\frac{D}{10},\n$$\n\nwhere $\\tau=C/H=5$ s and $K=2/H=.2\\ \\mathrm{°C/point}$. For a held $v=10$ and $D=0$, the final deviation is $x_f=Kv=2$ °C. The remaining gap $z=x_f-x$ obeys $dz/dt=-z/\\tau$. The function $z(t)=z(1)e^{-(t-1)/5}$ satisfies this equation by differentiation, so for $t\\ge1$\n\n$$\nT(t)=35+2\\left(1-e^{-(t-1)/5}\\right),\n$$\n\nwhile $T=35$ °C before delayed power arrives. At $t=6$ s, one time constant after the delay, $T=35+2(1-e^{-1})\\approx36.264$ °C: 63.2% of the final change has occurred. At $t=26$ s, five time constants after the delay, about 99.3% has occurred. A time constant is a response scale, not a claim that the process is settled exactly at 5 s. Increasing $C$ increases $\\tau$ but does not change $K$ when $H$ stays fixed."
+    ],
+    "workedPrediction": "Before running, calculate:\n\n1. equilibrium at 75% with $D=0$;\n2. equilibrium at 85% with $D=0$;\n3. equilibrium at 75% with $D=30$ kW;\n4. the final temperature change for a 10-point command step;\n5. the initial temperature slope after the one-second delay for that step; and\n6. temperatures at 6 s and 26 s for the held 75→85% case.\n\nThe initial post-delay slope is $20\\ \\mathrm{kW}/50\\ \\mathrm{kJ/°C}=.4$ °C/s because the loss is still balanced at the starting temperature. Predict why changing $C$ alters speed but not equilibrium.",
+    "practicalPreparation": [
+      "Inspect the existing guarded energy-balance calculation in src/Main.st. It uses REAL model state and its own delayed command history; measured TemperatureC remains a separate native input."
+    ],
+    "baseline": "Use the declared35 °C and75% initial state; retain the actual baseline record.",
+    "change": "1. Start Simulator and open **Control Studio → Monitor → Signals**. Select measured output, model temperature and applied input, then open **Response**. Confirm both temperatures are 35 °C and applied input is 75%. In **Signals**, check delayed command is 75%, experiment authority is off and Safety abort is off. Record your predictions.\n2. Open **Test** and review the prepared experiment. The 30.1 s recording includes the full 30 s comparison interval. **Confirm and start** establishes time zero and changes applied input from 75% to 85%. The project holds this input while enabled; leave the test running until completion.\n3. After completion, confirm applied input is zero. Open **Validate** to inspect the retained **Recorded Response**. Use **Signals** to select one group at a time, returning to **Response** after each selection: measured output/model temperature/applied input; heater power/loss power; model temperature rate; delayed command/applied input. Use **Samples** to compare values when the model and measured curves nearly overlap.\n4. Select **Save result**, then expand **Saved results**, select the saved revision and choose **Open**. Compare the reopened record with your delay, slope and 6 s/26 s predictions. Saving preserves the measured record; it does not identify the supplied model.\n5. Select **Abort test** if measured temperature leaves 32–39 °C, applied input leaves 0–100%, or measurements become invalid or stop updating. Confirm zero applied input; stop Simulator if it is unresponsive. An out-of-range temperature latches Safety abort even after valid feedback returns. An ordinary operator abort removes heat without setting that fault. Restart Simulator before repeating to restore both temperatures to 35 °C and both 1 s histories to 75%.",
+    "comparison": "Check equilibrium, initial post-delay slope, and the 6 s and 26 s values separately. The expected held-step curve is 35 °C until the delayed input arrives, 36.264 °C at 6 s, and approximately 36.986 °C at 26 s. Do not call 5 s “settled”; it is one time constant after the delay.\n\nUse the model temperature to assess the equation and PV to assess the visible simulated measurement. The supplied $C,H,K,\\tau$ values are teaching quantities, not learner identification results. Real equipment may have changing capacity, imperfect mixing, variable heater efficiency, or unmeasured throughflow. Lesson 14 later designs a bounded identification experiment, and Lesson 15 estimates parameters from its record.",
+    "validation": "Check equilibrium, initial post-delay slope, and the 6 s and 26 s values separately. The expected held-step curve is 35 °C until the delayed input arrives, 36.264 °C at 6 s, and approximately 36.986 °C at 26 s. Do not call 5 s “settled”; it is one time constant after the delay.\n\nUse the model temperature to assess the equation and PV to assess the visible simulated measurement. The supplied $C,H,K,\\tau$ values are teaching quantities, not learner identification results. Real equipment may have changing capacity, imperfect mixing, variable heater efficiency, or unmeasured throughflow. Lesson 14 later designs a bounded identification experiment, and Lesson 15 estimates parameters from its record.",
+    "explanation": "Energy conservation gives $C\\,dT/dt=2u(t-1)-H(T-20)-D$. The teaching case has 35 °C equilibrium at 75%, 37 °C at 85%, 32 °C under a 30 kW extra removal, gain .2 °C/point, time constant 5 s, and a separate one-second delivery delay. The exponential response describes how stored energy approaches its new equilibrium; it does not turn a time constant into an exact settling time.",
+    "transfer": "The balance gives predictions for a known model. To obtain equipment parameters responsibly, the next experiment must choose an informative input, duration, limits and restoration procedure.\n\n[A bounded identification experiment](../../05-experiments-identification-and-validation/21-safe-informative-experiment/README.md) helps you plan that experiment."
   }
 }

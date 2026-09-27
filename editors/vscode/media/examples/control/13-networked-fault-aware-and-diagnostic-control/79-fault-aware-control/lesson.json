@@ -1,0 +1,565 @@
+{
+  "schemaVersion": 4,
+  "id": "control-fault-aware-control",
+  "title": "Fault-aware control",
+  "level": "Modern",
+  "sequence": 81,
+  "equipment": "High-zone pumping station with redundant pressure, suction level, and drive feedback",
+  "principalTechnique": "Fault-aware control",
+  "prerequisites": [
+    "control-networked-control"
+  ],
+  "objective": "Detect, isolate, degrade, and recover from supported device faults.",
+  "nextLesson": "control-capstone-independent",
+  "physicalPurpose": "Maintain justified local pump authority when connected sensors and the drive update at different rates or fail independently.",
+  "signals": [
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX82.5"
+    },
+    {
+      "role": "state",
+      "name": "Safety abort",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX82.6"
+    },
+    {
+      "role": "quality",
+      "name": "Experiment inputs valid",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX82.7"
+    },
+    {
+      "role": "SP",
+      "name": "Header pressure setpoint",
+      "unit": "bar",
+      "minimum": 5,
+      "maximum": 8,
+      "resolution": 0.01,
+      "binding": "%ML40"
+    },
+    {
+      "role": "PV",
+      "name": "Naive pressure transmitter A",
+      "unit": "bar",
+      "minimum": 0,
+      "maximum": 12,
+      "resolution": 0.01,
+      "binding": "%IL0"
+    },
+    {
+      "role": "PV",
+      "name": "Protected pressure transmitter A",
+      "unit": "bar",
+      "minimum": 0,
+      "maximum": 12,
+      "resolution": 0.01,
+      "binding": "%IL8"
+    },
+    {
+      "role": "PV",
+      "name": "Protected pressure transmitter B",
+      "unit": "bar",
+      "minimum": 0,
+      "maximum": 12,
+      "resolution": 0.01,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Selected protected pressure",
+      "unit": "bar",
+      "minimum": 0,
+      "maximum": 12,
+      "resolution": 0.01,
+      "binding": "%ML144"
+    },
+    {
+      "role": "state",
+      "name": "Predicted header pressure",
+      "unit": "bar",
+      "minimum": 0,
+      "maximum": 12,
+      "resolution": 0.01,
+      "binding": "%ML120"
+    },
+    {
+      "role": "state",
+      "name": "Pressure transmitter discrepancy",
+      "unit": "bar",
+      "minimum": 0,
+      "maximum": 12,
+      "resolution": 0.01,
+      "binding": "%ML112"
+    },
+    {
+      "role": "state",
+      "name": "Pressure A model residual",
+      "unit": "bar",
+      "minimum": 0,
+      "maximum": 12,
+      "resolution": 0.01,
+      "binding": "%ML96"
+    },
+    {
+      "role": "state",
+      "name": "Pressure B model residual",
+      "unit": "bar",
+      "minimum": 0,
+      "maximum": 12,
+      "resolution": 0.01,
+      "binding": "%ML104"
+    },
+    {
+      "role": "state",
+      "name": "Conservative suction level",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.1,
+      "binding": "%ML128"
+    },
+    {
+      "role": "state",
+      "name": "Drive speed feedback",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.1,
+      "binding": "%IL24"
+    },
+    {
+      "role": "state",
+      "name": "Actuator tracking residual",
+      "unit": "pp",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.1,
+      "binding": "%ML136"
+    },
+    {
+      "role": "MV",
+      "name": "Naive requested pump speed",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.1,
+      "binding": "%ML152"
+    },
+    {
+      "role": "MV",
+      "name": "Naive applied pump speed",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.1,
+      "binding": "%QL0"
+    },
+    {
+      "role": "MV",
+      "name": "Protected requested pump speed",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.1,
+      "binding": "%ML160"
+    },
+    {
+      "role": "MV",
+      "name": "Protected applied pump speed",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.1,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "Operating mode",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 2,
+      "resolution": 1,
+      "binding": "%MW76"
+    },
+    {
+      "role": "state",
+      "name": "Fault code",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 6,
+      "resolution": 1,
+      "binding": "%MW78"
+    },
+    {
+      "role": "quality",
+      "name": "Pressure A qualified",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "P1.PressureAEligible"
+    },
+    {
+      "role": "quality",
+      "name": "Pressure B qualified",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "P1.PressureBEligible"
+    },
+    {
+      "role": "quality",
+      "name": "Level qualified",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "P1.LevelEligible"
+    },
+    {
+      "role": "quality",
+      "name": "Drive feedback qualified",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "P1.DriveFeedbackEligible"
+    }
+  ],
+  "plant": {
+    "modelId": "multirate_redundant_pumping_station",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "zero_speed_pressure",
+        "value": 4,
+        "unit": "bar"
+      },
+      {
+        "name": "pump_gain",
+        "value": 0.04,
+        "unit": "bar/%"
+      },
+      {
+        "name": "pressure_time_constant",
+        "value": 4,
+        "unit": "s"
+      },
+      {
+        "name": "station_interval",
+        "value": 100,
+        "unit": "ms"
+      },
+      {
+        "name": "pressure_interval",
+        "value": 100,
+        "unit": "ms"
+      },
+      {
+        "name": "level_interval",
+        "value": 500,
+        "unit": "ms"
+      },
+      {
+        "name": "drive_feedback_interval",
+        "value": 200,
+        "unit": "ms"
+      },
+      {
+        "name": "plant_substep",
+        "value": 20,
+        "unit": "ms"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "naivePressure": 6,
+      "protectedPressureA": 6,
+      "protectedPressureB": 6,
+      "suctionLevel": 35,
+      "driveFeedback": 50
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Header pressure setpoint": 6,
+      "Naive pressure transmitter A": 6,
+      "Protected pressure transmitter A": 6,
+      "Protected pressure transmitter B": 6
+    },
+    "validityRange": [
+      {
+        "signal": "Naive pressure transmitter A",
+        "minimum": 0,
+        "maximum": 12,
+        "unit": "bar"
+      },
+      {
+        "signal": "Protected pressure transmitter A",
+        "minimum": 0,
+        "maximum": 12,
+        "unit": "bar"
+      },
+      {
+        "signal": "Protected pressure transmitter B",
+        "minimum": 0,
+        "maximum": 12,
+        "unit": "bar"
+      },
+      {
+        "signal": "Conservative suction level",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Drive speed feedback",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Protected applied pump speed",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "The paired header paths use first-order pressure dynamics rather than full pump curves and hydraulic-network dynamics.",
+      "The pressure predictor uses the declared nominal Euler model and does not establish diagnostic coverage outside its qualified region.",
+      "Sensor and actuator faults are deterministic Simulation events rather than physical failure evidence.",
+      "Cybersecurity, electrical protection, cavitation physics, voting with more than two devices, and every common-cause failure remain outside this lesson."
+    ]
+  },
+  "baseline": {
+    "executableId": "Control.PID.NaivePressureA",
+    "settings": {
+      "pressureSource": "transmitter A only",
+      "proportionalGain": 10,
+      "integralGain": 2,
+      "faultSupervision": false
+    },
+    "limitation": "A timely in-range but biased pressure value silently moves the naive controller because quality and freshness alone cannot establish correctness."
+  },
+  "change": {
+    "executableId": "Control.PID.FaultAwareSelectedPressure",
+    "settings": {
+      "pressureDiscrepancyBar": 0.3,
+      "modelResidualBar": 0.5,
+      "pressureConfirmSamples": 3,
+      "levelFreshnessSeconds": 1,
+      "levelTripPercent": 20,
+      "levelRestorePercent": 30,
+      "actuatorResidualPercentagePoints": 5,
+      "actuatorConfirmUpdates": 3,
+      "healthyRecoveryScans": 10,
+      "restorationRatePercentPerSecond": 10
+    },
+    "decision": "Continue with one isolated healthy pressure transmitter only when the model relation identifies the failed device; otherwise remove automatic authority and require cause removal, acknowledgement, healthy qualification, and approved reset."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 28.1,
+    "settlingSeconds": 1,
+    "disturbances": [
+      "Add +1.0 bar bias to pressure transmitter A while quality remains good.",
+      "Remove both pressure qualities, withhold level updates until stale, and deliver a fresh 19 percent low-level sample in restored cases.",
+      "Stick the protected header actuator and independent drive-feedback path while requesting a pressure increase, then release it before supervised recovery."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "pressure_a_isolation_latency",
+      "signal": "Operating mode",
+      "window": "first biased pressure sample through isolated degraded mode",
+      "comparator": "<=",
+      "limit": 0.3,
+      "unit": "s",
+      "tolerance": 1e-09,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "healthy_false_trip_count",
+      "signal": "Fault code",
+      "window": "0 through 5 seconds",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "wrong_sensor_selection_count",
+      "signal": "Selected protected pressure",
+      "window": "all fault windows",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "safe_output",
+      "signal": "Protected applied pump speed",
+      "window": "ambiguous pressure, stale level, low level, and confirmed actuator fault",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "%",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "restoration_rate",
+      "signal": "Protected applied pump speed",
+      "window": "approved restoration",
+      "comparator": "<=",
+      "limit": 10,
+      "unit": "%/s",
+      "tolerance": 1e-09,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Naive applied pump speed",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Protected applied pump speed",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Naive pressure transmitter A",
+        "minimum": 0,
+        "maximum": 12,
+        "unit": "bar"
+      },
+      {
+        "signal": "Protected pressure transmitter A",
+        "minimum": 0,
+        "maximum": 12,
+        "unit": "bar"
+      },
+      {
+        "signal": "Protected pressure transmitter B",
+        "minimum": 0,
+        "maximum": 12,
+        "unit": "bar"
+      }
+    ],
+    "abortPredicates": [
+      "A required value, timestamp, residual, pressure, level, request, application, or feedback is nonfinite or outside its declared hard range.",
+      "The device intervals, freshness limits, fault schedule, model, controller, substep, seed, limits, or evidence class changes without declaration.",
+      "An isolated or ineligible pressure drives the protected controller, an ambiguous or critical fault retains automatic authority, or a reset clears an unqualified fault.",
+      "Approved restoration exceeds 10 percent per second."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Remove automatic authority for critical faults, record acknowledgement separately, require ten healthy station scans, then accept an explicit reset and rate-limit restored pump speed.",
+    "physicalApprovalRole": "authorised pumping-station controls engineer with instrumentation, electrical, hydraulic, operations, network and safety owners",
+    "simulationOnlyRestrictions": [
+      "No physical pump, drive, reservoir, pressure transmitter, level transmitter, gateway, or network is operated.",
+      "Simulation fault injection does not establish physical diagnostic coverage or proof-test intervals.",
+      "Physical application requires reviewed device independence, common-cause analysis, protection layers, safe-state hydraulics, commissioning and explicit approval."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#710-nonlinear-adaptive-robust-networked-and-fault-aware-control",
+    "nativeTest": "TEST_PROGRAM::Lesson79RedundantPressureIsolationUsesThreeNewSamples",
+    "nativeCommand": "target/debug/trust-dev test --project examples/control/13-networked-fault-aware-and-diagnostic-control/79-fault-aware-control --filter TEST_PROGRAM::Lesson79RedundantPressureIsolationUsesThreeNewSamples --timeout 20",
+    "projectPath": "examples/control/13-networked-fault-aware-and-diagnostic-control/79-fault-aware-control",
+    "runArtifactFields": [
+      "projectIdentity",
+      "plantIdentity",
+      "evidenceClass",
+      "sampleIntervals",
+      "sourceTimestamps",
+      "ages",
+      "qualities",
+      "rawSamples",
+      "heldSamples",
+      "predictor",
+      "residuals",
+      "confirmationCounters",
+      "isolation",
+      "selection",
+      "levelProjection",
+      "actuatorFeedback",
+      "operatingMode",
+      "faultCode",
+      "acknowledgement",
+      "recoveryCount",
+      "requestedSpeed",
+      "appliedSpeed",
+      "pressure",
+      "metrics"
+    ],
+    "renderedJourneyId": "control-fault-aware-control"
+  },
+  "video": {
+    "viewerOutcome": "Distinguish detection, isolation, degradation, safe state, acknowledgement, cause removal, qualification, and reset on a multirate pumping station.",
+    "requiredVisibleEvidence": [
+      "device update timeline",
+      "sample ages and freshness",
+      "two pressure sensors and model predictor",
+      "residual and isolation view",
+      "conservative level projection",
+      "command and drive feedback",
+      "degraded and safe modes",
+      "fault latch and supervised recovery",
+      "Simulation and physical boundary"
+    ],
+    "durationClass": "extended",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Two fast pressure transmitters, one slow level transmitter, and independent drive feedback provide different evidence at different intervals.",
+    "reason": "Timely ordered communication cannot establish that a sensor value is correct or that the actuator followed its command.",
+    "theory": [
+      "Multirate resampling retains timestamps and ages instead of pretending held values are new.",
+      "Physical redundancy reveals disagreement; analytical model redundancy supplies the third relation needed for bounded isolation.",
+      "A slow safety constraint uses both freshness and conservative projection.",
+      "Detection, isolation, degradation, safe state, acknowledgement, qualification, and reset are distinct decisions."
+    ],
+    "workedPrediction": "Predict pressure-A isolation on the third 100 ms biased sample, actuator confirmation on the third 200 ms mismatched feedback, immediate low-level trip, ten healthy recovery scans, and at most 10 percent-per-second restoration.",
+    "practicalPreparation": [
+      "Verify all device intervals, timestamps, freshness and plausibility limits, residual thresholds, counters, fault priority, safe output, recovery authority, plant records, aborts and Simulation label.",
+      "Record the expected mode, isolated component and fault code before each injection."
+    ],
+    "baseline": "Run the naive controller from pressure transmitter A without redundancy or actuator supervision.",
+    "change": "Run the fault-aware controller from the qualified selected pressure with multirate supervision, degradation, safe modes and supervised recovery.",
+    "comparison": "Compare false trips, isolation and confirmation latency, wrong selections, pressure deviation, safe-output timing, service availability and restoration rate.",
+    "validation": "Prove healthy, biased-sensor, single-loss, ambiguous-pressure, stale-level, low-level, stuck-actuator, acknowledgement, premature-reset and approved-recovery behavior against independent oracles.",
+    "explanation": "Trace each device from update interval and source timestamp through age, plausibility, residual, counter, isolation, authority, command, feedback and plant response.",
+    "transfer": "Lesson 80 continues with Cold-storage capstone."
+  }
+}

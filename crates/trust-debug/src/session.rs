@@ -402,3 +402,7 @@ fn display_path(path: &Path) -> String {
 include!("session/breakpoint_manager.rs");
 include!("session/source_and_parse_helpers.rs");
 include!("session/tests.rs");
+
+#[cfg(test)]
+#[path = "session/lesson1_sources_test.rs"]
+mod lesson1_sources_test;

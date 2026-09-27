@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-19",
+  "title": "Poles and zeros",
+  "level": "Foundation",
+  "sequence": 45,
+  "equipment": "Tank, integrator, mass-spring-damper, and two-path process models",
+  "physicalPurpose": "Connect roots of physically derived linear models to their visible time responses.",
+  "principalTechnique": "Pole and zero interpretation",
+  "objective": "Explain settling, integration, oscillation, and inverse response from pole and zero locations.",
+  "prerequisites": [
+    "control-lesson-18"
+  ],
+  "nextLesson": "control-characteristic-equation",
+  "signals": [
+    {
+      "role": "MV",
+      "name": "Common model input",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%QL0"
+    },
+    {
+      "role": "PV",
+      "name": "Stable-pole response",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Integrating response",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 5,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Oscillating response",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 2,
+      "resolution": 0.001,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Inverse response",
+      "unit": "1",
+      "minimum": -1,
+      "maximum": 1,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    }
+  ],
+  "plant": {
+    "modelId": "pole-zero-response-examples",
+    "executable": "simulation.toml and src/Main.st",
+    "parameters": [
+      {
+        "name": "stable_time_constant",
+        "value": 25,
+        "unit": "s"
+      },
+      {
+        "name": "integrator_gain",
+        "value": 0.1,
+        "unit": "1/s"
+      },
+      {
+        "name": "natural_frequency",
+        "value": 1.5,
+        "unit": "rad/s"
+      },
+      {
+        "name": "damping_ratio",
+        "value": 0.2,
+        "unit": "1"
+      },
+      {
+        "name": "slow_positive_path_gain",
+        "value": 2,
+        "unit": "1"
+      },
+      {
+        "name": "slow_positive_path_time_constant",
+        "value": 20,
+        "unit": "s"
+      },
+      {
+        "name": "fast_negative_path_gain",
+        "value": -1,
+        "unit": "1"
+      },
+      {
+        "name": "fast_negative_path_time_constant",
+        "value": 2,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "allResponses": 0
+    },
+    "seed": 20260829,
+    "simplifications": [
+      "Each response is a deliberately minimal linear model used to isolate one pole or zero effect."
+    ],
+    "operatingPoint": {
+      "Common model input": 0,
+      "Stable-pole response": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Common model input",
+        "minimum": 0,
+        "maximum": 1,
+        "unit": "1"
+      },
+      {
+        "signal": "Stable-pole response",
+        "minimum": 0,
+        "maximum": 1,
+        "unit": "1"
+      }
+    ]
+  },
+  "baseline": {
+    "executableId": "Lesson19.Poles",
+    "settings": {
+      "input": 0
+    },
+    "limitation": "Pole and zero locations are not visible until the models are excited."
+  },
+  "change": {
+    "executableId": "Lesson19.Step",
+    "settings": {
+      "input": 1
+    },
+    "decision": "Use the response shapes to explain each derived pole and the two-path zero."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 40.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "The common input changes from 0 to 1."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "inverse_response_early_sign",
+      "signal": "Inverse response",
+      "window": "first 2 s",
+      "comparator": "<",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "inverse_response_late_sign",
+      "signal": "Inverse response",
+      "window": "at 40 s",
+      "comparator": ">",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#72-plant-physics-and-models",
+    "nativeTest": "TEST_PROGRAM::Lesson19PolesAndZeroPredictResponseClass",
+    "nativeCommand": "trust-dev test --project examples/control/02-derivative-action-and-dynamic-response/19-poles-zeros-and-response --filter TEST_PROGRAM::Lesson19PolesAndZeroPredictResponseClass",
+    "projectPath": "examples/control/02-derivative-action-and-dynamic-response/19-poles-zeros-and-response",
+    "runArtifactFields": [
+      "commonInput",
+      "stableResponse",
+      "integratingResponse",
+      "oscillatingResponse",
+      "inversePositivePath",
+      "inverseNegativePath",
+      "inverseResponse"
+    ],
+    "renderedJourneyId": "control-lesson-19"
+  },
+  "learning": {
+    "context": "Lesson 18 derived a transfer function from a physical differential equation.",
+    "reason": "The roots of that representation explain natural motion and response shape.",
+    "change": "Derive pole meaning from natural motion and zero meaning from two physical paths.",
+    "transfer": "Lesson 20 exposes the separate stored quantities hidden by a transfer function.",
+    "theory": [
+      "The roots of that representation explain natural motion and response shape."
+    ],
+    "workedPrediction": "Use the response shapes to explain each derived pole and the two-path zero.",
+    "practicalPreparation": [
+      "Lesson 18 derived a transfer function from a physical differential equation."
+    ],
+    "baseline": "Pole and zero locations are not visible until the models are excited.",
+    "comparison": "Explain settling, integration, oscillation, and inverse response from pole and zero locations.",
+    "validation": "Check the declared acceptance metrics against the retained run.",
+    "explanation": "Explain settling, integration, oscillation, and inverse response from pole and zero locations."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Common model input",
+        "minimum": 0,
+        "maximum": 1,
+        "unit": "1"
+      },
+      {
+        "signal": "Stable-pole response",
+        "minimum": 0,
+        "maximum": 1,
+        "unit": "1"
+      }
+    ],
+    "abortPredicates": [
+      "Signals must remain finite and inside the declared lesson ranges."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Restore Lesson experiment to 0.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Explain settling, integration, oscillation, and inverse response from pole and zero locations.",
+    "requiredVisibleEvidence": [
+      "commonInput",
+      "stableResponse",
+      "integratingResponse",
+      "oscillatingResponse",
+      "inversePositivePath",
+      "inverseNegativePath",
+      "inverseResponse"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

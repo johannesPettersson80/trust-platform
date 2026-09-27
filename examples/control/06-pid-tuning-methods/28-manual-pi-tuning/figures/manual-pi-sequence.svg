@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="285" viewBox="0 0 920 285" role="img" aria-labelledby="title desc">
+  <title id="title">Manual PI tuning sequence</title>
+  <desc id="desc">First set integral to zero, then select proportional gain from response, then add integral slowly to remove steady error.</desc>
+  <rect x="1" y="1" width="918" height="283" rx="16" fill="#f7f9fc" stroke="#d8e0eb"/>
+  <text x="460" y="38" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#243044">Change one cause; observe one effect</text>
+  <rect x="45" y="82" width="230" height="145" rx="12" fill="#dcecff"/>
+  <rect x="345" y="82" width="230" height="145" rx="12" fill="#fff0d8"/>
+  <rect x="645" y="82" width="230" height="145" rx="12" fill="#dff3e8"/>
+  <line x1="275" y1="155" x2="345" y2="155" stroke="#526078" stroke-width="3"/>
+  <line x1="575" y1="155" x2="645" y2="155" stroke="#526078" stroke-width="3"/>
+  <text x="160" y="120" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="bold" fill="#243044">1. Integral = 0</text>
+  <text x="160" y="155" text-anchor="middle" font-family="sans-serif" font-size="17" fill="#243044">start with proportional</text>
+  <text x="160" y="185" text-anchor="middle" font-family="sans-serif" font-size="17" fill="#243044">action alone</text>
+  <text x="460" y="120" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="bold" fill="#243044">2. Select Kp</text>
+  <text x="460" y="155" text-anchor="middle" font-family="sans-serif" font-size="17" fill="#243044">use speed, oscillation,</text>
+  <text x="460" y="185" text-anchor="middle" font-family="sans-serif" font-size="17" fill="#243044">and actuator movement</text>
+  <text x="760" y="120" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="bold" fill="#243044">3. Add Ki</text>
+  <text x="760" y="155" text-anchor="middle" font-family="sans-serif" font-size="17" fill="#243044">remove the measured</text>
+  <text x="760" y="185" text-anchor="middle" font-family="sans-serif" font-size="17" fill="#243044">steady error</text>
+</svg>

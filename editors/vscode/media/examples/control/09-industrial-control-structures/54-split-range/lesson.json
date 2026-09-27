@@ -1,0 +1,449 @@
+{
+  "schemaVersion": 4,
+  "id": "control-split-range",
+  "title": "Split-range control",
+  "level": "Advanced",
+  "sequence": 58,
+  "equipment": "exothermic batch reactor",
+  "physicalPurpose": "Map one signed heat-balance demand into opposing unipolar valves without a control gap or simultaneous utility waste.",
+  "principalTechnique": "Split-range",
+  "objective": "Map one signed demand to opposing heating and cooling actuators.",
+  "prerequisites": [
+    "control-ratio-control"
+  ],
+  "nextLesson": "control-override-control",
+  "signals": [
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX88.5"
+    },
+    {
+      "role": "quality",
+      "name": "Automatic authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX88.4"
+    },
+    {
+      "role": "SP",
+      "name": "Reactor-temperature setpoint",
+      "unit": "degC",
+      "minimum": 72,
+      "maximum": 88,
+      "resolution": 0.01,
+      "binding": "%ML160"
+    },
+    {
+      "role": "state",
+      "name": "Dead-zone signed demand",
+      "unit": "%",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML168"
+    },
+    {
+      "role": "state",
+      "name": "Overlap signed demand",
+      "unit": "%",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML176"
+    },
+    {
+      "role": "state",
+      "name": "Characterized signed demand",
+      "unit": "%",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML184"
+    },
+    {
+      "role": "PV",
+      "name": "Dead-zone reactor temperature",
+      "unit": "degC",
+      "minimum": 72,
+      "maximum": 88,
+      "resolution": 0.01,
+      "binding": "%IL64"
+    },
+    {
+      "role": "state",
+      "name": "Overlap reactor temperature",
+      "unit": "degC",
+      "minimum": 72,
+      "maximum": 88,
+      "resolution": 0.01,
+      "binding": "%IL72"
+    },
+    {
+      "role": "state",
+      "name": "Characterized reactor temperature",
+      "unit": "degC",
+      "minimum": 72,
+      "maximum": 88,
+      "resolution": 0.01,
+      "binding": "%IL80"
+    },
+    {
+      "role": "MV",
+      "name": "Dead-zone heating request",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL80"
+    },
+    {
+      "role": "state",
+      "name": "Dead-zone cooling request",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL88"
+    },
+    {
+      "role": "state",
+      "name": "Overlap heating request",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL96"
+    },
+    {
+      "role": "state",
+      "name": "Overlap cooling request",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL104"
+    },
+    {
+      "role": "state",
+      "name": "Characterized heating request",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL112"
+    },
+    {
+      "role": "state",
+      "name": "Characterized cooling request",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL120"
+    }
+  ],
+  "plant": {
+    "modelId": "three_equivalent_bidirectional_jacketed_reactors",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "thermal_loss_rate",
+        "value": 0.05,
+        "unit": "1/s"
+      },
+      {
+        "name": "temperature_rate_at_one_percent_heating",
+        "value": 0.04,
+        "unit": "degC/s"
+      },
+      {
+        "name": "temperature_rate_at_one_percent_cooling",
+        "value": 0.06,
+        "unit": "degC/s"
+      },
+      {
+        "name": "dead_zone_half_width",
+        "value": 4,
+        "unit": "%"
+      },
+      {
+        "name": "overlap_half_width",
+        "value": 4,
+        "unit": "%"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "reactorTemperatureDegC": 80,
+      "signedDemandPercent": 0,
+      "heatingPercent": 0,
+      "coolingPercent": 0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Reactor-temperature setpoint": 80,
+      "Dead-zone signed demand": 0,
+      "Overlap signed demand": 0,
+      "Characterized signed demand": 0,
+      "Dead-zone reactor temperature": 80,
+      "Overlap reactor temperature": 80,
+      "Characterized reactor temperature": 80,
+      "Dead-zone heating request": 0,
+      "Dead-zone cooling request": 0,
+      "Overlap heating request": 4,
+      "Overlap cooling request": 4,
+      "Characterized heating request": 0,
+      "Characterized cooling request": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Dead-zone reactor temperature",
+        "minimum": 72,
+        "maximum": 88,
+        "unit": "degC"
+      },
+      {
+        "signal": "Overlap reactor temperature",
+        "minimum": 72,
+        "maximum": 88,
+        "unit": "degC"
+      },
+      {
+        "signal": "Characterized reactor temperature",
+        "minimum": 72,
+        "maximum": 88,
+        "unit": "degC"
+      },
+      {
+        "signal": "Characterized heating request",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Characterized cooling request",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "Local linear thermal balance from 72 through 88 degC",
+      "Constant installed valve gains and ideal requested-equals-applied positions",
+      "No valve stiction, pressure variation, transport delay or utility-temperature dynamics",
+      "Three deterministic equivalent plants isolate only split-range mapping",
+      "Simulation-only I/O and evidence"
+    ]
+  },
+  "baseline": {
+    "executableId": "Reactor.DeadZoneAndOverlapMappings",
+    "settings": {
+      "piKp": 2,
+      "piKi": 0.2,
+      "deadZoneHalfWidthPercent": 4,
+      "overlapHalfWidthPercent": 4
+    },
+    "limitation": "A dead zone removes authority near neutral while overlap consumes opposing utilities and drifts when their installed gains differ."
+  },
+  "change": {
+    "executableId": "Reactor.CharacterizedExclusiveMapping",
+    "settings": {
+      "piKp": 2,
+      "piKi": 0.2,
+      "splitPointPercent": 0,
+      "heatingScale": 1,
+      "coolingScale": 0.666666666667
+    },
+    "decision": "Accept the mutually exclusive mapping only when installed-gain scaling balances local authority, zero demand closes both valves, and crossover and authority-loss evidence are bounded."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 200.1,
+    "settlingSeconds": 20,
+    "disturbances": [
+      "Setpoint changes from 80 to 84 degC at 20.0 s",
+      "Setpoint changes from 84 to 76 degC at 80.0 s",
+      "Setpoint returns to 80 degC at 140.0 s",
+      "A separate restored run removes automatic authority"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "characterized_simultaneous_utility_time",
+      "signal": "Characterized heating request",
+      "window": "complete 200-s run while both characterized valves exceed 0.1 percent",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "s",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "characterized_dead_zone_time",
+      "signal": "Characterized signed demand",
+      "window": "complete run with absolute demand at least 0.25 percent and both valves at most 0.1 percent",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "s",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "cooling_installed_gain_scale",
+      "signal": "Characterized cooling request",
+      "window": "all samples with characterized signed demand below -1 percent",
+      "comparator": "==",
+      "limit": 0.666666666667,
+      "unit": "1",
+      "tolerance": 1e-06,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "authority_loss_valves_closed",
+      "signal": "Characterized heating request",
+      "window": "all samples in separate unavailable-authority run",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "%",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Dead-zone reactor temperature",
+        "minimum": 72,
+        "maximum": 88,
+        "unit": "degC"
+      },
+      {
+        "signal": "Overlap reactor temperature",
+        "minimum": 72,
+        "maximum": 88,
+        "unit": "degC"
+      },
+      {
+        "signal": "Characterized reactor temperature",
+        "minimum": 72,
+        "maximum": 88,
+        "unit": "degC"
+      },
+      {
+        "signal": "Characterized heating request",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Characterized cooling request",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Any required signal is nonfinite, stale, forced, or has invalid quality",
+      "Any reactor temperature leaves 72 through 88 degC",
+      "Any valve request leaves 0 through 100 percent",
+      "Both characterized valves exceed 0.1 percent",
+      "Automatic authority, mapping identity, or restoration is lost"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Track signed demand to zero with controller setpoint aligned to measured temperature, close both utilities, and qualify valve feedback before restoring automatic authority.",
+    "physicalApprovalRole": "authorised reactor controls engineer and responsible process operator",
+    "simulationOnlyRestrictions": [
+      "No physical heating or cooling valve is operated",
+      "Ideal valve requests are not physical installed-characteristic evidence",
+      "Physical split range requires reviewed utilities, valve fail positions, interlocks, pressure and temperature limits, tracking and explicit experiment approval"
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#77-industrial-control-structures",
+    "nativeTest": "TEST_PROGRAM::Lesson54MappingsAndAbortAuthorityFollowPhysicalSigns",
+    "nativeCommand": "target/debug/trust-dev test --project examples/control/09-industrial-control-structures/54-split-range --filter TEST_PROGRAM::Lesson54MappingsAndAbortAuthorityFollowPhysicalSigns --timeout 20",
+    "projectPath": "examples/control/09-industrial-control-structures/54-split-range",
+    "runArtifactFields": [
+      "projectIdentity",
+      "plantIdentities",
+      "controllerIdentities",
+      "evidenceClass",
+      "sampleTime",
+      "seed",
+      "setpoint",
+      "temperatures",
+      "signedDemands",
+      "requestedHeating",
+      "requestedCooling",
+      "appliedHeating",
+      "appliedCooling",
+      "installedGains",
+      "mappingParameters",
+      "authority",
+      "limits",
+      "abortState",
+      "restorationState",
+      "metricDefinitions",
+      "metrics",
+      "settlingQualification"
+    ],
+    "renderedJourneyId": "control-split-range"
+  },
+  "video": {
+    "viewerOutcome": "Map one signed temperature demand into characterized heating and cooling valves and explain the measured cost of dead zone and overlap.",
+    "requiredVisibleEvidence": [
+      "three equivalent reactors",
+      "signed demand and split point",
+      "all requested and applied valve pairs",
+      "dead-zone exposure",
+      "simultaneous-utility exposure",
+      "utility throughput",
+      "installed-gain scaling",
+      "neutral crossover",
+      "authority-loss fallback",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Three equivalent batch reactors use opposing hot-water and cooling-water valves with unequal local installed gains around 80 degC.",
+    "reason": "Unlike the simultaneously useful streams in ratio control, opposing utilities require one signed demand to select and sequence only the appropriate final element.",
+    "theory": [
+      "A signed PI output changes valve authority at a declared split point; the mapper, not another PID, selects heating or cooling.",
+      "Dead zone removes neutral authority while overlap consumes both utilities and unequal installed gains create a net disturbance.",
+      "Installed-gain characterization scales cooling by two thirds so equal signed demand has equal local thermal effect."
+    ],
+    "workedPrediction": "At zero demand the overlap mapping opens both valves 4 percent and creates 0.08 degC/s net cooling; the characterized mapping closes both, and -20-percent demand maps to 13.33-percent cooling.",
+    "practicalPreparation": [
+      "Verify Simulation evidence, all plant/controller/final-element identities, signs, units, requested/applied values, gains, mapping widths, sample time, quality, authority and limits.",
+      "Define event error, valve movement, gap and overlap exposure, utility throughput, crossover bump and settling eligibility before viewing results."
+    ],
+    "baseline": "Run exact four-point dead-zone and overlap mappings to retain their lost-authority and simultaneous-utility evidence.",
+    "change": "Use mutually exclusive neutral selection and scale cooling demand by the measured heating-to-cooling installed-gain ratio.",
+    "comparison": "Hold plant, initial state, signed PI tuning, setpoint sequence, timing, limits and seed equal while changing only mapping.",
+    "validation": "Require finite bounded values, no characterized overlap or gap, closed valves at zero and during authority loss, correct two-thirds cooling scale, and bounded neutral crossover.",
+    "explanation": "The final-element mapper changes effective loop dynamics; dead zone delays action, overlap wastes energy, and gain scaling balances local authority.",
+    "transfer": "Lesson 55 continues with Override control."
+  }
+}

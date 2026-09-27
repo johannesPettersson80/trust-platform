@@ -1,0 +1,150 @@
+version = 1
+
+[theme]
+style = "industrial"
+accent = "#c2410c"
+
+[layout]
+navigation = "sidebar-left"
+header = true
+header_title = "P1 HMI"
+
+[write]
+enabled = false
+allow = []
+
+[[alarm]]
+bind = "P1.AbortReason"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Abort Reason"
+
+[[alarm]]
+bind = "P1.AppliedValve"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Applied Valve"
+
+[[alarm]]
+bind = "P1.BaselineFirst"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Baseline First"
+
+[[alarm]]
+bind = "P1.BaselineMaximum"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Baseline Maximum"
+
+[[alarm]]
+bind = "P1.BaselineMinimum"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Baseline Minimum"
+
+[[alarm]]
+bind = "P1.BaselineRange"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Baseline Range"
+
+[[alarm]]
+bind = "P1.BaselineSlope"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Baseline Slope"
+
+[[alarm]]
+bind = "P1.LatchedDuration"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Latched Duration"
+
+[[alarm]]
+bind = "P1.LatchedStep"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Latched Step"
+
+[[alarm]]
+bind = "P1.PhaseElapsed"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Phase Elapsed"
+
+[[alarm]]
+bind = "P1.PlanRejectReason"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Plan Reject Reason"
+
+[[alarm]]
+bind = "P1.PredictedFinalTemperature"
+high = 120
+low = 0
+deadband = 2.4
+inferred = true
+label = "Predicted Final Temperature"
+
+[[alarm]]
+bind = "P1.ProcessValue"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Process Value"
+
+[[alarm]]
+bind = "P1.ProposedDuration"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Proposed Duration"
+
+[[alarm]]
+bind = "P1.ProposedStep"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Proposed Step"
+
+[[alarm]]
+bind = "P1.RequestedValve"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "Requested Valve"
+
+[[alarm]]
+bind = "P1.State"
+high = 100
+low = 0
+deadband = 2
+inferred = true
+label = "State"

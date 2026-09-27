@@ -10,9 +10,22 @@ export const PLANT_SCENARIO_EVENT_KINDS = [
 
 export type PlantScenarioEventKind = typeof PLANT_SCENARIO_EVENT_KINDS[number];
 
+/** Decimal seconds are converted exactly; no rounding can change an event's due time. */
+export function scenarioMillisecondsFromSeconds(raw: string): number {
+  const match = /^(\d{1,16})(?:\.(\d*))?$/.exec(raw.trim());
+  if (!match) return Number.NaN;
+  const fraction = (match[2] ?? "").replace(/0+$/, "");
+  if (fraction.length > 3) return Number.NaN;
+  const milliseconds = BigInt(match[1]) * 1000n + BigInt(fraction.padEnd(3, "0"));
+  // The runtime stores elapsed nanoseconds in i64 (events.rs).
+  return milliseconds <= 9_223_372_036_854n ? Number(milliseconds) : Number.NaN;
+}
+
 export interface PlantScenarioEventDraft {
   enabled: boolean;
   atMs: number;
+  /** Unsaved seconds text, including invalid edits; never serialized to runtime configuration. */
+  timeSecondsText?: string;
   kind: PlantScenarioEventKind;
   channel?: number;
   parameter?: string;
@@ -31,6 +44,8 @@ export interface PlantScenarioEventContext {
   outputCount: number;
   scalarActuator: boolean;
   parameters: readonly string[];
+  stateLabels?: readonly string[];
+  outputLabels?: readonly string[];
 }
 
 export function createPlantScenarioEvent(_sequence: number): PlantScenarioEventDraft {
@@ -42,7 +57,8 @@ export function applyPlantScenarioEventKind(
   kind: PlantScenarioEventKind,
   parameters: readonly string[]
 ): PlantScenarioEventDraft {
-  const common = { enabled: current.enabled, atMs: current.atMs, kind };
+  const common = { enabled: current.enabled, atMs: current.atMs, kind,
+    ...(current.timeSecondsText === undefined ? {} : { timeSecondsText: current.timeSecondsText }) };
   switch (kind) {
     case "set_state":
     case "add_state":
@@ -88,7 +104,9 @@ export function validatePlantScenarioEvents(
       add(row, "kind", "Enable the plant or remove its scenario events.");
     }
     if (!Number.isSafeInteger(event.atMs) || event.atMs < 0) {
-      add(row, "at_ms", "Time must be a nonnegative whole number of milliseconds.");
+      add(row, "at_ms", event.timeSecondsText === undefined
+        ? "Time must be a nonnegative whole number of milliseconds."
+        : "Enter nonnegative decimal seconds with at most 0.001 s precision; the value must fit the supported time range.");
     }
     const finiteValue = () => {
       if (typeof event.value !== "number" || !Number.isFinite(event.value)) {

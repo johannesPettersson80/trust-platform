@@ -1,5 +1,21 @@
 # VS Code Control Studio Implementation Checklist
 
+## Required purpose checkpoint
+
+Release-level gates and the final user walkthrough are tracked in the
+[Control platform release-readiness checklist](control-platform-release-readiness.md).
+
+Read the [Control Platform Purpose and Acceptance Contract](../../../specs/control-platform-purpose.md)
+for every new or resumed task on this checklist. Record a fresh Start/Finish
+entry using its Section 6; existing checkmarks retain only their stated evidence.
+
+- [ ] **Start (current/next task):** identify the platform part, owning spec,
+  existing worktree and implementation, and actual acceptance target.
+- [ ] **Finish (current/next task):** name the controller/project/plant and what
+  actually ran or was reviewed; link evidence and state gaps without substituting
+  a simpler fixture for the intended goal.
+
+
 Status: in progress
 
 Product authority:
@@ -526,3 +542,20 @@ system, or second runtime communication path.
 - [x] CSTUDIO-DONE-005 The direct professional chart workspace in Section 11 is
   implemented, tested, rendered, independently accepted, and agrees with
   Specification 35 without introducing catalogues, modes, or parallel systems.
+
+### Open-loop recording display repair — 12 September 2026
+
+- [x] Use explicit loop topology for consistent applied-input/measured-output labels in plots, Signals, the value strip and accessible descriptions; omit the nonexistent SP and undeclared controller mode.
+- [x] Forward retained native samples through the existing scoped Test/manual-record messages. Recording-only Validate displays that immutable record before Save/Open; Monitor resumes its live sample window. Preserve saved-result identity and qualification limits.
+- [x] Prevent duplicate rounded labels at padded measured-axis endpoints while preserving actuator-limit labels and original samples.
+- [x] Verify the native short open-loop journey, personally and independently inspect all10 current images, and run the affected637-case extension regression. The existing actual-PID recovery journey also passes23.446s.
+- [x] SOLID/KISS/DRY: reuse the shared chart adapter, signal projection and recording owners; update and render the ownership diagram without adding runtime-write paths.
+
+Evidence: [current image review](/home/johannes/projects/.artifacts/control-platform-release-20260911/open-loop-display-final-self-review.md), `open-loop-display-final.log`, `open-loop-final-regression.log` and `open-loop-display-diagrams.log`. The1.1s UI scenario is distinct from the retained full30s Lesson12 numerical experiment. Release-level theme/layout, tutorial and user-acceptance gates remain open.
+
+- [x] Recording-only Validate exposes direct Signals and Recorded Response views over the same immutable native data. Paired process axes name both signals; the legend lists selected traces only, and actual legend clicks ignore absent diagnostic keys. Expected native/SVG assertion reds precede fixes. Lesson13 native Test/Save/Open and all four signal-group plots pass44.866s; the short native navigation/legend interaction check passes15.543s. [Execution and reviewed images](/home/johannes/projects/.artifacts/control-platform-release-20260911/lesson13-self-review.md). SOLID/KISS/DRY: existing chart, selection, recording and result owners; no parallel plant, controller, storage or runtime-write service. Whole-platform and full-editor persistence gates remain open.
+
+- [x] Project-scripted experiment parameters use the existing symbolic review/application owner in Test, with focused settings and review locking. Optional baseline recording uses the native timed trajectory before activation. Per-session lifecycle I/O rejects delayed/foreign observations. Expected focused/rendered/native reds precede fixes; 648 affected checks, native full experiment, short UI and actual Control.PID recovery pass. [Bounded proof and all current image reviews](/home/johannes/projects/.artifacts/control-platform-release-20260911/lesson14-self-review.md). SOLID/KISS/DRY: existing parameter, lifecycle, trajectory, recording and result owners; no second controller or transport. Full persistence and release gates remain open.
+
+- [x] Import an existing native recording through a scoped file boundary, preserve its original versioned acquisition identity and all raw samples, qualify/preview through existing numerical owners, and Save/Open under the active loop without adopting a foreign controller or model. The real303-row Lesson14→15 journey passes12.305s. Recorded Response precedes fitting; Fit selects the preview; one primary action and wide expandable source details pass all8 current personal/independent image reviews. [Evidence and limitations](/home/johannes/projects/.artifacts/control-platform-release-20260911/lesson15-self-review.md).
+- [x] Explicit Monitor navigation resumes active observations while restored saved-view navigation remains historical; duplicate historical connection text is removed. Actual Control.PID recovery still passes24.051s. SOLID/KISS/DRY: reuse one record decoder/snapshot, chart workspace, qualification/fitting owner and host composition boundary; no new runtime writer. Full persistence, invalid-import matrix, lesson uncertainty and prior-Test notice clarity remain open.

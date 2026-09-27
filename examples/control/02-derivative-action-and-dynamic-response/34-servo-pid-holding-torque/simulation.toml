@@ -1,0 +1,25 @@
+[simulation]
+enabled = true
+seed = 20260828
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2500
+plant_step_ms = 20
+
+[[plants]]
+id = "payload-loaded-servo-positioning-table"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0.0, 0.0]
+
+[plants.parameters]
+# J*d2theta = motor torque - constant load torque - B*dtheta, with J=1 and B=1.
+a = [[0.0, 1.0], [0.0, -1.0]]
+b = [[0.0, 0.0], [1.0, -1.0]]
+c = [[1.0, 0.0], [0.0, 1.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]
+
+[plants.actuator]
+minimum = -10.0
+maximum = 10.0

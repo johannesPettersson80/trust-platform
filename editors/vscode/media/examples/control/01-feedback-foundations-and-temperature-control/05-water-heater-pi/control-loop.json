@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 2,
+  "id": "control-lesson-05",
+  "name": "PI control",
+  "projectId": "project:control-lesson-05",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "project",
+    "revision": "sha256:a0db38c515de59d27e772a2ff0e69cf63b66e8c75a114697bb435507f62684d4",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "P1.AutoMode",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.AppliedHeaterPower",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "nominal-output",
+        "channel": "nominal-output",
+        "role": "state",
+        "symbol": "P1.NominalHeaterPower",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 300
+        }
+      },
+      {
+        "id": "thermal-load",
+        "channel": "thermal-load",
+        "role": "disturbance",
+        "symbol": "P1.HeatExtractionKw",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": 0,
+          "maximum": 30
+        }
+      },
+      {
+        "id": "proportional",
+        "channel": "proportional",
+        "role": "state",
+        "symbol": "P1.ProportionalContribution",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 300
+        }
+      },
+      {
+        "id": "integral",
+        "channel": "integral",
+        "role": "state",
+        "symbol": "P1.IntegralContribution",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 300
+        }
+      },
+      {
+        "id": "increment",
+        "channel": "increment",
+        "role": "state",
+        "symbol": "P1.IntegralIncrement",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 300
+        }
+      },
+      {
+        "id": "experiment",
+        "channel": "experiment",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX80.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "pi-water-heater",
+  "operatingPoint": "SP 35 degC, PV 20 degC, MV 0%, zero initial equivalent I",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 120.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX80.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  },
+  "revision": "sha256:9e915b1fad8dc1f8186a45b6f12a35928c1f219f0c05649958518019e7260d9a"
+}

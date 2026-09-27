@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="330" viewBox="0 0 900 330" role="img" aria-labelledby="title desc">
+  <title id="title">Raw and filtered measurement paths</title>
+  <desc id="desc">The raw sensor value changes rapidly. The low-pass filter takes smaller steps toward it, so the resulting valve request moves less.</desc>
+  <rect width="900" height="330" rx="24" fill="#f8fafc"/>
+  <rect x="45" y="55" width="190" height="80" rx="14" fill="#fee2e2"/>
+  <text x="140" y="89" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="700" fill="#172033">Raw sensor</text>
+  <text x="140" y="116" text-anchor="middle" font-family="sans-serif" font-size="17" fill="#172033">rapid variation</text>
+  <rect x="355" y="55" width="190" height="80" rx="14" fill="#fef3c7"/>
+  <text x="450" y="89" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="700" fill="#172033">Low-pass filter</text>
+  <text x="450" y="116" text-anchor="middle" font-family="sans-serif" font-size="17" fill="#172033">moves partway</text>
+  <rect x="665" y="55" width="190" height="80" rx="14" fill="#dcfce7"/>
+  <text x="760" y="89" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="700" fill="#172033">Controller</text>
+  <text x="760" y="116" text-anchor="middle" font-family="sans-serif" font-size="17" fill="#172033">smaller movement</text>
+  <line x1="235" y1="95" x2="345" y2="95" stroke="#475569" stroke-width="3"/>
+  <polygon points="355,95 341,88 341,102" fill="#475569"/>
+  <line x1="545" y1="95" x2="655" y2="95" stroke="#475569" stroke-width="3"/>
+  <polygon points="665,95 651,88 651,102" fill="#475569"/>
+  <polyline points="140,135 140,245 760,245 760,145" fill="none" stroke="#94a3b8" stroke-width="3" stroke-dasharray="8 7"/>
+  <text x="450" y="278" text-anchor="middle" font-family="sans-serif" font-size="17" fill="#475569">raw request retained only for comparison</text>
+</svg>

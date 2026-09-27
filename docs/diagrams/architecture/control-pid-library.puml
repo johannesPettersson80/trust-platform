@@ -26,6 +26,15 @@ package "Native ST Conformance Fixture" {
   component "trust-dev ST test runner" as runner
 }
 
+package "Actual PID applications" {
+  component "Primary commissioning example\ncomplete parameter record + startup state\nManual / Auto + fixed 100 ms simulation" as commissioning
+  component "Heater P / PI lessons\nwindup and response trials\nactivation and input checks" as lessons
+  component "Manual PI tuning lesson\nreview one bounded record leaf\nreapply after explicit trial reset" as manual_tuning
+  component "Heater diagnosis lesson\nmeasured / unbiased reference inputs\npaired request and applied feedback" as diagnosis
+  component "Read-only GetState snapshot\ncopy of seven retained histories\npost anti-windup nominal output" as observation
+  component "Ordinary PLC output / input\nactuator -> process -> sensor" as plant_io
+}
+
 spec --> pid
 spec --> filter
 paper --> spec : baseline source
@@ -39,6 +48,29 @@ scenarios --> pid
 scenarios --> filter
 runner --> equations : compiles and executes
 runner --> scenarios : compiles and executes
+commissioning --> pid : Configure / Initialize / Update
+lessons --> pid : existing controller owns output
+manual_tuning --> records : task-boundary parameter apply / rollback
+manual_tuning --> pid : retain full accepted record and state
+diagnosis --> pid : same Configure / Initialize / Update
+pid --> plant_io : limited output
+plant_io --> commissioning : measured PV
+plant_io --> lessons : measured PV
+plant_io --> manual_tuning : measured PV / applied heater input
+plant_io --> diagnosis : native measured/reference channels + applied input
+pid --> observation : value copy; no update
+observation --> lessons : truthful state diagnostics
+observation --> diagnosis : unlimited request; no parallel controller
+
+note left of plant_io
+The setpoint/load heater trials reuse one
+native state-space plant: delayed heating,
+immediate extraction, one measured PV.
+ST does not sum separate plant responses.
+Diagnosis publishes an unbiased reference from
+the same native state; a channel-0 sensor-bias
+event affects only the measured input.
+end note
 
 note right of pid
 One state owner implements the paper's

@@ -81,13 +81,22 @@ impl DebugControl {
 
     /// Emit an I/O snapshot to listeners, if configured.
     pub fn push_io_snapshot(&self, snapshot: IoSnapshot) {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        state.latest_io_snapshot = Some(snapshot.clone());
-        if let Some(sender) = &state.io_tx {
-            if sender.send(snapshot).is_err() {
-                tracing::debug!("debug I/O snapshot sender closed");
-            }
+        self.publish_io_snapshot(snapshot,None,None);
+    }
+    pub fn push_io_snapshot_at(&self,snapshot:IoSnapshot,time:i64) {
+        self.publish_io_snapshot(snapshot,Some(time),None);
+    }
+    pub fn push_control_snapshot_at(&self,snapshot:IoSnapshot,time:i64,storage:&crate::memory::VariableStorage) {
+        self.publish_io_snapshot(snapshot,Some(time),Some(storage));
+    }
+    fn publish_io_snapshot(&self,snapshot:IoSnapshot,time:Option<i64>,storage:Option<&crate::memory::VariableStorage>) {
+        let mut state=self.state.0.lock().expect("debug state poisoned");
+        let forced=state.forced_vars.clone();
+        if let (Some(time),Some(storage))=(time,storage) {state.signals.capture(&snapshot,time,storage,&forced);}
+        state.recordings.capture_coherent(&snapshot,time,storage,&forced);
+        state.latest_io_snapshot=Some(snapshot.clone());
+        if let Some(sender)=&state.io_tx {
+            if sender.send(snapshot).is_err(){tracing::debug!("debug I/O snapshot sender closed");}
         }
     }
 

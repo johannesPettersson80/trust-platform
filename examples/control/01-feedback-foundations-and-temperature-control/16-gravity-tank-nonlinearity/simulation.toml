@@ -1,0 +1,18 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2000
+plant_step_ms = 1000
+
+[[plants]]
+id = "gravity-drained-tank"
+model = "gravity_tank"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [0.25]
+
+[plants.parameters]
+area_m2 = 0.5
+outflow_coefficient_m2_sqrt_m_per_s = 0.02

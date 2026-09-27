@@ -1,5 +1,0 @@
-run_id,strategy,recovery_time_s,post_restoration_upper_limit_s,recovery_undershoot_degC,total_applied_valve_travel_pp,peak_unavailable_request_pp,finite,physical_limit_valid,upper_limit_exercised,safe_restoration,eligible,selected,validity,abort_state,conclusion,evidence_class
-lesson-10-none-seed-20260824,none,20.0,4.5,-0.000000000000,7.169437650684,26.696751248166,true,true,true,true,false,false,valid,none,windup_reproduced_not_eligible,simulation
-lesson-10-signal_clamping-seed-20260824,signal_clamping,13.1,0.0,-0.000000000000,14.699941789531,0.000000000000,true,true,true,true,true,false,valid,none,eligible_not_selected,simulation
-lesson-10-back_calculation-seed-20260824,back_calculation,2.7,0.0,0.028857181931,14.462547403916,0.000000000000,true,true,true,true,true,true,valid,none,selected_shortest_recovery_eligible_strategy,simulation
-lesson-10-combined-seed-20260824,combined,9.2,0.0,-0.000000000000,14.507017477152,0.000000000000,true,true,true,true,true,false,valid,none,eligible_not_selected,simulation

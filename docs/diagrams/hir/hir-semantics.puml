@@ -44,6 +44,12 @@ package "Database Layer" as dbLayer #LightGreen {
         invalidating affected queries
         through Salsa dependency tracking.
 
+        Unused-POU analysis reuses scoped
+        POU identity. Native TEST_PROGRAM
+        and TEST_FUNCTION_BLOCK declarations
+        are test-runner entry points; unused
+        production POUs and test locals still warn.
+
         Observability/cancellation:
         - `TRUST_HIR_SALSA_EVENT_METRICS=1`
         - `TRUST_HIR_SALSA_EVENT_LOG=1`

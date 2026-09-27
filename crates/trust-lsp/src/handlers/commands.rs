@@ -26,6 +26,9 @@ use crate::handlers::lsp_utils::{offset_to_position, position_to_offset};
 use crate::library_graph::build_library_graph;
 use crate::state::{path_to_uri, uri_to_path, ServerState};
 
+#[path = "commands/control_symbols.rs"]
+mod control_symbols;
+
 pub const MOVE_NAMESPACE_COMMAND: &str = "trust-lsp.moveNamespace";
 pub const PROJECT_INFO_COMMAND: &str = "trust-lsp.projectInfo";
 pub const HMI_INIT_COMMAND: &str = "trust-lsp.hmiInit";
@@ -384,19 +387,31 @@ fn hmi_bindings_value_with_context<C: ServerContext>(
     let io_snapshot = runtime.io().snapshot();
     let mut commands = plant_signal_entries(&io_snapshot.outputs);
     let mut feedbacks = plant_signal_entries(&io_snapshot.inputs);
+    let mut memory = plant_signal_entries(&io_snapshot.memory);
     commands.sort_by(plant_signal_order);
     feedbacks.sort_by(plant_signal_order);
+    memory.sort_by(plant_signal_order);
+    let addressed = commands
+        .iter()
+        .chain(&feedbacks)
+        .chain(&memory)
+        .cloned()
+        .collect::<Vec<_>>();
+    let control_symbols = control_symbols::catalog(&metadata, &snapshot, &addressed)
+        .unwrap_or_else(|error| json!({ "error": error }));
 
     Some(json!({
         "ok": true,
         "command": HMI_BINDINGS_COMMAND,
         "root": project_root.display().to_string(),
         "sourcesRoot": sources_root.display().to_string(),
+        "controlSymbols": control_symbols,
         "programs": bindings.programs,
         "globals": bindings.globals,
         "processImage": {
             "commands": commands,
             "feedbacks": feedbacks,
+            "memory": memory,
         },
     }))
 }
@@ -595,6 +610,15 @@ fn load_hmi_sources(root: &Path) -> Result<(PathBuf, Vec<LoadedSource>), String>
     for path in source_paths {
         let text = std::fs::read_to_string(&path)
             .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+        // Match the debugger's default source-header opt-out. Tests remain
+        // available to language tooling, but are not configured PLC instances.
+        if text
+            .lines()
+            .take(20)
+            .any(|line| line.contains("@trustlsp:runtime-ignore"))
+        {
+            continue;
+        }
         sources.push(LoadedSource { path, text });
     }
 

@@ -1,6 +1,0 @@
-case,accepted,decision_measure,measured_value,unit
-main upstream,true,equilibrium level,20.000000000000,cm
-main downstream,true,equilibrium level,50.000000000000,cm
-empty hidden case,true,downstream peak,0.000000000000,cm
-upstream-charged hidden case,true,downstream peak,10.856548211868,cm
-upstream-charged hidden case,true,peak time,3.100000000000,s

@@ -1,0 +1,6 @@
+title = "Trends"
+kind = "trend"
+icon = "line-chart"
+order = 50
+duration_s = 600
+signals = ["P1.AppliedHeaterPower", "P1.CycleTime", "P1.Error", "P1.ExperimentCycle", "P1.IntegralCorrection", "P1.IntegralGain", "P1.IntegralIncrement", "P1.Setpoint"]

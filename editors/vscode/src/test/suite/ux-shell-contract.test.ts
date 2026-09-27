@@ -684,7 +684,7 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
   });
 
   test("example gallery has scalable search plus hardware and tag filters", () => {
-    const source = readSrc("examples.ts");
+    const source = readSrc("examples/galleryWebview.ts");
     assert.ok(
       source.includes('placeholder="Search examples"') &&
         source.includes("searchWrap.hidden = false"),
@@ -694,11 +694,12 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
       source.includes('"no-hardware"') &&
         source.includes('"hardware"') &&
         source.includes("for (const tag of example.tags"),
-      "the example gallery must generate hardware and category/tag chips instead of a flat unfiltered list"
+      "the example gallery must retain hardware and category values instead of a flat unfiltered list"
     );
     assert.ok(
-      source.includes('dataset.filterKind = "hardware"') &&
-        source.includes('dataset.filterKind = "category"') &&
+      source.includes('for (const kind of ["hardware", "category"])') &&
+        source.includes('document.createElement("select")') &&
+        source.includes("select.dataset.filterKind = kind") &&
         source.includes("hardwareFilter") &&
         source.includes("tagFilter"),
       "hardware and category filters must be separate state so users can combine No hardware with a category"
@@ -713,7 +714,7 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
   });
 
   test("example gallery presents the control curriculum as an ordered learning path", () => {
-    const source = readSrc("examples.ts") + readSrc("examples/topics.ts");
+    const source = ["examples.ts", "examples/galleryWebview.ts", "examples/topics.ts"].map(readSrc).join("\n");
     for (const visibleContract of [
       "Learning paths",
       "Control engineering",
@@ -797,7 +798,7 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
   });
 
   test("example gallery separates hardware requirements from category labels", () => {
-    const source = readSrc("examples.ts");
+    const source = readSrc("examples/galleryWebview.ts");
     assert.ok(
       source.includes(".badge.requires") &&
         source.includes("var(--trust-warn)") &&

@@ -186,6 +186,9 @@ fn run() -> anyhow::Result<()> {
             sources,
             ci,
         }) => build::run_build(project, sources, ci),
+        Some(Command::ControlSearchWorker) => {
+            trust_runtime::control::search::worker_stdio().map_err(anyhow::Error::msg)
+        }
         Some(Command::Test {
             project,
             filter,

@@ -1,0 +1,98 @@
+title = "Overview"
+icon = "sliders"
+order = 0
+
+[[section]]
+title = "Key Metrics"
+span = 12
+tier = "hero"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.MaximumValveRate"
+inferred_interface = true
+label = "Maximum Valve Rate"
+span = 4
+min = 0
+max = 100
+
+[[section]]
+title = "Status"
+span = 12
+tier = "status"
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.SafetyAbort"
+inferred_interface = true
+label = "Safety Abort"
+span = 2
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.AutoMode"
+inferred_interface = true
+label = "Auto Mode"
+span = 2
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.ExperimentEnabled"
+inferred_interface = true
+label = "Experiment Enabled"
+span = 2
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.ExperimentWasEnabled"
+inferred_interface = true
+label = "Experiment WAS Enabled"
+span = 2
+
+[[section.widget]]
+type = "indicator"
+bind = "P1.LastAutoMode"
+inferred_interface = true
+label = "Last Auto Mode"
+span = 2
+
+[[section]]
+title = "Details"
+span = 12
+tier = "detail"
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.Error"
+inferred_interface = true
+label = "Error"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.AppliedValvePosition"
+inferred_interface = true
+label = "Applied Valve Position"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.ControllerOutputState"
+inferred_interface = true
+label = "Controller Output State"
+span = 3
+min = 0
+max = 100
+
+[[section.widget]]
+type = "gauge"
+bind = "P1.CycleTime"
+inferred_interface = true
+label = "Cycle Time"
+span = 3
+min = 0
+max = 100

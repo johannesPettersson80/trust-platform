@@ -24,4 +24,4 @@ timeout_ms = 5000
 action = "halt"
 
 [runtime.fault]
-policy = "halt"
+policy = "safe_halt"

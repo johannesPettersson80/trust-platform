@@ -178,6 +178,15 @@ export type ControlLessonAvailability =
   | { readonly kind: "available"; readonly lesson: ControlLesson }
   | { readonly kind: "unavailable"; readonly reason: string; readonly lesson?: ControlLessonSummary };
 
+export interface ControlLessonDetail {
+  readonly objective: string;
+  readonly description: string;
+  readonly equipment: string;
+  readonly prerequisites: ReadonlyArray<string>;
+  readonly expectedObservation: string;
+  readonly preview: ReadonlyArray<ControlLessonPresentationSection>;
+}
+
 export type ControlCurriculumValidation =
   | { readonly kind: "accepted" }
   | { readonly kind: "rejected"; readonly id: string; readonly reason: "duplicate_sequence"; readonly sequence: number }
@@ -209,6 +218,7 @@ const PUBLICATION_STATES = new Set<ControlPublicationState>([
 ]);
 // Deliberately small and explicit. Add an engineering unit only with the first
 // lesson that uses it, so misspellings cannot silently become distinct units.
+/** Common display suggestions, not a restriction on valid engineering units. */
 export const CONTROL_UNITS = new Set([
   "1", "1/s", "1/s2", "%", "pp", "pp/pp", "pp*s", "%/s", "dB", "A", "V", "W", "kW", "kW/degC", "kJ/degC", "Hz", "rpm",
   "rad", "rad/s", "rad/s2", "rad*s", "deg", "deg/s", "degC", "degC/s", "K",
@@ -374,6 +384,53 @@ export function controlLessonPresentation(
     ...sections,
     { title: "Control Studio workflow", paragraphs: [lesson.workflowStages.join(" -> ")] },
   ];
+}
+
+/**
+ * Projects canonical lesson metadata into the detail-card contract. The
+ * catalog description is supplied by the catalog loader so it is not copied
+ * into a second syllabus; preview paragraphs come from this lesson's own
+ * objective, plant, experiment, and learning metadata.
+ */
+export function controlLessonDetail(
+  lesson: ControlLessonMetadata,
+  description: string
+): ControlLessonDetail {
+  if (!("schemaVersion" in lesson)) {
+    return {
+      objective: `${lesson.principalTechnique} control using ${lesson.equipment}.`,
+      description,
+      equipment: lesson.equipment,
+      prerequisites: lesson.prerequisites,
+      expectedObservation: "This legacy lesson is unavailable as a runnable project in the current gallery.",
+      preview: [],
+    };
+  }
+  const objective = "objective" in lesson ? lesson.objective : lesson.physicalPurpose;
+  const expectedObservation = "learning" in lesson
+    ? lesson.learning.validation
+    : lesson.baseline.limitation;
+  const paragraphs: Array<ControlLessonPresentationSection> = [
+    { title: "Objective", paragraphs: [objective] },
+    { title: "Plant and signals", paragraphs: [lesson.physicalPurpose, `${lesson.signals.map((signal) => `${signal.name} (${signal.role}, ${signal.unit})`).join(", ")}.`] },
+    { title: "Expected observation", paragraphs: [expectedObservation] },
+  ];
+  if ("learning" in lesson) {
+    paragraphs.push(
+      { title: "What to try", paragraphs: [lesson.learning.practicalPreparation.join(" "), lesson.learning.change] },
+      { title: "How to decide", paragraphs: [lesson.learning.comparison, lesson.learning.explanation] },
+    );
+  } else {
+    paragraphs.push({ title: "How to decide", paragraphs: [lesson.baseline.limitation, lesson.change.decision] });
+  }
+  return {
+    objective,
+    description,
+    equipment: lesson.equipment,
+    prerequisites: lesson.prerequisites,
+    expectedObservation,
+    preview: paragraphs.filter((section) => section.paragraphs.every((paragraph) => paragraph.trim().length > 0)),
+  };
 }
 
 function parseSummary(lesson: Record<string, unknown>, id: string): ControlLessonSummary {
@@ -542,15 +599,11 @@ function parseSafety(value: unknown, signals: ControlLessonSignal[], id: string)
 function parseWorkflowStages(value: unknown, id: string): void {
   const stages = stringArray(value, id, "workflowStages");
   const seen = new Set<string>();
-  let previous = -1;
   for (const stage of stages) {
     if (!WORKFLOW_STAGES.has(stage as ControlWorkflowStage)) {
       fail(id, `workflowStages contains unsupported stage '${stage}'`);
     }
     if (seen.has(stage)) fail(id, `workflowStages contains duplicate stage '${stage}'`);
-    const order = ["Monitor", "Test", "Identify", "Tune", "Validate"].indexOf(stage);
-    if (order <= previous) fail(id, "workflowStages are not in execution order");
-    previous = order;
     seen.add(stage);
   }
 }
@@ -629,8 +682,8 @@ function nullableString(value: unknown, id: string, field: string): string | nul
 
 function controlUnit(value: unknown, id: string, owner: string): string {
   const unit = stringValue(value, id, `${owner} unit`);
-  if (!CONTROL_UNITS.has(unit)) {
-    fail(id, `${owner} has unsupported unit '${unit}'`);
+  if (unit.length > 80 || [...unit].some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) {
+    fail(id, `${owner} has an invalid unit label`);
   }
   return unit;
 }

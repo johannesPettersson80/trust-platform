@@ -165,16 +165,9 @@ export function selectSimplestPassingCandidate(
   }
   const passing = assessments
     .filter(({ passes, performanceScore }) => passes && Number.isFinite(performanceScore) && performanceScore >= 0)
-    .sort((left, right) => complexity(left.candidate.structure) - complexity(right.candidate.structure));
-  let selected = passing[0];
-  if (!selected) return undefined;
-  for (const assessment of passing.slice(1)) {
-    if (complexity(assessment.candidate.structure) <= complexity(selected.candidate.structure)) continue;
-    const reference = Math.max(Math.abs(selected.performanceScore), Number.EPSILON);
-    const improvement = (selected.performanceScore - assessment.performanceScore) / reference;
-    if (improvement >= materialBenefitFraction) selected = assessment;
-  }
-  return selected.candidate;
+    .sort((left, right) => complexity(left.candidate.structure) - complexity(right.candidate.structure)
+      || left.performanceScore - right.performanceScore);
+  return passing[0]?.candidate;
 }
 
 /**
@@ -206,21 +199,17 @@ export function rankQualifiedCandidates(
   const scoredIds = new Set(scored.map((item) => item.id));
   const rejected = assessments.filter((item) => !scoredIds.has(item.id))
     .map((item): RankedCandidateAssessment => ({ ...item, score: Number.POSITIVE_INFINITY }));
-  const byComplexity = scored.slice().sort((left, right) =>
-    complexity(left.candidate.structure) - complexity(right.candidate.structure) ||
+  const simplestComplexity = Math.min(...scored.map((item) => complexity(item.candidate.structure)));
+  const selected = scored.filter((item) => complexity(item.candidate.structure) === simplestComplexity)
+    .sort((left, right) => left.score - right.score ||
     methodOrder(left.method) - methodOrder(right.method) || left.id.localeCompare(right.id));
-  let selected = byComplexity[0];
-  for (const candidate of byComplexity.slice(1)) {
-    const materialImprovement = (selected.score - candidate.score) /
-      Math.max(Math.abs(selected.score), Number.EPSILON);
-    if (materialImprovement >= 0.1) selected = candidate;
-  }
+  const winner = selected[0];
   const ranked = [...scored].sort((left, right) =>
-    (left === selected ? -1 : right === selected ? 1 : left.score - right.score)
-    || complexity(left.candidate.structure) - complexity(right.candidate.structure)
+    complexity(left.candidate.structure) - complexity(right.candidate.structure)
+    || left.score - right.score
     || methodOrder(left.method) - methodOrder(right.method)
     || left.id.localeCompare(right.id)).concat(rejected);
-  return { winner: selected?.candidate, ranked };
+  return { winner: winner?.candidate, ranked };
 }
 
 function validateParameters(parameters: ControlPidParameters): void {
@@ -241,7 +230,7 @@ function validateParameters(parameters: ControlPidParameters): void {
 }
 
 function complexity(structure: ControllerStructure): number {
-  return structure === "P" ? 0 : structure === "PI" ? 1 : structure === "PD" ? 2 : 3;
+  return structure === "P" ? 0 : structure === "PID" ? 2 : 1;
 }
 
 function finiteMetrics(metrics: QualifiedCandidateMetrics): boolean {

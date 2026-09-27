@@ -1,0 +1,6 @@
+title = "Trends"
+kind = "trend"
+icon = "line-chart"
+order = 50
+duration_s = 600
+signals = ["P1.ColdRoomSetpoint", "P1.ColdRoomTemperature", "P1.HeaterSetpoint", "P1.HeaterTemperature", "P1.TableSetpoint", "P1.TableVelocity", "P1.TankLevel", "P1.TankSetpoint"]

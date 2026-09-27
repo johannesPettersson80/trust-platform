@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-20",
+  "title": "State-space models",
+  "level": "Foundation",
+  "sequence": 67,
+  "equipment": "Two connected water tanks and an inlet pump",
+  "physicalPurpose": "Represent each independent water store and the flows connecting them.",
+  "principalTechnique": "State-space model from coupled volume balances",
+  "objective": "Derive and compare both local tank-state predictions against the coupled nonlinear mass balances.",
+  "prerequisites": [
+    "control-lesson-19",
+    "control-robust-mimo-selection"
+  ],
+  "nextLesson": "control-controllability",
+  "signals": [
+    {
+      "role": "MV",
+      "name": "Pump flow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 0.02,
+      "resolution": 1e-06,
+      "binding": "%QL0"
+    },
+    {
+      "role": "PV",
+      "name": "Tank 2 level",
+      "unit": "m",
+      "minimum": 0.05,
+      "maximum": 0.45,
+      "resolution": 1e-06,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Tank 1 level",
+      "unit": "m",
+      "minimum": 0.05,
+      "maximum": 0.45,
+      "resolution": 1e-06,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Upstream model error",
+      "unit": "m",
+      "minimum": -0.4,
+      "maximum": 0.4,
+      "resolution": 1e-06,
+      "binding": "%ML88"
+    },
+    {
+      "role": "state",
+      "name": "Downstream model error",
+      "unit": "m",
+      "minimum": -0.4,
+      "maximum": 0.4,
+      "resolution": 1e-06,
+      "binding": "%ML96"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    }
+  ],
+  "plant": {
+    "modelId": "two-connected-tanks",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "area_m2",
+        "value": 0.5,
+        "unit": "m2"
+      },
+      {
+        "name": "outflow_coefficient_m2_sqrt_m_per_s",
+        "value": 0.02,
+        "unit": "m^(5/2)/s"
+      }
+    ],
+    "sampleTimeSeconds": 1,
+    "initialState": {
+      "tank1Level": 0.27,
+      "tank2Level": 0.25
+    },
+    "seed": 20260829,
+    "simplifications": [
+      "Equal fixed cross sections and discharge coefficients; free upstream discharge without downstream backpressure.",
+      "Physical levels use coupled RK4 gravity balances; the ST predictor is a separate local one-second Euler approximation."
+    ],
+    "operatingPoint": {
+      "Pump flow": 0.01,
+      "Tank 1 level": 0.25,
+      "Tank 2 level": 0.25
+    },
+    "validityRange": [
+      {
+        "signal": "Pump flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Tank 1 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      },
+      {
+        "signal": "Tank 2 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      }
+    ]
+  },
+  "baseline": {
+    "executableId": "Lesson67.NominalFlow",
+    "settings": {
+      "P1.FlowDeviationM3PerS": 0
+    },
+    "limitation": "The local Euler prediction approximates the nonlinear balances and never replaces physical levels."
+  },
+  "change": {
+    "executableId": "Lesson67.PumpPerturbation",
+    "settings": {
+      "P1.FlowDeviationM3PerS": 0.001
+    },
+    "decision": "Require matching initial derivative signs and magnitudes within five percent, and both model-level errors within 0.001 m through 20 seconds."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 120,
+    "settlingSeconds": 100,
+    "disturbances": [
+      "Fresh initial state h1=.27 m, h2=.25 m; pump deviation 0 or +.001 m3/s for 20 s, then nominal .010 m3/s for 100 s."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "maximum_absolute_model_error",
+      "signal": "Upstream model error",
+      "window": "first 20 seconds after a fresh synchronized start",
+      "comparator": "<=",
+      "limit": 0.001,
+      "unit": "m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_model_error",
+      "signal": "Downstream model error",
+      "window": "first 20 seconds after a fresh synchronized start",
+      "comparator": "<=",
+      "limit": 0.001,
+      "unit": "m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Tune"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/67-75-state-estimation-and-optimal-control.md#67-state-space-models",
+    "nativeTest": "lesson67_observes_nonlinear_cascade_and_one_second_local_predictions",
+    "nativeCommand": "cargo test -p trust-runtime --lib lesson67_observes_nonlinear_cascade_and_one_second_local_predictions -- --nocapture",
+    "projectPath": "examples/control/02-derivative-action-and-dynamic-response/20-state-equations-from-stores",
+    "runArtifactFields": [
+      "PumpFlow",
+      "Tank1Level",
+      "Tank2Level",
+      "Model1LevelM",
+      "Model2LevelM",
+      "Derivative1MPerS",
+      "Derivative2MPerS",
+      "ModelError1M",
+      "ModelError2M"
+    ],
+    "renderedJourneyId": "control-lesson-20"
+  },
+  "learning": {
+    "context": "Two freely discharging tanks store water before it reaches the downstream measurement.",
+    "reason": "One level alone cannot describe both stored volumes.",
+    "change": "Derive both nonlinear balances and their local state-space approximation.",
+    "transfer": "Controllability asks what one pump can influence over time.",
+    "theory": [
+      "The internal transfer cancels in total stored volume; each local matrix row retains its physical balance."
+    ],
+    "workedPrediction": "At x=[.02,0] and v=0, local level rates are[-.0008,.0008] m/s; adding .001 m3/s changes the first to .0012 m/s.",
+    "practicalPreparation": [
+      "Use a fresh synchronized runtime/plant start; a running unequal-level cascade cannot hold its initial state while preparing."
+    ],
+    "baseline": "Compare both local predictions with the nonlinear nominal-flow response.",
+    "comparison": "Repeat the same initial state with +.001 m3/s input for 20 seconds.",
+    "validation": "Check derivative agreement and both level errors before accepting the local approximation.",
+    "explanation": "A state-space model tracks both stores and separates input flow from measured downstream level."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Pump flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Tank 1 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      },
+      {
+        "signal": "Tank 2 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      }
+    ],
+    "abortPredicates": [
+      "Level outside .05\u2013.45 m, requested flow outside0\u2013.020 m3/s, invalid data or a non-one-second clock interval."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Normal completion restores .010 m3/s; early abort commands zero and requires simulator stop/reset.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Derive and compare both local tank-state predictions against the coupled nonlinear mass balances.",
+    "requiredVisibleEvidence": [
+      "PumpFlow",
+      "Tank1Level",
+      "Tank2Level",
+      "Model1LevelM",
+      "Model2LevelM",
+      "Derivative1MPerS",
+      "Derivative2MPerS",
+      "ModelError1M",
+      "ModelError2M"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

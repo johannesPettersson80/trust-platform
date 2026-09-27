@@ -1,6 +1,37 @@
 import * as assert from "assert";
 
 suite("Control Studio live loop monitor", () => {
+  test("resolves controller mode by its declared auxiliary BOOL symbol", () => {
+    const api = monitorApi();
+    const configured: any = loop();
+    configured.controller.modeSignal = "P1.Manual";
+    configured.controller.modeWhenTrue = "Manual";
+    configured.signals.additional = [{ id: "manual", channel: "manual", role: "state", symbol: "P1.Manual", address: "%MX0.0",
+      iecType: "BOOL", direction: "read", unit: "", range: { minimum: 0, maximum: 1 } }];
+    const monitor = new api.ControlLoopMonitor({ staleAfterMs: 500, recordingCapacity: 3 });
+    assert.strictEqual(monitor.observe(configured, lifecycle(41, "50", "21.5", "36"), 1000).controller.mode, "Manual");
+  });
+
+  test("projects coherent readings and symbolic mode with the shared freshness and recording rules", () => {
+    const api = monitorApi();
+    const configured: any = loop();
+    configured.controller.modeSignal = "Main.Manual";
+    const monitor = new api.ControlLoopMonitor({ staleAfterMs: 500, recordingCapacity: 3 });
+    assert.strictEqual(typeof monitor.observeReadings, "function", "Coherent symbolic readings need the same monitor projection as addressed scans");
+    const readings = { running: true, scan: 88, controllerMode: "Manual",
+      setpoint: signal("LevelSP", "%ML0", 50, "%", "good"),
+      processVariable: signal("LevelPV", "%IL0", 21.5, "%", "good"),
+      manipulatedVariable: signal("ValveMV", "%QL0", 36, "%", "good"), additional: [] };
+    monitor.startRecording();
+    const sample = monitor.observeReadings(configured, "Simulation", readings, 1000);
+    assert.strictEqual(sample.controller.mode, "Manual");
+    assert.strictEqual(sample.scan, 88);
+    assert.strictEqual(monitor.observeReadings(configured, "Simulation", readings, 1100).availability, "available");
+    assert.strictEqual(monitor.observeReadings(configured, "Simulation", readings, 1600).availability, "unavailable");
+    assert.strictEqual(monitor.observeReadings(configured, "Simulation", { ...readings, scan: 89, controllerMode: "Auto" }, 1700).controller.mode, "Auto");
+    assert.deepStrictEqual(monitor.stopRecording().samples.map((s: any) => s.scan), [88, 89]);
+  });
+
   test("derives freshness from the declared loop sample period", () => {
     const api = monitorApi();
     assert.strictEqual(api.controlLoopStaleAfterMs({ observedSampleTiming: { nominalPeriodMs: 100 } }), 1_500);
@@ -33,7 +64,7 @@ suite("Control Studio live loop monitor", () => {
       saturation: "none",
       recording: true,
     });
-    assert.deepStrictEqual(monitor.stopRecording(), [sample]);
+    assert.deepStrictEqual(monitor.stopRecording().samples, [sample]);
   });
 
   test("projects a real open-loop input/output sample without a synthetic setpoint", () => {
@@ -107,7 +138,7 @@ suite("Control Studio live loop monitor", () => {
     monitor.observe(loop(), lifecycle(1, "50", "45", "30"), 100);
     monitor.observe(loop(), lifecycle(2, "50", "48", "32"), 110);
     monitor.observe(loop(), lifecycle(3, "50", "49", "33"), 120);
-    const recording = monitor.stopRecording();
+    const recording = monitor.stopRecording().samples;
     assert.deepStrictEqual(recording.map((sample: any) => sample.scan), [2, 3]);
     assert.deepStrictEqual(api.summarizeLoopHealth(recording), {
       sampleCount: 2,
@@ -123,7 +154,70 @@ suite("Control Studio live loop monitor", () => {
     monitor.startRecording();
     monitor.observe(loop(), lifecycle(7, "50", "48", "32"), 1_000);
     monitor.observe(loop(), lifecycle(7, "50", "48", "32"), 1_050);
-    assert.deepStrictEqual(monitor.stopRecording().map((sample: any) => sample.scan), [7]);
+    assert.deepStrictEqual(monitor.stopRecording().samples.map((sample: any) => sample.scan), [7]);
+  });
+
+  test("reports exact missing scans when a 100 ms UI observes a 20 ms runtime", () => {
+    const monitor = new (monitorApi().ControlLoopMonitor)({ staleAfterMs: 500, recordingCapacity: 20 });
+    monitor.startRecording();
+    monitor.observe(loop(), lifecycle(0, "50", "40", "30"), 1_000);
+    monitor.observe(loop(), lifecycle(5, "50", "45", "35"), 1_100);
+    monitor.observe(loop(), lifecycle(10, "50", "48", "38"), 1_200);
+
+    const recording = monitor.stopRecording();
+    assert.deepStrictEqual(recording.samples.map((sample: any) => sample.scan), [0, 5, 10]);
+    assert.deepStrictEqual(recording.evidence, {
+      method: "ui_observed_snapshots",
+      completeness: "incomplete",
+      observedSampleCount: 3,
+      scanRange: { first: 0, last: 10 },
+      missingScanRanges: [{ first: 1, last: 4 }, { first: 6, last: 9 }],
+      droppedObservedSamples: 0,
+      actualCycleTimingAvailable: false,
+      freshnessAvailable: false,
+      reason: "Incomplete recording — UI observed 3 of 11 scans; scans 1–4 and 6–9 were not acquired.",
+    });
+  });
+
+  test("deduplicates a faster UI but never upgrades latest-snapshot fallback to complete", () => {
+    const monitor = new (monitorApi().ControlLoopMonitor)({ staleAfterMs: 500, recordingCapacity: 20 });
+    monitor.startRecording();
+    for (const observedAtMs of [1_000, 1_020, 1_040, 1_060, 1_080]) {
+      monitor.observe(loop(), lifecycle(0, "50", "40", "30"), observedAtMs);
+    }
+    monitor.observe(loop(), lifecycle(1, "50", "41", "31"), 1_100);
+    for (const observedAtMs of [1_120, 1_140, 1_160, 1_180]) {
+      monitor.observe(loop(), lifecycle(1, "50", "41", "31"), observedAtMs);
+    }
+    monitor.observe(loop(), lifecycle(2, "50", "42", "32"), 1_200);
+
+    const recording = monitor.stopRecording();
+    assert.deepStrictEqual(recording.samples.map((sample: any) => sample.scan), [0, 1, 2]);
+    assert.deepStrictEqual(recording.evidence.missingScanRanges, []);
+    assert.strictEqual(recording.evidence.completeness, "incomplete");
+    assert.strictEqual(recording.evidence.actualCycleTimingAvailable, false);
+    assert.strictEqual(recording.evidence.freshnessAvailable, false);
+    assert.match(recording.evidence.reason, /UI-observed snapshots do not prove every runtime scan was acquired/);
+  });
+
+  test("bounds gap metadata to retained samples and reports gaps with capacity loss", () => {
+    const monitor = new (monitorApi().ControlLoopMonitor)({ staleAfterMs: 500, recordingCapacity: 3 });
+    monitor.startRecording();
+    for (const [scan, observedAtMs] of [[0, 1_000], [2, 1_020], [4, 1_040], [6, 1_060], [8, 1_080]]) {
+      monitor.observe(loop(), lifecycle(scan, "50", "40", "30"), observedAtMs);
+    }
+
+    const recording = monitor.stopRecording();
+    assert.deepStrictEqual(recording.samples.map((sample: any) => sample.scan), [4, 6, 8]);
+    assert.deepStrictEqual(recording.evidence.scanRange, { first: 4, last: 8 });
+    assert.strictEqual(recording.evidence.observedSampleCount, 3);
+    assert.deepStrictEqual(recording.evidence.missingScanRanges, [
+      { first: 5, last: 5 },
+      { first: 7, last: 7 },
+    ]);
+    assert.strictEqual(recording.evidence.droppedObservedSamples, 2);
+    assert.match(recording.evidence.reason, /scans 5 and 7 were not acquired/);
+    assert.match(recording.evidence.reason, /2 UI-observed samples were dropped by the bounded editor buffer/);
   });
 
   test("rejects an out-of-order runtime scan instead of corrupting the recording", () => {
@@ -137,7 +231,7 @@ suite("Control Studio live loop monitor", () => {
       reason: "Runtime scan moved backwards from 10 to 9",
     });
     monitor.observe(loop(), lifecycle(11, "50", "49", "33"), 1_040);
-    assert.deepStrictEqual(monitor.stopRecording().map((sample: any) => sample.scan), [10, 11]);
+    assert.deepStrictEqual(monitor.stopRecording().samples.map((sample: any) => sample.scan), [10, 11]);
   });
 
   test("retains runtime point quality instead of silently promoting bad data", () => {

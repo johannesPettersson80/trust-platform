@@ -4,76 +4,127 @@ skinparam backgroundColor #FEFEFE
 skinparam componentStyle uml2
 skinparam linetype ortho
 
-title truST Control Studio: Reused Runtime And Simulation Flow
+title truST Control Studio: Identify → Tune → Validate
 
 package "VS Code webview" {
-  component "Control Studio workflow\nMonitor / Test / Identify /\nTune / Validate" as workflow
-  component "Shared ECharts adapter\nformatted bounded display data" as charts
+  component "Shared truST theme and controls\nimmediate checkbox dropdowns, compact editors, response charts" as shared_ui
+  component "Identify\nplant inputs, measured outputs, method\nIdentify plant / Open recording / Limits\nmodel review: Identify plant / Reset study / Tune tab\nselected readings + response before identification\nmodel equation + applied input + measured/model response" as identify
+  component "Tune\nactual controller instance or declared PID group\nmethod, Requirements, conditional Channels\nmanual/pinned settings + predicted response" as tune
+  component "Validate\nmandatory results + measured response\nexplicit Apply / Restore previous settings" as validate
+  component "Existing monitor projection\nbounded selected-signal history + current legend values\nscoped readings; gaps and restart boundaries" as readings
+  component "Scoped host-state projection\noperation, binding and recovery state\npage navigation does not start work" as projection
+  component "Contextual manual tools\nproject experiments, recorded fits, model analysis\nselected through existing methods\nshared model-comparison evidence and saved fit controls" as tools
 }
 
 package "VS Code extension host" {
-  component "Control Studio panel\nstrict loop-scoped messages" as panel
-  component "Loop monitor\nclosed-loop SP/PV/MV or\nopen-loop input/output\n+ typed auxiliary signals" as monitor
-  component "Experiment client" as experiment
-  component "Identify / tune / validate\npure functions" as analysis
-  component "Runtime lifecycle" as lifecycle
-  component "Existing runtime\ncontrol client" as client
-  database "VS Code workspace state\nactive experiment identity +\nsaved workflow result" as workspace_state
+  component "Panel message boundary\nproject, loop revision and editor session\ndeduplicated requests and current-scope checks" as panel
+  component "Compiled binding discovery\nexplicit configured loops, ST instances and PID group members\ncomplete signal/parameter/state mappings, compiled member checks" as bindings
+  component "Automatic flow coordinator\nIdentify → model review\nexplicit Tune stops at candidate\nexplicit Validate checks model then controller\npause for missing inputs or failure" as flow
+  component "Engineer workflow session\nselected model, candidate and requirements\ninput invalidation and retained outcomes" as engineer
+  component "Study Reset\nidle/recovery guard; clear working results\npersist empty draft before refreshing view" as reset
+  component "Model and recording owners\nopened or retained recordings\nindependent identification data and selected model" as models
+  component "Automatic identification\nfresh applicable bounded acquisition\none live campaign + provisional model fit" as identification
+  component "Project experiment and recording lifecycle\nreviewed activation, runtime scan buffers\nterminal restoration and retained raw signals" as experiments
+  component "Existing analysis sessions\nselected model / declared controller\nroot locus, exact Routh, frequency and initial-state response\nminimal pole views, state structure and measured MIMO" as analysis
+  component "Automatic test criteria\nmodel timescale, recording noise and operating limits\npreserve explicit values; freeze before validation" as automatic_criteria
+  component "Controller adapters and tuning\nexisting Control.PID / declared project / state controllers\nexplicit choices, parameter mapping and pins\nfinite Riccati stages with explicit fixed runtime policy" as tuning
+  component "Independent model check\nfresh live recording; frozen model coefficients\nper-channel agreement and retained qualification\nfailed prediction retained; acceptance remains blocked" as model_check
+  component "Verification campaign\nmandatory scenarios, initial states and constraints\nmissing scenarios remain Inconclusive" as campaign
+  component "Selected-model simulation\nCurrent/Tuned prediction\nexplicit model-envelope scenarios" as prediction
+  component "Configured-plant validation\nCurrent/Tuned actual ST execution\nnominal campaign has no fitted-model override" as configured_validation
+  component "Reviewed application coordinator\nfresh review and single confirmation\nexplicit Apply or Restore only" as application
+  component "Commissioning and recovery\ncoherent parameters/state adoption\nfirst-output observation, monitoring and rollback" as commissioning
+  database "Study and operation persistence\nmodels, recordings, requirements, mappings and pins\nparameter/transfer/isolated-operation identities\nreopen observes current runtime; no write replay" as persistence
 }
 
-package "Existing runtime" {
-  component "Debug/runtime control server" as control
-  component "One process-image\nsnapshot stream" as process_image
-  component "Project-owned lesson sequence\nexisting BOOL authority" as project_sequence
-  component "Existing SimulationController" as simulation
-  component "Control.PID instance" as pid
+package "Existing analysis and runtime services" {
+  component "Bounded numerical workers\nidentification, tuning and model analysis" as workers
+  component "Runtime connection/lifecycle owner\nexact simulator/project binding\nexisting start, cancellation and close ownership" as connection
+  component "Native isolated execution\nactual selected ST controller\nconfigured plant or explicit prediction override" as isolated
+  component "Runtime parameter/transfer transactions\ncomplete declared target binding\nobserved acknowledgement and recovery identities" as transactions
+  component "Running ST controller and plant\nprimary journey: Control.PID\nexisting native simulated-plant adapters" as running
 }
 
-workflow --> panel : versioned commands
-panel --> workflow : loop-scoped results
-workflow --> charts
-panel --> monitor
-panel --> experiment
-panel --> analysis
-panel --> workspace_state : minimal reload recovery
-monitor --> lifecycle
-experiment --> lifecycle
-lifecycle --> client : active endpoint + token
-client --> control : existing request transport
-control --> process_image : bounded writes + restoration
-control --> project_sequence : enable / restore only
-project_sequence --> process_image : existing synchronized scenario
-process_image --> control : fresh PV drives relay thresholds
-process_image --> monitor : one synchronized declared primary + auxiliary snapshot
-process_image --> pid
-simulation --> process_image : pre/post scan I/O
+identify --> shared_ui
+tune --> shared_ui
+validate --> shared_ui
+identify --> projection
+tune --> projection
+validate --> projection
+identify --> tools
+tune --> tools
+tools --> projection
+projection <--> panel : scoped messages and results
+panel --> bindings : discover/select explicit target
+panel --> flow : automatic operation
+panel --> application : explicit Apply/Restore
+panel --> engineer : edits and recovery
+panel --> experiments : scoped review/start/abort
+panel --> analysis : read-only calculations
+experiments --> connection
+experiments --> persistence : recording and recovery identities
+analysis <--> models : same selected model
+analysis --> workers : existing bounded calculations
+panel <--> persistence : restore/save study and ownership
+shared_ui --> panel : native response context menu / recording export
+panel --> shared_ui : current raw recording or immutable opened history
+experiments --> projection : new operation resets live chart once
+persistence --> projection : restore method, selected signals and retained trace
+flow --> identification : live or recorded identification
+flow --> engineer : Tune and Validate
+identification <--> models : retained records and selected model
+identification --> workers : fit one acquisition; provisional result
+identification --> experiments : connected live acquisition
+experiments --> running : bounded excitation + original-command restoration
+running --> identification : native scan buffer + original recording
+engineer <--> models : identical downstream model route
+engineer --> automatic_criteria : fill missing test settings
+automatic_criteria --> models : selected model and original recording
+automatic_criteria --> persistence : values and automatic origin
+engineer --> tuning : candidate and shared test criteria
+tuning --> workers : existing numerical methods
+engineer --> model_check : explicit Validate for provisional model
+model_check --> identification : acquire independent record; no refit
+model_check --> workers : predict and compare frozen model
+model_check --> persistence : retain qualification and source records
+engineer --> campaign : require model pass; freeze controller scenarios
+campaign --> prediction
+campaign --> configured_validation
+prediction --> isolated : explicit model override
+configured_validation --> isolated : configured plant
+application --> engineer : require current passed candidate
+engineer --> commissioning : exact reviewed target
+commissioning --> transactions : adopt/restore complete binding
+commissioning --> persistence : durable recovery ownership
+isolated --> persistence : retain operation identity and outcomes
+transactions --> running : coherent parameter/state update
+isolated --> running : prepare bytecode, then bounded actual-ST scans
+identification --> connection
+tuning --> connection : declared project tuning when needed
+commissioning --> connection
+isolated --> connection
+transactions --> connection
 
-note right of workspace_state
-No artifact database.
-Raw recordings and the accepted result
-remain project-scoped and reproducible.
+panel --> readings : existing loop monitor snapshots
+readings --> identify : initial response and current values
+
+note bottom of flow
+  Identification stops on its model for review.
+  Tabs only navigate; Tune starts on request and stops at its candidate.\n  Validate starts the independent model check and controller campaign.
+  Reset clears the working model, results and chart history.
+  Live selected-signal observation continues after Reset/reopen.
+  The chart grows from current plant readings during acquisition.
+  Model comparisons retain the matching experiment inputs.
+  Automatic continuation never dispatches Apply.
+  All pages display the same host-owned study.
 end note
 
-note bottom of experiment
-The runtime owns start, abort, timeout and restore.
-Relay plans carry PV thresholds, not a timed trajectory;
-the runtime changes output only from fresh measured PV.
-Project-scripted plans write only their declared BOOL authority;
-the lesson remains the sole owner of its process excitation.
-Reload recovery polls the same experiment identity;
-it never starts a second excitation.
+note bottom of transactions
+  A declared coherent multivariable adapter uses its complete binding.
+  Separate PID instances are never updated by an invented sequential group write.
 end note
-
-note bottom of monitor
-The loop binding declares closed-loop or open-loop topology.
-Open-loop lessons omit SP and error instead of synthesizing either;
-both topologies reuse this monitor and process-image stream.
-end note
-
-note bottom of control
-Physical excitation and controller apply require
-their existing explicit approval boundaries.
-Simulation evidence is labelled separately.
-end note
-
+identify --> reset : Reset
+reset --> models : clear working model and recordings
+reset --> engineer : clear dependent design evidence
+reset --> panel : persist fresh draft
 @enduml

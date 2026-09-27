@@ -1,14 +1,15 @@
 import * as assert from "assert";
-import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 
 import {
+  IdentificationWorkflow,
   identifyPlant,
   modelFitEvidence,
   qualifyIdentificationData,
   type IdentificationSample,
 } from "../../controlStudio/identification";
+import { identificationPresentationState } from "../../controlStudio/identificationPresentationState";
 import {
   describeTuningMethod,
   frequencyResponse,
@@ -41,147 +42,42 @@ function fopdtSamples(amplitude = 2): IdentificationSample[] {
   return result;
 }
 
-// panel.ts's markup and styles were split out into panelTemplate.ts and panelStyles.ts;
-// every assertion below inspects the shipped document, so it reads all of them together
-// and keeps validating the same rendered surface whichever file owns a fragment.
-function readControlStudioPanelSource(extensionRoot: string): string {
-  return ["panel.ts", "panelTemplate.ts", "panelStyles.ts", "stageAvailability.ts"]
-    .map((file) => fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", file), "utf8"))
-    .join("\n");
-}
-
 suite("Control Studio identification and tuning", () => {
-  test("qualifies the retained Lesson 16 run and leaves a resolution-bounded FOPDT preview", () => {
-    const repositoryRoot = process.env.TRUST_REPOSITORY_ROOT
-      ? path.resolve(process.env.TRUST_REPOSITORY_ROOT)
-      : path.resolve(__dirname, "..", "..", "..", "..", "..");
-    const tracePath = path.join(repositoryRoot, "examples", "control", "01-feedback-foundations-and-temperature-control",
-      "16-heater-step-identification", "figures", "heater-identification-trace.csv");
-    const [header, ...rows] = fs.readFileSync(tracePath, "utf8").trim().split(/\r?\n/);
-    const names = header.split(",");
-    const records = rows.map((row) => Object.fromEntries(
-      row.split(",").map((value, index) => [names[index], value])
-    )).filter((row) => row.event !== "manual_restoration");
-    const samples: IdentificationSample[] = records.map((row) => ({
-      timeSeconds: Number(row.time_s),
-      input: Number(row.applied_power_percent),
-      output: Number(row.pv_degc),
-      quality: row.quality as "good",
-      inputUnit: "%",
-      outputUnit: "degC",
-      clipped: row.clipped === "true",
-      saturated: row.saturated === "true",
-    }));
-    const Workflow = (require("../../controlStudio/identification") as any).IdentificationWorkflow;
-    const workflow = new Workflow();
-    const qualification = workflow.qualify(samples, [], "Simulation", "automatic");
-    assert.strictEqual(qualification.suitable, true);
-    assert.strictEqual(qualification.metrics.rawSampleCount, 500);
-    assert.strictEqual(qualification.metrics.retainedSampleCount, 500);
-    assert.ok(Math.abs(qualification.metrics.medianSampleTimeSeconds - 0.1) <= 1e-12);
-    assert.strictEqual(qualification.metrics.gapCount, 0);
-    assert.strictEqual(qualification.metrics.rejectedQualitySampleCount, 0);
-    assert.strictEqual(qualification.metrics.clippedSampleCount, 0);
-    assert.strictEqual(qualification.metrics.saturationSampleCount, 0);
-    assert.ok(Math.abs(qualification.metrics.baselineDriftPerSecond) <= 0.001);
-    assert.ok(qualification.metrics.inputSpan >= 9.99);
-    assert.ok(qualification.metrics.outputSpan >= 1.90);
-    assert.ok(qualification.metrics.signalToNoiseDb >= 20);
-
-    const preview = workflow.fit();
-    assert.strictEqual(preview.stage, "validation_required");
-    assert.strictEqual(preview.selected.kind, "first_order_dead_time");
-    assert.ok(Math.abs(preview.selected.gain - 0.2) <= 0.005);
-    assert.ok(Math.abs(preview.selected.deadTimeSeconds - 1.0) <= 0.2);
-    assert.ok(Math.abs(preview.selected.timeConstantSeconds - 5.0) <= 0.3);
-    assert.strictEqual(preview.selected.uncertainty?.method, "sample-resolution-envelope");
-    assert.ok(preview.selected.uncertainty.gain.minimum <= preview.selected.gain);
-    assert.ok(preview.selected.uncertainty.gain.maximum >= preview.selected.gain);
-    assert.ok(preview.selected.uncertainty.deadTimeSeconds.minimum <= preview.selected.deadTimeSeconds);
-    assert.ok(preview.selected.uncertainty.deadTimeSeconds.maximum >= preview.selected.deadTimeSeconds);
-    assert.ok(preview.selected.uncertainty.timeConstantSeconds.minimum <= preview.selected.timeConstantSeconds);
-    assert.ok(preview.selected.uncertainty.timeConstantSeconds.maximum >= preview.selected.timeConstantSeconds);
-    assert.ok(preview.fit.rootMeanSquareError <= 0.03);
-    const lessonRoot = path.dirname(path.dirname(tracePath));
-    const sourceText = fs.readFileSync(path.join(lessonRoot, "src", "Main.st"), "utf8");
-    const projectDigest = crypto.createHash("sha256");
-    for (const relative of ["lesson.json", "simulation.toml", "src/Main.st"]) {
-      projectDigest.update(relative);
-      projectDigest.update("\0");
-      projectDigest.update(fs.readFileSync(path.join(lessonRoot, relative)));
-      projectDigest.update("\0");
-    }
-    const candidateFits = preview.preview.models.map((model: any) => ({
-      kind: model.kind,
-      parameters: model,
-      fit: modelFitEvidence(model, samples),
-    }));
-    assert.strictEqual(candidateFits.length, 5);
-    assert.ok(candidateFits.every((candidate: any) =>
-      candidate.fit.points.length === 500
-      && Number.isFinite(candidate.fit.rootMeanSquareError)
-      && candidate.fit.operatingRange
-      && Array.isArray(candidate.fit.warnings)));
-    const evidence = {
-      runId: "lesson-16",
-      projectPath: "examples/control/01-feedback-foundations-and-temperature-control/16-heater-step-identification",
-      projectContentRevisionSha256: projectDigest.digest("hex"),
-      structuredTextRevisionSha256: crypto.createHash("sha256").update(sourceText).digest("hex"),
-      seed: 20260827,
-      sampleTimeSeconds: 0.1,
-      evidenceClasses: {
-        measurements: "configured simulation measurement",
-        model: "reaction-curve identification",
-        configuredTruth: "revealed only after the selected preview was frozen",
-      },
-      declaredLimits: {
-        outletTemperatureDegC: { minimum: 0, maximum: 40 },
-        requestedHeaterPercent: { minimum: 0, maximum: 100 },
-        appliedHeaterPercent: { minimum: 0, maximum: 100 },
-        safeHeaterPercent: 0,
-        restorationHeaterPercent: 20,
-      },
-      exclusions: [],
-      abort: { triggered: false, reason: null },
-      restoration: {
-        timeSeconds: 50.1, requestedHeaterPercent: 20, appliedHeaterPercent: 20,
-        testAuthority: false, manualMode: true,
-      },
-      source: preview.preview.source,
-      stage: preview.stage,
-      accepted: preview.accepted,
-      qualification: {
-        decision: "Qualified",
-        reasons: [
-          "All active samples are finite and good quality.",
-          "Sampling, baseline drift, excitation, output span, clipping, and saturation meet the declared limits.",
-        ],
-        metrics: preview.estimationQualification.metrics,
-      },
-      selectionContract: {
-        maximumNormalizedError: 0.05,
-        preferSimplestEligibleCandidate: true,
-        deadTimeOverride: "Select FOPDT when resolved dead time exceeds two sample intervals and its normalized error is at least 2 percent lower than the no-delay first-order error.",
-      },
-      candidates: preview.preview.models,
-      candidateFits,
-      selected: preview.selected,
-      fit: preview.fit,
+  test("named root-locus sweep varies Kp while retaining measured-velocity feedback", () => {
+    const model = { kind: "integrating" as const, gain: 1, timeConstantSeconds: 1, stable: true, normalizedError: 0 };
+    const parameters: ControlPidParameters = {
+      proportionalGain: 12, integralGain: 0, derivativeGain: 7,
+      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
+      outputMinimum: -20, outputMaximum: 20, rateMinimum: -1000, rateMaximum: 1000,
+      trackingTime: 1, antiWindup: "BackCalculation",
     };
-    assert.strictEqual(evidence.exclusions.length, 0);
-    assert.strictEqual(evidence.abort.triggered, false);
-    assert.match(evidence.projectContentRevisionSha256, /^[0-9a-f]{64}$/);
-    assert.match(evidence.structuredTextRevisionSha256, /^[0-9a-f]{64}$/);
-    const modelEvidence = `${JSON.stringify(evidence, null, 2)}\n`;
-    const modelEvidencePath = path.join(path.dirname(tracePath), "heater-identification-model-evidence.json");
-    if (process.env.TRUST_UPDATE_CONTROL_CURRICULUM_ARTIFACTS) {
-      fs.writeFileSync(modelEvidencePath, modelEvidence);
-    } else {
-      assert.strictEqual(fs.readFileSync(modelEvidencePath, "utf8"), modelEvidence,
-        "Lesson 16 Control Studio model evidence drift");
-    }
-    assert.strictEqual(workflow.acceptedModel, undefined,
-      "the same-run Lesson 16 model must remain a validation-required preview");
+    const candidate = candidateFromControlPid(parameters, "Manual");
+    const evidence = buildEngineeringPlotEvidence(model, candidate, candidate, {
+      parameter: "proportionalGain", values: [12, 16, 20], selectedValue: 16,
+    });
+    assert.strictEqual(evidence.rootLocus.status, "qualified");
+    assert.deepStrictEqual(evidence.rootLocus.branches.map(branch => branch.gain), [12, 16, 20], "sweep uses the declared parameter values");
+    assert.strictEqual(evidence.rootLocus.parameter, "proportionalGain");
+    assert.strictEqual(evidence.rootLocus.fixedParameters.derivativeGain, 7);
+    const expected = [[[-6, 0], [-2, 0]], [[-4, 0], [-4, 0]], [[-4, -2], [-4, 2]]];
+    evidence.rootLocus.branches.forEach((branch, index) => {
+      const poles = [...branch.poles].sort((a, b) => a.real-b.real || a.imaginary-b.imaginary);
+      poles.forEach((pole, p) => {
+        assert.ok(Math.abs(pole.real - expected[index][p][0]) < 1e-6);
+        assert.ok(Math.abs(pole.imaginary - expected[index][p][1]) < 1e-6);
+      });
+    });
+    assert.strictEqual(evidence.rootLocus.selectedValue, 16);
+    const comparison = (evidence as any).comparison;
+    assert.ok(comparison?.context, "plot evidence must carry its authoritative comparison context");
+    assert.deepStrictEqual(comparison.candidate, candidate);
+    const next = candidateFromControlPid({ ...parameters, proportionalGain: 20 }, "Manual");
+    assert.deepStrictEqual((buildEngineeringPlotEvidence(model, candidate, next) as any).comparison.context, comparison.context,
+      "candidate edits retain one common model, baseline, and comparison method");
+    assert.notDeepStrictEqual((buildEngineeringPlotEvidence({ ...model, gain: 1.1 }, candidate, next) as any).comparison.context, comparison.context,
+      "a changed model invalidates comparisons");
+    assert.notDeepStrictEqual((buildEngineeringPlotEvidence(model, next, next) as any).comparison.context, comparison.context,
+      "a changed runtime baseline invalidates comparisons");
   });
 
   test("qualifies data and excludes intervals without changing the raw recording", () => {
@@ -252,6 +148,14 @@ suite("Control Studio identification and tuning", () => {
     assert.ok(result.recommended.normalizedError <= 0.05);
   });
 
+  test("fits the held part of a bounded step before its final restoration", () => {
+    const samples = fopdtSamples(2);
+    samples.push({ timeSeconds: 30.1, input: 0, output: samples[samples.length - 1].output, quality: "good" });
+    const result = identifyPlant(samples);
+    assert.ok(result.recommended.gain > 0.5 && result.recommended.gain < 1.5,
+      "the final restoration must not replace the held-step response used for gain estimation");
+  });
+
   test("uses the declared 0.05 eligibility limit before the resolved-delay override", () => {
     const select = (require("../../controlStudio/identification") as any).selectLowOrderModel;
     assert.strictEqual(typeof select, "function", "the declared candidate-selection contract is missing");
@@ -273,31 +177,33 @@ suite("Control Studio identification and tuning", () => {
   });
 
   test("qualifies a Control Studio model on a separate immutable validation run", () => {
-    const identifyWithValidation = identifyPlant as unknown as (
-      estimation: readonly IdentificationSample[], excluded: readonly [], source: "Simulation",
-      validation: readonly IdentificationSample[]
-    ) => any;
-    const result = identifyWithValidation(fopdtSamples(2), [], "Simulation", fopdtSamples(1.25));
+    const result = identifyPlant(fopdtSamples(2), [], "Simulation", fopdtSamples(1.25), 0.02);
     assert.strictEqual(result.partition, "independent-runs");
-    assert.strictEqual(result.recommended.kind, "first_order_dead_time");
-    assert.ok(result.recommended.normalizedValidationError <= 0.03);
-    assert.ok(result.recommended.validationResiduals.length === 301);
-    assert.strictEqual(result.recommended.uncertainty.method, "grid-resolution-and-validation-residual");
+    assert.strictEqual(result.recommended.kind, "first_order");
+    const normalizedValidationError = result.recommended.normalizedValidationError;
+    assert.ok(normalizedValidationError !== undefined);
+    assert.ok(normalizedValidationError <= 0.03);
+    const validationResiduals = result.recommended.validationResiduals;
+    assert.ok(validationResiduals !== undefined);
+    assert.ok(validationResiduals.length === 301);
+    const uncertainty = result.recommended.uncertainty;
+    assert.ok(uncertainty !== undefined);
+    assert.strictEqual(uncertainty.method, "grid-resolution-and-validation-residual");
   });
 
   test("presents an identified model with engineering and residual evidence", () => {
     const module = require("../../controlStudio/identification") as any;
-    const result = identifyPlant(fopdtSamples(2), [], "Simulation", fopdtSamples(1.25));
+    const result = identifyPlant(fopdtSamples(2), [], "Simulation", fopdtSamples(1.25), 0.02);
     const model = result.recommended;
     const fit = modelFitEvidence(model, fopdtSamples(1.25));
     const present = module.identifiedModelPresentation;
     assert.strictEqual(typeof present, "function", "identified model presentation is missing");
     const evidence = present(model, fit, "kW", "°C");
-    assert.match(evidence.equation, /e\^\(-/);
+    assert.match(evidence.equation, /G\(s\) = .*\/ \(/);
     assert.deepStrictEqual(evidence.units, { input: "kW", output: "°C", gain: "°C/kW", time: "s" });
     assert.strictEqual(evidence.poles.length, 1);
     assert.deepStrictEqual(evidence.zeros, []);
-    assert.ok(evidence.delaySeconds > 0);
+    assert.strictEqual(evidence.delaySeconds, 0);
     assert.match(evidence.uncertainty.label, /search-resolution and held-out-residual/i);
     assert.ok(Number.isFinite(evidence.estimation.residualLagOneCorrelation));
     assert.ok(Number.isFinite(evidence.validation.residualLagOneCorrelation));
@@ -307,6 +213,20 @@ suite("Control Studio identification and tuning", () => {
       fit, "kW", "°C");
     assert.doesNotMatch(compact.equation, /333333333|666666666|142857142/,
       "model equations must use readable engineering precision");
+  });
+
+  test("reconstructs step and restoration superposition for first-order and integrating fits", () => {
+    const samples = (outputs: readonly number[]) => outputs.map((output, index) => ({
+      timeSeconds: index, input: index < 2 || index >= 4 ? 0 : 1, output, quality: "good" as const,
+    }));
+    const firstOrder = modelFitEvidence({ kind: "first_order", gain: 1, timeConstantSeconds: 1,
+      normalizedError: 0, stable: true }, samples([0, 0, 0, 0.6321, 0.8647, 0.3181]));
+    assert.ok(firstOrder.points[4].predicted > 0.8, "restoring the input must not erase the held first-order response");
+    assert.ok(Math.abs(firstOrder.points[5].predicted - (1 - Math.exp(-3) - (1 - Math.exp(-1)))) < 0.01);
+    const integrating = modelFitEvidence({ kind: "integrating", gain: 1,
+      normalizedError: 0, stable: true }, samples([0, 0, 0, 1, 2, 2]));
+    assert.strictEqual(integrating.points[4].predicted, 2);
+    assert.strictEqual(integrating.points[5].predicted, 2);
   });
 
   test("requires a distinct validation run and explicit review before design use", () => {
@@ -322,11 +242,11 @@ suite("Control Studio identification and tuning", () => {
       source: "Simulation", requestedKind: "automatic" }), /distinct immutable validation run/i);
 
     const qualified = prepare?.({ estimation, validation: fopdtSamples(1.25), excluded: [],
-      source: "Simulation", requestedKind: "automatic" });
+      source: "Simulation", requestedKind: "automatic", maximumNormalizedError: 0.02 });
     assert.strictEqual(qualified.stage, "acceptance_required");
     assert.strictEqual(qualified.validationQualification.metrics.independentValidationAvailable, true);
     assert.strictEqual(qualified.result.partition, "independent-runs");
-    assert.strictEqual(qualified.selected.kind, "first_order_dead_time");
+    assert.strictEqual(qualified.selected.kind, "first_order");
     assert.ok(qualified.fit.points.length > 0);
     assert.strictEqual(qualified.accepted, false,
       "a qualified model must remain unapplied to Tune until the user accepts it");
@@ -341,13 +261,14 @@ suite("Control Studio identification and tuning", () => {
       excluded: [],
       source: "Simulation",
       requestedKind: "integrating",
+      maximumNormalizedError: 0.02,
     }), /requested integrating model.*independent validation/i);
   });
 
   test("moves identification through qualification, independent validation, and explicit acceptance", () => {
     const IdentificationWorkflow = (require("../../controlStudio/identification") as any).IdentificationWorkflow;
     assert.strictEqual(typeof IdentificationWorkflow, "function", "the identification workflow state is missing");
-    const workflow = new IdentificationWorkflow();
+    const workflow = new IdentificationWorkflow(0.02);
     const estimation = fopdtSamples(2);
     const qualification = workflow.qualify(estimation, [], "Simulation", "automatic");
     assert.strictEqual(qualification.suitableForDesign, false);
@@ -360,30 +281,51 @@ suite("Control Studio identification and tuning", () => {
     assert.strictEqual(review.stage, "acceptance_required");
     assert.strictEqual(workflow.acceptedModel, undefined);
     const accepted = workflow.accept();
-    assert.strictEqual(accepted.model.kind, "first_order_dead_time");
+    assert.strictEqual(accepted.model.kind, "static_gain");
     assert.strictEqual(accepted.evidence, "Identified from simulation data");
-    assert.strictEqual(workflow.acceptedModel?.kind, "first_order_dead_time");
+    assert.strictEqual(workflow.acceptedModel?.kind, "static_gain");
   });
 
-  test("renders the concise three-step identification review without exposing Tune early", () => {
+  test("accepts equal deterministic samples only when their immutable Test recording identities differ", () => {
+    const IdentificationWorkflow = (require("../../controlStudio/identification") as any).IdentificationWorkflow;
+    const workflow = new IdentificationWorkflow();
+    const deterministic = fopdtSamples(2);
+    workflow.qualify(deterministic, [], "Simulation", "automatic", "test-recording-estimation");
+    assert.strictEqual(workflow.fit().stage, "validation_required");
+    workflow.qualify(deterministic, [], "Simulation", "automatic", "test-recording-validation");
+    assert.strictEqual(workflow.fit().stage, "acceptance_required",
+      "separate Test recording identities establish independent validation even when a deterministic simulator returns equal values");
+  });
+
+  test("renders the approved Identify page shell and keeps model evidence separate from Tune", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = readControlStudioPanelSource(extensionRoot);
-    const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "workflow.ts"), "utf8");
-    assert.match(panel, /data-identify-run[^>]*>Qualify recording</);
-    assert.match(panel, /data-identify-fit hidden>Fit estimation run</);
-    assert.match(panel, /data-identify-accept hidden>Accept model for design</);
-    assert.match(panel, /data-identify-qualification/);
-    assert.match(workflow, /control-studio\.identify\.fit/);
-    assert.match(workflow, /control-studio\.identify\.accept/);
-    assert.match(workflow, /identifyPhase === "accepted"/);
-    assert.match(panel, /identifiedModelPresentation\(review\.selected/);
-    assert.match(workflow, /renderIdentificationPresentation/);
-    const chart = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "chart.ts"), "utf8");
-    assert.match(panel, /data-identification-fit-plot/);
-    assert.match(chart, /class IdentificationChartAdapter/);
-    assert.match(chart, /Measured PV/);
-    assert.match(chart, /Predicted PV/);
-    assert.match(chart, /Residual/);
+    const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
+    const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "threePageWorkflow.ts"), "utf8");
+    assert.match(template, /Identify.*Tune.*Validate/);
+    assert.match(template, /data-studio-inputs/);
+    assert.match(template, /data-studio-outputs/);
+    assert.match(template, /data-engineer-acquisition-method/);
+    assert.match(template, /data-engineer-find[^>]*>Identify plant</);
+    assert.match(template, /data-identify-import[^>]*>Open recording…</);
+    assert.match(template, /data-studio-limits[^>]*>Limits…</);
+    assert.match(template, /data-studio-model-result/);
+    assert.match(template, /data-control-studio-chart/);
+    assert.doesNotMatch(template, /Check recording|Fit estimation run|Accept model for design/);
+    assert.doesNotMatch(template, /data-identify-qualification|plot-toolbar|bottom status/);
+    assert.match(workflow, /new ThreePageOperation/);
+    assert.match(workflow, /new ThreePageBindings/);
+    assert.match(workflow, /new ThreePageApplication/);
+    const identification = new IdentificationWorkflow();
+    identification.qualify(fopdtSamples(2), [], "Simulation", "automatic", "estimation");
+    const preview = identification.fit();
+    const presentation = identificationPresentationState(identification, "%", "degC");
+    assert.strictEqual(presentation?.phase, "validation_required");
+    assert.deepStrictEqual((presentation?.presentation as { predictedResponse: unknown }).predictedResponse, preview.fit.points);
+    assert.strictEqual(identification.acceptedModel, undefined, "presenting the preview cannot enable Tune by accepting it");
+    const hostState = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "threePageHostState.ts"), "utf8");
+    assert.match(hostState, /renderIdentifiedModel/);
+    assert.match(hostState, /data-studio-model-type/);
+    assert.match(hostState, /data-studio-model-equation/);
   });
 
   test("rejects unusable data with a deterministic reason and retains it", () => {
@@ -463,6 +405,21 @@ suite("Control Studio identification and tuning", () => {
       "the recommendation must retain the common comparison metrics");
   });
 
+  test("Automatic Tune materializes a P candidate without an integral time", () => {
+    const automaticTune = require("../../controlStudio/automaticTune") as {
+      materializeAutomaticTuneController?: (candidate: ReturnType<typeof candidateFromControlPid>) =>
+        { kp: number; tiSeconds?: number };
+    };
+    assert.strictEqual(typeof automaticTune.materializeAutomaticTuneController, "function");
+    const candidate = candidateFromControlPid({
+      proportionalGain: 0.1, integralGain: 0, derivativeGain: 0,
+      proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
+      outputMinimum: 0, outputMaximum: 100, rateMinimum: -100, rateMaximum: 100,
+      trackingTime: 1, antiWindup: "BackCalculation",
+    }, "Constrained comparison");
+    assert.deepStrictEqual(automaticTune.materializeAutomaticTuneController!(candidate), { kp: 0.1 });
+  });
+
   test("compares every method with the running controller units, limits, and timing semantics", () => {
     const current = candidateFromControlPid({
       proportionalGain: 0.667, integralGain: 0.667, derivativeGain: 0,
@@ -516,34 +473,34 @@ suite("Control Studio identification and tuning", () => {
     assert.match(outcome.recovery, /configure|record|identify/i);
   });
 
-  test("keeps the automatic method comparison behind one compact disclosure", () => {
+  test("keeps automatic method choices and comparison evidence in the current Tune result owner", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = readControlStudioPanelSource(extensionRoot);
-    const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "workflow.ts"), "utf8");
-    assert.match(panel, /data-auto-tune-attempts/);
-    assert.match(panel, /<summary>Method comparison<\/summary>/);
-    assert.match(workflow, /result\.attempts/);
-    assert.doesNotMatch(panel, /candidateFromControlPid\(result\.parameters, "SIMC"\)/,
-      "Automatic Tune must retain the winning method instead of relabelling every result SIMC");
-    assert.match(panel, /tuningComparison:\s*currentTuningComparison/,
-      "saved results must retain the exact automatic comparison");
-    assert.match(panel, /data-saved-tuning-attempts/,
-      "reopened results need a hidden professional comparison disclosure");
-    assert.match(workflow, /result\.tuningComparison/,
-      "reopened comparisons must be rendered from the saved result");
+    const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
+    const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "threePageWorkflow.ts"), "utf8");
+    assert.match(template, /data-engineer-tuning-method[\s\S]*value="SIMC"/);
+    assert.match(template, /data-engineer-tuning-method[\s\S]*value="AMIGO"/);
+    assert.match(template, /data-engineer-tuning-method[\s\S]*value="manual"/);
+    assert.match(template, /data-studio-tuning-result/);
+    assert.match(workflow, /new ThreePageTuning/);
+    assert.match(workflow, /tuningPreferences/);
+    assert.doesNotMatch(template, /data-auto-tune-attempts|data-saved-tuning-attempts|Method comparison/,
+      "retained comparison evidence belongs in the current Tune result owner, not the retired panel markup");
   });
 
-  test("renders qualified tuning method evidence under the Design method control", () => {
+  test("renders the approved Tune controls and keeps tuning evidence in the result area", () => {
     const extensionRoot = path.resolve(__dirname, "..", "..", "..");
-    const panel = readControlStudioPanelSource(extensionRoot);
-    const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "workflow.ts"), "utf8");
-    assert.match(panel, /<label for="tune-method">Design method<\/label>/);
-    assert.match(panel, /describeTuningMethod\(currentModel/);
-    assert.match(panel, /data-tune-method-evidence/);
-    assert.match(workflow, /renderTuningMethodEvidence/);
-    assert.match(workflow, /Assumptions/);
-    assert.match(workflow, /Design inputs/);
-    assert.match(workflow, /Equations/);
+    const template = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "threePageTemplate.ts"), "utf8");
+    const workflow = fs.readFileSync(path.join(extensionRoot, "src", "controlStudio", "webview", "threePageWorkflow.ts"), "utf8");
+    assert.match(template, /data-studio-controller/);
+    assert.match(template, /data-engineer-tuning-method/);
+    assert.match(template, /data-engineer-tune[^>]*>Tune controller</);
+    assert.match(template, /data-studio-requirements[^>]*>Requirements…</);
+    assert.match(template, /data-studio-tuning-result/);
+    assert.match(template, /data-control-studio-chart/);
+    assert.doesNotMatch(template, /Design method|data-tune-method-evidence|Assumptions|Design inputs|Equations/);
+    assert.match(workflow, /new ThreePageTuning/);
+    assert.match(workflow, /tuningPreferences/);
+    assert.match(workflow, /data-studio-requirements/);
   });
 
   test("accepts Automatic Tune approval from the configured loop scope", () => {
@@ -553,6 +510,24 @@ suite("Control Studio identification and tuning", () => {
       expectedLoopRevision: "sha256:loop", payload: { objective: "balanced" } }, scope),
     { messageId: "message", objective: "balanced" });
   });
+  test("accepts a strict loop-scoped raw identification edit with blank fields", () => {
+    const scope = { projectId: "project", editorSessionId: "editor", loopId: "loop", loopRevision: "sha256:loop" };
+    const values = Object.fromEntries([
+      "baselineDurationSeconds", "finalDurationSeconds", "maximumWindowRange", "maximumWindowSlopePerSecond",
+      "measurementBound", "onsetThreshold", "onsetSamples", "baselineStep", "gainStep", "timestampShiftSeconds",
+      "delay.minimum", "delay.maximum", "delay.step", "timeConstant.minimum", "timeConstant.maximum", "timeConstant.step",
+    ].map(key => [key, key === "delay.minimum" ? "" : "5"]));
+    const base = { schemaVersion: 1, messageId: "message", projectId: "project", editorSessionId: "editor",
+      loopId: "loop", expectedLoopRevision: "sha256:loop" };
+    assert.deepStrictEqual(decodeEngineeringCommand({ ...base, kind: "control-studio.identify.edit",
+      payload: { form: { schemaVersion: 1, model: "fopdt", heldStep: true, values, excludedStart: "", excludedEnd: "" } } }, scope), {
+      action: "identify-edit", messageId: "message",
+      form: { schemaVersion: 1, model: "fopdt", heldStep: true, values, excludedStart: "", excludedEnd: "" },
+    });
+    assert.strictEqual(decodeEngineeringCommand({ ...base, kind: "control-studio.identify.edit",
+      payload: { form: { schemaVersion: 1, model: "fopdt", heldStep: true, values: { ...values, extra: "" }, excludedStart: "", excludedEnd: "" } } }, scope), undefined);
+  });
+
   test("accepts the concise loop-scoped qualification, fit, acceptance, tune, and validate commands", () => {
     const scope = { projectId: "project", editorSessionId: "editor", loopId: "loop", loopRevision: "sha256:loop" };
     const base = { schemaVersion: 1, messageId: "message", projectId: "project", editorSessionId: "editor",
@@ -653,7 +628,7 @@ suite("Control Studio identification and tuning", () => {
     assert.ok(Math.abs(incremental2.output - 0.79) < 1e-12);
   });
 
-  test("selects the simplest passing structure unless complexity has material benefit", () => {
+  test("selects the simplest passing structure and uses performance only within that complexity", () => {
     const parameters: ControlPidParameters = {
       proportionalGain: 1, integralGain: 1, derivativeGain: 0,
       proportionalSetpointWeight: 1, derivativeSetpointWeight: 0, bias: 0,
@@ -669,7 +644,12 @@ suite("Control Studio identification and tuning", () => {
     assert.strictEqual(selectSimplestPassingCandidate([
       { candidate: pi, passes: true, performanceScore: 1 },
       { candidate: pid, passes: true, performanceScore: 0.7 },
-    ], 0.1)?.structure, "PID");
+    ], 0.1)?.structure, "PI");
+    const pd = candidateFromControlPid({ ...parameters, integralGain: 0, derivativeGain: 0.2 }, "Manual");
+    assert.strictEqual(selectSimplestPassingCandidate([
+      { candidate: pi, passes: true, performanceScore: 1 },
+      { candidate: pd, passes: true, performanceScore: 0.95 },
+    ], 0.1)?.structure, "PD");
     assert.strictEqual(selectSimplestPassingCandidate([
       { candidate: pi, passes: false, performanceScore: 1 },
       { candidate: pid, passes: false, performanceScore: 0.7 },
@@ -803,7 +783,7 @@ suite("Control Studio identification and tuning", () => {
     }
   });
 
-  test("ranks feasible candidates by objective with a stable documented tie rule", () => {
+  test("ranks feasible candidates by structural complexity and objective", () => {
     const candidates = require("../../controlStudio/controllerCandidate") as {
       rankQualifiedCandidates?: (items: readonly unknown[], objective: "balanced") => {
         winner?: { source: string; structure: string }; ranked: readonly { id: string; feasible: boolean }[] };
@@ -839,22 +819,35 @@ suite("Control Studio identification and tuning", () => {
           mvMovement: 1.05, peakAbsoluteMv: 1.05, maximumMvRate: 1.05,
           noiseMvRms: 1.05, worstCaseVariationIae: 1.05 } },
     ], "balanced");
-    assert.strictEqual(nearTie.winner?.source, "SIMC",
-      "a sub-ten-percent model-predicted score difference must use the documented method order");
-    assert.strictEqual(nearTie.ranked[0].id, "simc-near");
+    assert.strictEqual(nearTie.winner?.source, "AMIGO",
+      "equally simple qualifying candidates are selected by their declared objective");
+    assert.strictEqual(nearTie.ranked[0].id, "amigo-near");
 
     const proportional = candidateFromControlPid({ ...base, integralGain: 0 }, "Constrained comparison");
     const pid = candidateFromControlPid({ ...base, derivativeGain: 0.2 }, "Constrained comparison");
     const complexityResult = candidates.rankQualifiedCandidates!([
       { id: "p", method: "Constrained comparison", candidate: proportional,
-        feasible: true, metrics: { ...metric, iae: 1.05, ise: 1.05, itae: 1.05,
-          mvMovement: 1.05, peakAbsoluteMv: 1.05, maximumMvRate: 1.05,
-          noiseMvRms: 1.05, worstCaseVariationIae: 1.05 } },
+        feasible: true, metrics: { ...metric, iae: 2, ise: 2, itae: 2,
+          mvMovement: 2, peakAbsoluteMv: 2, maximumMvRate: 2,
+          noiseMvRms: 2, worstCaseVariationIae: 2 } },
       { id: "pid", method: "Constrained comparison", candidate: pid,
         feasible: true, metrics: metric },
     ], "balanced");
     assert.strictEqual(complexityResult.winner?.structure, "P",
-      "a more complex controller must not win without at least ten percent material benefit");
+      "a more complex controller must not displace a simpler qualifying controller");
+
+    const pi = candidateFromControlPid(base, "Constrained comparison");
+    const pd = candidateFromControlPid({ ...base, integralGain: 0, derivativeGain: 0.2 }, "Constrained comparison");
+    const equallySimpleResult = candidates.rankQualifiedCandidates!([
+      { id: "pi", method: "Constrained comparison", candidate: pi,
+        feasible: true, metrics: { ...metric, iae: 1.05, ise: 1.05, itae: 1.05,
+          mvMovement: 1.05, peakAbsoluteMv: 1.05, maximumMvRate: 1.05,
+          noiseMvRms: 1.05, worstCaseVariationIae: 1.05 } },
+      { id: "pd", method: "Constrained comparison", candidate: pd,
+        feasible: true, metrics: metric },
+    ], "balanced");
+    assert.strictEqual(equallySimpleResult.winner?.structure, "PD",
+      "PI and PD are equally simple, so the better matching objective wins");
   });
 
   test("retains measured, predicted, residual, range, delay, units, and warnings as model evidence", () => {

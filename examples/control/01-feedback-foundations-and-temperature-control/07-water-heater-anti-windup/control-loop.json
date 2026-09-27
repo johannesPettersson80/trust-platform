@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 2,
+  "id": "control-lesson-07",
+  "name": "Prevent integral windup",
+  "projectId": "project:control-lesson-07",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "project",
+    "revision": "sha256:ae11b45d4d7c68773a47e1cf3bcd099ca024a2b493531ff6d735ced79b7c5d73",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "P1.AutoMode",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 15,
+        "maximum": 60
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.AppliedHeaterPower",
+      "address": "%IL8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "requested-power",
+        "channel": "requested-power",
+        "role": "state",
+        "symbol": "P1.RequestedHeaterPower",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -1000,
+          "maximum": 1000
+        }
+      },
+      {
+        "id": "unavailable-power",
+        "channel": "unavailable-power",
+        "role": "state",
+        "symbol": "P1.UnavailablePower",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "percentage points",
+        "range": {
+          "minimum": -1000,
+          "maximum": 1000
+        }
+      },
+      {
+        "id": "stored-correction",
+        "channel": "stored-correction",
+        "role": "state",
+        "symbol": "P1.IntegralCorrection",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -1000,
+          "maximum": 1000
+        }
+      },
+      {
+        "id": "tracking-correction",
+        "channel": "tracking-correction",
+        "role": "state",
+        "symbol": "P1.TrackingCorrection",
+        "address": "%ML80",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "percentage points",
+        "range": {
+          "minimum": -1000,
+          "maximum": 1000
+        }
+      },
+      {
+        "id": "lesson-experiment",
+        "channel": "lesson-experiment",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX112.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "paired-requested-power",
+        "channel": "paired-requested-power",
+        "role": "state",
+        "symbol": "P1.PairedRequestedHeaterPower",
+        "address": "%ML88",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -1000,
+          "maximum": 1000
+        }
+      },
+      {
+        "id": "controller-command",
+        "channel": "controller-command",
+        "role": "state",
+        "symbol": "P1.HeaterCommand",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "recirculating-water-heater",
+  "operatingPoint": "35 degC at 75% before the unreachable target",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 70.1,
+    "seed": 20260828,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX112.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  },
+  "revision": "sha256:c4fa1d390e2a01d62427f0e506918dd28c9cef6f9ae8bb9f73191579f078148c"
+}

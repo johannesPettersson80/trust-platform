@@ -416,7 +416,7 @@ impl UncertaintySection {
                     )?),
                     Some("fault") if self.replacement_value.is_none() => DropoutPolicy::Fault,
                     Some(other) => {
-                        return invalid(format!("invalid dropout policy or fields '{other}'"))
+                        return invalid(format!("invalid dropout policy or fields '{other}'"));
                     }
                     None => return invalid("dropout requires dropout_policy"),
                 };

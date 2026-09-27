@@ -1,0 +1,294 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-27",
+  "title": "Select the minimum controller structure",
+  "level": "Design",
+  "sequence": 27,
+  "equipment": "Cold room, self-regulating heater, integrating tank, and loaded positioning axis",
+  "physicalPurpose": "Match controller actions to actuator capability, plant behavior, and required result.",
+  "principalTechnique": "Controller structure selection",
+  "objective": "Select ON/OFF, P, PI, PD, or PID without adding an action that has no required job.",
+  "prerequisites": [
+    "control-lesson-26"
+  ],
+  "nextLesson": "control-lesson-28",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Cold-room temperature",
+      "unit": "degC",
+      "minimum": -10,
+      "maximum": 20,
+      "resolution": 0.01,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Compressor state",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX88.4"
+    },
+    {
+      "role": "PV",
+      "name": "Heater temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 60,
+      "resolution": 0.01,
+      "binding": "%IL8"
+    },
+    {
+      "role": "MV",
+      "name": "Heater power",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.1,
+      "binding": "%QL8"
+    },
+    {
+      "role": "PV",
+      "name": "Tank level",
+      "unit": "cm",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%IL16"
+    },
+    {
+      "role": "PV",
+      "name": "Table position",
+      "unit": "rad",
+      "minimum": -4,
+      "maximum": 4,
+      "resolution": 0.001,
+      "binding": "%IL24"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX88.0"
+    }
+  ],
+  "plant": {
+    "modelId": "controller-selection-examples",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "heater_local_gain",
+        "value": 0.2,
+        "unit": "degC/%"
+      },
+      {
+        "name": "tank_integrating_gain",
+        "value": 0.2,
+        "unit": "cm/(%*s)"
+      },
+      {
+        "name": "tank_equilibrium_pump",
+        "value": 20,
+        "unit": "%"
+      },
+      {
+        "name": "table_peak_gravity_torque",
+        "value": 4,
+        "unit": "N m"
+      },
+      {
+        "name": "cold_room_minimum_state_time",
+        "value": 5,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "seed": 20260829,
+    "simplifications": [
+      "Each example isolates the behavior that determines its minimum controller structure."
+    ],
+    "initialState": {
+      "coldRoomTemperature": 4,
+      "heaterTemperature": 20,
+      "tankLevel": 50,
+      "tablePosition": 0
+    },
+    "operatingPoint": {
+      "Cold-room temperature": 4,
+      "Heater temperature": 20,
+      "Heater power": 0,
+      "Tank level": 50,
+      "Table position": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Cold-room temperature",
+        "minimum": -10,
+        "maximum": 20,
+        "unit": "degC"
+      },
+      {
+        "signal": "Heater temperature",
+        "minimum": 0,
+        "maximum": 60,
+        "unit": "degC"
+      }
+    ]
+  },
+  "baseline": {
+    "executableId": "Lesson27.Manual",
+    "settings": {
+      "automatic": false
+    },
+    "limitation": "Validated plant behavior does not by itself select controller actions."
+  },
+  "change": {
+    "executableId": "Lesson27.SelectedStructures",
+    "settings": {
+      "coldRoom": "ON/OFF",
+      "tank": "P",
+      "heater": "PI",
+      "loadedAxis": "PID"
+    },
+    "decision": "Select the minimum structure whose actions each have a required physical job."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 90.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "The heater equivalent ambient temperature changes from 20 degC to 17 degC at 60 s."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "tank_final_error",
+      "signal": "Tank level",
+      "window": "late run",
+      "comparator": "<=",
+      "limit": 0.1,
+      "unit": "cm",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "heater_post_load_holding_power",
+      "signal": "Heater power",
+      "window": "late run",
+      "comparator": "==",
+      "limit": 65,
+      "unit": "%",
+      "tolerance": 2,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#73-experiments-identification-validation-and-tuning",
+    "nativeTest": "TEST_PROGRAM::Lesson27SelectionsFollowTheDeclaredPhysicalBalances",
+    "nativeCommand": "trust-dev test --project examples/control/04-controller-selection-and-plant-models/27-controller-selection --filter TEST_PROGRAM::Lesson27SelectionsFollowTheDeclaredPhysicalBalances",
+    "projectPath": "examples/control/04-controller-selection-and-plant-models/27-controller-selection",
+    "runArtifactFields": [
+      "compressorOn",
+      "coldRoomTemperature",
+      "heaterTemperature",
+      "heaterPower",
+      "tankLevel",
+      "tankPump",
+      "tablePosition",
+      "tableTorque"
+    ],
+    "renderedJourneyId": "control-lesson-27"
+  },
+  "learning": {
+    "context": "Lesson 26 provided validated plant behavior and limitations.",
+    "reason": "A controller must supply only the actions required by actuator, plant, and objective.",
+    "change": "Choose ON/OFF, P, PI, PD, or PID from a physical decision tree.",
+    "transfer": "Lesson 28 tunes the selected thermal PI controller manually.",
+    "theory": [
+      "A controller must supply only the actions required by actuator, plant, and objective."
+    ],
+    "workedPrediction": "Select the minimum structure whose actions each have a required physical job.",
+    "practicalPreparation": [
+      "Lesson 26 provided validated plant behavior and limitations."
+    ],
+    "baseline": "Validated plant behavior does not by itself select controller actions.",
+    "comparison": "Select ON/OFF, P, PI, PD, or PID without adding an action that has no required job.",
+    "validation": "Check the declared acceptance metrics against the retained run.",
+    "explanation": "Select ON/OFF, P, PI, PD, or PID without adding an action that has no required job."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Cold-room temperature",
+        "minimum": -10,
+        "maximum": 20,
+        "unit": "degC"
+      },
+      {
+        "signal": "Heater temperature",
+        "minimum": 0,
+        "maximum": 60,
+        "unit": "degC"
+      },
+      {
+        "signal": "Heater power",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Tank level",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "cm"
+      },
+      {
+        "signal": "Table position",
+        "minimum": -4,
+        "maximum": 4,
+        "unit": "rad"
+      }
+    ],
+    "abortPredicates": [
+      "Signals must remain finite and inside the declared lesson ranges."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Restore Lesson experiment to 0.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Select ON/OFF, P, PI, PD, or PID without adding an action that has no required job.",
+    "requiredVisibleEvidence": [
+      "compressorOn",
+      "coldRoomTemperature",
+      "heaterTemperature",
+      "heaterPower",
+      "tankLevel",
+      "tankPump",
+      "tablePosition",
+      "tableTorque"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="330" viewBox="0 0 900 330" role="img" aria-labelledby="title desc">
+  <title id="title">Saturation and integral windup</title>
+  <desc id="desc">The PI request passes through a heater limit. Applied power stops at one hundred percent while positive error continues increasing the stored correction.</desc>
+  <rect width="900" height="330" rx="20" fill="#f8fafc"/>
+  <g font-family="system-ui, sans-serif" fill="#111827">
+    <rect x="40" y="115" width="170" height="85" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+    <text x="125" y="148" text-anchor="middle" font-size="19" font-weight="600">PI request</text>
+    <text x="125" y="177" text-anchor="middle" font-size="16">keeps increasing</text>
+
+    <rect x="345" y="115" width="190" height="85" rx="12" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+    <text x="440" y="148" text-anchor="middle" font-size="19" font-weight="600">Heater limit</text>
+    <text x="440" y="177" text-anchor="middle" font-size="16">maximum 100%</text>
+
+    <rect x="690" y="115" width="170" height="85" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="775" y="148" text-anchor="middle" font-size="19" font-weight="600">Applied power</text>
+    <text x="775" y="177" text-anchor="middle" font-size="16">stays at 100%</text>
+
+    <rect x="250" y="245" width="380" height="55" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+    <text x="440" y="278" text-anchor="middle" font-size="18" font-weight="600">Positive error keeps growing the stored correction</text>
+  </g>
+  <g stroke="rgb(75,85,99)" stroke-width="3">
+    <line x1="210" y1="158" x2="345" y2="158"/>
+    <line x1="535" y1="158" x2="690" y2="158"/>
+    <line x1="250" y1="272" x2="125" y2="272"/>
+    <line x1="125" y1="272" x2="125" y2="200"/>
+  </g>
+  <g fill="#4b5563">
+    <path d="M345 158 L332 151 L332 165 Z"/>
+    <path d="M690 158 L677 151 L677 165 Z"/>
+    <path d="M125 200 L118 213 L132 213 Z"/>
+  </g>
+</svg>

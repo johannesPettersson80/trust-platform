@@ -28,6 +28,25 @@ function callAsEcharts(formatter: (value: unknown) => string, value: unknown, in
 }
 
 suite("Control Studio strict-review visual fixes", () => {
+  test("keeps signal colors attached to PV and SP across response views", () => {
+    const { JSDOM } = require("jsdom");
+    const { chartTheme } = require("../../controlStudio/webview/chartPrimitives");
+    const dom = new JSDOM('<html style="--vscode-charts-blue:#005fb8;--vscode-charts-green:#228822;--vscode-charts-red:#d00000"></html>');
+    const globals = global as unknown as { document?: Document; getComputedStyle?: typeof getComputedStyle };
+    const original = { document: globals.document, getComputedStyle: globals.getComputedStyle };
+    globals.document = dom.window.document; globals.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+    try {
+      const theme = chartTheme();
+      const color = (value: string) => {
+        const element = dom.window.document.createElement("span");
+        element.style.color = value;
+        return element.style.color;
+      };
+      assert.strictEqual(color(theme.pv), color("#005fb8"), "measured PV retains the live response blue in every view");
+      assert.strictEqual(color(theme.sp), color("#228822"), "setpoint retains the live response green in every view");
+      assert.strictEqual(color(theme.mv), color("#d00000"));
+    } finally { Object.assign(globals, original); dom.window.close(); }
+  });
   test("V-01: axis formatter ignores ECharts' tick index instead of using it as fraction digits", () => {
     const formatter = axisTickFormatter();
     // Reproduces the reported bug: tick 0 -> index 0, tick 1 -> index 1, tick 7 -> index 7.
@@ -76,6 +95,7 @@ suite("Control Studio strict-review visual fixes", () => {
     assert.ok(range!.minimum < 28 && range!.maximum > 31, "PV/SP must not sit exactly on the frame edge");
     const span = 31 - 28;
     assert.ok((28 - range!.minimum) >= span * 0.05 && (28 - range!.minimum) <= span * 0.12);
+    assert.deepStrictEqual(liveResponseAxisRange([0, 0]), { minimum: -1, maximum: 1 }, "An idle zero signal must not imply micro-unit measurement precision");
     assert.strictEqual(liveResponseAxisRange([]), undefined, "no samples yet must not force a degenerate range");
     assert.strictEqual(liveResponseAxisRange([null, undefined]), undefined);
   });
@@ -205,6 +225,8 @@ suite("Control Studio strict-review visual fixes", () => {
 
   test("W-16 follow-up: the value strip badges and dims exactly while showing a saved result", () => {
     assert.strictEqual(valueStripHistoricalState(false, "2 September 2026, 10:00"), undefined);
+    assert.deepStrictEqual((valueStripHistoricalState as any)(true, "2 September 2026, 10:00", "draft"),
+      { badgeText: "Working draft", dimmed: true }, "an editable draft cannot claim to be a saved history revision");
     assert.deepStrictEqual(valueStripHistoricalState(true, "2 September 2026, 10:00"),
       { badgeText: "Saved result · 2 September 2026, 10:00", dimmed: true });
     assert.deepStrictEqual(valueStripHistoricalState(true, undefined), { badgeText: "Saved result", dimmed: true },

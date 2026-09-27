@@ -765,7 +765,7 @@ suite("truST sidebar — control surface contract", () => {
       "Stop must wait for the session to disappear even if the debug stop command throws Canceled"
     );
     assert.ok(
-      /private markStopped\(message: string\): RuntimeLifecycleResult \{\s*this\.lastIoState = EMPTY_IO_STATE;\s*this\.starting = false;\s*this\.failure = undefined;\s*this\.emitChanged\(\);\s*return \{ ok: true, message \};\s*\}/.test(source),
+      /private markStopped\(message: string\): RuntimeLifecycleResult \{\s*if \(!this\.getStructuredTextSession\(\)\) this\.ioStates\.clear\(\);\s*this\.starting = false;\s*this\.failure = undefined;\s*this\.emitChanged\(\);\s*return \{ ok: true, message \};\s*\}/.test(source),
       "successful Stop must emit after the debug session is gone so the passive status bar cannot stay stuck on Running"
     );
   });

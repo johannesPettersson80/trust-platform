@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="350" viewBox="0 0 960 350" role="img" aria-labelledby="title desc">
+  <title id="title">Different retained state in positional and incremental PID</title>
+  <desc id="desc">Positional form stores integral contribution and calculates full output; incremental form stores previous output and calculates output change.</desc>
+  <rect width="960" height="350" fill="#f7fafc"/>
+  <rect x="50" y="60" width="390" height="235" rx="18" fill="#e6f2ff" stroke="#2463a6" stroke-width="3"/>
+  <text x="245" y="105" text-anchor="middle" font-family="sans-serif" font-size="25" font-weight="700" fill="#17324d">Positional form</text>
+  <text x="245" y="154" text-anchor="middle" font-family="sans-serif" font-size="22" fill="#17324d">stores integral contribution</text>
+  <text x="245" y="201" text-anchor="middle" font-family="sans-serif" font-size="22" fill="#17324d">calculates complete output</text>
+  <text x="245" y="255" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#17324d">u = bias + P + I</text>
+  <rect x="520" y="60" width="390" height="235" rx="18" fill="#fff3d6" stroke="#b87900" stroke-width="3"/>
+  <text x="715" y="105" text-anchor="middle" font-family="sans-serif" font-size="25" font-weight="700" fill="#5b3d00">Incremental form</text>
+  <text x="715" y="154" text-anchor="middle" font-family="sans-serif" font-size="22" fill="#5b3d00">stores previous output</text>
+  <text x="715" y="201" text-anchor="middle" font-family="sans-serif" font-size="22" fill="#5b3d00">calculates output change</text>
+  <text x="715" y="255" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#5b3d00">u = previous u + Δu</text>
+  <text x="480" y="329" text-anchor="middle" font-family="sans-serif" font-size="21" fill="#263746">Equivalent only when retained states describe the same controller condition</text>
+</svg>

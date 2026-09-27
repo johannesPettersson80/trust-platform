@@ -1,0 +1,7 @@
+[simulation]
+enabled = true
+seed = 20260824
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2000
+plant_step_ms = 100

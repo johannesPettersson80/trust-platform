@@ -1,6 +1,111 @@
 import * as assert from "assert";
 
 suite("Control Studio loop definition", () => {
+  test("validates declared project baseline duration before joining the runtime", () => {
+    const api = loopApi();
+    const experiment = { execution: "project-scripted", kind: "observation", amplitude: 0, durationSeconds: 35.1, seed: 1,
+      baselineSeconds: 5, activation: { symbol: "P1.Run", address: "%MX64.0", iecType: "BOOL", direction: "write" } };
+    const loop = { ...completeLoop(), schemaVersion: 2, experiment };
+    assert.strictEqual(api.decodeControlLoopDefinition(loop).kind, "accepted");
+    for (const invalid of [
+      ...[-1, NaN, Infinity, 35.1].map(baselineSeconds => ({ ...loop, experiment: { ...experiment, baselineSeconds } })),
+      { ...loop, schemaVersion: 1 },
+      { ...loop, experiment: { ...experiment, activation: undefined } },
+      { ...loop, experiment: { ...experiment, execution: "control-studio", activation: undefined } },
+    ]) assert.strictEqual(api.decodeControlLoopDefinition(invalid).kind, "rejected");
+  });
+  test("requires a distinct explicit abort policy on version2 project experiments", () => {
+    const api = loopApi();
+    const binding = { symbol: "Main.Run", address: "%MX64.0", iecType: "BOOL", direction: "write" };
+    const abort = { ...binding, symbol: "Main.Abort", address: "%MX64.1", assertedValue: true };
+    const experiment = { execution: "project-scripted", kind: "observation", amplitude: 0, durationSeconds: 30, seed: 1, activation: binding, abort };
+    const valid = { ...completeLoop(), schemaVersion: 2, experiment };
+    assert.strictEqual(api.decodeControlLoopDefinition(valid).kind, "accepted");
+    for (const bad of [
+      { ...valid, schemaVersion: 1 },
+      { ...valid, experiment: { ...experiment, activation: undefined } },
+      ...[{ assertedValue: undefined }, { iecType: "REAL" }, { address: binding.address }, { direction: "read" }].map(change =>
+        ({ ...valid, experiment: { ...experiment, abort: { ...abort, ...change } } })),
+    ]) assert.strictEqual(api.decodeControlLoopDefinition(bad).kind, "rejected");
+  });
+
+  test("requires an unambiguous compatible mapping from analysis names to ST parameters", () => {
+    const api = loopApi();
+    const base = completeLoop();
+    const analysis = require("./control-studio-declared-analysis.test").declaredShaftAnalysis();
+    const parameterBinding = { loop_id: base.id, task_name: "ControlTask",
+      parameters: Object.entries(analysis.controller.parameters).map(([name, value]: [string, any]) => ({
+        symbol: `P1.${name}`, iec_type: "LREAL", unit: value.unit, convention: name, minimum: value.minimum, maximum: value.maximum })),
+      mode: { symbol: "P1.Enabled", manual_value: false } };
+    const loop = { ...base, schemaVersion: 2, analysis, parameterBinding, analysisParameterSymbols: { Kp: "P1.Kp", Kd: "P1.Kd" } };
+    assert.strictEqual(api.decodeControlLoopDefinition(loop).kind, "accepted");
+    for (const mapping of [{}, { Kp: "P1.Kp" }, { Kp: "P1.Kp", Kd: "P1.Kp" }, { Kp: "P1.Unknown", Kd: "P1.Kd" }]) {
+      assert.strictEqual(api.decodeControlLoopDefinition({ ...loop, analysisParameterSymbols: mapping }).kind, "rejected");
+    }
+    for (const changed of [{ unit: "wrong" }, { maximum: 10 }]) {
+      const incompatible = { ...loop, parameterBinding: { ...parameterBinding,
+        parameters: [{ ...parameterBinding.parameters[0], ...changed }, parameterBinding.parameters[1]] } };
+      assert.strictEqual(api.decodeControlLoopDefinition(incompatible).kind, "rejected");
+    }
+  });
+
+  test("rejects malformed generic parameter bindings before runtime access", () => {
+    const api = loopApi();
+    const base = completeLoop();
+    const parameterBinding = { loop_id: base.id, task_name: "MainTask",
+      parameters: [{ symbol: "P1.Gain", iec_type: "REAL", unit: "1", convention: "proportional gain", minimum: 0, maximum: 20 }],
+      mode: { symbol: "P1.Enabled", manual_value: false } };
+    const loop = { ...base, schemaVersion: 2, parameterBinding };
+    assert.strictEqual(api.decodeControlLoopDefinition(loop).kind, "accepted");
+    for (const invalid of [
+      { ...loop, schemaVersion: 1 },
+      { ...loop, parameterBinding: { ...parameterBinding, loop_id: "other" } },
+      { ...loop, parameterBinding: { ...parameterBinding, unknown: true } },
+      { ...loop, parameterBinding: { ...parameterBinding, parameters: [] } },
+      { ...loop, parameterBinding: { ...parameterBinding, parameters: [...parameterBinding.parameters, ...parameterBinding.parameters] } },
+      { ...loop, parameterBinding: { ...parameterBinding, mode: { symbol: "P1.Gain", manual_value: false } } },
+      ...["DINT", "UNKNOWN"].map(iec_type => ({ ...loop, parameterBinding: { ...parameterBinding,
+        parameters: [{ ...parameterBinding.parameters[0], iec_type }] } })),
+      ...[Number.NaN, Number.POSITIVE_INFINITY, 21].map(minimum => ({ ...loop, parameterBinding: { ...parameterBinding,
+        parameters: [{ ...parameterBinding.parameters[0], minimum }] } })),
+    ]) assert.strictEqual(api.decodeControlLoopDefinition(invalid).kind, "rejected", JSON.stringify(invalid.parameterBinding));
+  });
+
+  test("accepts experiment-purpose parameters only for a project-scripted activated binding", () => {
+    const api = loopApi();
+    const activation = { symbol: "P1.ExperimentEnabled", address: "%MX80.0", iecType: "BOOL", direction: "write" };
+    const parameterBinding = {
+      loop_id: "loop:tank", task_name: "MainTask",
+      parameters: [{ symbol: "P1.Kp", iec_type: "LREAL", unit: "1", convention: "gain", minimum: 0, maximum: 10 }],
+      mode: { symbol: activation.symbol, manual_value: false },
+    };
+    const valid = { ...completeLoop(), schemaVersion: 2, parameterPurpose: "experiment", parameterBinding,
+      experiment: { execution: "project-scripted", kind: "observation", amplitude: 0, durationSeconds: 30, seed: 1, activation } };
+    assert.strictEqual(api.decodeControlLoopDefinition(valid).kind, "accepted");
+    for (const invalid of [
+      { ...valid, parameterPurpose: "tuning" },
+      { ...valid, experiment: { ...valid.experiment, activation: undefined } },
+      { ...valid, parameterBinding: { ...parameterBinding, mode: { symbol: activation.symbol, manual_value: true } } },
+      { ...valid, experiment: { ...valid.experiment, execution: "host" } },
+    ]) assert.strictEqual(api.decodeControlLoopDefinition(invalid).kind, "rejected");
+  });
+
+  test("checks provided model units against the bound input and process channels", () => {
+    const api = loopApi();
+    const loop = { ...completeLoop(), schemaVersion: 2, analysis: {
+      plant: { kind: "transfer-function", numerator: [1], denominator: [1, 1], delaySeconds: 0,
+        inputUnit: "%", outputUnit: "%", revision: "model-1", source: "provided", validation: "unvalidated" },
+      controller: { numerator: [{ parameter: "Kp" }], denominator: [1],
+        parameters: { Kp: { value: 1, minimum: 0, maximum: 5, unit: "1" } } },
+      rootLocus: { parameter: "Kp", values: [1], selectedValue: 1 },
+    } };
+    const scope = { projectId: loop.projectId, runtimeId: loop.runtimeId };
+    assert.strictEqual(api.validateControlLoopDefinition(loop, scope).kind, "accepted");
+    const incompatible = { ...loop, analysis: { ...loop.analysis, plant: { ...loop.analysis.plant, outputUnit: "mm" } } };
+    assert.deepStrictEqual(api.validateControlLoopDefinition(incompatible, scope),
+      { kind: "rejected", reason: "incompatible_model_units" });
+  });
+
   test("accepts the complete SISO Control.PID loop definition without losing engineering identity", () => {
     let api: any;
     try { api = require("../../controlStudio/loopDefinition"); } catch { api = undefined; }
@@ -226,6 +331,38 @@ suite("Control Studio loop definition", () => {
     assert.deepStrictEqual(api.validateControlLoopDefinition(extended, {
       projectId: loop.projectId, runtimeId: loop.runtimeId,
     }), { kind: "accepted", loop: extended });
+  });
+
+  test("requires an explicit requested-output and retained-integral adapter before saturation analysis", () => {
+    const api = loopApi();
+    const loop = completeLoop();
+    const additional = [
+      auxiliary("requested-power", "requested-output", "state", "%ML32", "%", "read"),
+      auxiliary("stored-correction", "retained-integral", "state", "%ML40", "%", "read"),
+    ];
+    const configured = { ...loop,
+      controller: { ...loop.controller, saturationEvidence: {
+        requestedOutputId: "requested-power", integralStateId: "stored-correction",
+      } },
+      signals: { ...loop.signals, additional },
+    };
+    const scope = { projectId: loop.projectId, runtimeId: loop.runtimeId };
+    assert.deepStrictEqual(api.saturationWindupEvidence(configured), {
+      requestedOutputId: "requested-power", integralStateId: "stored-correction",
+    });
+    assert.deepStrictEqual(api.validateControlLoopDefinition(configured, scope), { kind: "accepted", loop: configured });
+
+    assert.deepStrictEqual(api.decodeControlLoopDefinition({ ...configured,
+      controller: { ...configured.controller, saturationEvidence: {
+        requestedOutputId: "stored-correction", integralStateId: "stored-correction",
+      } },
+    }), { kind: "rejected", reason: "malformed_loop" });
+    for (const changed of [
+      { requestedOutputId: "unknown", integralStateId: "stored-correction" },
+      { requestedOutputId: "requested-power", integralStateId: "unknown" },
+    ]) assert.deepStrictEqual(api.validateControlLoopDefinition({ ...configured,
+      controller: { ...configured.controller, saturationEvidence: changed },
+    }, scope), { kind: "rejected", reason: "incompatible_saturation_evidence" });
   });
 
   test("rejects overlapping addresses and duplicate role identities inside one channel", () => {

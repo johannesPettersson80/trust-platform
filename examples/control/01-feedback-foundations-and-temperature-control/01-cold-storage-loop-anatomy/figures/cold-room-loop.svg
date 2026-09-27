@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="900" height="320" viewBox="0 0 900 320" role="img" aria-labelledby="title desc">
   <title id="title">Cold-storage room loop elements</title>
-  <desc id="desc">The operator requests compressor demand, the bounded compressor acts on the cold room, the sensor reports temperature, and door and wall heat enter as a disturbance.</desc>
+  <desc id="desc">The program requests an OFF or ON state, the refrigeration system transfers heat out of the cold room, the sensor reports temperature, and door and wall heat enter as a disturbance.</desc>
   <style>
   svg { forced-color-adjust: none; color-scheme: light; }
   .surface { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; }
@@ -23,13 +23,13 @@
   <rect x="1" y="1" width="898" height="318" rx="8" class="surface" />
   <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#526076" /></marker></defs>
   <text x="48.0" y="34.0" class="title" text-anchor="start">The physical signals in the cold-room loop</text>
-  <text x="48.0" y="55.0" class="subtitle" text-anchor="start">Manual observation only · feedback is not closed in this lesson</text>
+  <text x="48.0" y="55.0" class="subtitle" text-anchor="start">Manual observation only · temperature does not choose the command</text>
   <rect x="55" y="112" width="160" height="76" rx="7" class="box" />
-  <text x="135.0" y="140.0" class="label" text-anchor="middle">Operator request</text>
-  <text x="135.0" y="164.0" class="note" text-anchor="middle">Requested demand · %</text>
+  <text x="135.0" y="140.0" class="label" text-anchor="middle">Program command</text>
+  <text x="135.0" y="164.0" class="note" text-anchor="middle">Requested state · OFF / ON</text>
   <rect x="285" y="112" width="160" height="76" rx="7" class="box" />
-  <text x="365.0" y="140.0" class="label" text-anchor="middle">Compressor</text>
-  <text x="365.0" y="164.0" class="note" text-anchor="middle">Applied demand · 0–100%</text>
+  <text x="365.0" y="140.0" class="label" text-anchor="middle">Refrigeration system</text>
+  <text x="365.0" y="164.0" class="note" text-anchor="middle">Compressor · OFF / ON</text>
   <rect x="515" y="112" width="160" height="76" rx="7" class="box" />
   <text x="595.0" y="140.0" class="label" text-anchor="middle">Cold room + contents</text>
   <text x="595.0" y="164.0" class="note" text-anchor="middle">Process</text>
@@ -43,6 +43,6 @@
   <text x="595.0" y="69.0" class="note" text-anchor="middle">Door + wall heat disturbance</text>
   <line x1="791.0" y1="188.0" x2="791.0" y2="244.0" class="signal" />
   <line x1="791.0" y1="244.0" x2="135.0" y2="244.0" class="signal" />
-  <text x="463.0" y="265.0" class="note" text-anchor="middle">Temperature is observed; Lesson 2 uses it for automatic feedback</text>
+  <text x="463.0" y="265.0" class="note" text-anchor="middle">Temperature is observed; Lesson 2 uses it to choose the command</text>
   <text x="55.0" y="292.0" class="note" text-anchor="start">Desired temperature: 2 °C · Measured temperature: sensor reading</text>
 </svg>

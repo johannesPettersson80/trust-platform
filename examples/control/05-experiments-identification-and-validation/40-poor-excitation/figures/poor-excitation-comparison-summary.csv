@@ -1,4 +1,0 @@
-record,input_span_pp,late_response_degC,response_to_noise_ratio,input_noise_correlation,qualification_reason,decision
-weak_open_loop,0.200000000000,0.087809504490,0.666666666667,,1,data_inadequate
-qualified_open_loop,10.000000000000,4.795410885342,33.333333333333,,0,qualified
-ordinary_feedback,,,,-1.000000000000,2,data_inadequate

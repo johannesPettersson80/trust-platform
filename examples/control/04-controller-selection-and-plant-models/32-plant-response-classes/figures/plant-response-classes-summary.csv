@@ -1,6 +1,0 @@
-plant,response_class,accepted,decision_measure,measured_value,unit
-heated vessel,self-regulating,true,final temperature,53.926737444445,degC
-buffer tank,integrating,true,late slope,1.000000000000,cm/s
-conveyor oven,delayed,true,response delay,4.000000000000,s
-flexible drive,oscillatory,true,peak,1.526610849953,rad
-flexible drive,oscillatory,true,steady-value crossings,4,count

@@ -17,11 +17,17 @@ mod handlers;
 mod hmi_handlers;
 mod io_handlers;
 mod operation_registry;
+mod parameter_handlers;
 mod plant_handlers;
 mod plant_service;
 mod policy;
 mod program_handlers;
+mod recording_handlers;
+mod relay_state;
+pub mod search;
+mod signal_handlers;
 mod status_handlers;
+mod transfer_handlers;
 mod transport;
 mod types;
 mod variable_handlers;
@@ -250,6 +256,7 @@ pub struct ControlState {
     pub plant_service: Arc<PlantControlService>,
     pub experiments: ControlExperimentService,
     pub controllers: ControllerParameterService,
+    pub searches: search::SearchService,
     pub resource_name: SmolStr,
     pub io_health: Arc<Mutex<Vec<IoDriverStatus>>>,
     pub debug_enabled: Arc<AtomicBool>,

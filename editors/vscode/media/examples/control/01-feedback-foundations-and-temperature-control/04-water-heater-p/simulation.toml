@@ -1,34 +1,25 @@
 [simulation]
 enabled = true
-seed = 20260824
+seed = 20260829
 time_scale = 1
 max_plant_substeps_per_cycle = 100
-plant_trace_capacity = 2000
+plant_trace_capacity = 2400
 plant_step_ms = 100
 
+# One physical temperature input; heater delivery and extraction have independent delays.
 [[plants]]
-id = "recirculating-water-heater"
-model = "first_order_dead_time"
-command_sources = ["%QL0"]
+id = "proportional-water-heater"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
 feedback_targets = ["%IL0"]
-initial_state = [20.0]
+initial_state = [0.0]
+initial_input = [0.0, 0.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 0.0 }, {}]
 
 [plants.parameters]
-gain = 0.2
-time_constant_s = 5.0
-dead_time_s = 1.0
-initial_delayed_input = 0.0
-output_bias = 20.0
-
-[plants.actuator]
-minimum = 0.0
-maximum = 100.0
-
-# Increased cold-water flow is represented by a lower no-heat outlet
-# temperature while the heater dynamics and controller remain unchanged.
-[[plant_events]]
-at_ms = 60000
-plant = "recirculating-water-heater"
-kind = "set_parameter"
-parameter = "output_bias"
-value = 17.0
+a = [[-0.2]]
+b = [[0.04, -0.02]]
+c = [[1.0]]
+d = [[0.0, 0.0]]
+input_delays_s = [1.0, 0.0]

@@ -259,6 +259,7 @@ fn build_config_mode_control_state(
         plant_service: Arc::new(trust_runtime::control::PlantControlService::default()),
         experiments: trust_runtime::control::ControlExperimentService::default(),
         controllers: trust_runtime::control::ControllerParameterService::default(),
+        searches: trust_runtime::control::search::SearchService::default(),
         resource_name,
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(false)),

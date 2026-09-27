@@ -1,6 +1,30 @@
 import * as assert from "assert";
 
 suite("Control Studio numerical adapter", () => {
+  test("isolates exact rational polynomial roots, including repeated, signed, zero, and close roots", () => {
+    let exact: any;
+    try { exact = require("../../controlStudio/exactPolynomial"); } catch { exact = undefined; }
+    assert.ok(exact, "the exact polynomial module must exist");
+    assert.strictEqual(typeof exact.makeRationalPolynomial, "function");
+    assert.strictEqual(typeof exact.sturmSequence, "function");
+    assert.strictEqual(typeof exact.isolateRealRoots, "function");
+    const repeated = exact.isolateRealRoots(exact.makeRationalPolynomial([1, -2, 1]));
+    assert.strictEqual(repeated.status, "qualified");
+    assert.ok(repeated.intervals.some((interval: any) => interval.lower <= 1 && interval.upper >= 1));
+    assert.strictEqual(repeated.intervals.length, 1, "a repeated root is isolated once");
+    const signed = exact.isolateRealRoots(exact.makeRationalPolynomial([1, 0, -1]));
+    assert.strictEqual(signed.status, "qualified");
+    assert.ok(signed.intervals.some((interval: any) => interval.upper < 0));
+    assert.ok(signed.intervals.some((interval: any) => interval.lower > 0));
+    const zero = exact.isolateRealRoots(exact.makeRationalPolynomial([1, 0, 0]));
+    assert.ok(zero.intervals.some((interval: any) => interval.lower === 0 && interval.upper === 0));
+    const close = exact.isolateRealRoots(exact.makeRationalPolynomial([1, -2000001 / 1000000, 1000001 / 1000000]));
+    assert.strictEqual(close.status, "qualified");
+    assert.ok(close.intervals.length >= 2, "nearby rational roots must not be merged");
+    const split = exact.isolateRealRoots(exact.makeRationalPolynomial([1, 0, -1, 0]));
+    assert.strictEqual(split.intervals.length, 3, "A root at a bisection point must not hide either adjacent root");
+  });
+
   test("keeps matrix types private and qualifies analytical least-squares and eigenvalue oracles", () => {
     let numerics: any;
     try {
@@ -205,6 +229,12 @@ suite("Control Studio numerical adapter", () => {
       { real: -0.5, imaginary: Math.sqrt(7) / 2 },
     ], 1e-9);
     assertComplexSet(locus.branches[1].closedLoopPoles, locus.branches[1].poles, 1e-12);
+
+    const zeroGain = numerics.rootLocus(
+      { numerator: [0], denominator: [1, 2, 0], delaySeconds: 0 }, [0]
+    );
+    assert.strictEqual(zeroGain.status, "qualified", "zero gain is the open-loop starting point of a root locus");
+    assertComplexSet(zeroGain.branches[0].poles, [{ real: -2, imaginary: 0 }, { real: 0, imaginary: 0 }], 1e-10);
 
     const lead = numerics.designLeadAtCrossover(
       { numerator: [1], denominator: [1, 1, 0], delaySeconds: 0 }, 1, 30

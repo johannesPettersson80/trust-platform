@@ -1,5 +1,7 @@
 # Control System Engineering with Control.PID
 
+Shared direction and acceptance: [Control Platform Purpose and Acceptance Contract](../specs/control-platform-purpose.md).
+
 This report records what was learned while implementing and evaluating the
 truST `Control.PID`, explains the engineering decisions behind
 it, and defines a practical route from a simulated plant to a well-specified,
